@@ -1,5 +1,5 @@
-Place Locker (SE version) BETA documentation;  
-developed by vtpearce and bmtg;  
+Place Harmonizer documentation;  
+developed by bmtg, vtpearce;  
 comments for this version to: bmtg (PM), bmtg_4 (Slack DM)
 
 Description:
@@ -10,34 +10,13 @@ This script acts on a single selected place.  It will generally clean up many pl
 
 Installation:
 
--- Option 1: Shortcut key for Chrome 
-Install the Chrome extension "Shortcut Manager" from https://chrome.google.com/webstore/detail/shortcut-manager/mgjjeipcdnnjhgodgjpfkffcejoljijf
-
-Open the PlaceLockerSE_Beta page here on the github directory, and copy all the code, starting with and including the line:
-
-javascript: (function () {" 
-
-Then, follow the intructions on this screenshot to assign the script to a keystroke: 
-
-http://prntscr.com/8two3c
-
-(If you are installing an updated version, you can simply paste the new code into the javascript field in your existing shortcut, save the change, and reload WME.)
-
--- Option 2: Bookmarklet.  
-
-Open the PlaceLockerSE_Beta page here on the github directory, and copy all the code, starting with and including the line:
-
-javascript: (function () {" 
-
-Then follow the directions on the following page, and paste the copied code into the URL field there as indicated.
-
-https://wiki.waze.com/wiki/Bookmarklets
+Use tampermonkey / greasemonkey
 
 -------------
 
 Usage:
 
-Select a place in WME, and press the shortcut key or browser bookmarklet.  Verify changes, adjust as needed, save.
+Select a place in WME, and press the shortcut key (Alt-A).  Verify changes, adjust as needed, save.
 
 -------------
 
@@ -58,10 +37,11 @@ Current features:
 
 -- Regional Localization: Script will automatically detect the region of the selected place:  Currently SE, SAT, or Undefined.  If it's in SE or SAT, regional locking rules, place formats, and Phone# formats are applied.  For other regions, these are kept to the basic locking at 3 and (xxx) phone format (until other regions' rules are brought in, in the future).  **Note that for some app-submitted places, no state name is stored.  In these cases, you have to enter at least a city and street in the address field for the script to run.
 
+-- Country Localization: Script only works in the USA, but can be expanded to other countries in the future.
+
 -- Place name harmonization: An ongoing project is to harmonize place names for chains.  This mostly involves having the same primary name, alt-name(s), category(s), and website address for every place from that chain.  This script will harmonize the current place based on the detected place name and the place harmonization sheet, for many chains on the sheet (more places added with each new update).  When using the script, if the script finds a match for a place on the harm. sheet, it will auto correct the name to the standard name, add any alt-names if needed, put in the correct category(s), and put in the standardized url for the chain.
 
 -- Common services are added for several categories.  For example, Schools receive Restroom, Parking, AC, Wheelchair services.  Any existing checked services are preserved.
-
 
 -- Gas station correction: This script will do the following to places that have the gas station category:
 

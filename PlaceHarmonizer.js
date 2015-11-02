@@ -96,27 +96,25 @@
 			return s;
 		}
 	}
- 
-	
-	count = 0;
-	thisUser = W.loginManager.user;
-	if (thisUser === null)
-		return;
-	usrRank = thisUser.normalizedLevel;
-	UpdateObject;
-	lockLevel3 = 2;
-	lockLevel4 = 3;
-	lockLevel5 = 4;
-
-	if (lockLevel3 > (usrRank - 1)) { lockLevel3 = (usrRank - 1); }
-	if (lockLevel4 > (usrRank - 1)) { lockLevel4 = (usrRank - 1); }
-	if (lockLevel5 > (usrRank - 1)) { lockLevel5 = (usrRank - 1); }
-	
-	if (typeof (require) !== "undefined") { UpdateObject = require("Waze/Action/UpdateObject"); }
-		else { UpdateObject = W.Action.UpdateObject; }
-
-		
+ 	
 	function harmonizePlace() {
+	
+		if (typeof (require) !== "undefined") { UpdateObject = require("Waze/Action/UpdateObject"); }
+			else { UpdateObject = W.Action.UpdateObject; }
+
+		count = 0;
+		thisUser = W.loginManager.user;
+		if (thisUser === null)
+			return;
+		usrRank = thisUser.normalizedLevel;
+		UpdateObject;
+		lockLevel3 = 2;
+		lockLevel4 = 3;
+		lockLevel5 = 4;
+
+		if (lockLevel3 > (usrRank - 1)) { lockLevel3 = (usrRank - 1); }
+		if (lockLevel4 > (usrRank - 1)) { lockLevel4 = (usrRank - 1); }
+		if (lockLevel5 > (usrRank - 1)) { lockLevel5 = (usrRank - 1); }
 	
 		jQuery("#sidebar").focus();
 
