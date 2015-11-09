@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Place Harmonizer
 // @namespace 	 https://greasyfork.org/en/users/19426-bmtg
-// @version      0.9
+// @version      0.9.01
 // @description  Harmonizes, formats, and locks a selected place
 // @author       WMEPH development group
 // @include             https://www.waze.com/editor/*
@@ -24,15 +24,63 @@ function runPH() {
 	
 	// settings tab
     function add_PlaceHarmonizationSettingsTab() {
+		//Create Settings Tab
 		var phTabHtml = '<li><a href="#sidepanel-ph" data-toggle="tab" id="PlaceHarmonization">WMEPH</a></li>';
 		$("#user-tabs ul.nav-tabs:first").append(phTabHtml);
 	
-		var phContentHtml = '<div class="tab-pane" id="sidepanel-ph"><div id="PlaceHarmonizer"><p>WMEPH Settings (coming soon).</p></div></div>';
+		//Create Settings Tab Content
+		var phContentHtml = '<div class="tab-pane" id="sidepanel-ph"><div id="PlaceHarmonizer"></div></div>';
 		$("#user-info div.tab-content:first").append(phContentHtml);
+		
+		//Create Settings Checkboxes and Load Data
+		createSettingsCheckbox("WMEPH-EnableServices","Enable Automatic Addition of Common Services");
+		// createSettingsCheckbox("WMEPH-ConvenienceStoreToGasStations","Add the Convenience Store Category to all Gas Stations");
+		// createSettingsCheckbox("WMEPH-PreserveLongURLs","Preserve Long URLs for Harmonized Places");
+		// createSettingsCheckbox("WMEPH-StripWWW","Strip "www." from URLs");
 	}
 
-	// Focus away from the current cursor focus, to set text box changes
-	function blurAll() {
+	// -----------------------------------------------------------------------------------------------
+	// createSettingCheckbox
+	// -----------------------------------------------------------------------------------------------
+	// This routine will create a checkbox in the #PlaceHarmonizer tab and will load the setting
+	//        settingID:  The #id of the checkbox being created.  
+	//                        This will be used later to refer to the checkbox in code.
+	//  textDescription:  The description of the checkbox that will be use
+	// -----------------------------------------------------------------------------------
+	function createSettingsCheckbox(settingID, textDescription) {
+		//Create settings checkbox and append HTML to settings tab
+		phTempHTML = '<input type="checkbox" id="' + settingID + '">'+ textDescription +'</input><br>';
+		$("#PlaceHarmonizer").append(phTempHTML);
+        console.log(settingID + 'checkbox created');
+		
+		//Associate click event of new checkbox to call saveSettingToLocalStorage with proper ID
+        $("#" + settingID).click(function() {saveSettingToLocalStorage(settingID);});
+        console.log('Callback Set');
+		
+		//Load Setting for Local Storage, if it doesn't exist set it to NOT checked.
+		//If previously set to 1, then trigger "click" event.
+		if (!localStorage.getItem(settingID))
+		{
+			console.log(settingID + ' not found.');
+		} else if(localStorage.getItem(settingID) == "1") {
+			console.log(settingID + ' = 1 so invoking click');
+            $("#" + settingID).trigger('click');
+        }
+        console.log('Setting Checked');
+	}
+
+	function saveSettingToLocalStorage(settingID) {
+		if ($("#" + settingID).prop('checked')) {
+            console.log(settingID + ' to 1');
+			localStorage.setItem(settingID, '1');
+		} else {
+            console.log(settingID + ' to 0');
+			localStorage.setItem(settingID, '0');
+		}	
+	}
+	
+    // Focus away from the current cursor focus, to set text box changes
+    function blurAll() {
         var tmp = document.createElement("input");
         document.body.appendChild(tmp);
         tmp.focus();
@@ -2913,18 +2961,19 @@ function runPH() {
                 }));
             }
 
-		//	Add services to existing.
+		//	Add services to existing, only if they are different than what's there
 			var servMatch = true;  var servMatchTemp = true;
 			for (var idServ = 0; idServ < tempServ.length; idServ++) {
-			    if (item.attributes.services.indexOf(tempServ[idServ]) == -1) { servMatchTemp = false; }
+			    if (item.attributes.services.indexOf(tempServ[idServ]) == -1) { servMatch = false; }
             }
-			servMatch = servMatchTemp;
-			// turn off service updating
-			servMatch = true;
-			if (W.loginManager.user.userName === "ct13") {servMatch = true};
-			if (W.loginManager.user.userName === "bmtg") {servMatch = servMatchTemp};
 			
-			if (!item.attributes.residential && !servMatch) {
+			//servMatch = servMatchTemp;
+			// turn off service updating
+			//servMatch = true;
+			//if (W.loginManager.user.userName === "ct13") {servMatch = true};
+			//if (W.loginManager.user.userName === "bmtg") {servMatch = servMatchTemp};
+			
+			if (!item.attributes.residential && !servMatch && $("#WMEPH-EnableServices").prop('checked')) {
 				console.log("WMEPH: Services updated");
                 W.model.actionManager.add(new UpdateObject(item, { services: tempServ }));
 			} else if (item.attributes.residential) {
