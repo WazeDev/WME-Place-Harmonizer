@@ -1,7 +1,7 @@
 // ==UserScript==
-// @name         Place Harmonizer
+// @name         Place Harmonizer Dev (Sh-Alt-s)
 // @namespace 	 https://greasyfork.org/en/users/19426-bmtg
-// @version      0.9.01
+// @version      0.9.02
 // @description  Harmonizes, formats, and locks a selected place
 // @author       WMEPH development group
 // @include             https://www.waze.com/editor/*
@@ -10,33 +10,73 @@
 // @include             https://editor-beta.waze.com/*/editor/*
 // ==/UserScript==
 function runPH() {
+	WMEPHversion = "0.9.02"
+	isDevVersion = true;
+	// user name and rank
+	thisUser = W.loginManager.user;
+	if (thisUser === null)
+		return;
+	WMEPHdevList = "bmtg|vtpearce|cardyin|jtsmith2|joyriding|fjsawicki";  
+	WMEPHbetaList = "jwe252|uscwaller|t0cableguy|tonestertm";
+	WMEPHdevList = WMEPHdevList.split("|");
+	WMEPHbetaList = WMEPHbetaList.split("|");
+	devUser = (WMEPHdevList.indexOf(thisUser.userName) > -1);
+	betaUser = (WMEPHbetaList.indexOf(thisUser.userName) > -1);
+	if (devUser) {betaUser = true;}
+	usrRank = thisUser.normalizedLevel;
 	
-	// initialize the KB shortcut
-    setTimeout(setupKBShort, 1500);
+	// initialize the KB shortcut and settings tab
+	setTimeout(setupKBShort, 1500);
 	setTimeout(add_PlaceHarmonizationSettingsTab, 3000);
 	
 	// prime the shortcut
-    function setupKBShort() {
-        shortcut.add("Shift+Alt+a", function() {
-            harmonizePlace();
-        });
-    }
+	function setupKBShort() {
+		if (isDevVersion) {
+			shortcut.add("Shift+Alt+s", function() {
+				harmonizePlace();
+			});
+		} else {
+			shortcut.add("Shift+Alt+a", function() {
+				harmonizePlace();
+			});
+		}
+	}
 	
 	// settings tab
     function add_PlaceHarmonizationSettingsTab() {
 		//Create Settings Tab
-		var phTabHtml = '<li><a href="#sidepanel-ph" data-toggle="tab" id="PlaceHarmonization">WMEPH</a></li>';
+		if (isDevVersion) {
+			devVersStr = "Dev";
+			devVersStrSpace = " " + devVersStr;
+		}
+		else {
+			devVersStr = "";
+			devVersStrSpace = "";
+		}
+		// ' + devVersStr + '
+		var phTabHtml = '<li><a href="#sidepanel-ph' + devVersStr + '" data-toggle="tab" id="PlaceHarmonization' + devVersStr + '">WMEPH' + devVersStrSpace + '</a></li>';
 		$("#user-tabs ul.nav-tabs:first").append(phTabHtml);
 	
 		//Create Settings Tab Content
-		var phContentHtml = '<div class="tab-pane" id="sidepanel-ph"><div id="PlaceHarmonizer"></div></div>';
+		var phContentHtml = '<div class="tab-pane" id="sidepanel-ph' + devVersStr + '"><div id="PlaceHarmonizer' + devVersStr + '"><p>WMEPH' + devVersStrSpace + ' v. ' + WMEPHversion + '</p><hr align="center" width="90%"><p>Settings:</p></div></div>';
 		$("#user-info div.tab-content:first").append(phContentHtml);
 		
 		//Create Settings Checkboxes and Load Data
-		createSettingsCheckbox("WMEPH-EnableServices","Enable Automatic Addition of Common Services");
+		if (devUser || betaUser || usrRank > 2) {
+			createSettingsCheckbox("WMEPH-EnableServices" + devVersStr,"Enable Automatic Addition of Common Services");
+		}
 		// createSettingsCheckbox("WMEPH-ConvenienceStoreToGasStations","Add the Convenience Store Category to all Gas Stations");
 		// createSettingsCheckbox("WMEPH-PreserveLongURLs","Preserve Long URLs for Harmonized Places");
-		// createSettingsCheckbox("WMEPH-StripWWW","Strip "www." from URLs");
+		// createSettingsCheckbox("WMEPH-StripWWW","Strip 'www.' from URLs");
+		if (devUser) {
+			createSettingsCheckbox("WMEPH-RegionOverride" + devVersStr,"Disable Region Specificity");
+		}
+		
+		var phContentHtml2 = '<div class="tab-pane" id="sidepanel-ph' + devVersStr + '"><div id="PlaceHarmonizer' + devVersStr + '"><hr align="center" width="90%"><p><a href="https://www.waze.com/forum/viewtopic.php?f=819&t=164962" target="_blank" title="Submit feedback and suggestions">Submit feedback and suggestions</a></p></div></div>';
+		$("#PlaceHarmonizer" + devVersStr).append(phContentHtml2);
+		// $("#user-info div.tab-content:first").append(phContentHtml2);
+		
+		
 	}
 
 	// -----------------------------------------------------------------------------------------------
@@ -50,7 +90,7 @@ function runPH() {
 	function createSettingsCheckbox(settingID, textDescription) {
 		//Create settings checkbox and append HTML to settings tab
 		phTempHTML = '<input type="checkbox" id="' + settingID + '">'+ textDescription +'</input><br>';
-		$("#PlaceHarmonizer").append(phTempHTML);
+		$("#PlaceHarmonizer" + devVersStr).append(phTempHTML);
         console.log(settingID + 'checkbox created');
 		
 		//Associate click event of new checkbox to call saveSettingToLocalStorage with proper ID
@@ -69,6 +109,7 @@ function runPH() {
         console.log('Setting Checked');
 	}
 
+	// Save settings prefs
 	function saveSettingToLocalStorage(settingID) {
 		if ($("#" + settingID).prop('checked')) {
             console.log(settingID + ' to 1');
@@ -79,8 +120,8 @@ function runPH() {
 		}	
 	}
 	
-    // Focus away from the current cursor focus, to set text box changes
-    function blurAll() {
+	// Focus away from the current cursor focus, to set text box changes
+	function blurAll() {
         var tmp = document.createElement("input");
         document.body.appendChild(tmp);
         tmp.focus();
@@ -228,13 +269,8 @@ function runPH() {
             UpdateObject = W.Action.UpdateObject;
         }
 
-		// user name
-        thisUser = W.loginManager.user;
-        if (thisUser === null)
-            return;
-        // user rank
-		usrRank = thisUser.normalizedLevel;
-        if (usrRank < 2) {
+		// Only for R2+
+		if (usrRank < 2) {
             alert("Script is currently available for editors of Rank 2 and up.");
             return;
         }
@@ -2848,7 +2884,7 @@ function runPH() {
 			for (var ixServ = 0; ixServ < desServ.length; ixServ++) {
                 if (tempServ.indexOf(desServ[ixServ]) == -1) { tempServ.push(desServ[ixServ]); }
             }
-	//		These categories get services replaced
+	//		These categories get their services replaced
             if ((tempCat.indexOf("COLLEGE_UNIVERSITY") > -1 || tempCat.indexOf("SCHOOL") > -1 || tempCat.indexOf("RELIGIOUS_CENTER") > -1 || tempCat.indexOf("KINDERGARDEN") > -1) && !(tempCat.indexOf("PARKING_LOT") > -1)) {
                 tempServ = ["RESTROOMS", "AIR_CONDITIONING", "PARKING_FOR_CUSTOMERS", "WHEELCHAIR_ACCESSIBLE"];
             }
@@ -2926,7 +2962,6 @@ function runPH() {
             } else if (countryCode === "CAN") {
 				outputFormat = "+1-{0}-{1}-{2}";
 			}
-			
 			if (!item.attributes.residential) {
 				var newPhone = normalizePhone(item.attributes.phone, outputFormat);
 				if (newPhone !== item.attributes.phone) {
@@ -2935,7 +2970,7 @@ function runPH() {
 				}
 			} 
 			
-			// Clear attirbutes from residential places
+			// Clear attributes from residential places
 			if (item.attributes.residential) {
 				var resName = item.attributes.houseNumber + " " + addr.street.name;
 				if (item.attributes.name !== resName) {
@@ -2961,19 +2996,12 @@ function runPH() {
                 }));
             }
 
-		//	Add services to existing, only if they are different than what's there
-			var servMatch = true;  var servMatchTemp = true;
+			//	Add services to existing, only if they are different than what's there
+			var servMatch = true;  
 			for (var idServ = 0; idServ < tempServ.length; idServ++) {
 			    if (item.attributes.services.indexOf(tempServ[idServ]) == -1) { servMatch = false; }
             }
-			
-			//servMatch = servMatchTemp;
-			// turn off service updating
-			//servMatch = true;
-			//if (W.loginManager.user.userName === "ct13") {servMatch = true};
-			//if (W.loginManager.user.userName === "bmtg") {servMatch = servMatchTemp};
-			
-			if (!item.attributes.residential && !servMatch && $("#WMEPH-EnableServices").prop('checked')) {
+			if (!item.attributes.residential && !servMatch && $("#WMEPH-EnableServices" + devVersStr).prop('checked')) {
 				console.log("WMEPH: Services updated");
                 W.model.actionManager.add(new UpdateObject(item, { services: tempServ }));
 			} else if (item.attributes.residential) {
