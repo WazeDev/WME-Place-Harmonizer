@@ -2938,9 +2938,9 @@ function runPH() {
                 	W.model.actionManager.add(new UpdateObject(item, {
 						name: newName
 					}));
-					if (newName !== toTitleCaseStrong(vname)) {
-						NH_Bann.STC.active = true;
-					}
+				}
+				if (newName !== toTitleCaseStrong(vname)) {
+					NH_Bann.STC.active = true;
 				}
 				if (newUrl !== item.attributes.url) {
                 	console.log("WMEPH: URL updated");
