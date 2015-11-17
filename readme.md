@@ -20,7 +20,7 @@ Use tampermonkey / greasemonkey
 Usage:
 ------
 
-Select a place in WME, and press the shortcut key (Alt-A).  Verify changes, adjust as needed, save.
+Select a place in WME, and press the shortcut key (Shift-Alt-A).  Verify changes, adjust as needed, save.
 
 -------------
 
