@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Place Harmonizer Dev (Sh-Alt-s)
 // @namespace 	 https://greasyfork.org/en/users/19426-bmtg
-// @version      0.9.02
+// @version      0.9.03
 // @description  Harmonizes, formats, and locks a selected place
 // @author       WMEPH development group
 // @include             https://www.waze.com/editor/*
@@ -10,14 +10,13 @@
 // @include             https://editor-beta.waze.com/*/editor/*
 // ==/UserScript==
 function runPH() {
-	WMEPHversion = "0.9.02"
+	WMEPHversion = "0.9.03";
 	isDevVersion = true;
 	// user name and rank
 	thisUser = W.loginManager.user;
-	if (thisUser === null)
-		return;
+	if (thisUser === null) {return;}
 	WMEPHdevList = "bmtg|vtpearce|cardyin|jtsmith2|joyriding|fjsawicki";  
-	WMEPHbetaList = "jwe252|uscwaller|t0cableguy|tonestertm";
+	WMEPHbetaList = "jwe252|uscwaller|t0cableguy|tonestertm|driving79";
 	WMEPHdevList = WMEPHdevList.split("|");
 	WMEPHbetaList = WMEPHbetaList.split("|");
 	devUser = (WMEPHdevList.indexOf(thisUser.userName) > -1);
@@ -26,11 +25,12 @@ function runPH() {
 	usrRank = thisUser.normalizedLevel;
 	
 	// initialize the KB shortcut and settings tab
-	setTimeout(setupKBShort, 1500);
-	setTimeout(add_PlaceHarmonizationSettingsTab, 3000);
+	setTimeout(setupKBShort, 2500);
+	setTimeout(add_PlaceHarmonizationSettingsTab, 3500);
 	
 	// prime the shortcut
 	function setupKBShort() {
+		console.log("WMEPH: Initializing");
 		if (isDevVersion) {
 			shortcut.add("Shift+Alt+s", function() {
 				harmonizePlace();
@@ -152,7 +152,7 @@ function runPH() {
         var numWords = e.split(' ').length;
 		var r;
         if ("undefined" === typeof o) {
-            r = 3e3 + numWords * 310;
+            r = 3e3 + numWords * 3100;
         } else {r = o;}
         t !== !0 && (e = "<li>" + e);
         var n = $('<div id="WMEPHlog">').append(e);
@@ -165,28 +165,69 @@ function runPH() {
     }
 
 	// Change place.name to title case
+	var ignoreWords = ["an", "and", "as", "at", "by", "for", "from", "hhgregg", "in", "into", "of", "on", "or", "the", "to", "with"];
+	var capWords = ["3M", "AMC", "AOL", "AT&T", "ATM", "BBC", "BLT", "BMV", "BMW", "BP", "CBS", "CCS", "CGI", "CISCO", "CNN", "CVS", "DHL", "DKNY",
+		"DMV", "DSW", "ER", "ESPN", "FCUK", "GNC", "H&M", "HP", "HSBC", "IBM", "IKEA", "IRS", "JBL", "JCPenney", "KFC", "MBNA", "MCA", "MCI",
+		"NBC", "PNC", "TCBY", "TNT", "UPS", "USA", "USPS", "VW", "ZZZ"
+	];
     function toTitleCase(str) {
         if (!str) {
             return str;
         }
-        var ignoreWords = ["an", "and", "as", "at", "by", "for", "from", "hhgregg", "in", "into", "of", "on", "or", "the", "to", "with"];
-        var capWords = ["3M", "AMC", "AOL", "AT&T", "ATM", "BBC", "BLT", "BMV", "BMW", "BP", "CBS", "CCS", "CGI", "CISCO", "CNN", "CVS", "DHL", "DKNY",
-            "DMV", "DSW", "ER", "ESPN", "FCUK", "GNC", "H&M", "HP", "HSBC", "IBM", "IKEA", "IRS", "JBL", "JCPenney", "KFC", "MBNA", "MCI",
-            "NBC", "PNC", "TCBY", "TNT", "UPS", "USA", "USPS", "VW",
-            "ZZZ"
-        ];
+        
         var allCaps = (str === str.toUpperCase());
-        str = str.replace(/\b([^\W_\d][^\s-]*) */g, function(txt) {
+		
+		
+        str = str.replace(/\b([^\W_\d][^\s-\/]*) */g, function(txt) {
+            return ((txt === txt.toUpperCase()) && !allCaps) ? txt : txt.charAt(0).toUpperCase() + txt.substr(1);
+        });
+		// Cap O'Reilley's, L'Amour, D'Artagnan as long as 5+ letters
+        str = str.replace(/[oOlLdD]'[A-Za-z']{3,}/g, function(txt) {
+            return ((txt === txt.toUpperCase()) && !allCaps) ? txt : txt.charAt(0).toUpperCase() + txt.charAt(1) + txt.charAt(2).toUpperCase() + txt.substr(3);
+        });
+		// Cap McFarley's, as long as 5+ letters long
+        str = str.replace(/[mM][cC][A-Za-z']{3,}/g, function(txt) {
+            return ((txt === txt.toUpperCase()) && !allCaps) ? txt : txt.charAt(0).toUpperCase() + txt.charAt(1).toLowerCase() + txt.charAt(2).toUpperCase() + txt.substr(3);
+        });
+		// anything sith an "&" sign, cap the word after &
+        str = str.replace(/&\w+/g, function(txt) {
+            return ((txt === txt.toUpperCase()) && !allCaps) ? txt : txt.charAt(0) + txt.charAt(1).toUpperCase() + txt.substr(2);
+        });
+
+        str = str.replace(/[^ ]+/g, function(txt) {
+            txtLC = txt.toLowerCase();
+            return (ignoreWords.indexOf(txtLC) > -1) ? txtLC : txt;
+        });
+        str = str.replace(/[^ ]+/g, function(txt) {
+            txtLC = txt.toUpperCase();
+            return (capWords.indexOf(txtLC) > -1) ? txtLC : txt;
+        });
+        str = str.charAt(0).toUpperCase() + str.substr(1);
+        return str;
+    }
+
+    // Change place.name to title case
+    function toTitleCaseStrong(str) {
+        if (!str) {
+            return str;
+        }
+        var allCaps = (str === str.toUpperCase());
+		
+		
+        str = str.replace(/\b([^\W_\d][^\s-\/]*) */g, function(txt) {
             return ((txt === txt.toUpperCase()) && !allCaps) ? txt : txt.charAt(0).toUpperCase() + txt.substr(1).toLowerCase();
         });
+		// Cap O'Reilley's, L'Amour, D'Artagnan as long as 5+ letters
         str = str.replace(/[oOlLdD]'[A-Za-z']{3,}/g, function(txt) {
             return ((txt === txt.toUpperCase()) && !allCaps) ? txt : txt.charAt(0).toUpperCase() + txt.charAt(1) + txt.charAt(2).toUpperCase() + txt.substr(3).toLowerCase();
         });
+		// Cap McFarley's, as long as 5+ letters long
         str = str.replace(/[mM][cC][A-Za-z']{3,}/g, function(txt) {
             return ((txt === txt.toUpperCase()) && !allCaps) ? txt : txt.charAt(0).toUpperCase() + txt.charAt(1).toLowerCase() + txt.charAt(2).toUpperCase() + txt.substr(3).toLowerCase();
         });
+		// anything sith an "&" sign, cap the word after &
         str = str.replace(/&\w+/g, function(txt) {
-            return ((txt === txt.toUpperCase()) && !allCaps) ? txt : txt.charAt(0) + txt.charAt(1).toUpperCase() + txt.substr(2).toLowerCase();
+            return ((txt === txt.toUpperCase()) && !allCaps) ? txt : txt.charAt(0) + txt.charAt(1).toUpperCase() + txt.substr(2);
         });
 
         str = str.replace(/[^ ]+/g, function(txt) {
@@ -255,7 +296,56 @@ function runPH() {
 		
 		// set-up default message
         sidebarMessage = ["Place is formatted."];
-        
+        NH_Bann = {
+			STC: {
+				active: false,
+				bannText: "Force Title Case: ",
+				id: "toTitleCaseStrong",
+				value: "Yes",
+				cLog: "WMEPH: Applied Strong Title Case",
+				action: function() {
+					var newNameStr = toTitleCaseStrong(item.attributes.name);
+					if (newNameStr !== item.attributes.name) {
+						console.log(NH_Bann.STC.cLog);
+						W.model.actionManager.add(new UpdateObject(item, {
+							name: newNameStr
+						}));
+						NH_Bann.STC.active = false;
+						
+					}
+				}
+			},
+			ATM: {
+				active: false,
+				bannText: "ATM at location? ",
+				id: "addATMCat",
+				value: "Yes",
+				cLog: "WMEPH: Added ATM category",
+				action: function() {
+					NH_Bann.ATM.active = false;
+				}
+			},
+			USPS: {
+				active: false,
+				bannText: "Is this a USPS location? ",
+				id: "USPSCat",
+				value: "Yes",
+				cLog: "WMEPH: Fixed USPS",
+				action: function() {
+					tempServ = ["AIR_CONDITIONING", "CREDIT_CARDS", "PARKING_FOR_CUSTOMERS", "WHEELCHAIR_ACCESSIBLE"];
+					W.model.actionManager.add(new UpdateObject(item, {
+						url: "usps.com",
+						aliases: ["United States Postal Service"],
+						// services: tempServ.push
+					}));
+					NH_Bann.USPS.active = false;
+				}
+			}
+			
+		}
+		
+				
+		
 		// track any errors to determine banner color
 		severity = 0;
 		
@@ -303,7 +393,7 @@ function runPH() {
         // Only can select one place at a time in WME, so the loop is superfluous (eg, ix=0 will work), but perhaps we leave in just in case.
 		for (var ix = 0; ix < W.selectionManager.selectedItems.length; ix++) {
             
-			var item = W.selectionManager.selectedItems[ix].model;
+			item = W.selectionManager.selectedItems[ix].model;
             // get GPS lat/long coords from place
 			var mercCoordLon = item.attributes.geometry.bounds.right;
 			var mercCoordLat = item.attributes.geometry.bounds.top;
@@ -401,7 +491,7 @@ function runPH() {
             var brandSwap = 0;
             var desServ = [];
 			var customStoreFinder = false;
-            if (categories.indexOf("GAS_STATION") > -1) {
+			if (categories.indexOf("GAS_STATION") > -1) {
                 if (nameShort.toUpperCase() == "SAMSCLUB" || nameShort.toUpperCase() == "SAMSCLUBFUELCENTER" || nameShort.toUpperCase() == "SAMSCLUBGAS" ||
                     nameShort.toUpperCase() == "SAMSCLUBFUEL" || nameShort.toUpperCase() == "SAMSCLUBGASOLINE") {
                     desServ = ["CREDIT_CARDS", "PARKING_FOR_CUSTOMERS", "WHEELCHAIR_ACCESSIBLE"];
@@ -626,7 +716,7 @@ function runPH() {
                 nameShort.toUpperCase() == "THORNTON" || nameShort.toUpperCase() == "THORNTONGAS") {
                 W.model.actionManager.add(new UpdateObject(item, {
                     name: "Thorntons",
-                    url: "thorntons.com"
+                    url: "thorntonsinc.com"
                 }));
             } else if (nameShort.toUpperCase() == "TEXACO" || nameShort.toUpperCase() == "TEXACOGAS") {
                 W.model.actionManager.add(new UpdateObject(item, {
@@ -2848,6 +2938,9 @@ function runPH() {
                 	W.model.actionManager.add(new UpdateObject(item, {
 						name: newName
 					}));
+					if (newName !== toTitleCaseStrong(vname)) {
+						NH_Bann.STC.active = true;
+					}
 				}
 				if (newUrl !== item.attributes.url) {
                 	console.log("WMEPH: URL updated");
@@ -2987,13 +3080,9 @@ function runPH() {
 				}
 			}
 					
-            // Post Office post processing
+            // Post Office cat check
             if (tempCat.indexOf("POST_OFFICE") > -1) {
-				tempServ = ["AIR_CONDITIONING", "CREDIT_CARDS", "PARKING_FOR_CUSTOMERS", "WHEELCHAIR_ACCESSIBLE"];
-                W.model.actionManager.add(new UpdateObject(item, {
-                    url: "usps.com",
-                    aliases: ["United States Postal Service"],
-                }));
+				NH_Bann.USPS.active = true;
             }
 
 			//	Add services to existing, only if they are different than what's there
@@ -3111,8 +3200,7 @@ function runPH() {
 
             }
 
-            // console.log(sidebarMessage.length)
-			if (item.attributes.url !== null && item.attributes.url !== "") {
+            if (item.attributes.url !== null && item.attributes.url !== "") {
 				if (customStoreFinder) {
 					sidebarMessage.push("(<a href=\"" + customStoreURL + "\" target=\"_blank\" style=\"color: #FFF\" title=\"Open " + item.attributes.name + " store finder in a new tab\">Website</a>)");
             	} else {
@@ -3120,28 +3208,187 @@ function runPH() {
             	}
 			}
 
-
-
-            if (sidebarMessage.length > 0) {
+			if (sidebarMessage.length > 1) {
                 sidebarMessage = sidebarMessage.join("<li>");
             }
-
-            if (severity == 0) {
+			
+			// Messaging banners
+			assembleBanner();
+			
+	    }
+    }
+	
+	// Set up banner messages
+	function assembleBanner() {
+		sidebarMessageEXT = [sidebarMessage.slice(0)];
+		var EXTOption = false;
+		for (var NHix = 0; NHix < Object.keys(NH_Bann).length; NHix++ ) {
+			var tempKey = Object.keys(NH_Bann)[NHix];
+			if (NH_Bann[tempKey].active) {
+				sidebarMessageEXT.push(NH_Bann[tempKey].bannText + '<input class="PHbutton" id="' + NH_Bann[tempKey].id + '" type="button" value="' + NH_Bann[tempKey].value + '">');
+				EXTOption = true;
+			}
+		}
+		if (EXTOption) {
+			sidebarMessageEXT = sidebarMessageEXT.join("<li>");
+			displayBanners(sidebarMessageEXT,severity);
+			setupButtons();
+		} else {
+			displayBanners(sidebarMessage,severity);	
+			setupButtons();
+		}
+			
+	}
+	
+	// Button event handlers
+	function setupButtons() {
+		// Button and run function for title case
+		var ixButt = 0;
+		var btn = [];
+		for (var NHix = 0; NHix < Object.keys(NH_Bann).length; NHix++ ) {
+			var tempKey = Object.keys(NH_Bann)[NHix];
+			if (NH_Bann[tempKey].active) {
+				btn[ixButt] = document.getElementById(NH_Bann[tempKey].id); 
+				btn[ixButt].onclick = (function(buttonId){
+					return function() {
+						NH_Bann[buttonId].action();
+						assembleBanner();
+					}
+				})(tempKey)
+				ixButt++;
+			}
+		}
+		
+	}
+	
+	
+	// Display banners with <LI> string and severity
+	function displayBanners(sbm,sev) {
+		$('#WMEPH_logger_warn').empty();
+		if (sev == 0) {
                 $('<div id="WMEPH_logger_warn">').css("width", "290").css("background-color", "rgb(36, 172, 36)").css("color", "white").css("font-size", "15px").css("font-weight", "bold").css("margin-left", "auto").css("margin-right", "auto").prependTo(".contents")
             }
-            if (severity == 1) {
+            if (sev == 1) {
                 $('<div id="WMEPH_logger_warn">').css("width", "290").css("background-color", "rgb(40, 40, 230)").css("color", "white").css("font-size", "15px").css("font-weight", "bold").css("margin-left", "auto").css("margin-right", "auto").prependTo(".contents")
             }
-            if (severity == 2) {
+            if (sev == 2) {
                 $('<div id="WMEPH_logger_warn">').css("width", "290").css("background-color", "rgb(217, 173, 42)").css("color", "white").css("font-size", "15px").css("font-weight", "bold").css("margin-left", "auto").css("margin-right", "auto").prependTo(".contents")
             }
-            if (severity == 3) {
+            if (sev == 3) {
                 $('<div id="WMEPH_logger_warn">').css("width", "290").css("background-color", "rgb(211, 48, 48)").css("color", "white").css("font-size", "15px").css("font-weight", "bold").css("margin-left", "auto").css("margin-right", "auto").prependTo(".contents")
             }
-            WMEPH_DispWarn(sidebarMessage);
+            WMEPH_DispWarn(sbm);
+			
+	}
+	
+	// Category translation
+	function swapJ(json){
+		var ret = {};
+		for(var key in json){
+		  ret[json[key]] = key;
+		}
+		return ret;
+	}
+	catTransWaze2Lang = I18n.translations['en'].venues.categories;
+	catTransLang2Waze = swapJ(catTransWaze2Lang);
+	
+	// CSS setups
+	cssCode = [".PHbutton {background: #ffffff;color: #000;padding: 0px 6px 0px 6px;text-decoration: none;}",
+		".PHbutton:hover {background: #e8e5e8;text-decoration: none;}"]
+	for (var cssix=0; cssix<cssCode.length; cssix++) {
+		insertCss(cssCode[cssix]);
+	}
+	function insertCss( code ) {
+		var style = document.createElement('style');
+		style.type = 'text/css';
+		style.innerHTML = code;
+		document.head.appendChild( style );
+	}
+	
+	// Populate a submission form for new chains
+//	var PHSubForm = FormApp.openByUrl(
+//    	'https://docs.google.com/forms/d/1hv5hXBlGr1pTMmo4n3frUx1DovUODbZodfDBwwTc7HE/viewform'
+//    );
+//	console.log(PHSubForm);
+//	 
+//	 function evenBetterBuildUrls() {
+//		var ss = SpreadsheetApp.getActive();
+//		var sheet = ss.getSheetByName("Form Responses 1");
+//		var data = ss.getDataRange().getValues();  // Data for pre-fill
+//		var headers = data[0];                     // Sheet headers == form titles (questions)
+//		
+//		var formUrl = ss.getFormUrl();             // Use form attached to sheet
+//		var form = FormApp.openByUrl(
+//	'https://docs.google.com/forms/d/1hv5hXBlGr1pTMmo4n3frUx1DovUODbZodfDBwwTc7HE/viewform'
+//		);
+//		var items = form.getItems();
+//		var urlCol = headers.indexOf("Prefilled URL");   // If there is a column labeled this way, we'll update it
+//		
+//		// Skip headers, then build URLs for each row in Sheet1.
+//		for (var row = 1; row < data.length; row++ ) {
+//		  Logger.log("Generating pre-filled URL from spreadsheet for row="+row);
+//		  // build a response from spreadsheet info.
+//		  var response = form.createResponse();
+//		  for (var i=0; i<items.length; i++) {
+//			var ques = items[i].getTitle();           // Get text of question for item
+//			var quesCol = headers.indexOf(ques);      // Get col index that contains this question
+//			var resp = ques ? data[row][quesCol] : "";
+//			var type = items[i].getType().toString();
+//			Logger.log("Question='"+ques+"', resp='"+resp+"' type:"+type);
+//			// Need to treat every type of answer as its specific type.
+//			switch (items[i].getType()) {
+//			  case FormApp.ItemType.TEXT:
+//				var item = items[i].asTextItem();
+//				break;
+//			  case FormApp.ItemType.PARAGRAPH_TEXT: 
+//				item = items[i].asParagraphTextItem();
+//				break;
+//			  case FormApp.ItemType.LIST:
+//				item = items[i].asListItem();
+//				break;
+//			  case FormApp.ItemType.MULTIPLE_CHOICE:
+//				item = items[i].asMultipleChoiceItem();
+//				break;
+//			  case FormApp.ItemType.CHECKBOX:
+//				item = items[i].asCheckboxItem();
+//				// In a form submission event, resp is an array, containing CSV strings. Join into 1 string.
+//				// In spreadsheet, just CSV string. Convert to array of separate choices, ready for createResponse().
+//				if (typeof resp !== 'string')
+//				  resp = resp.join(',');      // Convert array to CSV
+//				resp = resp.split(/ *, */);   // Convert CSV to array
+//				break;
+//			  case FormApp.ItemType.DATE:
+//				item = items[i].asDateItem();
+//				resp = new Date( resp );
+//				break;
+//			  case FormApp.ItemType.DATETIME:
+//				item = items[i].asDateTimeItem();
+//				resp = new Date( resp );
+//				break;
+//			  default:
+//				item = null;  // Not handling DURATION, GRID, IMAGE, PAGE_BREAK, SCALE, SECTION_HEADER, TIME
+//				break;
+//			}
+//			// Add this answer to our pre-filled URL
+//			if (item) {
+//			  var respItem = item.createResponse(resp);
+//			  response.withItemResponse(respItem);
+//			}
+//			// else if we have any other type of response, we'll skip it
+//			else Logger.log("Skipping i="+i+", question="+ques+" type:"+type);
+//		  }
+//		  // Generate the pre-filled URL for this row
+//		  var editResponseUrl = response.toPrefilledUrl();
+//		  // If there is a "Prefilled URL" column, update it
+//		  if (urlCol >= 0) {
+//			var urlRange = sheet.getRange(row+1,urlCol+1).setValue(editResponseUrl);
+//		  }
+//		}
+//	};
+//	
 
-        }
-    }
+
+	// KB Shortcut function
     shortcut = {
         'all_shortcuts': {}, //All the shortcuts are stored in this array
         'add': function(shortcut_combination, callback, opt) {
