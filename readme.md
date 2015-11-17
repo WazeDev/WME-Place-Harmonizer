@@ -1,12 +1,12 @@
 Place Harmonizer
 ===============
-developed by bmtg, vtpearce;  
-comments for this version to: bmtg (PM), bmtg_4 (Slack DM)
+Development Team: bmtg, vtpearce, cardyin, fjsawicki, jtsmith2, joyriding;  
+Send comments for this version to: bmtg (PM), bmtg_4 (Slack DM)
 
 Description:
 ------------
 
-This script acts on a single selected place.  It will generally clean up many place details, harmonize names and details of many chains, and, if the place is complete according to standards, it will lock to an appropriate level.  Full feature list is below.
+This script acts on a single selected place.  It will clean up many place details, harmonize names and details of many chains, and, if the place is complete according to standards, it will lock to an appropriate level.  Full feature list is below.
 
 ----------------
 
