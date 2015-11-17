@@ -61,19 +61,14 @@ Current features:
 
 * Place name Title casing: 
 
-  1. If there are any lower case letters in any word, then it will Title Case that word. Example:  john's Pass BakERY -> John's Pass Bakery
-
-  2. If there is an ALL CAPS word ALONG with other words that are not in all caps, then the ALL CAPS word will be left ALL CAPS while the others are title cased.  Examples:  ALCCO store -> ALCCO Store; QVN Pharmacy -> QVN Pharmacy
-
-  3. If the _entire_ place name is in ALL CAPS, then the script will change the entire name to Title Case.  Examples:  ALLCO -> Allco; JOHN'S PASS BAKERY -> John's Pass Bakery.
-
-  4.  Some common articles and prepositions are kept lowercase.  (a, an, the, of, for, and so forth)
-
-  5. Some common ALL CAPS words are made/kept all caps (USA, IRS, BMW)
-
-  6. Chain name harmonization overrides title case processing.  
-
-    > As you can see, some single word ALL CAPS place names might be correct as ALL CAPS.  Additionally, some places have internal caps, like CollegeUSA.  Unless they are in the chain list, they will be Title cased.  Please observe the name as you use the script and correct as necessary.  
+  1. If first letter of a word is lower case, the script will capitalize it.
+  2. McZzz and O'Zzz will be capitalized with internal cap.
+  3. Zzzz&Zzzz will capitalize the letter after the &
+  4. If there is an ALL CAPS word ALONG with other words that are not in all caps, then the ALL CAPS word will be left ALL CAPS while the others are title cased.  Examples:  ALCCO store -> ALCCO Store; QVN Pharmacy -> QVN Pharmacy
+  5. Some common articles and prepositions are kept lowercase.  (a, an, the, of, for, and so forth)
+  6. Some common ALL CAPS words are made/kept all caps (USA, IRS, BMW)
+  7. Chain name harmonization overrides title case processing. 
+  8. If the entire name is ALLCAPS, or if any word contains internal caps, like StreamLine, then a banner will appear after running the script with the option to force Strict Title Case.  Press yes if you want to change StreamLine to Streamline.  otherwise ignore.
 
 * Phone correction: If the phone field contains 10 digits, and the digits are not in either xxx-xxx-xxxx or (xxx) xxx-xxxx formats, then the script will put the digits into xxx-xxx-xxxx format.  Those phone numbers that are already in either correct format are not altered.  A leading 1 will be stripped.
 
