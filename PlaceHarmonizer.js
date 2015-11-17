@@ -11,7 +11,7 @@
 // ==/UserScript==
 function runPH() {
 	WMEPHversion = "0.9.03";
-	isDevVersion = true;
+	isDevVersion = false;
 	// user name and rank
 	thisUser = W.loginManager.user;
 	if (thisUser === null) {return;}
