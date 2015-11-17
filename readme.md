@@ -1,6 +1,6 @@
 Place Harmonizer
 ===============
-Development Team: bmtg, vtpearce, cardyin, fjsawicki, jtsmith2, joyriding;  
+Development Team: bmtg, vtpearce, cardyin, fjsawicki, jtsmith2, joyriding  
 Send comments for this version to: bmtg (PM), bmtg_4 (Slack DM)
 
 Description:
