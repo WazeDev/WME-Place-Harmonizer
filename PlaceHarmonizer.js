@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Place Harmonizer Dev (Sh-Alt-s)
 // @namespace 	 https://greasyfork.org/en/users/19426-bmtg
-// @version      0.9.03
+// @version      0.9.04
 // @description  Harmonizes, formats, and locks a selected place
 // @author       WMEPH development group
 // @include             https://www.waze.com/editor/*
@@ -10,8 +10,8 @@
 // @include             https://editor-beta.waze.com/*/editor/*
 // ==/UserScript==
 function runPH() {
-	WMEPHversion = "0.9.03";
-	isDevVersion = false;
+	WMEPHversion = "0.9.04";
+	isDevVersion = true;
 	// user name and rank
 	thisUser = W.loginManager.user;
 	if (thisUser === null) {return;}
@@ -25,8 +25,8 @@ function runPH() {
 	usrRank = thisUser.normalizedLevel;
 	
 	// initialize the KB shortcut and settings tab
-	setTimeout(setupKBShort, 2500);
-	setTimeout(add_PlaceHarmonizationSettingsTab, 3500);
+	setTimeout(setupKBShort, 1200);
+	setTimeout(add_PlaceHarmonizationSettingsTab, 1300);
 	
 	// prime the shortcut
 	function setupKBShort() {
@@ -102,7 +102,7 @@ function runPH() {
 		if (!localStorage.getItem(settingID))
 		{
 			console.log(settingID + ' not found.');
-		} else if(localStorage.getItem(settingID) == "1") {
+		} else if(localStorage.getItem(settingID) === "1") {
 			console.log(settingID + ' = 1 so invoking click');
             $("#" + settingID).trigger('click');
         }
@@ -152,22 +152,20 @@ function runPH() {
         var numWords = e.split(' ').length;
 		var r;
         if ("undefined" === typeof o) {
-            r = 3e3 + numWords * 3100;
+            r = 3e4 + numWords * 3100;
         } else {r = o;}
         t !== !0 && (e = "<li>" + e);
         var n = $('<div id="WMEPHlog">').append(e);
         $("#WMEPH_logger_warn").append(n), n.delay(r).slideUp({
             duration: 200,
-            complete: function() {
-                n.remove();
-            }
+            complete: function() {n.remove();}
         })
     }
 
 	// Change place.name to title case
 	var ignoreWords = ["an", "and", "as", "at", "by", "for", "from", "hhgregg", "in", "into", "of", "on", "or", "the", "to", "with"];
 	var capWords = ["3M", "AMC", "AOL", "AT&T", "ATM", "BBC", "BLT", "BMV", "BMW", "BP", "CBS", "CCS", "CGI", "CISCO", "CNN", "CVS", "DHL", "DKNY",
-		"DMV", "DSW", "ER", "ESPN", "FCUK", "GNC", "H&M", "HP", "HSBC", "IBM", "IKEA", "IRS", "JBL", "JCPenney", "KFC", "MBNA", "MCA", "MCI",
+		"DMV", "DSW", "ER", "ESPN", "FCUK", "GNC", "H&M", "HP", "HSBC", "IBM", "IKEA", "IRS", "JBL", "JCPenney", "KFC", "LLC", "MBNA", "MCA", "MCI",
 		"NBC", "PNC", "TCBY", "TNT", "UPS", "USA", "USPS", "VW", "ZZZ"
 	];
     function toTitleCase(str) {
@@ -265,7 +263,12 @@ function runPH() {
     // Normalize url
 	function normalizeURL(s,item,addr) {
 		if (!s) {
-			searchG4S = "http://www.google.com/search?q=" + item.attributes.name + "%20" + addr.street.name + "%20" + addr.city.name + "%20" + addr.state.name;
+			searchName = item.attributes.name;
+			// Remove & sign from search name to prevent google search error
+			searchName = searchName.replace(/&/g, function(txt) {
+				return "%26";
+        	});
+			searchG4S = "http://www.google.com/search?q=" + searchName + ",%20" + addr.street.name + ",%20" + addr.city.name + ",%20" + addr.state.name;
             sidebarMessage.push("URL missing. (<a href=\"" + searchG4S + "\" target=\"_blank\" style=\"color: #FFF\" title=\"Search for store in Google\">Click to search</a>)");
             severity = Math.max(1, severity);
             return s;
@@ -524,13 +527,15 @@ function runPH() {
                     }));
                     subFuel = 1;
                 } else {
-                    if (!(item.attributes.brand.toUpperCase() == vname.toUpperCase() || item.attributes.brand == "" || item.attributes.brand == null)) {
-                        W.model.actionManager.add(new UpdateObject(item, {
-                            name: item.attributes.brand,
-                            aliases: [toTitleCase(vname)]
-                        }));
-                        vname = item.attributes.brand;
-                        brandSwap = 1;
+                    if (!(item.attributes.brand === "" || item.attributes.brand == null)) {
+						if (item.attributes.brand.toUpperCase() !== vname.toUpperCase() && item.attributes.brand !== "Unbranded") {
+							W.model.actionManager.add(new UpdateObject(item, {
+								name: item.attributes.brand,
+								aliases: [toTitleCase(vname)]
+							}));
+							vname = item.attributes.brand;
+							brandSwap = 1;
+						}
                     }
                     desServ = ["RESTROOMS", "CREDIT_CARDS", "AIR_CONDITIONING", "PARKING_FOR_CUSTOMERS", "WHEELCHAIR_ACCESSIBLE"];
                     if (categories.indexOf("ATM") > -1) {
