@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Place Harmonizer Dev (Sh-Alt-s)
 // @namespace 	 https://greasyfork.org/en/users/19426-bmtg
-// @version      0.9.04
+// @version      0.9.05
 // @description  Harmonizes, formats, and locks a selected place
 // @author       WMEPH development group
 // @include             https://www.waze.com/editor/*
@@ -10,7 +10,7 @@
 // @include             https://editor-beta.waze.com/*/editor/*
 // ==/UserScript==
 function runPH() {
-	WMEPHversion = "0.9.04";
+	WMEPHversion = "0.9.05";
 	isDevVersion = true;
 	// user name and rank
 	thisUser = W.loginManager.user;
