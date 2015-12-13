@@ -7,7 +7,7 @@
 // ==UserScript==
 // @name		 Place Harmonizer
 // @namespace 	 https://greasyfork.org/en/users/19426-bmtg
-// @version	  1.0.01
+// @version	  1.0.02
 // @description  Harmonizes, formats, and locks a selected place
 // @author	   WMEPH development group
 // @include			 https://www.waze.com/editor/*
@@ -49,7 +49,7 @@
 	}
 	
 	function runPH() {
-		var WMEPHversion = "1.0.01";
+		var WMEPHversion = "1.0.02";
 		var WMEPHurl = 'https://www.waze.com/forum/posting.php?mode=reply&f=819&t=164962';
 		var isDevVersion = true;
 		// user name and rank
@@ -548,6 +548,7 @@
 			var region; var state2L;
 			var newPlaceURL;
 			var approveRegionURL;
+			var PNHOrderNum = "";
 			
 			sidebarMessage = [];
 			severity = 0;
@@ -623,7 +624,7 @@
 				},  // END USPS definition
 				NewPlaceSubmit: {
 					active: false,
-					bannText: "If this place is a chain: ",
+					bannText: "No PNH match. If place is a chain: ",
 					id: "NewPlaceSubmit",
 					value: "Submit new data",
 					title: "Submit info for a new chain through the linked form",
@@ -641,10 +642,11 @@
 					cLog: "WMEPH: Open request approval form",
 					action: function(item) {
 						if (region === "SER") {
+							console.log(PNHOrderNum);
 							var inputs = {
 								subject: 'PNH place approval',
 								//username: 't0cableguy',
-								message: 'Please approve "' + newName + '" for the ' + region + ' region.  Thanks',
+								message: 'Please approve "' + PNHNameTemp + '" for the ' + region + ' region.  Thanks\n \nPNH line number: ' + PNHOrderNum + '\n \nPermalink: ' + placePL,
 								preview: 'Preview',
 								attach_sig: 'on',
 							};
@@ -860,7 +862,7 @@
 					// Place Harmonization 
 					var PNHMatchData = harmoList(newName,state2L,region,countryCode);
 					
-					if (PNHMatchData !== "NoMatch") { // *** Replace place data with PNH data
+					if (PNHMatchData[0] !== "NoMatch" && PNHMatchData[0] !== "ApprovalNeeded" ) { // *** Replace place data with PNH data
 						
 						var PNH_DATA_headers = USA_PNH_DATA[0].split("|");
 						var ph_name_ix = PNH_DATA_headers.indexOf("ph_name");
@@ -882,7 +884,8 @@
 						var altCategories = PNHMatchData[ph_category2_ix];
 						newDescripion = PNHMatchData[ph_description_ix];
 						newURL = PNHMatchData[ph_url_ix];
-						
+						PNHOrderNum = PNHMatchData[ph_order_ix];
+												
 						// Add secondary categories from PNH data
 						if (altCategories !== "0" && altCategories !== "") {
 							altCategories = altCategories.replace(/,[^A-za-z0-9]+/g, ",");  // tighten up commas if more than one secondary category.
@@ -926,11 +929,6 @@
 								console.log("WMEPH: Description updated");
 								W.model.actionManager.add(new UpdateObject(item, { description: newDescripion }));
 							}
-							newURL = normalizeURL(newName,newURL,addr);
-							if (newURL !== item.attributes.url) {
-								console.log("WMEPH: URL updated");
-								W.model.actionManager.add(new UpdateObject(item, { url: newURL }));
-							}
 							
 							// *** Add storefinder URL codes
 							
@@ -942,7 +940,11 @@
 						
 						
 					} else {  // if no match found
-						sidebarMessage.push("Place is formatted.");  // default message for 
+						if (PNHMatchData[0] === "ApprovalNeeded") {
+							PNHNameTemp = PNHMatchData[1];
+							PNHOrderNum = PNHMatchData[2];
+						}
+						sidebarMessage.push("Place formatted.");  // default message for 
 						newName = toTitleCase(newName);
 						if (newName !== item.attributes.name) {
 							console.log("WMEPH: Name updated");
@@ -950,11 +952,6 @@
 						}
 						if (newName !== toTitleCaseStrong(newName)) {
 							NH_Bann.STC.active = true;
-						}
-						var newUrl = normalizeURL(newName,item.attributes.url,addr);
-						if (newUrl !== item.attributes.url) {
-							console.log("WMEPH: URL updated");
-							W.model.actionManager.add(new UpdateObject(item, { url: newUrl }));
 						}
 					}
 					
@@ -1024,24 +1021,13 @@
 	
 				// Address check
 				if (!item.attributes.name && !item.attributes.residential) {
-					sidebarMessage.push("Place does not have a name.");
+					sidebarMessage.push("Place name is missing.");
 					severity = Math.max(3, severity);
 					lockOK = false;
 				}
-				if (!addr.street || addr.street.isEmpty) {
-					sidebarMessage.push("Place does not have a street.");
-					severity = Math.max(3, severity);
-					lockOK = false;
-				}
-				if (!addr.city || addr.city.isEmpty) {
-					sidebarMessage.push("Place does not have a city.");
-					severity = Math.max(3, severity);
-					lockOK = false;
-				}
-				
 				// House number check
 				if (!item.attributes.houseNumber) {
-					sidebarMessage.push("Place does not have a house number.");
+					sidebarMessage.push("House number is missing.");
 					severity = Math.max(3, severity);
 					lockOK = false;
 				} else {
@@ -1059,12 +1045,31 @@
 						}
 					}
 					if (!hnOK) {
-						sidebarMessage.push("House number is non-standard. Correct it and rerun script, or manually lock if correct.");
+						sidebarMessage.push("House number is non-standard. Correct and rerun script, or manually lock the place.");
 						severity = Math.max(3, severity);
 						lockOK = false;
 					}
 				}
 	
+				if (!addr.street || addr.street.isEmpty) {
+					sidebarMessage.push("Street is missing.");
+					severity = Math.max(3, severity);
+					lockOK = false;
+				}
+				if (!addr.city || addr.city.isEmpty) {
+					sidebarMessage.push("City is missing.");
+					severity = Math.max(3, severity);
+					lockOK = false;
+				}
+				
+				// URL formatting
+				
+				newURL = normalizeURL(newName,newURL,addr);
+				if (newURL !== item.attributes.url) {
+					console.log("WMEPH: URL updated");
+					W.model.actionManager.add(new UpdateObject(item, { url: newURL }));
+				}
+				
 				// Phone formatting		
 				var outputFormat = "({0}) {1}-{2}";
 				if (region === "SER" && !(/^\(\d{3}\) \d{3}-\d{4}$/.test(item.attributes.phone))) {
@@ -1275,7 +1280,9 @@
 		// Function that checks current place against the Harmonization Data.  Returns place data or "NoMatch"		
 		function harmoList(itemName,state2L,region3L,country) {
 			var PNH_DATA_headers = USA_PNH_DATA[0].split("|");  // pull the data header names
+			var ph_name_ix = PNH_DATA_headers.indexOf("ph_name");
 			var ph_region_ix = PNH_DATA_headers.indexOf("ph_region");  // Find the index for regions
+			var ph_order_ix = PNH_DATA_headers.indexOf("ph_order");
 			var nameComps;  // filled with search names to compare against place name
 			var approvedRegions;  // filled with the regions that are approved for the place, when match is found
 			var matchPNHData = [];  // array of matched data
@@ -1288,12 +1295,16 @@
 			var itemNameNoNum = itemName.replace(/[^A-Z]/g, '');  // Clear non-letter characters for alternate match ( HOLLYIVYPUB23 --> HOLLYIVYPUB ) 
 			var t0 = performance.now();  // Speed check start
 			var t1;
+			var PNHOrderNum;
+			var PNHNameTemp;
 			for (var phnum=1; phnum<USA_PNH_NAMES.length; phnum++) {  // for each place on the PNH list (skipping headers at index 0)
 				nameComps = USA_PNH_NAMES[phnum].split("|");  // splits all possible search names for the current PNH entry
 				if (nameComps.indexOf(itemName) > -1 || nameComps.indexOf(itemNameNoNum) > -1 ) {  // Compare WME place name to PNH search name list
 					PNHMatch = true;  // Name match found
 					matchPNHData[currMatchNum] = USA_PNH_DATA[phnum];  // Pull the data line from the PNH data table.  (**Set in array for future multimatch features)
 					var currMatchData = matchPNHData[currMatchNum].split("|");  // Split the PNH place data into string array
+					PNHNameTemp = currMatchData[ph_name_ix];  // temp name for approval return
+					PNHOrderNum = currMatchData[ph_order_ix];  // temp order number for approval return
 					approvedRegions = currMatchData[ph_region_ix].replace(/ /g, '');  // remove spaces from region field
 					approvedRegions = approvedRegions.toUpperCase().split(",");  // upper case the approved regions and split by commas
 					// console.log(approvedRegions);
@@ -1313,14 +1324,17 @@
 				// sidebarMessage.push("PNH data exists but not approved for your state. Contact your SM/RC.");	
 				NH_Bann.ApprovalSubmit.active = true;
 				console.log("WMEPH: PNH data exists but not approved for region.");	
+				t1 = performance.now();  // log search time
+				console.log("WMEPH: Searched all PNH entries in " + (t1 - t0) + " milliseconds.");
+				return ["ApprovalNeeded", PNHNameTemp, PNHOrderNum];
 			} else {  // if no match was found, suggest adding the place to the sheet if it's a chain
 				// sidebarMessage.push("No PNH match.  If it's a chain, please submit the place data to your region's PNH sheet.");	
 				NH_Bann.NewPlaceSubmit.active = true;
 				console.log("WMEPH: Place not found in PNH list.");	
+				t1 = performance.now();  // log search time
+				console.log("WMEPH: Searched all PNH entries in " + (t1 - t0) + " milliseconds.");
+				return ["NoMatch"];
 			}
-			t1 = performance.now();  // log search time
-			console.log("WMEPH: Searched all PNH entries in " + (t1 - t0) + " milliseconds.");
-			return "NoMatch";
 		} // END harmoList function
 		
 		// KB Shortcut object
