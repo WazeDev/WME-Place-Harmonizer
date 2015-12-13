@@ -7,7 +7,7 @@
 // ==UserScript==
 // @name		 Place Harmonizer
 // @namespace 	 https://greasyfork.org/en/users/19426-bmtg
-// @version	  1.0.00
+// @version	  1.0.01
 // @description  Harmonizes, formats, and locks a selected place
 // @author	   WMEPH development group
 // @include			 https://www.waze.com/editor/*
@@ -49,8 +49,8 @@
 	}
 	
 	function runPH() {
-		var WMEPHversion = "1.0.00";
-		WMEPHurl = 'https://www.waze.com/forum/posting.php?mode=reply&f=819&t=164962';
+		var WMEPHversion = "1.0.01";
+		var WMEPHurl = 'https://www.waze.com/forum/posting.php?mode=reply&f=819&t=164962';
 		var isDevVersion = true;
 		// user name and rank
 		var thisUser = W.loginManager.user;
@@ -77,8 +77,8 @@
 			
 		var devVersStr;
 		var devVersStrSpace;
-		var sidebarMessage = [];  // message array
-		var severity = 0;  // track any errors to determine banner color
+		var sidebarMessage;  // message array
+		var severity;  // track any errors to determine banner color
 		var NH_Bann;  // Banner Buttons object
 		
 		if (isDevVersion) {
@@ -94,18 +94,29 @@
 				}
 			}
 			if (confirm('WMEPH: Category Error!\nClick OK to report this error') ) {
-				inputs = {
+				var inputs = {
 					subject: 'Re: WMEPH Bug report',
 					message: 'Error report: category "' + natCategories + '" is not translatable.',
 					addbbcode20: '100',
 					preview: 'Preview',
 					attach_sig: 'on',
 					notify: 'on'
-				}
+				};
 				WMEPH_openPostDataInNewTab(WMEPHurl + '#preview', inputs);
 			}
 			return "ERROR";
 		}  // END catTranslate function
+		
+		// compares two arrays to see if equal, regardless of order
+		function matchSets(array1, array2) {
+			if (array1.length !== array2.length) {return false;}  // compare lengths
+			for (var i = 0, l=array1.length; i < l; i++) {
+				if (array2.indexOf(array1[i]) === -1) { 
+					return false;   
+				}           
+			}       
+			return true;
+		}
 		
 		// Old function, will eventually be removed if not needed.
 		function alertMessage(messageNum) {
@@ -250,15 +261,14 @@
 		// Sets up a div for submitting forms
 		function WMEPH_initialiseFL() {
 			var wmephlinks = WMEPH_getId("WMEPH-forumlink");
-			if (wmephlinks !== null) {return WMEPH_aPerma.href;}
 			var mapFooter = WMEPH_getElementsByClassName("WazeControlPermalink");
 			if (mapFooter.length === 0) {
-				WMEPH_log("WMEPH: error, can't find permalink container");
+				console.log("WMEPH: error, can't find permalink container");
 				setTimeout(WMEPH_initialiseFL, 1000);
 				return;
 			}
-			WMEPH_divPerma = mapFooter[0];
-			WMEPH_aPerma = null;
+			var WMEPH_divPerma = mapFooter[0];
+			var WMEPH_aPerma = null;
 			for (var i = 0; i < WMEPH_divPerma.children.length; i++) {
 				if (WMEPH_divPerma.children[i].className === 'icon-link') {
 					WMEPH_aPerma = WMEPH_divPerma.children[i];
@@ -266,7 +276,8 @@
 				}
 			}
 			//WMEPH_aPerma.style.display = 'none';
-			WMEPH_nodeWMEPH = document.createElement('div');
+			if (wmephlinks !== null) {return WMEPH_aPerma.href;}
+			var WMEPH_nodeWMEPH = document.createElement('div');
 			WMEPH_nodeWMEPH.id = 'WMEPH-forumlink';
 			WMEPH_nodeWMEPH.style.display = 'inline';
 			WMEPH_divPerma.appendChild(WMEPH_nodeWMEPH);
@@ -300,6 +311,8 @@
 					var input;
 					if (k === 'message') {
 						input = document.createElement('textarea');
+					} else if (k === 'username') {
+						input = document.createElement('username_list');
 					} else {
 						input = document.createElement('input');
 					}
@@ -340,23 +353,22 @@
 		}
 		
 		// Banner production
-		function WMEPH_DispWarn(e, t, o) {
+		function WMEPH_DispWarn(e) {
 			"use strict";
 			// var numWords = e.split(' ').length;
-			var r;
-			if ("undefined" === typeof o) {
-				r = 3e7;  // Don't remove the banner
+			//var r;
+			//if ("undefined" === typeof o) {
+			//	r = 3e7;  // Don't remove the banner
 			// OLD: If no duration is specified, use 30 seconds + 3 seconds per word (disabled)
 			//	r = 3e4 + numWords * 3000;
-			} else {r = o;}
-			t !== !0 && (e = "<li>" + e);
+			//} else {r = o;}
+			e = "<li>" + e;
 			var n = $('<div id="WMEPHlog">').append(e);
-			$("#WMEPH_logger_warn").append(n), n.delay(r).slideUp({
-				duration: 200,
-				complete: function() {
-					n.remove();
-				}
-			})
+			$("#WMEPH_logger_warn").append(n);
+			//$("#WMEPH_logger_warn").append(n), n.delay(r).slideUp({
+			//	duration: 200,
+			//	complete: function() { n.remove(); }
+			//})
 		}  // END WMEPH_DispWarn function
 	
 		// Change place.name to title case
@@ -461,34 +473,29 @@
 			var searchStreet = "";
 			var searchCity = "";
 			
-			searchName = searchName.replace(/&/g, function(txt) {  // Replace '&' sign in search name to prevent google search error
-				return "%26";
-			});
-			searchName = searchName.replace(/[ \/]/g, function(txt) {  // Replace spaces and slashes in search name
-				return "%20";
-			});
+			searchName = searchName.replace(/&/g, "%26");
+			searchName = searchName.replace(/[ \/]/g, "%20");
 			
 			if ("string" === typeof addr.street.name) {
 				searchStreet = addr.street.name;
 			}
-			searchStreet = searchStreet.replace(/ /g, function(txt) {  // Replace spaces in search term 
-				return "%20";
-			});
+			searchStreet = searchStreet.replace(/ /g, "%20");
 			
 			if ("string" === typeof addr.city.name) {
 				searchCity = addr.city.name;
 			}
-			searchCity = searchCity.replace(/ /g, function(txt) {  // Replace spaces in search term 
-				return "%20";
-			});
+			searchCity = searchCity.replace(/ /g, "%20");
+			
 			return "http://www.google.com/search?q=" + searchName + ",%20" + searchStreet + ",%20" + searchCity + ",%20" + addr.state.name;
 		} // END buildGLink function
 		
 		// Normalize url
-		function normalizeURL(placeName,s,addr,gLink) {
+		function normalizeURL(placeName,s,addr) {
 			var searchG4S = buildGLink(placeName,addr);  // get a url to search Google for the place
 			if (!s) {  // Notify that url is missing and provide web search to find website and gather data (provided for all editors)
-				sidebarMessage.push('URL missing. (<a href="' + searchG4S + '" target="_blank" style="color: #FFF" title="Do not copy and paste from Google info">Web search</a>)');
+				//sidebarMessage.push('URL missing. (<a href="' + searchG4S + '" target="_blank" style="color: #FFF" title="Do not copy and paste from Google info">Web search</a>)');  // OLD way
+				sidebarMessage.push('URL is missing.');
+				NH_Bann.WebSearch.active = true;  // Activate the web search button
 				severity = Math.max(1, severity);
 				return s;
 			}
@@ -504,9 +511,6 @@
 			m = s.match(/^(.*)\/$/i);  // remove final slash
 			if (m) { s = m[1]; }
 			 
-			if (gLink) {  // post a link to do a web search based on name and address
-				sidebarMessage.push('<a href="' + searchG4S + '" target="_blank" style="color: #FFF" title="Do not copy and paste from Google info">Web search</a>');
-			}
 			return s;
 		}  // END normalizeURL function
 	
@@ -539,27 +543,29 @@
 			}
 			
 			var placePL = WMEPH_initialiseFL();  //  set up external post div and pull place PL
-			console.log(placePL);
-		
-			sidebarMessage = [];  // default message
-			var gLink = false;  // provide Google search link to places
-			if (devUser || betaUser || usrRank > 2) {  // enable the link for all places, for R4+ and betas
-				gLink = true;
-			}
+			//console.log(placePL);
+			
+			var region; var state2L;
+			var newPlaceURL;
+			var approveRegionURL;
+			
+			sidebarMessage = [];
+			severity = 0;
 			
 			NH_Bann = {  // set up banner action buttons.  Structure:
-//				active: false until activated in the script 
-//				bannText: The text before the button option
-//				id: button id
-//				value: button text
-//				cLog: message for console
-//				action: The action that happens if the button is pressed
+				// active: false until activated in the script 
+				// bannText: The text before the button option
+				// id: button id
+				// value: button text
+				// cLog: message for console
+				// action: The action that happens if the button is pressed
 				
 				STC: {  // Force strong title case option
 					active: false,  // Activated if Strong Title Case != Normal Title Case (e.g. HomeSpace Company)
 					bannText: "Force Title Case: ", 
 					id: "toTitleCaseStrong",  
 					value: "Yes", 
+					title: "Force Title Case to InterNal CaPs",
 					cLog: "WMEPH: Applied Strong Title Case",  
 					action: function(item) {
 						newName = toTitleCaseStrong(item.attributes.name);  // Get the Strong Title Case name
@@ -577,6 +583,7 @@
 					bannText: "ATM at location? ",
 					id: "addATMCat",
 					value: "Yes",
+					title: "Add the ATM category to this place",
 					cLog: "WMEPH: Added ATM category",
 					action: function() {
 						newCategories = insertAtIX(categories,"ATM",1);  // Insert ATM category in the second position
@@ -591,6 +598,7 @@
 					bannText: "Is this a USPS location? ",
 					id: "USPSCat",
 					value: "Yes",
+					title: "Is this a USPS location?",
 					cLog: "WMEPH: Fixed USPS",
 					action: function(item) {
 						newServices = ["AIR_CONDITIONING", "CREDIT_CARDS", "PARKING_FOR_CUSTOMERS", "WHEELCHAIR_ACCESSIBLE"];
@@ -602,14 +610,61 @@
 						NH_Bann.USPS.active = false;
 					}
 				},  // END USPS definition
+				WebSearch: {
+					active: false,
+					bannText: "",
+					id: "WebSearch",
+					value: "Web Search",
+					title: "Search the web for this place.  Do not copy info from 3rd party sources!",
+					cLog: "WMEPH: Open web search",
+					action: function(item) {
+						window.open(buildGLink(newName,addr));
+					}
+				},  // END USPS definition
+				NewPlaceSubmit: {
+					active: false,
+					bannText: "If this place is a chain: ",
+					id: "NewPlaceSubmit",
+					value: "Submit new data",
+					title: "Submit info for a new chain through the linked form",
+					cLog: "WMEPH: Open submit new place form",
+					action: function(item) {
+						window.open(newPlaceURL);
+					}
+				},  // END USPS definition
+				ApprovalSubmit: {
+					active: false,
+					bannText: "PNH data exists but is not approved for your region: ",
+					id: "ApprovalSubmit",
+					value: "Request approval",
+					title: "Request region/country approval of this place",
+					cLog: "WMEPH: Open request approval form",
+					action: function(item) {
+						if (region === "SER") {
+							var inputs = {
+								subject: 'PNH place approval',
+								//username: 't0cableguy',
+								message: 'Please approve "' + newName + '" for the ' + region + ' region.  Thanks',
+								preview: 'Preview',
+								attach_sig: 'on',
+							};
+							inputs['address_list[u][16941753]'] = 'to';
+							//WMEPH_openPostDataInNewTab('https://www.waze.com/forum/ucp.php?i=pm&mode=compose' + '#preview', inputs);
+							WMEPH_openPostDataInNewTab('https://www.waze.com/forum/ucp.php?i=pm&mode=compose', inputs);
+						} else {
+							window.open(approveRegionURL);
+						}
+					}
+				},  // END USPS definition
 				PlaceErrorForumPost: {
 					active: true,
 					bannText: "",
 					id: "PlaceErrorForumPost",
-					value: "Report a script error",
+					value: "Report script error",
+					title: "Report an error on the forum",
 					cLog: "WMEPH: Post initiated",
 					action: function(item) {
-						inputs = {
+						var errorInputs = {
 							subject: 'Re: WMEPH Bug report',
 							message: 'Permalink: ' + placePL + '\nPlace name: ' + item.attributes.name + '\nCountry: ' + addr.country.name + '\nDescribe the error:\n ',
 							addbbcode20: '100',
@@ -617,10 +672,16 @@
 							attach_sig: 'on',
 							notify: 'on'
 						};
-						WMEPH_openPostDataInNewTab(WMEPHurl + '#preview', inputs);
+						WMEPH_openPostDataInNewTab(WMEPHurl + '#preview', errorInputs);
 					}
 				}  // END USPS definition
 			};  // END NH_Bann definitions
+			
+			// var gLink = false;  // provide Google search link to places
+			if (devUser || betaUser || usrRank > 2) {  // enable the link for all places, for R4+ and betas
+				NH_Bann.WebSearch.active = true;
+			}
+			
 			
 			// Only can select one place at a time in WME, so the loop is superfluous (eg, ix=0 will work), but perhaps we leave it in case we add some sort of looping process like URs.
 			for (var ix = 0; ix < W.selectionManager.selectedItems.length; ix++) {
@@ -637,8 +698,8 @@
 				var categories = item.attributes.categories;
 				var newCategories = categories.slice(0);
 				var newName = item.attributes.name;
-				var nameShort = newName.replace(/[^A-Za-z]/g, '');  // strip non-letters for PNH name searching
-				var nameNumShort = newName.replace(/[^A-Za-z0-9]/g, ''); // strip non-letters/non-numbers for PNH name searching
+				// var nameShort = newName.replace(/[^A-Za-z]/g, '');  // strip non-letters for PNH name searching
+				// var nameNumShort = newName.replace(/[^A-Za-z0-9]/g, ''); // strip non-letters/non-numbers for PNH name searching
 				var newAliases = item.attributes.aliases.slice(0);
 				var newDescripion = item.attributes.description;
 				var newURL = item.attributes.url;
@@ -665,7 +726,6 @@
 					return;
 				}
 				
-				var region; var state2L;
 				if (countryCode === "USA") {
 					// Setup USA State and Regional vars
 					switch (addr.state.name) {
@@ -723,6 +783,38 @@
 						default: state2L = "Unknown"; region = "Unknown";
 					}
 					console.log("WMEPH: Place is in region " + region);
+					switch (region) {
+						case "NWR": newPlaceURL = "https://docs.google.com/forms/d/1hv5hXBlGr1pTMmo4n3frUx1DovUODbZodfDBwwTc7HE/viewform"; break;
+						case "SWR": newPlaceURL = "https://docs.google.com/forms/d/1Qf2N4fSkNzhVuXJwPBJMQBmW0suNuy8W9itCo1qgJL4/viewform"; break;
+						case "HI": newPlaceURL = "https://docs.google.com/forms/d/1Qf2N4fSkNzhVuXJwPBJMQBmW0suNuy8W9itCo1qgJL4/viewform"; break;
+						case "PLN": newPlaceURL = "https://docs.google.com/forms/d/1ycXtAppoR5eEydFBwnghhu1hkHq26uabjUu8yAlIQuI/viewform"; break;
+						case "SCR": newPlaceURL = "https://docs.google.com/forms/d/1KZzLdlX0HLxED5Bv0wFB-rWccxUp2Mclih5QJIQFKSQ/viewform"; break;
+						case "TX": newPlaceURL = "https://docs.google.com/forms/d/1KZzLdlX0HLxED5Bv0wFB-rWccxUp2Mclih5QJIQFKSQ/viewform"; break;
+						case "GLR": newPlaceURL = "https://docs.google.com/forms/d/19btj-Qt2-_TCRlcS49fl6AeUT95Wnmu7Um53qzjj9BA/viewform"; break;
+						case "SAT": newPlaceURL = "https://docs.google.com/forms/d/1bxgK_20Jix2ahbmUvY1qcY0-RmzUBT6KbE5kjDEObF8/viewform"; break;
+						case "SER": newPlaceURL = "https://docs.google.com/forms/d/1On4kgz3We_vmWBxARkexXqK6bhVMizeiQ7o7Yt7gB8c/viewform"; break;
+						case "TER": newPlaceURL = "https://docs.google.com/forms/d/1v7JhffTfr62aPSOp8qZHA_5ARkBPldWWJwDeDzEioR0/viewform"; break;
+						case "NEW": newPlaceURL = "https://docs.google.com/forms/d/1UgFAMdSQuJAySHR0D86frvphp81l7qhEdJXZpyBZU6c/viewform"; break;
+						case "NOR": newPlaceURL = "https://docs.google.com/forms/d/1iYq2rd9HRd-RBsKqmbHDIEBGuyWBSyrIHC6QLESfm4c/viewform"; break;
+						case "MAR": newPlaceURL = "https://docs.google.com/forms/d/1PhL1iaugbRMc3W-yGdqESoooeOz-TJIbjdLBRScJYOk/viewform"; break;
+						default: newPlaceURL = "Unknown"; region = "Unknown";
+					}
+					switch (region) {
+						case "NWR": approveRegionURL = "https://docs.google.com/forms/d/1hv5hXBlGr1pTMmo4n3frUx1DovUODbZodfDBwwTc7HE/viewform"; break;
+						case "SWR": approveRegionURL = "https://docs.google.com/forms/d/1Qf2N4fSkNzhVuXJwPBJMQBmW0suNuy8W9itCo1qgJL4/viewform"; break;
+						case "HI": approveRegionURL = "https://docs.google.com/forms/d/1Qf2N4fSkNzhVuXJwPBJMQBmW0suNuy8W9itCo1qgJL4/viewform"; break;
+						case "PLN": approveRegionURL = "https://docs.google.com/forms/d/1ycXtAppoR5eEydFBwnghhu1hkHq26uabjUu8yAlIQuI/viewform"; break;
+						case "SCR": approveRegionURL = "https://docs.google.com/forms/d/1KZzLdlX0HLxED5Bv0wFB-rWccxUp2Mclih5QJIQFKSQ/viewform"; break;
+						case "TX": approveRegionURL = "https://docs.google.com/forms/d/1KZzLdlX0HLxED5Bv0wFB-rWccxUp2Mclih5QJIQFKSQ/viewform"; break;
+						case "GLR": approveRegionURL = "https://docs.google.com/forms/d/19btj-Qt2-_TCRlcS49fl6AeUT95Wnmu7Um53qzjj9BA/viewform"; break;
+						case "SAT": approveRegionURL = "https://docs.google.com/forms/d/1bxgK_20Jix2ahbmUvY1qcY0-RmzUBT6KbE5kjDEObF8/viewform"; break;
+						case "SER": approveRegionURL = "https://docs.google.com/forms/d/1On4kgz3We_vmWBxARkexXqK6bhVMizeiQ7o7Yt7gB8c/viewform"; break;
+						case "TER": approveRegionURL = "https://docs.google.com/forms/d/1v7JhffTfr62aPSOp8qZHA_5ARkBPldWWJwDeDzEioR0/viewform"; break;
+						case "NEW": approveRegionURL = "https://docs.google.com/forms/d/1UgFAMdSQuJAySHR0D86frvphp81l7qhEdJXZpyBZU6c/viewform"; break;
+						case "NOR": approveRegionURL = "https://docs.google.com/forms/d/1iYq2rd9HRd-RBsKqmbHDIEBGuyWBSyrIHC6QLESfm4c/viewform"; break;
+						case "MAR": approveRegionURL = "https://docs.google.com/forms/d/1PhL1iaugbRMc3W-yGdqESoooeOz-TJIbjdLBRScJYOk/viewform"; break;
+						default: newPlaceURL = "Unknown"; region = "Unknown";
+					}
 				}
 				
 				if (countryCode === "CAN") {
@@ -770,18 +862,18 @@
 					
 					if (PNHMatchData !== "NoMatch") { // *** Replace place data with PNH data
 						
-						var USA_PNH_DATA_headers = USA_PNH_DATA[0].split("|");
-						var ph_name_ix = USA_PNH_DATA_headers.indexOf("ph_name");
-						var ph_aliases_ix = USA_PNH_DATA_headers.indexOf("ph_aliases");
-						var ph_category1_ix = USA_PNH_DATA_headers.indexOf("ph_category1");
-						var ph_category2_ix = USA_PNH_DATA_headers.indexOf("ph_category2");
-						var ph_description_ix = USA_PNH_DATA_headers.indexOf("ph_description");
-						var ph_url_ix = USA_PNH_DATA_headers.indexOf("ph_url");
-						var ph_order_ix = USA_PNH_DATA_headers.indexOf("ph_order");
-						var ph_notes_ix = USA_PNH_DATA_headers.indexOf("ph_notes");
-						var ph_speccase_ix = USA_PNH_DATA_headers.indexOf("ph_speccase");
-						var ph_sfurl_ix = USA_PNH_DATA_headers.indexOf("ph_sfurl");
-						var ph_sfurllocal_ix = USA_PNH_DATA_headers.indexOf("ph_sfurllocal");
+						var PNH_DATA_headers = USA_PNH_DATA[0].split("|");
+						var ph_name_ix = PNH_DATA_headers.indexOf("ph_name");
+						var ph_aliases_ix = PNH_DATA_headers.indexOf("ph_aliases");
+						var ph_category1_ix = PNH_DATA_headers.indexOf("ph_category1");
+						var ph_category2_ix = PNH_DATA_headers.indexOf("ph_category2");
+						var ph_description_ix = PNH_DATA_headers.indexOf("ph_description");
+						var ph_url_ix = PNH_DATA_headers.indexOf("ph_url");
+						var ph_order_ix = PNH_DATA_headers.indexOf("ph_order");
+						var ph_notes_ix = PNH_DATA_headers.indexOf("ph_notes");
+						var ph_speccase_ix = PNH_DATA_headers.indexOf("ph_speccase");
+						var ph_sfurl_ix = PNH_DATA_headers.indexOf("ph_sfurl");
+						var ph_sfurllocal_ix = PNH_DATA_headers.indexOf("ph_sfurllocal");
 						
 						//populate the variables from PNH data
 						newName = PNHMatchData[ph_name_ix];
@@ -802,7 +894,7 @@
 						
 						// Translate the natural language categories to the WME categories
 						for (var catix = 0; catix<newCategories.length; catix++) {
-							 newCatTemp = catTranslate(newCategories[catix]);
+							 var newCatTemp = catTranslate(newCategories[catix]);
 							 if (newCatTemp === "ERROR") {
 								 console.log('WMEPH: category ' + newCategories[catix] + 'cannot be translated.');
 								 return;
@@ -821,11 +913,12 @@
 								console.log("WMEPH: Name updated");
 								W.model.actionManager.add(new UpdateObject(item, { name: newName }));
 							}
-							if (newAliases !== item.attributes.aliases && newAliases !== "0" && newAliases !== "") {
+							if (!matchSets(item.attributes.aliases,newAliases) && newAliases !== "0" && newAliases !== "") {
 								console.log("WMEPH: Alt Names updated");
 								W.model.actionManager.add(new UpdateObject(item, { aliases: newAliases }));
 							}
-							if (newCategories !== item.attributes.categories) {
+							
+							if (!matchSets(item.attributes.categories,newCategories)) {
 								console.log("WMEPH: Categories updated");
 								W.model.actionManager.add(new UpdateObject(item, { categories: newCategories }));
 							}
@@ -833,7 +926,7 @@
 								console.log("WMEPH: Description updated");
 								W.model.actionManager.add(new UpdateObject(item, { description: newDescripion }));
 							}
-							newURL = normalizeURL(newName,newURL,addr,gLink);
+							newURL = normalizeURL(newName,newURL,addr);
 							if (newURL !== item.attributes.url) {
 								console.log("WMEPH: URL updated");
 								W.model.actionManager.add(new UpdateObject(item, { url: newURL }));
@@ -858,7 +951,7 @@
 						if (newName !== toTitleCaseStrong(newName)) {
 							NH_Bann.STC.active = true;
 						}
-						var newUrl = normalizeURL(newName,item.attributes.url,addr,gLink);
+						var newUrl = normalizeURL(newName,item.attributes.url,addr);
 						if (newUrl !== item.attributes.url) {
 							console.log("WMEPH: URL updated");
 							W.model.actionManager.add(new UpdateObject(item, { url: newUrl }));
@@ -873,17 +966,17 @@
 	
 				
 				// Category/Name-based Services, added to any existing services:
-				if ( containsAny(categories,["BANK_FINANCIAL","ATM"]) ) {
+				if ( containsAny(newCategories,["BANK_FINANCIAL","ATM"]) ) {
 					addServices = ["AIR_CONDITIONING", "PARKING_FOR_CUSTOMERS", "WHEELCHAIR_ACCESSIBLE"];
 				}
-				if ( containsAny(categories,["SHOPPING_CENTER","PARKING_LOT","GARAGE_AUTOMOTIVE_SHOP"]) ) {
+				if ( containsAny(newCategories,["SHOPPING_CENTER","PARKING_LOT","GARAGE_AUTOMOTIVE_SHOP"]) ) {
 					addServices = ["PARKING_FOR_CUSTOMERS", "WHEELCHAIR_ACCESSIBLE"];
 				}
-				if ( containsAny(categories,["HOSPITAL_MEDICAL_CARE","DEPARTMENT_STORE","RESTAURANT","CAFE","CAR_DEALERSHIP","FURNITURE_HOME_STORE","SPORTING_GOODS",
+				if ( containsAny(newCategories,["HOSPITAL_MEDICAL_CARE","DEPARTMENT_STORE","RESTAURANT","CAFE","CAR_DEALERSHIP","FURNITURE_HOME_STORE","SPORTING_GOODS",
 				"CAR_DEALERSHIP","BAR","GYM_FITNESS","CONVENIENCE_STORE","SUPERMARKET_GROCERY","PET_STORE_VETERINARIAN_SERVICES","TOY_STORE","PERSONAL_CARE"]) ) {
 					addServices = ["RESTROOMS", "CREDIT_CARDS", "AIR_CONDITIONING", "PARKING_FOR_CUSTOMERS", "WHEELCHAIR_ACCESSIBLE"];
 				}
-				if ( containsAny(categories,["BOOKSTORE","FASHION_AND_CLOTHING","PERSONAL_CARE","BAKERY","HARDWARE_STORE","DESSERT","FAST_FOOD","PHARMACY","ELECTRONICS",
+				if ( containsAny(newCategories,["BOOKSTORE","FASHION_AND_CLOTHING","PERSONAL_CARE","BAKERY","HARDWARE_STORE","DESSERT","FAST_FOOD","PHARMACY","ELECTRONICS",
 					"FLOWERS","MARKET","JEWELRY","MUSIC_STORE"]) ) {
 					addServices = ["CREDIT_CARDS", "AIR_CONDITIONING", "PARKING_FOR_CUSTOMERS", "WHEELCHAIR_ACCESSIBLE"];
 				}
@@ -952,7 +1045,7 @@
 					severity = Math.max(3, severity);
 					lockOK = false;
 				} else {
-					hnOK = false;
+					var hnOK = false;
 					var hnTemp = item.attributes.houseNumber.replace(/[^\d]/g, '');  // Digits only
 					var hnTempDash = item.attributes.houseNumber.replace(/[^\d-]/g, '');  // Digits and dashes only
 					if (hnTemp === item.attributes.houseNumber || hnTemp < 1000000) {  //  general check that HN is 6 digits or less, & that it is only [0-9]
@@ -989,18 +1082,13 @@
 					}
 				} 
 				
-						
 				// Post Office cat check
 				if (newCategories.indexOf("POST_OFFICE") > -1) {
 					NH_Bann.USPS.active = true;
 				}
 	
 				//	Add services to existing, only if they are different than what's there
-				var servMatch = true;  
-				for (var idServ = 0; idServ < newServices.length; idServ++) {
-					if (item.attributes.services.indexOf(newServices[idServ]) === -1) { servMatch = false; }
-				}
-				if (!item.attributes.residential && !servMatch && $("#WMEPH-EnableServices" + devVersStr).prop('checked')) {
+				if (!item.attributes.residential && !matchSets(item.attributes.services,newServices) && $("#WMEPH-EnableServices" + devVersStr).prop('checked')) {
 					console.log("WMEPH: Services updated");
 					W.model.actionManager.add(new UpdateObject(item, { services: newServices }));
 				} else if (item.attributes.residential) {
@@ -1062,7 +1150,7 @@
 						sidebarMessage.push("If this is a 'UPS Store' location, please change the name to The UPS Store and run the script again.");
 						severity = Math.max(1, severity);
 					}
-					nameShortSpace = newName.replace(/[^A-Za-z ]/g, '');
+					var nameShortSpace = newName.replace(/[^A-Za-z ]/g, '');
 					if ( ["HOME","MY HOME","HOUSE","MY HOUSE","CASA","MI CASA"].indexOf( nameShortSpace.toUpperCase() ) > -1 ) {
 						sidebarMessage.push("The place name suggests a residential place.  Please verify.");
 						severity = Math.max(2, severity);
@@ -1088,7 +1176,7 @@
 						severity = Math.max(1, severity);
 					}
 					if (newCategories.indexOf("POST_OFFICE") > -1) {
-						customStoreURL = "https://tools.usps.com/go/POLocatorAction.action";
+						var customStoreURL = "https://tools.usps.com/go/POLocatorAction.action";
 						customStoreFinder = true;
 						sidebarMessage.push("Please verify that the primary post office name is properly named: 'USPS - Branch Name'. If this isn't a USPS post office (eg UPS, Fedex, Mailboxes Etc.), please undo the script changes and change the category.  'Post Office' is only used for USPS locations.");
 						severity = Math.max(1, severity);
@@ -1129,7 +1217,7 @@
 			for (var NHix = 0; NHix < Object.keys(NH_Bann).length; NHix++ ) {
 				var tempKey = Object.keys(NH_Bann)[NHix];
 				if (NH_Bann[tempKey].active) {
-					sidebarMessageEXT.push(NH_Bann[tempKey].bannText + '<input class="PHbutton" id="' + NH_Bann[tempKey].id + '" type="button" value="' + NH_Bann[tempKey].value + '">');
+					sidebarMessageEXT.push(NH_Bann[tempKey].bannText + '<input class="PHbutton" id="' + NH_Bann[tempKey].id + '" title="' + NH_Bann[tempKey].title + '" type="button" value="' + NH_Bann[tempKey].value + '">');
 				}
 			}
 			displayBanners(sidebarMessageEXT.join("<li>"), severity);
@@ -1186,8 +1274,8 @@
 		
 		// Function that checks current place against the Harmonization Data.  Returns place data or "NoMatch"		
 		function harmoList(itemName,state2L,region3L,country) {
-			var USA_PNH_DATA_headers = USA_PNH_DATA[0].split("|");  // pull the data header names
-			var ph_region_ix = USA_PNH_DATA_headers.indexOf("ph_region");  // Find the index for regions
+			var PNH_DATA_headers = USA_PNH_DATA[0].split("|");  // pull the data header names
+			var ph_region_ix = PNH_DATA_headers.indexOf("ph_region");  // Find the index for regions
 			var nameComps;  // filled with search names to compare against place name
 			var approvedRegions;  // filled with the regions that are approved for the place, when match is found
 			var matchPNHData = [];  // array of matched data
@@ -1221,12 +1309,13 @@
 			}  // END loop through PNH places
 			
 			// If NO (name & region) match was found:
-			console.log(PNHMatch);
 			if (PNHMatch) {  // if a name match was found but not for region, prod the user to get it approved
-				sidebarMessage.push("PNH data exists but not approved for your state. Contact your SM/RC.");	
+				// sidebarMessage.push("PNH data exists but not approved for your state. Contact your SM/RC.");	
+				NH_Bann.ApprovalSubmit.active = true;
 				console.log("WMEPH: PNH data exists but not approved for region.");	
 			} else {  // if no match was found, suggest adding the place to the sheet if it's a chain
-				sidebarMessage.push("No PNH match.  If it's a chain, please submit the place data to your region's PNH sheet.");	
+				// sidebarMessage.push("No PNH match.  If it's a chain, please submit the place data to your region's PNH sheet.");	
+				NH_Bann.NewPlaceSubmit.active = true;
 				console.log("WMEPH: Place not found in PNH list.");	
 			}
 			t1 = performance.now();  // log search time
@@ -1234,281 +1323,98 @@
 			return "NoMatch";
 		} // END harmoList function
 		
-		
-		
-		// Populate a submission form for new chains
-	//	var PHSubForm = FormApp.openByUrl(
-	//		'https://docs.google.com/forms/d/1hv5hXBlGr1pTMmo4n3frUx1DovUODbZodfDBwwTc7HE/viewform'
-	//	);
-	//	console.log(PHSubForm);
-	//	 
-	//	 function evenBetterBuildUrls() {
-	//		var ss = SpreadsheetApp.getActive();
-	//		var sheet = ss.getSheetByName("Form Responses 1");
-	//		var data = ss.getDataRange().getValues();  // Data for pre-fill
-	//		var headers = data[0];					 // Sheet headers == form titles (questions)
-	//		
-	//		var formUrl = ss.getFormUrl();			 // Use form attached to sheet
-	//		var form = FormApp.openByUrl(
-	//	'https://docs.google.com/forms/d/1hv5hXBlGr1pTMmo4n3frUx1DovUODbZodfDBwwTc7HE/viewform'
-	//		);
-	//		var items = form.getItems();
-	//		var urlCol = headers.indexOf("Prefilled URL");   // If there is a column labeled this way, we'll update it
-	//		
-	//		// Skip headers, then build URLs for each row in Sheet1.
-	//		for (var row = 1; row < data.length; row++ ) {
-	//		  Logger.log("Generating pre-filled URL from spreadsheet for row="+row);
-	//		  // build a response from spreadsheet info.
-	//		  var response = form.createResponse();
-	//		  for (var i=0; i<items.length; i++) {
-	//			var ques = items[i].getTitle();		   // Get text of question for item
-	//			var quesCol = headers.indexOf(ques);	  // Get col index that contains this question
-	//			var resp = ques ? data[row][quesCol] : "";
-	//			var type = items[i].getType().toString();
-	//			Logger.log("Question='"+ques+"', resp='"+resp+"' type:"+type);
-	//			// Need to treat every type of answer as its specific type.
-	//			switch (items[i].getType()) {
-	//			  case FormApp.ItemType.TEXT:
-	//				var item = items[i].asTextItem();
-	//				break;
-	//			  case FormApp.ItemType.PARAGRAPH_TEXT: 
-	//				item = items[i].asParagraphTextItem();
-	//				break;
-	//			  case FormApp.ItemType.LIST:
-	//				item = items[i].asListItem();
-	//				break;
-	//			  case FormApp.ItemType.MULTIPLE_CHOICE:
-	//				item = items[i].asMultipleChoiceItem();
-	//				break;
-	//			  case FormApp.ItemType.CHECKBOX:
-	//				item = items[i].asCheckboxItem();
-	//				// In a form submission event, resp is an array, containing CSV strings. Join into 1 string.
-	//				// In spreadsheet, just CSV string. Convert to array of separate choices, ready for createResponse().
-	//				if (typeof resp !== 'string')
-	//				  resp = resp.join(',');	  // Convert array to CSV
-	//				resp = resp.split(/ *, */);   // Convert CSV to array
-	//				break;
-	//			  case FormApp.ItemType.DATE:
-	//				item = items[i].asDateItem();
-	//				resp = new Date( resp );
-	//				break;
-	//			  case FormApp.ItemType.DATETIME:
-	//				item = items[i].asDateTimeItem();
-	//				resp = new Date( resp );
-	//				break;
-	//			  default:
-	//				item = null;  // Not handling DURATION, GRID, IMAGE, PAGE_BREAK, SCALE, SECTION_HEADER, TIME
-	//				break;
-	//			}
-	//			// Add this answer to our pre-filled URL
-	//			if (item) {
-	//			  var respItem = item.createResponse(resp);
-	//			  response.withItemResponse(respItem);
-	//			}
-	//			// else if we have any other type of response, we'll skip it
-	//			else Logger.log("Skipping i="+i+", question="+ques+" type:"+type);
-	//		  }
-	//		  // Generate the pre-filled URL for this row
-	//		  var editResponseUrl = response.toPrefilledUrl();
-	//		  // If there is a "Prefilled URL" column, update it
-	//		  if (urlCol >= 0) {
-	//			var urlRange = sheet.getRange(row+1,urlCol+1).setValue(editResponseUrl);
-	//		  }
-	//		}
-	//	};
-	//	
-	
-	
-		// KB Shortcut function
+		// KB Shortcut object
 		var shortcut = {
 			'all_shortcuts': {}, //All the shortcuts are stored in this array
 			'add': function(shortcut_combination, callback, opt) {
 				//Provide a set of default options
-				var default_options = {
-					'type': 'keydown',
-					'propagate': false,
-					'disable_in_input': false,
-					'target': document,
-					'keycode': false
-				}
-				if (!opt) opt = default_options;
+				var default_options = { 'type': 'keydown', 'propagate': false, 'disable_in_input': false, 'target': document, 'keycode': false };
+				if (!opt) {opt = default_options;}
 				else {
 					for (var dfo in default_options) {
-						if (typeof opt[dfo] == 'undefined') opt[dfo] = default_options[dfo];
+						if (typeof opt[dfo] === 'undefined') {opt[dfo] = default_options[dfo];}
 					}
 				}
-	
 				var ele = opt.target;
-				if (typeof opt.target == 'string') ele = document.getElementById(opt.target);
+				if (typeof opt.target === 'string') {ele = document.getElementById(opt.target);}
 				var ths = this;
 				shortcut_combination = shortcut_combination.toLowerCase();
-	
 				//The function to be called at keypress
 				var func = function(e) {
 					e = e || window.event;
-	
 					if (opt['disable_in_input']) { //Don't enable shortcut keys in Input, Textarea fields
 						var element;
-						if (e.target) element = e.target;
-						else if (e.srcElement) element = e.srcElement;
-						if (element.nodeType == 3) element = element.parentNode;
-	
-						if (element.tagName == 'INPUT' || element.tagName == 'TEXTAREA') return;
+						if (e.target) {element = e.target;}
+						else if (e.srcElement) {element = e.srcElement;}
+						if (element.nodeType === 3) {element = element.parentNode;}
+						if (element.tagName === 'INPUT' || element.tagName === 'TEXTAREA') {return;}
 					}
-	
 					//Find Which key is pressed
 					var code;
-					if (e.keyCode) code = e.keyCode;
-					else if (e.which) code = e.which;
+					if (e.keyCode) {code = e.keyCode;}
+					else if (e.which) {code = e.which;}
 					var character = String.fromCharCode(code).toLowerCase();
-	
-					if (code == 188) character = ","; //If the user presses , when the type is onkeydown
-					if (code == 190) character = "."; //If the user presses , when the type is onkeydown
-	
+					if (code === 188) {character = ",";} //If the user presses , when the type is onkeydown
+					if (code === 190) {character = ".";} //If the user presses , when the type is onkeydown
 					var keys = shortcut_combination.split("+");
 					//Key Pressed - counts the number of valid keypresses - if it is same as the number of keys, the shortcut function is invoked
 					var kp = 0;
-	
 					//Work around for stupid Shift key bug created by using lowercase - as a result the shift+num combination was broken
-					var shift_nums = {
-							"`": "~",
-							"1": "!",
-							"2": "@",
-							"3": "#",
-							"4": "$",
-							"5": "%",
-							"6": "^",
-							"7": "&",
-							"8": "*",
-							"9": "(",
-							"0": ")",
-							"-": "_",
-							"=": "+",
-							";": ":",
-							"'": "\"",
-							",": "<",
-							".": ">",
-							"/": "?",
-							"\\": "|"
-						}
+					var shift_nums = { "`": "~","1": "!","2": "@","3": "#","4": "$","5": "%","6": "^","7": "&",
+							"8": "*","9": "(","0": ")","-": "_","=": "+",";": ":","'": "\"",",": "<",".": ">","/": "?","\\": "|" };
 						//Special Keys - and their codes
-					var special_keys = {
-						'esc': 27,
-						'escape': 27,
-						'tab': 9,
-						'space': 32,
-						'return': 13,
-						'enter': 13,
-						'backspace': 8,
-						'scrolllock': 145,
-						'scroll_lock': 145,
-						'scroll': 145,
-						'capslock': 20,
-						'caps_lock': 20,
-						'caps': 20,
-						'numlock': 144,
-						'num_lock': 144,
-						'num': 144,
-						'pause': 19,
-						'break': 19,
-						'insert': 45,
-						'home': 36,
-						'delete': 46,
-						'end': 35,
-						'pageup': 33,
-						'page_up': 33,
-						'pu': 33,
-						'pagedown': 34,
-						'page_down': 34,
-						'pd': 34,
-						'left': 37,
-						'up': 38,
-						'right': 39,
-						'down': 40,
-						'f1': 112,
-						'f2': 113,
-						'f3': 114,
-						'f4': 115,
-						'f5': 116,
-						'f6': 117,
-						'f7': 118,
-						'f8': 119,
-						'f9': 120,
-						'f10': 121,
-						'f11': 122,
-						'f12': 123
-					}
-	
+					var special_keys = { 'esc': 27,'escape': 27,'tab': 9,'space': 32,'return': 13,'enter': 13,'backspace': 8,'scrolllock': 145,
+						'scroll_lock': 145,'scroll': 145,'capslock': 20,'caps_lock': 20,'caps': 20,'numlock': 144,'num_lock': 144,'num': 144,
+						'pause': 19,'break': 19,'insert': 45,'home': 36,'delete': 46,'end': 35,'pageup': 33,'page_up': 33,'pu': 33,'pagedown': 34,
+						'page_down': 34,'pd': 34,'left': 37,'up': 38,'right': 39,'down': 40,'f1': 112,'f2': 113,'f3': 114,'f4': 115,'f5': 116,
+						'f6': 117,'f7': 118,'f8': 119,'f9': 120,'f10': 121,'f11': 122,'f12': 123 };
 					var modifiers = {
-						shift: {
-							wanted: false,
-							pressed: false
-						},
-						ctrl: {
-							wanted: false,
-							pressed: false
-						},
-						alt: {
-							wanted: false,
-							pressed: false
-						},
-						meta: {
-							wanted: false,
-							pressed: false
-						} //Meta is Mac specific
+						shift: { wanted: false, pressed: false },
+						ctrl: { wanted: false, pressed: false },
+						alt: { wanted: false, pressed: false },
+						meta: { wanted: false, pressed: false } //Meta is Mac specific
 					};
-	
-					if (e.ctrlKey) modifiers.ctrl.pressed = true;
-					if (e.shiftKey) modifiers.shift.pressed = true;
-					if (e.altKey) modifiers.alt.pressed = true;
-					if (e.metaKey) modifiers.meta.pressed = true;
-	
+					if (e.ctrlKey) {modifiers.ctrl.pressed = true;}
+					if (e.shiftKey) {modifiers.shift.pressed = true;}
+					if (e.altKey) {modifiers.alt.pressed = true;}
+					if (e.metaKey) {modifiers.meta.pressed = true;}
 					var k;
 					for (var i = 0; k = keys[i], i < keys.length; i++) {
 						//Modifiers
-						if (k == 'ctrl' || k == 'control') {
+						if (k === 'ctrl' || k === 'control') {
 							kp++;
 							modifiers.ctrl.wanted = true;
-	
-						} else if (k == 'shift') {
+						} else if (k === 'shift') {
 							kp++;
 							modifiers.shift.wanted = true;
-	
-						} else if (k == 'alt') {
+						} else if (k === 'alt') {
 							kp++;
 							modifiers.alt.wanted = true;
-						} else if (k == 'meta') {
+						} else if (k === 'meta') {
 							kp++;
 							modifiers.meta.wanted = true;
 						} else if (k.length > 1) { //If it is a special key
-							if (special_keys[k] == code) kp++;
-	
+							if (special_keys[k] === code) {kp++;}
 						} else if (opt['keycode']) {
-							if (opt['keycode'] == code) kp++;
-	
+							if (opt['keycode'] === code) {kp++;}
 						} else { //The special keys did not match
-							if (character == k) kp++;
+							if (character === k) {kp++;}
 							else {
 								if (shift_nums[character] && e.shiftKey) { //Stupid Shift key bug created by using lowercase
 									character = shift_nums[character];
-									if (character == k) kp++;
+									if (character === k) {kp++;}
 								}
 							}
 						}
 					}
 	
-					if (kp == keys.length &&
-						modifiers.ctrl.pressed == modifiers.ctrl.wanted &&
-						modifiers.shift.pressed == modifiers.shift.wanted &&
-						modifiers.alt.pressed == modifiers.alt.wanted &&
-						modifiers.meta.pressed == modifiers.meta.wanted) {
+					if (kp === keys.length && modifiers.ctrl.pressed === modifiers.ctrl.wanted && modifiers.shift.pressed === modifiers.shift.wanted && 
+						modifiers.alt.pressed === modifiers.alt.wanted && modifiers.meta.pressed === modifiers.meta.wanted) {
 						callback(e);
-	
 						if (!opt['propagate']) { //Stop the event
 							//e.cancelBubble is supported by IE - this will kill the bubbling process.
 							e.cancelBubble = true;
 							e.returnValue = false;
-	
 							//e.stopPropagation works in Firefox.
 							if (e.stopPropagation) {
 								e.stopPropagation();
@@ -1517,33 +1423,27 @@
 							return false;
 						}
 					}
-				}
-				this.all_shortcuts[shortcut_combination] = {
-					'callback': func,
-					'target': ele,
-					'event': opt['type']
 				};
+				this.all_shortcuts[shortcut_combination] = { 'callback': func, 'target': ele, 'event': opt['type'] };
 				//Attach the function with the event
-				if (ele.addEventListener) ele.addEventListener(opt['type'], func, false);
-				else if (ele.attachEvent) ele.attachEvent('on' + opt['type'], func);
-				else ele['on' + opt['type']] = func;
+				if (ele.addEventListener) {ele.addEventListener(opt['type'], func, false);}
+				else if (ele.attachEvent) {ele.attachEvent('on' + opt['type'], func);}
+				else {ele['on' + opt['type']] = func;}
 			},
-	
 			//Remove the shortcut - just specify the shortcut and I will remove the binding
 			'remove': function(shortcut_combination) {
 				shortcut_combination = shortcut_combination.toLowerCase();
 				var binding = this.all_shortcuts[shortcut_combination];
-				delete(this.all_shortcuts[shortcut_combination])
-				if (!binding) return;
+				delete(this.all_shortcuts[shortcut_combination]);
+				if (!binding) {return;}
 				var type = binding['event'];
 				var ele = binding['target'];
 				var callback = binding['callback'];
-	
-				if (ele.detachEvent) ele.detachEvent('on' + type, callback);
-				else if (ele.removeEventListener) ele.removeEventListener(type, callback, false);
-				else ele['on' + type] = false;
+				if (ele.detachEvent) {ele.detachEvent('on' + type, callback);}
+				else if (ele.removeEventListener) {ele.removeEventListener(type, callback, false);}
+				else {ele['on' + type] = false;}
 			}
-		}  // END Shortcut function
+		};  // END Shortcut function
 		
 		
 	} // END runPH Function
@@ -1551,12 +1451,12 @@
 	
 	// This function runs at script load, and builds the search name dataset to compare the WME selected place name to.
 	function makeNameCheckList() {  // Builds the list of search names to match to the WME place name
-		var USA_PNH_DATA_headers = USA_PNH_DATA[0].split("|");  // split the data headers out
-		var ph_name_ix = USA_PNH_DATA_headers.indexOf("ph_name");  // find the indices needed for the function
-		var ph_category1_ix = USA_PNH_DATA_headers.indexOf("ph_category1");
-		var ph_searchnamebase_ix = USA_PNH_DATA_headers.indexOf("ph_searchnamebase");
-		var ph_searchnamemid_ix = USA_PNH_DATA_headers.indexOf("ph_searchnamemid");
-		var ph_searchnameend_ix = USA_PNH_DATA_headers.indexOf("ph_searchnameend");
+		var PNH_DATA_headers = USA_PNH_DATA[0].split("|");  // split the data headers out
+		var ph_name_ix = PNH_DATA_headers.indexOf("ph_name");  // find the indices needed for the function
+		var ph_category1_ix = PNH_DATA_headers.indexOf("ph_category1");
+		var ph_searchnamebase_ix = PNH_DATA_headers.indexOf("ph_searchnamebase");
+		var ph_searchnamemid_ix = PNH_DATA_headers.indexOf("ph_searchnamemid");
+		var ph_searchnameend_ix = PNH_DATA_headers.indexOf("ph_searchnameend");
 		var t0 = performance.now();  // Speed check start
 		var newNameListLength;  // static list length
 		
@@ -1605,32 +1505,33 @@
 			
 			// Next, add extensions to the search names based on the WME place category
 			newNameListLength = newNameList.length;
+			var catix;
 			if (pnhEntryTemp[ph_category1_ix].toUpperCase().replace(/[^A-Za-z0-9]/g, '') === "HOTEL") {
-				for (var catix=0; catix<newNameListLength; catix++) {  // extend the list by adding Hotel to all items
+				for ( catix=0; catix<newNameListLength; catix++) {  // extend the list by adding Hotel to all items
 					newNameList.push(newNameList[catix]+"HOTEL");
 				}
 			} else if (pnhEntryTemp[ph_category1_ix].toUpperCase().replace(/[^A-Za-z0-9]/g, '') === "BANKFINANCIAL") {
-				for (var catix=0; catix<newNameListLength; catix++) {  // extend the list by adding Bank and ATM to all items
+				for ( catix=0; catix<newNameListLength; catix++) {  // extend the list by adding Bank and ATM to all items
 					newNameList.push(newNameList[catix]+"BANK");
 					newNameList.push(newNameList[catix]+"ATM");
 				}
 			} else if (pnhEntryTemp[ph_category1_ix].toUpperCase().replace(/[^A-Za-z0-9]/g, '') === "SUPERMARKETGROCERY") {
-				for (var catix=0; catix<newNameListLength; catix++) {  // extend the list by adding Supermarket to all items
+				for ( catix=0; catix<newNameListLength; catix++) {  // extend the list by adding Supermarket to all items
 					newNameList.push(newNameList[catix]+"SUPERMARKET");
 				}
 			} else if (pnhEntryTemp[ph_category1_ix].toUpperCase().replace(/[^A-Za-z0-9]/g, '') === "GYMFITNESS") {
-				for (var catix=0; catix<newNameListLength; catix++) {  // extend the list by adding Gym to all items
+				for ( catix=0; catix<newNameListLength; catix++) {  // extend the list by adding Gym to all items
 					newNameList.push(newNameList[catix]+"GYM");
 				}
 			} else if (pnhEntryTemp[ph_category1_ix].toUpperCase().replace(/[^A-Za-z0-9]/g, '') === "GASSTATION") {
-				for (var catix=0; catix<newNameListLength; catix++) {  // extend the list by adding Gas terms to all items
+				for ( catix=0; catix<newNameListLength; catix++) {  // extend the list by adding Gas terms to all items
 					newNameList.push(newNameList[catix]+"GAS");
 					newNameList.push(newNameList[catix]+"GASOLINE");
 					newNameList.push(newNameList[catix]+"FUEL");
 					newNameList.push(newNameList[catix]+"GASSTATION");
 				}
 			} else if (pnhEntryTemp[ph_category1_ix].toUpperCase().replace(/[^A-Za-z0-9]/g, '') === "CARRENTAL") {
-				for (var catix=0; catix<newNameListLength; catix++) {  // extend the list by adding Car Rental terms to all items
+				for ( catix=0; catix<newNameListLength; catix++) {  // extend the list by adding Car Rental terms to all items
 					newNameList.push(newNameList[catix]+"RENTAL");
 					newNameList.push(newNameList[catix]+"RENTACAR");
 					newNameList.push(newNameList[catix]+"CARRENTAL");
@@ -1642,7 +1543,7 @@
 			USA_PNH_NAMES.push(newNameList);  // push the list to the master search list
 		}
 		var t1 = performance.now();  // log search time
-		console.log("WMEPH: Built search list of " + USA_PNH_DATA.length + " PNH places in " + (t1 - t0) + " milliseconds.")
+		console.log("WMEPH: Built search list of " + USA_PNH_DATA.length + " PNH places in " + (t1 - t0) + " milliseconds.");
 	}  // END makeNameCheckList
 	
 	// Removes duplicate strings from string array
@@ -1655,7 +1556,7 @@
 	}  // END uniq function
 	
 	var USA_PNH_NAMES = [];
-	USA_PNH_DATA = [		
+	var USA_PNH_DATA = [		
 		"ph_order|ph_name|ph_aliases|ph_category1|ph_category2|ph_description|ph_url|ph_region|ph_national|ph_speccase|ph_searchnamebase|ph_searchnamemid|ph_searchnameend|ph_sfurl|ph_sfurllocal",
 		"1|24 Hour Fitness|0|Gym / Fitness|0|0|24hourfitness.com|SWR, SAT, SER, TX,|0|0|twentyfourhourfitness, 24hrfitness|0|0|http://www.24hourfitness.com/health_clubs/locations/finder/|0",
 		"2|7-Eleven|7-11|Convenience Store|0|0|7-eleven.com|SWR, SER, SAT, TX, NEW, MAR|Yes|1|Seveneleven, seven11, 711|0|0|https://www.7-eleven.com/Home/Locator|0",
