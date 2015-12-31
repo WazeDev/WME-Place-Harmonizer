@@ -7,16 +7,20 @@
 // ==UserScript==
 // @name		 Place Harmonizer Beta
 // @namespace 	 https://greasyfork.org/en/users/19426-bmtg
-// @version	  1.0.06
+// @version	  1.0.07
 // @description  Harmonizes, formats, and locks a selected place
 // @author	   WMEPH development group
 // @include			 https://www.waze.com/editor/*
 // @include			 https://www.waze.com/*/editor/*
 // @include			 https://editor-beta.waze.com/editor/*
 // @include			 https://editor-beta.waze.com/*/editor/*
-// @grant	   none
+// @grant	   GM_xmlhttpRequest
 // ==/UserScript==
 (function () {
+	
+	var CAN_PNH_DATA;
+	var CAN_PNH_NAMES = [];
+			
 	function placeHarmonizer_bootstrap() {
 		var bGreasemonkeyServiceDefined	= false;
 		try { 
@@ -33,53 +37,73 @@
 				return dummyElem.onclick ();
 			} ) ();
 		}
+		
+		
 		/* begin running the code! */
 		if (("undefined" !== typeof W.loginManager)) {
-			setTimeout(function(){
-			  USA_PNH_NAMES = makeNameCheckList(USA_PNH_DATA);
-			  CAN_PNH_NAMES = makeNameCheckList(CAN_PNH_DATA)
-			}, 400);
-			//setTimeout(USA_PNH_NAMES = makeNameCheckList(USA_PNH_DATA), 400);
-			setTimeout(runPH, 900);
+			GM_xmlhttpRequest({
+				method: "GET",
+				url: "http://docs.google.com/spreadsheets/d/1TIxQZVLUbAJ8iH6LPTkJsvqFb_DstrHpKsJbv1W1FZs/export?format=tsv&id=1TIxQZVLUbAJ8iH6LPTkJsvqFb_DstrHpKsJbv1W1FZs&gid=947416380",
+				onload: function (response) {
+					//console.log( response.responseText );
+					CAN_PNH_DATA = response.responseText.split('\n');
+				}
+			});
+			dataReady();
+			
+			
+			
 		} else {
 			console.log("WMEPH: Bootstrap failed.  Trying again...");
 			setTimeout(function () { placeHarmonizer_bootstrap(); }, 1000);
 		}
+		
+		function dataReady() {
+			if ("undefined" !== typeof CAN_PNH_DATA) {
+				setTimeout(function(){
+					USA_PNH_NAMES = makeNameCheckList(USA_PNH_DATA);
+					CAN_PNH_NAMES = makeNameCheckList(CAN_PNH_DATA);
+				}, 400);
+				setTimeout(runPH, 900);
+			} else {
+				console.log("WMEPH: Waiting for PNH Data...");
+				setTimeout(function () { dataReady(); }, 200);
+			}
+		}
 	}
 	
 	function runPH() {
-		var WMEPHversion = "1.0.06";
-		var WMEPHWhatsNew = ['All new version with new features', 'New chains added', 'Interactive banner buttons', 'Fixed bugs'];  // New in this version
+		
+		var WMEPHversion = "1.0.07";
+		var WMEPHWhatsNew = ['All new version with new features', 'Over 400 new chains added', 'Interactive banner buttons', 'Fixed bugs'];  // New in this version
 		var newSep = '\n - ';
 		WMEPHWhatsNew = WMEPHWhatsNew.join(newSep);
 		// If the editor installs a newer version, pop up an alert with the new elements
-		if ( localStorage.getItem('WMEPHversion') === null ) {
+		// if ( localStorage.getItem('WMEPHversion') === null ) {
+		// 	localStorage.setItem('WMEPHversion', WMEPHversion);
+		// } else 
+		if ( localStorage.getItem('WMEPHversion') !== WMEPHversion ) {
+			alert('WMEPH updated to v. ' + WMEPHversion + '\nUpdates:' + newSep + WMEPHWhatsNew);
 			localStorage.setItem('WMEPHversion', WMEPHversion);
-		} else if ( localStorage.getItem('WMEPHversion') !== WMEPHversion ) {
-			alert('WMEPH updated to v. ' + WMEPHversion + '\nUpdates:' + newSep + WMEPHWhatsNew)
-			localStorage.setItem('WMEPHversion', WMEPHversion);
+			localStorage.setItem(GLinkWarning, '0');
 		}
 		
 		// initialize the KB shortcut and settings tab
 		setTimeout(setupKBShort, 100);  // set up KB Shortcut 
 		setTimeout(add_PlaceHarmonizationSettingsTab, 150);  // set up settings tab
 		
-		// function to prime the shortcut
+		// function to prime the shortcuts
 		function setupKBShort() {
 			console.log("WMEPH: Initializing");
 			if (isDevVersion) {
-				shortcut.add("Shift+Alt+s", function() {
-					harmonizePlace();
-				});
+				shortcut.add("Shift+Alt+s", function() { harmonizePlace(); });
 			} else {
-				shortcut.add("Shift+Alt+a", function() {
-					harmonizePlace();
-				});
+				shortcut.add("Shift+Alt+a", function() { harmonizePlace(); });
 			}
 		}
 		
-		var WMEPHurl = 'https://www.waze.com/forum/posting.php?mode=reply&f=819&t=164962';
-		var PNHMasURL = 'https://docs.google.com/spreadsheets/d/1-f-JTWY5UnBx-rFTa4qhyGMYdHBZWNirUTOgn222zMY/edit#gid=0';
+		var WMEPHurl = 'https://www.waze.com/forum/posting.php?mode=reply&f=819&t=164962';  // WMEPH Forum thread URL
+		var USAPNHMasURL = 'https://docs.google.com/spreadsheets/d/1-f-JTWY5UnBx-rFTa4qhyGMYdHBZWNirUTOgn222zMY/edit#gid=0';  // Master USA PNH link
 		var placesWikiURL = 'https://wiki.waze.com/wiki/Places';
 		var isDevVersion = true;
 		var thisUser = W.loginManager.user;
@@ -88,11 +112,11 @@
 			return;
 		}
 		var WMEPHdevList = "bmtg|vtpearce|cardyin|jtsmith2|joyriding|fjsawicki|coolcanuck".split("|");  
-		var WMEPHbetaList = "jwe252|uscwaller|t0cableguy|tonestertm|driving79|nacron|machete808|bz2012|carloslaso|xanderb|ehepner1977|roadtechie|havanaday|nimbus-|itzwolf|jroman7|mrbyte_ontheroad|ggrane|ardan74|red-nax|wambuli|turbomkt".split("|");
+		var WMEPHbetaList = "jwe252|uscwaller|t0cableguy|tonestertm|driving79|nacron|machete808|bz2012|carloslaso|xanderb|ehepner1977|roadtechie|havanaday|nimbus-|itzwolf|jroman7|mrbyte_ontheroad|ggrane|ardan74|red-nax|wambuli|turbomkt|trackmum".split("|");
 		var devUser = (WMEPHdevList.indexOf(thisUser.userName.toLowerCase()) > -1);
 		var betaUser = (WMEPHbetaList.indexOf(thisUser.userName.toLowerCase()) > -1);
 		if (devUser) {betaUser = true;}  // dev users are beta users
-		var usrRank = thisUser.normalizedLevel;  // get user's level
+		var usrRank = thisUser.normalizedLevel;  // get editor's level
 		var GLinkWarning = 'GLinkWarning';  // Warning message for first time users not to use 3rd party sources.
 		if (!localStorage.getItem(GLinkWarning)) {  // store settings so the warning is only given once
 			localStorage.setItem(GLinkWarning, '0');
@@ -108,7 +132,7 @@
 		if (lockLevel4 > (usrRank - 1)) {lockLevel4 = (usrRank - 1);}
 		if (lockLevel5 > (usrRank - 1)) {lockLevel5 = (usrRank - 1);}
 		
-		var PMUserList = { // 
+		var PMUserList = { // user names and IDs
 			SER: {approvalActive: true, modID: '16941753', modName: 't0cableguy'},
 			WMEPH: {approvalActive: true, modID: '17027620', modName: 'bmtg'},
 		};
@@ -123,7 +147,7 @@
 		var sidebarMessageOld;  //  *** Eventually delete once new method is complete
 		var sidebarMessage;  // Holds the banner messages
 		var bannMess = {    // banner message array in order of display
-			bankType: { active: false, severity: 3, message: 'Clarify the type of place; the name is a bank but the categories do not match' },
+			bankType1: { active: false, severity: 3, message: 'Clarify the type of bank: the name has ATM but the primary category is Offices' },
 			gasBrandMM: { active: false, severity: 3, message: 'Gas name and brand do not appear to match. Verify which is correct.' },
 			gasUnbranded: { active: false, severity: 3, message: '"Unbranded" should not be used for the station brand. Change to the correct brand or use the blank entry at the top of the brand list.' },
 			areaNotPoint: { active: false, severity: 3, message: 'This category should be an area place.  Either change it, or manually lock it.' },
@@ -138,17 +162,18 @@
 			streetMissing: { active: false, severity: 3, message: 'Street missing.' },
 			cityMissing: { active: false, severity: 3, message: 'City missing.' },
 			
+			checkDescription: { active: false, severity: 2, message: 'Description field already contained info; PNH description was added in front of existing. Check for consistency or duplicate info.' },
 			resiTypeName: { active: false, severity: 2, message: 'The place name suggests a residential place.  Please verify.' },
 			phoneInvalid: { active: false, severity: 2, message: 'Phone invalid.' },
 			
 			subFuel: { active: false, severity: 1, message: 'Make sure this place is for the gas station itself and not the main store building.  Otherwise undo and check the categories.' },
-			checkDescription: { active: false, severity: 1, message: 'Description field already contained info; PNH description was added in front of existing. Check for consistency or duplicate info' },
 			catHotel: { active: false, severity: 1, message: 'Please check hotel details, as names can often be unique (e.g. Holiday Inn - Tampa North).' },
 			catPostOffice: { active: false, severity: 1, message: 'Verify the primary name according to your regional standards. If this is not a USPS post office, change the category, as "Post Office" is only used for USPS locations.' },
 			phoneMissing: { active: false, severity: 1, message: 'Phone missing.' },
 			urlMissing: { active: false, severity: 1, message: 'URL missing.' },
 			gasNoBrand: { active: false, severity: 1, message: 'Verify that gas station has no brand.' },
 			
+			babiesRUs: { active: false, severity: 0, message: 'If there is a Toys R Us at this location, please make it the primary name and Babies R Us the alt name and rerun the script.' },
 			generalStadium: { active: false, severity: 0, message: 'If this is a small/local ballfield or arena, consider using the "Sports Court" category and making it a point place.' },
 			placeFormatted: { active: false, severity: 0, message: 'Place formatted.' },
 			placeMatched: { active: false, severity: 0, message: 'Place matched from PNH data.' },
@@ -406,6 +431,12 @@
 					cLog: "WMEPH: added optional alt-name",  
 					action: function() {
 						newAliases = insertAtIX(newAliases,newAliasesTemp,0);
+						if (specCases.indexOf('altName2Desc') > -1) {
+							if ( item.attributes.description.toUpperCase().indexOf(newAliasesTemp.toUpperCase()) === -1 ) {
+								newDescripion = newAliasesTemp + '\n' + newDescripion;
+								W.model.actionManager.add(new UpdateObject(item, { description: newDescripion }));
+							}
+						}
 						W.model.actionManager.add(new UpdateObject(item, { aliases: newAliases }));
 						//console.log(bannButt.addAlias.cLog);  
 						bannButt.addAlias.active = false;  // reset the display flag
@@ -529,15 +560,51 @@
 					cLog: "WMEPH: Changed to standalone ATM",
 					action: function() {
 						newCategories = ["ATM"];  // Change to ATM only
-						if (newName.indexOf("ATM") > -1) {
+						if (newName.indexOf("ATM") === -1) {
 							newName = newName + ' ATM';	
 						}
-						W.model.actionManager.add(new UpdateObject(item, {  //  update
-							categories: newCategories
-						}));
-						bannButt.standaloneATM.active = false;   // reset the display flag
+						W.model.actionManager.add(new UpdateObject(item, { categories: newCategories }));
+						bannButt.bankCorporate.active = false;   // reset the bank Branch display flag
+						bannButt.bankBranch.active = false;   // reset the bank Branch display flag
+						bannButt.standaloneATM.active = false;   // reset the standalone ATM display flag
 					}
-				},  // END addATM definition
+				},  // END standaloneATM definition
+				bankBranch: {
+					active: false,
+					bannText: "Is this a bank branch office? ",
+					severity: 1,  
+					id: "bankBranch",
+					value: "Yes",
+					title: "Is this a bank branch office?",
+					cLog: "WMEPH: Changed to bank branch",
+					action: function() {
+						newCategories = ["BANK_FINANCIAL","ATM"];  // Change to bank and atm cats
+						newName = newName.replace(/[\- (]*ATM[\- )]*/g, ' ').replace(/^ /g,'').replace(/ $/g,'');	 // strip ATM from name if present
+						W.model.actionManager.add(new UpdateObject(item, { categories: newCategories }));
+						W.model.actionManager.add(new UpdateObject(item, { name: newName }));
+						bannButt.bankCorporate.active = false;   // reset the bank Branch display flag
+						bannButt.bankBranch.active = false;   // reset the bank Branch display flag
+						bannButt.standaloneATM.active = false;   // reset the standalone ATM display flag
+					}
+				},  // END bankBranch definition
+				bankCorporate: {
+					active: false,
+					bannText: "Is this the bank's corporate offices?",
+					severity: 1,  
+					id: "bankCorporate",
+					value: "Yes",
+					title: "Is this the bank's corporate offices?",
+					cLog: "WMEPH: Changed to bank branch",
+					action: function() {
+						newCategories = ["OFFICES"];  // Change to offices category
+						newName = newName.replace(/[\- (]*ATM[\- )]*/g, ' ').replace(/^ /g,'').replace(/ $/g,'');	 // strip ATM from name if present
+						W.model.actionManager.add(new UpdateObject(item, { categories: newCategories }));
+						W.model.actionManager.add(new UpdateObject(item, { name: newName }));
+						bannButt.bankCorporate.active = false;   // reset the bank Branch display flag
+						bannButt.bankBranch.active = false;   // reset the bank Branch display flag
+						bannButt.standaloneATM.active = false;   // reset the standalone ATM display flag
+					}
+				},  // END bankCorporate definition
 				addConvStore: {
 					active: false,
 					bannText: "Add convenience store category? ",
@@ -554,23 +621,23 @@
 						bannButt.addConvStore.active = false;   // reset the display flag
 					}
 				},  // END addConvStore definition
-				USPS: {
+				isitUSPS: {
 					active: false,
 					bannText: "Is this a USPS location? ",
 					severity: 0,  
-					id: "USPSCat",
+					id: "isitUSPS",
 					value: "Yes",
 					title: "Is this a USPS location?",
 					cLog: "WMEPH: Fixed USPS",
 					action: function() {
 						newServices = ["AIR_CONDITIONING", "CREDIT_CARDS", "PARKING_FOR_CUSTOMERS", "WHEELCHAIR_ACCESSIBLE"];
 						W.model.actionManager.add(new UpdateObject(item, { url: "usps.com" }));
-						if (region == 'SER') {
+						if (region === 'SER') {
 							W.model.actionManager.add(new UpdateObject(item, { aliases: ["United States Postal Service"] }));
 						}
-						bannButt.USPS.active = false;
+						bannButt.isitUSPS.active = false;
 					}
-				},  // END USPS definition
+				},  // END isitUSPS definition
 				PlaceWebsite: {
 					active: false,
 					bannText: "",
@@ -627,7 +694,7 @@
 							if (PMUserList[region].approvalActive) {
 								var forumPMInputs = {
 									subject: 'PNH place approval for "' + PNHNameTemp + '"',
-									message: 'Please approve "' + PNHNameTemp + '" for the ' + region + ' region.  Thanks\n \nPNH order number: ' + PNHOrderNum + '\n \nExample Permalink: ' + placePL + '\n \nPNH Link: ' + PNHMasURL,
+									message: 'Please approve "' + PNHNameTemp + '" for the ' + region + ' region.  Thanks\n \nPNH order number: ' + PNHOrderNum + '\n \nExample Permalink: ' + placePL + '\n \nPNH Link: ' + USAPNHMasURL,
 									preview: 'Preview', attach_sig: 'on' 
 								};
 								forumPMInputs['address_list[u]['+PMUserList[region].modID+']'] = 'to';  // SER region, sends a PM to t0cableguy = 16941753
@@ -845,7 +912,7 @@
 				
 				// If region or state is unknown, report the error
 				if (state2L === "Unknown" || region === "Unknown") {
-					if (confirm('WMEPH: Localization Error\nClick OK to report this error') ) {  // if the category doesn't translate, then pop an alert that will make a forum post to the thread
+					if (confirm('WMEPH: Localization Error\nClick OK to report this error') ) {  // if the location is not found, then pop an alert that will make a forum post to the thread
 						var forumMsgInputs = {
 							subject: 'Re: WMEPH Bug report',
 							message: 'Error report: State name "' + addr.state.name + '" is not found.',
@@ -853,6 +920,7 @@
 						};
 						WMEPH_openPostDataInNewTab(WMEPHurl + '#preview', forumMsgInputs);
 					}
+					return;
 				}
 				
 				// Clear attributes from residential places
@@ -988,7 +1056,13 @@
 							bannButt.addAlias.title = 'Add ' + catTransWaze2Lang[altCategories[0]];
 						}
 						
-						if ( specCases.indexOf('1') === -1 ) {  // for certain flags, proceed with update
+						if ( specCases.indexOf('bank') > -1 ) {  // PNH banks
+						
+						
+						} else if ( specCases.indexOf('hotel') > 1 ) {  // for certain flags, proceed with update
+						
+						
+						} else {  // for certain flags, proceed with update
 							if (newName !== item.attributes.name) {
 								console.log("WMEPH: Name updated");
 								W.model.actionManager.add(new UpdateObject(item, { name: newName }));
@@ -1010,17 +1084,11 @@
 										formBannMess('checkDescription');
 									}
 									console.log("WMEPH: Description updated");
-									W.model.actionManager.add(new UpdateObject(item, { description: newDescripion + '\n' + item.attributes.description }));
+									newDescripion = newDescripion + '\n' + item.attributes.description;
+									W.model.actionManager.add(new UpdateObject(item, { description: newDescripion }));
 								}
 								
 							}
-							
-							
-							
-						} else {  // Special Case places
-							console.log("WMEPH: Special case PNH");
-								
-							
 							
 							
 						}
@@ -1056,15 +1124,38 @@
 						var ixATM = item.attributes.categories.indexOf("ATM");
 						var ixOffices = item.attributes.categories.indexOf("OFFICES");
 						// if the name contains ATM in it
-						if ( newNameExt.toUpperCase().indexOf(' ATM ') > -1 ) {
-							if ( ixBank === -1 && ixATM === -1 ) {
-								formBannMess('bankType');
-							} else if ( ixBank === 0 ) {
-								newName.replace(/[- ]*ATM[- ]*/g, ' ').replace(/^ /g,'').replace(/ $/g,'');  // clear ATM from name
+						if ( newNameExt.toUpperCase().indexOf('ATM ') > -1 ) {
+							if ( ixOffices === 0 ) {
+								formBannMess('bankType1');
 								formBannButt('standaloneATM');
+								formBannButt('bankBranch');
+								formBannButt('bankCorporate');
+							} else if ( ixBank === -1 && ixATM === -1 ) {
+								formBannButt('standaloneATM');
+								formBannButt('bankBranch');
+							} else if ( ixBank === 0 ) {
+								formBannButt('standaloneATM');
+								formBannButt('bankBranch');
+							} else if ( ixATM === 0 && ixBank > 0) {
+								formBannButt('bankBranch');
 							}
-							
-							
+							// Net result: If the place has ATM cat only and ATM in the name, then it will be green
+						} else {  // if no ATM in name:
+							if ( ixOffices === 0 ) {
+								formBannButt('bankBranch');
+							} else if ( ixBank === -1 && ixATM === -1 ) {
+								formBannButt('standaloneATM');
+								formBannButt('bankBranch');
+							} else if ( ixBank > -1  && ixATM === -1 ) {
+								formBannButt('addATM');
+							} else if ( ixATM === 0 ) {
+								formBannButt('standaloneATM');
+								formBannButt('bankBranch');
+							} else if ( ixBank > 0 && ixATM > 0 ) {
+								formBannButt('standaloneATM');
+								formBannButt('bankBranch');
+							}
+							// Net result: If the place has Bank category first, then it will be green
 						}
 						
 						
@@ -1156,7 +1247,11 @@
 							newPlaceAddon = '?entry.925969794='+newName+'&entry.1970139752='+newURLSubmit+'&entry.1749047694='+thisUser.userName+gFormState; 
 							approvalAddon = '?entry.925969794='+PNHNameTemp+'&entry.50214576='+approvalMessage+'&entry.1749047694='+thisUser.userName+gFormState; 
 							break;
-						default: regionFormURL = "";
+						case "CAN": regionFormURL = 'https://docs.google.com/forms/d/13JwXsrWPNmCdfGR5OVr5jnGZw-uNGohwgjim-JYbSws/viewform';
+							newPlaceAddon = '?entry_839085807='+newName+'&entry_1067461077='+newURLSubmit; 
+							approvalAddon = '?entry_839085807='+PNHNameTemp+'&entry_1125435193='+approvalMessage; 
+							break;
+					default: regionFormURL = "";
 					}
 					newPlaceURL = regionFormURL + newPlaceAddon;
 					approveRegionURL = regionFormURL + approvalAddon;	
@@ -1263,7 +1358,7 @@
 				if (!item.attributes.residential) {
 					// URL formatting
 					newURL = normalizeURL(newName,newURL,addr);
-					if (newURL !== item.attributes.url) {
+					if (newURL !== item.attributes.url && newURL !== "" && newURL !== "0") {
 						console.log("WMEPH: URL updated");
 						W.model.actionManager.add(new UpdateObject(item, { url: newURL }));
 					}
@@ -1286,7 +1381,9 @@
 				
 				// Post Office cat check
 				if (newCategories.indexOf("POST_OFFICE") > -1) {
-					formBannButt('USPS');
+					
+					
+					formBannButt('isitUSPS');
 				}
 	
 				//	Add services to existing, only if they are different than what's there
@@ -1353,14 +1450,6 @@
 					if (newName === "IBM Southeast EFCU") {
 						sidebarMessageOld.push("Please add the suffix ' - LOCATION' to the primary name as found on IBMSEFCU's website");
 						severity = Math.max(2, severity);
-					}
-					if (newName === "Toys R Us") {
-						sidebarMessageOld.push("If there is a Babies R Us at this location, please add it as an alt-name.");
-						severity = Math.max(1, severity);
-					}
-					if (newName === "Babies R Us") {
-						sidebarMessageOld.push("If there is a Toys R Us at this location, please make it the primary name and Babies R Us the alt name.");
-						severity = Math.max(1, severity);
 					}
 					if (walmartFlag === 1) {
 						sidebarMessageOld.push("If this Walmart sells groceries, please add the Supermarket category to the place.");
@@ -2069,8 +2158,7 @@
 		});
 	}  // END uniq function
 	
-	
-	var CAN_PNH_NAMES = [];
+	/*
 	var CAN_PNH_DATA = [		
 		"ph_order|ph_name|ph_aliases|ph_category1|ph_category2|ph_description|ph_url|ph_region|ph_national|ph_forcecat|ph_displaynote|ph_speccase|ph_searchnamebase|ph_searchnamemid|ph_searchnameend|ph_sfurl|ph_sfurllocal",
 		"1|0|0|0|0|0|0|0|0|0|0|0|0|0|0|0|0",
@@ -2270,7 +2358,7 @@
 		"196|Your Independent Grocer|0|Supermarket / Grocery|0|0|YourIndependentGrocer.ca|CAN|0|0|0|0|0|0|0|0|0",
 		"197|Zehrs Markets|0|Supermarket / Grocery|0|0|Zehrs.ca|CAN|0|0|0|0|0|0|0|0|0",
 	];
-	
+	*/
 	
 	var USA_PNH_NAMES = [];
 	var USA_PNH_DATA = [		
