@@ -153,7 +153,7 @@
 			return;
 		}
 		// Whitelist initialization
-		if ( localStorage.getItem(WLlocalStoreName) === null ) {
+		if ( validateWLS(localStorage.getItem(WLlocalStoreName)) === false ) {
 			venueWhitelist = { '1.1.1': { Placeholder: { active: false } } }; // Populate with a dummy place
 			saveWL_LS();
 		} else {
@@ -529,7 +529,10 @@
 					action: function() {
 						if (!venueWhitelist.hasOwnProperty(itemID)) {
 							venueWhitelist[itemID] = { HNWL: {active: false} };
+						} else if (!venueWhitelist[itemID].hasOwnProperty(HNWL)) {
+							venueWhitelist[itemID].HNWL = {active: false};
 						}
+						
 						venueWhitelist[itemID].HNWL.active = true;
 						saveWL_LS();
 						bannButt.hnMissing.active = false;
@@ -550,6 +553,8 @@
 					action: function() {
 						if (!venueWhitelist.hasOwnProperty(itemID)) {
 							venueWhitelist[itemID] = { phoneWL: {active: false} };
+						} else if (!venueWhitelist[itemID].hasOwnProperty(phoneWL)) {
+							venueWhitelist[itemID].phoneWL = {active: false};
 						}
 						venueWhitelist[itemID].phoneWL.active = true;
 						saveWL_LS();
@@ -570,6 +575,8 @@
 					action: function() {
 						if (!venueWhitelist.hasOwnProperty(itemID)) {
 							venueWhitelist[itemID] = { urlWL: {active: false} };
+						} else if (!venueWhitelist[itemID].hasOwnProperty(urlWL)) {
+							venueWhitelist[itemID].urlWL = {active: false};
 						}
 						venueWhitelist[itemID].urlWL.active = true;
 						saveWL_LS();
@@ -1221,12 +1228,22 @@
 				var itemID = item.attributes.id, WLMatch = false;
 				if (venueWhitelist.hasOwnProperty(itemID) && $("#WMEPH-EnableWhitelisting" + devVersStr).prop('checked')) {
 					WLMatch = true;
-					dupeWL = venueWhitelist[itemID].dupeWL.active;
-					urlWL = venueWhitelist[itemID].urlWL.active;
-					phoneWL = venueWhitelist[itemID].phoneWL.active;
-					HNWL = venueWhitelist[itemID].HNWL.active;
-					AvPWL = venueWhitelist[itemID].AvPWL.active;
-					if (dupeWL || urlWL || phoneWL || HNWL || AvPWL) { bannButt2.clearWL.active = true; }
+					// Enable the clear WL button if any property is true
+					for (var WLKey in venueWhitelist[itemID]) {  // loop thru the venue WL keys
+						if (venueWhitelist[itemID].hasOwnProperty(WLKey)) {  // basic filter
+							if (venueWhitelist[itemID][WLKey].active) {
+								bannButt2.clearWL.active = true;
+								break;
+							}
+						}
+					}
+					// Enable any active Whitelist properties
+					if ( venueWhitelist[itemID].hasOwnProperty('dupeWL') ) { dupeWL = venueWhitelist[itemID].dupeWL.active; }
+					if ( venueWhitelist[itemID].hasOwnProperty('urlWL') ) { urlWL = venueWhitelist[itemID].urlWL.active; }
+					if ( venueWhitelist[itemID].hasOwnProperty('phoneWL') ) { phoneWL = venueWhitelist[itemID].phoneWL.active; }
+					if ( venueWhitelist[itemID].hasOwnProperty('HNWL') ) { HNWL = venueWhitelist[itemID].HNWL.active; }
+					if ( venueWhitelist[itemID].hasOwnProperty('AvPWL') ) { AvPWL = venueWhitelist[itemID].AvPWL.active; }
+					//if (dupeWL || urlWL || phoneWL || HNWL || AvPWL) { bannButt2.clearWL.active = true; }
 				}
 				
 				// get GPS lat/long coords from place, call as itemGPS.lat, itemGPS.lon
