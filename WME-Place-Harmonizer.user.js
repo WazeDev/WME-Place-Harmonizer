@@ -15,7 +15,7 @@
 // @author          WMEPH development group
 // @include         https://*.waze.com/editor/*
 // @grant	   none
-// @require @require https://greasyfork.org/scripts/24851-wazewrap/code/WazeWrap.js
+// @require https://greasyfork.org/scripts/24851-wazewrap/code/WazeWrap.js
 
 
 // ==/UserScript==
