@@ -8,7 +8,7 @@
 /* global OL */
 /* global _ */
 // ==UserScript==
-// @name	WME Place Harmonizer[BETA]
+// @name	WME Place Harmonizer (BETA)
 // @namespace   https://github.com/WazeUSA/WME-Place-Harmonizer/raw/master/WME-Place-Harmonizer.user.js
 // @version         1.1.34
 // @description     Harmonizes, formats, and locks a selected place
