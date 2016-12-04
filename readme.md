@@ -13,7 +13,7 @@ This script acts on a single selected place.  It will clean up many place detail
 Installation:
 -------------
 
-Use tampermonkey / greasemonkey
+Use raw button under WME-Place-Harmonizer.user.js
 
 -------------
 
