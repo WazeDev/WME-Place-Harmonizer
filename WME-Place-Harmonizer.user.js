@@ -13,7 +13,7 @@
 // @version         1.1.35
 // @description     Harmonizes, formats, and locks a selected place
 // @author          WMEPH development group
-// @include         https://*.waze.com/user/*
+// @include         https://*.waze.com/editor/*
 // @grant	   none
 // @require https://greasyfork.org/scripts/24851-wazewrap/code/WazeWrap.js
 
