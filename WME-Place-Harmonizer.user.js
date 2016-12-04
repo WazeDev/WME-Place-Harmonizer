@@ -14,6 +14,8 @@
 // @description     Harmonizes, formats, and locks a selected place
 // @author          WMEPH development group
 // @include         https://*.waze.com/editor/*
+// @include         https://*.waze.com/*editor/*
+// @exclude	    https://*.waze.com/user/*
 // @grant	   none
 // @require https://greasyfork.org/scripts/24851-wazewrap/code/WazeWrap.js
 
