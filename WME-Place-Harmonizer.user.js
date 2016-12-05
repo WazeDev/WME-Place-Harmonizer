@@ -10,7 +10,7 @@
 // ==UserScript==
 // @name	WME Place Harmonizer
 // @namespace   https://github.com/WazeUSA/WME-Place-Harmonizer/raw/master/WME-Place-Harmonizer.user.js
-// @version         1.1.35
+// @version         1.1.36
 // @description     Harmonizes, formats, and locks a selected place
 // @author          WMEPH development group
 // @include         https://*.waze.com/editor/*
@@ -362,7 +362,7 @@
         var betaUser, devUser;
         if (WMEPHbetaList.length === 0 || "undefined" === typeof WMEPHbetaList) {
             if (isDevVersion) {
-                alert('Beta user list access issue.  Please post in the GHO or PM/DM bmtg about this message.  Script should still work.');
+                alert('Beta user list access issue.  Please post in the GHO or PM/DM t0cableguy about this message.  Script should still work.');
             }
             betaUser = false;
             devUser = false;
@@ -382,7 +382,7 @@
         var defaultLockLevel = lockLevel2, PNHLockLevel;
         var PMUserList = { // user names and IDs for PM functions
             SER: {approvalActive: true, modID: '16941753', modName: 't0cableguy'},
-            WMEPH: {approvalActive: true, modID: '17027620', modName: 'bmtg'}
+            WMEPH: {approvalActive: true, modID: '16941753', modName: 't0cableguy'}
         };
         var severityButt=0;  // error tracking to determine banner color (action buttons)
         var duplicateName = '';
@@ -803,7 +803,7 @@
             }
             // Beta version for approved users only
             if (isDevVersion && !betaUser) {
-                alert("Please sign up to beta-test this script version.\nSend a PM or Slack-DM to bmtg, or post in the WMEPH forum thread. Thanks.");
+                alert("Please sign up to beta-test this script version.\nSend a PM or Slack-DM to t0cableguy or Tonestertm, or post in the WMEPH forum thread. Thanks.");
                 return;
             }
             // Only run if a single place is selected
@@ -4291,7 +4291,7 @@
                 item = W.selectionManager.selectedItems[0].model;
                 var openPlaceWebsiteURL = item.attributes.url;
 
-                if (openPlaceWebsiteURL !== null && openPlaceWebsiteURL.replace(/[^A-Za-z0-9]/g,'').length > 2 && (thisUser.userName === 't0cableguy' || thisUser.userName === 'bmtg') ) {
+                if (openPlaceWebsiteURL !== null && openPlaceWebsiteURL.replace(/[^A-Za-z0-9]/g,'').length > 2 && (thisUser.userName === 't0cableguy' || thisUser.userName === 't0cableguy') ) {
                     if ($('#WMEPHurl').length === 0 ) {
                         strButt1 = '<br><input class="btn btn-success btn-xs" id="WMEPHurl" title="Open place URL" type="button" value="Open URL">';
                         $("#WMEPH_runButton").append(strButt1);
@@ -5934,7 +5934,7 @@
                 zoomPlace();
             });
 
-            if (thisUser.userName === 't0cableguy' || thisUser.userName === 'bmtg') {
+            if (thisUser.userName === 't0cableguy' || thisUser.userName === 't0cableguy') {
                 shortcut.add("Control+Alt+E", function() {
                     clonePlace();
                 });
