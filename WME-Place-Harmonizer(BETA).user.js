@@ -8,9 +8,9 @@
 /* global OL */
 /* global _ */
 // ==UserScript==
-// @name	WME Place Harmonizer Beta
+// @name	WME Place Harmonizer BETA
 // @namespace   https://github.com/WazeUSA/WME-Place-Harmonizer/raw/master/WME-Place-Harmonizer.user.js
-// @version         1.1.36
+// @version         1.1.37
 // @description     Harmonizes, formats, and locks a selected place
 // @author          WMEPH development group
 // @include         https://*.waze.com/editor/*
@@ -252,7 +252,9 @@
     function runPH() {
         // Script update info
         var WMEPHWhatsNewList = [  // New in this version
-            '1.1.33: Fixes for New WME',
+            '1.1.37: WL for no name places',
+            '1.1.36: Basic fixes and add Waze Wrap',
+	    '1.1.33: Fixes for New WME',
             '1.1.31: NV phone format fix',
             '1.1.31: Hours message fix',
             '1.1.31: Highlighter fix',
@@ -885,7 +887,8 @@
                 urlWL: false,
                 phoneWL: false,
                 aCodeWL: false,
-                noHours: false
+                noHours: false,
+				nameMissing: false
             };
 
             // **** Set up banner action buttons.  Structure:
@@ -906,7 +909,12 @@
                 },
 
                 nameMissing: {  // no WL
-                    active: false, severity: 3, message: 'Name is missing.'
+                    active: false, severity: 3, message: 'Name is missing.',
+					WLactive: true, WLmessage: '', WLtitle: 'Whitelist missing name',
+                    WLaction: function() {
+                        wlKeyName = 'nameMissing';
+                        whitelistAction(itemID, wlKeyName);
+					}
                 },
 
                 hoursOverlap: {  // no WL
