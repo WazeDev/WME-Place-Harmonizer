@@ -908,7 +908,7 @@
                 },
 
                 nameMissing: {  // no WL
-                    active: true, severity: 3, message: 'Name is missing.',
+                    active: false, severity: 3, message: 'Name is missing.',
                 },
 
                 hoursOverlap: {  // no WL
