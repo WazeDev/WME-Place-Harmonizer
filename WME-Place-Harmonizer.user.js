@@ -10,7 +10,7 @@
 // ==UserScript==
 // @name	WME Place Harmonizer
 // @namespace   https://github.com/WazeUSA/WME-Place-Harmonizer/raw/master/WME-Place-Harmonizer.user.js
-// @version         1.1.38
+// @version         1.1.39
 // @description     Harmonizes, formats, and locks a selected place
 // @author          WMEPH development group
 // @include         https://*.waze.com/editor/*
@@ -908,7 +908,7 @@
                 },
 
                 nameMissing: {  // no WL
-                    active: false, severity: 3, message: 'Name is missing.',
+                    active: true, severity: 3, message: 'Name is missing.',
                 },
 
                 hoursOverlap: {  // no WL
@@ -3382,7 +3382,7 @@
 
             // Name check
             if ( !item.attributes.residential && ( !item.attributes.name || item.attributes.name.replace(/[^A-Za-z0-9]/g,'').length === 0 )) {
-                if ( 'ISLAND|FOREST_GROVE|SEA_LAKE_POOL|RIVER_STREAM|CANAL|PARKING_LOT'.split('|').indexOf(item.attributes.categories[0]) === -1 ) {
+                if ( 'ISLAND|FOREST_GROVE|SEA_LAKE_POOL|RIVER_STREAM|CANAL'.split('|').indexOf(item.attributes.categories[0]) === -1 ) {
                     bannButt.nameMissing.active = true;
                     lockOK = false;
                 }
