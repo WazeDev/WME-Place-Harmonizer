@@ -10,7 +10,7 @@
 // ==UserScript==
 // @name	WME Place Harmonizer
 // @namespace   https://github.com/WazeUSA/WME-Place-Harmonizer/raw/master/WME-Place-Harmonizer.user.js
-// @version         1.1.37
+// @version         1.1.38
 // @description     Harmonizes, formats, and locks a selected place
 // @author          WMEPH development group
 // @include         https://*.waze.com/editor/*
@@ -888,7 +888,6 @@
                 phoneWL: false,
                 aCodeWL: false,
                 noHours: false,
-				nameMissing: false
             };
 
             // **** Set up banner action buttons.  Structure:
@@ -910,11 +909,6 @@
 
                 nameMissing: {  // no WL
                     active: false, severity: 3, message: 'Name is missing.',
-					WLactive: true, WLmessage: '', WLtitle: 'Whitelist missing name',
-                    WLaction: function() {
-                        wlKeyName = 'nameMissing';
-                        whitelistAction(itemID, wlKeyName);
-					}
                 },
 
                 hoursOverlap: {  // no WL
