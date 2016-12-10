@@ -3388,7 +3388,7 @@
 
             // Name check
             if ( !item.attributes.residential && ( !item.attributes.name || item.attributes.name.replace(/[^A-Za-z0-9]/g,'').length === 0 )) {
-                if ( 'ISLAND|FOREST_GROVE|SEA_LAKE_POOL|RIVER_STREAM|CANAL'.split('|').indexOf(item.attributes.categories[0]) === -1 ) {
+                if ( 'ISLAND|FOREST_GROVE|SEA_LAKE_POOL|RIVER_STREAM|CANAL|PARKING_LOT'.split('|').indexOf(item.attributes.categories[0]) === -1 ) {
                     bannButt.nameMissing.active = true;
                     lockOK = false;
                 }
