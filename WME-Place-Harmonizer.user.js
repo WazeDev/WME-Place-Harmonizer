@@ -10,7 +10,7 @@
 // ==UserScript==
 // @name	WME Place Harmonizer
 // @namespace   https://github.com/WazeUSA/WME-Place-Harmonizer/raw/master/WME-Place-Harmonizer.user.js
-// @version         1.1.39
+// @version         1.1.40
 // @description     Harmonizes, formats, and locks a selected place
 // @author          WMEPH development group
 // @include         https://*.waze.com/editor/*
@@ -252,7 +252,8 @@
     function runPH() {
         // Script update info
         var WMEPHWhatsNewList = [  // New in this version
-            '1.1.37: WL for no name places',
+            '1.1.40: Reversions and city.attribute.name fix',
+	    '1.1.37: WL for no name places',
             '1.1.36: Basic fixes and add Waze Wrap',
 	    '1.1.33: Fixes for New WME',
             '1.1.31: NV phone format fix',
@@ -5434,8 +5435,8 @@
                 newAttributes = {
                     countryID: address.country.id,
                     stateID: address.state.id,
-                    cityName: address.city.name,
-                    emptyCity: address.city.name ? null : true,
+                    cityName: address.city.attributes.name,
+                    emptyCity: address.city.attributes.name ? null : true,
                     streetName: address.street.name,
                     emptyStreet: address.street.name ? null : true
                 };
@@ -6746,7 +6747,7 @@
             venueWhitelist[itemID] = { };
         }
         venueWhitelist[itemID][wlKeyName] = {active: true};  // WL the flag for the venue
-        venueWhitelist[itemID].city = addressTemp.city.name;  // Store city for the venue
+        venueWhitelist[itemID].city = addressTemp.city.attributes.name;  // Store city for the venue
         venueWhitelist[itemID].state = addressTemp.state.name;  // Store state for the venue
         venueWhitelist[itemID].country = addressTemp.country.name;  // Store country for the venue
         venueWhitelist[itemID].gps = itemGPS;  // Store GPS coords for the venue
