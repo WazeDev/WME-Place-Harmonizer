@@ -1,7 +1,7 @@
 Place Harmonizer
 ===============
-Development Team: bmtg, vtpearce, cardyin, fjsawicki, jtsmith2, joyriding  
-Send comments for this version to: bmtg (PM), bmtg_4 (Slack DM)
+Development Team: bmtg, vtpearce, cardyin, fjsawicki, jtsmith2, joyriding, t0cableguy, mapomatic
+Send comments for this version to: t0cableguy (PM), t0cableguy_5 (Slack DM)
 
 Description:
 ------------
