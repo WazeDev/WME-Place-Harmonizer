@@ -10,7 +10,7 @@
 // ==UserScript==
 // @name	WME Place Harmonizer Beta
 // @namespace   https://github.com/WazeUSA/WME-Place-Harmonizer/raw/master/WME-Place-Harmonizer.user.js
-// @version         1.1.38
+// @version         1.1.41
 // @description     Harmonizes, formats, and locks a selected place
 // @author          WMEPH development group
 // @include         https://*.waze.com/editor/*
@@ -252,6 +252,8 @@
     function runPH() {
         // Script update info
         var WMEPHWhatsNewList = [  // New in this version
+            '1.1.41: Fixed but with whitelisting.',
+            '1.1.38: Fixed clone utility',
             '1.1.37: WL for no name places',
             '1.1.36: Basic fixes and add Waze Wrap',
             '1.1.33: Fixes for New WME',
@@ -6753,7 +6755,7 @@
             venueWhitelist[itemID] = { };
         }
         venueWhitelist[itemID][wlKeyName] = {active: true};  // WL the flag for the venue
-        venueWhitelist[itemID].city = addressTemp.city.name;  // Store city for the venue
+        venueWhitelist[itemID].city = addressTemp.city.attributes.name;  // Store city for the venue
         venueWhitelist[itemID].state = addressTemp.state.name;  // Store state for the venue
         venueWhitelist[itemID].country = addressTemp.country.name;  // Store country for the venue
         venueWhitelist[itemID].gps = itemGPS;  // Store GPS coords for the venue
