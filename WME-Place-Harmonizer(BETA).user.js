@@ -10,7 +10,7 @@
 // ==UserScript==
 // @name	WME Place Harmonizer Beta
 // @namespace   https://github.com/WazeUSA/WME-Place-Harmonizer/raw/master/WME-Place-Harmonizer.user.js
-// @version         1.1.41
+// @version         1.1.42
 // @description     Harmonizes, formats, and locks a selected place
 // @author          WMEPH development group
 // @include         https://*.waze.com/editor/*
@@ -252,6 +252,7 @@
     function runPH() {
         // Script update info
         var WMEPHWhatsNewList = [  // New in this version
+            '1.1.42: Temporarily disabled PLA checking until it is more stable',
             '1.1.41: Fixed but with whitelisting.',
             '1.1.38: Fixed clone utility',
             '1.1.37: WL for no name places',
@@ -814,6 +815,12 @@
             if (W.selectionManager.selectedItems.length === 1) {
                 var item = W.selectionManager.selectedItems[0].model;
                 if (item.type === "venue") {
+
+                    // 2016-12-17 (mapomatic) Until we can get parking lots working without better, I'm forcing the code to skip them.
+                    // ****************************************************************************************************************
+                    if (item.attributes.categories.length === 1 && item.attributes.categories[0] === "PARKING_LOT") { return; }
+                    // ****************************************************************************************************************
+
                     blurAll();  // focus away from current cursor position
                     harmonizePlaceGo(item,'harmonize');
                 } else {  // Remove duplicate labels
@@ -1077,6 +1084,7 @@
                 pointNotArea: {  // Area 2 Point button
                     active: false, severity: 3, message: "This category should be a point place.", value: "Change to point", title: 'Change to point place',
                     action: function() {
+                        debugger;
                         // If a stop point is set, use it for the point, else use Centroid
                         var newGeometry;
                         if (item.attributes.entryExitPoints.length > 0) {
