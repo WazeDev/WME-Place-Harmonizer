@@ -10,7 +10,7 @@
 // ==UserScript==
 // @name	WME Place Harmonizer Beta
 // @namespace   https://github.com/WazeUSA/WME-Place-Harmonizer/raw/master/WME-Place-Harmonizer.user.js
-// @version         1.1.37
+// @version         1.1.37-issue
 // @description     Harmonizes, formats, and locks a selected place
 // @author          WMEPH development group
 // @include         https://*.waze.com/editor/*
@@ -254,7 +254,7 @@
         var WMEPHWhatsNewList = [  // New in this version
             '1.1.37: WL for no name places',
             '1.1.36: Basic fixes and add Waze Wrap',
-	    '1.1.33: Fixes for New WME',
+            '1.1.33: Fixes for New WME',
             '1.1.31: NV phone format fix',
             '1.1.31: Hours message fix',
             '1.1.31: Highlighter fix',
@@ -374,7 +374,7 @@
         }
         if (devUser) {
             betaUser = true; // dev users are beta users
-            if (thisUser.userName !== 'bmtg') { debugger; }
+            //if (thisUser.userName !== 'bmtg') { debugger; }
         }
         var usrRank = thisUser.normalizedLevel;  // get editor's level (actual level)
         var userLanguage = 'en';
@@ -888,7 +888,7 @@
                 phoneWL: false,
                 aCodeWL: false,
                 noHours: false,
-				nameMissing: false
+                nameMissing: false
             };
 
             // **** Set up banner action buttons.  Structure:
@@ -910,11 +910,11 @@
 
                 nameMissing: {  // no WL
                     active: false, severity: 3, message: 'Name is missing.',
-					WLactive: true, WLmessage: '', WLtitle: 'Whitelist missing name',
+                    WLactive: true, WLmessage: '', WLtitle: 'Whitelist missing name',
                     WLaction: function() {
                         wlKeyName = 'nameMissing';
                         whitelistAction(itemID, wlKeyName);
-					}
+                    }
                 },
 
                 hoursOverlap: {  // no WL
@@ -4533,20 +4533,21 @@
                     W.model.actionManager.add(new UpdateObject(item, cloneItems) );
                     phlogdev('Item details cloned');
                 }
-                if ( $("#WMEPH_CPstr").prop('checked') ) {
-                    var itemStreetRepl = item.getAddress();
-                    itemStreetRepl.street = cloneMaster.addr.street;
-                    updateAddress(item, itemStreetRepl);
-                    phlogdev('Item street cloned');
-                }
-                if ( $("#WMEPH_CPcity").prop('checked') ) {
-                    var itemCityRepl = item.getAddress();
-                    itemCityRepl.city = cloneMaster.addr.city;
-                    itemCityRepl.state = cloneMaster.addr.state;
-                    updateAddress(item, itemCityRepl);
-                    phlogdev('Item city & state cloned');
-                }
 
+                var copyStreet = $("#WMEPH_CPstr").prop('checked');
+                var copyCity = $("#WMEPH_CPcity").prop('checked');
+
+                if (copyStreet || copyCity) {
+                    var originalAddress = item.getAddress();
+                    var itemRepl = {
+                        street: copyStreet ? cloneMaster.addr.street : originalAddress.attributes.street,
+                        city: copyCity ? cloneMaster.addr.city : originalAddress.attributes.city,
+                        state: copyCity ? cloneMaster.addr.state : originalAddress.attributes.state,
+                        country: copyCity ? cloneMaster.addr.country : originalAddress.attributes.country
+                    }
+                    updateAddress(item, itemRepl);
+                    phlogdev('Item address cloned');
+                }
             } else {
                 phlog('Please copy a place');
             }
@@ -5436,12 +5437,12 @@
             var newAttributes,
                 UpdateFeatureAddress = require('Waze/Action/UpdateFeatureAddress');
             feature = feature || item;
-            if (feature && address && address.state && address.country) {
+            if (feature && address) {
                 newAttributes = {
                     countryID: address.country.id,
                     stateID: address.state.id,
-                    cityName: address.city.name,
-                    emptyCity: address.city.name ? null : true,
+                    cityName: address.city.attributes.name,
+                    emptyCity: address.city.attributes.name ? null : true,
                     streetName: address.street.name,
                     emptyStreet: address.street.name ? null : true
                 };
