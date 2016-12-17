@@ -1,7 +1,7 @@
 Place Harmonizer
 ===============
 Development Team: bmtg, vtpearce, cardyin, fjsawicki, jtsmith2, joyriding, t0cableguy, mapomatic
-Send comments for this version to: t0cableguy (PM), t0cableguy_5 (Slack DM)
+Send comments to: t0cableguy
 
 **Description:
 
@@ -83,12 +83,18 @@ Script will check for area vs. point according to wiki guidance (including SE de
 
     > Note: the name and address checks look to see that the info is there, but they don't say if it's correct (i.e., a wrong HN can't be detected by a script like this).  The Harmonization part of the script can autocorrect some misspellings for chains but the editor needs to make sure that the name and address are the correct ones for the place.
 
+* Map Highlights: All places will show with a highlight on the map. Red colored places indicate major items missing, such as names, and addresses. Blue indicates minor issues such as missing url's, phone numbers, and hours. Green indicates a place with a Name, Address, Phone Number, URL and hours. There are highlighting options to allow certain checks to not be made and allow a place to appear Green on the map. A red and black alternating border will appear for places with extreme issues.
+
 * Applying a lock: If a place satisfies the 3 checks above, then the script will lock the place at the correct level.  The level is determined from the SE locking guidelines.  For example, hospitals are locked at 5, restaurants at 3.  Places in the College Campus Project are locked according to those standards as much as possible.  Notes: If your editor rank is lower than the lock required, then the script locks it to your rank.  Also, the script will never down-lock a place.  Please recognize that not all cases can be scripted.  For example, park-and-ride lots are not easy to distinguish from regular parking lots in a script, so they are locked to 3 in this case.  So use your judgement.  This is just an (imperfect but hopefully useful) tool!
 
-* Alerts about potentially incorrect information
+* Alerts about potentially incorrect information appear above the Place information.
 
 * Post Office category gives a warning that the category is only used for USPS.  Populates the url and alt name, warns to check that it's really a USPS or use other category, and adds services: creditcards, AC, parking, wheelchair
 
 * Reminders for Stadium and Hospital categories, that they are only used in certain cases
 
 * Places like banks and certain businesses that have similar names now pop up an alert to the editor can verify the script selected the right harmonization.
+
+* Duplicate Checking: Will search a radius for duplicate named places. This can be whitelisted to not appear again. It applies for both locations, so you will not have to set a whitelist at the "duplicate" place for the first whitelisted place.
+
+* Whitelisting: You can whitelist a place for specific items such as missing phone number, address, url, hours. This allows them to appear complete to WMEPH and turn green.
