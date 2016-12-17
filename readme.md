@@ -6,11 +6,11 @@ Development Team: bmtg, vtpearce, cardyin, fjsawicki, jtsmith2, joyriding, t0cab
 Send comments to: t0cableguy
 
 **Description:
-
+--------------
 This script acts on a single selected place.  It will clean up many place details, harmonize names and details of many chains, and, if the place is complete according to standards, it will lock to an appropriate level.  Full feature list is below.
 
 **Installation:
-
+---------------
 Install Tampermonkey/Greasemonkey depending on your browser.
 
 Then use the following links to install.
@@ -20,26 +20,25 @@ Prod version https://goo.gl/g8O8qR
 Beta version https://goo.gl/I4V074     
 
 **Current Bugs & Issues
-
+------------------------
 SEE https://goo.gl/rQxVVB
 
 Please report any bugs to the link above. Be sure to search for an open similar issue before posting a new issue.
 
 **Usage:
-
+----------------
 Select a place in WME, and press the RUN WMEPH Button, or use the shortcut key (Shift-Alt-A).  Verify changes, adjust as needed, save.
 
 **Examples (before and after using the script):
-
+----------------------------------
 * Automatic correction of a McDonald's:
-http://prntscr.com/8y1ic1
+<img src=http://img.prntscr.com/img?url=http://i.imgur.com/YazP0ci.png></img>
 
 * Automatic correction of a 7-Eleven:
-http://prntscr.com/8y1gk0
+<img src=http://img.prntscr.com/img?url=http://i.imgur.com/fi5hBPe.png></img>
 
 * A place with no harmonization data (standalone restaurant):
-http://prntscr.com/8y1js4
-
+<img src=http://img.prntscr.com/img?url=http://i.imgur.com/1MLCQZB.png></img>
 
 **Current features:
 
