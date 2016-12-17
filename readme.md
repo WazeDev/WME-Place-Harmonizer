@@ -22,7 +22,7 @@ Then use the following links to install.
 
 <a href=https://goo.gl/rQxVVB>**Current Bugs & Issues</a>
 ------------------------
-<a href=https://goo.gl/rQxVVB>ISSUES</a>
+SEE <a href=https://goo.gl/rQxVVB>ISSUES</a>
 
 Please report any bugs here at the link above. Be sure to search for an open similar issue before posting a new issue.
 
