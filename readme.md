@@ -1,6 +1,8 @@
 Place Harmonizer
 ===============
+
 Development Team: bmtg, vtpearce, cardyin, fjsawicki, jtsmith2, joyriding, t0cableguy, mapomatic
+
 Send comments to: t0cableguy
 
 **Description:
