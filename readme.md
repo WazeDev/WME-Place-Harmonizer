@@ -12,13 +12,17 @@ This script acts on a single selected place.  It will clean up many place detail
 **Installation:
 
 Install Tampermonkey/Greasemonkey depending on your browser.
+
 Then use the following links to install.
+
 Prod version https://goo.gl/g8O8qR
+
 Beta version https://goo.gl/I4V074     
 
 **Current Bugs & Issues
 
 SEE https://goo.gl/rQxVVB
+
 Please report any bugs to the link above. Be sure to search for an open similar issue before posting a new issue.
 
 **Usage:
