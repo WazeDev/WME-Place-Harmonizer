@@ -3,29 +3,27 @@ Place Harmonizer
 Development Team: bmtg, vtpearce, cardyin, fjsawicki, jtsmith2, joyriding, t0cableguy, mapomatic
 Send comments for this version to: t0cableguy (PM), t0cableguy_5 (Slack DM)
 
-Description:
-------------
+**Description:
 
 This script acts on a single selected place.  It will clean up many place details, harmonize names and details of many chains, and, if the place is complete according to standards, it will lock to an appropriate level.  Full feature list is below.
 
-----------------
+**Installation:
 
-Installation:
--------------
+Install Tampermonkey/Greasemonkey depending on your browser.
+Then use the following links to install.
+Prod version https://goo.gl/g8O8qR
+Beta version https://goo.gl/I4V074     
 
-Use raw button under WME-Place-Harmonizer.user.js
+**Current Bugs & Issues
 
--------------
+SEE https://goo.gl/rQxVVB
+Please report any bugs to the link above. Be sure to search for an open similar issue before posting a new issue.
 
-Usage:
-------
+**Usage:
 
-Select a place in WME, and press the shortcut key (Shift-Alt-A).  Verify changes, adjust as needed, save.
+Select a place in WME, and press the RUN WMEPH Button, or use the shortcut key (Shift-Alt-A).  Verify changes, adjust as needed, save.
 
--------------
-
-Examples (before and after using the script):
----------------------------------------------
+**Examples (before and after using the script):
 
 * Automatic correction of a McDonald's:
 http://prntscr.com/8y1ic1
@@ -36,16 +34,14 @@ http://prntscr.com/8y1gk0
 * A place with no harmonization data (standalone restaurant):
 http://prntscr.com/8y1js4
 
--------------
 
-Current features:
------------------
+**Current features:
 
-* Regional Localization: Script will automatically detect the region of the selected place:  Currently SE, SAT, or Undefined.  If it's in SE or SAT, regional locking rules, place formats, and Phone# formats are applied.  For other regions, these are kept to the basic locking at 3 and (xxx) phone format (until other regions' rules are brought in, in the future).  **Note that for some app-submitted places, no state name is stored.  In these cases, you have to enter at least a city and street in the address field for the script to run.
+* Regional Localization: Script will automatically detect the region of the selected place:  Currently All USA regions have a Place Name Harmonization presence. Regional locking rules, place formats, and Phone# formats are applied according to region.
 
-* Country Localization: Script only works in the USA, but can be expanded to other countries in the future.
+* Country Localization: Script works in the USA and Canada, but can be expanded to other countries in the future.
 
-* Place name harmonization: An ongoing project is to harmonize place names for chains.  This mostly involves having the same primary name, alt-name(s), category(s), and website address for every place from that chain.  This script will harmonize the current place based on the detected place name and the place harmonization sheet, for many chains on the sheet (more places added with each new update).  When using the script, if the script finds a match for a place on the harm. sheet, it will auto correct the name to the standard name, add any alt-names if needed, put in the correct category(s), and put in the standardized url for the chain.
+* LIVE integration with Place Name Harmonization: An ongoing project is to harmonize place names for chains. This mostly involves having the same primary name, alt-name(s), category(s), and website address for every place from that chain. This script will harmonize the current place based on the detected place name and the place harmonization sheet.  When using the script, if the script finds a match for a place on the harm. sheet, it will auto correct the name to the standard name, add any alt-names if needed, put in the correct category(s), and put in the standardized url for the chain.
 
 * Common services are added for several categories.  For example, Schools receive Restroom, Parking, AC, Wheelchair services.  Any existing checked services are preserved.
 
@@ -96,4 +92,3 @@ Script will check for area vs. point according to wiki guidance (including SE de
 * Reminders for Stadium and Hospital categories, that they are only used in certain cases
 
 * Places like banks and certain businesses that have similar names now pop up an alert to the editor can verify the script selected the right harmonization.
-
