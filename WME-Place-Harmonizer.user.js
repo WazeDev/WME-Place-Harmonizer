@@ -10,7 +10,7 @@
 // ==UserScript==
 // @name	WME Place Harmonizer
 // @namespace   https://github.com/WazeUSA/WME-Place-Harmonizer/raw/master/WME-Place-Harmonizer.user.js
-// @version         1.1.40.1
+// @version         1.1.40.2
 // @description     Harmonizes, formats, and locks a selected place
 // @author          WMEPH development group
 // @include         https://*.waze.com/editor/*
@@ -252,7 +252,7 @@
     function runPH() {
         // Script update info
         var WMEPHWhatsNewList = [  // New in this version
-            '1.1.40.1: Temporary hotfix to disable PLA checking due to some issues.'
+            '1.1.40.1: Temporary hotfix to disable PLA checking due to some issues.',
             '1.1.40: Reversions and city.attribute.name fix',
 	    '1.1.37: WL for no name places',
             '1.1.36: Basic fixes and add Waze Wrap',
