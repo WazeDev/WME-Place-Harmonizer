@@ -10,7 +10,7 @@
 // ==UserScript==
 // @name	WME Place Harmonizer Beta
 // @namespace   https://github.com/WazeUSA/WME-Place-Harmonizer/raw/master/WME-Place-Harmonizer.user.js
-// @version         1.1.43
+// @version         1.1.44
 // @description     Harmonizes, formats, and locks a selected place
 // @author          WMEPH development group
 // @include         https://*.waze.com/editor/*
@@ -252,6 +252,7 @@
     function runPH() {
         // Script update info
         var WMEPHWhatsNewList = [  // New in this version
+            '1.1.44: Fix for adding hours (credit RavenDT)',
             '1.1.42: Temporarily disabled PLA checking until it is more stable',
             '1.1.41: Fixed but with whitelisting.',
             '1.1.38: Fixed clone utility',
@@ -4565,7 +4566,7 @@
 
         // Pull natural text from opening hours
         function getOpeningHours(venue) {
-            var formatOpeningHour = require('Waze/ViewHelpers').formatOpeningHour;
+            var formatOpeningHour = W.brara.ViewHelpers.formatOpeningHour;
             return venue && venue.getOpeningHours && venue.getOpeningHours().map(formatOpeningHour);
         }
         // Parse hours paste for hours object array
