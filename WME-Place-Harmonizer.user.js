@@ -4556,7 +4556,7 @@
 
         // Pull natural text from opening hours
         function getOpeningHours(venue) {
-            var formatOpeningHour = require('Waze/ViewHelpers').formatOpeningHour;
+            var formatOpeningHour = W.brara.ViewHelpers.formatOpeningHour;
             return venue && venue.getOpeningHours && venue.getOpeningHours().map(formatOpeningHour);
         }
         // Parse hours paste for hours object array
