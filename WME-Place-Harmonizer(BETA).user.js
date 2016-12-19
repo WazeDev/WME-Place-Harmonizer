@@ -544,7 +544,7 @@
                     // Highlighting logic would go here
                     // Severity can be: 0, 'lock', 1, 2, 3, 4, or 'high'. Set to
                     // anything else to use default WME style.
-                    if ( $("#WMEPH-ColorHighlighting" + devVersStr).prop('checked') ) {
+                    if ( $("#WMEPH-ColorHighlighting" + devVersStr).prop('checked') && !($("#WMEPH-DisableRankHL" + devVersStr).prop('checked') && venue.attributes.lockRank > (usrRank - 1))) {
                         try {
                             venue.attributes.wmephSeverity = harmonizePlaceGo(venue,'highlight');
                         } catch (err) {
@@ -5621,6 +5621,7 @@
             $("#sidepanel-highlighter" + devVersStr).append(phDevContentHtml);
             createSettingsCheckbox("sidepanel-highlighter" + devVersStr, "WMEPH-ColorHighlighting" + devVersStr,"Enable color highlighting of map to indicate places needing work");
             createSettingsCheckbox("sidepanel-highlighter" + devVersStr, "WMEPH-DisableHoursHL" + devVersStr,"Disable highlighting for missing hours");
+            createSettingsCheckbox("sidepanel-highlighter" + devVersStr, "WMEPH-DisableRankHL" + devVersStr,"Disable highlighting for places locked above your rank");
             createSettingsCheckbox("sidepanel-highlighter" + devVersStr, "WMEPH-DisableWLHL" + devVersStr,"Disable Whitelist highlighting (shows all missing info regardless of WL)");
             if (devUser || betaUser || usrRank > 2) {
                 //createSettingsCheckbox("sidepanel-highlighter" + devVersStr, "WMEPH-UnlockedRPPs" + devVersStr,"Highlight unlocked residential place points");
@@ -5965,6 +5966,9 @@
                 bootstrapWMEPH_CH();
             });
             $("#WMEPH-DisableHoursHL" + devVersStr).click( function() {
+                bootstrapWMEPH_CH();
+            });
+            $("#WMEPH-DisableRankHL" + devVersStr).click( function() {
                 bootstrapWMEPH_CH();
             });
             $("#WMEPH-DisableWLHL" + devVersStr).click( function() {
