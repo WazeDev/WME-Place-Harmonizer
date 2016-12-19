@@ -8,16 +8,16 @@
 /* global OL */
 /* global _ */
 // ==UserScript==
-// @name	WME Place Harmonizer Beta
+// @name        WME Place Harmonizer Beta
 // @namespace   https://github.com/WazeUSA/WME-Place-Harmonizer/raw/master/WME-Place-Harmonizer.user.js
-// @version         1.1.45
-// @description     Harmonizes, formats, and locks a selected place
-// @author          WMEPH development group
-// @include         https://*.waze.com/editor/*
-// @include         https://*.waze.com/*editor/*
-// @exclude	    https://*.waze.com/user/*
-// @grant	   none
-// @require https://greasyfork.org/scripts/24851-wazewrap/code/WazeWrap.js
+// @version     1.1.45
+// @description Harmonizes, formats, and locks a selected place
+// @author      WMEPH development group
+// @include     https://*.waze.com/editor/*
+// @include     https://*.waze.com/*editor/*
+// @exclude     https://*.waze.com/user/*
+// @grant       none
+// @require     https://greasyfork.org/scripts/24851-wazewrap/code/WazeWrap.js
 
 
 // ==/UserScript==
@@ -253,7 +253,7 @@
         // Script update info
         var WMEPHWhatsNewList = [  // New in this version
             '1.1.45: Add disable highlights for above rank function (credit RavenDT), stop url link from adding http://',
-	    '1.1.44: Fix for adding hours (credit RavenDT)',
+            '1.1.44: Fix for adding hours (credit RavenDT)',
             '1.1.42: Temporarily disabled PLA checking until it is more stable',
             '1.1.41: Fixed but with whitelisting.',
             '1.1.38: Fixed clone utility',
@@ -415,8 +415,8 @@
         bootstrapRunButton();
 
         /**
-		 * Generates highlighting rules and applies them to the map.
-		 */
+         * Generates highlighting rules and applies them to the map.
+         */
         var layer = W.map.landmarkLayer;
         function initializeHighlights() {
             var ruleGenerator = function(value, symbolizer) {
@@ -524,15 +524,15 @@
             Array.prototype.push.apply(layer.styleMap.styles['default'].rules, [severity0, severityLock, severity1, severityLock1, severity2, severity3, severity4, severityHigh, severityAdLock]);
             // to make Google Script linter happy ^^^ Array.prototype.push.apply(layer.styleMap.styles.default.rules, [severity0, severityLock, severity1, severity2, severity3, severity4, severityHigh]);
             /* Can apply to normal view or selection/highlight views as well.
-			_.each(layer.styleMap.styles, function(style) {
-				style.rules = style.rules.concat([severity0, severityLock, severity1, severity2, severity3, severity4, severityHigh]);
-			});
-			*/
+            _.each(layer.styleMap.styles, function(style) {
+                style.rules = style.rules.concat([severity0, severityLock, severity1, severity2, severity3, severity4, severityHigh]);
+            });
+            */
         }
 
         /**
-		 * To highlight a place, set the wmephSeverity attribute to the desired highlight level.
-		 */
+         * To highlight a place, set the wmephSeverity attribute to the desired highlight level.
+         */
         function applyHighlightsTest(venues) {
             venues = venues ? _.isArray(venues) ? venues : [venues] : [];
             var currentVenue = false;
@@ -1177,7 +1177,7 @@
                     active: false, severity: 1, message: "Is this a bank branch office? ", value: "Yes", title: "Is this a bank branch?",
                     action: function() {
                         newCategories = ["BANK_FINANCIAL","ATM"];  // Change to bank and atm cats
-                        newName = newName.replace(/[\- (]*ATM[\- )]*/g, ' ').replace(/^ /g,'').replace(/ $/g,'');	 // strip ATM from name if present
+                        newName = newName.replace(/[\- (]*ATM[\- )]*/g, ' ').replace(/^ /g,'').replace(/ $/g,'');     // strip ATM from name if present
                         W.model.actionManager.add(new UpdateObject(item, { name: newName, categories: newCategories }));
                         fieldUpdateObject.name='#dfd';
                         fieldUpdateObject.categories='#dfd';
@@ -1211,7 +1211,7 @@
                     active: false, severity: 1, message: "Or is this the bank's corporate offices?", value: "Yes", title: "Is this the bank's corporate offices?",
                     action: function() {
                         newCategories = ["OFFICES"];  // Change to offices category
-                        newName = newName.replace(/[\- (]*atm[\- )]*/ig, ' ').replace(/^ /g,'').replace(/ $/g,'').replace(/ {2,}/g,' ');	 // strip ATM from name if present
+                        newName = newName.replace(/[\- (]*atm[\- )]*/ig, ' ').replace(/^ /g,'').replace(/ $/g,'').replace(/ {2,}/g,' ');     // strip ATM from name if present
                         W.model.actionManager.add(new UpdateObject(item, { name: newName + ' - Corporate Offices', categories: newCategories }));
                         fieldUpdateObject.name='#dfd';
                         fieldUpdateObject.categories='#dfd';
@@ -1666,7 +1666,11 @@
                     action: function() {
                         var openPlaceWebsiteURL, linkProceed = true;
                         if (updateURL) {
-                            openPlaceWebsiteURL = 'http:\/\/' + newURL;
+                            if (/^https?:\/\//.test(newURL)) {
+                                openPlaceWebsiteURL = newURL;
+                            } else {
+                                openPlaceWebsiteURL = 'http://' + newURL;
+                            }
                             // replace WME url with storefinder URLs if they are in the PNH data
                             if (customStoreFinder) {
                                 openPlaceWebsiteURL = customStoreFinderURL;
@@ -1682,7 +1686,11 @@
                                 }
                             }
                         } else {
-                            openPlaceWebsiteURL = item.attributes.url;
+                            if (/^https?:\/\//.test(item.attributes.url)) {
+                                openPlaceWebsiteURL = item.attributes.url;
+                            } else {
+                                openPlaceWebsiteURL = 'http://' + item.attributes.url;
+                            }
                         }
                         // open the link depending on new window setting
                         if (linkProceed) {
@@ -2392,7 +2400,7 @@
                 }
 
             }
-            if (state2L === "Unknown" || region === "Unknown") {	// if nothing found:
+            if (state2L === "Unknown" || region === "Unknown") {    // if nothing found:
                 if (hpMode.harmFlag) {
                     if (confirm('WMEPH: Localization Error!\nClick OK to report this error') ) {  // if the category doesn't translate, then pop an alert that will make a forum post to the thread
                         forumMsgInputs = {
@@ -3148,7 +3156,7 @@
                     if (newCategories.indexOf(CH_NAMES[iii]) === 0 ) {  // Primary category
                         CH_DATA_Temp = CH_DATA[iii].split("|");
                         // CH_DATA_headers
-                        //pc_point	pc_area	pc_regpoint	pc_regarea	pc_lock1	pc_lock2	pc_lock3	pc_lock4	pc_lock5	pc_rare	pc_parent	pc_message
+                        //pc_point    pc_area    pc_regpoint    pc_regarea    pc_lock1    pc_lock2    pc_lock3    pc_lock4    pc_lock5    pc_rare    pc_parent    pc_message
                         pvaPoint = CH_DATA_Temp[CH_DATA_headers.indexOf('pc_point')];
                         pvaArea = CH_DATA_Temp[CH_DATA_headers.indexOf('pc_area')];
                         regPoint = CH_DATA_Temp[CH_DATA_headers.indexOf('pc_regpoint')].replace(/,[^A-za-z0-9]*/g, ",").split(",");
@@ -3218,7 +3226,7 @@
                             bannButt.pnhCatMess.message = pc_message;
                         }
                         // Unmapped categories
-                        pc_rare	 = CH_DATA_Temp[CH_DATA_headers.indexOf('pc_rare')].replace(/,[^A-Za-z0-9}]+/g, ",").split(',');
+                        pc_rare     = CH_DATA_Temp[CH_DATA_headers.indexOf('pc_rare')].replace(/,[^A-Za-z0-9}]+/g, ",").split(',');
                         if (pc_rare.indexOf(state2L) > -1 || pc_rare.indexOf(region) > -1 || pc_rare.indexOf(countryCode) > -1) {
                             bannButt.unmappedRegion.active = true;
                             if (currentWL.unmappedRegion) {
@@ -3228,7 +3236,7 @@
                             }
                         }
                         // Parent Category
-                        pc_parent	 = CH_DATA_Temp[CH_DATA_headers.indexOf('pc_parent')].replace(/,[^A-Za-z0-9}]+/g, ",").split(',');
+                        pc_parent     = CH_DATA_Temp[CH_DATA_headers.indexOf('pc_parent')].replace(/,[^A-Za-z0-9}]+/g, ",").split(',');
                         if (pc_parent.indexOf(state2L) > -1 || pc_parent.indexOf(region) > -1 || pc_parent.indexOf(countryCode) > -1) {
                             bannButt.parentCategory.active = true;
                             if (currentWL.parentCategory) {
@@ -3726,15 +3734,15 @@
 
                 // ### Review the ones below here
                 /*
-				if (newName === "UPS") {
-					sidebarMessageOld.push("If this is a 'UPS Store' location, please change the name to The UPS Store and run the script again.");
-					severity = Math.max(1, severity);
-				}
-				if (newName === "FedEx") {
-					sidebarMessageOld.push("If this is a FedEx Office location, please change the name to FedEx Office and run the script again.");
-					severity = Math.max(1, severity);
-				}
-				*/
+                if (newName === "UPS") {
+                    sidebarMessageOld.push("If this is a 'UPS Store' location, please change the name to The UPS Store and run the script again.");
+                    severity = Math.max(1, severity);
+                }
+                if (newName === "FedEx") {
+                    sidebarMessageOld.push("If this is a FedEx Office location, please change the name to FedEx Office and run the script again.");
+                    severity = Math.max(1, severity);
+                }
+                */
 
             }
 
@@ -3747,17 +3755,17 @@
                         if ( bannButt[tempKey].hasOwnProperty('WLactive') ) {
                             if ( bannButt[tempKey].WLactive ) {  // If there's a WL option, enable it
                                 severityButt = Math.max(bannButt[tempKey].severity, severityButt);
-                                //								if ( bannButt[tempKey].severity > 0) {
-                                //									phlogdev('Issue with '+item.attributes.name+': '+tempKey);
-                                //									phlogdev('Severity: '+bannButt[tempKey].severity);
-                                //								}
+                                //                                if ( bannButt[tempKey].severity > 0) {
+                                //                                    phlogdev('Issue with '+item.attributes.name+': '+tempKey);
+                                //                                    phlogdev('Severity: '+bannButt[tempKey].severity);
+                                //                                }
                             }
                         } else {
                             severityButt = Math.max(bannButt[tempKey].severity, severityButt);
-                            //							if ( bannButt[tempKey].severity > 0) {
-                            //								phlogdev('Issue with '+item.attributes.name+': '+tempKey);
-                            //								phlogdev('Severity: '+bannButt[tempKey].severity);
-                            //							}
+                            //                            if ( bannButt[tempKey].severity > 0) {
+                            //                                phlogdev('Issue with '+item.attributes.name+': '+tempKey);
+                            //                                phlogdev('Severity: '+bannButt[tempKey].severity);
+                            //                            }
                         }
                     }
 
@@ -4103,7 +4111,7 @@
                         //greyOption = '-webkit-filter: brightness(3); filter: brightness(3);';
                     }
                     //strButt1 = '&nbsp<input class="servButton" id="WMEPH_' + tempKey + '" title="' + bannServ[tempKey].title + '" type="image" style="height:' + servButtHeight +
-                    //	'px;background:none;border-color: none;border-style: none;" src="https://openmerchantaccount.com/img2/' + bannServ[tempKey].icon + greyOption + '.png">';
+                    //    'px;background:none;border-color: none;border-style: none;" src="https://openmerchantaccount.com/img2/' + bannServ[tempKey].icon + greyOption + '.png">';
                     strButt1 = '&nbsp<input class="'+bannServ[tempKey].icon+'" id="WMEPH_' + tempKey + '" type="button" title="' + bannServ[tempKey].title +
                         '" style="border:0;background-size: contain; height:' + servButtHeight + 'px;width: '+Math.ceil(servButtHeight*bannServ[tempKey].w2hratio).toString()+'px;'+greyOption+'">';
                     sidebarServButts += strButt1;
@@ -5321,10 +5329,10 @@
                         if (hasStreetName(connectedSegments[k].segment)) {
                             // Address found, push to array.
                             /*
-							console.debug('Address found on connnected segment ' +
-							connectedSegments[k].segment.attributes.id +
-							'. Recursion depth: ' + recursionDepth);
-							*/
+                            console.debug('Address found on connnected segment ' +
+                            connectedSegments[k].segment.attributes.id +
+                            '. Recursion depth: ' + recursionDepth);
+                            */
                             foundAddresses.push({
                                 depth: recursionDepth,
                                 distance: connectedSegments[k].distance,
@@ -5439,11 +5447,11 @@
         }  // END inferAddress function
 
         /**
-		 * Updates the address for a place.
-		 * @param feature {WME Venue Object} The place to update.
-		 * @param address {Object} An object containing the country, state, city, and street
-		 * objects.
-		 */
+         * Updates the address for a place.
+         * @param feature {WME Venue Object} The place to update.
+         * @param address {Object} An object containing the country, state, city, and street
+         * objects.
+         */
         function updateAddress(feature, address) {
             'use strict';
             var newAttributes,
@@ -5998,7 +6006,7 @@
         } // END Settings Tab
 
         // This routine will create a checkbox in the #PlaceHarmonizer tab and will load the setting
-        //		settingID:  The #id of the checkbox being created.
+        //        settingID:  The #id of the checkbox being created.
         //  textDescription:  The description of the checkbox that will be use
         function createSettingsCheckbox(divID, settingID, textDescription) {
             //Create settings checkbox and append HTML to settings tab
@@ -6204,10 +6212,10 @@
         }  // END WMEPH_newForumPost function
 
         /**
-		 * Updates the geometry of a place.
-		 * @param place {Waze venue object} The place to update.
-		 * @param newGeometry {OL.Geometry} The new geometry for the place.
-		 */
+         * Updates the geometry of a place.
+         * @param place {Waze venue object} The place to update.
+         * @param newGeometry {OL.Geometry} The new geometry for the place.
+         */
         function updateFeatureGeometry(place, newGeometry) {
             var oldGeometry,
                 model = W.model.venues,
@@ -6748,11 +6756,11 @@
                 }
             }
             /*
-			else if ('undefined' !== typeof lastAction && lastAction.hasOwnProperty('feature') && lastAction.feature.hasOwnProperty('state') && lastAction.object.state === 'Update' &&
-			lastAction.hasOwnProperty('newGeometry') ) {
-				// update position of marker
-			}
-			*/
+            else if ('undefined' !== typeof lastAction && lastAction.hasOwnProperty('feature') && lastAction.feature.hasOwnProperty('state') && lastAction.object.state === 'Update' &&
+            lastAction.hasOwnProperty('newGeometry') ) {
+                // update position of marker
+            }
+            */
         },20);
     }
 
