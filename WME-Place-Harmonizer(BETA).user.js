@@ -10,7 +10,7 @@
 // ==UserScript==
 // @name        WME Place Harmonizer Beta
 // @namespace   https://github.com/WazeUSA/WME-Place-Harmonizer/raw/master/WME-Place-Harmonizer.user.js
-// @version     1.1.45
+// @version     1.1.46
 // @description Harmonizes, formats, and locks a selected place
 // @author      WMEPH development group
 // @include     https://*.waze.com/editor/*
@@ -252,6 +252,7 @@
     function runPH() {
         // Script update info
         var WMEPHWhatsNewList = [  // New in this version
+            '1.1.46: allow for https:// in urls. (credit RavenDT)
             '1.1.45: Add disable highlights for above rank function (credit RavenDT), stop url link from adding http://',
             '1.1.44: Fix for adding hours (credit RavenDT)',
             '1.1.42: Temporarily disabled PLA checking until it is more stable',
