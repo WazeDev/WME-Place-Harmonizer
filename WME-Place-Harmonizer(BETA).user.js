@@ -1681,7 +1681,7 @@
                                 }
                             }
                         } else {
-                            openPlaceWebsiteURL = 'http:\/\/' + item.attributes.url;
+                            openPlaceWebsiteURL = item.attributes.url;
                         }
                         // open the link depending on new window setting
                         if (linkProceed) {
