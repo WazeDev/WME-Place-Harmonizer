@@ -10,7 +10,7 @@
 // ==UserScript==
 // @name        WME Place Harmonizer Beta
 // @namespace   https://github.com/WazeUSA/WME-Place-Harmonizer/raw/master/WME-Place-Harmonizer.user.js
-// @version     1.1.47
+// @version     1.1.47a
 // @description Harmonizes, formats, and locks a selected place
 // @author      WMEPH development group
 // @include     https://*.waze.com/editor/*
@@ -3901,14 +3901,16 @@
                 }
             }
 
-            var MultiAction = require("Waze/Action/MultiAction");
-            var m_action = new MultiAction();
-            m_action.setModel(W.model);
-            actions.forEach(function(action) {
-                m_action.doSubAction(action);
-            });
-            W.model.actionManager.add(m_action);
-
+            if(actions.length > 0) {
+                var MultiAction = require("Waze/Action/MultiAction");
+                var m_action = new MultiAction();
+                m_action.setModel(W.model);
+                actions.forEach(function(action) {
+                    m_action.doSubAction(action);
+                });
+                W.model.actionManager.add(m_action);
+            }
+            
             // Turn on website linking button if there is a url
             if (newURL !== null && newURL !== "") {
                 bannButt.PlaceWebsite.active = true;
