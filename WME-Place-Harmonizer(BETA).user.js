@@ -10,7 +10,7 @@
 // ==UserScript==
 // @name        WME Place Harmonizer Beta
 // @namespace   https://github.com/WazeUSA/WME-Place-Harmonizer/raw/master/WME-Place-Harmonizer.user.js
-// @version     1.1.46a-Issue3-a
+// @version     1.1.46a-Issue3-b
 // @description Harmonizes, formats, and locks a selected place
 // @author      WMEPH development group
 // @include     https://*.waze.com/editor/*
@@ -963,10 +963,10 @@
                         // update categories according to spec
                         newCategories = insertAtIX(newCategories,"TRANSPORTATION",0);  // Insert/move Gas category in the first position
                         newCategories = insertAtIX(newCategories,"SCENIC_LOOKOUT_VIEWPOINT",1);  // Insert/move Gas category in the first position
-                        actions.push(new UpdateObject(item, { categories: newCategories }));
+                        W.model.actionManager.add(new UpdateObject(item, { categories: newCategories }));
                         fieldUpdateObject.categories='#dfd';
                         // make it 24/7
-                        actions.push(new UpdateObject(item, { openingHours: [{days: [1,2,3,4,5,6,0], fromHour: "00:00", toHour: "00:00"}] }));
+                        W.model.actionManager.add(new UpdateObject(item, { openingHours: [{days: [1,2,3,4,5,6,0], fromHour: "00:00", toHour: "00:00"}] }));
                         fieldUpdateObject.openingHours='#dfd';
                         //higlightChangedFields(fieldUpdateObject,hpMode);
 
@@ -993,7 +993,7 @@
                         }
                         newName = item.attributes.brand;
                         newAliases = removeSFAliases(newName, newAliases);
-                        actions.push(new UpdateObject(item, { name: newName, aliases: newAliases }));
+                        W.model.actionManager.add(new UpdateObject(item, { name: newName, aliases: newAliases }));
                         fieldUpdateObject.name='#dfd';
                         fieldUpdateObject.aliases='#dfd';
                         higlightChangedFields(fieldUpdateObject,hpMode);
@@ -1014,7 +1014,7 @@
                     active: false, severity: 3,  message: "Gas Station is not the primary category", value: "Fix", title: 'Make the Gas Station category the primary category.',
                     action: function() {
                         newCategories = insertAtIX(newCategories,"GAS_STATION",0);  // Insert/move Gas category in the first position
-                        actions.push(new UpdateObject(item, { categories: newCategories }));
+                        W.model.actionManager.add(new UpdateObject(item, { categories: newCategories }));
                         fieldUpdateObject.categories='#dfd';
                         bannButt.gasMkPrim.active = false;  // reset the display flag
                         harmonizePlaceGo(item,'harmonize');
@@ -1025,7 +1025,7 @@
                     active: false, severity: 3, message: "Hotel category is not first", value: "Fix", title: 'Make the Hotel category the primary category.',
                     action: function() {
                         newCategories = insertAtIX(newCategories,"HOTEL",0);  // Insert/move Hotel category in the first position
-                        actions.push(new UpdateObject(item, { categories: newCategories }));
+                        W.model.actionManager.add(new UpdateObject(item, { categories: newCategories }));
                         fieldUpdateObject.categories='#dfd';
                         bannButt.hotelMkPrim.active = false;  // reset the display flag
                         harmonizePlaceGo(item,'harmonize');
@@ -1042,7 +1042,7 @@
                     action: function() {
                         newCategories[newCategories.indexOf('HOSPITAL_MEDICAL_CARE')] = "OFFICES";
                         //phlogdev(newCategories);
-                        actions.push(new UpdateObject(item, { categories: newCategories }));
+                        W.model.actionManager.add(new UpdateObject(item, { categories: newCategories }));
                         fieldUpdateObject.categories='#dfd';
                         bannButt.changeHMC2Office.active = false;  // reset the display flag
                         harmonizePlaceGo(item,'harmonize');  // Rerun the script to update fields and lock
@@ -1058,7 +1058,7 @@
                     active: false, severity: 3, message: "This looks like it should be a Pet/Veterinarian category. Change?", value: "Yes", title: 'Change to Pet/Veterinarian Category',
                     action: function() {
                         newCategories[newCategories.indexOf('HOSPITAL_MEDICAL_CARE')] = "PET_STORE_VETERINARIAN_SERVICES";
-                        actions.push(new UpdateObject(item, { categories: newCategories }));
+                        W.model.actionManager.add(new UpdateObject(item, { categories: newCategories }));
                         fieldUpdateObject.categories='#dfd';
                         bannButt.changeHMC2PetVet.active = false;  // reset the display flag
                         harmonizePlaceGo(item,'harmonize');  // Rerun the script to update fields and lock
@@ -1074,7 +1074,7 @@
                     active: false, severity: 3, message: "This doesn't look like it should be School category.", value: "Change to Office", title: 'Change to Offices Category',
                     action: function() {
                         newCategories[newCategories.indexOf('SCHOOL')] = "OFFICES";
-                        actions.push(new UpdateObject(item, { categories: newCategories }));
+                        W.model.actionManager.add(new UpdateObject(item, { categories: newCategories }));
                         fieldUpdateObject.categories='#dfd';
                         bannButt.changeSchool2Offices.active = false;  // reset the display flag
                         harmonizePlaceGo(item,'harmonize');  // Rerun the script to update fields and lock
@@ -1130,7 +1130,7 @@
                         var hnTemp = newHN.replace(/[^\d]/g, '');
                         var hnTempDash = newHN.replace(/[^\d-]/g, '');
                         if (hnTemp > 0 && hnTemp < 1000000) {
-                            actions.push(new UpdateObject(item, { houseNumber: hnTempDash }));
+                            W.model.actionManager.add(new UpdateObject(item, { houseNumber: hnTempDash }));
                             fieldUpdateObject.address='#dfd';
                             bannButt.hnMissing.active = false;
                         } else {
@@ -1180,7 +1180,7 @@
                     action: function() {
                         newCategories = ["BANK_FINANCIAL","ATM"];  // Change to bank and atm cats
                         newName = newName.replace(/[\- (]*ATM[\- )]*/g, ' ').replace(/^ /g,'').replace(/ $/g,'');     // strip ATM from name if present
-                        actions.push(new UpdateObject(item, { name: newName, categories: newCategories }));
+                        W.model.actionManager.add(new UpdateObject(item, { name: newName, categories: newCategories }));
                         fieldUpdateObject.name='#dfd';
                         fieldUpdateObject.categories='#dfd';
                         higlightChangedFields(fieldUpdateObject,hpMode);
@@ -1198,7 +1198,7 @@
                             newName = newName + ' ATM';
                         }
                         newCategories = ["ATM"];  // Change to ATM only
-                        actions.push(new UpdateObject(item, { name: newName, categories: newCategories }));
+                        W.model.actionManager.add(new UpdateObject(item, { name: newName, categories: newCategories }));
                         fieldUpdateObject.name='#dfd';
                         fieldUpdateObject.categories='#dfd';
                         higlightChangedFields(fieldUpdateObject,hpMode);
@@ -1214,7 +1214,7 @@
                     action: function() {
                         newCategories = ["OFFICES"];  // Change to offices category
                         newName = newName.replace(/[\- (]*atm[\- )]*/ig, ' ').replace(/^ /g,'').replace(/ $/g,'').replace(/ {2,}/g,' ');     // strip ATM from name if present
-                        actions.push(new UpdateObject(item, { name: newName + ' - Corporate Offices', categories: newCategories }));
+                        W.model.actionManager.add(new UpdateObject(item, { name: newName + ' - Corporate Offices', categories: newCategories }));
                         fieldUpdateObject.name='#dfd';
                         fieldUpdateObject.categories='#dfd';
                         higlightChangedFields(fieldUpdateObject,hpMode);
@@ -1302,7 +1302,7 @@
                     active: false, severity: 1, message: 'Existing URL doesn\'t match the suggested PNH URL. Use the Place Website button below to verify. If existing URL is invalid:', value: "Use PNH URL", title: "Change URL to the PNH standard",
                     action: function() {
                         if (tempPNHURL !== '') {
-                            actions.push(new UpdateObject(item, { url: tempPNHURL }));
+                            W.model.actionManager.add(new UpdateObject(item, { url: tempPNHURL }));
                             fieldUpdateObject.url='#dfd';
                             higlightChangedFields(fieldUpdateObject,hpMode);
                             bannButt.longURL.active = false;
@@ -1425,7 +1425,7 @@
                                     }
                                 }
                             }
-                            actions.push(new UpdateObject(item, { phone: newPhone }));
+                            W.model.actionManager.add(new UpdateObject(item, { phone: newPhone }));
                             fieldUpdateObject.phone='#dfd';
                             bannButt.phoneMissing.active = false;
                         }
@@ -1458,7 +1458,7 @@
                         var hoursObjectArray = parseHours(pasteHours);
                         if (hoursObjectArray !== false) {
                             phlogdev(hoursObjectArray);
-                            actions.push(new UpdateObject(item, { openingHours: hoursObjectArray }));
+                            W.model.actionManager.add(new UpdateObject(item, { openingHours: hoursObjectArray }));
                             fieldUpdateObject.openingHours='#dfd';
                             higlightChangedFields(fieldUpdateObject,hpMode);
                             bannButt.noHours.value = 'Add hours';
@@ -1482,7 +1482,7 @@
                         if (hoursObjectArray !== false) {
                             phlogdev(hoursObjectArray);
                             item.attributes.openingHours.push.apply(item.attributes.openingHours, hoursObjectArray);
-                            actions.push(new UpdateObject(item, { openingHours: hoursObjectArray }));
+                            W.model.actionManager.add(new UpdateObject(item, { openingHours: hoursObjectArray }));
                             fieldUpdateObject.openingHours='#dfd';
                             higlightChangedFields(fieldUpdateObject,hpMode);
                             bannButt.noHours.value2 = 'Replace hours';
@@ -1523,7 +1523,7 @@
                         phlogdev('RPPlevelToLock: '+ RPPlevelToLock);
 
                         RPPlevelToLock = RPPlevelToLock -1 ;
-                        actions.push(new UpdateObject(item, { lockRank: RPPlevelToLock }));
+                        W.model.actionManager.add(new UpdateObject(item, { lockRank: RPPlevelToLock }));
                         // no field highlight here
                         bannButt.lockRPP.message = 'Current lock: '+ (parseInt(item.attributes.lockRank)+1) +'. '+RPPLockString+' ?';
                     }
@@ -1535,12 +1535,12 @@
                         newAliases = insertAtIX(newAliases,optionalAlias,0);
                         if (specCases.indexOf('altName2Desc') > -1 &&  item.attributes.description.toUpperCase().indexOf(optionalAlias.toUpperCase()) === -1 ) {
                             newDescripion = optionalAlias + '\n' + newDescripion;
-                            actions.push(new UpdateObject(item, { description: newDescripion }));
+                            W.model.actionManager.add(new UpdateObject(item, { description: newDescripion }));
                             fieldUpdateObject.description='#dfd';
                             higlightChangedFields(fieldUpdateObject,hpMode);
                         }
                         newAliases = removeSFAliases(newName, newAliases);
-                        actions.push(new UpdateObject(item, { aliases: newAliases }));
+                        W.model.actionManager.add(new UpdateObject(item, { aliases: newAliases }));
                         fieldUpdateObject.aliases='#dfd';
                         higlightChangedFields(fieldUpdateObject,hpMode);
                         bannButt.addAlias.active = false;  // reset the display flag
@@ -1551,7 +1551,7 @@
                     active: false, severity: 0, message: "Is there a " + newCategories[0] + " at this location?", value: "Yes", title: 'Add ' + newCategories[0],
                     action: function() {
                         newCategories.push.apply(newCategories,altCategories);
-                        actions.push(new UpdateObject(item, { categories: newCategories }));
+                        W.model.actionManager.add(new UpdateObject(item, { categories: newCategories }));
                         fieldUpdateObject.categories='#dfd';
                         higlightChangedFields(fieldUpdateObject,hpMode);
                         bannButt.addCat2.active = false;  // reset the display flag
@@ -1562,7 +1562,7 @@
                     active: false, severity: 0, message: "Is there a Pharmacy at this location?", value: "Yes", title: 'Add Pharmacy category',
                     action: function() {
                         newCategories = insertAtIX(newCategories, 'PHARMACY', 1);
-                        actions.push(new UpdateObject(item, { categories: newCategories }));
+                        W.model.actionManager.add(new UpdateObject(item, { categories: newCategories }));
                         fieldUpdateObject.categories='#dfd';
                         higlightChangedFields(fieldUpdateObject,hpMode);
                         bannButt.addPharm.active = false;  // reset the display flag
@@ -1573,7 +1573,7 @@
                     active: false, severity: 0, message: "Does this location have a supermarket?", value: "Yes", title: 'Add Supermarket category',
                     action: function() {
                         newCategories = insertAtIX(newCategories, 'SUPERMARKET_GROCERY', 1);
-                        actions.push(new UpdateObject(item, { categories: newCategories }));
+                        W.model.actionManager.add(new UpdateObject(item, { categories: newCategories }));
                         fieldUpdateObject.categories='#dfd';
                         higlightChangedFields(fieldUpdateObject,hpMode);
                         bannButt.addSuper.active = false;  // reset the display flag
@@ -1586,7 +1586,7 @@
                         newCategories = insertAtIX(newCategories, 'CONVENIENCE_STORE', 1);
                         newName = 'ARCO ampm';
                         newURL = 'ampm.com';
-                        actions.push(new UpdateObject(item, { name: newName, url: newURL, categories: newCategories }));
+                        W.model.actionManager.add(new UpdateObject(item, { name: newName, url: newURL, categories: newCategories }));
                         fieldUpdateObject.name='#dfd';
                         fieldUpdateObject.url='#dfd';
                         fieldUpdateObject.categories='#dfd';
@@ -1600,7 +1600,7 @@
                     active: false, severity: 0, message: "ATM at location? ", value: "Yes", title: "Add the ATM category to this place",
                     action: function() {
                         newCategories = insertAtIX(newCategories,"ATM",1);  // Insert ATM category in the second position
-                        actions.push(new UpdateObject(item, { categories: newCategories }));
+                        W.model.actionManager.add(new UpdateObject(item, { categories: newCategories }));
                         fieldUpdateObject.categories='#dfd';
                         higlightChangedFields(fieldUpdateObject,hpMode);
                         bannButt.addATM.active = false;   // reset the display flag
@@ -1611,7 +1611,7 @@
                     active: false, severity: 0, message: "Add convenience store category? ", value: "Yes", title: "Add the Convenience Store category to this place",
                     action: function() {
                         newCategories = insertAtIX(newCategories,"CONVENIENCE_STORE",1);  // Insert C.S. category in the second position
-                        actions.push(new UpdateObject(item, { categories: newCategories }));
+                        W.model.actionManager.add(new UpdateObject(item, { categories: newCategories }));
                         fieldUpdateObject.categories='#dfd';
                         higlightChangedFields(fieldUpdateObject,hpMode);
                         bannButt.addConvStore.active = false;   // reset the display flag
@@ -1626,11 +1626,11 @@
                         bannServ.addParking.actionOn();
                         bannServ.addDeliveries.actionOn();
                         bannServ.addWheelchair.actionOn();
-                        actions.push(new UpdateObject(item, { url: "usps.com" }));
+                        W.model.actionManager.add(new UpdateObject(item, { url: "usps.com" }));
                         fieldUpdateObject.url='#dfd';
                         higlightChangedFields(fieldUpdateObject,hpMode);
                         if (region === 'SER') {
-                            actions.push(new UpdateObject(item, { aliases: ["United States Postal Service"] }));
+                            W.model.actionManager.add(new UpdateObject(item, { aliases: ["United States Postal Service"] }));
                             fieldUpdateObject.aliases='#dfd';
                             higlightChangedFields(fieldUpdateObject,hpMode);
                         }
@@ -1643,7 +1643,7 @@
                     action: function() {
                         newName = toTitleCaseStrong(item.attributes.name);  // Get the Strong Title Case name
                         if (newName !== item.attributes.name) {  // if they are not equal
-                            actions.push(new UpdateObject(item, { name: newName }));
+                            W.model.actionManager.add(new UpdateObject(item, { name: newName }));
                             fieldUpdateObject.name='#dfd';
                             higlightChangedFields(fieldUpdateObject,hpMode);
                         }
@@ -2201,7 +2201,7 @@
                     active: false, checked: false, icon: "serv-247", w2hratio: 73/50, value: "247", title: 'Hours: Open 24\/7',
                     action: function() {
                         if (!bannServ.add247.checked) {
-                            actions.push(new UpdateObject(item, { openingHours: [{days: [1,2,3,4,5,6,0], fromHour: "00:00", toHour: "00:00"}] }));
+                            W.model.actionManager.add(new UpdateObject(item, { openingHours: [{days: [1,2,3,4,5,6,0], fromHour: "00:00", toHour: "00:00"}] }));
                             fieldUpdateObject.openingHours='#dfd';
                             higlightChangedFields(fieldUpdateObject,hpMode);
                             bannServ.add247.checked = true;
