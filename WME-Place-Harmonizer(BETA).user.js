@@ -7,6 +7,8 @@
 /* global performance */
 /* global OL */
 /* global _ */
+/* global define */
+
 // ==UserScript==
 // @name        WME Place Harmonizer Beta
 // @namespace   https://github.com/WazeUSA/WME-Place-Harmonizer/raw/master/WME-Place-Harmonizer.user.js
@@ -18,9 +20,8 @@
 // @exclude     https://*.waze.com/user/*
 // @grant       none
 // @require     https://greasyfork.org/scripts/24851-wazewrap/code/WazeWrap.js
-
-
 // ==/UserScript==
+
 (function () {
     // item = W.selectionManager.selectedItems[0].model
     var WMEPHversion = GM_info.script.version.toString(); // pull version from header
@@ -274,10 +275,10 @@
             '1.1.27: Autosplits Sun,Mon hours because of WME display bug',
             '1.1.26: Bug fix',
             '1.1.25: Fields changed by the script are highlighted in green',
-            '1.1.25: Option to auto-run the script when a place is selected (R3+)',
+            '1.1.25: Option to auto-run the script when a place is selected (R3+)'
         ];
         var WMEPHWhatsNewMetaList = [  // New in this major version
-            '1.1: Built-in place highlighter shows which places on the map need work',
+            '1.1: Built-in place highlighter shows which places on the map need work'
         ];
         var newSep = '\n - ', listSep = '<li>';  // joiners for script and html messages
         var WMEPHWhatsNew = WMEPHWhatsNewList.join(newSep);
@@ -534,10 +535,10 @@
 
         /**
          * To highlight a place, set the wmephSeverity attribute to the desired highlight level.
+         * @param venues {array of venues, or single venue} Venues to check for highlights.
          */
         function applyHighlightsTest(venues) {
             venues = venues ? _.isArray(venues) ? venues : [venues] : [];
-            var currentVenue = false;
             var storedBannButt = bannButt, storedBannServ = bannServ, storedBannButt2 = bannButt2;
             var t0 = performance.now();  // Speed check start
 
@@ -1318,7 +1319,7 @@
                             if (confirm('WMEPH: URL Matching Error!\nClick OK to report this error') ) {  // if the category doesn't translate, then pop an alert that will make a forum post to the thread
                                 forumMsgInputs = {
                                     subject: 'Re: WMEPH URL comparison Error report',
-                                    message: 'Error report: URL comparison failed for "' + item.attributes.name + '"\nPermalink: ' + placePL,
+                                    message: 'Error report: URL comparison failed for "' + item.attributes.name + '"\nPermalink: ' + placePL
                                 };
                                 WMEPH_errorReport(forumMsgInputs);
                             }
@@ -1785,7 +1786,7 @@
                     action: function() {
                         var forumMsgInputs = {
                             subject: 'Re: WMEPH Bug report',
-                            message: 'Script version: ' + WMEPHversion + devVersStr + '\nPermalink: ' + placePL + '\nPlace name: ' + item.attributes.name + '\nCountry: ' + addr.country.name + '\n--------\nDescribe the error:  \n ',
+                            message: 'Script version: ' + WMEPHversion + devVersStr + '\nPermalink: ' + placePL + '\nPlace name: ' + item.attributes.name + '\nCountry: ' + addr.country.name + '\n--------\nDescribe the error:  \n '
                         };
                         WMEPH_errorReport(forumMsgInputs);
                     }
@@ -2414,7 +2415,7 @@
                     if (confirm('WMEPH: Localization Error!\nClick OK to report this error') ) {  // if the category doesn't translate, then pop an alert that will make a forum post to the thread
                         forumMsgInputs = {
                             subject: 'Re: WMEPH Localization Error report',
-                            message: 'Error report: Localization match failed for "' + addr.state.name + '".',
+                            message: 'Error report: Localization match failed for "' + addr.state.name + '".'
                         };
                         WMEPH_errorReport(forumMsgInputs);
                     }
@@ -2529,7 +2530,7 @@
                         if (confirm('WMEPH: Multiple matches found!\nDouble check the script changes.\nClick OK to report this situation.') ) {
                             forumMsgInputs = {
                                 subject: 'Re: WMEPH Multiple match report',
-                                message: 'Error report: PNH Order Nos. "' + orderList.join(', ') + '" are ambiguous multiple matches.',
+                                message: 'Error report: PNH Order Nos. "' + orderList.join(', ') + '" are ambiguous multiple matches.'
                             };
                             WMEPH_errorReport(forumMsgInputs);
                         }
@@ -3825,7 +3826,7 @@
                         if (confirm('WMEPH: Dupefinder Error!\nClick OK to report this') ) {  // if the category doesn't translate, then pop an alert that will make a forum post to the thread
                             forumMsgInputs = {
                                 subject: 'Re: WMEPH Bug report',
-                                message: 'Script version: ' + WMEPHversion + devVersStr + '\nPermalink: ' + placePL + '\nPlace name: ' + item.attributes.name + '\nCountry: ' + addr.country.name + '\n--------\nDescribe the error:\nDupeID mismatch with dupeName list',
+                                message: 'Script version: ' + WMEPHversion + devVersStr + '\nPermalink: ' + placePL + '\nPlace name: ' + item.attributes.name + '\nCountry: ' + addr.country.name + '\n--------\nDescribe the error:\nDupeID mismatch with dupeName list'
                             };
                             WMEPH_errorReport(forumMsgInputs);
                         }
@@ -4585,7 +4586,7 @@
                         city: copyCity ? cloneMaster.addr.city : originalAddress.attributes.city,
                         state: copyCity ? cloneMaster.addr.state : originalAddress.attributes.state,
                         country: copyCity ? cloneMaster.addr.country : originalAddress.attributes.country
-                    }
+                    };
                     updateAddress(item, itemRepl);
                     phlogdev('Item address cloned');
                 }
@@ -5381,7 +5382,7 @@
                     2: 3, // primary
                     1: 4, // street
                     20: 5, // PLR
-                    8: 6, // dirt
+                    8: 6 // dirt
                 };
                 if (FC && !isNaN(FC)) {
                     return typeToFCRank[FC] || 100;
@@ -5407,7 +5408,7 @@
             } else {
                 var entryExitPoints = selectedItem.model.attributes.entryExitPoints;
                 if (entryExitPoints.length > 0) {
-                    stopPoint = entryExitPoints[0]
+                    stopPoint = entryExitPoints[0];
                 } else {
                     return;
                 }
@@ -5547,7 +5548,7 @@
             if (confirm('WMEPH: Category Error!\nClick OK to report this error') ) {
                 forumMsgInputs = {
                     subject: 'Re: WMEPH Bug report',
-                    message: 'Error report: Category "' + natCategories + '" is not translatable.',
+                    message: 'Error report: Category "' + natCategories + '" is not translatable.'
                 };
                 WMEPH_errorReport(forumMsgInputs);
             }
@@ -6471,8 +6472,8 @@
                     if (e.shiftKey) {modifiers.shift.pressed = true;}
                     if (e.altKey) {modifiers.alt.pressed = true;}
                     if (e.metaKey) {modifiers.meta.pressed = true;}
-                    var k;
-                    for (var i = 0; k = keys[i], i < keys.length; i++) {
+                    for (var i = 0; i < keys.length; i++) {
+                        var k = keys[i];
                         //Modifiers
                         if (k === 'ctrl' || k === 'control') {
                             kp++;
@@ -6998,7 +6999,7 @@
                                 }
                             }
                             context_enlargeIn--;
-                            if (context_enlargeIn == 0) {
+                            if (context_enlargeIn === 0) {
                                 context_enlargeIn = Math.pow(2, context_numBits);
                                 context_numBits++;
                             }
@@ -7158,7 +7159,7 @@
                 bits = 0;
                 maxpower = Math.pow(2, 2);
                 power = 1;
-                while (power != maxpower) {
+                while (power !== maxpower) {
                     resb = data.val & data.position;
                     data.position >>= 1;
                     if (data.position === 0) {
@@ -7173,10 +7174,10 @@
                         bits = 0;
                         maxpower = Math.pow(2, 8);
                         power = 1;
-                        while (power != maxpower) {
+                        while (power !== maxpower) {
                             resb = data.val & data.position;
                             data.position >>= 1;
-                            if (data.position == 0) {
+                            if (data.position === 0) {
                                 data.position = resetValue;
                                 data.val = getNextValue(data.index++);
                             }
@@ -7189,10 +7190,10 @@
                         bits = 0;
                         maxpower = Math.pow(2, 16);
                         power = 1;
-                        while (power != maxpower) {
+                        while (power !== maxpower) {
                             resb = data.val & data.position;
                             data.position >>= 1;
-                            if (data.position == 0) {
+                            if (data.position === 0) {
                                 data.position = resetValue;
                                 data.val = getNextValue(data.index++);
                             }
@@ -7214,10 +7215,10 @@
                     bits = 0;
                     maxpower = Math.pow(2, numBits);
                     power = 1;
-                    while (power != maxpower) {
+                    while (power !== maxpower) {
                         resb = data.val & data.position;
                         data.position >>= 1;
-                        if (data.position == 0) {
+                        if (data.position === 0) {
                             data.position = resetValue;
                             data.val = getNextValue(data.index++);
                         }
@@ -7229,10 +7230,10 @@
                             bits = 0;
                             maxpower = Math.pow(2, 8);
                             power = 1;
-                            while (power != maxpower) {
+                            while (power !== maxpower) {
                                 resb = data.val & data.position;
                                 data.position >>= 1;
-                                if (data.position == 0) {
+                                if (data.position === 0) {
                                     data.position = resetValue;
                                     data.val = getNextValue(data.index++);
                                 }
@@ -7247,10 +7248,10 @@
                             bits = 0;
                             maxpower = Math.pow(2, 16);
                             power = 1;
-                            while (power != maxpower) {
+                            while (power !== maxpower) {
                                 resb = data.val & data.position;
                                 data.position >>= 1;
-                                if (data.position == 0) {
+                                if (data.position === 0) {
                                     data.position = resetValue;
                                     data.val = getNextValue(data.index++);
                                 }
@@ -7264,7 +7265,7 @@
                         case 2:
                             return result.join('');
                     }
-                    if (enlargeIn == 0) {
+                    if (enlargeIn === 0) {
                         enlargeIn = Math.pow(2, numBits);
                         numBits++;
                     }
@@ -7282,7 +7283,7 @@
                     dictionary[dictSize++] = w + entry.charAt(0);
                     enlargeIn--;
                     w = entry;
-                    if (enlargeIn == 0) {
+                    if (enlargeIn === 0) {
                         enlargeIn = Math.pow(2, numBits);
                         numBits++;
                     }
@@ -7296,7 +7297,7 @@
             return LZString;
         });
     } else if (typeof module !== 'undefined' && module !== null) {
-        module.exports = LZString
+        module.exports = LZString;
     }
 
 })();
