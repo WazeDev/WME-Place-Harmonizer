@@ -836,8 +836,8 @@
         }
 
         // Main script
-        function harmonizePlaceGo(item, useFlag) {
-            var actions = []; // Used for collecting all actions to be applied to the model.
+        function harmonizePlaceGo(item, useFlag, actions) {
+            actions = actions || []; // Used for collecting all actions to be applied to the model.
 
             var hpMode = {
                 harmFlag: false,
@@ -961,13 +961,14 @@
                 restAreaSpec: {  // if the gas brand and name don't match
                     active: false, severity: 3, message: "Is this a rest area?", value: "Yes", title: 'Update with proper categories and services.',
                     action: function() {
+                        var actions = [];
                         // update categories according to spec
                         newCategories = insertAtIX(newCategories,"TRANSPORTATION",0);  // Insert/move Gas category in the first position
                         newCategories = insertAtIX(newCategories,"SCENIC_LOOKOUT_VIEWPOINT",1);  // Insert/move Gas category in the first position
-                        W.model.actionManager.add(new UpdateObject(item, { categories: newCategories }));
+                        actions.push(new UpdateObject(item, { categories: newCategories }));
                         fieldUpdateObject.categories='#dfd';
                         // make it 24/7
-                        W.model.actionManager.add(new UpdateObject(item, { openingHours: [{days: [1,2,3,4,5,6,0], fromHour: "00:00", toHour: "00:00"}] }));
+                        actions.push(new UpdateObject(item, { openingHours: [{days: [1,2,3,4,5,6,0], fromHour: "00:00", toHour: "00:00"}] }));
                         fieldUpdateObject.openingHours='#dfd';
                         //higlightChangedFields(fieldUpdateObject,hpMode);
 
@@ -976,7 +977,7 @@
                         bannServ.addWheelchair.actionOn();  // add parking service
                         bannButt.restAreaSpec.active = false;  // reset the display flag
 
-                        harmonizePlaceGo(item,'harmonize');
+                        harmonizePlaceGo(item,'harmonize', actions);
                     },
                     WLactive: true, WLmessage: '', WLtitle: 'Whitelist place',
                     WLaction: function() {
@@ -1015,10 +1016,11 @@
                     active: false, severity: 3,  message: "Gas Station is not the primary category", value: "Fix", title: 'Make the Gas Station category the primary category.',
                     action: function() {
                         newCategories = insertAtIX(newCategories,"GAS_STATION",0);  // Insert/move Gas category in the first position
-                        W.model.actionManager.add(new UpdateObject(item, { categories: newCategories }));
+                        var actions = [];
+                        actions.push(new UpdateObject(item, { categories: newCategories }));
                         fieldUpdateObject.categories='#dfd';
                         bannButt.gasMkPrim.active = false;  // reset the display flag
-                        harmonizePlaceGo(item,'harmonize');
+                        harmonizePlaceGo(item,'harmonize', actions);
                     }
                 },
 
@@ -1026,10 +1028,11 @@
                     active: false, severity: 3, message: "Hotel category is not first", value: "Fix", title: 'Make the Hotel category the primary category.',
                     action: function() {
                         newCategories = insertAtIX(newCategories,"HOTEL",0);  // Insert/move Hotel category in the first position
-                        W.model.actionManager.add(new UpdateObject(item, { categories: newCategories }));
+                        var actions = [];
+                        actions.push(new UpdateObject(item, { categories: newCategories }));
                         fieldUpdateObject.categories='#dfd';
                         bannButt.hotelMkPrim.active = false;  // reset the display flag
-                        harmonizePlaceGo(item,'harmonize');
+                        harmonizePlaceGo(item,'harmonize', actions);
                     },
                     WLactive: true, WLmessage: '', WLtitle: 'Whitelist hotel as secondary category',
                     WLaction: function() {
@@ -1043,10 +1046,11 @@
                     action: function() {
                         newCategories[newCategories.indexOf('HOSPITAL_MEDICAL_CARE')] = "OFFICES";
                         //phlogdev(newCategories);
-                        W.model.actionManager.add(new UpdateObject(item, { categories: newCategories }));
+                        var actions = [];
+                        actions.push(new UpdateObject(item, { categories: newCategories }));
                         fieldUpdateObject.categories='#dfd';
                         bannButt.changeHMC2Office.active = false;  // reset the display flag
-                        harmonizePlaceGo(item,'harmonize');  // Rerun the script to update fields and lock
+                        harmonizePlaceGo(item,'harmonize', actions);  // Rerun the script to update fields and lock
                     },
                     WLactive: true, WLmessage: '', WLtitle: 'Whitelist Hospital category',
                     WLaction: function() {
@@ -1059,10 +1063,11 @@
                     active: false, severity: 3, message: "This looks like it should be a Pet/Veterinarian category. Change?", value: "Yes", title: 'Change to Pet/Veterinarian Category',
                     action: function() {
                         newCategories[newCategories.indexOf('HOSPITAL_MEDICAL_CARE')] = "PET_STORE_VETERINARIAN_SERVICES";
-                        W.model.actionManager.add(new UpdateObject(item, { categories: newCategories }));
+                        var actions = [];
+                        actions.push(new UpdateObject(item, { categories: newCategories }));
                         fieldUpdateObject.categories='#dfd';
                         bannButt.changeHMC2PetVet.active = false;  // reset the display flag
-                        harmonizePlaceGo(item,'harmonize');  // Rerun the script to update fields and lock
+                        harmonizePlaceGo(item,'harmonize', actions);  // Rerun the script to update fields and lock
                     },
                     WLactive: true, WLmessage: '', WLtitle: 'Whitelist PetVet category',
                     WLaction: function() {
@@ -1075,10 +1080,11 @@
                     active: false, severity: 3, message: "This doesn't look like it should be School category.", value: "Change to Office", title: 'Change to Offices Category',
                     action: function() {
                         newCategories[newCategories.indexOf('SCHOOL')] = "OFFICES";
-                        W.model.actionManager.add(new UpdateObject(item, { categories: newCategories }));
+                        var actions = [];
+                        actions.push(new UpdateObject(item, { categories: newCategories }));
                         fieldUpdateObject.categories='#dfd';
                         bannButt.changeSchool2Offices.active = false;  // reset the display flag
-                        harmonizePlaceGo(item,'harmonize');  // Rerun the script to update fields and lock
+                        harmonizePlaceGo(item,'harmonize', actions);  // Rerun the script to update fields and lock
                     },
                     WLactive: true, WLmessage: '', WLtitle: 'Whitelist School category',
                     WLaction: function() {
@@ -2275,7 +2281,7 @@
                     } else {
                         var inferredAddress = WMEPH_inferAddress(7);  // Pull address info from nearby segments
 
-                        if (inferredAddress.state && inferredAddress.country ) {
+                        if (inferredAddress && inferredAddress.state && inferredAddress.country ) {
                             addr = inferredAddress;
                             if ( $("#WMEPH-AddAddresses" + devVersStr).prop('checked') ) {  // update the item's address if option is enabled
                                 updateAddress(item, addr);
@@ -5310,8 +5316,9 @@
                     nodeA = W.model.nodes.get(closestSegment.attributes.fromNodeID),
                     nodeB = W.model.nodes.get(closestSegment.attributes.toNodeID);
                 if (nodeA && nodeB) {
-                    distanceA = stopPoint.distanceTo(nodeA.attributes.geometry);
-                    distanceB = stopPoint.distanceTo(nodeB.attributes.geometry);
+                    var pt = stopPoint.point ? stopPoint.point : stopPoint;
+                    distanceA = pt.distanceTo(nodeA.attributes.geometry);
+                    distanceB = pt.distanceTo(nodeB.attributes.geometry);
                     return distanceA < distanceB ?
                         nodeA.attributes.id : nodeB.attributes.id;
                 }
@@ -5395,14 +5402,22 @@
                 return;
             }
 
-            stopPoint = selectedItem.model.isPoint() ? selectedItem.geometry :
-            W.geometryEditing.editors.venue.navigationPoint.lonlat.toPoint();
+            if (selectedItem.model.isPoint()) {
+                stopPoint = selectedItem.geometry;
+            } else {
+                var entryExitPoints = selectedItem.model.attributes.entryExitPoints;
+                if (entryExitPoints.length > 0) {
+                    stopPoint = entryExitPoints[0]
+                } else {
+                    return;
+                }
+            }
 
             // Go through segment array and calculate distances to segments.
             for (i = 0, n = segments.length; i < n; i++) {
                 // Make sure the segment is not an ignored roadType.
                 if (IGNORE_ROAD_TYPES.indexOf(segments[i].attributes.roadType) === -1) {
-                    distanceToSegment = stopPoint.distanceTo(segments[i].geometry);
+                    distanceToSegment = (stopPoint.point ? stopPoint.point : stopPoint).distanceTo(segments[i].geometry);
                     // Add segment object and its distanceTo to an array.
                     orderedSegments.push({
                         distance: distanceToSegment,
