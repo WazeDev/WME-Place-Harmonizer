@@ -7,20 +7,21 @@
 /* global performance */
 /* global OL */
 /* global _ */
+/* global define */
+
 // ==UserScript==
 // @name	WME Place Harmonizer
 // @namespace   https://github.com/WazeUSA/WME-Place-Harmonizer/raw/master/WME-Place-Harmonizer.user.js
-// @version         1.1.40.2
-// @description     Harmonizes, formats, and locks a selected place
-// @author          WMEPH development group
-// @include         https://*.waze.com/editor/*
-// @include         https://*.waze.com/*editor/*
-// @exclude	    https://*.waze.com/user/*
-// @grant	   none
-// @require https://greasyfork.org/scripts/24851-wazewrap/code/WazeWrap.js
-
-
+// @version     1.1.48
+// @description Harmonizes, formats, and locks a selected place
+// @author      WMEPH development group
+// @include     https://*.waze.com/editor/*
+// @include     https://*.waze.com/*editor/*
+// @exclude     https://*.waze.com/user/*
+// @grant       none
+// @require     https://greasyfork.org/scripts/24851-wazewrap/code/WazeWrap.js
 // ==/UserScript==
+
 (function () {
     // item = W.selectionManager.selectedItems[0].model
     var WMEPHversion = GM_info.script.version.toString(); // pull version from header
@@ -53,7 +54,6 @@
     var searchResultsWindowSpecs = '"resizable=yes, top='+ Math.round(window.screen.height*0.1) +', left='+ Math.round(window.screen.width*0.3) +', width='+ Math.round(window.screen.width*0.7) +', height='+ Math.round(window.screen.height*0.8) +'"';
     var searchResultsWindowName = '"WMEPH Search Results"';
     var WMEPHmousePosition;
-    var useState = true;
     var cloneMaster = null;
     var bannButt, bannButt2, bannServ, bannDupl, bannButtHL;  // Banner Buttons objects
     var RPPLockString = 'Lock?';
@@ -252,27 +252,16 @@
     function runPH() {
         // Script update info
         var WMEPHWhatsNewList = [  // New in this version
-            '1.1.40.1: Temporary hotfix to disable PLA checking due to some issues.',
-            '1.1.40: Reversions and city.attribute.name fix',
-	    '1.1.37: WL for no name places',
-            '1.1.36: Basic fixes and add Waze Wrap',
-	    '1.1.33: Fixes for New WME',
-            '1.1.31: NV phone format fix',
-            '1.1.31: Hours message fix',
-            '1.1.31: Highlighter fix',
-            '1.1.30: Cardyin fixes',
-            '1.1.29: Missing HN can be entered in the banner',
-            '1.1.29: RPPs with street address but no city are blue now',
-            '1.1.29: Hours, HL, and WL tweaks, fixes',
-            '1.1.28: Bug fix',
-            '1.1.27: Autoremove dashes for HNs in Queens, NY',
-            '1.1.27: Autosplits Sun,Mon hours because of WME display bug',
-            '1.1.26: Bug fix',
-            '1.1.25: Fields changed by the script are highlighted in green',
-            '1.1.25: Option to auto-run the script when a place is selected (R3+)',
+            '1.1.47: Fix for one-field-update-per-click issue',
+            '1.1.46: allow for https:// in urls. (credit RavenDT)',
+            '1.1.45: Add disable highlights for above rank function (credit RavenDT), stop url link from adding http://',
+            '1.1.44: Fix for adding hours (credit RavenDT)',
+            '1.1.42: Temporarily disabled PLA checking until it is more stable',
+            '1.1.41: Fixed bug with whitelisting.',
+            '1.1.38: Fixed clone utility'
         ];
         var WMEPHWhatsNewMetaList = [  // New in this major version
-            '1.1: Built-in place highlighter shows which places on the map need work',
+            '1.1: Built-in place highlighter shows which places on the map need work'
         ];
         var newSep = '\n - ', listSep = '<li>';  // joiners for script and html messages
         var WMEPHWhatsNew = WMEPHWhatsNewList.join(newSep);
@@ -376,7 +365,7 @@
         }
         if (devUser) {
             betaUser = true; // dev users are beta users
-            if (thisUser.userName !== 'bmtg') { debugger; }
+            //if (thisUser.userName !== 'bmtg') { debugger; }
         }
         var usrRank = thisUser.normalizedLevel;  // get editor's level (actual level)
         var userLanguage = 'en';
@@ -412,8 +401,8 @@
         bootstrapRunButton();
 
         /**
-		 * Generates highlighting rules and applies them to the map.
-		 */
+         * Generates highlighting rules and applies them to the map.
+         */
         var layer = W.map.landmarkLayer;
         function initializeHighlights() {
             var ruleGenerator = function(value, symbolizer) {
@@ -521,18 +510,18 @@
             Array.prototype.push.apply(layer.styleMap.styles['default'].rules, [severity0, severityLock, severity1, severityLock1, severity2, severity3, severity4, severityHigh, severityAdLock]);
             // to make Google Script linter happy ^^^ Array.prototype.push.apply(layer.styleMap.styles.default.rules, [severity0, severityLock, severity1, severity2, severity3, severity4, severityHigh]);
             /* Can apply to normal view or selection/highlight views as well.
-			_.each(layer.styleMap.styles, function(style) {
-				style.rules = style.rules.concat([severity0, severityLock, severity1, severity2, severity3, severity4, severityHigh]);
-			});
-			*/
+            _.each(layer.styleMap.styles, function(style) {
+                style.rules = style.rules.concat([severity0, severityLock, severity1, severity2, severity3, severity4, severityHigh]);
+            });
+            */
         }
 
         /**
-		 * To highlight a place, set the wmephSeverity attribute to the desired highlight level.
-		 */
+         * To highlight a place, set the wmephSeverity attribute to the desired highlight level.
+         * @param venues {array of venues, or single venue} Venues to check for highlights.
+         */
         function applyHighlightsTest(venues) {
             venues = venues ? _.isArray(venues) ? venues : [venues] : [];
-            var currentVenue = false;
             var storedBannButt = bannButt, storedBannServ = bannServ, storedBannButt2 = bannButt2;
             var t0 = performance.now();  // Speed check start
 
@@ -542,7 +531,7 @@
                     // Highlighting logic would go here
                     // Severity can be: 0, 'lock', 1, 2, 3, 4, or 'high'. Set to
                     // anything else to use default WME style.
-                    if ( $("#WMEPH-ColorHighlighting" + devVersStr).prop('checked') ) {
+                    if ( $("#WMEPH-ColorHighlighting" + devVersStr).prop('checked') && !($("#WMEPH-DisableRankHL" + devVersStr).prop('checked') && venue.attributes.lockRank > (usrRank - 1))) {
                         try {
                             venue.attributes.wmephSeverity = harmonizePlaceGo(venue,'highlight');
                         } catch (err) {
@@ -814,12 +803,12 @@
             if (W.selectionManager.selectedItems.length === 1) {
                 var item = W.selectionManager.selectedItems[0].model;
                 if (item.type === "venue") {
-                    
-                    // 2016-12-17 (mapomatic) Until we can get parking lots working better, I'm forcing the code to skip them.
+
+                    // 2016-12-17 (mapomatic) Until we can get parking lots working without better, I'm forcing the code to skip them.
                     // ****************************************************************************************************************
                     if (item.attributes.categories.length === 1 && item.attributes.categories[0] === "PARKING_LOT") { return; }
                     // ****************************************************************************************************************
-                    
+
                     blurAll();  // focus away from current cursor position
                     harmonizePlaceGo(item,'harmonize');
                 } else {  // Remove duplicate labels
@@ -831,7 +820,9 @@
         }
 
         // Main script
-        function harmonizePlaceGo(item, useFlag) {
+        function harmonizePlaceGo(item, useFlag, actions) {
+            actions = actions || []; // Used for collecting all actions to be applied to the model.
+
             var hpMode = {
                 harmFlag: false,
                 hlFlag: false,
@@ -896,6 +887,7 @@
                 phoneWL: false,
                 aCodeWL: false,
                 noHours: false,
+                nameMissing: false
             };
 
             // **** Set up banner action buttons.  Structure:
@@ -917,6 +909,11 @@
 
                 nameMissing: {  // no WL
                     active: false, severity: 3, message: 'Name is missing.',
+                    WLactive: true, WLmessage: '', WLtitle: 'Whitelist missing name',
+                    WLaction: function() {
+                        wlKeyName = 'nameMissing';
+                        whitelistAction(itemID, wlKeyName);
+                    }
                 },
 
                 hoursOverlap: {  // no WL
@@ -948,13 +945,14 @@
                 restAreaSpec: {  // if the gas brand and name don't match
                     active: false, severity: 3, message: "Is this a rest area?", value: "Yes", title: 'Update with proper categories and services.',
                     action: function() {
+                        var actions = [];
                         // update categories according to spec
                         newCategories = insertAtIX(newCategories,"TRANSPORTATION",0);  // Insert/move Gas category in the first position
                         newCategories = insertAtIX(newCategories,"SCENIC_LOOKOUT_VIEWPOINT",1);  // Insert/move Gas category in the first position
-                        W.model.actionManager.add(new UpdateObject(item, { categories: newCategories }));
+                        actions.push(new UpdateObject(item, { categories: newCategories }));
                         fieldUpdateObject.categories='#dfd';
                         // make it 24/7
-                        W.model.actionManager.add(new UpdateObject(item, { openingHours: [{days: [1,2,3,4,5,6,0], fromHour: "00:00", toHour: "00:00"}] }));
+                        actions.push(new UpdateObject(item, { openingHours: [{days: [1,2,3,4,5,6,0], fromHour: "00:00", toHour: "00:00"}] }));
                         fieldUpdateObject.openingHours='#dfd';
                         //higlightChangedFields(fieldUpdateObject,hpMode);
 
@@ -963,7 +961,7 @@
                         bannServ.addWheelchair.actionOn();  // add parking service
                         bannButt.restAreaSpec.active = false;  // reset the display flag
 
-                        harmonizePlaceGo(item,'harmonize');
+                        harmonizePlaceGo(item,'harmonize', actions);
                     },
                     WLactive: true, WLmessage: '', WLtitle: 'Whitelist place',
                     WLaction: function() {
@@ -1002,10 +1000,11 @@
                     active: false, severity: 3,  message: "Gas Station is not the primary category", value: "Fix", title: 'Make the Gas Station category the primary category.',
                     action: function() {
                         newCategories = insertAtIX(newCategories,"GAS_STATION",0);  // Insert/move Gas category in the first position
-                        W.model.actionManager.add(new UpdateObject(item, { categories: newCategories }));
+                        var actions = [];
+                        actions.push(new UpdateObject(item, { categories: newCategories }));
                         fieldUpdateObject.categories='#dfd';
                         bannButt.gasMkPrim.active = false;  // reset the display flag
-                        harmonizePlaceGo(item,'harmonize');
+                        harmonizePlaceGo(item,'harmonize', actions);
                     }
                 },
 
@@ -1013,10 +1012,11 @@
                     active: false, severity: 3, message: "Hotel category is not first", value: "Fix", title: 'Make the Hotel category the primary category.',
                     action: function() {
                         newCategories = insertAtIX(newCategories,"HOTEL",0);  // Insert/move Hotel category in the first position
-                        W.model.actionManager.add(new UpdateObject(item, { categories: newCategories }));
+                        var actions = [];
+                        actions.push(new UpdateObject(item, { categories: newCategories }));
                         fieldUpdateObject.categories='#dfd';
                         bannButt.hotelMkPrim.active = false;  // reset the display flag
-                        harmonizePlaceGo(item,'harmonize');
+                        harmonizePlaceGo(item,'harmonize', actions);
                     },
                     WLactive: true, WLmessage: '', WLtitle: 'Whitelist hotel as secondary category',
                     WLaction: function() {
@@ -1030,10 +1030,11 @@
                     action: function() {
                         newCategories[newCategories.indexOf('HOSPITAL_MEDICAL_CARE')] = "OFFICES";
                         //phlogdev(newCategories);
-                        W.model.actionManager.add(new UpdateObject(item, { categories: newCategories }));
+                        var actions = [];
+                        actions.push(new UpdateObject(item, { categories: newCategories }));
                         fieldUpdateObject.categories='#dfd';
                         bannButt.changeHMC2Office.active = false;  // reset the display flag
-                        harmonizePlaceGo(item,'harmonize');  // Rerun the script to update fields and lock
+                        harmonizePlaceGo(item,'harmonize', actions);  // Rerun the script to update fields and lock
                     },
                     WLactive: true, WLmessage: '', WLtitle: 'Whitelist Hospital category',
                     WLaction: function() {
@@ -1046,10 +1047,11 @@
                     active: false, severity: 3, message: "This looks like it should be a Pet/Veterinarian category. Change?", value: "Yes", title: 'Change to Pet/Veterinarian Category',
                     action: function() {
                         newCategories[newCategories.indexOf('HOSPITAL_MEDICAL_CARE')] = "PET_STORE_VETERINARIAN_SERVICES";
-                        W.model.actionManager.add(new UpdateObject(item, { categories: newCategories }));
+                        var actions = [];
+                        actions.push(new UpdateObject(item, { categories: newCategories }));
                         fieldUpdateObject.categories='#dfd';
                         bannButt.changeHMC2PetVet.active = false;  // reset the display flag
-                        harmonizePlaceGo(item,'harmonize');  // Rerun the script to update fields and lock
+                        harmonizePlaceGo(item,'harmonize', actions);  // Rerun the script to update fields and lock
                     },
                     WLactive: true, WLmessage: '', WLtitle: 'Whitelist PetVet category',
                     WLaction: function() {
@@ -1062,10 +1064,11 @@
                     active: false, severity: 3, message: "This doesn't look like it should be School category.", value: "Change to Office", title: 'Change to Offices Category',
                     action: function() {
                         newCategories[newCategories.indexOf('SCHOOL')] = "OFFICES";
-                        W.model.actionManager.add(new UpdateObject(item, { categories: newCategories }));
+                        var actions = [];
+                        actions.push(new UpdateObject(item, { categories: newCategories }));
                         fieldUpdateObject.categories='#dfd';
                         bannButt.changeSchool2Offices.active = false;  // reset the display flag
-                        harmonizePlaceGo(item,'harmonize');  // Rerun the script to update fields and lock
+                        harmonizePlaceGo(item,'harmonize', actions);  // Rerun the script to update fields and lock
                     },
                     WLactive: true, WLmessage: '', WLtitle: 'Whitelist School category',
                     WLaction: function() {
@@ -1167,7 +1170,7 @@
                     active: false, severity: 1, message: "Is this a bank branch office? ", value: "Yes", title: "Is this a bank branch?",
                     action: function() {
                         newCategories = ["BANK_FINANCIAL","ATM"];  // Change to bank and atm cats
-                        newName = newName.replace(/[\- (]*ATM[\- )]*/g, ' ').replace(/^ /g,'').replace(/ $/g,'');	 // strip ATM from name if present
+                        newName = newName.replace(/[\- (]*ATM[\- )]*/g, ' ').replace(/^ /g,'').replace(/ $/g,'');     // strip ATM from name if present
                         W.model.actionManager.add(new UpdateObject(item, { name: newName, categories: newCategories }));
                         fieldUpdateObject.name='#dfd';
                         fieldUpdateObject.categories='#dfd';
@@ -1201,7 +1204,7 @@
                     active: false, severity: 1, message: "Or is this the bank's corporate offices?", value: "Yes", title: "Is this the bank's corporate offices?",
                     action: function() {
                         newCategories = ["OFFICES"];  // Change to offices category
-                        newName = newName.replace(/[\- (]*atm[\- )]*/ig, ' ').replace(/^ /g,'').replace(/ $/g,'').replace(/ {2,}/g,' ');	 // strip ATM from name if present
+                        newName = newName.replace(/[\- (]*atm[\- )]*/ig, ' ').replace(/^ /g,'').replace(/ $/g,'').replace(/ {2,}/g,' ');     // strip ATM from name if present
                         W.model.actionManager.add(new UpdateObject(item, { name: newName + ' - Corporate Offices', categories: newCategories }));
                         fieldUpdateObject.name='#dfd';
                         fieldUpdateObject.categories='#dfd';
@@ -1299,7 +1302,7 @@
                             if (confirm('WMEPH: URL Matching Error!\nClick OK to report this error') ) {  // if the category doesn't translate, then pop an alert that will make a forum post to the thread
                                 forumMsgInputs = {
                                     subject: 'Re: WMEPH URL comparison Error report',
-                                    message: 'Error report: URL comparison failed for "' + item.attributes.name + '"\nPermalink: ' + placePL,
+                                    message: 'Error report: URL comparison failed for "' + item.attributes.name + '"\nPermalink: ' + placePL
                                 };
                                 WMEPH_errorReport(forumMsgInputs);
                             }
@@ -1656,7 +1659,11 @@
                     action: function() {
                         var openPlaceWebsiteURL, linkProceed = true;
                         if (updateURL) {
-                            openPlaceWebsiteURL = 'http:\/\/' + newURL;
+                            if (/^https?:\/\//.test(newURL)) {
+                                openPlaceWebsiteURL = newURL;
+                            } else {
+                                openPlaceWebsiteURL = 'http://' + newURL;
+                            }
                             // replace WME url with storefinder URLs if they are in the PNH data
                             if (customStoreFinder) {
                                 openPlaceWebsiteURL = customStoreFinderURL;
@@ -1672,7 +1679,11 @@
                                 }
                             }
                         } else {
-                            openPlaceWebsiteURL = 'http:\/\/' + item.attributes.url;
+                            if (/^https?:\/\//.test(item.attributes.url)) {
+                                openPlaceWebsiteURL = item.attributes.url;
+                            } else {
+                                openPlaceWebsiteURL = 'http://' + item.attributes.url;
+                            }
                         }
                         // open the link depending on new window setting
                         if (linkProceed) {
@@ -1758,7 +1769,7 @@
                     action: function() {
                         var forumMsgInputs = {
                             subject: 'Re: WMEPH Bug report',
-                            message: 'Script version: ' + WMEPHversion + devVersStr + '\nPermalink: ' + placePL + '\nPlace name: ' + item.attributes.name + '\nCountry: ' + addr.country.name + '\n--------\nDescribe the error:  \n ',
+                            message: 'Script version: ' + WMEPHversion + devVersStr + '\nPermalink: ' + placePL + '\nPlace name: ' + item.attributes.name + '\nCountry: ' + addr.country.name + '\n--------\nDescribe the error:  \n '
                         };
                         WMEPH_errorReport(forumMsgInputs);
                     }
@@ -2254,7 +2265,7 @@
                     } else {
                         var inferredAddress = WMEPH_inferAddress(7);  // Pull address info from nearby segments
 
-                        if (inferredAddress.state && inferredAddress.country ) {
+                        if (inferredAddress && inferredAddress.state && inferredAddress.country ) {
                             addr = inferredAddress;
                             if ( $("#WMEPH-AddAddresses" + devVersStr).prop('checked') ) {  // update the item's address if option is enabled
                                 updateAddress(item, addr);
@@ -2382,12 +2393,12 @@
                 }
 
             }
-            if (state2L === "Unknown" || region === "Unknown") {	// if nothing found:
+            if (state2L === "Unknown" || region === "Unknown") {    // if nothing found:
                 if (hpMode.harmFlag) {
                     if (confirm('WMEPH: Localization Error!\nClick OK to report this error') ) {  // if the category doesn't translate, then pop an alert that will make a forum post to the thread
                         forumMsgInputs = {
                             subject: 'Re: WMEPH Localization Error report',
-                            message: 'Error report: Localization match failed for "' + addr.state.name + '".',
+                            message: 'Error report: Localization match failed for "' + addr.state.name + '".'
                         };
                         WMEPH_errorReport(forumMsgInputs);
                     }
@@ -2403,31 +2414,31 @@
                     }
                     if (item.attributes.name !== '') {  // Set the residential place name to the address (to clear any personal info)
                         phlogdev("Residential Name reset");
-                        W.model.actionManager.add(new UpdateObject(item, {name: ''}));
+                        actions.push(new UpdateObject(item, {name: ''}));
                         // no field HL
                     }
                     newCategories = ["RESIDENCE_HOME"];
                     // newDescripion = null;
                     if (item.attributes.description !== null && item.attributes.description !== "") {  // remove any description
                         phlogdev("Residential description cleared");
-                        W.model.actionManager.add(new UpdateObject(item, {description: null}));
+                        actions.push(new UpdateObject(item, {description: null}));
                         // no field HL
                     }
                     // newPhone = null;
                     if (item.attributes.phone !== null && item.attributes.phone !== "") {  // remove any phone info
                         phlogdev("Residential Phone cleared");
-                        W.model.actionManager.add(new UpdateObject(item, {phone: null}));
+                        actions.push(new UpdateObject(item, {phone: null}));
                         // no field HL
                     }
                     // newURL = null;
                     if (item.attributes.url !== null && item.attributes.url !== "") {  // remove any url
                         phlogdev("Residential URL cleared");
-                        W.model.actionManager.add(new UpdateObject(item, {url: null}));
+                        actions.push(new UpdateObject(item, {url: null}));
                         // no field HL
                     }
                     if (item.attributes.services.length > 0) {
                         phlogdev("Residential services cleared");
-                        W.model.actionManager.add(new UpdateObject(item, {services: [] }));
+                        actions.push(new UpdateObject(item, {services: [] }));
                         // no field HL
                     }
                 }
@@ -2502,7 +2513,7 @@
                         if (confirm('WMEPH: Multiple matches found!\nDouble check the script changes.\nClick OK to report this situation.') ) {
                             forumMsgInputs = {
                                 subject: 'Re: WMEPH Multiple match report',
-                                message: 'Error report: PNH Order Nos. "' + orderList.join(', ') + '" are ambiguous multiple matches.',
+                                message: 'Error report: PNH Order Nos. "' + orderList.join(', ') + '" are ambiguous multiple matches.'
                             };
                             WMEPH_errorReport(forumMsgInputs);
                         }
@@ -2553,7 +2564,7 @@
                             if ( ["GAS_STATION"].indexOf(priPNHPlaceCat) > -1 && specCases[scix].match(/^forceBrand<>(.+)/i) !== null ) {
                                 var forceBrand = specCases[scix].match(/^forceBrand<>(.+)/i)[1];
                                 if (item.attributes.brand !== forceBrand) {
-                                    W.model.actionManager.add(new UpdateObject(item, { brand: forceBrand }));
+                                    actions.push(new UpdateObject(item, { brand: forceBrand }));
                                     fieldUpdateObject.brand='#dfd';
                                     phlogdev('Gas brand updated from PNH');
                                 }
@@ -2832,11 +2843,12 @@
                     if ( !matchSets( uniq(item.attributes.categories),uniq(newCategories) ) ) {
                         if ( specCases.indexOf('optionCat2') === -1 && specCases.indexOf('buttOn_addCat2') === -1 ) {
                             phlogdev("Categories updated" + " with " + newCategories);
-                            W.model.actionManager.add(new UpdateObject(item, { categories: newCategories }));
+                            actions.push(new UpdateObject(item, { categories: newCategories }));
+                            //W.model.actionManager.add(new UpdateObject(item, { categories: newCategories }));
                             fieldUpdateObject.categories='#dfd';
                         } else {  // if second cat is optional
                             phlogdev("Primary category updated" + " with " + priPNHPlaceCat);
-                            W.model.actionManager.add(new UpdateObject(item, { categories: [priPNHPlaceCat] }));
+                            actions.push(new UpdateObject(item, { categories: [priPNHPlaceCat] }));
                             fieldUpdateObject.categories='#dfd';
                         }
                         // Enable optional 2nd category button
@@ -2854,7 +2866,7 @@
                         }
                         phlogdev("Description updated");
                         newDescripion = newDescripion + '\n' + item.attributes.description;
-                        W.model.actionManager.add(new UpdateObject(item, { description: newDescripion }));
+                        actions.push(new UpdateObject(item, { description: newDescripion }));
                         fieldUpdateObject.description='#dfd';
                     }
 
@@ -2942,7 +2954,8 @@
                 // Update name:
                 if (hpMode.harmFlag && newName !== item.attributes.name) {
                     phlogdev("Name updated");
-                    W.model.actionManager.add(new UpdateObject(item, { name: newName }));
+                    actions.push(new UpdateObject(item, { name: newName }));
+                    //actions.push(new UpdateObject(item, { name: newName }));
                     fieldUpdateObject.name='#dfd';
                 }
 
@@ -2953,7 +2966,7 @@
                 }
                 if (hpMode.harmFlag && newAliases !== item.attributes.aliases && newAliases.length !== item.attributes.aliases.length) {
                     phlogdev("Alt Names updated");
-                    W.model.actionManager.add(new UpdateObject(item, { aliases: newAliases }));
+                    actions.push(new UpdateObject(item, { aliases: newAliases }));
                     fieldUpdateObject.aliases='#dfd';
                 }
 
@@ -2983,7 +2996,7 @@
                     if (newCategories.indexOf("CONVENIENCE_STORE") === -1 && !bannButt.subFuel.active) {
                         if ( hpMode.harmFlag && $("#WMEPH-ConvenienceStoreToGasStations" + devVersStr).prop('checked') ) {  // Automatic if user has the setting checked
                             newCategories = insertAtIX(newCategories, "CONVENIENCE_STORE", 1);  // insert the C.S. category
-                            W.model.actionManager.add(new UpdateObject(item, { categories: newCategories }));
+                            actions.push(new UpdateObject(item, { categories: newCategories }));
                             fieldUpdateObject.categories='#dfd';
                             phlogdev('Conv. store category added');
                         } else {  // If not checked, then it will be a banner button
@@ -3126,7 +3139,7 @@
                 if ( hpMode.harmFlag && newCategories.indexOf('FOOD_AND_DRINK') > -1 ) {
                     if (newCategories.indexOf('RESTAURANT') > -1 || newCategories.indexOf('FAST_FOOD') > -1 ) {
                         newCategories.splice(newCategories.indexOf('FOOD_AND_DRINK'),1);  // remove Food/Drink Cat
-                        W.model.actionManager.add(new UpdateObject(item, { categories: newCategories }));
+                        actions.push(new UpdateObject(item, { categories: newCategories }));
                         fieldUpdateObject.categories='#dfd';
                     }
                 }
@@ -3138,7 +3151,7 @@
                     if (newCategories.indexOf(CH_NAMES[iii]) === 0 ) {  // Primary category
                         CH_DATA_Temp = CH_DATA[iii].split("|");
                         // CH_DATA_headers
-                        //pc_point	pc_area	pc_regpoint	pc_regarea	pc_lock1	pc_lock2	pc_lock3	pc_lock4	pc_lock5	pc_rare	pc_parent	pc_message
+                        //pc_point    pc_area    pc_regpoint    pc_regarea    pc_lock1    pc_lock2    pc_lock3    pc_lock4    pc_lock5    pc_rare    pc_parent    pc_message
                         pvaPoint = CH_DATA_Temp[CH_DATA_headers.indexOf('pc_point')];
                         pvaArea = CH_DATA_Temp[CH_DATA_headers.indexOf('pc_area')];
                         regPoint = CH_DATA_Temp[CH_DATA_headers.indexOf('pc_regpoint')].replace(/,[^A-za-z0-9]*/g, ",").split(",");
@@ -3208,7 +3221,7 @@
                             bannButt.pnhCatMess.message = pc_message;
                         }
                         // Unmapped categories
-                        pc_rare	 = CH_DATA_Temp[CH_DATA_headers.indexOf('pc_rare')].replace(/,[^A-Za-z0-9}]+/g, ",").split(',');
+                        pc_rare     = CH_DATA_Temp[CH_DATA_headers.indexOf('pc_rare')].replace(/,[^A-Za-z0-9}]+/g, ",").split(',');
                         if (pc_rare.indexOf(state2L) > -1 || pc_rare.indexOf(region) > -1 || pc_rare.indexOf(countryCode) > -1) {
                             bannButt.unmappedRegion.active = true;
                             if (currentWL.unmappedRegion) {
@@ -3218,7 +3231,7 @@
                             }
                         }
                         // Parent Category
-                        pc_parent	 = CH_DATA_Temp[CH_DATA_headers.indexOf('pc_parent')].replace(/,[^A-Za-z0-9}]+/g, ",").split(',');
+                        pc_parent     = CH_DATA_Temp[CH_DATA_headers.indexOf('pc_parent')].replace(/,[^A-Za-z0-9}]+/g, ",").split(',');
                         if (pc_parent.indexOf(state2L) > -1 || pc_parent.indexOf(region) > -1 || pc_parent.indexOf(countryCode) > -1) {
                             bannButt.parentCategory.active = true;
                             if (currentWL.parentCategory) {
@@ -3282,7 +3295,7 @@
                             phlogdev('Correcting M-S entry...');
                             tempHours.push({days: [0], fromHour: tempHours[ohix].fromHour, toHour: tempHours[ohix].toHour});
                             tempHours[ohix].days = [1];
-                            W.model.actionManager.add(new UpdateObject(item, { openingHours: tempHours }));
+                            actions.push(new UpdateObject(item, { openingHours: tempHours }));
                         }
                     }
                 }
@@ -3309,7 +3322,7 @@
                             bannButt.PlaceWebsite.value = "Place Website";
                             if (hpMode.harmFlag && updateURL && itemURL !== item.attributes.url) {  // Update the URL
                                 phlogdev("URL formatted");
-                                W.model.actionManager.add(new UpdateObject(item, { url: itemURL }));
+                                actions.push(new UpdateObject(item, { url: itemURL }));
                                 fieldUpdateObject.url='#dfd';
                             }
                             updateURL = false;
@@ -3318,7 +3331,7 @@
                     }
                     if (hpMode.harmFlag && updateURL && newURL !== item.attributes.url) {  // Update the URL
                         phlogdev("URL updated");
-                        W.model.actionManager.add(new UpdateObject(item, { url: newURL }));
+                        actions.push(new UpdateObject(item, { url: newURL }));
                         fieldUpdateObject.url='#dfd';
                     }
                 }
@@ -3354,7 +3367,7 @@
                 }
                 if (hpMode.harmFlag && newPhone !== item.attributes.phone) {
                     phlogdev("Phone updated");
-                    W.model.actionManager.add(new UpdateObject(item, {phone: newPhone}));
+                    actions.push(new UpdateObject(item, {phone: newPhone}));
                     fieldUpdateObject.phone='#dfd';
                 }
 
@@ -3368,7 +3381,7 @@
                             customStoreFinderURL = "https://tools.usps.com/go/POLocatorAction.action";
                             customStoreFinder = true;
                             if (hpMode.harmFlag && region === 'SER' && item.attributes.aliases.indexOf("United States Postal Service") === -1) {
-                                W.model.actionManager.add(new UpdateObject(item, { aliases: ["United States Postal Service"], url: 'www.usps.com' }));
+                                actions.push(new UpdateObject(item, { aliases: ["United States Postal Service"], url: 'www.usps.com' }));
                                 fieldUpdateObject.aliases='#dfd';
                                 fieldUpdateObject.url='#dfd';
                                 phlogdev('USPS alt name added');
@@ -3439,7 +3452,7 @@
                 if ( updateHNflag ) {
                     bannButt.hnDashRemoved.active = true;
                     if (hpMode.harmFlag) {
-                        W.model.actionManager.add(new UpdateObject(item, { houseNumber: hnTemp }));
+                        actions.push(new UpdateObject(item, { houseNumber: hnTemp }));
                         fieldUpdateObject.address='#dfd';
                     } else if (hpMode.hlFlag) {
                         if (item.attributes.residential) {
@@ -3580,7 +3593,7 @@
                     } else {
                         newName = newName.replace(/Mile/i, 'mile');
                         if (newName !== item.attributes.name) {  // if they are not equal
-                            W.model.actionManager.add(new UpdateObject(item, { name: newName }));
+                            actions.push(new UpdateObject(item, { name: newName }));
                             fieldUpdateObject.name='#dfd';
                             phlogdev('Lower case "mile"');
                         }
@@ -3642,7 +3655,7 @@
                 if ( item.attributes.lockRank < levelToLock) {
                     if (hpMode.harmFlag) {
                         phlogdev("Venue locked!");
-                        W.model.actionManager.add(new UpdateObject(item, { lockRank: levelToLock }));
+                        actions.push(new UpdateObject(item, { lockRank: levelToLock }));
                         fieldUpdateObject.lockRank='#dfd';
                     } else if (hpMode.hlFlag) {
                         hlLockFlag = true;
@@ -3716,15 +3729,15 @@
 
                 // ### Review the ones below here
                 /*
-				if (newName === "UPS") {
-					sidebarMessageOld.push("If this is a 'UPS Store' location, please change the name to The UPS Store and run the script again.");
-					severity = Math.max(1, severity);
-				}
-				if (newName === "FedEx") {
-					sidebarMessageOld.push("If this is a FedEx Office location, please change the name to FedEx Office and run the script again.");
-					severity = Math.max(1, severity);
-				}
-				*/
+                if (newName === "UPS") {
+                    sidebarMessageOld.push("If this is a 'UPS Store' location, please change the name to The UPS Store and run the script again.");
+                    severity = Math.max(1, severity);
+                }
+                if (newName === "FedEx") {
+                    sidebarMessageOld.push("If this is a FedEx Office location, please change the name to FedEx Office and run the script again.");
+                    severity = Math.max(1, severity);
+                }
+                */
 
             }
 
@@ -3737,17 +3750,17 @@
                         if ( bannButt[tempKey].hasOwnProperty('WLactive') ) {
                             if ( bannButt[tempKey].WLactive ) {  // If there's a WL option, enable it
                                 severityButt = Math.max(bannButt[tempKey].severity, severityButt);
-                                //								if ( bannButt[tempKey].severity > 0) {
-                                //									phlogdev('Issue with '+item.attributes.name+': '+tempKey);
-                                //									phlogdev('Severity: '+bannButt[tempKey].severity);
-                                //								}
+                                //                                if ( bannButt[tempKey].severity > 0) {
+                                //                                    phlogdev('Issue with '+item.attributes.name+': '+tempKey);
+                                //                                    phlogdev('Severity: '+bannButt[tempKey].severity);
+                                //                                }
                             }
                         } else {
                             severityButt = Math.max(bannButt[tempKey].severity, severityButt);
-                            //							if ( bannButt[tempKey].severity > 0) {
-                            //								phlogdev('Issue with '+item.attributes.name+': '+tempKey);
-                            //								phlogdev('Severity: '+bannButt[tempKey].severity);
-                            //							}
+                            //                            if ( bannButt[tempKey].severity > 0) {
+                            //                                phlogdev('Issue with '+item.attributes.name+': '+tempKey);
+                            //                                phlogdev('Severity: '+bannButt[tempKey].severity);
+                            //                            }
                         }
                     }
 
@@ -3796,7 +3809,7 @@
                         if (confirm('WMEPH: Dupefinder Error!\nClick OK to report this') ) {  // if the category doesn't translate, then pop an alert that will make a forum post to the thread
                             forumMsgInputs = {
                                 subject: 'Re: WMEPH Bug report',
-                                message: 'Script version: ' + WMEPHversion + devVersStr + '\nPermalink: ' + placePL + '\nPlace name: ' + item.attributes.name + '\nCountry: ' + addr.country.name + '\n--------\nDescribe the error:\nDupeID mismatch with dupeName list',
+                                message: 'Script version: ' + WMEPHversion + devVersStr + '\nPermalink: ' + placePL + '\nPlace name: ' + item.attributes.name + '\nCountry: ' + addr.country.name + '\n--------\nDescribe the error:\nDupeID mismatch with dupeName list'
                             };
                             WMEPH_errorReport(forumMsgInputs);
                         }
@@ -3878,6 +3891,16 @@
                 }
             }
 
+            if(actions.length > 0) {
+                var MultiAction = require("Waze/Action/MultiAction");
+                var m_action = new MultiAction();
+                m_action.setModel(W.model);
+                actions.forEach(function(action) {
+                    m_action.doSubAction(action);
+                });
+                W.model.actionManager.add(m_action);
+            }
+            
             // Turn on website linking button if there is a url
             if (newURL !== null && newURL !== "") {
                 bannButt.PlaceWebsite.active = true;
@@ -4093,7 +4116,7 @@
                         //greyOption = '-webkit-filter: brightness(3); filter: brightness(3);';
                     }
                     //strButt1 = '&nbsp<input class="servButton" id="WMEPH_' + tempKey + '" title="' + bannServ[tempKey].title + '" type="image" style="height:' + servButtHeight +
-                    //	'px;background:none;border-color: none;border-style: none;" src="https://openmerchantaccount.com/img2/' + bannServ[tempKey].icon + greyOption + '.png">';
+                    //    'px;background:none;border-color: none;border-style: none;" src="https://openmerchantaccount.com/img2/' + bannServ[tempKey].icon + greyOption + '.png">';
                     strButt1 = '&nbsp<input class="'+bannServ[tempKey].icon+'" id="WMEPH_' + tempKey + '" type="button" title="' + bannServ[tempKey].title +
                         '" style="border:0;background-size: contain; height:' + servButtHeight + 'px;width: '+Math.ceil(servButtHeight*bannServ[tempKey].w2hratio).toString()+'px;'+greyOption+'">';
                     sidebarServButts += strButt1;
@@ -4535,20 +4558,21 @@
                     W.model.actionManager.add(new UpdateObject(item, cloneItems) );
                     phlogdev('Item details cloned');
                 }
-                if ( $("#WMEPH_CPstr").prop('checked') ) {
-                    var itemStreetRepl = item.getAddress();
-                    itemStreetRepl.street = cloneMaster.addr.street;
-                    updateAddress(item, itemStreetRepl);
-                    phlogdev('Item street cloned');
-                }
-                if ( $("#WMEPH_CPcity").prop('checked') ) {
-                    var itemCityRepl = item.getAddress();
-                    itemCityRepl.city = cloneMaster.addr.city;
-                    itemCityRepl.state = cloneMaster.addr.state;
-                    updateAddress(item, itemCityRepl);
-                    phlogdev('Item city & state cloned');
-                }
 
+                var copyStreet = $("#WMEPH_CPstr").prop('checked');
+                var copyCity = $("#WMEPH_CPcity").prop('checked');
+
+                if (copyStreet || copyCity) {
+                    var originalAddress = item.getAddress();
+                    var itemRepl = {
+                        street: copyStreet ? cloneMaster.addr.street : originalAddress.attributes.street,
+                        city: copyCity ? cloneMaster.addr.city : originalAddress.attributes.city,
+                        state: copyCity ? cloneMaster.addr.state : originalAddress.attributes.state,
+                        country: copyCity ? cloneMaster.addr.country : originalAddress.attributes.country
+                    };
+                    updateAddress(item, itemRepl);
+                    phlogdev('Item address cloned');
+                }
             } else {
                 phlog('Please copy a place');
             }
@@ -4556,7 +4580,7 @@
 
         // Pull natural text from opening hours
         function getOpeningHours(venue) {
-            var formatOpeningHour = require('Waze/ViewHelpers').formatOpeningHour;
+            var formatOpeningHour = W.brara.ViewHelpers.formatOpeningHour;
             return venue && venue.getOpeningHours && venue.getOpeningHours().map(formatOpeningHour);
         }
         // Parse hours paste for hours object array
@@ -5276,8 +5300,9 @@
                     nodeA = W.model.nodes.get(closestSegment.attributes.fromNodeID),
                     nodeB = W.model.nodes.get(closestSegment.attributes.toNodeID);
                 if (nodeA && nodeB) {
-                    distanceA = stopPoint.distanceTo(nodeA.attributes.geometry);
-                    distanceB = stopPoint.distanceTo(nodeB.attributes.geometry);
+                    var pt = stopPoint.point ? stopPoint.point : stopPoint;
+                    distanceA = pt.distanceTo(nodeA.attributes.geometry);
+                    distanceB = pt.distanceTo(nodeB.attributes.geometry);
                     return distanceA < distanceB ?
                         nodeA.attributes.id : nodeB.attributes.id;
                 }
@@ -5310,10 +5335,10 @@
                         if (hasStreetName(connectedSegments[k].segment)) {
                             // Address found, push to array.
                             /*
-							console.debug('Address found on connnected segment ' +
-							connectedSegments[k].segment.attributes.id +
-							'. Recursion depth: ' + recursionDepth);
-							*/
+                            console.debug('Address found on connnected segment ' +
+                            connectedSegments[k].segment.attributes.id +
+                            '. Recursion depth: ' + recursionDepth);
+                            */
                             foundAddresses.push({
                                 depth: recursionDepth,
                                 distance: connectedSegments[k].distance,
@@ -5340,7 +5365,7 @@
                     2: 3, // primary
                     1: 4, // street
                     20: 5, // PLR
-                    8: 6, // dirt
+                    8: 6 // dirt
                 };
                 if (FC && !isNaN(FC)) {
                     return typeToFCRank[FC] || 100;
@@ -5361,14 +5386,22 @@
                 return;
             }
 
-            stopPoint = selectedItem.model.isPoint() ? selectedItem.geometry :
-            W.geometryEditing.editors.venue.navigationPoint.lonlat.toPoint();
+            if (selectedItem.model.isPoint()) {
+                stopPoint = selectedItem.geometry;
+            } else {
+                var entryExitPoints = selectedItem.model.attributes.entryExitPoints;
+                if (entryExitPoints.length > 0) {
+                    stopPoint = entryExitPoints[0];
+                } else {
+                    return;
+                }
+            }
 
             // Go through segment array and calculate distances to segments.
             for (i = 0, n = segments.length; i < n; i++) {
                 // Make sure the segment is not an ignored roadType.
                 if (IGNORE_ROAD_TYPES.indexOf(segments[i].attributes.roadType) === -1) {
-                    distanceToSegment = stopPoint.distanceTo(segments[i].geometry);
+                    distanceToSegment = (stopPoint.point ? stopPoint.point : stopPoint).distanceTo(segments[i].geometry);
                     // Add segment object and its distanceTo to an array.
                     orderedSegments.push({
                         distance: distanceToSegment,
@@ -5428,17 +5461,17 @@
         }  // END inferAddress function
 
         /**
-		 * Updates the address for a place.
-		 * @param feature {WME Venue Object} The place to update.
-		 * @param address {Object} An object containing the country, state, city, and street
-		 * objects.
-		 */
+         * Updates the address for a place.
+         * @param feature {WME Venue Object} The place to update.
+         * @param address {Object} An object containing the country, state, city, and street
+         * objects.
+         */
         function updateAddress(feature, address) {
             'use strict';
             var newAttributes,
                 UpdateFeatureAddress = require('Waze/Action/UpdateFeatureAddress');
             feature = feature || item;
-            if (feature && address && address.state && address.country) {
+            if (feature && address) {
                 newAttributes = {
                     countryID: address.country.id,
                     stateID: address.state.id,
@@ -5498,7 +5531,7 @@
             if (confirm('WMEPH: Category Error!\nClick OK to report this error') ) {
                 forumMsgInputs = {
                     subject: 'Re: WMEPH Bug report',
-                    message: 'Error report: Category "' + natCategories + '" is not translatable.',
+                    message: 'Error report: Category "' + natCategories + '" is not translatable.'
                 };
                 WMEPH_errorReport(forumMsgInputs);
             }
@@ -5611,6 +5644,7 @@
             $("#sidepanel-highlighter" + devVersStr).append(phDevContentHtml);
             createSettingsCheckbox("sidepanel-highlighter" + devVersStr, "WMEPH-ColorHighlighting" + devVersStr,"Enable color highlighting of map to indicate places needing work");
             createSettingsCheckbox("sidepanel-highlighter" + devVersStr, "WMEPH-DisableHoursHL" + devVersStr,"Disable highlighting for missing hours");
+            createSettingsCheckbox("sidepanel-highlighter" + devVersStr, "WMEPH-DisableRankHL" + devVersStr,"Disable highlighting for places locked above your rank");
             createSettingsCheckbox("sidepanel-highlighter" + devVersStr, "WMEPH-DisableWLHL" + devVersStr,"Disable Whitelist highlighting (shows all missing info regardless of WL)");
             if (devUser || betaUser || usrRank > 2) {
                 //createSettingsCheckbox("sidepanel-highlighter" + devVersStr, "WMEPH-UnlockedRPPs" + devVersStr,"Highlight unlocked residential place points");
@@ -5957,6 +5991,9 @@
             $("#WMEPH-DisableHoursHL" + devVersStr).click( function() {
                 bootstrapWMEPH_CH();
             });
+            $("#WMEPH-DisableRankHL" + devVersStr).click( function() {
+                bootstrapWMEPH_CH();
+            });
             $("#WMEPH-DisableWLHL" + devVersStr).click( function() {
                 bootstrapWMEPH_CH();
             });
@@ -5983,7 +6020,7 @@
         } // END Settings Tab
 
         // This routine will create a checkbox in the #PlaceHarmonizer tab and will load the setting
-        //		settingID:  The #id of the checkbox being created.
+        //        settingID:  The #id of the checkbox being created.
         //  textDescription:  The description of the checkbox that will be use
         function createSettingsCheckbox(divID, settingID, textDescription) {
             //Create settings checkbox and append HTML to settings tab
@@ -6189,10 +6226,10 @@
         }  // END WMEPH_newForumPost function
 
         /**
-		 * Updates the geometry of a place.
-		 * @param place {Waze venue object} The place to update.
-		 * @param newGeometry {OL.Geometry} The new geometry for the place.
-		 */
+         * Updates the geometry of a place.
+         * @param place {Waze venue object} The place to update.
+         * @param newGeometry {OL.Geometry} The new geometry for the place.
+         */
         function updateFeatureGeometry(place, newGeometry) {
             var oldGeometry,
                 model = W.model.venues,
@@ -6418,8 +6455,8 @@
                     if (e.shiftKey) {modifiers.shift.pressed = true;}
                     if (e.altKey) {modifiers.alt.pressed = true;}
                     if (e.metaKey) {modifiers.meta.pressed = true;}
-                    var k;
-                    for (var i = 0; k = keys[i], i < keys.length; i++) {
+                    for (var i = 0; i < keys.length; i++) {
+                        var k = keys[i];
                         //Modifiers
                         if (k === 'ctrl' || k === 'control') {
                             kp++;
@@ -6733,11 +6770,11 @@
                 }
             }
             /*
-			else if ('undefined' !== typeof lastAction && lastAction.hasOwnProperty('feature') && lastAction.feature.hasOwnProperty('state') && lastAction.object.state === 'Update' &&
-			lastAction.hasOwnProperty('newGeometry') ) {
-				// update position of marker
-			}
-			*/
+            else if ('undefined' !== typeof lastAction && lastAction.hasOwnProperty('feature') && lastAction.feature.hasOwnProperty('state') && lastAction.object.state === 'Update' &&
+            lastAction.hasOwnProperty('newGeometry') ) {
+                // update position of marker
+            }
+            */
         },20);
     }
 
@@ -6945,7 +6982,7 @@
                                 }
                             }
                             context_enlargeIn--;
-                            if (context_enlargeIn == 0) {
+                            if (context_enlargeIn === 0) {
                                 context_enlargeIn = Math.pow(2, context_numBits);
                                 context_numBits++;
                             }
@@ -7105,7 +7142,7 @@
                 bits = 0;
                 maxpower = Math.pow(2, 2);
                 power = 1;
-                while (power != maxpower) {
+                while (power !== maxpower) {
                     resb = data.val & data.position;
                     data.position >>= 1;
                     if (data.position === 0) {
@@ -7120,10 +7157,10 @@
                         bits = 0;
                         maxpower = Math.pow(2, 8);
                         power = 1;
-                        while (power != maxpower) {
+                        while (power !== maxpower) {
                             resb = data.val & data.position;
                             data.position >>= 1;
-                            if (data.position == 0) {
+                            if (data.position === 0) {
                                 data.position = resetValue;
                                 data.val = getNextValue(data.index++);
                             }
@@ -7136,10 +7173,10 @@
                         bits = 0;
                         maxpower = Math.pow(2, 16);
                         power = 1;
-                        while (power != maxpower) {
+                        while (power !== maxpower) {
                             resb = data.val & data.position;
                             data.position >>= 1;
-                            if (data.position == 0) {
+                            if (data.position === 0) {
                                 data.position = resetValue;
                                 data.val = getNextValue(data.index++);
                             }
@@ -7161,10 +7198,10 @@
                     bits = 0;
                     maxpower = Math.pow(2, numBits);
                     power = 1;
-                    while (power != maxpower) {
+                    while (power !== maxpower) {
                         resb = data.val & data.position;
                         data.position >>= 1;
-                        if (data.position == 0) {
+                        if (data.position === 0) {
                             data.position = resetValue;
                             data.val = getNextValue(data.index++);
                         }
@@ -7176,10 +7213,10 @@
                             bits = 0;
                             maxpower = Math.pow(2, 8);
                             power = 1;
-                            while (power != maxpower) {
+                            while (power !== maxpower) {
                                 resb = data.val & data.position;
                                 data.position >>= 1;
-                                if (data.position == 0) {
+                                if (data.position === 0) {
                                     data.position = resetValue;
                                     data.val = getNextValue(data.index++);
                                 }
@@ -7194,10 +7231,10 @@
                             bits = 0;
                             maxpower = Math.pow(2, 16);
                             power = 1;
-                            while (power != maxpower) {
+                            while (power !== maxpower) {
                                 resb = data.val & data.position;
                                 data.position >>= 1;
-                                if (data.position == 0) {
+                                if (data.position === 0) {
                                     data.position = resetValue;
                                     data.val = getNextValue(data.index++);
                                 }
@@ -7211,7 +7248,7 @@
                         case 2:
                             return result.join('');
                     }
-                    if (enlargeIn == 0) {
+                    if (enlargeIn === 0) {
                         enlargeIn = Math.pow(2, numBits);
                         numBits++;
                     }
@@ -7229,7 +7266,7 @@
                     dictionary[dictSize++] = w + entry.charAt(0);
                     enlargeIn--;
                     w = entry;
-                    if (enlargeIn == 0) {
+                    if (enlargeIn === 0) {
                         enlargeIn = Math.pow(2, numBits);
                         numBits++;
                     }
@@ -7243,7 +7280,7 @@
             return LZString;
         });
     } else if (typeof module !== 'undefined' && module !== null) {
-        module.exports = LZString
+        module.exports = LZString;
     }
 
 })();
