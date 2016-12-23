@@ -12,7 +12,7 @@
 // ==UserScript==
 // @name        WME Place Harmonizer Beta
 // @namespace   https://github.com/WazeUSA/WME-Place-Harmonizer/raw/master/WME-Place-Harmonizer.user.js
-// @version     1.1.47a
+// @version     1.1.48
 // @description Harmonizes, formats, and locks a selected place
 // @author      WMEPH development group
 // @include     https://*.waze.com/editor/*
@@ -54,7 +54,6 @@
     var searchResultsWindowSpecs = '"resizable=yes, top='+ Math.round(window.screen.height*0.1) +', left='+ Math.round(window.screen.width*0.3) +', width='+ Math.round(window.screen.width*0.7) +', height='+ Math.round(window.screen.height*0.8) +'"';
     var searchResultsWindowName = '"WMEPH Search Results"';
     var WMEPHmousePosition;
-    var useState = true;
     var cloneMaster = null;
     var bannButt, bannButt2, bannServ, bannDupl, bannButtHL;  // Banner Buttons objects
     var RPPLockString = 'Lock?';
@@ -258,24 +257,8 @@
             '1.1.45: Add disable highlights for above rank function (credit RavenDT), stop url link from adding http://',
             '1.1.44: Fix for adding hours (credit RavenDT)',
             '1.1.42: Temporarily disabled PLA checking until it is more stable',
-            '1.1.41: Fixed but with whitelisting.',
-            '1.1.38: Fixed clone utility',
-            '1.1.37: WL for no name places',
-            '1.1.36: Basic fixes and add Waze Wrap',
-            '1.1.33: Fixes for New WME',
-            '1.1.31: NV phone format fix',
-            '1.1.31: Hours message fix',
-            '1.1.31: Highlighter fix',
-            '1.1.30: Cardyin fixes',
-            '1.1.29: Missing HN can be entered in the banner',
-            '1.1.29: RPPs with street address but no city are blue now',
-            '1.1.29: Hours, HL, and WL tweaks, fixes',
-            '1.1.28: Bug fix',
-            '1.1.27: Autoremove dashes for HNs in Queens, NY',
-            '1.1.27: Autosplits Sun,Mon hours because of WME display bug',
-            '1.1.26: Bug fix',
-            '1.1.25: Fields changed by the script are highlighted in green',
-            '1.1.25: Option to auto-run the script when a place is selected (R3+)'
+            '1.1.41: Fixed bug with whitelisting.',
+            '1.1.38: Fixed clone utility'
         ];
         var WMEPHWhatsNewMetaList = [  // New in this major version
             '1.1: Built-in place highlighter shows which places on the map need work'
