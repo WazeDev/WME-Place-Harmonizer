@@ -54,7 +54,6 @@
     var searchResultsWindowSpecs = '"resizable=yes, top='+ Math.round(window.screen.height*0.1) +', left='+ Math.round(window.screen.width*0.3) +', width='+ Math.round(window.screen.width*0.7) +', height='+ Math.round(window.screen.height*0.8) +'"';
     var searchResultsWindowName = '"WMEPH Search Results"';
     var WMEPHmousePosition;
-    var useState = true;
     var cloneMaster = null;
     var bannButt, bannButt2, bannServ, bannDupl, bannButtHL;  // Banner Buttons objects
     var RPPLockString = 'Lock?';
@@ -72,111 +71,103 @@
     };
 
     /* ****** Pull PNH and Userlist data ****** */
-    setTimeout(function() {
+
         // Pull USA PNH Data
-        setTimeout(function() {
-            $.ajax({
-                type: 'GET',
-                url: 'https://spreadsheets.google.com/feeds/list/1-f-JTWY5UnBx-rFTa4qhyGMYdHBZWNirUTOgn222zMY/o6q7kx/public/values',
-                jsonp: 'callback', data: { alt: 'json-in-script' }, dataType: 'jsonp',
-                success: function(response) {
-                    USA_PNH_DATA = [];
-                    for (var i = 0; i < response.feed.entry.length; i++) {
-                        USA_PNH_DATA.push(response.feed.entry[i].gsx$pnhdata.$t);
-                    }
+        $.ajax({
+            type: 'GET',
+            url: 'https://spreadsheets.google.com/feeds/list/1-f-JTWY5UnBx-rFTa4qhyGMYdHBZWNirUTOgn222zMY/o6q7kx/public/values',
+            jsonp: 'callback', data: { alt: 'json-in-script' }, dataType: 'jsonp',
+            success: function(response) {
+                USA_PNH_DATA = [];
+                for (var i = 0; i < response.feed.entry.length; i++) {
+                    USA_PNH_DATA.push(response.feed.entry[i].gsx$pnhdata.$t);
                 }
-            });
-        }, 0);
+            }
+        });
+
         // Pull Category Data ( Includes CAN for now )
-        setTimeout(function() {
-            $.ajax({
-                type: 'GET',
-                url: 'https://spreadsheets.google.com/feeds/list/1-f-JTWY5UnBx-rFTa4qhyGMYdHBZWNirUTOgn222zMY/ov3dubz/public/values',
-                jsonp: 'callback', data: { alt: 'json-in-script' }, dataType: 'jsonp',
-                success: function(response) {
-                    USA_CH_DATA = [];
-                    for (var i = 0; i < response.feed.entry.length; i++) {
-                        USA_CH_DATA.push(response.feed.entry[i].gsx$pcdata.$t);
-                    }
+        $.ajax({
+            type: 'GET',
+            url: 'https://spreadsheets.google.com/feeds/list/1-f-JTWY5UnBx-rFTa4qhyGMYdHBZWNirUTOgn222zMY/ov3dubz/public/values',
+            jsonp: 'callback', data: { alt: 'json-in-script' }, dataType: 'jsonp',
+            success: function(response) {
+                USA_CH_DATA = [];
+                for (var i = 0; i < response.feed.entry.length; i++) {
+                    USA_CH_DATA.push(response.feed.entry[i].gsx$pcdata.$t);
                 }
-            });
-        }, 20);
+            }
+        });
+
         // Pull State-based Data (includes CAN for now)
-        setTimeout(function() {
-            $.ajax({
-                type: 'GET',
-                url: 'https://spreadsheets.google.com/feeds/list/1-f-JTWY5UnBx-rFTa4qhyGMYdHBZWNirUTOgn222zMY/os2g2ln/public/values',
-                jsonp: 'callback', data: { alt: 'json-in-script' }, dataType: 'jsonp',
-                success: function(response) {
-                    USA_STATE_DATA = [];
-                    for (var i = 0; i < response.feed.entry.length; i++) {
-                        USA_STATE_DATA.push(response.feed.entry[i].gsx$psdata.$t);
-                    }
+        $.ajax({
+            type: 'GET',
+            url: 'https://spreadsheets.google.com/feeds/list/1-f-JTWY5UnBx-rFTa4qhyGMYdHBZWNirUTOgn222zMY/os2g2ln/public/values',
+            jsonp: 'callback', data: { alt: 'json-in-script' }, dataType: 'jsonp',
+            success: function(response) {
+                USA_STATE_DATA = [];
+                for (var i = 0; i < response.feed.entry.length; i++) {
+                    USA_STATE_DATA.push(response.feed.entry[i].gsx$psdata.$t);
                 }
-            });
-        }, 40);
+            }
+        });
+
         // Pull CAN PNH Data
-        setTimeout(function() {
-            $.ajax({
-                type: 'GET',
-                url: 'https://spreadsheets.google.com/feeds/list/1TIxQZVLUbAJ8iH6LPTkJsvqFb_DstrHpKsJbv1W1FZs/o4ghhas/public/values',
-                jsonp: 'callback', data: { alt: 'json-in-script' }, dataType: 'jsonp',
-                success: function(response) {
-                    CAN_PNH_DATA = [];
-                    for (var i = 0; i < response.feed.entry.length; i++) {
-                        CAN_PNH_DATA.push(response.feed.entry[i].gsx$pnhdata.$t);
-                    }
+        $.ajax({
+            type: 'GET',
+            url: 'https://spreadsheets.google.com/feeds/list/1TIxQZVLUbAJ8iH6LPTkJsvqFb_DstrHpKsJbv1W1FZs/o4ghhas/public/values',
+            jsonp: 'callback', data: { alt: 'json-in-script' }, dataType: 'jsonp',
+            success: function(response) {
+                CAN_PNH_DATA = [];
+                for (var i = 0; i < response.feed.entry.length; i++) {
+                    CAN_PNH_DATA.push(response.feed.entry[i].gsx$pnhdata.$t);
                 }
-            });
-        }, 60);
+            }
+        });
+
         // Pull name-category lists
-        setTimeout(function() {
-            $.ajax({
-                type: 'GET',
-                url: 'https://spreadsheets.google.com/feeds/list/1qPjzDu7ZWcpz9xrWYgU7BFLVdbk9ycqgPK9f2mydYlA/op17piq/public/values',
-                jsonp: 'callback', data: { alt: 'json-in-script' }, dataType: 'jsonp',
-                success: function(response) {
-                    hospitalPartMatch = response.feed.entry[0].gsx$hmchp.$t;
-                    hospitalFullMatch = response.feed.entry[0].gsx$hmchf.$t;
-                    animalPartMatch = response.feed.entry[0].gsx$hmcap.$t;
-                    animalFullMatch = response.feed.entry[0].gsx$hmcaf.$t;
-                    schoolPartMatch = response.feed.entry[0].gsx$schp.$t;
-                    schoolFullMatch = response.feed.entry[0].gsx$schf.$t;
-                    hospitalPartMatch = hospitalPartMatch.toLowerCase().replace(/ \|/g,'|').replace(/\| /g,'|').split("|");
-                    hospitalFullMatch = hospitalFullMatch.toLowerCase().replace(/ \|/g,'|').replace(/\| /g,'|').split("|");
-                    animalPartMatch = animalPartMatch.toLowerCase().replace(/ \|/g,'|').replace(/\| /g,'|').split("|");
-                    animalFullMatch = animalFullMatch.toLowerCase().replace(/ \|/g,'|').replace(/\| /g,'|').split("|");
-                    schoolPartMatch = schoolPartMatch.toLowerCase().replace(/ \|/g,'|').replace(/\| /g,'|').split("|");
-                    schoolFullMatch = schoolFullMatch.toLowerCase().replace(/ \|/g,'|').replace(/\| /g,'|').split("|");
-                }
-            });
-        }, 80);
+        $.ajax({
+            type: 'GET',
+            url: 'https://spreadsheets.google.com/feeds/list/1qPjzDu7ZWcpz9xrWYgU7BFLVdbk9ycqgPK9f2mydYlA/op17piq/public/values',
+            jsonp: 'callback', data: { alt: 'json-in-script' }, dataType: 'jsonp',
+            success: function(response) {
+                hospitalPartMatch = response.feed.entry[0].gsx$hmchp.$t;
+                hospitalFullMatch = response.feed.entry[0].gsx$hmchf.$t;
+                animalPartMatch = response.feed.entry[0].gsx$hmcap.$t;
+                animalFullMatch = response.feed.entry[0].gsx$hmcaf.$t;
+                schoolPartMatch = response.feed.entry[0].gsx$schp.$t;
+                schoolFullMatch = response.feed.entry[0].gsx$schf.$t;
+                hospitalPartMatch = hospitalPartMatch.toLowerCase().replace(/ \|/g,'|').replace(/\| /g,'|').split("|");
+                hospitalFullMatch = hospitalFullMatch.toLowerCase().replace(/ \|/g,'|').replace(/\| /g,'|').split("|");
+                animalPartMatch = animalPartMatch.toLowerCase().replace(/ \|/g,'|').replace(/\| /g,'|').split("|");
+                animalFullMatch = animalFullMatch.toLowerCase().replace(/ \|/g,'|').replace(/\| /g,'|').split("|");
+                schoolPartMatch = schoolPartMatch.toLowerCase().replace(/ \|/g,'|').replace(/\| /g,'|').split("|");
+                schoolFullMatch = schoolFullMatch.toLowerCase().replace(/ \|/g,'|').replace(/\| /g,'|').split("|");
+            }
+        });
+
         // Pull dev and beta UserList Data
-        setTimeout(function() {
-            $.ajax({
-                type: 'GET',
-                url: 'https://spreadsheets.google.com/feeds/list/1L82mM8Xg-MvKqK3WOfsMhFEGmVM46lA8BVcx8qwgmA8/ofblgob/public/values',
-                jsonp: 'callback', data: { alt: 'json-in-script' }, dataType: 'jsonp',
-                success: function(response) {
-                    var WMEPHuserList = response.feed.entry[0].gsx$phuserlist.$t;
-                    WMEPHuserList = WMEPHuserList.split("|");
-                    var betaix = WMEPHuserList.indexOf('BETAUSERS');
-                    WMEPHdevList = [];
-                    WMEPHbetaList = [];
-                    for (var ulix=1; ulix<betaix; ulix++) {
-                        WMEPHdevList.push(WMEPHuserList[ulix].toLowerCase());
-                    }
-                    for (ulix=betaix+1; ulix<WMEPHuserList.length; ulix++) {
-                        WMEPHbetaList.push(WMEPHuserList[ulix].toLowerCase());
-                    }
+        $.ajax({
+            type: 'GET',
+            url: 'https://spreadsheets.google.com/feeds/list/1L82mM8Xg-MvKqK3WOfsMhFEGmVM46lA8BVcx8qwgmA8/ofblgob/public/values',
+            jsonp: 'callback', data: { alt: 'json-in-script' }, dataType: 'jsonp',
+            success: function(response) {
+                var WMEPHuserList = response.feed.entry[0].gsx$phuserlist.$t;
+                WMEPHuserList = WMEPHuserList.split("|");
+                var betaix = WMEPHuserList.indexOf('BETAUSERS');
+                WMEPHdevList = [];
+                WMEPHbetaList = [];
+                for (var ulix=1; ulix<betaix; ulix++) {
+                    WMEPHdevList.push(WMEPHuserList[ulix].toLowerCase());
                 }
-            });
-        }, 100);
-    }, betaDataDelay);
+                for (ulix=betaix+1; ulix<WMEPHuserList.length; ulix++) {
+                    WMEPHbetaList.push(WMEPHuserList[ulix].toLowerCase());
+                }
+            }
+        });
 
     function placeHarmonizer_bootstrap() {
         if ( "undefined" !== typeof W.loginManager && "undefined" !== typeof W.map) {
-            setTimeout(dataReady,200);  //  Run the code to check for data return from the Sheets
+            dataReady() //  Run the code to check for data return from the Sheets
             // Create duplicatePlaceName layer
             var rlayers = W.map.getLayersBy("uniqueName","__DuplicatePlaceNames");
             if(rlayers.length === 0) {
@@ -193,7 +184,7 @@
             }
         } else {
             phlog("Waiting for WME map and login...");
-            setTimeout(function () { placeHarmonizer_bootstrap(); }, 50);
+            placeHarmonizer_bootstrap();
         }
     }
 
@@ -201,13 +192,11 @@
         // If the data has returned, then start the script, otherwise wait a bit longer
         if ("undefined" !== typeof CAN_PNH_DATA && "undefined" !== typeof USA_PNH_DATA && "undefined" !== typeof USA_CH_DATA &&
             "undefined" !== typeof WMEPHdevList && "undefined" !== typeof WMEPHbetaList && "undefined" !== typeof hospitalPartMatch ) {
-            setTimeout(function(){ // Build the name search lists
-                USA_PNH_NAMES = makeNameCheckList(USA_PNH_DATA);
-                USA_CH_NAMES = makeCatCheckList(USA_CH_DATA);
-                CAN_PNH_NAMES = makeNameCheckList(CAN_PNH_DATA);
-                // CAN using USA_CH_NAMES at the moment
-            }, 10);
-            setTimeout(loginReady, 20);  //  start the main code
+            USA_PNH_NAMES = makeNameCheckList(USA_PNH_DATA);
+            USA_CH_NAMES = makeCatCheckList(USA_CH_DATA);
+            CAN_PNH_NAMES = makeNameCheckList(CAN_PNH_DATA);
+            // CAN using USA_CH_NAMES at the moment
+            loginReady();  //  start the main code
         } else {
             if (dataReadyCounter % 20 === 0) {
                 var waitMessage = 'Waiting for ';
@@ -237,12 +226,12 @@
     function loginReady() {
         dataReadyCounter = 0;
         if ( W.loginManager.user !== null) {
-            setTimeout(runPH, 10);  //  start the main code
+            runPH();  //  start the main code
         } else {
             if (dataReadyCounter<50) {
                 dataReadyCounter++;
                 phlog("Waiting for WME login...");
-                setTimeout(function () { dataReady(); }, 200);
+                setTimeout(function () { loginReady(); }, 200);
             } else {
                 phlog("Login failed...?  Reload WME.");
             }
