@@ -12,7 +12,7 @@
 // ==UserScript==
 // @name        WME Place Harmonizer Beta
 // @namespace   https://github.com/WazeUSA/WME-Place-Harmonizer/raw/master/WME-Place-Harmonizer.user.js
-// @version     1.1.48
+// @version     1.1.49
 // @description Harmonizes, formats, and locks a selected place
 // @author      WMEPH development group
 // @include     https://*.waze.com/editor/*
@@ -252,6 +252,7 @@
     function runPH() {
         // Script update info
         var WMEPHWhatsNewList = [  // New in this version
+            '1.1.49: Added a Glink modification to turn them into links and limit search radius.',
             '1.1.47: Fix for one-field-update-per-click issue',
             '1.1.46: allow for https:// in urls. (credit RavenDT)',
             '1.1.45: Add disable highlights for above rank function (credit RavenDT), stop url link from adding http://',
@@ -275,6 +276,8 @@
         }
         var thisUser = W.loginManager.user;
         var UpdateObject = require("Waze/Action/UpdateObject");
+
+        modifyGoogleLinks();
 
         // Whitelist initialization
         compressedWLLS = false;
@@ -3900,7 +3903,7 @@
                 });
                 W.model.actionManager.add(m_action);
             }
-            
+
             // Turn on website linking button if there is a url
             if (newURL !== null && newURL !== "") {
                 bannButt.PlaceWebsite.active = true;
@@ -6807,6 +6810,54 @@
             alert('Don\'t forget to periodically back up your Whitelist data using the Pull option in the WMEPH settings tab.');
             localStorage.WMEPH_WLAddCount = 2;
         }
+    }
+
+    function modifyGoogleLinks() {
+        $.ajaxPrefilter(function(options, originalOptions, jqXHR) {
+            try {
+                if (originalOptions.type === "GET") {
+                    if (originalOptions.url === "/maps/api/place/autocomplete/json" && !originalOptions.data.hasOwnProperty("location")) {
+                        options.data = $.param($.extend(originalOptions.data, {
+                            location: W.map.getCenter().transform(W.map.getProjection(), W.map.displayProjection).lat + "," + W.map.getCenter().transform(W.map.getProjection(), W.map.displayProjection).lon,
+                            radius: 3200
+                        }));
+                    }
+                }
+            } catch(e) {}
+        });
+        $(document).ajaxSuccess(function(event, jqXHR, ajaxOptions, data) {
+            try {
+                if (ajaxOptions && ajaxOptions.hasOwnProperty("url")) {
+                    if (ajaxOptions.url.startsWith("/maps/api/place/details/json")) {
+                        if (data && data.hasOwnProperty("status") && data.status === "OK") {
+                            if (data.hasOwnProperty("result") && data.result.hasOwnProperty("url") && data.result.hasOwnProperty("place_id")) {
+                                var gpids = document.getElementsByClassName("placeId");
+                                for (var i = 0; i < gpids.length; i++) {
+                                    if (data.result.place_id === gpids[i].innerHTML) {
+                                        gpids[i].innerHTML = "<a href='" + data.result.url + "' target='_wmegpid'>" + data.result.place_id + "</a>";
+                                    }
+                                };
+                            }
+                        }
+                    }
+                    if (ajaxOptions.url.startsWith("/maps/api/place/autocomplete/json")) {
+                        var uuids = document.getElementsByClassName("uuid");
+                        for (var i = 0; i < uuids.length; i++) {
+                            if (uuids[i].className === "uuid") {
+                                events = $._data(uuids[i], "events");
+                                if (events && events.hasOwnProperty("change") && events.change.length === 1) {
+                                    $(uuids[i]).change(function(event) {
+                                        if (event && event.hasOwnProperty("val")) {
+                                            $.get(W.Config.places_api.url.details, {placeid: event.val, key: W.Config.places_api.key});
+                                        }
+                                    });
+                                }
+                            }
+                        }
+                    }
+                }
+            } catch(e) {}
+        });
     }
 
     // Run the script...
