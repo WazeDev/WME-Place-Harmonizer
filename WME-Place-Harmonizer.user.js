@@ -12,7 +12,7 @@
 // ==UserScript==
 // @name        WME Place Harmonizer Beta
 // @namespace   https://github.com/WazeUSA/WME-Place-Harmonizer/raw/master/WME-Place-Harmonizer.user.js
-// @version     1.1.49
+// @version     1.1.50
 // @description Harmonizes, formats, and locks a selected place
 // @author      WMEPH development group
 // @include     https://*.waze.com/editor/*
@@ -252,6 +252,7 @@
     function runPH() {
         // Script update info
         var WMEPHWhatsNewList = [  // New in this version
+            '1.1.50: Fixed bug with adding hours more than once.',
             '1.1.49: Added a Glink modification to turn them into links and limit search radius.',
             '1.1.47: Fix for one-field-update-per-click issue',
             '1.1.46: allow for https:// in urls. (credit RavenDT)',
@@ -4581,9 +4582,16 @@
             }
         }
 
+        // Formats "hour object" into a string.
+        function formatOpeningHour(hourEntry) {
+            var dayNames = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
+            var hours = hourEntry.attributes.fromHour + '-' + hourEntry.attributes.toHour;
+            return hourEntry.attributes.days.map(function(day) {
+                return dayNames[day] + ' ' + hours;
+            }).join(', ');
+        }
         // Pull natural text from opening hours
         function getOpeningHours(venue) {
-            var formatOpeningHour = W.brara.ViewHelpers.formatOpeningHour;
             return venue && venue.getOpeningHours && venue.getOpeningHours().map(formatOpeningHour);
         }
         // Parse hours paste for hours object array
