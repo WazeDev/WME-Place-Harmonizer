@@ -12,7 +12,7 @@
 // ==UserScript==
 // @name        WME Place Harmonizer Beta
 // @namespace   https://github.com/WazeUSA/WME-Place-Harmonizer/raw/master/WME-Place-Harmonizer.user.js
-// @version     1.1.51
+// @version     1.1.51a
 // @description Harmonizes, formats, and locks a selected place
 // @author      WMEPH development group
 // @include     https://*.waze.com/editor/*
@@ -252,6 +252,7 @@
     function runPH() {
         // Script update info
         var WMEPHWhatsNewList = [  // New in this version
+            '1.1.51a: Fixed bug reporting subject lines.',
             '1.1.51: Fixed lowercase alphanumeric phone number parsing.',
             '1.1.50: Fixed bug with adding hours more than once.',
             '1.1.49: Added a Glink modification to turn them into links and limit search radius.',
@@ -1307,7 +1308,7 @@
                         } else {
                             if (confirm('WMEPH: URL Matching Error!\nClick OK to report this error') ) {  // if the category doesn't translate, then pop an alert that will make a forum post to the thread
                                 forumMsgInputs = {
-                                    subject: 'Re: WMEPH URL comparison Error report',
+                                    subject: 'WMEPH URL comparison Error report',
                                     message: 'Error report: URL comparison failed for "' + item.attributes.name + '"\nPermalink: ' + placePL
                                 };
                                 WMEPH_errorReport(forumMsgInputs);
@@ -1774,7 +1775,7 @@
                     active: true, severity: 0, message: "", value: "Report script error", title: "Report a script error",
                     action: function() {
                         var forumMsgInputs = {
-                            subject: 'Re: WMEPH Bug report',
+                            subject: 'WMEPH Bug report: Scrpt Error',
                             message: 'Script version: ' + WMEPHversion + devVersStr + '\nPermalink: ' + placePL + '\nPlace name: ' + item.attributes.name + '\nCountry: ' + addr.country.name + '\n--------\nDescribe the error:  \n '
                         };
                         WMEPH_errorReport(forumMsgInputs);
@@ -2403,7 +2404,7 @@
                 if (hpMode.harmFlag) {
                     if (confirm('WMEPH: Localization Error!\nClick OK to report this error') ) {  // if the category doesn't translate, then pop an alert that will make a forum post to the thread
                         forumMsgInputs = {
-                            subject: 'Re: WMEPH Localization Error report',
+                            subject: 'WMEPH Localization Error report',
                             message: 'Error report: Localization match failed for "' + addr.state.name + '".'
                         };
                         WMEPH_errorReport(forumMsgInputs);
@@ -3814,7 +3815,7 @@
                     if (duplicateName.length+1 !== dupeIDList.length && devUser) {  // If there's an issue with the data return, allow an error report
                         if (confirm('WMEPH: Dupefinder Error!\nClick OK to report this') ) {  // if the category doesn't translate, then pop an alert that will make a forum post to the thread
                             forumMsgInputs = {
-                                subject: 'Re: WMEPH Bug report',
+                                subject: 'WMEPH Bug report DupeID',
                                 message: 'Script version: ' + WMEPHversion + devVersStr + '\nPermalink: ' + placePL + '\nPlace name: ' + item.attributes.name + '\nCountry: ' + addr.country.name + '\n--------\nDescribe the error:\nDupeID mismatch with dupeName list'
                             };
                             WMEPH_errorReport(forumMsgInputs);
@@ -5543,7 +5544,7 @@
             // Generally this means the category used in the PNH sheet is not close enough to the natural language categories used inside the WME translations
             if (confirm('WMEPH: Category Error!\nClick OK to report this error') ) {
                 forumMsgInputs = {
-                    subject: 'Re: WMEPH Bug report',
+                    subject: 'WMEPH Bug report: no tns',
                     message: 'Error report: Category "' + natCategories + '" is not translatable.'
                 };
                 WMEPH_errorReport(forumMsgInputs);
