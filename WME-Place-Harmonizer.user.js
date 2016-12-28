@@ -12,7 +12,7 @@
 // ==UserScript==
 // @name        WME Place Harmonizer Beta
 // @namespace   https://github.com/WazeUSA/WME-Place-Harmonizer/raw/master/WME-Place-Harmonizer.user.js
-// @version     1.1.51.1
+// @version     1.1.52
 // @description Harmonizes, formats, and locks a selected place
 // @author      WMEPH development group
 // @include     https://*.waze.com/editor/*
@@ -252,7 +252,7 @@
     function runPH() {
         // Script update info
         var WMEPHWhatsNewList = [  // New in this version
-            '1.1.51.1: Fixed bug reporting subject lines.',
+            '1.1.52: Fixed bug reporting PMs.',
             '1.1.51: Fixed lowercase alphanumeric phone number parsing.',
             '1.1.50: Fixed bug with adding hours more than once.',
             '1.1.49: Added a Glink modification to turn them into links and limit search radius.',
