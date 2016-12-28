@@ -2520,7 +2520,7 @@
                         if (confirm('WMEPH: Multiple matches found!\nDouble check the script changes.\nClick OK to report this situation.') ) {
                             forumMsgInputs = {
                                 subject: 'Order Nos. "' + orderList.join(', ') + '" WMEPH Multiple match report',
-                                message: 'Error report: PNH Order Nos. "' + orderList.join(', ') + '" are ambiguous multiple matches.\n \nExample Permalink: "' + placePL + '"'
+                                message: 'Error report: PNH Order Nos. "' + orderList.join(', ') + '" are ambiguous multiple matches.'
                             };
                             WMEPH_errorReport(forumMsgInputs);
                         }
