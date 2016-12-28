@@ -2518,7 +2518,7 @@
                     if (nsMultiMatch) {
                         if (confirm('WMEPH: Multiple matches found!\nDouble check the script changes.\nClick OK to report this situation.') ) {
                             forumMsgInputs = {
-                                subject: 'Re: WMEPH Multiple match report',
+                                subject: 'Order Nos. "' + orderList.join(', ') + '" WMEPH Multiple match report',
                                 message: 'Error report: PNH Order Nos. "' + orderList.join(', ') + '" are ambiguous multiple matches.'
                             };
                             WMEPH_errorReport(forumMsgInputs);
