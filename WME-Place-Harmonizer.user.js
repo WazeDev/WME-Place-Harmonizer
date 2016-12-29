@@ -10,7 +10,7 @@
 /* global define */
 
 // ==UserScript==
-// @name        WME Place Harmonizer Beta
+// @name        WME Place Harmonizer
 // @namespace   https://github.com/WazeUSA/WME-Place-Harmonizer/raw/master/WME-Place-Harmonizer.user.js
 // @version     1.1.52
 // @description Harmonizes, formats, and locks a selected place
@@ -26,7 +26,7 @@
     // item = W.selectionManager.selectedItems[0].model
     var WMEPHversion = GM_info.script.version.toString(); // pull version from header
     var WMEPHversionMeta = WMEPHversion.match(/(\d+\.\d+)/i)[1];  // get the X.X version
-    var majorNewFeature = false;  // set to true to make an alert pop up after script update with new feature
+    var majorNewFeature = true;  // set to true to make an alert pop up after script update with new feature
     var scriptName = GM_info.script.name.toString();
     var isDevVersion = (scriptName.match(/Beta/i) !== null);  //  enables dev messages and unique DOM options if the script is called "... Beta"
     var USA_PNH_DATA, USA_PNH_NAMES = [], USA_CH_DATA, USA_STATE_DATA, USA_CH_NAMES = [];  // Storage for PNH and Category data
