@@ -12,7 +12,7 @@
 // ==UserScript==
 // @name        WME Place Harmonizer Beta
 // @namespace   https://github.com/WazeUSA/WME-Place-Harmonizer/raw/master/WME-Place-Harmonizer.user.js
-// @version     1.1.52
+// @version     1.1.53
 // @description Harmonizes, formats, and locks a selected place
 // @author      WMEPH development group
 // @include     https://*.waze.com/editor/*
@@ -252,6 +252,7 @@
     function runPH() {
         // Script update info
         var WMEPHWhatsNewList = [  // New in this version
+            '1.1.53: Fixed bug where blank space was being inserted in front of hotel brandParent name',
             '1.1.52: Fixed bug reporting PMs.',
             '1.1.51: Fixed lowercase alphanumeric phone number parsing.',
             '1.1.50: Fixed bug with adding hours more than once.',
@@ -961,7 +962,7 @@
                         // make it 24/7
                         actions.push(new UpdateObject(item, { openingHours: [{days: [1,2,3,4,5,6,0], fromHour: "00:00", toHour: "00:00"}] }));
                         fieldUpdateObject.openingHours='#dfd';
-                        //higlightChangedFields(fieldUpdateObject,hpMode);
+                        //highlightChangedFields(fieldUpdateObject,hpMode);
 
                         bannServ.add247.checked = true;
                         bannServ.addParking.actionOn();  // add parking service
@@ -989,7 +990,7 @@
                         W.model.actionManager.add(new UpdateObject(item, { name: newName, aliases: newAliases }));
                         fieldUpdateObject.name='#dfd';
                         fieldUpdateObject.aliases='#dfd';
-                        higlightChangedFields(fieldUpdateObject,hpMode);
+                        highlightChangedFields(fieldUpdateObject,hpMode);
                         bannButt.gasMismatch.active = false;  // reset the display flag
                     },
                     WLactive: true, WLmessage: '', WLtitle: 'Whitelist gas brand mismatch',
@@ -1181,7 +1182,7 @@
                         W.model.actionManager.add(new UpdateObject(item, { name: newName, categories: newCategories }));
                         fieldUpdateObject.name='#dfd';
                         fieldUpdateObject.categories='#dfd';
-                        higlightChangedFields(fieldUpdateObject,hpMode);
+                        highlightChangedFields(fieldUpdateObject,hpMode);
                         bannButt.bankCorporate.active = false;   // reset the bank Branch display flag
                         bannButt.bankBranch.active = false;   // reset the bank Branch display flag
                         bannButt.standaloneATM.active = false;   // reset the standalone ATM display flag
@@ -1199,7 +1200,7 @@
                         W.model.actionManager.add(new UpdateObject(item, { name: newName, categories: newCategories }));
                         fieldUpdateObject.name='#dfd';
                         fieldUpdateObject.categories='#dfd';
-                        higlightChangedFields(fieldUpdateObject,hpMode);
+                        highlightChangedFields(fieldUpdateObject,hpMode);
                         bannButt.bankCorporate.active = false;   // reset the bank Branch display flag
                         bannButt.bankBranch.active = false;   // reset the bank Branch display flag
                         bannButt.standaloneATM.active = false;   // reset the standalone ATM display flag
@@ -1215,7 +1216,7 @@
                         W.model.actionManager.add(new UpdateObject(item, { name: newName + ' - Corporate Offices', categories: newCategories }));
                         fieldUpdateObject.name='#dfd';
                         fieldUpdateObject.categories='#dfd';
-                        higlightChangedFields(fieldUpdateObject,hpMode);
+                        highlightChangedFields(fieldUpdateObject,hpMode);
                         bannButt.bankCorporate.active = false;   // reset the bank Branch display flag
                         bannButt.bankBranch.active = false;   // reset the bank Branch display flag
                         bannButt.standaloneATM.active = false;   // reset the standalone ATM display flag
@@ -1302,7 +1303,7 @@
                         if (tempPNHURL !== '') {
                             W.model.actionManager.add(new UpdateObject(item, { url: tempPNHURL }));
                             fieldUpdateObject.url='#dfd';
-                            higlightChangedFields(fieldUpdateObject,hpMode);
+                            highlightChangedFields(fieldUpdateObject,hpMode);
                             bannButt.longURL.active = false;
                             updateURL = true;
                         } else {
@@ -1458,7 +1459,7 @@
                             phlogdev(hoursObjectArray);
                             W.model.actionManager.add(new UpdateObject(item, { openingHours: hoursObjectArray }));
                             fieldUpdateObject.openingHours='#dfd';
-                            higlightChangedFields(fieldUpdateObject,hpMode);
+                            highlightChangedFields(fieldUpdateObject,hpMode);
                             bannButt.noHours.value = 'Add hours';
                             bannButt.noHours.severity = 0;
                             bannButt.noHours.WLactive = false;
@@ -1482,7 +1483,7 @@
                             item.attributes.openingHours.push.apply(item.attributes.openingHours, hoursObjectArray);
                             W.model.actionManager.add(new UpdateObject(item, { openingHours: hoursObjectArray }));
                             fieldUpdateObject.openingHours='#dfd';
-                            higlightChangedFields(fieldUpdateObject,hpMode);
+                            highlightChangedFields(fieldUpdateObject,hpMode);
                             bannButt.noHours.value2 = 'Replace hours';
                             bannButt.noHours.severity = 0;
                             bannButt.noHours.WLactive = false;
@@ -1535,12 +1536,12 @@
                             newDescripion = optionalAlias + '\n' + newDescripion;
                             W.model.actionManager.add(new UpdateObject(item, { description: newDescripion }));
                             fieldUpdateObject.description='#dfd';
-                            higlightChangedFields(fieldUpdateObject,hpMode);
+                            highlightChangedFields(fieldUpdateObject,hpMode);
                         }
                         newAliases = removeSFAliases(newName, newAliases);
                         W.model.actionManager.add(new UpdateObject(item, { aliases: newAliases }));
                         fieldUpdateObject.aliases='#dfd';
-                        higlightChangedFields(fieldUpdateObject,hpMode);
+                        highlightChangedFields(fieldUpdateObject,hpMode);
                         bannButt.addAlias.active = false;  // reset the display flag
                     }
                 },
@@ -1551,7 +1552,7 @@
                         newCategories.push.apply(newCategories,altCategories);
                         W.model.actionManager.add(new UpdateObject(item, { categories: newCategories }));
                         fieldUpdateObject.categories='#dfd';
-                        higlightChangedFields(fieldUpdateObject,hpMode);
+                        highlightChangedFields(fieldUpdateObject,hpMode);
                         bannButt.addCat2.active = false;  // reset the display flag
                     }
                 },
@@ -1562,7 +1563,7 @@
                         newCategories = insertAtIX(newCategories, 'PHARMACY', 1);
                         W.model.actionManager.add(new UpdateObject(item, { categories: newCategories }));
                         fieldUpdateObject.categories='#dfd';
-                        higlightChangedFields(fieldUpdateObject,hpMode);
+                        highlightChangedFields(fieldUpdateObject,hpMode);
                         bannButt.addPharm.active = false;  // reset the display flag
                     }
                 },
@@ -1573,7 +1574,7 @@
                         newCategories = insertAtIX(newCategories, 'SUPERMARKET_GROCERY', 1);
                         W.model.actionManager.add(new UpdateObject(item, { categories: newCategories }));
                         fieldUpdateObject.categories='#dfd';
-                        higlightChangedFields(fieldUpdateObject,hpMode);
+                        highlightChangedFields(fieldUpdateObject,hpMode);
                         bannButt.addSuper.active = false;  // reset the display flag
                     }
                 },
@@ -1588,7 +1589,7 @@
                         fieldUpdateObject.name='#dfd';
                         fieldUpdateObject.url='#dfd';
                         fieldUpdateObject.categories='#dfd';
-                        higlightChangedFields(fieldUpdateObject,hpMode);
+                        highlightChangedFields(fieldUpdateObject,hpMode);
                         bannButt.appendAMPM.active = false;  // reset the display flag
                         bannButt.addConvStore.active = false;  // also reset the addConvStore display flag
                     }
@@ -1600,7 +1601,7 @@
                         newCategories = insertAtIX(newCategories,"ATM",1);  // Insert ATM category in the second position
                         W.model.actionManager.add(new UpdateObject(item, { categories: newCategories }));
                         fieldUpdateObject.categories='#dfd';
-                        higlightChangedFields(fieldUpdateObject,hpMode);
+                        highlightChangedFields(fieldUpdateObject,hpMode);
                         bannButt.addATM.active = false;   // reset the display flag
                     }
                 },
@@ -1611,7 +1612,7 @@
                         newCategories = insertAtIX(newCategories,"CONVENIENCE_STORE",1);  // Insert C.S. category in the second position
                         W.model.actionManager.add(new UpdateObject(item, { categories: newCategories }));
                         fieldUpdateObject.categories='#dfd';
-                        higlightChangedFields(fieldUpdateObject,hpMode);
+                        highlightChangedFields(fieldUpdateObject,hpMode);
                         bannButt.addConvStore.active = false;   // reset the display flag
                     }
                 },
@@ -1626,11 +1627,11 @@
                         bannServ.addWheelchair.actionOn();
                         W.model.actionManager.add(new UpdateObject(item, { url: "usps.com" }));
                         fieldUpdateObject.url='#dfd';
-                        higlightChangedFields(fieldUpdateObject,hpMode);
+                        highlightChangedFields(fieldUpdateObject,hpMode);
                         if (region === 'SER') {
                             W.model.actionManager.add(new UpdateObject(item, { aliases: ["United States Postal Service"] }));
                             fieldUpdateObject.aliases='#dfd';
-                            higlightChangedFields(fieldUpdateObject,hpMode);
+                            highlightChangedFields(fieldUpdateObject,hpMode);
                         }
                         bannButt.isitUSPS.active = false;
                     }
@@ -1643,7 +1644,7 @@
                         if (newName !== item.attributes.name) {  // if they are not equal
                             W.model.actionManager.add(new UpdateObject(item, { name: newName }));
                             fieldUpdateObject.name='#dfd';
-                            higlightChangedFields(fieldUpdateObject,hpMode);
+                            highlightChangedFields(fieldUpdateObject,hpMode);
                         }
                         bannButt.STC.active = false;  // reset the display flag
                     }
@@ -2201,7 +2202,7 @@
                         if (!bannServ.add247.checked) {
                             W.model.actionManager.add(new UpdateObject(item, { openingHours: [{days: [1,2,3,4,5,6,0], fromHour: "00:00", toHour: "00:00"}] }));
                             fieldUpdateObject.openingHours='#dfd';
-                            higlightChangedFields(fieldUpdateObject,hpMode);
+                            highlightChangedFields(fieldUpdateObject,hpMode);
                             bannServ.add247.checked = true;
                             bannButt.noHours.active = false;
                         }
@@ -2726,7 +2727,6 @@
                     }
 
                     // name parsing with category exceptions
-                    var splix;
                     if (["HOTEL"].indexOf(priPNHPlaceCat) > -1) {
                         if (newName.toUpperCase() === PNHMatchData[ph_name_ix].toUpperCase()) {  // If no localization
                             bannButt.catHotel.message = 'Check hotel website for any name localization (e.g. '+ PNHMatchData[ph_name_ix] +' - Tampa Airport).';
@@ -2734,9 +2734,13 @@
                             newName = PNHMatchData[ph_name_ix];
                         } else {
                             // Replace PNH part of name with PNH name
-                            splix = newName.toUpperCase().replace(/[-\/]/g,' ').indexOf(PNHMatchData[ph_name_ix].toUpperCase().replace(/[-\/]/g,' ') );
+                            var splix = newName.toUpperCase().replace(/[-\/]/g,' ').indexOf(PNHMatchData[ph_name_ix].toUpperCase().replace(/[-\/]/g,' ') );
                             if (splix>-1) {
-                                newName = newName.slice(0,splix) + ' ' + PNHMatchData[ph_name_ix] + ' ' + newName.slice(splix+PNHMatchData[ph_name_ix].length);
+                                var frontText = newName.slice(0,splix);
+                                var backText = newName.slice(splix+PNHMatchData[ph_name_ix].length);
+                                newName = PNHMatchData[ph_name_ix];
+                                if (frontText.length > 0) { newName = frontText + ' ' + newName; }
+                                if (backText.length > 0) { newName = newName + ' ' + backText; }
                                 newName = newName.replace(/ {2,}/g,' ');
                             }
                         }
@@ -3915,7 +3919,7 @@
 
 
             // Highlight the changes made
-            higlightChangedFields(fieldUpdateObject,hpMode);
+            highlightChangedFields(fieldUpdateObject,hpMode);
 
             // Assemble the banners
             assembleBanner();  // Make Messaging banners
@@ -3927,7 +3931,7 @@
         // **** vvv Function definitions vvv ****
 
         // highlight changed fields
-        function higlightChangedFields(fieldUpdateObject,hpMode) {
+        function highlightChangedFields(fieldUpdateObject,hpMode) {
 
             if (hpMode.harmFlag) {
                 //var panelFields = {};
