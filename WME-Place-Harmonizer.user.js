@@ -12,7 +12,7 @@
 // ==UserScript==
 // @name        WME Place Harmonizer Beta
 // @namespace   https://github.com/WazeUSA/WME-Place-Harmonizer/raw/master/WME-Place-Harmonizer.user.js
-// @version     1.1.52
+// @version     1.1.53
 // @description Harmonizes, formats, and locks a selected place
 // @author      WMEPH development group
 // @include     https://*.waze.com/editor/*
@@ -252,6 +252,7 @@
     function runPH() {
         // Script update info
         var WMEPHWhatsNewList = [  // New in this version
+            '1.1.53: Fixed bug where blank space was being inserted in front of hotel brandParent name',
             '1.1.52: Fixed bug reporting PMs.',
             '1.1.51: Fixed lowercase alphanumeric phone number parsing.',
             '1.1.50: Fixed bug with adding hours more than once.',
@@ -2726,7 +2727,6 @@
                     }
 
                     // name parsing with category exceptions
-                    var splix;
                     if (["HOTEL"].indexOf(priPNHPlaceCat) > -1) {
                         if (newName.toUpperCase() === PNHMatchData[ph_name_ix].toUpperCase()) {  // If no localization
                             bannButt.catHotel.message = 'Check hotel website for any name localization (e.g. '+ PNHMatchData[ph_name_ix] +' - Tampa Airport).';
@@ -2734,9 +2734,13 @@
                             newName = PNHMatchData[ph_name_ix];
                         } else {
                             // Replace PNH part of name with PNH name
-                            splix = newName.toUpperCase().replace(/[-\/]/g,' ').indexOf(PNHMatchData[ph_name_ix].toUpperCase().replace(/[-\/]/g,' ') );
+                            var splix = newName.toUpperCase().replace(/[-\/]/g,' ').indexOf(PNHMatchData[ph_name_ix].toUpperCase().replace(/[-\/]/g,' ') );
                             if (splix>-1) {
-                                newName = newName.slice(0,splix) + ' ' + PNHMatchData[ph_name_ix] + ' ' + newName.slice(splix+PNHMatchData[ph_name_ix].length);
+                                var frontText = newName.slice(0,splix);
+                                var backText = newName.slice(splix+PNHMatchData[ph_name_ix].length);
+                                newName = PNHMatchData[ph_name_ix];
+                                if (frontText.length > 0) { newName = frontText + ' ' + newName; }
+                                if (backText.length > 0) { newName = newName + ' ' + backText; }
                                 newName = newName.replace(/ {2,}/g,' ');
                             }
                         }
