@@ -12,7 +12,7 @@
 // ==UserScript==
 // @name        WME Place Harmonizer Beta
 // @namespace   https://github.com/WazeUSA/WME-Place-Harmonizer/raw/master/WME-Place-Harmonizer.user.js
-// @version     1.1.53
+// @version     1.1.54
 // @description Harmonizes, formats, and locks a selected place
 // @author      WMEPH development group
 // @include     https://*.waze.com/editor/*
@@ -23,7 +23,6 @@
 // ==/UserScript==
 
 (function () {
-    // item = W.selectionManager.selectedItems[0].model
     var WMEPHversion = GM_info.script.version.toString(); // pull version from header
     var WMEPHversionMeta = WMEPHversion.match(/(\d+\.\d+)/i)[1];  // get the X.X version
     var majorNewFeature = false;  // set to true to make an alert pop up after script update with new feature
@@ -252,6 +251,7 @@
     function runPH() {
         // Script update info
         var WMEPHWhatsNewList = [  // New in this version
+            '1.1.54: PLA\'s highlight and lock appropriately.',
             '1.1.53: Fixed bug where blank space was being inserted in front of hotel brandParent name',
             '1.1.52: Fixed bug reporting PMs.',
             '1.1.51: Fixed lowercase alphanumeric phone number parsing.',
@@ -719,7 +719,7 @@
             var s1 = s.replace(/\D/g, '');  // remove non-number characters
             var m = s1.match(/^1?([2-9]\d{2})([2-9]\d{2})(\d{4})$/);  // Ignore leading 1, and also don't allow area code or exchange to start with 0 or 1 (***USA/CAN specific)
             if (!m) {  // then try alphanumeric matching
-                if (s) { s = s.toUpperCase() };
+                if (s) { s = s.toUpperCase(); }
                 s1 = s.replace(/[^0-9A-Z]/g, '').replace(/^\D*(\d)/,'$1').replace(/^1?([2-9][0-9]{2}[0-9A-Z]{7})/g,'$1');
                 s1 = replaceLetters(s1);
                 m = s1.match(/^([2-9]\d{2})([2-9]\d{2})(\d{4})$/);  // Ignore leading 1, and also don't allow area code or exchange to start with 0 or 1 (***USA/CAN specific)
@@ -811,12 +811,6 @@
             if (W.selectionManager.selectedItems.length === 1) {
                 var item = W.selectionManager.selectedItems[0].model;
                 if (item.type === "venue") {
-
-                    // 2016-12-17 (mapomatic) Until we can get parking lots working without better, I'm forcing the code to skip them.
-                    // ****************************************************************************************************************
-                    if (item.attributes.categories.length === 1 && item.attributes.categories[0] === "PARKING_LOT") { return; }
-                    // ****************************************************************************************************************
-
                     blurAll();  // focus away from current cursor position
                     harmonizePlaceGo(item,'harmonize');
                 } else {  // Remove duplicate labels
@@ -895,7 +889,8 @@
                 phoneWL: false,
                 aCodeWL: false,
                 noHours: false,
-                nameMissing: false
+                nameMissing: false,
+                plaNameMissing: false
             };
 
             // **** Set up banner action buttons.  Structure:
@@ -916,14 +911,17 @@
                 },
 
                 nameMissing: {  // no WL
-                    active: false, severity: 3, message: 'Name is missing.',
+                    active: false, severity: 3, message: 'Name is missing.'
+                },
+
+                plaNameMissing: {
+                    active: false, severity: 1, message: 'Name is missing.',
                     WLactive: true, WLmessage: '', WLtitle: 'Whitelist missing name',
                     WLaction: function() {
-                        wlKeyName = 'nameMissing';
+                        wlKeyName = 'plaNameMissing';
                         whitelistAction(itemID, wlKeyName);
                     }
                 },
-
                 hoursOverlap: {  // no WL
                     active: false, severity: 3, message: 'Overlapping hours of operation. Place might not save.'
                 },
@@ -2295,8 +2293,6 @@
                 } else if (hpMode.hlFlag) {
                     if ( item.attributes.adLocked ) {
                         return 'adLock';
-                    } else if ( item.attributes.categories.indexOf("PARKING_LOT") > -1 && item.attributes.lockRank < levelToLock ) {
-                        return 4;
                     } else if ( item.isPoint() && (item.attributes.categories.indexOf("HOSPITAL_MEDICAL_CARE") > -1 || item.attributes.categories.indexOf("GAS_STATION") > -1) ) {
                         return 5;
                         phlogdev('Unaddressed HMC/GS');
@@ -2453,11 +2449,20 @@
                 if (item.is2D()) {
                     bannButt.pointNotArea.active = true;
                 }
-            } else if (item.attributes.name !== "" && item.attributes.name !== " " && item.attributes.name !== null) {  // for non-residential places
+            } else if (item.attributes.categories[0] === 'PARKING_LOT' || (item.attributes.name && item.attributes.name.trim().length > 0)) {  // for non-residential places
                 // Place Harmonization
                 var PNHMatchData;
                 if (hpMode.harmFlag) {
-                    PNHMatchData = harmoList(newName,state2L,region,countryCode,newCategories);  // check against the PNH list
+
+                    // *********
+                    // 12/29/2016 (mapomatic) Skip PNH lookup for Parking Lots until we come up with a way to match operator instead of name. 
+                    // *********
+
+                    if (item.attributes.categories[0] === 'PARKING_LOT') {
+                        PNHMatchData = ['NoMatch'];
+                    } else {
+                        PNHMatchData = harmoList(newName,state2L,region,countryCode,newCategories);  // check against the PNH list
+                    }
                 } else if (hpMode.hlFlag) {
                     PNHMatchData = ['Highlight'];
                     //PNHMatchData = harmoList(newName,state2L,region,countryCode,newCategories);  // check against the PNH list
@@ -3414,7 +3419,11 @@
 
             // Name check
             if ( !item.attributes.residential && ( !item.attributes.name || item.attributes.name.replace(/[^A-Za-z0-9]/g,'').length === 0 )) {
-                if ( 'ISLAND|FOREST_GROVE|SEA_LAKE_POOL|RIVER_STREAM|CANAL'.split('|').indexOf(item.attributes.categories[0]) === -1 ) {
+                if (item.attributes.categories[0] === 'PARKING_LOT') {
+                    if (currentWL.hasOwnProperty('plaNameMissing')) {
+                        bannButt.plaNameMissing.active = true;
+                    }
+                }else if ( 'ISLAND|FOREST_GROVE|SEA_LAKE_POOL|RIVER_STREAM|CANAL'.split('|').indexOf(item.attributes.categories[0]) === -1 ) {
                     bannButt.nameMissing.active = true;
                     lockOK = false;
                 }
@@ -3779,9 +3788,6 @@
                 //phlogdev('calculated in harmGo: ' +severityButt + '; ' + item.attributes.name);
 
                 // Special case flags
-                if ( item.attributes.categories.indexOf("PARKING_LOT") > -1 && item.attributes.lockRank < levelToLock ) {
-                    severityButt = 4;
-                }
                 if ( item.isPoint() && item.attributes.lockRank < levelToLock && (item.attributes.categories.indexOf("HOSPITAL_MEDICAL_CARE") > -1 || item.attributes.categories.indexOf("GAS_STATION") > -1) ) {
                     severityButt = 5;
                 }
@@ -4054,9 +4060,6 @@
                 if (tab2HL) {
                     $('.nav')[panelFields.navTabsIX].children[panelFields.navTabMore].children[0].style='background-color:#dfd';
                 }
-
-
-
             }
         }
 
@@ -4256,18 +4259,21 @@
             } else {
                 $('#WMEPH_banner').empty();
             }
-            if (sev === 0) {
-                $('#WMEPH_banner').css({"background-color": "rgb(36, 172, 36)"});
+            var bgColor;
+            switch (sev) {
+                case 1:
+                    bgColor = "rgb(50, 50, 230)";  // blue
+                    break;
+                case 2:
+                    bgColor = "rgb(217, 173, 42)";  // yellow
+                    break;
+                case 3:
+                    bgColor = "rgb(211, 48, 48)";  // red
+                    break;
+                default:
+                    bgColor = "rgb(36, 172, 36)";  // green
             }
-            if (sev === 1) {
-                $('#WMEPH_banner').css({"background-color": "rgb(50, 50, 230)"});
-            }
-            if (sev === 2) {
-                $('#WMEPH_banner').css({"background-color": "rgb(217, 173, 42)"});
-            }
-            if (sev === 3) {
-                $('#WMEPH_banner').css({"background-color": "rgb(211, 48, 48)"});
-            }
+            $('#WMEPH_banner').css({"background-color": bgColor});
             sbm = "<li>" + sbm;
             $("#WMEPH_banner").append(sbm);
             $('#select2-drop').css({display:'none'});
@@ -4280,7 +4286,7 @@
             } else {
                 $('#WMEPH_tools').empty();
             }
-            sbm = "<li>" + sbm;
+            sbm = '<li><span style="position:relative;left:-10px;">' + sbm+ '</span></li>';
             $("#WMEPH_tools").append(sbm);
             $('#select2-drop').css({display:'none'});
         }  // END displayBanners funtion
