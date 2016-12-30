@@ -251,7 +251,6 @@
     function runPH() {
         // Script update info
         var WMEPHWhatsNewList = [  // New in this version
-            '1.1.54: PLA\'s highlight and lock appropriately.',
             '1.1.53: Fixed bug where blank space was being inserted in front of hotel brandParent name',
             '1.1.52: Fixed bug reporting PMs.',
             '1.1.51: Fixed lowercase alphanumeric phone number parsing.',
@@ -334,7 +333,10 @@
             }
             localStorage.setItem('WMEPHversion'+devVersStr, WMEPHversion);  // store last installed version in localstorage
         }
-
+        if (localStorage.getItem('WMEPH-plaNameWLWarning'+devVersStr) === null) {
+            localStorage.setItem('WMEPH-plaNameWLWarning'+devVersStr, '1');
+            alert('WME Place Harmonizer\n\nParking Lot Areas (PLA) now have the ability to be Whitelisted if they are unnamed. Please consult the wiki for when it is ok to have a PLA with no name.');
+        }
         // Settings setup
         var GLinkWarning = 'GLinkWarning';  // Warning message for first time using Google search to not to use the Google info itself.
         if (!localStorage.getItem(GLinkWarning)) {  // store settings so the warning is only given once
@@ -922,6 +924,7 @@
                         whitelistAction(itemID, wlKeyName);
                     }
                 },
+                
                 hoursOverlap: {  // no WL
                     active: false, severity: 3, message: 'Overlapping hours of operation. Place might not save.'
                 },
@@ -3420,7 +3423,9 @@
             // Name check
             if ( !item.attributes.residential && ( !item.attributes.name || item.attributes.name.replace(/[^A-Za-z0-9]/g,'').length === 0 )) {
                 if (item.attributes.categories[0] === 'PARKING_LOT') {
-                    if (currentWL.hasOwnProperty('plaNameMissing')) {
+                    if (currentWL.plaNameMissing) {
+                        bannButt.plaNameMissing.active = false;
+                    } else {
                         bannButt.plaNameMissing.active = true;
                     }
                 }else if ( 'ISLAND|FOREST_GROVE|SEA_LAKE_POOL|RIVER_STREAM|CANAL'.split('|').indexOf(item.attributes.categories[0]) === -1 ) {
