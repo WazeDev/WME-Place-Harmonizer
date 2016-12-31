@@ -1234,7 +1234,7 @@
                 },
 
                 wazeBot: {  // no WL
-                    active: false, severity: 2, message: 'Last edited by waze-bot-maint'
+                    active: false, severity: 2, message: 'Last edited by a a waze staff administered account'
                 },
 
                 parentCategory: {
@@ -3697,7 +3697,7 @@
 
             //waze_maint_bot check
             if (!item.attributes.residential && item.attributes.updatedBy && W.model.users.get(item.attributes.updatedBy) &&
-                W.model.users.get(item.attributes.updatedBy).userName && W.model.users.get(item.attributes.updatedBy).userName.match(/^waze-maint-bot/i) !== null) {
+                W.model.users.get(item.attributes.updatedBy).userName && W.model.users.get(item.attributes.updatedBy).userName.match(/^waze-maint-bot|waze3rdparty|admin/i) !== null) {
                 bannButt.wazeBot.active = true;
             }
 
