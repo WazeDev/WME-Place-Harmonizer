@@ -12,7 +12,7 @@
 // ==UserScript==
 // @name        WME Place Harmonizer Beta
 // @namespace   https://github.com/WazeUSA/WME-Place-Harmonizer/raw/master/WME-Place-Harmonizer.user.js
-// @version     1.1.54
+// @version     1.1.55
 // @description Harmonizes, formats, and locks a selected place
 // @author      WMEPH development group
 // @include     https://*.waze.com/editor/*
@@ -251,6 +251,7 @@
     function runPH() {
         // Script update info
         var WMEPHWhatsNewList = [  // New in this version
+            '1.1.55: Added Waze3rdParty and renamed "edited by waze maint bot" to "account administered by waze staff',
             '1.1.53: Fixed bug where blank space was being inserted in front of hotel brandParent name',
             '1.1.52: Fixed bug reporting PMs.',
             '1.1.51: Fixed lowercase alphanumeric phone number parsing.',
@@ -1234,7 +1235,7 @@
                 },
 
                 wazeBot: {  // no WL
-                    active: false, severity: 2, message: 'Last edited by a a waze staff administered account'
+                    active: false, severity: 2, message: 'Last edited by a waze staff administered account'
                 },
 
                 parentCategory: {
