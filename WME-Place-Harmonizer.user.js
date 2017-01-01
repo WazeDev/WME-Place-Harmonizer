@@ -12,7 +12,7 @@
 // ==UserScript==
 // @name        WME Place Harmonizer Beta
 // @namespace   https://github.com/WazeUSA/WME-Place-Harmonizer/raw/master/WME-Place-Harmonizer.user.js
-// @version     1.1.55
+// @version     1.1.56
 // @description Harmonizes, formats, and locks a selected place
 // @author      WMEPH development group
 // @include     https://*.waze.com/editor/*
@@ -251,6 +251,7 @@
     function runPH() {
         // Script update info
         var WMEPHWhatsNewList = [  // New in this version
+            '1.1.56: Fix for needing to run twice when useless alt names are removed.',
             '1.1.55: Added Waze3rdParty and renamed "edited by waze maint bot" to "account administered by waze staff',
             '1.1.53: Fixed bug where blank space was being inserted in front of hotel brandParent name',
             '1.1.52: Fixed bug reporting PMs.',
@@ -3956,7 +3957,8 @@
                     tab1HL = true;
                 }
                 if (fieldUpdateObject.aliases) {
-                    $('.alias-name')[0].style="background-color:"+fieldUpdateObject.aliases;
+                    var field = $('.alias-name')[0];
+                    if (field) field.style="background-color:"+fieldUpdateObject.aliases;
                     tab1HL = true;
                 }
                 if (fieldUpdateObject.categories) {
