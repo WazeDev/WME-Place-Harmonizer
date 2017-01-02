@@ -282,6 +282,7 @@
         }
         var thisUser = W.loginManager.user;
         var UpdateObject = require("Waze/Action/UpdateObject");
+        var _disableHighlightTest = false;  // Set to true to temporarily disable highlight checks immediately when venues change.
 
         modifyGoogleLinks();
 
@@ -582,7 +583,9 @@
                 }
                 // Add listeners
                 W.model.venues.on('objectschanged', function (e) {
-                    applyHighlightsTest(e);
+                    if (!_disableHighlightTest) {
+                        applyHighlightsTest(e);
+                    }
                 });
 
                 W.model.venues.on('objectsadded', function (e) {
@@ -817,7 +820,10 @@
                 var item = W.selectionManager.selectedItems[0].model;
                 if (item.type === "venue") {
                     blurAll();  // focus away from current cursor position
+                    _disableHighlightTest = true;
                     harmonizePlaceGo(item,'harmonize');
+                    _disableHighlightTest = false;
+                    applyHighlightsTest(item);
                 } else {  // Remove duplicate labels
                     WMEPH_NameLayer.destroyFeatures();
                 }
