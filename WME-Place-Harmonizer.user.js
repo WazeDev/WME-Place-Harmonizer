@@ -12,7 +12,7 @@
 // ==UserScript==
 // @name        WME Place Harmonizer Beta
 // @namespace   https://github.com/WazeUSA/WME-Place-Harmonizer/raw/master/WME-Place-Harmonizer.user.js
-// @version     1.1.56
+// @version     1.1.57
 // @description Harmonizes, formats, and locks a selected place
 // @author      WMEPH development group
 // @include     https://*.waze.com/editor/*
@@ -251,6 +251,7 @@
     function runPH() {
         // Script update info
         var WMEPHWhatsNewList = [  // New in this version
+            '1.1.57: Fix for Store Locator button not showing up on first run, and unpredictable Service button behavior.',
             '1.1.56: Fix for needing to run twice when useless alt names are removed.',
             '1.1.55: Added Waze3rdParty and renamed "edited by waze maint bot" to "account administered by waze staff',
             '1.1.53: Fixed bug where blank space was being inserted in front of hotel brandParent name',
@@ -926,7 +927,7 @@
                         whitelistAction(itemID, wlKeyName);
                     }
                 },
-                
+
                 hoursOverlap: {  // no WL
                     active: false, severity: 3, message: 'Overlapping hours of operation. Place might not save.'
                 },
@@ -1795,6 +1796,50 @@
                 }
             };  // END bannButt2 definitions
 
+            function addUpdateAction(updateObj, actions) {
+                var action = new UpdateObject(item, updateObj);
+                if (actions) {
+                    actions.push(action);
+                } else {
+                    W.model.actionManager.add(action);
+                }
+            }
+
+            function setServiceChecked(servBtn, checked, actions) {
+                var servID = WMEServicesArray[servBtn.servIDIndex];
+                var checkboxChecked = $("#service-checkbox-"+servID).prop('checked');
+                var toggle = typeof checked === 'undefined';
+                var noAdd = false;
+                checked = (toggle) ? !servBtn.checked : checked;
+                if (checkboxChecked === servBtn.checked) {
+                    servBtn.checked = checked;
+                    var services;
+                    if (actions) {
+                        for (var i=0; i<actions.length; i++ ) {
+                            var existingAction = actions[i];
+                            if (existingAction.newAttributes.services) {
+                                services = existingAction.newAttributes.services;
+                            }
+                        }
+                    }
+                    if (!services) {
+                        services = item.attributes.services.slice(0);
+                    }
+                    if (checked) {
+                        services.push(servID);
+                    } else {
+                        var index = services.indexOf(servID);
+                        if (index > -1) {
+                            services.splice(index, 1);
+                        }
+                    }
+                    if (!noAdd) addUpdateAction({services:services}, actions);
+                    fieldUpdateObject.services[servID] = '#dfd';
+                }
+                updateServicesChecks(bannServ);
+                if (!toggle) servBtn.active = checked;
+            }
+
             // set up banner action buttons.  Structure:
             // active: false until activated in the script
             // checked: whether the service is already set on the place. Determines grey vs white icon color
@@ -1804,406 +1849,166 @@
             // action: The action that happens if the button is pressed
             bannServ = {
                 addValet: {  // append optional Alias to the name
-                    active: false, checked: false, icon: "serv-valet", w2hratio: 50/50, value: "Valet", title: 'Valet',
-                    action: function() {
-                        servID = WMEServicesArray[0];
-                        if ( ($("#service-checkbox-"+servID).prop('checked') && bannServ.addValet.checked) ||
-                            (!$("#service-checkbox-"+servID).prop('checked') && !bannServ.addValet.checked) ) {
-                            $("#service-checkbox-"+servID).trigger('click');
-                            fieldUpdateObject.services[servID] = '#dfd';
-                        }
-                        updateServicesChecks(bannServ);
+                    active: false, checked: false, icon: "serv-valet", w2hratio: 50/50, value: "Valet", title: 'Valet', servIDIndex: 0,
+                    action: function(actions, checked) {
+                        setServiceChecked(this, checked, actions);
                     },
                     pnhOverride: false,
-                    actionOn: function() {
-                        servID = WMEServicesArray[0];
-                        if ( !$("#service-checkbox-"+servID).prop('checked') ) {
-                            $("#service-checkbox-"+servID).trigger('click');
-                            fieldUpdateObject.services[servID] = '#dfd';
-                            bannServ.addValet.checked = true;
-                        }
-                        updateServicesChecks(bannServ);
-                        bannServ.addValet.active = true;
+                    actionOn: function(actions) {
+                        this.action(actions, true);
                     },
-                    actionOff: function() {
-                        servID = WMEServicesArray[0];
-                        if ( $("#service-checkbox-"+servID).prop('checked') ) {
-                            $("#service-checkbox-"+servID).trigger('click');
-                            fieldUpdateObject.services[servID] = '#dfd';
-                            bannServ.addValet.checked = false;
-                        }
-                        updateServicesChecks(bannServ);
-                        bannServ.addValet.active = false;
+                    actionOff: function(actions) {
+                        this.action(actions, false);
                     }
                 },
                 addDriveThru: {  // append optional Alias to the name
-                    active: false, checked: false, icon: "serv-drivethru", w2hratio: 78/50, value: "DriveThru", title: 'Drive-Thru',
-                    action: function() {
-                        servID = WMEServicesArray[1];
-                        if ( ($("#service-checkbox-"+servID).prop('checked') && bannServ.addDriveThru.checked) ||
-                            (!$("#service-checkbox-"+servID).prop('checked') && !bannServ.addDriveThru.checked) ) {
-                            $("#service-checkbox-"+servID).trigger('click');
-                            fieldUpdateObject.services[servID] = '#dfd';
-                        }
-                        updateServicesChecks(bannServ);
+                    active: false, checked: false, icon: "serv-drivethru", w2hratio: 78/50, value: "DriveThru", title: 'Drive-Thru', servIDIndex: 1,
+                    action: function(actions, checked) {
+                        setServiceChecked(this, checked, actions);
                     },
                     pnhOverride: false,
-                    actionOn: function() {
-                        servID = WMEServicesArray[1];
-                        if ( !$("#service-checkbox-"+servID).prop('checked') ) {
-                            $("#service-checkbox-"+servID).trigger('click');
-                            fieldUpdateObject.services[servID] = '#dfd';
-                            bannServ.addDriveThru.checked = true;
-                        }
-                        updateServicesChecks(bannServ);
-                        bannServ.addDriveThru.active = true;
+                    actionOn: function(actions) {
+                        this.action(actions, true);
                     },
-                    actionOff: function() {
-                        servID = WMEServicesArray[1];
-                        if ( $("#service-checkbox-"+servID).prop('checked') ) {
-                            $("#service-checkbox-"+servID).trigger('click');
-                            fieldUpdateObject.services[servID] = '#dfd';
-                            bannServ.addDriveThru.checked = false;
-                        }
-                        updateServicesChecks(bannServ);
-                        bannServ.addDriveThru.active = false;
+                    actionOff: function(actions) {
+                        this.action(actions, false);
                     }
                 },
                 addWiFi: {  // append optional Alias to the name
-                    active: false, checked: false, icon: "serv-wifi", w2hratio: 67/50, value: "WiFi", title: 'WiFi',
-                    action: function() {
-                        servID = WMEServicesArray[2];
-                        if ( ($("#service-checkbox-"+servID).prop('checked') && bannServ.addWiFi.checked) ||
-                            (!$("#service-checkbox-"+servID).prop('checked') && !bannServ.addWiFi.checked) ) {
-                            $("#service-checkbox-"+servID).trigger('click');
-                            fieldUpdateObject.services[servID] = '#dfd';
-                        }
-                        updateServicesChecks(bannServ);
+                    active: false, checked: false, icon: "serv-wifi", w2hratio: 67/50, value: "WiFi", title: 'WiFi', servIDIndex: 2,
+                    action: function(actions, checked) {
+                        setServiceChecked(this, checked, actions);
                     },
                     pnhOverride: false,
-                    actionOn: function() {
-                        servID = WMEServicesArray[2];
-                        if ( !$("#service-checkbox-"+servID).prop('checked') ) {
-                            $("#service-checkbox-"+servID).trigger('click');
-                            fieldUpdateObject.services[servID] = '#dfd';
-                            bannServ.addWiFi.checked = true;
-                        }
-                        updateServicesChecks(bannServ);
-                        bannServ.addWiFi.active = true;
+                    actionOn: function(actions) {
+                        this.action(actions, true);
                     },
-                    actionOff: function() {
-                        servID = WMEServicesArray[2];
-                        if ( $("#service-checkbox-"+servID).prop('checked') ) {
-                            $("#service-checkbox-"+servID).trigger('click');
-                            fieldUpdateObject.services[servID] = '#dfd';
-                            bannServ.addWiFi.checked = false;
-                        }
-                        updateServicesChecks(bannServ);
-                        bannServ.addWiFi.active = false;
+                    actionOff: function(actions) {
+                        this.action(actions, false);
                     }
                 },
                 addRestrooms: {  // append optional Alias to the name
-                    active: false, checked: false, icon: "serv-restrooms", w2hratio: 49/50, value: "Restroom", title: 'Restrooms',
-                    action: function() {
-                        servID = WMEServicesArray[3];
-                        if ( ($("#service-checkbox-"+servID).prop('checked') && bannServ.addRestrooms.checked) ||
-                            (!$("#service-checkbox-"+servID).prop('checked') && !bannServ.addRestrooms.checked) ) {
-                            $("#service-checkbox-"+servID).trigger('click');
-                            fieldUpdateObject.services[servID] = '#dfd';
-                        }
-                        updateServicesChecks(bannServ);
+                    active: false, checked: false, icon: "serv-restrooms", w2hratio: 49/50, value: "Restroom", title: 'Restrooms', servIDIndex: 3,
+                    action: function(actions, checked) {
+                        setServiceChecked(this, checked, actions);
                     },
                     pnhOverride: false,
-                    actionOn: function() {
-                        servID = WMEServicesArray[3];
-                        if ( !$("#service-checkbox-"+servID).prop('checked') ) {
-                            $("#service-checkbox-"+servID).trigger('click');
-                            fieldUpdateObject.services[servID] = '#dfd';
-                            bannServ.addRestrooms.checked = true;
-                        }
-                        updateServicesChecks(bannServ);
-                        bannServ.addRestrooms.active = true;
+                    actionOn: function(actions) {
+                        this.action(actions, true);
                     },
-                    actionOff: function() {
-                        servID = WMEServicesArray[3];
-                        if ( $("#service-checkbox-"+servID).prop('checked') ) {
-                            $("#service-checkbox-"+servID).trigger('click');
-                            fieldUpdateObject.services[servID] = '#dfd';
-                            bannServ.addRestrooms.checked = false;
-                        }
-                        updateServicesChecks(bannServ);
-                        bannServ.addRestrooms.active = false;
+                    actionOff: function(actions) {
+                        this.action(actions, false);
                     }
                 },
                 addCreditCards: {  // append optional Alias to the name
-                    active: false, checked: false, icon: "serv-credit", w2hratio: 73/50, value: "CC", title: 'Credit Cards',
-                    action: function() {
-                        servID = WMEServicesArray[4];
-                        if ( ($("#service-checkbox-"+servID).prop('checked') && bannServ.addCreditCards.checked) ||
-                            (!$("#service-checkbox-"+servID).prop('checked') && !bannServ.addCreditCards.checked) ) {
-                            $("#service-checkbox-"+servID).trigger('click');
-                            fieldUpdateObject.services[servID] = '#dfd';
-                        }
-                        updateServicesChecks(bannServ);
+                    active: false, checked: false, icon: "serv-credit", w2hratio: 73/50, value: "CC", title: 'Credit Cards', servIDIndex: 4,
+                    action: function(actions, checked) {
+                        setServiceChecked(this, checked, actions);
                     },
                     pnhOverride: false,
-                    actionOn: function() {
-                        servID = WMEServicesArray[4];
-                        if ( !$("#service-checkbox-"+servID).prop('checked') ) {
-                            $("#service-checkbox-"+servID).trigger('click');
-                            fieldUpdateObject.services[servID] = '#dfd';
-                            bannServ.addCreditCards.checked = true;
-                        }
-                        updateServicesChecks(bannServ);
-                        bannServ.addCreditCards.active = true;
+                    actionOn: function(actions) {
+                        this.action(actions, true);
                     },
-                    actionOff: function() {
-                        servID = WMEServicesArray[4];
-                        if ( $("#service-checkbox-"+servID).prop('checked') ) {
-                            $("#service-checkbox-"+servID).trigger('click');
-                            fieldUpdateObject.services[servID] = '#dfd';
-                            bannServ.addCreditCards.checked = false;
-                        }
-                        updateServicesChecks(bannServ);
-                        bannServ.addCreditCards.active = false;
+                    actionOff: function(actions) {
+                        this.action(actions, false);
                     }
                 },
                 addReservations: {  // append optional Alias to the name
-                    active: false, checked: false, icon: "serv-reservations", w2hratio: 55/50, value: "Reserve", title: 'Reservations',
-                    action: function() {
-                        servID = WMEServicesArray[5];
-                        if ( ($("#service-checkbox-"+servID).prop('checked') && bannServ.addReservations.checked) ||
-                            (!$("#service-checkbox-"+servID).prop('checked') && !bannServ.addReservations.checked) ) {
-                            $("#service-checkbox-"+servID).trigger('click');
-                            fieldUpdateObject.services[servID] = '#dfd';
-                        }
-                        updateServicesChecks(bannServ);
+                    active: false, checked: false, icon: "serv-reservations", w2hratio: 55/50, value: "Reserve", title: 'Reservations', servIDIndex: 5,
+                    action: function(actions, checked) {
+                        setServiceChecked(this, checked, actions);
                     },
                     pnhOverride: false,
-                    actionOn: function() {
-                        servID = WMEServicesArray[5];
-                        if ( !$("#service-checkbox-"+servID).prop('checked') ) {
-                            $("#service-checkbox-"+servID).trigger('click');
-                            fieldUpdateObject.services[servID] = '#dfd';
-                            bannServ.addReservations.checked = true;
-                        }
-                        updateServicesChecks(bannServ);
-                        bannServ.addReservations.active = true;
+                    actionOn: function(actions) {
+                        this.action(actions, true);
                     },
-                    actionOff: function() {
-                        servID = WMEServicesArray[5];
-                        if ( $("#service-checkbox-"+servID).prop('checked') ) {
-                            $("#service-checkbox-"+servID).trigger('click');
-                            fieldUpdateObject.services[servID] = '#dfd';
-                            bannServ.addReservations.checked = false;
-                        }
-                        updateServicesChecks(bannServ);
-                        bannServ.addReservations.active = false;
+                    actionOff: function(actions) {
+                        this.action(actions, false);
                     }
                 },
                 addOutside: {  // append optional Alias to the name
-                    active: false, checked: false, icon: "serv-outdoor", w2hratio: 73/50, value: "OusideSeat", title: 'Outside Seating',
-                    action: function() {
-                        servID = WMEServicesArray[6];
-                        if ( ($("#service-checkbox-"+servID).prop('checked') && bannServ.addOutside.checked) ||
-                            (!$("#service-checkbox-"+servID).prop('checked') && !bannServ.addOutside.checked) ) {
-                            $("#service-checkbox-"+servID).trigger('click');
-                            fieldUpdateObject.services[servID] = '#dfd';
-                        }
-                        updateServicesChecks(bannServ);
+                    active: false, checked: false, icon: "serv-outdoor", w2hratio: 73/50, value: "OusideSeat", title: 'Outside Seating', servIDIndex: 6,
+                    action: function(actions, checked) {
+                        setServiceChecked(this, checked, actions);
                     },
                     pnhOverride: false,
-                    actionOn: function() {
-                        servID = WMEServicesArray[6];
-                        if ( !$("#service-checkbox-"+servID).prop('checked') ) {
-                            $("#service-checkbox-"+servID).trigger('click');
-                            fieldUpdateObject.services[servID] = '#dfd';
-                            bannServ.addOutside.checked = true;
-                        }
-                        updateServicesChecks(bannServ);
-                        bannServ.addOutside.active = true;
+                    actionOn: function(actions) {
+                        this.action(actions, true);
                     },
-                    actionOff: function() {
-                        servID = WMEServicesArray[6];
-                        if ( $("#service-checkbox-"+servID).prop('checked') ) {
-                            $("#service-checkbox-"+servID).trigger('click');
-                            fieldUpdateObject.services[servID] = '#dfd';
-                            bannServ.addOutside.checked = false;
-                        }
-                        updateServicesChecks(bannServ);
-                        bannServ.addOutside.active = false;
+                    actionOff: function(actions) {
+                        this.action(actions, false);
                     }
                 },
                 addAC: {  // append optional Alias to the name
-                    active: false, checked: false, icon: "serv-ac", w2hratio: 50/50, value: "AC", title: 'AC',
-                    action: function() {
-                        servID = WMEServicesArray[7];
-                        if ( ($("#service-checkbox-"+servID).prop('checked') && bannServ.addAC.checked) ||
-                            (!$("#service-checkbox-"+servID).prop('checked') && !bannServ.addAC.checked) ) {
-                            $("#service-checkbox-"+servID).trigger('click');
-                            fieldUpdateObject.services[servID] = '#dfd';
-                        }
-                        updateServicesChecks(bannServ);
+                    active: false, checked: false, icon: "serv-ac", w2hratio: 50/50, value: "AC", title: 'AC', servIDIndex: 7,
+                    action: function(actions, checked) {
+                        setServiceChecked(this, checked, actions);
                     },
                     pnhOverride: false,
-                    actionOn: function() {
-                        servID = WMEServicesArray[7];
-                        if ( !$("#service-checkbox-"+servID).prop('checked') ) {
-                            $("#service-checkbox-"+servID).trigger('click');
-                            fieldUpdateObject.services[servID] = '#dfd';
-                            bannServ.addAC.checked = true;
-                        }
-                        updateServicesChecks(bannServ);
-                        bannServ.addAC.active = true;
+                    actionOn: function(actions) {
+                        this.action(actions, true);
                     },
-                    actionOff: function() {
-                        servID = WMEServicesArray[7];
-                        if ( $("#service-checkbox-"+servID).prop('checked') ) {
-                            $("#service-checkbox-"+servID).trigger('click');
-                            fieldUpdateObject.services[servID] = '#dfd';
-                            bannServ.addAC.checked = false;
-                        }
-                        updateServicesChecks(bannServ);
-                        bannServ.addAC.active = false;
+                    actionOff: function(actions) {
+                        this.action(actions, false);
                     }
                 },
                 addParking: {  // append optional Alias to the name
-                    active: false, checked: false, icon: "serv-parking", w2hratio: 46/50, value: "Parking", title: 'Parking',
-                    action: function() {
-                        servID = WMEServicesArray[8];
-                        if ( ($("#service-checkbox-"+servID).prop('checked') && bannServ.addParking.checked) ||
-                            (!$("#service-checkbox-"+servID).prop('checked') && !bannServ.addParking.checked) ) {
-                            $("#service-checkbox-"+servID).trigger('click');
-                            fieldUpdateObject.services[servID] = '#dfd';
-                        }
-                        updateServicesChecks(bannServ);
+                    active: false, checked: false, icon: "serv-parking", w2hratio: 46/50, value: "Parking", title: 'Parking', servIDIndex: 8,
+                    action: function(actions, checked) {
+                        setServiceChecked(this, checked, actions);
                     },
                     pnhOverride: false,
-                    actionOn: function() {
-                        servID = WMEServicesArray[8];
-                        if ( !$("#service-checkbox-"+servID).prop('checked') ) {
-                            $("#service-checkbox-"+servID).trigger('click');
-                            fieldUpdateObject.services[servID] = '#dfd';
-                            bannServ.addParking.checked = true;
-                        }
-                        updateServicesChecks(bannServ);
-                        bannServ.addParking.active = true;
+                    actionOn: function(actions) {
+                        this.action(actions, true);
                     },
-                    actionOff: function() {
-                        servID = WMEServicesArray[8];
-                        if ( $("#service-checkbox-"+servID).prop('checked') ) {
-                            $("#service-checkbox-"+servID).trigger('click');
-                            fieldUpdateObject.services[servID] = '#dfd';
-                            bannServ.addParking.checked = false;
-                        }
-                        updateServicesChecks(bannServ);
-                        bannServ.addParking.active = false;
+                    actionOff: function(actions) {
+                        this.action(actions, false);
                     }
                 },
                 addDeliveries: {  // append optional Alias to the name
-                    active: false, checked: false, icon: "serv-deliveries", w2hratio: 86/50, value: "Delivery", title: 'Deliveries',
-                    action: function() {
-                        servID = WMEServicesArray[9];
-                        if ( ($("#service-checkbox-"+servID).prop('checked') && bannServ.addDeliveries.checked) ||
-                            (!$("#service-checkbox-"+servID).prop('checked') && !bannServ.addDeliveries.checked) ) {
-                            $("#service-checkbox-"+servID).trigger('click');
-                            fieldUpdateObject.services[servID] = '#dfd';
-                        }
-                        updateServicesChecks(bannServ);
+                    active: false, checked: false, icon: "serv-deliveries", w2hratio: 86/50, value: "Delivery", title: 'Deliveries', servIDIndex: 9,
+                    action: function(actions, checked) {
+                        setServiceChecked(this, checked, actions);
                     },
                     pnhOverride: false,
-                    actionOn: function() {
-                        servID = WMEServicesArray[9];
-                        if ( !$("#service-checkbox-"+servID).prop('checked') ) {
-                            $("#service-checkbox-"+servID).trigger('click');
-                            fieldUpdateObject.services[servID] = '#dfd';
-                            bannServ.addDeliveries.checked = true;
-                        }
-                        updateServicesChecks(bannServ);
-                        bannServ.addDeliveries.active = true;
+                    actionOn: function(actions) {
+                        this.action(actions, true);
                     },
-                    actionOff: function() {
-                        servID = WMEServicesArray[9];
-                        if ( $("#service-checkbox-"+servID).prop('checked') ) {
-                            $("#service-checkbox-"+servID).trigger('click');
-                            fieldUpdateObject.services[servID] = '#dfd';
-                            bannServ.addDeliveries.checked = false;
-                        }
-                        updateServicesChecks(bannServ);
-                        bannServ.addDeliveries.active = false;
+                    actionOff: function(actions) {
+                        this.action(actions, false);
                     }
                 },
                 addTakeAway: {  // append optional Alias to the name
-                    active: false, checked: false, icon: "serv-takeaway", w2hratio: 34/50, value: "TakeOut", title: 'Take Out',
-                    action: function() {
-                        servID = WMEServicesArray[10];
-                        if ( ($("#service-checkbox-"+servID).prop('checked') && bannServ.addTakeAway.checked) ||
-                            (!$("#service-checkbox-"+servID).prop('checked') && !bannServ.addTakeAway.checked) ) {
-                            $("#service-checkbox-"+servID).trigger('click');
-                            fieldUpdateObject.services[servID] = '#dfd';
-                        }
-                        updateServicesChecks(bannServ);
+                    active: false, checked: false, icon: "serv-takeaway", w2hratio: 34/50, value: "TakeOut", title: 'Take Out', servIDIndex: 10,
+                    action: function(actions, checked) {
+                        setServiceChecked(this, checked, actions);
                     },
                     pnhOverride: false,
-                    actionOn: function() {
-                        servID = WMEServicesArray[10];
-                        if ( !$("#service-checkbox-"+servID).prop('checked') ) {
-                            $("#service-checkbox-"+servID).trigger('click');
-                            fieldUpdateObject.services[servID] = '#dfd';
-                            bannServ.addTakeAway.checked = true;
-                        }
-                        updateServicesChecks(bannServ);
-                        bannServ.addTakeAway.active = true;
+                    actionOn: function(actions) {
+                        this.action(actions, true);
                     },
-                    actionOff: function() {
-                        servID = WMEServicesArray[10];
-                        if ( $("#service-checkbox-"+servID).prop('checked') ) {
-                            $("#service-checkbox-"+servID).trigger('click');
-                            fieldUpdateObject.services[servID] = '#dfd';
-                            bannServ.addTakeAway.checked = false;
-                        }
-                        updateServicesChecks(bannServ);
-                        bannServ.addTakeAway.active = false;
+                    actionOff: function(actions) {
+                        this.action(actions, false);
                     }
                 },
                 addWheelchair: {  // add service
-                    active: false, checked: false, icon: "serv-wheelchair", w2hratio: 50/50, value: "WhCh", title: 'Wheelchair Accessible',
-                    action: function() {
-                        servID = WMEServicesArray[11];
-                        if ( ($("#service-checkbox-"+servID).prop('checked') && bannServ.addWheelchair.checked) ||
-                            (!$("#service-checkbox-"+servID).prop('checked') && !bannServ.addWheelchair.checked) ) {
-                            $("#service-checkbox-"+servID).trigger('click');
-                            fieldUpdateObject.services[servID] = '#dfd';
-                        }
-                        updateServicesChecks(bannServ);
+                    active: false, checked: false, icon: "serv-wheelchair", w2hratio: 50/50, value: "WhCh", title: 'Wheelchair Accessible', servIDIndex: 11,
+                    action: function(actions, checked) {
+                        setServiceChecked(this, checked, actions);
                     },
                     pnhOverride: false,
-                    actionOn: function() {
-                        servID = WMEServicesArray[11];
-                        if ( !$("#service-checkbox-"+servID).prop('checked') ) {
-                            $("#service-checkbox-"+servID).trigger('click');
-                            fieldUpdateObject.services[servID] = '#dfd';
-                            bannServ.addWheelchair.checked = true;
-                        }
-                        updateServicesChecks(bannServ);
-                        bannServ.addWheelchair.active = true;
+                    actionOn: function(actions) {
+                        this.action(actions, true);
                     },
-                    actionOff: function() {
-                        servID = WMEServicesArray[11];
-                        if ( $("#service-checkbox-"+servID).prop('checked') ) {
-                            $("#service-checkbox-"+servID).trigger('click');
-                            fieldUpdateObject.services[servID] = '#dfd';
-                            bannServ.addWheelchair.checked = false;
-                        }
-                        updateServicesChecks(bannServ);
-                        bannServ.addWheelchair.active = false;
+                    actionOff: function(actions) {
+                        this.action(actions, false);
                     }
                 },
                 add247: {  // add 24/7 hours
                     active: false, checked: false, icon: "serv-247", w2hratio: 73/50, value: "247", title: 'Hours: Open 24\/7',
-                    action: function() {
+                    action: function(actions) {
                         if (!bannServ.add247.checked) {
-                            W.model.actionManager.add(new UpdateObject(item, { openingHours: [{days: [1,2,3,4,5,6,0], fromHour: "00:00", toHour: "00:00"}] }));
+                            addUpdateAction({ openingHours: [{days: [1,2,3,4,5,6,0], fromHour: "00:00", toHour: "00:00"}] }, actions);
                             fieldUpdateObject.openingHours='#dfd';
                             highlightChangedFields(fieldUpdateObject,hpMode);
                             bannServ.add247.checked = true;
@@ -3133,7 +2938,7 @@
                                     bannServ[servKeys[psix]].active = true;
                                     if ( hpMode.harmFlag && $("#WMEPH-EnableServices" + devVersStr).prop('checked')  ) {
                                         // Automatically enable new services
-                                        bannServ[servKeys[psix]].actionOn();
+                                        bannServ[servKeys[psix]].actionOn(actions);
                                     }
                                 } else if (CH_DATA_Temp[servHeaders[psix]] === '2') {  // these are never automatically added but shown
                                     bannServ[servKeys[psix]].active = true;
@@ -3143,7 +2948,7 @@
                                         var servAutoRegion = CH_DATA_Temp[servHeaders[psix]].replace(/,[^A-za-z0-9]*/g, ",").split(",");
                                         // if the sheet data matches the state, region, or username then auto add
                                         if ( servAutoRegion.indexOf(state2L) > -1 || servAutoRegion.indexOf(region) > -1 || servAutoRegion.indexOf(thisUser.userName) > -1 ) {
-                                            bannServ[servKeys[psix]].actionOn();
+                                            bannServ[servKeys[psix]].actionOn(actions);
                                         }
                                     }
                                 }
@@ -3923,6 +3728,11 @@
                     m_action.doSubAction(action);
                 });
                 W.model.actionManager.add(m_action);
+            }
+
+            if (hpMode.harmFlag) {
+                // Update icons to reflect current WME place services
+                updateServicesChecks(bannServ);
             }
 
             // Turn on website linking button if there is a url
@@ -6181,6 +5991,11 @@
                     wsix++;
                 }
             }
+            // Highlight 24/7 button if hours are set that way, and add button for all places
+            if ( item.attributes.openingHours.length === 1 && item.attributes.openingHours[0].days.length === 7 && item.attributes.openingHours[0].fromHour === '00:00' && item.attributes.openingHours[0].toHour ==='00:00' ) {
+                bannServ.add247.checked = true;
+            }
+            bannServ.add247.active = true;
         }
 
         // Focus away from the current cursor focus, to set text box changes
