@@ -12,7 +12,7 @@
 // ==UserScript==
 // @name        WME Place Harmonizer Beta
 // @namespace   https://github.com/WazeUSA/WME-Place-Harmonizer/raw/master/WME-Place-Harmonizer.user.js
-// @version     1.1.58
+// @version     1.1.59
 // @description Harmonizes, formats, and locks a selected place
 // @author      WMEPH development group
 // @include     https://*.waze.com/editor/*
@@ -251,6 +251,8 @@
     function runPH() {
         // Script update info
         var WMEPHWhatsNewList = [  // New in this version
+            '1.1.59: Fix for erroneous "stacked place" warning on area places.',
+            '1.1.58: Fix for multi-edits when runnning harmonizer in some cases.',
             '1.1.57: Fix for Store Locator button not showing up on first run, and unpredictable Service button behavior.',
             '1.1.56: Fix for needing to run twice when useless alt names are removed.',
             '1.1.55: Added Waze3rdParty and renamed "edited by waze maint bot" to "account administered by waze staff',
@@ -4929,7 +4931,7 @@
                     altNameMatch = -1;
                     testVenueAtt = venueList[venix].attributes;
                     var pt2ptDistance =  item.geometry.getCentroid().distanceTo(venueList[venix].geometry.getCentroid());
-                    if ( pt2ptDistance < 2 && item.attributes.id !== testVenueAtt.id ) {
+                    if ( item.isPoint() && venueList[venix].isPoint() && pt2ptDistance < 2 && item.attributes.id !== testVenueAtt.id ) {
                         overlappingFlag = true;
                     }
                     wlDupeMatch = false;
