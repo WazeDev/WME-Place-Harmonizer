@@ -12,7 +12,7 @@
 // ==UserScript==
 // @name        WME Place Harmonizer Beta
 // @namespace   https://github.com/WazeUSA/WME-Place-Harmonizer/raw/master/WME-Place-Harmonizer.user.js
-// @version     1.1.57
+// @version     1.1.57.1
 // @description Harmonizes, formats, and locks a selected place
 // @author      WMEPH development group
 // @include     https://*.waze.com/editor/*
@@ -378,7 +378,6 @@
         }
         if (devUser) {
             betaUser = true; // dev users are beta users
-            //if (thisUser.userName !== 'bmtg') { debugger; }
         }
         var usrRank = thisUser.normalizedLevel;  // get editor's level (actual level)
         var userLanguage = 'en';
@@ -960,10 +959,9 @@
                     active: false, severity: 3, message: 'Gas stations at Rest Areas should be separate area places.'
                 },
 
-                restAreaSpec: {  // if the gas brand and name don't match
+                restAreaSpec: {  // if it appears to be a rest area
                     active: false, severity: 3, message: "Is this a rest area?", value: "Yes", title: 'Update with proper categories and services.',
-                    action: function() {
-                        var actions = [];
+                    action: function(actions) {
                         // update categories according to spec
                         newCategories = insertAtIX(newCategories,"TRANSPORTATION",0);  // Insert/move Gas category in the first position
                         newCategories = insertAtIX(newCategories,"SCENIC_LOOKOUT_VIEWPOINT",1);  // Insert/move Gas category in the first position
@@ -1823,7 +1821,7 @@
                     if (actions) {
                         for (var i=0; i<actions.length; i++ ) {
                             var existingAction = actions[i];
-                            if (existingAction.newAttributes.services) {
+                            if (existingAction.newAttributes && existingAction.newAttributes.services) {
                                 services = existingAction.newAttributes.services;
                             }
                         }
@@ -2090,7 +2088,7 @@
                         if (inferredAddress && inferredAddress.state && inferredAddress.country ) {
                             addr = inferredAddress;
                             if ( $("#WMEPH-AddAddresses" + devVersStr).prop('checked') ) {  // update the item's address if option is enabled
-                                updateAddress(item, addr);
+                                updateAddress(item, addr, actions);
                                 fieldUpdateObject.address='#dfd';
                                 if (item.attributes.houseNumber && item.attributes.houseNumber.replace(/[^0-9A-Za-z]/g,'').length > 0 ) {
                                     bannButt.fullAddressInference.active = true;
@@ -2371,11 +2369,11 @@
                                 bannButt[scFlag].active = false;
                             } else if ( specCases[scix].match(/^psOn_/g) !== null ) {
                                 scFlag = specCases[scix].match(/^psOn_(.+)/i)[1];
-                                bannServ[scFlag].actionOn();
+                                bannServ[scFlag].actionOn(actions);
                                 bannServ[scFlag].pnhOverride = true;
                             } else if ( specCases[scix].match(/^psOff_/g) !== null ) {
                                 scFlag = specCases[scix].match(/^psOff_(.+)/i)[1];
-                                bannServ[scFlag].actionOff();
+                                bannServ[scFlag].actionOff(actions);
                                 bannServ[scFlag].pnhOverride = true;
                             }
                             // parseout localURL data if exists (meaning place can have a URL distinct from the chain URL
@@ -3411,9 +3409,15 @@
 
             // *** Rest Area parsing
             // check rest area name against standard formats or if has the right categories
+
+            // ****************************************************************************************************
+            // 1/2/2017 (mapomatic) Technically, TRANSPORTATION should be the 1st category according to the wiki,
+            // but due to a bug in WME, we can't force that.  I've temporarily changed the check for TRANSPORTATION
+            // and SCENIC_LOOKOUT_VIEWPOINT to be < 2 instead of === 0 and === 1, respectively.
+            // ****************************************************************************************************
             if ( (newName.toLowerCase().indexOf('rest area') > -1 || newName.toLowerCase().indexOf('rest stop') > -1 || newName.toLowerCase().indexOf('service plaza') > -1) ||
                 ( categories.indexOf('TRANSPORTATION') > -1 && categories.indexOf('SCENIC_LOOKOUT_VIEWPOINT') > -1 ) ) {
-                if ( categories.indexOf('TRANSPORTATION') === 0 && categories.indexOf('SCENIC_LOOKOUT_VIEWPOINT') === 1) {
+                if ( categories.indexOf('TRANSPORTATION') < 2 && categories.indexOf('SCENIC_LOOKOUT_VIEWPOINT') < 2) {
                     if ( item.isPoint() ) {  // needs to be area point
                         bannButt.areaNotPoint.active = true;
                     }
@@ -3423,6 +3427,7 @@
                     if ( categories.indexOf('GAS_STATION') > -1 ) {
                         bannButt.restAreaGas.active = true;
                     }
+
                     if ( newName.match(/^Rest Area.* \- /) === null ) {
                         bannButt.restAreaName.active = true;
                         if (currentWL.restAreaName) {
@@ -3430,10 +3435,24 @@
                         }
                     } else {
                         newName = newName.replace(/Mile/i, 'mile');
-                        if (newName !== item.attributes.name) {  // if they are not equal
-                            actions.push(new UpdateObject(item, { name: newName }));
-                            fieldUpdateObject.name='#dfd';
-                            phlogdev('Lower case "mile"');
+                        if (hpMode.harmFlag) {
+                            if (newName !== item.attributes.name) {
+                                actions.push(new UpdateObject(item, { name: newName }));
+                                fieldUpdateObject.name='#dfd';
+                                phlogdev('Lower case "mile"');
+                            } else {
+                                // The new name matches the original name, so the only change would have been to capitalize "Mile", which
+                                // we don't want. So remove any previous name-change action.  Note: this feels like a hack and is probably
+                                // a fragile workaround.  The name shouldn't be capitalized in the first place, unless necessary.
+                                for (var i=0; i<actions.length; i++) {
+                                    var action = actions[i];
+                                    if (action.newAttributes.name) {
+                                        actions.splice(i,1);
+                                        fieldUpdateObject.name='';
+                                        break;
+                                    }
+                                }
+                            }
                         }
                     }
 
@@ -3746,14 +3765,11 @@
                 bannButt.PlaceWebsite.active = true;
             }
 
-
             // Highlight the changes made
             highlightChangedFields(fieldUpdateObject,hpMode);
 
             // Assemble the banners
             assembleBanner();  // Make Messaging banners
-
-
 
         }  // END harmonizePlaceGo function
 
@@ -5314,7 +5330,7 @@
          * @param address {Object} An object containing the country, state, city, and street
          * objects.
          */
-        function updateAddress(feature, address) {
+        function updateAddress(feature, address, actions) {
             'use strict';
             var newAttributes,
                 UpdateFeatureAddress = require('Waze/Action/UpdateFeatureAddress');
@@ -5328,7 +5344,12 @@
                     streetName: address.street.name,
                     emptyStreet: address.street.name ? null : true
                 };
-                W.model.actionManager.add(new UpdateFeatureAddress(feature, newAttributes));
+                var action = new UpdateFeatureAddress(feature, newAttributes);
+                if(actions) {
+                    actions.push(action);
+                } else {
+                    W.model.actionManager.add(action);
+                }
                 phlogdev('Address inferred and updated');
             }
         } // END updateAddress function
