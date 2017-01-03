@@ -12,7 +12,7 @@
 // ==UserScript==
 // @name        WME Place Harmonizer Beta
 // @namespace   https://github.com/WazeUSA/WME-Place-Harmonizer/raw/master/WME-Place-Harmonizer.user.js
-// @version     1.1.47a
+// @version     1.1.58-refactor2017
 // @description Harmonizes, formats, and locks a selected place
 // @author      WMEPH development group
 // @include     https://*.waze.com/editor/*
@@ -23,7 +23,6 @@
 // ==/UserScript==
 
 (function () {
-    // item = W.selectionManager.selectedItems[0].model
     var WMEPHversion = GM_info.script.version.toString(); // pull version from header
     var WMEPHversionMeta = WMEPHversion.match(/(\d+\.\d+)/i)[1];  // get the X.X version
     var majorNewFeature = false;  // set to true to make an alert pop up after script update with new feature
@@ -73,97 +72,97 @@
     /* ****** Pull PNH and Userlist data ****** */
 
         // Pull USA PNH Data
-        $.ajax({
-            type: 'GET',
-            url: 'https://spreadsheets.google.com/feeds/list/1-f-JTWY5UnBx-rFTa4qhyGMYdHBZWNirUTOgn222zMY/o6q7kx/public/values',
-            jsonp: 'callback', data: { alt: 'json-in-script' }, dataType: 'jsonp',
-            success: function(response) {
-                USA_PNH_DATA = [];
-                for (var i = 0; i < response.feed.entry.length; i++) {
-                    USA_PNH_DATA.push(response.feed.entry[i].gsx$pnhdata.$t);
+            $.ajax({
+                type: 'GET',
+                url: 'https://spreadsheets.google.com/feeds/list/1-f-JTWY5UnBx-rFTa4qhyGMYdHBZWNirUTOgn222zMY/o6q7kx/public/values',
+                jsonp: 'callback', data: { alt: 'json-in-script' }, dataType: 'jsonp',
+                success: function(response) {
+                    USA_PNH_DATA = [];
+                    for (var i = 0; i < response.feed.entry.length; i++) {
+                        USA_PNH_DATA.push(response.feed.entry[i].gsx$pnhdata.$t);
+                    }
                 }
-            }
-        });
+            });
 
         // Pull Category Data ( Includes CAN for now )
-        $.ajax({
-            type: 'GET',
-            url: 'https://spreadsheets.google.com/feeds/list/1-f-JTWY5UnBx-rFTa4qhyGMYdHBZWNirUTOgn222zMY/ov3dubz/public/values',
-            jsonp: 'callback', data: { alt: 'json-in-script' }, dataType: 'jsonp',
-            success: function(response) {
-                USA_CH_DATA = [];
-                for (var i = 0; i < response.feed.entry.length; i++) {
-                    USA_CH_DATA.push(response.feed.entry[i].gsx$pcdata.$t);
+            $.ajax({
+                type: 'GET',
+                url: 'https://spreadsheets.google.com/feeds/list/1-f-JTWY5UnBx-rFTa4qhyGMYdHBZWNirUTOgn222zMY/ov3dubz/public/values',
+                jsonp: 'callback', data: { alt: 'json-in-script' }, dataType: 'jsonp',
+                success: function(response) {
+                    USA_CH_DATA = [];
+                    for (var i = 0; i < response.feed.entry.length; i++) {
+                        USA_CH_DATA.push(response.feed.entry[i].gsx$pcdata.$t);
+                    }
                 }
-            }
-        });
+            });
 
         // Pull State-based Data (includes CAN for now)
-        $.ajax({
-            type: 'GET',
-            url: 'https://spreadsheets.google.com/feeds/list/1-f-JTWY5UnBx-rFTa4qhyGMYdHBZWNirUTOgn222zMY/os2g2ln/public/values',
-            jsonp: 'callback', data: { alt: 'json-in-script' }, dataType: 'jsonp',
-            success: function(response) {
-                USA_STATE_DATA = [];
-                for (var i = 0; i < response.feed.entry.length; i++) {
-                    USA_STATE_DATA.push(response.feed.entry[i].gsx$psdata.$t);
+            $.ajax({
+                type: 'GET',
+                url: 'https://spreadsheets.google.com/feeds/list/1-f-JTWY5UnBx-rFTa4qhyGMYdHBZWNirUTOgn222zMY/os2g2ln/public/values',
+                jsonp: 'callback', data: { alt: 'json-in-script' }, dataType: 'jsonp',
+                success: function(response) {
+                    USA_STATE_DATA = [];
+                    for (var i = 0; i < response.feed.entry.length; i++) {
+                        USA_STATE_DATA.push(response.feed.entry[i].gsx$psdata.$t);
+                    }
                 }
-            }
-        });
+            });
 
         // Pull CAN PNH Data
-        $.ajax({
-            type: 'GET',
-            url: 'https://spreadsheets.google.com/feeds/list/1TIxQZVLUbAJ8iH6LPTkJsvqFb_DstrHpKsJbv1W1FZs/o4ghhas/public/values',
-            jsonp: 'callback', data: { alt: 'json-in-script' }, dataType: 'jsonp',
-            success: function(response) {
-                CAN_PNH_DATA = [];
-                for (var i = 0; i < response.feed.entry.length; i++) {
-                    CAN_PNH_DATA.push(response.feed.entry[i].gsx$pnhdata.$t);
+            $.ajax({
+                type: 'GET',
+                url: 'https://spreadsheets.google.com/feeds/list/1TIxQZVLUbAJ8iH6LPTkJsvqFb_DstrHpKsJbv1W1FZs/o4ghhas/public/values',
+                jsonp: 'callback', data: { alt: 'json-in-script' }, dataType: 'jsonp',
+                success: function(response) {
+                    CAN_PNH_DATA = [];
+                    for (var i = 0; i < response.feed.entry.length; i++) {
+                        CAN_PNH_DATA.push(response.feed.entry[i].gsx$pnhdata.$t);
+                    }
                 }
-            }
-        });
+            });
 
         // Pull name-category lists
-        $.ajax({
-            type: 'GET',
-            url: 'https://spreadsheets.google.com/feeds/list/1qPjzDu7ZWcpz9xrWYgU7BFLVdbk9ycqgPK9f2mydYlA/op17piq/public/values',
-            jsonp: 'callback', data: { alt: 'json-in-script' }, dataType: 'jsonp',
-            success: function(response) {
-                hospitalPartMatch = response.feed.entry[0].gsx$hmchp.$t;
-                hospitalFullMatch = response.feed.entry[0].gsx$hmchf.$t;
-                animalPartMatch = response.feed.entry[0].gsx$hmcap.$t;
-                animalFullMatch = response.feed.entry[0].gsx$hmcaf.$t;
-                schoolPartMatch = response.feed.entry[0].gsx$schp.$t;
-                schoolFullMatch = response.feed.entry[0].gsx$schf.$t;
-                hospitalPartMatch = hospitalPartMatch.toLowerCase().replace(/ \|/g,'|').replace(/\| /g,'|').split("|");
-                hospitalFullMatch = hospitalFullMatch.toLowerCase().replace(/ \|/g,'|').replace(/\| /g,'|').split("|");
-                animalPartMatch = animalPartMatch.toLowerCase().replace(/ \|/g,'|').replace(/\| /g,'|').split("|");
-                animalFullMatch = animalFullMatch.toLowerCase().replace(/ \|/g,'|').replace(/\| /g,'|').split("|");
-                schoolPartMatch = schoolPartMatch.toLowerCase().replace(/ \|/g,'|').replace(/\| /g,'|').split("|");
-                schoolFullMatch = schoolFullMatch.toLowerCase().replace(/ \|/g,'|').replace(/\| /g,'|').split("|");
-            }
-        });
+            $.ajax({
+                type: 'GET',
+                url: 'https://spreadsheets.google.com/feeds/list/1qPjzDu7ZWcpz9xrWYgU7BFLVdbk9ycqgPK9f2mydYlA/op17piq/public/values',
+                jsonp: 'callback', data: { alt: 'json-in-script' }, dataType: 'jsonp',
+                success: function(response) {
+                    hospitalPartMatch = response.feed.entry[0].gsx$hmchp.$t;
+                    hospitalFullMatch = response.feed.entry[0].gsx$hmchf.$t;
+                    animalPartMatch = response.feed.entry[0].gsx$hmcap.$t;
+                    animalFullMatch = response.feed.entry[0].gsx$hmcaf.$t;
+                    schoolPartMatch = response.feed.entry[0].gsx$schp.$t;
+                    schoolFullMatch = response.feed.entry[0].gsx$schf.$t;
+                    hospitalPartMatch = hospitalPartMatch.toLowerCase().replace(/ \|/g,'|').replace(/\| /g,'|').split("|");
+                    hospitalFullMatch = hospitalFullMatch.toLowerCase().replace(/ \|/g,'|').replace(/\| /g,'|').split("|");
+                    animalPartMatch = animalPartMatch.toLowerCase().replace(/ \|/g,'|').replace(/\| /g,'|').split("|");
+                    animalFullMatch = animalFullMatch.toLowerCase().replace(/ \|/g,'|').replace(/\| /g,'|').split("|");
+                    schoolPartMatch = schoolPartMatch.toLowerCase().replace(/ \|/g,'|').replace(/\| /g,'|').split("|");
+                    schoolFullMatch = schoolFullMatch.toLowerCase().replace(/ \|/g,'|').replace(/\| /g,'|').split("|");
+                }
+            });
 
         // Pull dev and beta UserList Data
-        $.ajax({
-            type: 'GET',
-            url: 'https://spreadsheets.google.com/feeds/list/1L82mM8Xg-MvKqK3WOfsMhFEGmVM46lA8BVcx8qwgmA8/ofblgob/public/values',
-            jsonp: 'callback', data: { alt: 'json-in-script' }, dataType: 'jsonp',
-            success: function(response) {
-                var WMEPHuserList = response.feed.entry[0].gsx$phuserlist.$t;
-                WMEPHuserList = WMEPHuserList.split("|");
-                var betaix = WMEPHuserList.indexOf('BETAUSERS');
-                WMEPHdevList = [];
-                WMEPHbetaList = [];
-                for (var ulix=1; ulix<betaix; ulix++) {
-                    WMEPHdevList.push(WMEPHuserList[ulix].toLowerCase());
+            $.ajax({
+                type: 'GET',
+                url: 'https://spreadsheets.google.com/feeds/list/1L82mM8Xg-MvKqK3WOfsMhFEGmVM46lA8BVcx8qwgmA8/ofblgob/public/values',
+                jsonp: 'callback', data: { alt: 'json-in-script' }, dataType: 'jsonp',
+                success: function(response) {
+                    var WMEPHuserList = response.feed.entry[0].gsx$phuserlist.$t;
+                    WMEPHuserList = WMEPHuserList.split("|");
+                    var betaix = WMEPHuserList.indexOf('BETAUSERS');
+                    WMEPHdevList = [];
+                    WMEPHbetaList = [];
+                    for (var ulix=1; ulix<betaix; ulix++) {
+                        WMEPHdevList.push(WMEPHuserList[ulix].toLowerCase());
+                    }
+                    for (ulix=betaix+1; ulix<WMEPHuserList.length; ulix++) {
+                        WMEPHbetaList.push(WMEPHuserList[ulix].toLowerCase());
+                    }
                 }
-                for (ulix=betaix+1; ulix<WMEPHuserList.length; ulix++) {
-                    WMEPHbetaList.push(WMEPHuserList[ulix].toLowerCase());
-                }
-            }
-        });
+            });
 
     function placeHarmonizer_bootstrap() {
         if ( "undefined" !== typeof W.loginManager && "undefined" !== typeof W.map) {
@@ -192,10 +191,10 @@
         // If the data has returned, then start the script, otherwise wait a bit longer
         if ("undefined" !== typeof CAN_PNH_DATA && "undefined" !== typeof USA_PNH_DATA && "undefined" !== typeof USA_CH_DATA &&
             "undefined" !== typeof WMEPHdevList && "undefined" !== typeof WMEPHbetaList && "undefined" !== typeof hospitalPartMatch ) {
-            USA_PNH_NAMES = makeNameCheckList(USA_PNH_DATA);
-            USA_CH_NAMES = makeCatCheckList(USA_CH_DATA);
-            CAN_PNH_NAMES = makeNameCheckList(CAN_PNH_DATA);
-            // CAN using USA_CH_NAMES at the moment
+                USA_PNH_NAMES = makeNameCheckList(USA_PNH_DATA);
+                USA_CH_NAMES = makeCatCheckList(USA_CH_DATA);
+                CAN_PNH_NAMES = makeNameCheckList(CAN_PNH_DATA);
+                // CAN using USA_CH_NAMES at the moment
             loginReady();  //  start the main code
         } else {
             if (dataReadyCounter % 20 === 0) {
@@ -242,29 +241,21 @@
     function runPH() {
         // Script update info
         var WMEPHWhatsNewList = [  // New in this version
+            '1.1.57: Fix for Store Locator button not showing up on first run, and unpredictable Service button behavior.',
+            '1.1.56: Fix for needing to run twice when useless alt names are removed.',
+            '1.1.55: Added Waze3rdParty and renamed "edited by waze maint bot" to "account administered by waze staff',
+            '1.1.53: Fixed bug where blank space was being inserted in front of hotel brandParent name',
+            '1.1.52: Fixed bug reporting PMs.',
+            '1.1.51: Fixed lowercase alphanumeric phone number parsing.',
+            '1.1.50: Fixed bug with adding hours more than once.',
+            '1.1.49: Added a Glink modification to turn them into links and limit search radius.',
             '1.1.47: Fix for one-field-update-per-click issue',
             '1.1.46: allow for https:// in urls. (credit RavenDT)',
             '1.1.45: Add disable highlights for above rank function (credit RavenDT), stop url link from adding http://',
             '1.1.44: Fix for adding hours (credit RavenDT)',
             '1.1.42: Temporarily disabled PLA checking until it is more stable',
-            '1.1.41: Fixed but with whitelisting.',
-            '1.1.38: Fixed clone utility',
-            '1.1.37: WL for no name places',
-            '1.1.36: Basic fixes and add Waze Wrap',
-            '1.1.33: Fixes for New WME',
-            '1.1.31: NV phone format fix',
-            '1.1.31: Hours message fix',
-            '1.1.31: Highlighter fix',
-            '1.1.30: Cardyin fixes',
-            '1.1.29: Missing HN can be entered in the banner',
-            '1.1.29: RPPs with street address but no city are blue now',
-            '1.1.29: Hours, HL, and WL tweaks, fixes',
-            '1.1.28: Bug fix',
-            '1.1.27: Autoremove dashes for HNs in Queens, NY',
-            '1.1.27: Autosplits Sun,Mon hours because of WME display bug',
-            '1.1.26: Bug fix',
-            '1.1.25: Fields changed by the script are highlighted in green',
-            '1.1.25: Option to auto-run the script when a place is selected (R3+)'
+            '1.1.41: Fixed bug with whitelisting.',
+            '1.1.38: Fixed clone utility'
         ];
         var WMEPHWhatsNewMetaList = [  // New in this major version
             '1.1: Built-in place highlighter shows which places on the map need work'
@@ -281,6 +272,9 @@
         }
         var thisUser = W.loginManager.user;
         var UpdateObject = require("Waze/Action/UpdateObject");
+        var _disableHighlightTest = false;  // Set to true to temporarily disable highlight checks immediately when venues change.
+
+        modifyGoogleLinks();
 
         // Whitelist initialization
         compressedWLLS = false;
@@ -333,7 +327,10 @@
             }
             localStorage.setItem('WMEPHversion'+devVersStr, WMEPHversion);  // store last installed version in localstorage
         }
-
+        if (localStorage.getItem('WMEPH-plaNameWLWarning'+devVersStr) === null) {
+            localStorage.setItem('WMEPH-plaNameWLWarning'+devVersStr, '1');
+            alert('WME Place Harmonizer\n\nParking Lot Areas (PLA) now have the ability to be Whitelisted if they are unnamed. Please consult the wiki for when it is ok to have a PLA with no name.');
+        }
         // Settings setup
         var GLinkWarning = 'GLinkWarning';  // Warning message for first time using Google search to not to use the Google info itself.
         if (!localStorage.getItem(GLinkWarning)) {  // store settings so the warning is only given once
@@ -371,7 +368,6 @@
         }
         if (devUser) {
             betaUser = true; // dev users are beta users
-            //if (thisUser.userName !== 'bmtg') { debugger; }
         }
         var usrRank = thisUser.normalizedLevel;  // get editor's level (actual level)
         var userLanguage = 'en';
@@ -576,7 +572,9 @@
                 }
                 // Add listeners
                 W.model.venues.on('objectschanged', function (e) {
-                    applyHighlightsTest(e);
+                    if (!_disableHighlightTest) {
+                        applyHighlightsTest(e);
+                    }
                 });
 
                 W.model.venues.on('objectsadded', function (e) {
@@ -718,6 +716,7 @@
             var s1 = s.replace(/\D/g, '');  // remove non-number characters
             var m = s1.match(/^1?([2-9]\d{2})([2-9]\d{2})(\d{4})$/);  // Ignore leading 1, and also don't allow area code or exchange to start with 0 or 1 (***USA/CAN specific)
             if (!m) {  // then try alphanumeric matching
+                if (s) { s = s.toUpperCase(); }
                 s1 = s.replace(/[^0-9A-Z]/g, '').replace(/^\D*(\d)/,'$1').replace(/^1?([2-9][0-9]{2}[0-9A-Z]{7})/g,'$1');
                 s1 = replaceLetters(s1);
                 m = s1.match(/^([2-9]\d{2})([2-9]\d{2})(\d{4})$/);  // Ignore leading 1, and also don't allow area code or exchange to start with 0 or 1 (***USA/CAN specific)
@@ -809,14 +808,11 @@
             if (W.selectionManager.selectedItems.length === 1) {
                 var item = W.selectionManager.selectedItems[0].model;
                 if (item.type === "venue") {
-
-                    // 2016-12-17 (mapomatic) Until we can get parking lots working without better, I'm forcing the code to skip them.
-                    // ****************************************************************************************************************
-                    if (item.attributes.categories.length === 1 && item.attributes.categories[0] === "PARKING_LOT") { return; }
-                    // ****************************************************************************************************************
-
                     blurAll();  // focus away from current cursor position
+                    _disableHighlightTest = true;
                     harmonizePlaceGo(item,'harmonize');
+                    _disableHighlightTest = false;
+                    applyHighlightsTest(item);
                 } else {  // Remove duplicate labels
                     WMEPH_NameLayer.destroyFeatures();
                 }
@@ -893,7 +889,8 @@
                 phoneWL: false,
                 aCodeWL: false,
                 noHours: false,
-                nameMissing: false
+                nameMissing: false,
+                plaNameMissing: false
             };
 
             // **** Set up banner action buttons.  Structure:
@@ -914,10 +911,14 @@
                 },
 
                 nameMissing: {  // no WL
-                    active: false, severity: 3, message: 'Name is missing.',
+                    active: false, severity: 3, message: 'Name is missing.'
+                },
+
+                plaNameMissing: {
+                    active: false, severity: 1, message: 'Name is missing.',
                     WLactive: true, WLmessage: '', WLtitle: 'Whitelist missing name',
                     WLaction: function() {
-                        wlKeyName = 'nameMissing';
+                        wlKeyName = 'plaNameMissing';
                         whitelistAction(itemID, wlKeyName);
                     }
                 },
@@ -948,10 +949,9 @@
                     active: false, severity: 3, message: 'Gas stations at Rest Areas should be separate area places.'
                 },
 
-                restAreaSpec: {  // if the gas brand and name don't match
+                restAreaSpec: {  // if it appears to be a rest area
                     active: false, severity: 3, message: "Is this a rest area?", value: "Yes", title: 'Update with proper categories and services.',
-                    action: function() {
-                        var actions = [];
+                    action: function(actions) {
                         // update categories according to spec
                         newCategories = insertAtIX(newCategories,"TRANSPORTATION",0);  // Insert/move Gas category in the first position
                         newCategories = insertAtIX(newCategories,"SCENIC_LOOKOUT_VIEWPOINT",1);  // Insert/move Gas category in the first position
@@ -960,7 +960,7 @@
                         // make it 24/7
                         actions.push(new UpdateObject(item, { openingHours: [{days: [1,2,3,4,5,6,0], fromHour: "00:00", toHour: "00:00"}] }));
                         fieldUpdateObject.openingHours='#dfd';
-                        //higlightChangedFields(fieldUpdateObject,hpMode);
+                        //highlightChangedFields(fieldUpdateObject,hpMode);
 
                         bannServ.add247.checked = true;
                         bannServ.addParking.actionOn();  // add parking service
@@ -988,7 +988,7 @@
                         W.model.actionManager.add(new UpdateObject(item, { name: newName, aliases: newAliases }));
                         fieldUpdateObject.name='#dfd';
                         fieldUpdateObject.aliases='#dfd';
-                        higlightChangedFields(fieldUpdateObject,hpMode);
+                        highlightChangedFields(fieldUpdateObject,hpMode);
                         bannButt.gasMismatch.active = false;  // reset the display flag
                     },
                     WLactive: true, WLmessage: '', WLtitle: 'Whitelist gas brand mismatch',
@@ -1180,7 +1180,7 @@
                         W.model.actionManager.add(new UpdateObject(item, { name: newName, categories: newCategories }));
                         fieldUpdateObject.name='#dfd';
                         fieldUpdateObject.categories='#dfd';
-                        higlightChangedFields(fieldUpdateObject,hpMode);
+                        highlightChangedFields(fieldUpdateObject,hpMode);
                         bannButt.bankCorporate.active = false;   // reset the bank Branch display flag
                         bannButt.bankBranch.active = false;   // reset the bank Branch display flag
                         bannButt.standaloneATM.active = false;   // reset the standalone ATM display flag
@@ -1198,7 +1198,7 @@
                         W.model.actionManager.add(new UpdateObject(item, { name: newName, categories: newCategories }));
                         fieldUpdateObject.name='#dfd';
                         fieldUpdateObject.categories='#dfd';
-                        higlightChangedFields(fieldUpdateObject,hpMode);
+                        highlightChangedFields(fieldUpdateObject,hpMode);
                         bannButt.bankCorporate.active = false;   // reset the bank Branch display flag
                         bannButt.bankBranch.active = false;   // reset the bank Branch display flag
                         bannButt.standaloneATM.active = false;   // reset the standalone ATM display flag
@@ -1214,7 +1214,7 @@
                         W.model.actionManager.add(new UpdateObject(item, { name: newName + ' - Corporate Offices', categories: newCategories }));
                         fieldUpdateObject.name='#dfd';
                         fieldUpdateObject.categories='#dfd';
-                        higlightChangedFields(fieldUpdateObject,hpMode);
+                        highlightChangedFields(fieldUpdateObject,hpMode);
                         bannButt.bankCorporate.active = false;   // reset the bank Branch display flag
                         bannButt.bankBranch.active = false;   // reset the bank Branch display flag
                         bannButt.standaloneATM.active = false;   // reset the standalone ATM display flag
@@ -1231,7 +1231,7 @@
                 },
 
                 wazeBot: {  // no WL
-                    active: false, severity: 2, message: 'Last edited by waze-bot-maint'
+                    active: false, severity: 2, message: 'Last edited by a waze staff administered account'
                 },
 
                 parentCategory: {
@@ -1301,13 +1301,13 @@
                         if (tempPNHURL !== '') {
                             W.model.actionManager.add(new UpdateObject(item, { url: tempPNHURL }));
                             fieldUpdateObject.url='#dfd';
-                            higlightChangedFields(fieldUpdateObject,hpMode);
+                            highlightChangedFields(fieldUpdateObject,hpMode);
                             bannButt.longURL.active = false;
                             updateURL = true;
                         } else {
                             if (confirm('WMEPH: URL Matching Error!\nClick OK to report this error') ) {  // if the category doesn't translate, then pop an alert that will make a forum post to the thread
                                 forumMsgInputs = {
-                                    subject: 'Re: WMEPH URL comparison Error report',
+                                    subject: 'WMEPH URL comparison Error report',
                                     message: 'Error report: URL comparison failed for "' + item.attributes.name + '"\nPermalink: ' + placePL
                                 };
                                 WMEPH_errorReport(forumMsgInputs);
@@ -1457,7 +1457,7 @@
                             phlogdev(hoursObjectArray);
                             W.model.actionManager.add(new UpdateObject(item, { openingHours: hoursObjectArray }));
                             fieldUpdateObject.openingHours='#dfd';
-                            higlightChangedFields(fieldUpdateObject,hpMode);
+                            highlightChangedFields(fieldUpdateObject,hpMode);
                             bannButt.noHours.value = 'Add hours';
                             bannButt.noHours.severity = 0;
                             bannButt.noHours.WLactive = false;
@@ -1481,7 +1481,7 @@
                             item.attributes.openingHours.push.apply(item.attributes.openingHours, hoursObjectArray);
                             W.model.actionManager.add(new UpdateObject(item, { openingHours: hoursObjectArray }));
                             fieldUpdateObject.openingHours='#dfd';
-                            higlightChangedFields(fieldUpdateObject,hpMode);
+                            highlightChangedFields(fieldUpdateObject,hpMode);
                             bannButt.noHours.value2 = 'Replace hours';
                             bannButt.noHours.severity = 0;
                             bannButt.noHours.WLactive = false;
@@ -1534,12 +1534,12 @@
                             newDescripion = optionalAlias + '\n' + newDescripion;
                             W.model.actionManager.add(new UpdateObject(item, { description: newDescripion }));
                             fieldUpdateObject.description='#dfd';
-                            higlightChangedFields(fieldUpdateObject,hpMode);
+                            highlightChangedFields(fieldUpdateObject,hpMode);
                         }
                         newAliases = removeSFAliases(newName, newAliases);
                         W.model.actionManager.add(new UpdateObject(item, { aliases: newAliases }));
                         fieldUpdateObject.aliases='#dfd';
-                        higlightChangedFields(fieldUpdateObject,hpMode);
+                        highlightChangedFields(fieldUpdateObject,hpMode);
                         bannButt.addAlias.active = false;  // reset the display flag
                     }
                 },
@@ -1550,7 +1550,7 @@
                         newCategories.push.apply(newCategories,altCategories);
                         W.model.actionManager.add(new UpdateObject(item, { categories: newCategories }));
                         fieldUpdateObject.categories='#dfd';
-                        higlightChangedFields(fieldUpdateObject,hpMode);
+                        highlightChangedFields(fieldUpdateObject,hpMode);
                         bannButt.addCat2.active = false;  // reset the display flag
                     }
                 },
@@ -1561,7 +1561,7 @@
                         newCategories = insertAtIX(newCategories, 'PHARMACY', 1);
                         W.model.actionManager.add(new UpdateObject(item, { categories: newCategories }));
                         fieldUpdateObject.categories='#dfd';
-                        higlightChangedFields(fieldUpdateObject,hpMode);
+                        highlightChangedFields(fieldUpdateObject,hpMode);
                         bannButt.addPharm.active = false;  // reset the display flag
                     }
                 },
@@ -1572,7 +1572,7 @@
                         newCategories = insertAtIX(newCategories, 'SUPERMARKET_GROCERY', 1);
                         W.model.actionManager.add(new UpdateObject(item, { categories: newCategories }));
                         fieldUpdateObject.categories='#dfd';
-                        higlightChangedFields(fieldUpdateObject,hpMode);
+                        highlightChangedFields(fieldUpdateObject,hpMode);
                         bannButt.addSuper.active = false;  // reset the display flag
                     }
                 },
@@ -1587,7 +1587,7 @@
                         fieldUpdateObject.name='#dfd';
                         fieldUpdateObject.url='#dfd';
                         fieldUpdateObject.categories='#dfd';
-                        higlightChangedFields(fieldUpdateObject,hpMode);
+                        highlightChangedFields(fieldUpdateObject,hpMode);
                         bannButt.appendAMPM.active = false;  // reset the display flag
                         bannButt.addConvStore.active = false;  // also reset the addConvStore display flag
                     }
@@ -1599,7 +1599,7 @@
                         newCategories = insertAtIX(newCategories,"ATM",1);  // Insert ATM category in the second position
                         W.model.actionManager.add(new UpdateObject(item, { categories: newCategories }));
                         fieldUpdateObject.categories='#dfd';
-                        higlightChangedFields(fieldUpdateObject,hpMode);
+                        highlightChangedFields(fieldUpdateObject,hpMode);
                         bannButt.addATM.active = false;   // reset the display flag
                     }
                 },
@@ -1610,7 +1610,7 @@
                         newCategories = insertAtIX(newCategories,"CONVENIENCE_STORE",1);  // Insert C.S. category in the second position
                         W.model.actionManager.add(new UpdateObject(item, { categories: newCategories }));
                         fieldUpdateObject.categories='#dfd';
-                        higlightChangedFields(fieldUpdateObject,hpMode);
+                        highlightChangedFields(fieldUpdateObject,hpMode);
                         bannButt.addConvStore.active = false;   // reset the display flag
                     }
                 },
@@ -1625,11 +1625,11 @@
                         bannServ.addWheelchair.actionOn();
                         W.model.actionManager.add(new UpdateObject(item, { url: "usps.com" }));
                         fieldUpdateObject.url='#dfd';
-                        higlightChangedFields(fieldUpdateObject,hpMode);
+                        highlightChangedFields(fieldUpdateObject,hpMode);
                         if (region === 'SER') {
                             W.model.actionManager.add(new UpdateObject(item, { aliases: ["United States Postal Service"] }));
                             fieldUpdateObject.aliases='#dfd';
-                            higlightChangedFields(fieldUpdateObject,hpMode);
+                            highlightChangedFields(fieldUpdateObject,hpMode);
                         }
                         bannButt.isitUSPS.active = false;
                     }
@@ -1642,7 +1642,7 @@
                         if (newName !== item.attributes.name) {  // if they are not equal
                             W.model.actionManager.add(new UpdateObject(item, { name: newName }));
                             fieldUpdateObject.name='#dfd';
-                            higlightChangedFields(fieldUpdateObject,hpMode);
+                            highlightChangedFields(fieldUpdateObject,hpMode);
                         }
                         bannButt.STC.active = false;  // reset the display flag
                     }
@@ -1774,7 +1774,7 @@
                     active: true, severity: 0, message: "", value: "Report script error", title: "Report a script error",
                     action: function() {
                         var forumMsgInputs = {
-                            subject: 'Re: WMEPH Bug report',
+                            subject: 'WMEPH Bug report: Scrpt Error',
                             message: 'Script version: ' + WMEPHversion + devVersStr + '\nPermalink: ' + placePL + '\nPlace name: ' + item.attributes.name + '\nCountry: ' + addr.country.name + '\n--------\nDescribe the error:  \n '
                         };
                         WMEPH_errorReport(forumMsgInputs);
@@ -1790,6 +1790,54 @@
                 }
             };  // END bannButt2 definitions
 
+            function addUpdateAction(updateObj, actions) {
+                var action = new UpdateObject(item, updateObj);
+                if (actions) {
+                    actions.push(action);
+                } else {
+                    W.model.actionManager.add(action);
+                }
+            }
+
+            function setServiceChecked(servBtn, checked, actions) {
+                var servID = WMEServicesArray[servBtn.servIDIndex];
+                var checkboxChecked = $("#service-checkbox-"+servID).prop('checked');
+                var toggle = typeof checked === 'undefined';
+                var noAdd = false;
+                checked = (toggle) ? !servBtn.checked : checked;
+                if (checkboxChecked === servBtn.checked && checkboxChecked !== checked) {
+                    servBtn.checked = checked;
+                    var services;
+                    if (actions) {
+                        for (var i=0; i<actions.length; i++ ) {
+                            var existingAction = actions[i];
+                            if (existingAction.newAttributes && existingAction.newAttributes.services) {
+                                services = existingAction.newAttributes.services;
+                            }
+                        }
+                    }
+                    if (!services) {
+                        services = item.attributes.services.slice(0);
+                    } else {
+                        noAdd = services.indexOf(servID) > -1;
+                    }
+                    if (checked) {
+                        services.push(servID);
+                    } else {
+                        var index = services.indexOf(servID);
+                        if (index > -1) {
+                            services.splice(index, 1);
+                        }
+                    }
+                    if (!noAdd) {
+                        addUpdateAction({services:services}, actions);
+                        fieldUpdateObject.services[servID] = '#dfd';
+                    }
+                }
+                updateServicesChecks(bannServ);
+                if (!toggle) servBtn.active = checked;
+            }
+
             // set up banner action buttons.  Structure:
             // active: false until activated in the script
             // checked: whether the service is already set on the place. Determines grey vs white icon color
@@ -1799,408 +1847,168 @@
             // action: The action that happens if the button is pressed
             bannServ = {
                 addValet: {  // append optional Alias to the name
-                    active: false, checked: false, icon: "serv-valet", w2hratio: 50/50, value: "Valet", title: 'Valet',
-                    action: function() {
-                        servID = WMEServicesArray[0];
-                        if ( ($("#service-checkbox-"+servID).prop('checked') && bannServ.addValet.checked) ||
-                            (!$("#service-checkbox-"+servID).prop('checked') && !bannServ.addValet.checked) ) {
-                            $("#service-checkbox-"+servID).trigger('click');
-                            fieldUpdateObject.services[servID] = '#dfd';
-                        }
-                        updateServicesChecks(bannServ);
+                    active: false, checked: false, icon: "serv-valet", w2hratio: 50/50, value: "Valet", title: 'Valet', servIDIndex: 0,
+                    action: function(actions, checked) {
+                        setServiceChecked(this, checked, actions);
                     },
                     pnhOverride: false,
-                    actionOn: function() {
-                        servID = WMEServicesArray[0];
-                        if ( !$("#service-checkbox-"+servID).prop('checked') ) {
-                            $("#service-checkbox-"+servID).trigger('click');
-                            fieldUpdateObject.services[servID] = '#dfd';
-                            bannServ.addValet.checked = true;
-                        }
-                        updateServicesChecks(bannServ);
-                        bannServ.addValet.active = true;
+                    actionOn: function(actions) {
+                        this.action(actions, true);
                     },
-                    actionOff: function() {
-                        servID = WMEServicesArray[0];
-                        if ( $("#service-checkbox-"+servID).prop('checked') ) {
-                            $("#service-checkbox-"+servID).trigger('click');
-                            fieldUpdateObject.services[servID] = '#dfd';
-                            bannServ.addValet.checked = false;
-                        }
-                        updateServicesChecks(bannServ);
-                        bannServ.addValet.active = false;
+                    actionOff: function(actions) {
+                        this.action(actions, false);
                     }
                 },
                 addDriveThru: {  // append optional Alias to the name
-                    active: false, checked: false, icon: "serv-drivethru", w2hratio: 78/50, value: "DriveThru", title: 'Drive-Thru',
-                    action: function() {
-                        servID = WMEServicesArray[1];
-                        if ( ($("#service-checkbox-"+servID).prop('checked') && bannServ.addDriveThru.checked) ||
-                            (!$("#service-checkbox-"+servID).prop('checked') && !bannServ.addDriveThru.checked) ) {
-                            $("#service-checkbox-"+servID).trigger('click');
-                            fieldUpdateObject.services[servID] = '#dfd';
-                        }
-                        updateServicesChecks(bannServ);
+                    active: false, checked: false, icon: "serv-drivethru", w2hratio: 78/50, value: "DriveThru", title: 'Drive-Thru', servIDIndex: 1,
+                    action: function(actions, checked) {
+                        setServiceChecked(this, checked, actions);
                     },
                     pnhOverride: false,
-                    actionOn: function() {
-                        servID = WMEServicesArray[1];
-                        if ( !$("#service-checkbox-"+servID).prop('checked') ) {
-                            $("#service-checkbox-"+servID).trigger('click');
-                            fieldUpdateObject.services[servID] = '#dfd';
-                            bannServ.addDriveThru.checked = true;
-                        }
-                        updateServicesChecks(bannServ);
-                        bannServ.addDriveThru.active = true;
+                    actionOn: function(actions) {
+                        this.action(actions, true);
                     },
-                    actionOff: function() {
-                        servID = WMEServicesArray[1];
-                        if ( $("#service-checkbox-"+servID).prop('checked') ) {
-                            $("#service-checkbox-"+servID).trigger('click');
-                            fieldUpdateObject.services[servID] = '#dfd';
-                            bannServ.addDriveThru.checked = false;
-                        }
-                        updateServicesChecks(bannServ);
-                        bannServ.addDriveThru.active = false;
+                    actionOff: function(actions) {
+                        this.action(actions, false);
                     }
                 },
                 addWiFi: {  // append optional Alias to the name
-                    active: false, checked: false, icon: "serv-wifi", w2hratio: 67/50, value: "WiFi", title: 'WiFi',
-                    action: function() {
-                        servID = WMEServicesArray[2];
-                        if ( ($("#service-checkbox-"+servID).prop('checked') && bannServ.addWiFi.checked) ||
-                            (!$("#service-checkbox-"+servID).prop('checked') && !bannServ.addWiFi.checked) ) {
-                            $("#service-checkbox-"+servID).trigger('click');
-                            fieldUpdateObject.services[servID] = '#dfd';
-                        }
-                        updateServicesChecks(bannServ);
+                    active: false, checked: false, icon: "serv-wifi", w2hratio: 67/50, value: "WiFi", title: 'WiFi', servIDIndex: 2,
+                    action: function(actions, checked) {
+                        setServiceChecked(this, checked, actions);
                     },
                     pnhOverride: false,
-                    actionOn: function() {
-                        servID = WMEServicesArray[2];
-                        if ( !$("#service-checkbox-"+servID).prop('checked') ) {
-                            $("#service-checkbox-"+servID).trigger('click');
-                            fieldUpdateObject.services[servID] = '#dfd';
-                            bannServ.addWiFi.checked = true;
-                        }
-                        updateServicesChecks(bannServ);
-                        bannServ.addWiFi.active = true;
+                    actionOn: function(actions) {
+                        this.action(actions, true);
                     },
-                    actionOff: function() {
-                        servID = WMEServicesArray[2];
-                        if ( $("#service-checkbox-"+servID).prop('checked') ) {
-                            $("#service-checkbox-"+servID).trigger('click');
-                            fieldUpdateObject.services[servID] = '#dfd';
-                            bannServ.addWiFi.checked = false;
-                        }
-                        updateServicesChecks(bannServ);
-                        bannServ.addWiFi.active = false;
+                    actionOff: function(actions) {
+                        this.action(actions, false);
                     }
                 },
                 addRestrooms: {  // append optional Alias to the name
-                    active: false, checked: false, icon: "serv-restrooms", w2hratio: 49/50, value: "Restroom", title: 'Restrooms',
-                    action: function() {
-                        servID = WMEServicesArray[3];
-                        if ( ($("#service-checkbox-"+servID).prop('checked') && bannServ.addRestrooms.checked) ||
-                            (!$("#service-checkbox-"+servID).prop('checked') && !bannServ.addRestrooms.checked) ) {
-                            $("#service-checkbox-"+servID).trigger('click');
-                            fieldUpdateObject.services[servID] = '#dfd';
-                        }
-                        updateServicesChecks(bannServ);
+                    active: false, checked: false, icon: "serv-restrooms", w2hratio: 49/50, value: "Restroom", title: 'Restrooms', servIDIndex: 3,
+                    action: function(actions, checked) {
+                        setServiceChecked(this, checked, actions);
                     },
                     pnhOverride: false,
-                    actionOn: function() {
-                        servID = WMEServicesArray[3];
-                        if ( !$("#service-checkbox-"+servID).prop('checked') ) {
-                            $("#service-checkbox-"+servID).trigger('click');
-                            fieldUpdateObject.services[servID] = '#dfd';
-                            bannServ.addRestrooms.checked = true;
-                        }
-                        updateServicesChecks(bannServ);
-                        bannServ.addRestrooms.active = true;
+                    actionOn: function(actions) {
+                        this.action(actions, true);
                     },
-                    actionOff: function() {
-                        servID = WMEServicesArray[3];
-                        if ( $("#service-checkbox-"+servID).prop('checked') ) {
-                            $("#service-checkbox-"+servID).trigger('click');
-                            fieldUpdateObject.services[servID] = '#dfd';
-                            bannServ.addRestrooms.checked = false;
-                        }
-                        updateServicesChecks(bannServ);
-                        bannServ.addRestrooms.active = false;
+                    actionOff: function(actions) {
+                        this.action(actions, false);
                     }
                 },
                 addCreditCards: {  // append optional Alias to the name
-                    active: false, checked: false, icon: "serv-credit", w2hratio: 73/50, value: "CC", title: 'Credit Cards',
-                    action: function() {
-                        servID = WMEServicesArray[4];
-                        if ( ($("#service-checkbox-"+servID).prop('checked') && bannServ.addCreditCards.checked) ||
-                            (!$("#service-checkbox-"+servID).prop('checked') && !bannServ.addCreditCards.checked) ) {
-                            $("#service-checkbox-"+servID).trigger('click');
-                            fieldUpdateObject.services[servID] = '#dfd';
-                        }
-                        updateServicesChecks(bannServ);
+                    active: false, checked: false, icon: "serv-credit", w2hratio: 73/50, value: "CC", title: 'Credit Cards', servIDIndex: 4,
+                    action: function(actions, checked) {
+                        setServiceChecked(this, checked, actions);
                     },
                     pnhOverride: false,
-                    actionOn: function() {
-                        servID = WMEServicesArray[4];
-                        if ( !$("#service-checkbox-"+servID).prop('checked') ) {
-                            $("#service-checkbox-"+servID).trigger('click');
-                            fieldUpdateObject.services[servID] = '#dfd';
-                            bannServ.addCreditCards.checked = true;
-                        }
-                        updateServicesChecks(bannServ);
-                        bannServ.addCreditCards.active = true;
+                    actionOn: function(actions) {
+                        this.action(actions, true);
                     },
-                    actionOff: function() {
-                        servID = WMEServicesArray[4];
-                        if ( $("#service-checkbox-"+servID).prop('checked') ) {
-                            $("#service-checkbox-"+servID).trigger('click');
-                            fieldUpdateObject.services[servID] = '#dfd';
-                            bannServ.addCreditCards.checked = false;
-                        }
-                        updateServicesChecks(bannServ);
-                        bannServ.addCreditCards.active = false;
+                    actionOff: function(actions) {
+                        this.action(actions, false);
                     }
                 },
                 addReservations: {  // append optional Alias to the name
-                    active: false, checked: false, icon: "serv-reservations", w2hratio: 55/50, value: "Reserve", title: 'Reservations',
-                    action: function() {
-                        servID = WMEServicesArray[5];
-                        if ( ($("#service-checkbox-"+servID).prop('checked') && bannServ.addReservations.checked) ||
-                            (!$("#service-checkbox-"+servID).prop('checked') && !bannServ.addReservations.checked) ) {
-                            $("#service-checkbox-"+servID).trigger('click');
-                            fieldUpdateObject.services[servID] = '#dfd';
-                        }
-                        updateServicesChecks(bannServ);
+                    active: false, checked: false, icon: "serv-reservations", w2hratio: 55/50, value: "Reserve", title: 'Reservations', servIDIndex: 5,
+                    action: function(actions, checked) {
+                        setServiceChecked(this, checked, actions);
                     },
                     pnhOverride: false,
-                    actionOn: function() {
-                        servID = WMEServicesArray[5];
-                        if ( !$("#service-checkbox-"+servID).prop('checked') ) {
-                            $("#service-checkbox-"+servID).trigger('click');
-                            fieldUpdateObject.services[servID] = '#dfd';
-                            bannServ.addReservations.checked = true;
-                        }
-                        updateServicesChecks(bannServ);
-                        bannServ.addReservations.active = true;
+                    actionOn: function(actions) {
+                        this.action(actions, true);
                     },
-                    actionOff: function() {
-                        servID = WMEServicesArray[5];
-                        if ( $("#service-checkbox-"+servID).prop('checked') ) {
-                            $("#service-checkbox-"+servID).trigger('click');
-                            fieldUpdateObject.services[servID] = '#dfd';
-                            bannServ.addReservations.checked = false;
-                        }
-                        updateServicesChecks(bannServ);
-                        bannServ.addReservations.active = false;
+                    actionOff: function(actions) {
+                        this.action(actions, false);
                     }
                 },
                 addOutside: {  // append optional Alias to the name
-                    active: false, checked: false, icon: "serv-outdoor", w2hratio: 73/50, value: "OusideSeat", title: 'Outside Seating',
-                    action: function() {
-                        servID = WMEServicesArray[6];
-                        if ( ($("#service-checkbox-"+servID).prop('checked') && bannServ.addOutside.checked) ||
-                            (!$("#service-checkbox-"+servID).prop('checked') && !bannServ.addOutside.checked) ) {
-                            $("#service-checkbox-"+servID).trigger('click');
-                            fieldUpdateObject.services[servID] = '#dfd';
-                        }
-                        updateServicesChecks(bannServ);
+                    active: false, checked: false, icon: "serv-outdoor", w2hratio: 73/50, value: "OusideSeat", title: 'Outside Seating', servIDIndex: 6,
+                    action: function(actions, checked) {
+                        setServiceChecked(this, checked, actions);
                     },
                     pnhOverride: false,
-                    actionOn: function() {
-                        servID = WMEServicesArray[6];
-                        if ( !$("#service-checkbox-"+servID).prop('checked') ) {
-                            $("#service-checkbox-"+servID).trigger('click');
-                            fieldUpdateObject.services[servID] = '#dfd';
-                            bannServ.addOutside.checked = true;
-                        }
-                        updateServicesChecks(bannServ);
-                        bannServ.addOutside.active = true;
+                    actionOn: function(actions) {
+                        this.action(actions, true);
                     },
-                    actionOff: function() {
-                        servID = WMEServicesArray[6];
-                        if ( $("#service-checkbox-"+servID).prop('checked') ) {
-                            $("#service-checkbox-"+servID).trigger('click');
-                            fieldUpdateObject.services[servID] = '#dfd';
-                            bannServ.addOutside.checked = false;
-                        }
-                        updateServicesChecks(bannServ);
-                        bannServ.addOutside.active = false;
+                    actionOff: function(actions) {
+                        this.action(actions, false);
                     }
                 },
                 addAC: {  // append optional Alias to the name
-                    active: false, checked: false, icon: "serv-ac", w2hratio: 50/50, value: "AC", title: 'AC',
-                    action: function() {
-                        servID = WMEServicesArray[7];
-                        if ( ($("#service-checkbox-"+servID).prop('checked') && bannServ.addAC.checked) ||
-                            (!$("#service-checkbox-"+servID).prop('checked') && !bannServ.addAC.checked) ) {
-                            $("#service-checkbox-"+servID).trigger('click');
-                            fieldUpdateObject.services[servID] = '#dfd';
-                        }
-                        updateServicesChecks(bannServ);
+                    active: false, checked: false, icon: "serv-ac", w2hratio: 50/50, value: "AC", title: 'AC', servIDIndex: 7,
+                    action: function(actions, checked) {
+                        setServiceChecked(this, checked, actions);
                     },
                     pnhOverride: false,
-                    actionOn: function() {
-                        servID = WMEServicesArray[7];
-                        if ( !$("#service-checkbox-"+servID).prop('checked') ) {
-                            $("#service-checkbox-"+servID).trigger('click');
-                            fieldUpdateObject.services[servID] = '#dfd';
-                            bannServ.addAC.checked = true;
-                        }
-                        updateServicesChecks(bannServ);
-                        bannServ.addAC.active = true;
+                    actionOn: function(actions) {
+                        this.action(actions, true);
                     },
-                    actionOff: function() {
-                        servID = WMEServicesArray[7];
-                        if ( $("#service-checkbox-"+servID).prop('checked') ) {
-                            $("#service-checkbox-"+servID).trigger('click');
-                            fieldUpdateObject.services[servID] = '#dfd';
-                            bannServ.addAC.checked = false;
-                        }
-                        updateServicesChecks(bannServ);
-                        bannServ.addAC.active = false;
+                    actionOff: function(actions) {
+                        this.action(actions, false);
                     }
                 },
                 addParking: {  // append optional Alias to the name
-                    active: false, checked: false, icon: "serv-parking", w2hratio: 46/50, value: "Parking", title: 'Parking',
-                    action: function() {
-                        servID = WMEServicesArray[8];
-                        if ( ($("#service-checkbox-"+servID).prop('checked') && bannServ.addParking.checked) ||
-                            (!$("#service-checkbox-"+servID).prop('checked') && !bannServ.addParking.checked) ) {
-                            $("#service-checkbox-"+servID).trigger('click');
-                            fieldUpdateObject.services[servID] = '#dfd';
-                        }
-                        updateServicesChecks(bannServ);
+                    active: false, checked: false, icon: "serv-parking", w2hratio: 46/50, value: "Parking", title: 'Parking', servIDIndex: 8,
+                    action: function(actions, checked) {
+                        setServiceChecked(this, checked, actions);
                     },
                     pnhOverride: false,
-                    actionOn: function() {
-                        servID = WMEServicesArray[8];
-                        if ( !$("#service-checkbox-"+servID).prop('checked') ) {
-                            $("#service-checkbox-"+servID).trigger('click');
-                            fieldUpdateObject.services[servID] = '#dfd';
-                            bannServ.addParking.checked = true;
-                        }
-                        updateServicesChecks(bannServ);
-                        bannServ.addParking.active = true;
+                    actionOn: function(actions) {
+                        this.action(actions, true);
                     },
-                    actionOff: function() {
-                        servID = WMEServicesArray[8];
-                        if ( $("#service-checkbox-"+servID).prop('checked') ) {
-                            $("#service-checkbox-"+servID).trigger('click');
-                            fieldUpdateObject.services[servID] = '#dfd';
-                            bannServ.addParking.checked = false;
-                        }
-                        updateServicesChecks(bannServ);
-                        bannServ.addParking.active = false;
+                    actionOff: function(actions) {
+                        this.action(actions, false);
                     }
                 },
                 addDeliveries: {  // append optional Alias to the name
-                    active: false, checked: false, icon: "serv-deliveries", w2hratio: 86/50, value: "Delivery", title: 'Deliveries',
-                    action: function() {
-                        servID = WMEServicesArray[9];
-                        if ( ($("#service-checkbox-"+servID).prop('checked') && bannServ.addDeliveries.checked) ||
-                            (!$("#service-checkbox-"+servID).prop('checked') && !bannServ.addDeliveries.checked) ) {
-                            $("#service-checkbox-"+servID).trigger('click');
-                            fieldUpdateObject.services[servID] = '#dfd';
-                        }
-                        updateServicesChecks(bannServ);
+                    active: false, checked: false, icon: "serv-deliveries", w2hratio: 86/50, value: "Delivery", title: 'Deliveries', servIDIndex: 9,
+                    action: function(actions, checked) {
+                        setServiceChecked(this, checked, actions);
                     },
                     pnhOverride: false,
-                    actionOn: function() {
-                        servID = WMEServicesArray[9];
-                        if ( !$("#service-checkbox-"+servID).prop('checked') ) {
-                            $("#service-checkbox-"+servID).trigger('click');
-                            fieldUpdateObject.services[servID] = '#dfd';
-                            bannServ.addDeliveries.checked = true;
-                        }
-                        updateServicesChecks(bannServ);
-                        bannServ.addDeliveries.active = true;
+                    actionOn: function(actions) {
+                        this.action(actions, true);
                     },
-                    actionOff: function() {
-                        servID = WMEServicesArray[9];
-                        if ( $("#service-checkbox-"+servID).prop('checked') ) {
-                            $("#service-checkbox-"+servID).trigger('click');
-                            fieldUpdateObject.services[servID] = '#dfd';
-                            bannServ.addDeliveries.checked = false;
-                        }
-                        updateServicesChecks(bannServ);
-                        bannServ.addDeliveries.active = false;
+                    actionOff: function(actions) {
+                        this.action(actions, false);
                     }
                 },
                 addTakeAway: {  // append optional Alias to the name
-                    active: false, checked: false, icon: "serv-takeaway", w2hratio: 34/50, value: "TakeOut", title: 'Take Out',
-                    action: function() {
-                        servID = WMEServicesArray[10];
-                        if ( ($("#service-checkbox-"+servID).prop('checked') && bannServ.addTakeAway.checked) ||
-                            (!$("#service-checkbox-"+servID).prop('checked') && !bannServ.addTakeAway.checked) ) {
-                            $("#service-checkbox-"+servID).trigger('click');
-                            fieldUpdateObject.services[servID] = '#dfd';
-                        }
-                        updateServicesChecks(bannServ);
+                    active: false, checked: false, icon: "serv-takeaway", w2hratio: 34/50, value: "TakeOut", title: 'Take Out', servIDIndex: 10,
+                    action: function(actions, checked) {
+                        setServiceChecked(this, checked, actions);
                     },
                     pnhOverride: false,
-                    actionOn: function() {
-                        servID = WMEServicesArray[10];
-                        if ( !$("#service-checkbox-"+servID).prop('checked') ) {
-                            $("#service-checkbox-"+servID).trigger('click');
-                            fieldUpdateObject.services[servID] = '#dfd';
-                            bannServ.addTakeAway.checked = true;
-                        }
-                        updateServicesChecks(bannServ);
-                        bannServ.addTakeAway.active = true;
+                    actionOn: function(actions) {
+                        this.action(actions, true);
                     },
-                    actionOff: function() {
-                        servID = WMEServicesArray[10];
-                        if ( $("#service-checkbox-"+servID).prop('checked') ) {
-                            $("#service-checkbox-"+servID).trigger('click');
-                            fieldUpdateObject.services[servID] = '#dfd';
-                            bannServ.addTakeAway.checked = false;
-                        }
-                        updateServicesChecks(bannServ);
-                        bannServ.addTakeAway.active = false;
+                    actionOff: function(actions) {
+                        this.action(actions, false);
                     }
                 },
                 addWheelchair: {  // add service
-                    active: false, checked: false, icon: "serv-wheelchair", w2hratio: 50/50, value: "WhCh", title: 'Wheelchair Accessible',
-                    action: function() {
-                        servID = WMEServicesArray[11];
-                        if ( ($("#service-checkbox-"+servID).prop('checked') && bannServ.addWheelchair.checked) ||
-                            (!$("#service-checkbox-"+servID).prop('checked') && !bannServ.addWheelchair.checked) ) {
-                            $("#service-checkbox-"+servID).trigger('click');
-                            fieldUpdateObject.services[servID] = '#dfd';
-                        }
-                        updateServicesChecks(bannServ);
+                    active: false, checked: false, icon: "serv-wheelchair", w2hratio: 50/50, value: "WhCh", title: 'Wheelchair Accessible', servIDIndex: 11,
+                    action: function(actions, checked) {
+                        setServiceChecked(this, checked, actions);
                     },
                     pnhOverride: false,
-                    actionOn: function() {
-                        servID = WMEServicesArray[11];
-                        if ( !$("#service-checkbox-"+servID).prop('checked') ) {
-                            $("#service-checkbox-"+servID).trigger('click');
-                            fieldUpdateObject.services[servID] = '#dfd';
-                            bannServ.addWheelchair.checked = true;
-                        }
-                        updateServicesChecks(bannServ);
-                        bannServ.addWheelchair.active = true;
+                    actionOn: function(actions) {
+                        this.action(actions, true);
                     },
-                    actionOff: function() {
-                        servID = WMEServicesArray[11];
-                        if ( $("#service-checkbox-"+servID).prop('checked') ) {
-                            $("#service-checkbox-"+servID).trigger('click');
-                            fieldUpdateObject.services[servID] = '#dfd';
-                            bannServ.addWheelchair.checked = false;
-                        }
-                        updateServicesChecks(bannServ);
-                        bannServ.addWheelchair.active = false;
+                    actionOff: function(actions) {
+                        this.action(actions, false);
                     }
                 },
                 add247: {  // add 24/7 hours
                     active: false, checked: false, icon: "serv-247", w2hratio: 73/50, value: "247", title: 'Hours: Open 24\/7',
-                    action: function() {
+                    action: function(actions) {
                         if (!bannServ.add247.checked) {
-                            W.model.actionManager.add(new UpdateObject(item, { openingHours: [{days: [1,2,3,4,5,6,0], fromHour: "00:00", toHour: "00:00"}] }));
+                            addUpdateAction({ openingHours: [{days: [1,2,3,4,5,6,0], fromHour: "00:00", toHour: "00:00"}] }, actions);
                             fieldUpdateObject.openingHours='#dfd';
-                            higlightChangedFields(fieldUpdateObject,hpMode);
+                            highlightChangedFields(fieldUpdateObject,hpMode);
                             bannServ.add247.checked = true;
                             bannButt.noHours.active = false;
                         }
@@ -2274,7 +2082,7 @@
                         if (inferredAddress && inferredAddress.state && inferredAddress.country ) {
                             addr = inferredAddress;
                             if ( $("#WMEPH-AddAddresses" + devVersStr).prop('checked') ) {  // update the item's address if option is enabled
-                                updateAddress(item, addr);
+                                updateAddress(item, addr, actions);
                                 fieldUpdateObject.address='#dfd';
                                 if (item.attributes.houseNumber && item.attributes.houseNumber.replace(/[^0-9A-Za-z]/g,'').length > 0 ) {
                                     bannButt.fullAddressInference.active = true;
@@ -2293,8 +2101,6 @@
                 } else if (hpMode.hlFlag) {
                     if ( item.attributes.adLocked ) {
                         return 'adLock';
-                    } else if ( item.attributes.categories.indexOf("PARKING_LOT") > -1 && item.attributes.lockRank < levelToLock ) {
-                        return 4;
                     } else if ( item.isPoint() && (item.attributes.categories.indexOf("HOSPITAL_MEDICAL_CARE") > -1 || item.attributes.categories.indexOf("GAS_STATION") > -1) ) {
                         return 5;
                         phlogdev('Unaddressed HMC/GS');
@@ -2403,7 +2209,7 @@
                 if (hpMode.harmFlag) {
                     if (confirm('WMEPH: Localization Error!\nClick OK to report this error') ) {  // if the category doesn't translate, then pop an alert that will make a forum post to the thread
                         forumMsgInputs = {
-                            subject: 'Re: WMEPH Localization Error report',
+                            subject: 'WMEPH Localization Error report',
                             message: 'Error report: Localization match failed for "' + addr.state.name + '".'
                         };
                         WMEPH_errorReport(forumMsgInputs);
@@ -2451,11 +2257,20 @@
                 if (item.is2D()) {
                     bannButt.pointNotArea.active = true;
                 }
-            } else if (item.attributes.name !== "" && item.attributes.name !== " " && item.attributes.name !== null) {  // for non-residential places
+            } else if (item.attributes.categories[0] === 'PARKING_LOT' || (item.attributes.name && item.attributes.name.trim().length > 0)) {  // for non-residential places
                 // Place Harmonization
                 var PNHMatchData;
                 if (hpMode.harmFlag) {
-                    PNHMatchData = harmoList(newName,state2L,region,countryCode,newCategories);  // check against the PNH list
+
+                    // *********
+                    // 12/29/2016 (mapomatic) Skip PNH lookup for Parking Lots until we come up with a way to match operator instead of name. 
+                    // *********
+
+                    if (item.attributes.categories[0] === 'PARKING_LOT') {
+                        PNHMatchData = ['NoMatch'];
+                    } else {
+                        PNHMatchData = harmoList(newName,state2L,region,countryCode,newCategories);  // check against the PNH list
+                    }
                 } else if (hpMode.hlFlag) {
                     PNHMatchData = ['Highlight'];
                     //PNHMatchData = harmoList(newName,state2L,region,countryCode,newCategories);  // check against the PNH list
@@ -2518,8 +2333,8 @@
                     if (nsMultiMatch) {
                         if (confirm('WMEPH: Multiple matches found!\nDouble check the script changes.\nClick OK to report this situation.') ) {
                             forumMsgInputs = {
-                                subject: 'Re: WMEPH Multiple match report',
-                                message: 'Error report: PNH Order Nos. "' + orderList.join(', ') + '" are ambiguous multiple matches.'
+                                subject: 'Order Nos. "' + orderList.join(', ') + '" WMEPH Multiple match report',
+                                message: 'Error report: PNH Order Nos. "' + orderList.join(', ') + '" are ambiguous multiple matches.\n \nExample Permalink: ' + placePL + ''
                             };
                             WMEPH_errorReport(forumMsgInputs);
                         }
@@ -2548,11 +2363,11 @@
                                 bannButt[scFlag].active = false;
                             } else if ( specCases[scix].match(/^psOn_/g) !== null ) {
                                 scFlag = specCases[scix].match(/^psOn_(.+)/i)[1];
-                                bannServ[scFlag].actionOn();
+                                bannServ[scFlag].actionOn(actions);
                                 bannServ[scFlag].pnhOverride = true;
                             } else if ( specCases[scix].match(/^psOff_/g) !== null ) {
                                 scFlag = specCases[scix].match(/^psOff_(.+)/i)[1];
-                                bannServ[scFlag].actionOff();
+                                bannServ[scFlag].actionOff(actions);
                                 bannServ[scFlag].pnhOverride = true;
                             }
                             // parseout localURL data if exists (meaning place can have a URL distinct from the chain URL
@@ -2725,7 +2540,6 @@
                     }
 
                     // name parsing with category exceptions
-                    var splix;
                     if (["HOTEL"].indexOf(priPNHPlaceCat) > -1) {
                         if (newName.toUpperCase() === PNHMatchData[ph_name_ix].toUpperCase()) {  // If no localization
                             bannButt.catHotel.message = 'Check hotel website for any name localization (e.g. '+ PNHMatchData[ph_name_ix] +' - Tampa Airport).';
@@ -2733,9 +2547,13 @@
                             newName = PNHMatchData[ph_name_ix];
                         } else {
                             // Replace PNH part of name with PNH name
-                            splix = newName.toUpperCase().replace(/[-\/]/g,' ').indexOf(PNHMatchData[ph_name_ix].toUpperCase().replace(/[-\/]/g,' ') );
+                            var splix = newName.toUpperCase().replace(/[-\/]/g,' ').indexOf(PNHMatchData[ph_name_ix].toUpperCase().replace(/[-\/]/g,' ') );
                             if (splix>-1) {
-                                newName = newName.slice(0,splix) + ' ' + PNHMatchData[ph_name_ix] + ' ' + newName.slice(splix+PNHMatchData[ph_name_ix].length);
+                                var frontText = newName.slice(0,splix);
+                                var backText = newName.slice(splix+PNHMatchData[ph_name_ix].length);
+                                newName = PNHMatchData[ph_name_ix];
+                                if (frontText.length > 0) { newName = frontText + ' ' + newName; }
+                                if (backText.length > 0) { newName = newName + ' ' + backText; }
                                 newName = newName.replace(/ {2,}/g,' ');
                             }
                         }
@@ -3118,7 +2936,7 @@
                                     bannServ[servKeys[psix]].active = true;
                                     if ( hpMode.harmFlag && $("#WMEPH-EnableServices" + devVersStr).prop('checked')  ) {
                                         // Automatically enable new services
-                                        bannServ[servKeys[psix]].actionOn();
+                                        bannServ[servKeys[psix]].actionOn(actions);
                                     }
                                 } else if (CH_DATA_Temp[servHeaders[psix]] === '2') {  // these are never automatically added but shown
                                     bannServ[servKeys[psix]].active = true;
@@ -3128,7 +2946,7 @@
                                         var servAutoRegion = CH_DATA_Temp[servHeaders[psix]].replace(/,[^A-za-z0-9]*/g, ",").split(",");
                                         // if the sheet data matches the state, region, or username then auto add
                                         if ( servAutoRegion.indexOf(state2L) > -1 || servAutoRegion.indexOf(region) > -1 || servAutoRegion.indexOf(thisUser.userName) > -1 ) {
-                                            bannServ[servKeys[psix]].actionOn();
+                                            bannServ[servKeys[psix]].actionOn(actions);
                                         }
                                     }
                                 }
@@ -3409,7 +3227,13 @@
 
             // Name check
             if ( !item.attributes.residential && ( !item.attributes.name || item.attributes.name.replace(/[^A-Za-z0-9]/g,'').length === 0 )) {
-                if ( 'ISLAND|FOREST_GROVE|SEA_LAKE_POOL|RIVER_STREAM|CANAL'.split('|').indexOf(item.attributes.categories[0]) === -1 ) {
+                if (item.attributes.categories[0] === 'PARKING_LOT') {
+                    if (currentWL.plaNameMissing) {
+                        bannButt.plaNameMissing.active = false;
+                    } else {
+                        bannButt.plaNameMissing.active = true;
+                    }
+                }else if ( 'ISLAND|FOREST_GROVE|SEA_LAKE_POOL|RIVER_STREAM|CANAL'.split('|').indexOf(item.attributes.categories[0]) === -1 ) {
                     bannButt.nameMissing.active = true;
                     lockOK = false;
                 }
@@ -3579,9 +3403,15 @@
 
             // *** Rest Area parsing
             // check rest area name against standard formats or if has the right categories
+
+            // ****************************************************************************************************
+            // 1/2/2017 (mapomatic) Technically, TRANSPORTATION should be the 1st category according to the wiki,
+            // but due to a bug in WME, we can't force that.  I've temporarily changed the check for TRANSPORTATION
+            // and SCENIC_LOOKOUT_VIEWPOINT to be < 2 instead of === 0 and === 1, respectively.
+            // ****************************************************************************************************
             if ( (newName.toLowerCase().indexOf('rest area') > -1 || newName.toLowerCase().indexOf('rest stop') > -1 || newName.toLowerCase().indexOf('service plaza') > -1) ||
                 ( categories.indexOf('TRANSPORTATION') > -1 && categories.indexOf('SCENIC_LOOKOUT_VIEWPOINT') > -1 ) ) {
-                if ( categories.indexOf('TRANSPORTATION') === 0 && categories.indexOf('SCENIC_LOOKOUT_VIEWPOINT') === 1) {
+                if ( categories.indexOf('TRANSPORTATION') < 2 && categories.indexOf('SCENIC_LOOKOUT_VIEWPOINT') < 2) {
                     if ( item.isPoint() ) {  // needs to be area point
                         bannButt.areaNotPoint.active = true;
                     }
@@ -3591,6 +3421,7 @@
                     if ( categories.indexOf('GAS_STATION') > -1 ) {
                         bannButt.restAreaGas.active = true;
                     }
+
                     if ( newName.match(/^Rest Area.* \- /) === null ) {
                         bannButt.restAreaName.active = true;
                         if (currentWL.restAreaName) {
@@ -3598,10 +3429,24 @@
                         }
                     } else {
                         newName = newName.replace(/Mile/i, 'mile');
-                        if (newName !== item.attributes.name) {  // if they are not equal
-                            actions.push(new UpdateObject(item, { name: newName }));
-                            fieldUpdateObject.name='#dfd';
-                            phlogdev('Lower case "mile"');
+                        if (hpMode.harmFlag) {
+                            if (newName !== item.attributes.name) {
+                                actions.push(new UpdateObject(item, { name: newName }));
+                                fieldUpdateObject.name='#dfd';
+                                phlogdev('Lower case "mile"');
+                            } else {
+                                // The new name matches the original name, so the only change would have been to capitalize "Mile", which
+                                // we don't want. So remove any previous name-change action.  Note: this feels like a hack and is probably
+                                // a fragile workaround.  The name shouldn't be capitalized in the first place, unless necessary.
+                                for (var i=0; i<actions.length; i++) {
+                                    var action = actions[i];
+                                    if (action.newAttributes.name) {
+                                        actions.splice(i,1);
+                                        fieldUpdateObject.name='';
+                                        break;
+                                    }
+                                }
+                            }
                         }
                     }
 
@@ -3678,7 +3523,7 @@
 
             //waze_maint_bot check
             if (!item.attributes.residential && item.attributes.updatedBy && W.model.users.get(item.attributes.updatedBy) &&
-                W.model.users.get(item.attributes.updatedBy).userName && W.model.users.get(item.attributes.updatedBy).userName.match(/^waze-maint-bot/i) !== null) {
+                W.model.users.get(item.attributes.updatedBy).userName && W.model.users.get(item.attributes.updatedBy).userName.match(/^waze-maint-bot|waze3rdparty|WazeParking1|admin/i) !== null) {
                 bannButt.wazeBot.active = true;
             }
 
@@ -3774,9 +3619,6 @@
                 //phlogdev('calculated in harmGo: ' +severityButt + '; ' + item.attributes.name);
 
                 // Special case flags
-                if ( item.attributes.categories.indexOf("PARKING_LOT") > -1 && item.attributes.lockRank < levelToLock ) {
-                    severityButt = 4;
-                }
                 if ( item.isPoint() && item.attributes.lockRank < levelToLock && (item.attributes.categories.indexOf("HOSPITAL_MEDICAL_CARE") > -1 || item.attributes.categories.indexOf("GAS_STATION") > -1) ) {
                     severityButt = 5;
                 }
@@ -3814,7 +3656,7 @@
                     if (duplicateName.length+1 !== dupeIDList.length && devUser) {  // If there's an issue with the data return, allow an error report
                         if (confirm('WMEPH: Dupefinder Error!\nClick OK to report this') ) {  // if the category doesn't translate, then pop an alert that will make a forum post to the thread
                             forumMsgInputs = {
-                                subject: 'Re: WMEPH Bug report',
+                                subject: 'WMEPH Bug report DupeID',
                                 message: 'Script version: ' + WMEPHversion + devVersStr + '\nPermalink: ' + placePL + '\nPlace name: ' + item.attributes.name + '\nCountry: ' + addr.country.name + '\n--------\nDescribe the error:\nDupeID mismatch with dupeName list'
                             };
                             WMEPH_errorReport(forumMsgInputs);
@@ -3906,27 +3748,29 @@
                 });
                 W.model.actionManager.add(m_action);
             }
-            
+
+            if (hpMode.harmFlag) {
+                // Update icons to reflect current WME place services
+                updateServicesChecks(bannServ);
+            }
+
             // Turn on website linking button if there is a url
             if (newURL !== null && newURL !== "") {
                 bannButt.PlaceWebsite.active = true;
             }
 
-
             // Highlight the changes made
-            higlightChangedFields(fieldUpdateObject,hpMode);
+            highlightChangedFields(fieldUpdateObject,hpMode);
 
             // Assemble the banners
             assembleBanner();  // Make Messaging banners
-
-
 
         }  // END harmonizePlaceGo function
 
         // **** vvv Function definitions vvv ****
 
         // highlight changed fields
-        function higlightChangedFields(fieldUpdateObject,hpMode) {
+        function highlightChangedFields(fieldUpdateObject,hpMode) {
 
             if (hpMode.harmFlag) {
                 //var panelFields = {};
@@ -3939,7 +3783,8 @@
                     tab1HL = true;
                 }
                 if (fieldUpdateObject.aliases) {
-                    $('.alias-name')[0].style="background-color:"+fieldUpdateObject.aliases;
+                    var field = $('.alias-name')[0];
+                    if (field) field.style="background-color:"+fieldUpdateObject.aliases;
                     tab1HL = true;
                 }
                 if (fieldUpdateObject.categories) {
@@ -4049,9 +3894,6 @@
                 if (tab2HL) {
                     $('.nav')[panelFields.navTabsIX].children[panelFields.navTabMore].children[0].style='background-color:#dfd';
                 }
-
-
-
             }
         }
 
@@ -4251,18 +4093,21 @@
             } else {
                 $('#WMEPH_banner').empty();
             }
-            if (sev === 0) {
-                $('#WMEPH_banner').css({"background-color": "rgb(36, 172, 36)"});
+            var bgColor;
+            switch (sev) {
+                case 1:
+                    bgColor = "rgb(50, 50, 230)";  // blue
+                    break;
+                case 2:
+                    bgColor = "rgb(217, 173, 42)";  // yellow
+                    break;
+                case 3:
+                    bgColor = "rgb(211, 48, 48)";  // red
+                    break;
+                default:
+                    bgColor = "rgb(36, 172, 36)";  // green
             }
-            if (sev === 1) {
-                $('#WMEPH_banner').css({"background-color": "rgb(50, 50, 230)"});
-            }
-            if (sev === 2) {
-                $('#WMEPH_banner').css({"background-color": "rgb(217, 173, 42)"});
-            }
-            if (sev === 3) {
-                $('#WMEPH_banner').css({"background-color": "rgb(211, 48, 48)"});
-            }
+            $('#WMEPH_banner').css({"background-color": bgColor});
             sbm = "<li>" + sbm;
             $("#WMEPH_banner").append(sbm);
             $('#select2-drop').css({display:'none'});
@@ -4275,7 +4120,7 @@
             } else {
                 $('#WMEPH_tools').empty();
             }
-            sbm = "<li>" + sbm;
+            sbm = '<li><span style="position:relative;left:-10px;">' + sbm+ '</span></li>';
             $("#WMEPH_tools").append(sbm);
             $('#select2-drop').css({display:'none'});
         }  // END displayBanners funtion
@@ -4584,9 +4429,16 @@
             }
         }
 
+        // Formats "hour object" into a string.
+        function formatOpeningHour(hourEntry) {
+            var dayNames = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
+            var hours = hourEntry.attributes.fromHour + '-' + hourEntry.attributes.toHour;
+            return hourEntry.attributes.days.map(function(day) {
+                return dayNames[day] + ' ' + hours;
+            }).join(', ');
+        }
         // Pull natural text from opening hours
         function getOpeningHours(venue) {
-            var formatOpeningHour = W.brara.ViewHelpers.formatOpeningHour;
             return venue && venue.getOpeningHours && venue.getOpeningHours().map(formatOpeningHour);
         }
         // Parse hours paste for hours object array
@@ -5470,9 +5322,10 @@
          * Updates the address for a place.
          * @param feature {WME Venue Object} The place to update.
          * @param address {Object} An object containing the country, state, city, and street
+         * @param actions {Array of actions} Optional. If performing multiple actions at once.
          * objects.
          */
-        function updateAddress(feature, address) {
+        function updateAddress(feature, address, actions) {
             'use strict';
             var newAttributes,
                 UpdateFeatureAddress = require('Waze/Action/UpdateFeatureAddress');
@@ -5486,7 +5339,12 @@
                     streetName: address.street.name,
                     emptyStreet: address.street.name ? null : true
                 };
-                W.model.actionManager.add(new UpdateFeatureAddress(feature, newAttributes));
+                var action = new UpdateFeatureAddress(feature, newAttributes);
+                if(actions) {
+                    actions.push(action);
+                } else {
+                    W.model.actionManager.add(action);
+                }
                 phlogdev('Address inferred and updated');
             }
         } // END updateAddress function
@@ -5536,7 +5394,7 @@
             // Generally this means the category used in the PNH sheet is not close enough to the natural language categories used inside the WME translations
             if (confirm('WMEPH: Category Error!\nClick OK to report this error') ) {
                 forumMsgInputs = {
-                    subject: 'Re: WMEPH Bug report',
+                    subject: 'WMEPH Bug report: no tns',
                     message: 'Error report: Category "' + natCategories + '" is not translatable.'
                 };
                 WMEPH_errorReport(forumMsgInputs);
@@ -6155,6 +6013,11 @@
                     wsix++;
                 }
             }
+            // Highlight 24/7 button if hours are set that way, and add button for all places
+            if ( item.attributes.openingHours.length === 1 && item.attributes.openingHours[0].days.length === 7 && item.attributes.openingHours[0].fromHour === '00:00' && item.attributes.openingHours[0].toHour ==='00:00' ) {
+                bannServ.add247.checked = true;
+            }
+            bannServ.add247.active = true;
         }
 
         // Focus away from the current cursor focus, to set text box changes
@@ -6813,6 +6676,54 @@
             alert('Don\'t forget to periodically back up your Whitelist data using the Pull option in the WMEPH settings tab.');
             localStorage.WMEPH_WLAddCount = 2;
         }
+    }
+
+    function modifyGoogleLinks() {
+        $.ajaxPrefilter(function(options, originalOptions, jqXHR) {
+            try {
+                if (originalOptions.type === "GET") {
+                    if (originalOptions.url === "/maps/api/place/autocomplete/json" && !originalOptions.data.hasOwnProperty("location")) {
+                        options.data = $.param($.extend(originalOptions.data, {
+                            location: W.map.getCenter().transform(W.map.getProjection(), W.map.displayProjection).lat + "," + W.map.getCenter().transform(W.map.getProjection(), W.map.displayProjection).lon,
+                            radius: 3200
+                        }));
+                    }
+                }
+            } catch(e) {}
+        });
+        $(document).ajaxSuccess(function(event, jqXHR, ajaxOptions, data) {
+            try {
+                if (ajaxOptions && ajaxOptions.hasOwnProperty("url")) {
+                    if (ajaxOptions.url.startsWith("/maps/api/place/details/json")) {
+                        if (data && data.hasOwnProperty("status") && data.status === "OK") {
+                            if (data.hasOwnProperty("result") && data.result.hasOwnProperty("url") && data.result.hasOwnProperty("place_id")) {
+                                var gpids = document.getElementsByClassName("placeId");
+                                for (var i = 0; i < gpids.length; i++) {
+                                    if (data.result.place_id === gpids[i].innerHTML) {
+                                        gpids[i].innerHTML = "<a href='" + data.result.url + "' target='_wmegpid'>" + data.result.place_id + "</a>";
+                                    }
+                                };
+                            }
+                        }
+                    }
+                    if (ajaxOptions.url.startsWith("/maps/api/place/autocomplete/json")) {
+                        var uuids = document.getElementsByClassName("uuid");
+                        for (var i = 0; i < uuids.length; i++) {
+                            if (uuids[i].className === "uuid") {
+                                events = $._data(uuids[i], "events");
+                                if (events && events.hasOwnProperty("change") && events.change.length === 1) {
+                                    $(uuids[i]).change(function(event) {
+                                        if (event && event.hasOwnProperty("val")) {
+                                            $.get(W.Config.places_api.url.details, {placeid: event.val, key: W.Config.places_api.key});
+                                        }
+                                    });
+                                }
+                            }
+                        }
+                    }
+                }
+            } catch(e) {}
+        });
     }
 
     // Run the script...
