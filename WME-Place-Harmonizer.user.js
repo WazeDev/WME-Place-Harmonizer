@@ -12,7 +12,7 @@
 // ==UserScript==
 // @name        WME Place Harmonizer Beta
 // @namespace   https://github.com/WazeUSA/WME-Place-Harmonizer/raw/master/WME-Place-Harmonizer.user.js
-// @version     1.1.57.1
+// @version     1.1.57.2
 // @description Harmonizes, formats, and locks a selected place
 // @author      WMEPH development group
 // @include     https://*.waze.com/editor/*
@@ -1815,7 +1815,7 @@
                 var toggle = typeof checked === 'undefined';
                 var noAdd = false;
                 checked = (toggle) ? !servBtn.checked : checked;
-                if (checkboxChecked === servBtn.checked) {
+                if (checkboxChecked === servBtn.checked && checkboxChecked !== checked) {
                     servBtn.checked = checked;
                     var services;
                     if (actions) {
@@ -1828,6 +1828,8 @@
                     }
                     if (!services) {
                         services = item.attributes.services.slice(0);
+                    } else {
+                        noAdd = services.indexOf(servID) > -1;
                     }
                     if (checked) {
                         services.push(servID);
@@ -1837,8 +1839,10 @@
                             services.splice(index, 1);
                         }
                     }
-                    if (!noAdd) addUpdateAction({services:services}, actions);
-                    fieldUpdateObject.services[servID] = '#dfd';
+                    if (!noAdd) {
+                        addUpdateAction({services:services}, actions);
+                        fieldUpdateObject.services[servID] = '#dfd';
+                    }
                 }
                 updateServicesChecks(bannServ);
                 if (!toggle) servBtn.active = checked;
@@ -5328,6 +5332,7 @@
          * Updates the address for a place.
          * @param feature {WME Venue Object} The place to update.
          * @param address {Object} An object containing the country, state, city, and street
+         * @param actions {Array of actions} Optional. If performing multiple actions at once.
          * objects.
          */
         function updateAddress(feature, address, actions) {
