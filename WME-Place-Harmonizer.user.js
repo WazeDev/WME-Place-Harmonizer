@@ -12,7 +12,7 @@
 // ==UserScript==
 // @name        WME Place Harmonizer Beta
 // @namespace   https://github.com/WazeUSA/WME-Place-Harmonizer/raw/master/WME-Place-Harmonizer.user.js
-// @version     1.1.59
+// @version     1.1.60
 // @description Harmonizes, formats, and locks a selected place
 // @author      WMEPH development group
 // @include     https://*.waze.com/editor/*
@@ -251,6 +251,7 @@
     function runPH() {
         // Script update info
         var WMEPHWhatsNewList = [  // New in this version
+            '1.1.60: Fix to get place category "special messages" to display.',
             '1.1.59: Fix for erroneous "stacked place" warning on area places.',
             '1.1.58: Fix for multi-edits when runnning harmonizer in some cases.',
             '1.1.57: Fix for Store Locator button not showing up on first run, and unpredictable Service button behavior.',
@@ -3052,7 +3053,7 @@
                         }
                         // display any messaged regarding the category
                         pc_message = CH_DATA_Temp[CH_DATA_headers.indexOf('pc_message')];
-                        if (pc_message !== '0' && pc_message !== '' && pc_message === null) {
+                        if (pc_message && pc_message !== '0' && pc_message !== '') {
                             bannButt.pnhCatMess.active = true;
                             bannButt.pnhCatMess.message = pc_message;
                         }
