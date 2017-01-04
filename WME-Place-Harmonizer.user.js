@@ -12,7 +12,7 @@
 // ==UserScript==
 // @name        WME Place Harmonizer Beta
 // @namespace   https://github.com/WazeUSA/WME-Place-Harmonizer/raw/master/WME-Place-Harmonizer.user.js
-// @version     1.1.60
+// @version     1.1.61
 // @description Harmonizes, formats, and locks a selected place
 // @author      WMEPH development group
 // @include     https://*.waze.com/editor/*
@@ -251,6 +251,7 @@
     function runPH() {
         // Script update info
         var WMEPHWhatsNewList = [  // New in this version
+            '1.1.61: Fixed issues with Rest Areas.',
             '1.1.60: Fix to get place category "special messages" to display.',
             '1.1.59: Fix for erroneous "stacked place" warning on area places.',
             '1.1.58: Fix for multi-edits when runnning harmonizer in some cases.',
@@ -768,6 +769,19 @@
             });
         }
 
+        var MultiAction = require("Waze/Action/MultiAction");
+        // Add array of actions to a MultiAction to be executed at once (counts as one edit for redo/undo purposes)
+        function executeMultiAction(actions) {
+            if(actions.length > 0) {
+                var m_action = new MultiAction();
+                m_action.setModel(W.model);
+                actions.forEach(function(action) {
+                    m_action.doSubAction(action);
+                });
+                W.model.actionManager.add(m_action);
+            }
+        }
+
         // Normalize url
         function normalizeURL(s, lc) {
             if (!s) {  // Notify that url is missing and provide web search to find website and gather data (provided for all editors)
@@ -964,10 +978,12 @@
 
                 restAreaSpec: {  // if it appears to be a rest area
                     active: false, severity: 3, message: "Is this a rest area?", value: "Yes", title: 'Update with proper categories and services.',
-                    action: function(actions) {
+                    action: function() {
+                        var actions = [];
                         // update categories according to spec
-                        newCategories = insertAtIX(newCategories,"TRANSPORTATION",0);  // Insert/move Gas category in the first position
-                        newCategories = insertAtIX(newCategories,"SCENIC_LOOKOUT_VIEWPOINT",1);  // Insert/move Gas category in the first position
+                        newCategories = insertAtIX(newCategories,"TRANSPORTATION",0);  // Insert/move TRANSPORTATION category in the first position
+                        newCategories = insertAtIX(newCategories,"SCENIC_LOOKOUT_VIEWPOINT",1);  // Insert/move SCENIC_LOOKOUT_VIEWPOINT category in the 2nd position
+
                         actions.push(new UpdateObject(item, { categories: newCategories }));
                         fieldUpdateObject.categories='#dfd';
                         // make it 24/7
@@ -976,11 +992,16 @@
                         //highlightChangedFields(fieldUpdateObject,hpMode);
 
                         bannServ.add247.checked = true;
-                        bannServ.addParking.actionOn();  // add parking service
-                        bannServ.addWheelchair.actionOn();  // add parking service
+                        bannServ.addParking.actionOn(actions);  // add parking service
+                        bannServ.addWheelchair.actionOn(actions);  // add parking service
                         bannButt.restAreaSpec.active = false;  // reset the display flag
 
-                        harmonizePlaceGo(item,'harmonize', actions);
+                        executeMultiAction(actions);
+
+                        _disableHighlightTest = true;
+                        harmonizePlaceGo(item,'harmonize');
+                        _disableHighlightTest = false;
+                        applyHighlightsTest(item);
                     },
                     WLactive: true, WLmessage: '', WLtitle: 'Whitelist place',
                     WLaction: function() {
@@ -1023,7 +1044,8 @@
                         actions.push(new UpdateObject(item, { categories: newCategories }));
                         fieldUpdateObject.categories='#dfd';
                         bannButt.gasMkPrim.active = false;  // reset the display flag
-                        harmonizePlaceGo(item,'harmonize', actions);
+                        executeMultiAction(actions);
+                        harmonizePlaceGo(item,'harmonize');
                     }
                 },
 
@@ -1035,7 +1057,8 @@
                         actions.push(new UpdateObject(item, { categories: newCategories }));
                         fieldUpdateObject.categories='#dfd';
                         bannButt.hotelMkPrim.active = false;  // reset the display flag
-                        harmonizePlaceGo(item,'harmonize', actions);
+                        executeMultiAction(actions);
+                        harmonizePlaceGo(item,'harmonize');
                     },
                     WLactive: true, WLmessage: '', WLtitle: 'Whitelist hotel as secondary category',
                     WLaction: function() {
@@ -1053,7 +1076,8 @@
                         actions.push(new UpdateObject(item, { categories: newCategories }));
                         fieldUpdateObject.categories='#dfd';
                         bannButt.changeHMC2Office.active = false;  // reset the display flag
-                        harmonizePlaceGo(item,'harmonize', actions);  // Rerun the script to update fields and lock
+                        executeMultiAction(actions);
+                        harmonizePlaceGo(item,'harmonize');  // Rerun the script to update fields and lock
                     },
                     WLactive: true, WLmessage: '', WLtitle: 'Whitelist Hospital category',
                     WLaction: function() {
@@ -1070,7 +1094,8 @@
                         actions.push(new UpdateObject(item, { categories: newCategories }));
                         fieldUpdateObject.categories='#dfd';
                         bannButt.changeHMC2PetVet.active = false;  // reset the display flag
-                        harmonizePlaceGo(item,'harmonize', actions);  // Rerun the script to update fields and lock
+                        executeMultiAction(actions);
+                        harmonizePlaceGo(item,'harmonize');  // Rerun the script to update fields and lock
                     },
                     WLactive: true, WLmessage: '', WLtitle: 'Whitelist PetVet category',
                     WLaction: function() {
@@ -1087,7 +1112,8 @@
                         actions.push(new UpdateObject(item, { categories: newCategories }));
                         fieldUpdateObject.categories='#dfd';
                         bannButt.changeSchool2Offices.active = false;  // reset the display flag
-                        harmonizePlaceGo(item,'harmonize', actions);  // Rerun the script to update fields and lock
+                        executeMultiAction(actions);
+                        harmonizePlaceGo(item,'harmonize');  // Rerun the script to update fields and lock
                     },
                     WLactive: true, WLmessage: '', WLtitle: 'Whitelist School category',
                     WLaction: function() {
@@ -3422,10 +3448,13 @@
             // but due to a bug in WME, we can't force that.  I've temporarily changed the check for TRANSPORTATION
             // and SCENIC_LOOKOUT_VIEWPOINT to be < 2 instead of === 0 and === 1, respectively.
             // ****************************************************************************************************
-            if ( (newName.toLowerCase().indexOf('rest area') > -1 || newName.toLowerCase().indexOf('rest stop') > -1 || newName.toLowerCase().indexOf('service plaza') > -1) ||
-                ( categories.indexOf('TRANSPORTATION') > -1 && categories.indexOf('SCENIC_LOOKOUT_VIEWPOINT') > -1 ) ) {
-                if ( categories.indexOf('TRANSPORTATION') < 2 && categories.indexOf('SCENIC_LOOKOUT_VIEWPOINT') < 2) {
-                    if ( item.isPoint() ) {  // needs to be area point
+            var transCatIndex = categories.indexOf('TRANSPORTATION');
+            var lookoutCatIndex = categories.indexOf('SCENIC_LOOKOUT_VIEWPOINT');
+            if ( /rest area/i.test(newName) || /rest stop/i.test(newName) || /service plaza/i.test(newName) ||
+                ( transCatIndex > -1 && lookoutCatIndex > -1 ) ) {
+                if ( transCatIndex < 2 && transCatIndex > -1 && lookoutCatIndex < 2 && lookoutCatIndex > -1 ) {
+
+                    if ( item.isPoint() ) {  // needs to be area
                         bannButt.areaNotPoint.active = true;
                     }
                     bannButt.pointNotArea.active = false;
@@ -3752,15 +3781,7 @@
                 }
             }
 
-            if(actions.length > 0) {
-                var MultiAction = require("Waze/Action/MultiAction");
-                var m_action = new MultiAction();
-                m_action.setModel(W.model);
-                actions.forEach(function(action) {
-                    m_action.doSubAction(action);
-                });
-                W.model.actionManager.add(m_action);
-            }
+            executeMultiAction(actions);
 
             if (hpMode.harmFlag) {
                 // Update icons to reflect current WME place services
