@@ -12,7 +12,7 @@
 // ==UserScript==
 // @name        WME Place Harmonizer Beta
 // @namespace   https://github.com/WazeUSA/WME-Place-Harmonizer/raw/master/WME-Place-Harmonizer.user.js
-// @version     1.1.61
+// @version     1.1.62
 // @description Harmonizes, formats, and locks a selected place
 // @author      WMEPH development group
 // @include     https://*.waze.com/editor/*
@@ -47,7 +47,6 @@
     var venueWhitelist, venueWhitelistStr, WLSToMerge, wlKeyName, wlButtText = 'WL';  // Whitelisting vars
     var WLlocalStoreName = 'WMEPH-venueWhitelistNew';
     var WLlocalStoreNameCompressed = 'WMEPH-venueWhitelistCompressed';
-    var compressedWLLS;
     var WMEPH_NameLayer, nameLayer, dupeIDList = [], dupeHNRangeList, dupeHNRangeIDList, dupeHNRangeDistList;
     // Web search Window forming:
     var searchResultsWindowSpecs = '"resizable=yes, top='+ Math.round(window.screen.height*0.1) +', left='+ Math.round(window.screen.width*0.3) +', width='+ Math.round(window.screen.width*0.7) +', height='+ Math.round(window.screen.height*0.8) +'"';
@@ -291,23 +290,19 @@
         modifyGoogleLinks();
 
         // Whitelist initialization
-        compressedWLLS = false;
         if ( validateWLS( LZString.decompressFromUTF16(localStorage.getItem(WLlocalStoreNameCompressed)) ) === false ) {  // If no compressed WL string exists
             if ( validateWLS(localStorage.getItem(WLlocalStoreName)) === false ) {  // If no regular WL exists
                 venueWhitelist = { '1.1.1': { Placeholder: {  } } }; // Populate with a dummy place
-                saveWL_LS(compressedWLLS);
-                compressedWLLS = true;
-                saveWL_LS(compressedWLLS);
+                saveWL_LS(false);
+                saveWL_LS(true);
             } else {  // if regular WL string exists, then transfer to compressed version
                 localStorage.setItem('WMEPH-OneTimeWLBU', localStorage.getItem(WLlocalStoreName));
-                loadWL_LS(compressedWLLS);
-                compressedWLLS = true;
-                saveWL_LS(compressedWLLS);
+                loadWL_LS(false);
+                saveWL_LS(true);
                 alert('Whitelists are being converted to a compressed format.  If you have trouble with your WL, please submit an error report.');
             }
         } else {
-            compressedWLLS = true;
-            loadWL_LS(compressedWLLS);
+            loadWL_LS(true);
         }
 
         if (W.loginManager.user.userName === 'ggrane') {
@@ -359,12 +354,39 @@
 
         // Event listeners
         W.selectionManager.events.registerPriority("selectionchanged", this, checkSelection);
-        if ( W.model.venues.hasOwnProperty('events') ) {
-            W.model.venues.events.registerPriority('objectschanged', this, deleteDupeLabel);
-        } else if ( W.model.venues.hasOwnProperty('on') ) {
-            W.model.venues.on('objectschanged', deleteDupeLabel);
-        }
+        W.model.venues.on('objectschanged', deleteDupeLabel);
         W.accelerators.events.registerPriority('save', null, destroyDupeLabels);
+        W.model.venues.on('objectssynced', syncWL)
+
+        // Remove any temporary ID values (ID < 0) from the WL store at startup.
+        var removedWLCount = 0;
+        Object.keys(venueWhitelist).forEach(function(venueID) {
+            if (venueID < 0) {
+                delete venueWhitelist[venueID]
+                removedWLCount += 1;
+            }
+        });
+        if (removedWLCount > 0) {
+            saveWL_LS(true);
+            phlogdev('Removed ' + removedWLCount + ' venues with temporary ID\'s from WL store');
+        }
+
+        // This should be called after new venues are saved (using venues'objectssynced' event), so the new IDs can be retrieved and used
+        // to replace the temporary IDs in the whitelist.  If WME errors during save, this function may not run.  At that point, the
+        // temporary IDs can no longer be traced to the new IDs so the WL for those new venues will be orphaned, and the temporary IDs
+        // will be removed from the WL store the next time the script starts.
+        function syncWL(newVenues) {
+            newVenues.forEach(function(newVenue) {
+                var oldID = newVenue._prevID;
+                var newID = newVenue.attributes.id;
+                if (oldID && newID && venueWhitelist[oldID]) {
+                    venueWhitelist[newID] = venueWhitelist[oldID];
+                    delete venueWhitelist[oldID];
+                }
+            });
+            saveWL_LS(true);
+        }
+
         var WMEPHurl = 'https://www.waze.com/forum/posting.php?mode=reply&f=819&t=164962';  // WMEPH Forum thread URL
         var USAPNHMasURL = 'https://docs.google.com/spreadsheets/d/1-f-JTWY5UnBx-rFTa4qhyGMYdHBZWNirUTOgn222zMY/edit#gid=0';  // Master USA PNH link
         var placesWikiURL = 'https://wiki.waze.com/wiki/Places';  // WME Places wiki
@@ -1804,7 +1826,7 @@
                     action: function() {
                         if (confirm('Are you sure you want to clear all whitelisted fields for this place?') ) {  // misclick check
                             delete venueWhitelist[itemID];
-                            saveWL_LS(compressedWLLS);
+                            saveWL_LS(true);
                             harmonizePlaceGo(item,'harmonize');  // rerun the script to check all flags again
                         }
                     }
@@ -3732,7 +3754,7 @@
                                     }
                                     venueWhitelist[dID].dupeWL.push(itemID);  // WL the id for the duplicate venue
                                     venueWhitelist[dID].dupeWL = uniq(venueWhitelist[dID].dupeWL);
-                                    saveWL_LS(compressedWLLS);  // Save the WL to local storage
+                                    saveWL_LS(true);  // Save the WL to local storage
                                     WMEPH_WLCounter();
                                     bannButt2.clearWL.active = true;
                                     bannDupl[dID].active = false;
@@ -5690,14 +5712,14 @@
                 if ($('#WMEPH-WLInput'+devVersStr).val() === 'resetWhitelist') {
                     if (confirm('***Do you want to reset all Whitelist data?\nClick OK to erase.') ) {  // if the category doesn't translate, then pop an alert that will make a forum post to the thread
                         venueWhitelist = { '1.1.1': { Placeholder: {  } } }; // Populate with a dummy place
-                        saveWL_LS(compressedWLLS);
+                        saveWL_LS(true);
                     }
                 } else {  // try to merge uncompressed WL data
                     WLSToMerge = validateWLS($('#WMEPH-WLInput'+devVersStr).val());
                     if (WLSToMerge) {
                         phlog('Whitelists merged!');
                         venueWhitelist = mergeWL(venueWhitelist,WLSToMerge);
-                        saveWL_LS(compressedWLLS);
+                        saveWL_LS(true);
                         phWLContentHtml = '<p style="color:green">Whitelist data merged<p>';
                         $("#PlaceHarmonizerWLToolsMsg" + devVersStr).append(phWLContentHtml);
                         $('#WMEPH-WLInputBeta').val('');
@@ -5706,7 +5728,7 @@
                         if (WLSToMerge) {
                             phlog('Whitelists merged!');
                             venueWhitelist = mergeWL(venueWhitelist,WLSToMerge);
-                            saveWL_LS(compressedWLLS);
+                            saveWL_LS(true);
                             phWLContentHtml = '<p style="color:green">Whitelist data merged<p>';
                             $("#PlaceHarmonizerWLToolsMsg" + devVersStr).append(phWLContentHtml);
                             $('#WMEPH-WLInputBeta').val('');
@@ -5721,12 +5743,7 @@
             // Pull the data to the text field
             $("#WMEPH-WLPull" + devVersStr).click(function() {
                 $("#PlaceHarmonizerWLToolsMsg" + devVersStr).empty();
-                if (compressedWLLS) {
-                    //$('#WMEPH-WLInput'+devVersStr).val(localStorage.getItem(WLlocalStoreNameCompressed));
-                    $('#WMEPH-WLInput'+devVersStr).val( LZString.decompressFromUTF16(localStorage.getItem(WLlocalStoreNameCompressed)) );
-                } else {
-                    $('#WMEPH-WLInput'+devVersStr).val(localStorage.getItem(WLlocalStoreName));
-                }
+                $('#WMEPH-WLInput'+devVersStr).val( LZString.decompressFromUTF16(localStorage.getItem(WLlocalStoreNameCompressed)) );
                 phWLContentHtml = '<p style="color:green">To backup the data, copy & paste the text in the box to a safe location.<p>';
                 $("#PlaceHarmonizerWLToolsMsg" + devVersStr).append(phWLContentHtml);
                 localStorage.setItem('WMEPH_WLAddCount', 1);
@@ -5737,13 +5754,7 @@
                 $("#PlaceHarmonizerWLToolsMsg" + devVersStr).empty();
                 $('#WMEPH-WLInputBeta').val('');
                 var currWLData;
-                if (compressedWLLS) {
-                    //$('#WMEPH-WLInput'+devVersStr).val(localStorage.getItem(WLlocalStoreNameCompressed));
-                    currWLData = JSON.parse( LZString.decompressFromUTF16( localStorage.getItem(WLlocalStoreNameCompressed) ) );
-                } else {
-                    currWLData = JSON.parse( localStorage.getItem(WLlocalStoreName) );
-                }
-                //var WLSize = _.size(currWLData);
+                currWLData = JSON.parse( LZString.decompressFromUTF16( localStorage.getItem(WLlocalStoreNameCompressed) ) );
                 var countryWL = {};
                 var stateWL = {};
                 var itemCount = 0;
@@ -5804,12 +5815,8 @@
                     $("#PlaceHarmonizerWLToolsMsg" + devVersStr).append(phWLContentHtml);
                 } else {
                     var currWLData, venueToRemove = [];
-                    if (compressedWLLS) {
-                        //$('#WMEPH-WLInput'+devVersStr).val(localStorage.getItem(WLlocalStoreNameCompressed));
-                        currWLData = JSON.parse( LZString.decompressFromUTF16( localStorage.getItem(WLlocalStoreNameCompressed) ) );
-                    } else {
-                        currWLData = JSON.parse( localStorage.getItem(WLlocalStoreName) );
-                    }
+                    currWLData = JSON.parse( LZString.decompressFromUTF16( localStorage.getItem(WLlocalStoreNameCompressed) ) );
+
                     //var WLSize = _.size(currWLData);
 
                     for (var venueKey in currWLData) {
@@ -5827,12 +5834,12 @@
                     if (venueToRemove.length > 0) {
                         if (localStorage.WMEPH_WLAddCount === '1') {
                             if (confirm('Are you sure you want to clear all whitelist data for '+stateToRemove+'? This CANNOT be undone. Press OK to delete, cancel to preserve the data.') ) {  // misclick check
-                                backupWL_LS(compressedWLLS);
+                                backupWL_LS(true);
                                 for (var ixwl=0; ixwl<venueToRemove.length; ixwl++) {
                                     delete venueWhitelist[venueToRemove[ixwl]];
                                     //phlogdev(venueWhitelist[venueToRemove[ixwl]]);
                                 }
-                                saveWL_LS(compressedWLLS);
+                                saveWL_LS(true);
                                 phWLContentHtml = '<p style="color:green">'+venueToRemove.length+' items removed from WL<p>';
                                 $("#PlaceHarmonizerWLToolsMsg" + devVersStr).append(phWLContentHtml);
                                 $('#WMEPH-WLInputBeta').val('');
@@ -6698,7 +6705,7 @@
         venueWhitelist[itemID].state = addressTemp.state.name;  // Store state for the venue
         venueWhitelist[itemID].country = addressTemp.country.name;  // Store country for the venue
         venueWhitelist[itemID].gps = itemGPS;  // Store GPS coords for the venue
-        saveWL_LS(compressedWLLS);  // Save the WL to local storage
+        saveWL_LS(true);  // Save the WL to local storage
         WMEPH_WLCounter();
         bannButt2.clearWL.active = true;
     }
