@@ -12,7 +12,7 @@
 // ==UserScript==
 // @name        WME Place Harmonizer Beta
 // @namespace   https://github.com/WazeUSA/WME-Place-Harmonizer/raw/master/WME-Place-Harmonizer.user.js
-// @version     1.1.62
+// @version     1.1.63
 // @description Harmonizes, formats, and locks a selected place
 // @author      WMEPH development group
 // @include     https://*.waze.com/editor/*
@@ -243,13 +243,14 @@
             } else {
                 phlog("Login failed...?  Reload WME.");
             }
-
         }
     }
 
     function runPH() {
         // Script update info
         var WMEPHWhatsNewList = [  // New in this version
+            '1.1.63: Added option to exclude PLAs when searching for duplicate places, and vice versa.',
+            '1.1.62: FIXED - Whitelisted flags not saved for new (unsaved) places.',
             '1.1.61: Fixed issues with Rest Areas.',
             '1.1.60: Fix to get place category "special messages" to display.',
             '1.1.59: Fix for erroneous "stacked place" warning on area places.',
@@ -356,13 +357,13 @@
         W.selectionManager.events.registerPriority("selectionchanged", this, checkSelection);
         W.model.venues.on('objectschanged', deleteDupeLabel);
         W.accelerators.events.registerPriority('save', null, destroyDupeLabels);
-        W.model.venues.on('objectssynced', syncWL)
+        W.model.venues.on('objectssynced', syncWL);
 
         // Remove any temporary ID values (ID < 0) from the WL store at startup.
         var removedWLCount = 0;
         Object.keys(venueWhitelist).forEach(function(venueID) {
             if (venueID < 0) {
-                delete venueWhitelist[venueID]
+                delete venueWhitelist[venueID];
                 removedWLCount += 1;
             }
         });
@@ -2616,6 +2617,8 @@
                                 if (frontText.length > 0) { newName = frontText + ' ' + newName; }
                                 if (backText.length > 0) { newName = newName + ' ' + backText; }
                                 newName = newName.replace(/ {2,}/g,' ');
+                            } else {
+                                newName = PNHMatchData[ph_name_ix];
                             }
                         }
                         if ( altCategories !== "0" && altCategories !== "" ) {  // if PNH alts exist
@@ -4967,6 +4970,9 @@
                 itemCompAddr = true;
             }
 
+            function isPLA(venue) {
+                return venue.attributes.categories && venue.attributes.categories[0] === 'PARKING_LOT';
+            }
 
             for (var venix in venueList) {  // for each place on the map:
                 if (venueList.hasOwnProperty(venix)) {  // hOP filter
@@ -4974,148 +4980,152 @@
                     nameMatch = false;
                     altNameMatch = -1;
                     testVenueAtt = venueList[venix].attributes;
-                    var pt2ptDistance =  item.geometry.getCentroid().distanceTo(venueList[venix].geometry.getCentroid());
-                    if ( item.isPoint() && venueList[venix].isPoint() && pt2ptDistance < 2 && item.attributes.id !== testVenueAtt.id ) {
-                        overlappingFlag = true;
-                    }
-                    wlDupeMatch = false;
-                    if (wlDupeList.length>0 && wlDupeList.indexOf(testVenueAtt.id) > -1) {
-                        wlDupeMatch = true;
-                    }
+                    var excludePLADupes = $('#WMEPH-ExcludePLADupes' + devVersStr).prop('checked');
+                    if (!excludePLADupes || isPLA(item) === isPLA(venueList[venix])) {
 
-                    // get HNs for places on same street
-                    var addrDupe = venueList[venix].getAddress();
-                    if ( addrDupe.hasOwnProperty('attributes') ) {
-                        addrDupe = addrDupe.attributes;
-                    }
-                    if (itemCompAddr && addrDupe.street !== null && addrDupe.street.name !== null && testVenueAtt.houseNumber && testVenueAtt.houseNumber !== '' &&
-                        venix !== item.attributes.id && addrItem.street.name === addrDupe.street.name && testVenueAtt.houseNumber < 1000000) {
-                        dupeHNRangeList.push(parseInt(testVenueAtt.houseNumber));
-                        dupeHNRangeIDList.push(testVenueAtt.id);
-                        dupeHNRangeDistList.push(pt2ptDistance);
-                    }
+                        var pt2ptDistance =  item.geometry.getCentroid().distanceTo(venueList[venix].geometry.getCentroid());
+                        if ( item.isPoint() && venueList[venix].isPoint() && pt2ptDistance < 2 && item.attributes.id !== testVenueAtt.id ) {
+                            overlappingFlag = true;
+                        }
+                        wlDupeMatch = false;
+                        if (wlDupeList.length>0 && wlDupeList.indexOf(testVenueAtt.id) > -1) {
+                            wlDupeMatch = true;
+                        }
 
-
-                    // Check for duplicates
-                    if ( !wlDupeMatch && dupeIDList.length<6 && pt2ptDistance < 800 && !testVenueAtt.residential && venix !== item.attributes.id && 'string' === typeof testVenueAtt.id && testVenueAtt.name !== null && testVenueAtt.name.length>1 ) {  // don't do res, the point itself, new points or no name
-                        // If item has a complete address and test venue does, and they are different, then no dupe
-                        var suppressMatch = false;
-                        if ( itemCompAddr && addrDupe.street !== null && addrDupe.street.name !== null && testVenueAtt.houseNumber && testVenueAtt.houseNumber.match(/\d/g) !== null ) {
-                            if ( item.attributes.lockRank > 0 && testVenueAtt.lockRank > 0 ) {
-                                if ( item.attributes.houseNumber !== testVenueAtt.houseNumber || addrItem.street.name !== addrDupe.street.name ) {
-                                    suppressMatch = true;
-                                }
-                            } else {
-                                if ( item.attributes.houseNumber !== testVenueAtt.houseNumber && addrItem.street.name !== addrDupe.street.name ) {
-                                    suppressMatch = true;
-                                }
-                            }
+                        // get HNs for places on same street
+                        var addrDupe = venueList[venix].getAddress();
+                        if ( addrDupe.hasOwnProperty('attributes') ) {
+                            addrDupe = addrDupe.attributes;
+                        }
+                        if (itemCompAddr && addrDupe.street !== null && addrDupe.street.name !== null && testVenueAtt.houseNumber && testVenueAtt.houseNumber !== '' &&
+                            venix !== item.attributes.id && addrItem.street.name === addrDupe.street.name && testVenueAtt.houseNumber < 1000000) {
+                            dupeHNRangeList.push(parseInt(testVenueAtt.houseNumber));
+                            dupeHNRangeIDList.push(testVenueAtt.id);
+                            dupeHNRangeDistList.push(pt2ptDistance);
                         }
 
 
-                        if ( !suppressMatch ) {
-                            //Reformat the testPlace name
-                            testName = testVenueAtt.name.toUpperCase().replace(/ AND /g, '').replace(/^THE /g, '').replace(/[^A-Z0-9]/g, '');  // Format test name
-                            if (  (testName.length>2 && noNumSkip.indexOf(testName) === -1) || allowedTwoLetters.indexOf(testName) > -1  ) {
-                                testNameList = [testName];
-                            } else {
-                                testNameList = ['TESTNAMETOOSHORTQZJXS'+randInt];
-                                randInt++;
-                            }
-
-                            testNameNoNum = testName.replace(/[^A-Z]/g, '');  // Clear non-letter characters for alternate match
-                            if ( ((testNameNoNum.length>2 && noNumSkip.indexOf(testNameNoNum) === -1) || allowedTwoLetters.indexOf(testNameNoNum) > -1) && testVenueAtt.categories.indexOf('PARKING_LOT') === -1 ) {  //  only add de-numbered name if at least 2 chars remain
-                                testNameList.push(testNameNoNum);
-                            }
-                            // primary name matching loop
-
-                            for (tnlix=0; tnlix < testNameList.length; tnlix++) {
-                                for (cnlix=0; cnlix < currNameList.length; cnlix++) {
-                                    if ( (testNameList[tnlix].indexOf(currNameList[cnlix]) > -1 || currNameList[cnlix].indexOf(testNameList[tnlix]) > -1) ) {
-                                        nameMatch = true;
-                                        break;
+                        // Check for duplicates
+                        if ( !wlDupeMatch && dupeIDList.length<6 && pt2ptDistance < 800 && !testVenueAtt.residential && venix !== item.attributes.id && 'string' === typeof testVenueAtt.id && testVenueAtt.name !== null && testVenueAtt.name.length>1 ) {  // don't do res, the point itself, new points or no name
+                            // If item has a complete address and test venue does, and they are different, then no dupe
+                            var suppressMatch = false;
+                            if ( itemCompAddr && addrDupe.street !== null && addrDupe.street.name !== null && testVenueAtt.houseNumber && testVenueAtt.houseNumber.match(/\d/g) !== null ) {
+                                if ( item.attributes.lockRank > 0 && testVenueAtt.lockRank > 0 ) {
+                                    if ( item.attributes.houseNumber !== testVenueAtt.houseNumber || addrItem.street.name !== addrDupe.street.name ) {
+                                        suppressMatch = true;
+                                    }
+                                } else {
+                                    if ( item.attributes.houseNumber !== testVenueAtt.houseNumber && addrItem.street.name !== addrDupe.street.name ) {
+                                        suppressMatch = true;
                                     }
                                 }
-                                if (nameMatch) {break;}  // break if a match found
                             }
-                            if (!nameMatch && testVenueAtt.aliases.length > 0) {
-                                for (aliix=0; aliix<testVenueAtt.aliases.length; aliix++) {
-                                    aliasNameRF = testVenueAtt.aliases[aliix].toUpperCase().replace(/ AND /g, '').replace(/^THE /g, '').replace(/[^A-Z0-9]/g, '');  // Format name
-                                    if ( (aliasNameRF.length>2 && noNumSkip.indexOf(aliasNameRF) === -1) || allowedTwoLetters.indexOf(aliasNameRF) > -1  ) {
-                                        testNameList = [aliasNameRF];
-                                    } else {
-                                        testNameList = ['ALIASNAMETOOSHORTQOFUH'+randInt];
-                                        randInt++;
-                                    }
-                                    aliasNameNoNum = aliasNameRF.replace(/[^A-Z]/g, '');  // Clear non-letter characters for alternate match ( HOLLYIVYPUB23 --> HOLLYIVYPUB )
-                                    if (((aliasNameNoNum.length>2 && noNumSkip.indexOf(aliasNameNoNum) === -1) || allowedTwoLetters.indexOf(aliasNameNoNum) > -1) && testVenueAtt.categories.indexOf('PARKING_LOT') === -1) {  //  only add de-numbered name if at least 2 characters remain
-                                        testNameList.push(aliasNameNoNum);
-                                    } else {
-                                        testNameList.push('111231643239'+randInt);  //  just to keep track of the alias in question, always add something.
-                                        randInt++;
-                                    }
+
+
+                            if ( !suppressMatch ) {
+                                //Reformat the testPlace name
+                                testName = testVenueAtt.name.toUpperCase().replace(/ AND /g, '').replace(/^THE /g, '').replace(/[^A-Z0-9]/g, '');  // Format test name
+                                if (  (testName.length>2 && noNumSkip.indexOf(testName) === -1) || allowedTwoLetters.indexOf(testName) > -1  ) {
+                                    testNameList = [testName];
+                                } else {
+                                    testNameList = ['TESTNAMETOOSHORTQZJXS'+randInt];
+                                    randInt++;
                                 }
+
+                                testNameNoNum = testName.replace(/[^A-Z]/g, '');  // Clear non-letter characters for alternate match
+                                if ( ((testNameNoNum.length>2 && noNumSkip.indexOf(testNameNoNum) === -1) || allowedTwoLetters.indexOf(testNameNoNum) > -1) && testVenueAtt.categories.indexOf('PARKING_LOT') === -1 ) {  //  only add de-numbered name if at least 2 chars remain
+                                    testNameList.push(testNameNoNum);
+                                }
+                                // primary name matching loop
+
                                 for (tnlix=0; tnlix < testNameList.length; tnlix++) {
                                     for (cnlix=0; cnlix < currNameList.length; cnlix++) {
                                         if ( (testNameList[tnlix].indexOf(currNameList[cnlix]) > -1 || currNameList[cnlix].indexOf(testNameList[tnlix]) > -1) ) {
-                                            // get index of that match (half of the array index with floor)
-                                            altNameMatch = Math.floor(tnlix/2);
+                                            nameMatch = true;
                                             break;
                                         }
                                     }
-                                    if (altNameMatch > -1) {break;}  // break from the rest of the alts if a match found
+                                    if (nameMatch) {break;}  // break if a match found
                                 }
-                            }
-                            // If a match was found:
-                            if ( nameMatch || altNameMatch > -1 ) {
-                                dupeIDList.push(testVenueAtt.id);  // Add the item to the list of matches
-                                WMEPH_NameLayer.setVisibility(true);  // If anything found, make visible the dupe layer
-                                if (nameMatch) {
-                                    labelText = testVenueAtt.name;  // Pull duplicate name
-                                } else {
-                                    labelText = testVenueAtt.aliases[altNameMatch] + ' (Alt)';  // Pull duplicate alt name
-                                }
-                                phlogdev('Possible duplicate found. WME place: ' + itemName + ' / Nearby place: ' + labelText);
-
-                                // Reformat the name into multiple lines based on length
-                                var startIX=0, endIX=0, labelTextBuild = [], maxLettersPerLine = Math.round(2*Math.sqrt(labelText.replace(/ /g,'').length/2));
-                                maxLettersPerLine = Math.max(maxLettersPerLine,4);
-                                while (endIX !== -1) {
-                                    endIX = labelText.indexOf(' ', endIX+1);
-                                    if (endIX - startIX > maxLettersPerLine) {
-                                        labelTextBuild.push( labelText.substr(startIX,endIX-startIX) );
-                                        startIX = endIX+1;
-                                    }
-                                }
-                                labelTextBuild.push( labelText.substr(startIX) );  // Add last line
-                                labelTextReformat = labelTextBuild.join('\n');
-                                // Add photo icons
-                                if (testVenueAtt.images.length > 0 ) {
-                                    labelTextReformat = labelTextReformat + ' ';
-                                    for (var phix=0; phix<testVenueAtt.images.length; phix++) {
-                                        if (phix===3) {
-                                            labelTextReformat = labelTextReformat + '+';
-                                            break;
+                                if (!nameMatch && testVenueAtt.aliases.length > 0) {
+                                    for (aliix=0; aliix<testVenueAtt.aliases.length; aliix++) {
+                                        aliasNameRF = testVenueAtt.aliases[aliix].toUpperCase().replace(/ AND /g, '').replace(/^THE /g, '').replace(/[^A-Z0-9]/g, '');  // Format name
+                                        if ( (aliasNameRF.length>2 && noNumSkip.indexOf(aliasNameRF) === -1) || allowedTwoLetters.indexOf(aliasNameRF) > -1  ) {
+                                            testNameList = [aliasNameRF];
+                                        } else {
+                                            testNameList = ['ALIASNAMETOOSHORTQOFUH'+randInt];
+                                            randInt++;
                                         }
-                                        //labelTextReformat = labelTextReformat + '\u25A3';  // add photo icons
-                                        labelTextReformat = labelTextReformat + '\u25A3';  // add photo icons
+                                        aliasNameNoNum = aliasNameRF.replace(/[^A-Z]/g, '');  // Clear non-letter characters for alternate match ( HOLLYIVYPUB23 --> HOLLYIVYPUB )
+                                        if (((aliasNameNoNum.length>2 && noNumSkip.indexOf(aliasNameNoNum) === -1) || allowedTwoLetters.indexOf(aliasNameNoNum) > -1) && testVenueAtt.categories.indexOf('PARKING_LOT') === -1) {  //  only add de-numbered name if at least 2 characters remain
+                                            testNameList.push(aliasNameNoNum);
+                                        } else {
+                                            testNameList.push('111231643239'+randInt);  //  just to keep track of the alias in question, always add something.
+                                            randInt++;
+                                        }
+                                    }
+                                    for (tnlix=0; tnlix < testNameList.length; tnlix++) {
+                                        for (cnlix=0; cnlix < currNameList.length; cnlix++) {
+                                            if ( (testNameList[tnlix].indexOf(currNameList[cnlix]) > -1 || currNameList[cnlix].indexOf(testNameList[tnlix]) > -1) ) {
+                                                // get index of that match (half of the array index with floor)
+                                                altNameMatch = Math.floor(tnlix/2);
+                                                break;
+                                            }
+                                        }
+                                        if (altNameMatch > -1) {break;}  // break from the rest of the alts if a match found
                                     }
                                 }
+                                // If a match was found:
+                                if ( nameMatch || altNameMatch > -1 ) {
+                                    dupeIDList.push(testVenueAtt.id);  // Add the item to the list of matches
+                                    WMEPH_NameLayer.setVisibility(true);  // If anything found, make visible the dupe layer
+                                    if (nameMatch) {
+                                        labelText = testVenueAtt.name;  // Pull duplicate name
+                                    } else {
+                                        labelText = testVenueAtt.aliases[altNameMatch] + ' (Alt)';  // Pull duplicate alt name
+                                    }
+                                    phlogdev('Possible duplicate found. WME place: ' + itemName + ' / Nearby place: ' + labelText);
 
-                                pt = venueList[venix].geometry.getCentroid();
-                                if ( !mapExtent.containsLonLat(pt.toLonLat()) ) {
-                                    outOfExtent = true;
+                                    // Reformat the name into multiple lines based on length
+                                    var startIX=0, endIX=0, labelTextBuild = [], maxLettersPerLine = Math.round(2*Math.sqrt(labelText.replace(/ /g,'').length/2));
+                                    maxLettersPerLine = Math.max(maxLettersPerLine,4);
+                                    while (endIX !== -1) {
+                                        endIX = labelText.indexOf(' ', endIX+1);
+                                        if (endIX - startIX > maxLettersPerLine) {
+                                            labelTextBuild.push( labelText.substr(startIX,endIX-startIX) );
+                                            startIX = endIX+1;
+                                        }
+                                    }
+                                    labelTextBuild.push( labelText.substr(startIX) );  // Add last line
+                                    labelTextReformat = labelTextBuild.join('\n');
+                                    // Add photo icons
+                                    if (testVenueAtt.images.length > 0 ) {
+                                        labelTextReformat = labelTextReformat + ' ';
+                                        for (var phix=0; phix<testVenueAtt.images.length; phix++) {
+                                            if (phix===3) {
+                                                labelTextReformat = labelTextReformat + '+';
+                                                break;
+                                            }
+                                            //labelTextReformat = labelTextReformat + '\u25A3';  // add photo icons
+                                            labelTextReformat = labelTextReformat + '\u25A3';  // add photo icons
+                                        }
+                                    }
+
+                                    pt = venueList[venix].geometry.getCentroid();
+                                    if ( !mapExtent.containsLonLat(pt.toLonLat()) ) {
+                                        outOfExtent = true;
+                                    }
+                                    minLat = Math.min(minLat, pt.y); minLon = Math.min(minLon, pt.x);
+                                    maxLat = Math.max(maxLat, pt.y); maxLon = Math.max(maxLon, pt.x);
+
+                                    textFeature = new OpenLayers.Feature.Vector( pt, {labelText: labelTextReformat, fontColor: '#fff',
+                                                                                      strokeColor: labelColorList[labelColorIX%labelColorList.length], labelAlign: 'cm', pointRadius: 25 , dupeID: testVenueAtt.id } );
+                                    labelFeatures.push(textFeature);
+                                    //WMEPH_NameLayer.addFeatures(labelFeatures);
+                                    dupeNames.push(labelText);
                                 }
-                                minLat = Math.min(minLat, pt.y); minLon = Math.min(minLon, pt.x);
-                                maxLat = Math.max(maxLat, pt.y); maxLon = Math.max(maxLon, pt.x);
-
-                                textFeature = new OpenLayers.Feature.Vector( pt, {labelText: labelTextReformat, fontColor: '#fff',
-                                                                                  strokeColor: labelColorList[labelColorIX%labelColorList.length], labelAlign: 'cm', pointRadius: 25 , dupeID: testVenueAtt.id } );
-                                labelFeatures.push(textFeature);
-                                //WMEPH_NameLayer.addFeatures(labelFeatures);
-                                dupeNames.push(labelText);
+                                labelColorIX++;
                             }
-                            labelColorIX++;
                         }
                     }
                 }
@@ -5548,6 +5558,7 @@
             createSettingsCheckbox("sidepanel-harmonizer" + devVersStr, "WMEPH-DisableDFZoom" + devVersStr,"Disable zoom & center for duplicates");
             createSettingsCheckbox("sidepanel-harmonizer" + devVersStr, "WMEPH-EnableIAZoom" + devVersStr,"Enable zoom & center for places with no address");
             createSettingsCheckbox("sidepanel-harmonizer" + devVersStr, "WMEPH-HidePlacesWiki" + devVersStr,"Hide 'Places Wiki' button in results banner");
+            createSettingsCheckbox("sidepanel-harmonizer" + devVersStr, "WMEPH-ExcludePLADupes" + devVersStr,"Exclude parking lots when searching for duplicate places.");
             if (devUser || betaUser || usrRank > 1) {
                 createSettingsCheckbox("sidepanel-harmonizer" + devVersStr, "WMEPH-EnableServices" + devVersStr,"Enable automatic addition of common services");
             }
@@ -6743,7 +6754,7 @@
                                     if (data.result.place_id === gpids[i].innerHTML) {
                                         gpids[i].innerHTML = "<a href='" + data.result.url + "' target='_wmegpid'>" + data.result.place_id + "</a>";
                                     }
-                                };
+                                }
                             }
                         }
                     }
