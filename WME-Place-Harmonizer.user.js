@@ -22,7 +22,270 @@
 // @require     https://greasyfork.org/scripts/24851-wazewrap/code/WazeWrap.js
 // ==/UserScript==
 
+// NOTE: Only reason to keep this anonymous function wrapper is for Opera compatibility.
 (function () {
+    "use strict";
+    /////////////////////////////////////
+    /////////////////////////////////////
+    //// WMEPH Function declarations ////
+    /////////////////////////////////////
+    /////////////////////////////////////
+
+    ///////////////////////////////
+    // Generic utility functions //
+    ///////////////////////////////
+
+    // Removes duplicate strings from string array
+    function uniq(a) {
+        console.log('--- uniq(a) called ---');
+        var seen = {};
+        return a.filter(function(item) {
+            return seen.hasOwnProperty(item) ? false : (seen[item] = true);
+        });
+    }  // END uniq function
+
+    // NOTE: What is the difference between this and phlogdev?
+    function phlog(m) {
+        console.log('--- phlog(m) called ---');
+        if ('object' === typeof m) {
+            //m = JSON.stringify(m);
+        }
+        console.log('WMEPH' + devVersStrDash + ': ' + m);
+    }
+
+    /////////////////////////////////////
+    // Bootstrap and Timeout Functions //
+    /////////////////////////////////////
+
+    // What does placeHarmonizer_bootstrap() do?
+    // Put a meaningful explanation here.
+    function placeHarmonizer_bootstrap() {
+        console.log('--- placeHarmonizer_bootstrap() called ---');
+        if ( "undefined" !== typeof W.loginManager && "undefined" !== typeof W.map) {
+            dataReady() //  Run the code to check for data return from the Sheets
+            // Create duplicatePlaceName layer
+            var rlayers = W.map.getLayersBy("uniqueName","__DuplicatePlaceNames");
+            if(rlayers.length === 0) {
+                var lname = "WMEPH Duplicate Names";
+                var style = new OpenLayers.Style({  label : "${labelText}",
+                                                    labelOutlineColor: '#333',
+                                                    labelOutlineWidth: 3,
+                                                    labelAlign: '${labelAlign}',
+                                                    fontColor: "${fontColor}",
+                                                    fontOpacity: 1.0,
+                                                    fontSize: "20px",
+                                                    labelYOffset: -30,
+                                                    labelXOffset: 0,
+                                                    fontWeight: "bold",
+                                                    fill: false,
+                                                    strokeColor: "${strokeColor}",
+                                                    strokeWidth: 10,
+                                                    pointRadius: "${pointRadius}"
+                                                });
+                nameLayer = new OpenLayers.Layer.Vector(lname, {    displayInLayerSwitcher: false,
+                                                                    uniqueName: "__DuplicatePlaceNames",
+                                                                    styleMap: new OpenLayers.StyleMap(style)
+                                                                });
+                nameLayer.setVisibility(false);
+                W.map.addLayer(nameLayer);
+                WMEPH_NameLayer = nameLayer;
+            } else {
+                WMEPH_NameLayer = rlayers[0];
+            }
+        } else {
+            phlog("Waiting for WME map and login...");
+            placeHarmonizer_bootstrap();
+        }
+    }
+
+    // What does dataReady() do?
+    // Put a meaningful explanation here.
+    function dataReady() {
+        console.log('--- dataReady() called ---');
+        // If the data has returned, then start the script, otherwise wait a bit longer
+        if ("undefined" !== typeof CAN_PNH_DATA && "undefined" !== typeof USA_PNH_DATA && "undefined" !== typeof USA_CH_DATA &&
+            "undefined" !== typeof WMEPHdevList && "undefined" !== typeof WMEPHbetaList && "undefined" !== typeof hospitalPartMatch ) {
+                USA_PNH_NAMES = makeNameCheckList(USA_PNH_DATA);
+                USA_CH_NAMES = makeCatCheckList(USA_CH_DATA);
+                CAN_PNH_NAMES = makeNameCheckList(CAN_PNH_DATA);
+                // CAN using USA_CH_NAMES at the moment
+            loginReady();  //  start the main code
+        } else {
+            if (dataReadyCounter % 20 === 0) {
+                var waitMessage = 'Waiting for ';
+                if ("undefined" === typeof CAN_PNH_DATA) {
+                    waitMessage = waitMessage + "CAN PNH Data; ";
+                }
+                if ("undefined" === typeof USA_PNH_DATA) {
+                    waitMessage = waitMessage + "USA PNH Data; ";
+                }
+                if ("undefined" === typeof hospitalPartMatch) {
+                    waitMessage = waitMessage + "Cat-Name Data; ";
+                }
+                if ("undefined" === typeof WMEPHdevList) {
+                    waitMessage = waitMessage + "User List Data;";
+                }
+                phlog(waitMessage);
+            }
+            if (dataReadyCounter<200) {
+                dataReadyCounter++;
+                setTimeout(function () { dataReady(); }, 100);
+            } else {
+                phlog("Data load took too long, reload WME...");
+            }
+        }
+    }
+
+
+    ////////////////////////
+    // Unsorted Functions //
+    ////////////////////////
+
+    // This function runs at script load, and builds the search name dataset to compare the WME selected place name to.
+    // NOTE: Some of this code runs once for every single entry on the spreadsheet.  We need to make this more efficient.
+    function makeNameCheckList(PNH_DATA) {
+        console.log('--- makeNameCheckList(PNH_DATA) called ---');  // Builds the list of search names to match to the WME place name
+        var PNH_NAMES = [];
+        var PNH_DATA_headers = PNH_DATA[0].split("|");  // split the data headers out
+        var ph_name_ix = PNH_DATA_headers.indexOf("ph_name");  // find the indices needed for the function
+        var ph_aliases_ix = PNH_DATA_headers.indexOf("ph_aliases");
+        var ph_category1_ix = PNH_DATA_headers.indexOf("ph_category1");
+        var ph_searchnamebase_ix = PNH_DATA_headers.indexOf("ph_searchnamebase");
+        var ph_searchnamemid_ix = PNH_DATA_headers.indexOf("ph_searchnamemid");
+        var ph_searchnameend_ix = PNH_DATA_headers.indexOf("ph_searchnameend");
+        var ph_disable_ix = PNH_DATA_headers.indexOf("ph_disable");
+        var ph_speccase_ix = PNH_DATA_headers.indexOf("ph_speccase");
+
+        var t0 = performance.now(); // Speed check start
+        var newNameListLength;  // static list length
+
+        for (var pnhix=0; pnhix<PNH_DATA.length; pnhix++) {  // loop through all PNH places
+            var pnhEntryTemp = PNH_DATA[pnhix].split("|");  // split the current PNH data line
+            if (pnhEntryTemp[ph_disable_ix] !== "1" || pnhEntryTemp[ph_speccase_ix].indexOf('betaEnable') > -1 ) {
+                var newNameList = pnhEntryTemp[ph_name_ix].toUpperCase();  // pull out the primary PNH name & upper case it
+                newNameList = newNameList.replace(/ AND /g, '');  // Clear the word "AND" from the name
+                newNameList = newNameList.replace(/^THE /g, '');  // Clear the word "THE" from the start of the name
+                newNameList = [newNameList.replace(/[^A-Z0-9]/g, '')];  // Clear non-letter and non-number characters, store in array
+
+                if (pnhEntryTemp[ph_disable_ix] !== "altName") {
+                    // Add any aliases
+                    var tempAliases = pnhEntryTemp[ph_aliases_ix].toUpperCase();
+                    if ( tempAliases !== '' && tempAliases !== '0' && tempAliases !== '') {
+                        tempAliases = tempAliases.replace(/,[^A-za-z0-9]*/g, ",").split(",");  // tighten and split aliases
+                        for (var alix=0; alix<tempAliases.length; alix++) {
+                            newNameList.push( tempAliases[alix].replace(/ AND /g, '').replace(/^THE /g, '').replace(/[^A-Z0-9]/g, '') );
+                        }
+                    }
+                }
+
+                // The following code sets up alternate search names as outlined in the PNH dataset.
+                // Formula, with P = PNH primary; A1, A2 = PNH aliases; B1, B2 = base terms; M1, M2 = mid terms; E1, E2 = end terms
+                // Search list will build: P, A, B, PM, AM, BM, PE, AE, BE, PME, AME, BME.
+                // Multiple M terms are applied singly and in pairs (B1M2M1E2).  Multiple B and E terms are applied singly (e.g B1B2M1 not used).
+                // Any doubles like B1E2=P are purged at the end to eliminate redundancy.
+                if (pnhEntryTemp[ph_searchnamebase_ix] !== "0" || pnhEntryTemp[ph_searchnamebase_ix] !== "") {   // If base terms exist, otherwise only the primary name is matched
+                    var pnhSearchNameBase = pnhEntryTemp[ph_searchnamebase_ix].replace(/[^A-Za-z0-9,]/g, '');  // clear non-letter and non-number characters (keep commas)
+                    pnhSearchNameBase = pnhSearchNameBase.toUpperCase().split(",");  // upper case and split the base-name  list
+                    newNameList.push.apply(newNameList,pnhSearchNameBase);   // add them to the search base list
+
+                    if (pnhEntryTemp[ph_searchnamemid_ix] !== "0" || pnhEntryTemp[ph_searchnamemid_ix] !== "") {  // if middle search term add-ons exist
+                        var pnhSearchNameMid = pnhEntryTemp[ph_searchnamemid_ix].replace(/[^A-Za-z0-9,]/g, '');  // clear non-letter and non-number characters
+                        pnhSearchNameMid = pnhSearchNameMid.toUpperCase().split(",");  // upper case and split
+                        if (pnhSearchNameMid.length > 1) {  // if there are more than one mid terms, it adds a permutation of the first 2
+                            pnhSearchNameMid.push.apply( pnhSearchNameMid,[ pnhSearchNameMid[0]+pnhSearchNameMid[1],pnhSearchNameMid[1]+pnhSearchNameMid[0] ] );
+                        }
+                        newNameListLength = newNameList.length;
+                        for (var extix=1; extix<newNameListLength; extix++) {  // extend the list by adding Mid terms onto the SearchNameBase names
+                            for (var altix=0; altix<pnhSearchNameMid.length; altix++) {
+                                newNameList.push(newNameList[extix]+pnhSearchNameMid[altix] );
+                            }
+                        }
+                    }
+
+                    if (pnhEntryTemp[ph_searchnameend_ix] !== "0" || pnhEntryTemp[ph_searchnameend_ix] !== "") {  // if end search term add-ons exist
+                        var pnhSearchNameEnd = pnhEntryTemp[ph_searchnameend_ix].replace(/[^A-Za-z0-9,]/g, '');  // clear non-letter and non-number characters
+                        pnhSearchNameEnd = pnhSearchNameEnd.toUpperCase().split(",");  // upper case and split
+                        newNameListLength = newNameList.length;
+                        for (var exetix=1; exetix<newNameListLength; exetix++) {  // extend the list by adding End terms onto all the SearchNameBase & Base+Mid names
+                            for (var aletix=0; aletix<pnhSearchNameEnd.length; aletix++) {
+                                newNameList.push(newNameList[exetix]+pnhSearchNameEnd[aletix] );
+                            }
+                        }
+                    }
+                }
+                // Clear out any empty entries
+                var newNameListTemp = [];
+                for ( catix=0; catix<newNameList.length; catix++) {  // extend the list by adding Hotel to all items
+                    if (newNameList[catix].length > 1) {
+                        newNameListTemp.push(newNameList[catix]);
+                    }
+                }
+                newNameList = newNameListTemp;
+                // Next, add extensions to the search names based on the WME place category
+                newNameListLength = newNameList.length;
+                var catix;
+                if (pnhEntryTemp[ph_category1_ix].toUpperCase().replace(/[^A-Za-z0-9]/g, '') === "HOTEL") {
+                    for ( catix=0; catix<newNameListLength; catix++) {  // extend the list by adding Hotel to all items
+                        newNameList.push(newNameList[catix]+"HOTEL");
+                    }
+                } else if (pnhEntryTemp[ph_category1_ix].toUpperCase().replace(/[^A-Za-z0-9]/g, '') === "BANKFINANCIAL") {
+                    for ( catix=0; catix<newNameListLength; catix++) {  // extend the list by adding Bank and ATM to all items
+                        newNameList.push(newNameList[catix]+"BANK");
+                        newNameList.push(newNameList[catix]+"ATM");
+                    }
+                } else if (pnhEntryTemp[ph_category1_ix].toUpperCase().replace(/[^A-Za-z0-9]/g, '') === "SUPERMARKETGROCERY") {
+                    for ( catix=0; catix<newNameListLength; catix++) {  // extend the list by adding Supermarket to all items
+                        newNameList.push(newNameList[catix]+"SUPERMARKET");
+                    }
+                } else if (pnhEntryTemp[ph_category1_ix].toUpperCase().replace(/[^A-Za-z0-9]/g, '') === "GYMFITNESS") {
+                    for ( catix=0; catix<newNameListLength; catix++) {  // extend the list by adding Gym to all items
+                        newNameList.push(newNameList[catix]+"GYM");
+                    }
+                } else if (pnhEntryTemp[ph_category1_ix].toUpperCase().replace(/[^A-Za-z0-9]/g, '') === "GASSTATION") {
+                    for ( catix=0; catix<newNameListLength; catix++) {  // extend the list by adding Gas terms to all items
+                        newNameList.push(newNameList[catix]+"GAS");
+                        newNameList.push(newNameList[catix]+"GASOLINE");
+                        newNameList.push(newNameList[catix]+"FUEL");
+                        newNameList.push(newNameList[catix]+"STATION");
+                        newNameList.push(newNameList[catix]+"GASSTATION");
+                    }
+                } else if (pnhEntryTemp[ph_category1_ix].toUpperCase().replace(/[^A-Za-z0-9]/g, '') === "CARRENTAL") {
+                    for ( catix=0; catix<newNameListLength; catix++) {  // extend the list by adding Car Rental terms to all items
+                        newNameList.push(newNameList[catix]+"RENTAL");
+                        newNameList.push(newNameList[catix]+"RENTACAR");
+                        newNameList.push(newNameList[catix]+"CARRENTAL");
+                        newNameList.push(newNameList[catix]+"RENTALCAR");
+                    }
+                }
+                console.log('261 // About to call uniq() once inside of makeNameCheckList()');
+                newNameList = uniq(newNameList);  // remove any duplicate search names
+                newNameList = newNameList.join("|");  // join the list with |
+                newNameList = newNameList.replace(/\|{2,}/g, '|');
+                newNameList = newNameList.replace(/\|+$/g, '');
+                PNH_NAMES.push(newNameList);  // push the list to the master search list
+            } else { // END if valid line
+                PNH_NAMES.push('00');
+            }
+        }
+        var t1 = performance.now();  // log search time
+        //phlog("Built search list of " + PNH_DATA.length + " PNH places in " + (t1 - t0) + " milliseconds.");
+        return PNH_NAMES;
+    }  // END makeNameCheckList
+
+
+
+    ////////////////////////////////
+    ////////////////////////////////
+    //// Global WMEPH variables ////
+    ////////////////////////////////
+    ////////////////////////////////
+
+
+    //////////////////////////////
+    //////////////////////////////
+    //// Begin old WMEPH code ////
+    //////////////////////////////
+    //////////////////////////////
     var WMEPHversion = GM_info.script.version.toString(); // pull version from header
     var WMEPHversionMeta = WMEPHversion.match(/(\d+\.\d+)/i)[1];  // get the X.X version
     var majorNewFeature = false;  // set to true to make an alert pop up after script update with new feature
@@ -164,65 +427,12 @@
                 }
             });
 
-    function placeHarmonizer_bootstrap() {
-        if ( "undefined" !== typeof W.loginManager && "undefined" !== typeof W.map) {
-            dataReady() //  Run the code to check for data return from the Sheets
-            // Create duplicatePlaceName layer
-            var rlayers = W.map.getLayersBy("uniqueName","__DuplicatePlaceNames");
-            if(rlayers.length === 0) {
-                var lname = "WMEPH Duplicate Names";
-                var style = new OpenLayers.Style({ label : "${labelText}", labelOutlineColor: '#333', labelOutlineWidth: 3, labelAlign: '${labelAlign}',
-                                                  fontColor: "${fontColor}", fontOpacity: 1.0, fontSize: "20px", labelYOffset: -30, labelXOffset: 0, fontWeight: "bold",
-                                                  fill: false, strokeColor: "${strokeColor}", strokeWidth: 10, pointRadius: "${pointRadius}" });
-                nameLayer = new OpenLayers.Layer.Vector(lname, { displayInLayerSwitcher: false, uniqueName: "__DuplicatePlaceNames", styleMap: new OpenLayers.StyleMap(style) });
-                nameLayer.setVisibility(false);
-                W.map.addLayer(nameLayer);
-                WMEPH_NameLayer = nameLayer;
-            } else {
-                WMEPH_NameLayer = rlayers[0];
-            }
-        } else {
-            phlog("Waiting for WME map and login...");
-            placeHarmonizer_bootstrap();
-        }
-    }
+    //function placeHarmonizer_bootstrap() {
 
-    function dataReady() {
-        // If the data has returned, then start the script, otherwise wait a bit longer
-        if ("undefined" !== typeof CAN_PNH_DATA && "undefined" !== typeof USA_PNH_DATA && "undefined" !== typeof USA_CH_DATA &&
-            "undefined" !== typeof WMEPHdevList && "undefined" !== typeof WMEPHbetaList && "undefined" !== typeof hospitalPartMatch ) {
-                USA_PNH_NAMES = makeNameCheckList(USA_PNH_DATA);
-                USA_CH_NAMES = makeCatCheckList(USA_CH_DATA);
-                CAN_PNH_NAMES = makeNameCheckList(CAN_PNH_DATA);
-                // CAN using USA_CH_NAMES at the moment
-            loginReady();  //  start the main code
-        } else {
-            if (dataReadyCounter % 20 === 0) {
-                var waitMessage = 'Waiting for ';
-                if ("undefined" === typeof CAN_PNH_DATA) {
-                    waitMessage = waitMessage + "CAN PNH Data; ";
-                }
-                if ("undefined" === typeof USA_PNH_DATA) {
-                    waitMessage = waitMessage + "USA PNH Data; ";
-                }
-                if ("undefined" === typeof hospitalPartMatch) {
-                    waitMessage = waitMessage + "Cat-Name Data; ";
-                }
-                if ("undefined" === typeof WMEPHdevList) {
-                    waitMessage = waitMessage + "User List Data;";
-                }
-                phlog(waitMessage);
-            }
-            if (dataReadyCounter<200) {
-                dataReadyCounter++;
-                setTimeout(function () { dataReady(); }, 100);
-            } else {
-                phlog("Data load took too long, reload WME...");
-            }
-        }
-    }
+    //function dataReady() {
 
     function loginReady() {
+        console.log('--- loginReady() called ---');
         dataReadyCounter = 0;
         if ( W.loginManager.user !== null) {
             runPH();  //  start the main code
@@ -238,7 +448,9 @@
         }
     }
 
+    // This function will need to be split up because it is way too big.
     function runPH() {
+        console.log('--- runPH() called ---');
         // Script update info
         var WMEPHWhatsNewList = [  // New in this version
             '1.1.57: Fix for Store Locator button not showing up on first run, and unpredictable Service button behavior.',
@@ -407,6 +619,7 @@
          */
         var layer = W.map.landmarkLayer;
         function initializeHighlights() {
+            console.log('--- initializeHighlights() called ---');
             var ruleGenerator = function(value, symbolizer) {
                 return new W.Rule({
                     filter: new OL.Filter.Comparison({
@@ -523,6 +736,7 @@
          * @param venues {array of venues, or single venue} Venues to check for highlights.
          */
         function applyHighlightsTest(venues) {
+            console.log('--- applyHighlightsTest(venues) called ---');
             venues = venues ? _.isArray(venues) ? venues : [venues] : [];
             var storedBannButt = bannButt, storedBannServ = bannServ, storedBannButt2 = bannButt2;
             var t0 = performance.now();  // Speed check start
@@ -565,6 +779,7 @@
 
         // Set up CH loop
         function bootstrapWMEPH_CH() {
+            console.log('--- bootstrapWMEPH_CH() called ---');
             if ( $("#WMEPH-ColorHighlighting" + devVersStr).prop('checked') ) {
                 // Turn off place highlighting in WMECH if it's on.
                 if ( $("#_cbHighlightPlaces").prop('checked') ) {
@@ -608,6 +823,7 @@
         var specWords = "d'Bronx|iFix".split('|');
 
         function toTitleCase(str) {
+            console.log('--- toTitleCase(str) called ---');
             if (!str) {
                 return str;
             }
@@ -660,6 +876,7 @@
 
         // Change place.name to title case
         function toTitleCaseStrong(str) {
+            console.log('--- toTitleCaseStrong(str) called ---');
             if (!str) {
                 return str;
             }
@@ -737,6 +954,7 @@
 
         // Alphanumeric phone conversion
         function replaceLetters(number) {
+            console.log('--- replaceLetters(number) called ---');
             var conversionMap = _({
                 2: /A|B|C/,
                 3: /D|E|F/,
@@ -794,6 +1012,7 @@
 
         // Only run the harmonization if a venue is selected
         function harmonizePlace() {
+            console.log('--- harmonizePlace() called ---');
             // Script is only for R2+ editors
             if (!betaUser && usrRank < 2) {
                 alert("Script is currently available for editors of Rank 2 and up.");
@@ -2664,6 +2883,7 @@
                         bannButt.addAlias.title = 'Add ' + optionalAlias;
                     }
                     // update categories if different and no Cat2 option
+                    console.log('2887 // About to call uniq() twice inside of harmonizePlaceGo()');
                     if ( !matchSets( uniq(item.attributes.categories),uniq(newCategories) ) ) {
                         if ( specCases.indexOf('optionCat2') === -1 && specCases.indexOf('buttOn_addCat2') === -1 ) {
                             phlogdev("Categories updated" + " with " + newCategories);
@@ -3680,6 +3900,7 @@
                                         venueWhitelist[itemID][wlKeyName] = [];
                                     }
                                     venueWhitelist[itemID].dupeWL.push(dID);  // WL the id for the duplicate venue
+                                    console.log('3904 // About to call uniq() once inside of harmonizePlaceGo()');
                                     venueWhitelist[itemID].dupeWL = uniq(venueWhitelist[itemID].dupeWL);
                                     // Make an entry for the opposite item
                                     if (!venueWhitelist.hasOwnProperty(dID)) {  // If venue is NOT on WL, then add it.
@@ -3689,6 +3910,7 @@
                                         venueWhitelist[dID][wlKeyName] = [];
                                     }
                                     venueWhitelist[dID].dupeWL.push(itemID);  // WL the id for the duplicate venue
+                                    console.log('3914 // About to call uniq() once inside of harmonizePlaceGo()');
                                     venueWhitelist[dID].dupeWL = uniq(venueWhitelist[dID].dupeWL);
                                     saveWL_LS(compressedWLLS);  // Save the WL to local storage
                                     WMEPH_WLCounter();
@@ -3771,6 +3993,7 @@
 
         // highlight changed fields
         function highlightChangedFields(fieldUpdateObject,hpMode) {
+            console.log('--- highlightChangedFields(fieldUpdateObject,hpMode) called ---');
 
             if (hpMode.harmFlag) {
                 //var panelFields = {};
@@ -3900,6 +4123,7 @@
 
         // Set up banner messages
         function assembleBanner() {
+            console.log('--- assembleBanner() called ---');
             phlogdev('Building banners');
             // push together messages from active banner messages
             var sidebarMessage = [], sidebarTools = [];  // Initialize message array
@@ -4049,6 +4273,7 @@
 
         // Button onclick event handler
         function setupButtons(b) {
+            console.log('--- setupButtons(b) called ---');
             for ( var tempKey in b ) {  // Loop through the banner possibilities
                 if ( b.hasOwnProperty(tempKey) && b[tempKey].active ) {  //  If the particular message is active
                     if (b[tempKey].hasOwnProperty('action')) {  // If there is an action, set onclick
@@ -4063,6 +4288,7 @@
         }  // END setupButtons function
 
         function buttonAction(b,bKey) {
+            console.log('--- buttonAction(b,bKey) called ---');
             var button = document.getElementById('WMEPH_'+bKey);
             button.onclick = function() {
                 b[bKey].action();
@@ -4071,6 +4297,7 @@
             return button;
         }
         function buttonWhitelist(b,bKey) {
+            console.log('--- buttonWhitelist(b,bKey) called ---');
             var button = document.getElementById('WMEPH_WL'+bKey);
             button.onclick = function() {
                 if ( bKey.match(/^\d{5,}/) !== null ) {
@@ -4088,6 +4315,7 @@
 
         // Setup div for banner messages and color
         function displayBanners(sbm,sev) {
+            console.log('--- displayBanners(sbm,sev) called ---');
             if ($('#WMEPH_banner').length === 0 ) {
                 $('<div id="WMEPH_banner">').css({"width": "100%", "background-color": "#fff", "color": "white", "font-size": "15px", "font-weight": "bold", "padding": "3px", "margin-left": "auto", "margin-right": "auto"}).prependTo(".contents");
             } else {
@@ -4115,6 +4343,7 @@
 
         // Setup div for banner messages and color
         function displayTools(sbm) {
+            console.log('--- displayTools(sbm) called ---');
             if ($('#WMEPH_tools').length === 0 ) {
                 $('<div id="WMEPH_tools">').css({"width": "100%", "background-color": "#eee", "color": "black", "font-size": "15px", "font-weight": "bold", "padding": "3px", "margin-left": "auto", "margin-right": "auto"}).prependTo(".contents");
             } else {
@@ -4136,6 +4365,7 @@
 
         // Display run button on place sidebar
         function displayRunButton() {
+            console.log('--- displayRunButton() called ---');
             var betaDelay = 0;
             if (isDevVersion) { betaDelay = 30; }
             setTimeout(function() {
@@ -4165,6 +4395,7 @@
 
         // WMEPH Clone Tool
         function displayCloneButton() {
+            console.log('--- displayCloneButton() called ---');
             var betaDelay = 80;
             if (isDevVersion) { betaDelay = 300; }
             setTimeout(function() {
@@ -4295,6 +4526,7 @@
 
         // Catch PLs and reloads that have a place selected already and limit attempts to about 10 seconds
         function bootstrapRunButton() {
+            console.log('--- bootstrapRunButton() called ---');
             if (numAttempts < 10) {
                 numAttempts++;
                 if (W.selectionManager.selectedItems.length === 1) {
@@ -4315,6 +4547,7 @@
 
         // Find field divs
         function getPanelFields() {
+            console.log('--- getPanelFields() called ---');
             var panelFieldsList = $('.form-control'), pfa;
             for (var pfix=0; pfix<panelFieldsList.length; pfix++) {
                 pfa = panelFieldsList[pfix].name;
@@ -4362,6 +4595,7 @@
         // Catch PLs and reloads that have a place selected already and limit attempts to about 10 seconds
         numAttempts = 0;
         function bootstrapInferAddress() {
+            console.log('--- bootstrapInferAddress() called ---');
             if (numAttempts < 20) {
                 numAttempts++;
                 var inferredAddress = WMEPH_inferAddress(7);
@@ -4375,6 +4609,7 @@
 
         // Function to clone info from a place
         function clonePlace() {
+            console.log('--- clonePlace() called ---');
             phlog('Cloning info...');
             var UpdateObject = require("Waze/Action/UpdateObject");
             if (cloneMaster !== null && cloneMaster.hasOwnProperty('url')) {
@@ -4431,6 +4666,7 @@
 
         // Formats "hour object" into a string.
         function formatOpeningHour(hourEntry) {
+            console.log('--- formatOpeningHour(hourEntry) called ---');
             var dayNames = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
             var hours = hourEntry.attributes.fromHour + '-' + hourEntry.attributes.toHour;
             return hourEntry.attributes.days.map(function(day) {
@@ -4439,10 +4675,12 @@
         }
         // Pull natural text from opening hours
         function getOpeningHours(venue) {
+            console.log('--- getOpeningHours(venue) called ---');
             return venue && venue.getOpeningHours && venue.getOpeningHours().map(formatOpeningHour);
         }
         // Parse hours paste for hours object array
         function parseHours(inputHours) {
+            console.log('--- parseHours(inputHours) called ---');
             var daysOfTheWeek = {
                 SS: ['saturdays', 'saturday', 'satur', 'sat', 'sa'],
                 UU: ['sundays', 'sunday', 'sun', 'su'],
@@ -4805,6 +5043,7 @@
 
         // function to check overlapping hours
         function checkHours(hoursObj) {
+            console.log('--- checkHours(hoursObj) called ---');
             if (hoursObj.length === 1) {
                 return true;
             }
@@ -4886,6 +5125,7 @@
                     }
                 }
             }
+            console.log('5129 // About to call uniq() once inside of findNearbyDuplicate()');
             currNameList = uniq(currNameList);  //  remove duplicates
 
             // Remove any previous search labels and move the layer above the places layer
@@ -5106,6 +5346,7 @@
 
         // On selection of new item:
         function checkSelection() {
+            console.log('--- checkSelection() called ---');
             if (W.selectionManager.selectedItems.length > 0) {
                 var newItem = W.selectionManager.selectedItems[0].model;
                 if (newItem.type === "venue") {
@@ -5131,6 +5372,7 @@
 
         // Functions to infer address from nearby segments
         function WMEPH_inferAddress(MAX_RECURSION_DEPTH) {
+            console.log('--- WMEPH_inferAddress(MAX_RECURSION_DEPTH) called ---');
             'use strict';
             var distanceToSegment,
                 foundAddresses = [],
@@ -5351,6 +5593,7 @@
 
         // Build a Google search url based on place name and address
         function buildGLink(searchName,addr,HN) {
+            console.log('--- buildGLink(searchName,addr,HN) called ---');
             var searchHN = "", searchStreet = "", searchCity = "";
             searchName = searchName.replace(/&/g, "%26");
             searchName = searchName.replace(/[ \/]/g, "%20");
@@ -5380,6 +5623,7 @@
 
         // WME Category translation from Natural language to object language  (Bank / Financial --> BANK_FINANCIAL)
         function catTranslate(natCategories) {
+            console.log('--- catTranslate(natCategories) called ---');
             //console.log(natCategories);
             var natCategoriesRepl = natCategories.toUpperCase().replace(/ AND /g, "").replace(/[^A-Z]/g, "");
             if (natCategoriesRepl.indexOf('PETSTORE') > -1) {
@@ -5415,6 +5659,7 @@
 
         // function that checks if all elements of target are in array:source
         function containsAll(source,target) {
+            console.log('--- containsAll(source,target) called ---');
             if (typeof(target) === "string") { target = [target]; }  // if a single string, convert to an array
             for (var ixx = 0; ixx < target.length; ixx++) {
                 if ( source.indexOf(target[ixx]) === -1 ) {
@@ -5426,6 +5671,7 @@
 
         // function that checks if any element of target are in source
         function containsAny(source,target) {
+            console.log('--- containsAny(source,target) called ---');
             if (typeof(source) === "string") { source = [source]; }  // if a single string, convert to an array
             if (typeof(target) === "string") { target = [target]; }  // if a single string, convert to an array
             var result = source.filter(function(tt){ return target.indexOf(tt) > -1; });
@@ -5441,6 +5687,7 @@
                 arrayNew.push.apply(arrayNew, array2);  // add the insert
                 arrayNew.push.apply(arrayNew, arrayTemp);  // add the tail end of original
             }
+            console.log('5690 // About to call uniq() once inside of insertAtIX()');
             return uniq(arrayNew);  // remove any duplicates (so the function can be used to move the position of a string)
         }
 
@@ -5461,6 +5708,7 @@
 
         // settings tab
         function add_PlaceHarmonizationSettingsTab() {
+            console.log('--- add_PlaceHarmonizationSettingsTab() called ---');
             //Create Settings Tab
             var phTabHtml = '<li><a href="#sidepanel-ph' + devVersStr + '" data-toggle="tab" id="PlaceHarmonization' + devVersStr + '">WMEPH' + devVersStrSpace + '</a></li>';
             $("#user-tabs ul.nav-tabs:first").append(phTabHtml);
@@ -5920,6 +6168,7 @@
 
         //Function to add Shift+ to upper case KBS
         function parseKBSShift(kbs) {
+            console.log('--- parseKBSShift(kbs) called ---');
             if (kbs.match(/^[A-Z]{1}$/g) !== null) { // If upper case, then add a Shift+
                 kbs = 'Shift+' + kbs;
             }
@@ -5928,6 +6177,7 @@
 
         // Function to check shortcut conflict
         function checkWMEPH_KBSconflict(KBS) {
+            console.log('--- checkWMEPH_KBSconflict(KBS) called ---');
             var LSString = '';
             if (!isDevVersion) {
                 LSString = devVersStringMaster;
@@ -5943,6 +6193,7 @@
 
         // Save settings prefs
         function saveSettingToLocalStorage(settingID) {
+            console.log('--- saveSettingToLocalStorage(settingID) called ---');
             if ($("#" + settingID).prop('checked')) {
                 localStorage.setItem(settingID, '1');
             } else {
@@ -5952,6 +6203,7 @@
 
         // This function validates that the inputted text is a JSON
         function validateWLS(jsonString) {
+            console.log('--- validateWLS(jsonString) called ---');
             "use strict";
             try {
                 var objTry = JSON.parse(jsonString);
@@ -5965,6 +6217,7 @@
 
         // This function merges and updates venues from object vWL_2 into vWL_1
         function mergeWL(vWL_1,vWL_2) {
+            console.log('--- mergeWL(vWL_1,vWL_2) called ---');
             "use strict";
             var venueKey, WLKey, vWL_1_Venue, vWL_2_Venue;
             for (venueKey in vWL_2) {
@@ -5993,6 +6246,7 @@
 
         // Get services checkbox status
         function getServicesChecks() {
+            console.log('--- getServicesChecks() called ---');
             var servArrayCheck = [];
             for (var wsix=0; wsix<WMEServicesArray.length; wsix++) {
                 if ($("#service-checkbox-" + WMEServicesArray[wsix]).prop('checked')) {
@@ -6005,6 +6259,7 @@
         }
 
         function updateServicesChecks(bannServ) {
+            console.log('--- updateServicesChecks(bannServ) called ---');
             var servArrayCheck = getServicesChecks(), wsix=0;
             for (var keys in bannServ) {
                 if (bannServ.hasOwnProperty(keys)) {
@@ -6022,6 +6277,7 @@
 
         // Focus away from the current cursor focus, to set text box changes
         function blurAll() {
+            console.log('--- blurAll() called ---');
             var tmp = document.createElement("input");
             document.body.appendChild(tmp);
             tmp.focus();
@@ -6030,6 +6286,7 @@
 
         // Pulls the item PL
         function getItemPL() {
+            console.log('--- getItemPL() called ---');
             // Append a form div if it doesn't exist yet:
             if ( $('#WMEPH_formDiv').length ===0 ) {
                 var tempDiv = document.createElement('div');
@@ -6053,6 +6310,7 @@
 
         // Sets up error reporting
         function WMEPH_errorReport(data) {
+            console.log('--- WMEPH_errorReport(data) called ---');
             data.preview = 'Preview';
             data.attach_sig = 'on';
             if (PMUserList.hasOwnProperty('WMEPH') && PMUserList.WMEPH.approvalActive) {
@@ -6114,6 +6372,7 @@
 
         // Function that checks current place against the Harmonization Data.  Returns place data or "NoMatch"
         function harmoList(itemName,state2L,region3L,country,itemCats) {
+            console.log('--- harmoList(itemName,state2L,region3L,country,itemCats) called ---');
             var PNH_DATA_headers;
             var ixendPNH_NAMES;
             if (country === 'USA') {
@@ -6392,6 +6651,7 @@
         };  // END Shortcut function
 
         function phlogdev(m) {
+            console.log('--- phlogdev(m) called ---');
             if ('object' === typeof m) {
                 m = JSON.stringify(m);
             }
@@ -6403,7 +6663,8 @@
 
 
     // This function runs at script load, and splits the category dataset into the searchable categories.
-    function makeCatCheckList(CH_DATA) {  // Builds the list of search names to match to the WME place name
+    function makeCatCheckList(CH_DATA) {
+        console.log('--- makeCatCheckList(CH_DATA) called ---');  // Builds the list of search names to match to the WME place name
         var CH_CATS = [];
         var CH_DATA_headers = CH_DATA[0].split("|");  // split the data headers out
         var pc_wmecat_ix = CH_DATA_headers.indexOf("pc_wmecat");  // find the indices needed for the function
@@ -6415,136 +6676,11 @@
         return CH_CATS;
     } // END makeCatCheckList function
 
-    // This function runs at script load, and builds the search name dataset to compare the WME selected place name to.
-    function makeNameCheckList(PNH_DATA) {  // Builds the list of search names to match to the WME place name
-        var PNH_NAMES = [];
-        var PNH_DATA_headers = PNH_DATA[0].split("|");  // split the data headers out
-        var ph_name_ix = PNH_DATA_headers.indexOf("ph_name");  // find the indices needed for the function
-        var ph_aliases_ix = PNH_DATA_headers.indexOf("ph_aliases");
-        var ph_category1_ix = PNH_DATA_headers.indexOf("ph_category1");
-        var ph_searchnamebase_ix = PNH_DATA_headers.indexOf("ph_searchnamebase");
-        var ph_searchnamemid_ix = PNH_DATA_headers.indexOf("ph_searchnamemid");
-        var ph_searchnameend_ix = PNH_DATA_headers.indexOf("ph_searchnameend");
-        var ph_disable_ix = PNH_DATA_headers.indexOf("ph_disable");
-        var ph_speccase_ix = PNH_DATA_headers.indexOf("ph_speccase");
-
-        var t0 = performance.now(); // Speed check start
-        var newNameListLength;  // static list length
-
-        for (var pnhix=0; pnhix<PNH_DATA.length; pnhix++) {  // loop through all PNH places
-            var pnhEntryTemp = PNH_DATA[pnhix].split("|");  // split the current PNH data line
-            if (pnhEntryTemp[ph_disable_ix] !== "1" || pnhEntryTemp[ph_speccase_ix].indexOf('betaEnable') > -1 ) {
-                var newNameList = pnhEntryTemp[ph_name_ix].toUpperCase();  // pull out the primary PNH name & upper case it
-                newNameList = newNameList.replace(/ AND /g, '');  // Clear the word "AND" from the name
-                newNameList = newNameList.replace(/^THE /g, '');  // Clear the word "THE" from the start of the name
-                newNameList = [newNameList.replace(/[^A-Z0-9]/g, '')];  // Clear non-letter and non-number characters, store in array
-
-                if (pnhEntryTemp[ph_disable_ix] !== "altName") {
-                    // Add any aliases
-                    var tempAliases = pnhEntryTemp[ph_aliases_ix].toUpperCase();
-                    if ( tempAliases !== '' && tempAliases !== '0' && tempAliases !== '') {
-                        tempAliases = tempAliases.replace(/,[^A-za-z0-9]*/g, ",").split(",");  // tighten and split aliases
-                        for (var alix=0; alix<tempAliases.length; alix++) {
-                            newNameList.push( tempAliases[alix].replace(/ AND /g, '').replace(/^THE /g, '').replace(/[^A-Z0-9]/g, '') );
-                        }
-                    }
-                }
-
-                // The following code sets up alternate search names as outlined in the PNH dataset.
-                // Formula, with P = PNH primary; A1, A2 = PNH aliases; B1, B2 = base terms; M1, M2 = mid terms; E1, E2 = end terms
-                // Search list will build: P, A, B, PM, AM, BM, PE, AE, BE, PME, AME, BME.
-                // Multiple M terms are applied singly and in pairs (B1M2M1E2).  Multiple B and E terms are applied singly (e.g B1B2M1 not used).
-                // Any doubles like B1E2=P are purged at the end to eliminate redundancy.
-                if (pnhEntryTemp[ph_searchnamebase_ix] !== "0" || pnhEntryTemp[ph_searchnamebase_ix] !== "") {   // If base terms exist, otherwise only the primary name is matched
-                    var pnhSearchNameBase = pnhEntryTemp[ph_searchnamebase_ix].replace(/[^A-Za-z0-9,]/g, '');  // clear non-letter and non-number characters (keep commas)
-                    pnhSearchNameBase = pnhSearchNameBase.toUpperCase().split(",");  // upper case and split the base-name  list
-                    newNameList.push.apply(newNameList,pnhSearchNameBase);   // add them to the search base list
-
-                    if (pnhEntryTemp[ph_searchnamemid_ix] !== "0" || pnhEntryTemp[ph_searchnamemid_ix] !== "") {  // if middle search term add-ons exist
-                        var pnhSearchNameMid = pnhEntryTemp[ph_searchnamemid_ix].replace(/[^A-Za-z0-9,]/g, '');  // clear non-letter and non-number characters
-                        pnhSearchNameMid = pnhSearchNameMid.toUpperCase().split(",");  // upper case and split
-                        if (pnhSearchNameMid.length > 1) {  // if there are more than one mid terms, it adds a permutation of the first 2
-                            pnhSearchNameMid.push.apply( pnhSearchNameMid,[ pnhSearchNameMid[0]+pnhSearchNameMid[1],pnhSearchNameMid[1]+pnhSearchNameMid[0] ] );
-                        }
-                        newNameListLength = newNameList.length;
-                        for (var extix=1; extix<newNameListLength; extix++) {  // extend the list by adding Mid terms onto the SearchNameBase names
-                            for (var altix=0; altix<pnhSearchNameMid.length; altix++) {
-                                newNameList.push(newNameList[extix]+pnhSearchNameMid[altix] );
-                            }
-                        }
-                    }
-
-                    if (pnhEntryTemp[ph_searchnameend_ix] !== "0" || pnhEntryTemp[ph_searchnameend_ix] !== "") {  // if end search term add-ons exist
-                        var pnhSearchNameEnd = pnhEntryTemp[ph_searchnameend_ix].replace(/[^A-Za-z0-9,]/g, '');  // clear non-letter and non-number characters
-                        pnhSearchNameEnd = pnhSearchNameEnd.toUpperCase().split(",");  // upper case and split
-                        newNameListLength = newNameList.length;
-                        for (var exetix=1; exetix<newNameListLength; exetix++) {  // extend the list by adding End terms onto all the SearchNameBase & Base+Mid names
-                            for (var aletix=0; aletix<pnhSearchNameEnd.length; aletix++) {
-                                newNameList.push(newNameList[exetix]+pnhSearchNameEnd[aletix] );
-                            }
-                        }
-                    }
-                }
-                // Clear out any empty entries
-                var newNameListTemp = [];
-                for ( catix=0; catix<newNameList.length; catix++) {  // extend the list by adding Hotel to all items
-                    if (newNameList[catix].length > 1) {
-                        newNameListTemp.push(newNameList[catix]);
-                    }
-                }
-                newNameList = newNameListTemp;
-                // Next, add extensions to the search names based on the WME place category
-                newNameListLength = newNameList.length;
-                var catix;
-                if (pnhEntryTemp[ph_category1_ix].toUpperCase().replace(/[^A-Za-z0-9]/g, '') === "HOTEL") {
-                    for ( catix=0; catix<newNameListLength; catix++) {  // extend the list by adding Hotel to all items
-                        newNameList.push(newNameList[catix]+"HOTEL");
-                    }
-                } else if (pnhEntryTemp[ph_category1_ix].toUpperCase().replace(/[^A-Za-z0-9]/g, '') === "BANKFINANCIAL") {
-                    for ( catix=0; catix<newNameListLength; catix++) {  // extend the list by adding Bank and ATM to all items
-                        newNameList.push(newNameList[catix]+"BANK");
-                        newNameList.push(newNameList[catix]+"ATM");
-                    }
-                } else if (pnhEntryTemp[ph_category1_ix].toUpperCase().replace(/[^A-Za-z0-9]/g, '') === "SUPERMARKETGROCERY") {
-                    for ( catix=0; catix<newNameListLength; catix++) {  // extend the list by adding Supermarket to all items
-                        newNameList.push(newNameList[catix]+"SUPERMARKET");
-                    }
-                } else if (pnhEntryTemp[ph_category1_ix].toUpperCase().replace(/[^A-Za-z0-9]/g, '') === "GYMFITNESS") {
-                    for ( catix=0; catix<newNameListLength; catix++) {  // extend the list by adding Gym to all items
-                        newNameList.push(newNameList[catix]+"GYM");
-                    }
-                } else if (pnhEntryTemp[ph_category1_ix].toUpperCase().replace(/[^A-Za-z0-9]/g, '') === "GASSTATION") {
-                    for ( catix=0; catix<newNameListLength; catix++) {  // extend the list by adding Gas terms to all items
-                        newNameList.push(newNameList[catix]+"GAS");
-                        newNameList.push(newNameList[catix]+"GASOLINE");
-                        newNameList.push(newNameList[catix]+"FUEL");
-                        newNameList.push(newNameList[catix]+"STATION");
-                        newNameList.push(newNameList[catix]+"GASSTATION");
-                    }
-                } else if (pnhEntryTemp[ph_category1_ix].toUpperCase().replace(/[^A-Za-z0-9]/g, '') === "CARRENTAL") {
-                    for ( catix=0; catix<newNameListLength; catix++) {  // extend the list by adding Car Rental terms to all items
-                        newNameList.push(newNameList[catix]+"RENTAL");
-                        newNameList.push(newNameList[catix]+"RENTACAR");
-                        newNameList.push(newNameList[catix]+"CARRENTAL");
-                        newNameList.push(newNameList[catix]+"RENTALCAR");
-                    }
-                }
-                newNameList = uniq(newNameList);  // remove any duplicate search names
-                newNameList = newNameList.join("|");  // join the list with |
-                newNameList = newNameList.replace(/\|{2,}/g, '|');
-                newNameList = newNameList.replace(/\|+$/g, '');
-                PNH_NAMES.push(newNameList);  // push the list to the master search list
-            } else { // END if valid line
-                PNH_NAMES.push('00');
-            }
-        }
-        var t1 = performance.now();  // log search time
-        //phlog("Built search list of " + PNH_DATA.length + " PNH places in " + (t1 - t0) + " milliseconds.");
-        return PNH_NAMES;
-    }  // END makeNameCheckList
+    //function makeNameCheckList(PNH_DATA) {
 
     // Whitelist stringifying and parsing
     function saveWL_LS(compress) {
+        console.log('--- saveWL_LS(compress) called ---');
         venueWhitelistStr = JSON.stringify(venueWhitelist);
         if (compress) {
             if (venueWhitelistStr.length < 4800000 ) {  // Also save to regular storage as a back up
@@ -6557,6 +6693,7 @@
         }
     }
     function loadWL_LS(decompress) {
+        console.log('--- loadWL_LS(decompress) called ---');
         if (decompress) {
             venueWhitelistStr = localStorage.getItem(WLlocalStoreNameCompressed);
             venueWhitelistStr = LZString.decompressFromUTF16(venueWhitelistStr);
@@ -6566,6 +6703,7 @@
         venueWhitelist = JSON.parse(venueWhitelistStr);
     }
     function backupWL_LS(compress) {
+        console.log('--- backupWL_LS(compress) called ---');
         venueWhitelistStr = JSON.stringify(venueWhitelist);
         if (compress) {
             venueWhitelistStr = LZString.compressToUTF16(venueWhitelistStr);
@@ -6575,23 +6713,12 @@
         }
     }
 
-    // Removes duplicate strings from string array
-    function uniq(a) {
-        "use strict";
-        var seen = {};
-        return a.filter(function(item) {
-            return seen.hasOwnProperty(item) ? false : (seen[item] = true);
-        });
-    }  // END uniq function
+    //function uniq(a) {
 
-    function phlog(m) {
-        if ('object' === typeof m) {
-            //m = JSON.stringify(m);
-        }
-        console.log('WMEPH' + devVersStrDash + ': ' + m);
-    }
+    //function phlog(m) {
 
     function zoomPlace() {
+        console.log('--- zoomPlace() called ---');
         if (W.selectionManager.selectedItems.length === 1 && W.selectionManager.selectedItems[0].model.type === "venue") {
             W.map.moveTo(W.selectionManager.selectedItems[0].model.geometry.getCentroid().toLonLat(), 7);
         } else {
@@ -6600,6 +6727,7 @@
     }
 
     function sortWithIndex(toSort) {
+        console.log('--- sortWithIndex(toSort) called ---');
         for (var i = 0; i < toSort.length; i++) {
             toSort[i] = [toSort[i], i];
         }
@@ -6671,6 +6799,7 @@
 
     // Keep track of how many whitelists have been added since the last pull, alert if over a threshold (100?)
     function WMEPH_WLCounter() {
+        console.log('--- WMEPH_WLCounter() called ---');
         localStorage.WMEPH_WLAddCount = parseInt(localStorage.WMEPH_WLAddCount)+1;
         if (localStorage.WMEPH_WLAddCount > 50) {
             alert('Don\'t forget to periodically back up your Whitelist data using the Pull option in the WMEPH settings tab.');
@@ -6679,6 +6808,7 @@
     }
 
     function modifyGoogleLinks() {
+        console.log('--- modifyGoogleLinks() called ---');
         $.ajaxPrefilter(function(options, originalOptions, jqXHR) {
             try {
                 if (originalOptions.type === "GET") {
