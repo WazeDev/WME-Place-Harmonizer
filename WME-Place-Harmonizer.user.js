@@ -12,7 +12,7 @@
 // ==UserScript==
 // @name        WME Place Harmonizer Beta
 // @namespace   https://github.com/WazeUSA/WME-Place-Harmonizer/raw/master/WME-Place-Harmonizer.user.js
-// @version     1.1.63
+// @version     1.1.64
 // @description Harmonizes, formats, and locks a selected place
 // @author      WMEPH development group
 // @include     https://*.waze.com/editor/*
@@ -249,6 +249,9 @@
     function runPH() {
         // Script update info
         var WMEPHWhatsNewList = [  // New in this version
+            '1.1.64: Added URL entry box when missing.',
+            '1.1.64: Missing gas station name automatically set to brand name.',
+            '1.1.64: Minor UI adjustments to fit some messages on one line.',
             '1.1.63: Added option to exclude PLAs when searching for duplicate places, and vice versa.',
             '1.1.62: FIXED - Whitelisted flags not saved for new (unsaved) places.',
             '1.1.61: Fixed issues with Rest Areas.',
@@ -806,8 +809,8 @@
         }
 
         // Normalize url
-        function normalizeURL(s, lc) {
-            if (!s) {  // Notify that url is missing and provide web search to find website and gather data (provided for all editors)
+        function normalizeURL(s, lc, skipBannerActivate) {
+            if (!s && !skipBannerActivate) {  // Notify that url is missing and provide web search to find website and gather data (provided for all editors)
                 bannButt.urlMissing.active = true;
                 if (currentWL.urlWL) {
                     bannButt.urlMissing.WLactive = false;
@@ -815,6 +818,7 @@
                 bannButt.webSearch.active = true;  // Activate websearch button
                 return s;
             }
+
             s = s.replace(/ \(.*/g, '');  // remove anything with parentheses after it
             s = s.replace(/ /g, '');  // remove any spaces
             var m = s.match(/^http:\/\/(.*)$/i);  // remove http://
@@ -839,6 +843,12 @@
             if (m) { s = m[1]; }
             m = s.match(/^(.*)\/$/i);  // remove final slash
             if (m) { s = m[1]; }
+
+            // This regex doesn't catch every possible bad URL.  There may be better alternatives, but going with this for now. 
+            var regx = /^((ht|f)tp(s?)\:\/\/)?[0-9a-zA-Z]([-.\w]*[0-9a-zA-Z])*(:(0-9)*)*(\/?)([a-zA-Z0-9\-\.\?\,\'\/\\\+&amp;%\$#_]*)?$/i;
+            if (s.trim().length === 0 || !regx.test(s)) {
+                s = 'badURL';
+            }
             return s;
         }  // END normalizeURL function
 
@@ -1180,8 +1190,9 @@
                 },
 
                 hnMissing: {
-                    active: false, severity: 3, message: 'No HN: <input type="text" id="WMEPH-HNAdd'+devVersStr+'" autocomplete="off" style="width:100px;padding-left:3px;color:#000;background-color:#FDD">',
+                    active: false, severity: 3, message: 'No HN: <input type="text" id="WMEPH-HNAdd'+devVersStr+'" autocomplete="off" style="font-size:0.85em;width:100px;padding-left:3px;color:#000;background-color:#FDD">',
                     value: "Add", title: 'Add HN to place',
+                    badInput: false,
                     action: function() {
                         var newHN = $('#WMEPH-HNAdd'+devVersStr).val();
                         newHN = newHN.replace(/ +/g, '');
@@ -1192,8 +1203,9 @@
                             W.model.actionManager.add(new UpdateObject(item, { houseNumber: hnTempDash }));
                             fieldUpdateObject.address='#dfd';
                             bannButt.hnMissing.active = false;
+                            badInput = false;
                         } else {
-                            $('#WMEPH-HNAdd'+devVersStr)[0].style="background-color: pink";
+                            badInput = true;
                         }
 
                     },
@@ -1454,7 +1466,22 @@
                 },
 
                 urlMissing: {
-                    active: false, severity: 1, message: "URL missing",
+                    active: false, severity: 1, message: 'No URL: <input type="text" id="WMEPH-UrlAdd'+devVersStr+'" autocomplete="off" style="font-size:0.85em;width:100px;padding-left:3px;color:#000;background-color:#DDF">',
+                    value: "Add", title: 'Add URL to place',
+                    badInput: false,
+                    action: function() {
+                        var newUrlValue = $('#WMEPH-UrlAdd'+devVersStr).val();
+                        var newUrl = normalizeURL(newUrlValue, true, true);
+                        if (newUrl === 'badURL') {
+                            this.badInput = true;
+                        } else {
+                            phlogdev(newUrl);
+                            W.model.actionManager.add(new UpdateObject(item, { url: newUrl }));
+                            fieldUpdateObject.url='#dfd';
+                            bannButt.urlMissing.active = false;
+                            this.badInput = false;
+                        }
+                    },
                     WLactive: true, WLmessage: '', WLtitle: 'Whitelist empty URL',
                     WLaction: function() {
                         wlKeyName = 'urlWL';
@@ -1463,15 +1490,16 @@
                 },
 
                 phoneMissing: {
-                    active: false, severity: 1, message: 'No phone: <input type="text" id="WMEPH-PhoneAdd'+devVersStr+'" autocomplete="off" style="width:120px;padding-left:3px;color:#000;background-color:#DDF">',
+                    active: false, severity: 1, message: 'No ph#: <input type="text" id="WMEPH-PhoneAdd'+devVersStr+'" autocomplete="off" style="font-size:0.85em;width:100px;padding-left:3px;color:#000;background-color:#DDF">',
                     value: "Add", title: 'Add phone to place',
+                    badInput: false,
                     action: function() {
                         var newPhoneVal = $('#WMEPH-PhoneAdd'+devVersStr).val();
                         var newPhone = normalizePhone(newPhoneVal, outputFormat, 'inputted');
                         if (newPhone === 'badPhone') {
-                            // bad input
-                            $('#WMEPH-PhoneAdd'+devVersStr)[0].style="background-color: pink";
+                            this.badInput = true;
                         } else {
+                            this.badInput = false;
                             phlogdev(newPhone);
                             if (countryCode === "USA" || countryCode === "CAN") {
                                 if (newPhone !== null && newPhone.match(/[2-9]\d{2}/) !== null) {
@@ -1507,7 +1535,7 @@
                 },
 
                 noHours: {
-                    active: false, severity: 1, message: 'No hours: <input type="text" value="Paste Hours Here" id="WMEPH-HoursPaste'+devVersStr+'" autocomplete="off" style="width:170px;padding-left:3px;color:#AAA">',
+                    active: false, severity: 1, message: 'No hours: <input type="text" value="Paste Hours Here" id="WMEPH-HoursPaste'+devVersStr+'" autocomplete="off" style="font-size:0.85em;width:170px;padding-left:3px;color:#AAA">',
                     value: "Add hours", title: 'Add pasted hours to existing',
                     action: function() {
                         var pasteHours = $('#WMEPH-HoursPaste'+devVersStr).val();
@@ -2164,8 +2192,8 @@
                     if ( item.attributes.adLocked ) {
                         return 'adLock';
                     } else if ( item.isPoint() && (item.attributes.categories.indexOf("HOSPITAL_MEDICAL_CARE") > -1 || item.attributes.categories.indexOf("GAS_STATION") > -1) ) {
-                        return 5;
                         phlogdev('Unaddressed HMC/GS');
+                        return 5;
                     } else {
                         return 3;
                     }
@@ -2280,6 +2308,13 @@
                 return 3;
             }
 
+            // If no gas station name, replace with brand name
+            if (hpMode.harmFlag && item.attributes.categories[0] === 'GAS_STATION' && (!newName || newName.trim().length === 0) && item.attributes.brand) {
+                newName = item.attributes.brand;
+                actions.push(new UpdateObject(item, {name: newName }));
+                fieldUpdateObject.name = '#dfd';
+            }
+
             // Clear attributes from residential places
             if (item.attributes.residential) {
                 if (hpMode.harmFlag) {
@@ -2319,15 +2354,10 @@
                 if (item.is2D()) {
                     bannButt.pointNotArea.active = true;
                 }
-            } else if (item.attributes.categories[0] === 'PARKING_LOT' || (item.attributes.name && item.attributes.name.trim().length > 0)) {  // for non-residential places
+            } else if (item.attributes.categories[0] === 'PARKING_LOT' || (newName && newName.trim().length > 0)) {  // for non-residential places
                 // Place Harmonization
                 var PNHMatchData;
                 if (hpMode.harmFlag) {
-
-                    // *********
-                    // 12/29/2016 (mapomatic) Skip PNH lookup for Parking Lots until we come up with a way to match operator instead of name. 
-                    // *********
-
                     if (item.attributes.categories[0] === 'PARKING_LOT') {
                         PNHMatchData = ['NoMatch'];
                     } else {
@@ -3022,7 +3052,6 @@
                 // PNH specific Services:
 
 
-
                 // ### remove unnecessary parent categories (Restaurant doesn't need food and drink)
                 if ( hpMode.harmFlag && newCategories.indexOf('FOOD_AND_DRINK') > -1 ) {
                     if (newCategories.indexOf('RESTAURANT') > -1 || newCategories.indexOf('FAST_FOOD') > -1 ) {
@@ -3290,7 +3319,7 @@
             }  // END if (!residential && has name)
 
             // Name check
-            if ( !item.attributes.residential && ( !item.attributes.name || item.attributes.name.replace(/[^A-Za-z0-9]/g,'').length === 0 )) {
+            if ( !item.attributes.residential && ( !newName || newName.replace(/[^A-Za-z0-9]/g,'').length === 0 )) {
                 if (item.attributes.categories[0] === 'PARKING_LOT') {
                     if (currentWL.plaNameMissing) {
                         bannButt.plaNameMissing.active = false;
@@ -3988,6 +4017,9 @@
             for ( tempKey in bannButt ) {
                 if ( bannButt.hasOwnProperty(tempKey) && bannButt[tempKey].hasOwnProperty('active') && bannButt[tempKey].active ) {  //  If the particular message is active
                     strButt1 = bannButt[tempKey].message;
+                    if (bannButt[tempKey].badInput) {
+                        strButt1 = strButt1.replace(/#DDF/i,'pink');
+                    }
                     if (bannButt[tempKey].hasOwnProperty('action')) {
                         strButt1 += ' <input class="btn btn-default btn-xs wmeph-btn" id="WMEPH_' + tempKey + '" title="' + bannButt[tempKey].title + '" type="button" value="' + bannButt[tempKey].value + '"></input>';
                         if (tempKey === 'noHours') {
@@ -4080,10 +4112,17 @@
                 }
             });
 
-            // If pressing enter in the phone entry box, add the HN
+            // If pressing enter in the phone entry box, add the phone
             $("#WMEPH-PhoneAdd"+devVersStr).keyup(function(event){
                 if( event.keyCode === 13 && $('#WMEPH-PhoneAdd'+devVersStr).val() !== '' ){
                     $("#WMEPH_phoneMissing").click();
+                }
+            });
+
+            // If pressing enter in the URL entry box, add the URL
+            $("#WMEPH-UrlAdd"+devVersStr).keyup(function(event){
+                if( event.keyCode === 13 && $('#WMEPH-UrlAdd'+devVersStr).val() !== '' ){
+                    $("#WMEPH_urlMissing").click();
                 }
             });
 
