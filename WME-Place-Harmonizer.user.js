@@ -10,7 +10,7 @@
 /* global define */
 
 // ==UserScript==
-// @name        WME Place Harmonizer Beta
+// @name        WME Place Harmonizer
 // @namespace   https://github.com/WazeUSA/WME-Place-Harmonizer/raw/master/WME-Place-Harmonizer.user.js
 // @version     1.1.64
 // @description Harmonizes, formats, and locks a selected place
@@ -262,17 +262,7 @@
             '1.1.56: Fix for needing to run twice when useless alt names are removed.',
             '1.1.55: Added Waze3rdParty and renamed "edited by waze maint bot" to "account administered by waze staff',
             '1.1.53: Fixed bug where blank space was being inserted in front of hotel brandParent name',
-            '1.1.52: Fixed bug reporting PMs.',
-            '1.1.51: Fixed lowercase alphanumeric phone number parsing.',
-            '1.1.50: Fixed bug with adding hours more than once.',
-            '1.1.49: Added a Glink modification to turn them into links and limit search radius.',
-            '1.1.47: Fix for one-field-update-per-click issue',
-            '1.1.46: allow for https:// in urls. (credit RavenDT)',
-            '1.1.45: Add disable highlights for above rank function (credit RavenDT), stop url link from adding http://',
-            '1.1.44: Fix for adding hours (credit RavenDT)',
-            '1.1.42: Temporarily disabled PLA checking until it is more stable',
-            '1.1.41: Fixed bug with whitelisting.',
-            '1.1.38: Fixed clone utility'
+            '1.1.52: Fixed bug reporting PMs.'
         ];
         var WMEPHWhatsNewMetaList = [  // New in this major version
             '1.1: Built-in place highlighter shows which places on the map need work'
