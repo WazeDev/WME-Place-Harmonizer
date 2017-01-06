@@ -12,7 +12,7 @@
 // ==UserScript==
 // @name        WME Place Harmonizer Beta
 // @namespace   https://github.com/WazeUSA/WME-Place-Harmonizer/raw/master/WME-Place-Harmonizer.user.js
-// @version     1.1.58-refactor2017
+// @version     1.1.64-refactor2017
 // @description Harmonizes, formats, and locks a selected place
 // @author      WMEPH development group
 // @include     https://*.waze.com/editor/*
@@ -310,7 +310,6 @@
     var venueWhitelist, venueWhitelistStr, WLSToMerge, wlKeyName, wlButtText = 'WL';  // Whitelisting vars
     var WLlocalStoreName = 'WMEPH-venueWhitelistNew';
     var WLlocalStoreNameCompressed = 'WMEPH-venueWhitelistCompressed';
-    var compressedWLLS;
     var WMEPH_NameLayer, nameLayer, dupeIDList = [], dupeHNRangeList, dupeHNRangeIDList, dupeHNRangeDistList;
     // Web search Window forming:
     var searchResultsWindowSpecs = '"resizable=yes, top='+ Math.round(window.screen.height*0.1) +', left='+ Math.round(window.screen.width*0.3) +', width='+ Math.round(window.screen.width*0.7) +', height='+ Math.round(window.screen.height*0.8) +'"';
@@ -444,7 +443,6 @@
             } else {
                 phlog("Login failed...?  Reload WME.");
             }
-
         }
     }
 
@@ -453,6 +451,15 @@
         console.log('--- runPH() called ---');
         // Script update info
         var WMEPHWhatsNewList = [  // New in this version
+            '1.1.64: Added URL entry box when missing.',
+            '1.1.64: Missing gas station name automatically set to brand name.',
+            '1.1.64: Minor UI adjustments to fit some messages on one line.',
+            '1.1.63: Added option to exclude PLAs when searching for duplicate places, and vice versa.',
+            '1.1.62: FIXED - Whitelisted flags not saved for new (unsaved) places.',
+            '1.1.61: Fixed issues with Rest Areas.',
+            '1.1.60: Fix to get place category "special messages" to display.',
+            '1.1.59: Fix for erroneous "stacked place" warning on area places.',
+            '1.1.58: Fix for multi-edits when runnning harmonizer in some cases.',
             '1.1.57: Fix for Store Locator button not showing up on first run, and unpredictable Service button behavior.',
             '1.1.56: Fix for needing to run twice when useless alt names are removed.',
             '1.1.55: Added Waze3rdParty and renamed "edited by waze maint bot" to "account administered by waze staff',
@@ -489,23 +496,19 @@
         modifyGoogleLinks();
 
         // Whitelist initialization
-        compressedWLLS = false;
         if ( validateWLS( LZString.decompressFromUTF16(localStorage.getItem(WLlocalStoreNameCompressed)) ) === false ) {  // If no compressed WL string exists
             if ( validateWLS(localStorage.getItem(WLlocalStoreName)) === false ) {  // If no regular WL exists
                 venueWhitelist = { '1.1.1': { Placeholder: {  } } }; // Populate with a dummy place
-                saveWL_LS(compressedWLLS);
-                compressedWLLS = true;
-                saveWL_LS(compressedWLLS);
+                saveWL_LS(false);
+                saveWL_LS(true);
             } else {  // if regular WL string exists, then transfer to compressed version
                 localStorage.setItem('WMEPH-OneTimeWLBU', localStorage.getItem(WLlocalStoreName));
-                loadWL_LS(compressedWLLS);
-                compressedWLLS = true;
-                saveWL_LS(compressedWLLS);
+                loadWL_LS(false);
+                saveWL_LS(true);
                 alert('Whitelists are being converted to a compressed format.  If you have trouble with your WL, please submit an error report.');
             }
         } else {
-            compressedWLLS = true;
-            loadWL_LS(compressedWLLS);
+            loadWL_LS(true);
         }
 
         if (W.loginManager.user.userName === 'ggrane') {
@@ -557,12 +560,39 @@
 
         // Event listeners
         W.selectionManager.events.registerPriority("selectionchanged", this, checkSelection);
-        if ( W.model.venues.hasOwnProperty('events') ) {
-            W.model.venues.events.registerPriority('objectschanged', this, deleteDupeLabel);
-        } else if ( W.model.venues.hasOwnProperty('on') ) {
-            W.model.venues.on('objectschanged', deleteDupeLabel);
-        }
+        W.model.venues.on('objectschanged', deleteDupeLabel);
         W.accelerators.events.registerPriority('save', null, destroyDupeLabels);
+        W.model.venues.on('objectssynced', syncWL);
+
+        // Remove any temporary ID values (ID < 0) from the WL store at startup.
+        var removedWLCount = 0;
+        Object.keys(venueWhitelist).forEach(function(venueID) {
+            if (venueID < 0) {
+                delete venueWhitelist[venueID];
+                removedWLCount += 1;
+            }
+        });
+        if (removedWLCount > 0) {
+            saveWL_LS(true);
+            phlogdev('Removed ' + removedWLCount + ' venues with temporary ID\'s from WL store');
+        }
+
+        // This should be called after new venues are saved (using venues'objectssynced' event), so the new IDs can be retrieved and used
+        // to replace the temporary IDs in the whitelist.  If WME errors during save, this function may not run.  At that point, the
+        // temporary IDs can no longer be traced to the new IDs so the WL for those new venues will be orphaned, and the temporary IDs
+        // will be removed from the WL store the next time the script starts.
+        function syncWL(newVenues) {
+            newVenues.forEach(function(newVenue) {
+                var oldID = newVenue._prevID;
+                var newID = newVenue.attributes.id;
+                if (oldID && newID && venueWhitelist[oldID]) {
+                    venueWhitelist[newID] = venueWhitelist[oldID];
+                    delete venueWhitelist[oldID];
+                }
+            });
+            saveWL_LS(true);
+        }
+
         var WMEPHurl = 'https://www.waze.com/forum/posting.php?mode=reply&f=819&t=164962';  // WMEPH Forum thread URL
         var USAPNHMasURL = 'https://docs.google.com/spreadsheets/d/1-f-JTWY5UnBx-rFTa4qhyGMYdHBZWNirUTOgn222zMY/edit#gid=0';  // Master USA PNH link
         var placesWikiURL = 'https://wiki.waze.com/wiki/Places';  // WME Places wiki
@@ -973,9 +1003,22 @@
             });
         }
 
+        var MultiAction = require("Waze/Action/MultiAction");
+        // Add array of actions to a MultiAction to be executed at once (counts as one edit for redo/undo purposes)
+        function executeMultiAction(actions) {
+            if(actions.length > 0) {
+                var m_action = new MultiAction();
+                m_action.setModel(W.model);
+                actions.forEach(function(action) {
+                    m_action.doSubAction(action);
+                });
+                W.model.actionManager.add(m_action);
+            }
+        }
+
         // Normalize url
-        function normalizeURL(s, lc) {
-            if (!s) {  // Notify that url is missing and provide web search to find website and gather data (provided for all editors)
+        function normalizeURL(s, lc, skipBannerActivate) {
+            if (!s && !skipBannerActivate) {  // Notify that url is missing and provide web search to find website and gather data (provided for all editors)
                 bannButt.urlMissing.active = true;
                 if (currentWL.urlWL) {
                     bannButt.urlMissing.WLactive = false;
@@ -983,6 +1026,7 @@
                 bannButt.webSearch.active = true;  // Activate websearch button
                 return s;
             }
+
             s = s.replace(/ \(.*/g, '');  // remove anything with parentheses after it
             s = s.replace(/ /g, '');  // remove any spaces
             var m = s.match(/^http:\/\/(.*)$/i);  // remove http://
@@ -1007,6 +1051,12 @@
             if (m) { s = m[1]; }
             m = s.match(/^(.*)\/$/i);  // remove final slash
             if (m) { s = m[1]; }
+
+            // This regex doesn't catch every possible bad URL.  There may be better alternatives, but going with this for now. 
+            var regx = /^((ht|f)tp(s?)\:\/\/)?[0-9a-zA-Z]([-.\w]*[0-9a-zA-Z])*(:(0-9)*)*(\/?)([a-zA-Z0-9\-\.\?\,\'\/\\\+&amp;%\$#_]*)?$/i;
+            if (s.trim().length === 0 || !regx.test(s)) {
+                s = 'badURL';
+            }
             return s;
         }  // END normalizeURL function
 
@@ -1170,10 +1220,12 @@
 
                 restAreaSpec: {  // if it appears to be a rest area
                     active: false, severity: 3, message: "Is this a rest area?", value: "Yes", title: 'Update with proper categories and services.',
-                    action: function(actions) {
+                    action: function() {
+                        var actions = [];
                         // update categories according to spec
-                        newCategories = insertAtIX(newCategories,"TRANSPORTATION",0);  // Insert/move Gas category in the first position
-                        newCategories = insertAtIX(newCategories,"SCENIC_LOOKOUT_VIEWPOINT",1);  // Insert/move Gas category in the first position
+                        newCategories = insertAtIX(newCategories,"TRANSPORTATION",0);  // Insert/move TRANSPORTATION category in the first position
+                        newCategories = insertAtIX(newCategories,"SCENIC_LOOKOUT_VIEWPOINT",1);  // Insert/move SCENIC_LOOKOUT_VIEWPOINT category in the 2nd position
+
                         actions.push(new UpdateObject(item, { categories: newCategories }));
                         fieldUpdateObject.categories='#dfd';
                         // make it 24/7
@@ -1182,11 +1234,16 @@
                         //highlightChangedFields(fieldUpdateObject,hpMode);
 
                         bannServ.add247.checked = true;
-                        bannServ.addParking.actionOn();  // add parking service
-                        bannServ.addWheelchair.actionOn();  // add parking service
+                        bannServ.addParking.actionOn(actions);  // add parking service
+                        bannServ.addWheelchair.actionOn(actions);  // add parking service
                         bannButt.restAreaSpec.active = false;  // reset the display flag
 
-                        harmonizePlaceGo(item,'harmonize', actions);
+                        executeMultiAction(actions);
+
+                        _disableHighlightTest = true;
+                        harmonizePlaceGo(item,'harmonize');
+                        _disableHighlightTest = false;
+                        applyHighlightsTest(item);
                     },
                     WLactive: true, WLmessage: '', WLtitle: 'Whitelist place',
                     WLaction: function() {
@@ -1229,7 +1286,8 @@
                         actions.push(new UpdateObject(item, { categories: newCategories }));
                         fieldUpdateObject.categories='#dfd';
                         bannButt.gasMkPrim.active = false;  // reset the display flag
-                        harmonizePlaceGo(item,'harmonize', actions);
+                        executeMultiAction(actions);
+                        harmonizePlaceGo(item,'harmonize');
                     }
                 },
 
@@ -1241,7 +1299,8 @@
                         actions.push(new UpdateObject(item, { categories: newCategories }));
                         fieldUpdateObject.categories='#dfd';
                         bannButt.hotelMkPrim.active = false;  // reset the display flag
-                        harmonizePlaceGo(item,'harmonize', actions);
+                        executeMultiAction(actions);
+                        harmonizePlaceGo(item,'harmonize');
                     },
                     WLactive: true, WLmessage: '', WLtitle: 'Whitelist hotel as secondary category',
                     WLaction: function() {
@@ -1259,7 +1318,8 @@
                         actions.push(new UpdateObject(item, { categories: newCategories }));
                         fieldUpdateObject.categories='#dfd';
                         bannButt.changeHMC2Office.active = false;  // reset the display flag
-                        harmonizePlaceGo(item,'harmonize', actions);  // Rerun the script to update fields and lock
+                        executeMultiAction(actions);
+                        harmonizePlaceGo(item,'harmonize');  // Rerun the script to update fields and lock
                     },
                     WLactive: true, WLmessage: '', WLtitle: 'Whitelist Hospital category',
                     WLaction: function() {
@@ -1276,7 +1336,8 @@
                         actions.push(new UpdateObject(item, { categories: newCategories }));
                         fieldUpdateObject.categories='#dfd';
                         bannButt.changeHMC2PetVet.active = false;  // reset the display flag
-                        harmonizePlaceGo(item,'harmonize', actions);  // Rerun the script to update fields and lock
+                        executeMultiAction(actions);
+                        harmonizePlaceGo(item,'harmonize');  // Rerun the script to update fields and lock
                     },
                     WLactive: true, WLmessage: '', WLtitle: 'Whitelist PetVet category',
                     WLaction: function() {
@@ -1293,7 +1354,8 @@
                         actions.push(new UpdateObject(item, { categories: newCategories }));
                         fieldUpdateObject.categories='#dfd';
                         bannButt.changeSchool2Offices.active = false;  // reset the display flag
-                        harmonizePlaceGo(item,'harmonize', actions);  // Rerun the script to update fields and lock
+                        executeMultiAction(actions);
+                        harmonizePlaceGo(item,'harmonize');  // Rerun the script to update fields and lock
                     },
                     WLactive: true, WLmessage: '', WLtitle: 'Whitelist School category',
                     WLaction: function() {
@@ -1337,8 +1399,9 @@
                 },
 
                 hnMissing: {
-                    active: false, severity: 3, message: 'No HN: <input type="text" id="WMEPH-HNAdd'+devVersStr+'" autocomplete="off" style="width:100px;padding-left:3px;color:#000;background-color:#FDD">',
+                    active: false, severity: 3, message: 'No HN: <input type="text" id="WMEPH-HNAdd'+devVersStr+'" autocomplete="off" style="font-size:0.85em;width:100px;padding-left:3px;color:#000;background-color:#FDD">',
                     value: "Add", title: 'Add HN to place',
+                    badInput: false,
                     action: function() {
                         var newHN = $('#WMEPH-HNAdd'+devVersStr).val();
                         newHN = newHN.replace(/ +/g, '');
@@ -1349,8 +1412,9 @@
                             W.model.actionManager.add(new UpdateObject(item, { houseNumber: hnTempDash }));
                             fieldUpdateObject.address='#dfd';
                             bannButt.hnMissing.active = false;
+                            badInput = false;
                         } else {
-                            $('#WMEPH-HNAdd'+devVersStr)[0].style="background-color: pink";
+                            badInput = true;
                         }
 
                     },
@@ -1611,7 +1675,22 @@
                 },
 
                 urlMissing: {
-                    active: false, severity: 1, message: "URL missing",
+                    active: false, severity: 1, message: 'No URL: <input type="text" id="WMEPH-UrlAdd'+devVersStr+'" autocomplete="off" style="font-size:0.85em;width:100px;padding-left:3px;color:#000;background-color:#DDF">',
+                    value: "Add", title: 'Add URL to place',
+                    badInput: false,
+                    action: function() {
+                        var newUrlValue = $('#WMEPH-UrlAdd'+devVersStr).val();
+                        var newUrl = normalizeURL(newUrlValue, true, true);
+                        if (newUrl === 'badURL') {
+                            this.badInput = true;
+                        } else {
+                            phlogdev(newUrl);
+                            W.model.actionManager.add(new UpdateObject(item, { url: newUrl }));
+                            fieldUpdateObject.url='#dfd';
+                            bannButt.urlMissing.active = false;
+                            this.badInput = false;
+                        }
+                    },
                     WLactive: true, WLmessage: '', WLtitle: 'Whitelist empty URL',
                     WLaction: function() {
                         wlKeyName = 'urlWL';
@@ -1620,15 +1699,16 @@
                 },
 
                 phoneMissing: {
-                    active: false, severity: 1, message: 'No phone: <input type="text" id="WMEPH-PhoneAdd'+devVersStr+'" autocomplete="off" style="width:120px;padding-left:3px;color:#000;background-color:#DDF">',
+                    active: false, severity: 1, message: 'No ph#: <input type="text" id="WMEPH-PhoneAdd'+devVersStr+'" autocomplete="off" style="font-size:0.85em;width:100px;padding-left:3px;color:#000;background-color:#DDF">',
                     value: "Add", title: 'Add phone to place',
+                    badInput: false,
                     action: function() {
                         var newPhoneVal = $('#WMEPH-PhoneAdd'+devVersStr).val();
                         var newPhone = normalizePhone(newPhoneVal, outputFormat, 'inputted');
                         if (newPhone === 'badPhone') {
-                            // bad input
-                            $('#WMEPH-PhoneAdd'+devVersStr)[0].style="background-color: pink";
+                            this.badInput = true;
                         } else {
+                            this.badInput = false;
                             phlogdev(newPhone);
                             if (countryCode === "USA" || countryCode === "CAN") {
                                 if (newPhone !== null && newPhone.match(/[2-9]\d{2}/) !== null) {
@@ -1664,7 +1744,7 @@
                 },
 
                 noHours: {
-                    active: false, severity: 1, message: 'No hours: <input type="text" value="Paste Hours Here" id="WMEPH-HoursPaste'+devVersStr+'" autocomplete="off" style="width:170px;padding-left:3px;color:#AAA">',
+                    active: false, severity: 1, message: 'No hours: <input type="text" value="Paste Hours Here" id="WMEPH-HoursPaste'+devVersStr+'" autocomplete="off" style="font-size:0.85em;width:170px;padding-left:3px;color:#AAA">',
                     value: "Add hours", title: 'Add pasted hours to existing',
                     action: function() {
                         var pasteHours = $('#WMEPH-HoursPaste'+devVersStr).val();
@@ -1984,7 +2064,7 @@
                     action: function() {
                         if (confirm('Are you sure you want to clear all whitelisted fields for this place?') ) {  // misclick check
                             delete venueWhitelist[itemID];
-                            saveWL_LS(compressedWLLS);
+                            saveWL_LS(true);
                             harmonizePlaceGo(item,'harmonize');  // rerun the script to check all flags again
                         }
                     }
@@ -2321,8 +2401,8 @@
                     if ( item.attributes.adLocked ) {
                         return 'adLock';
                     } else if ( item.isPoint() && (item.attributes.categories.indexOf("HOSPITAL_MEDICAL_CARE") > -1 || item.attributes.categories.indexOf("GAS_STATION") > -1) ) {
-                        return 5;
                         phlogdev('Unaddressed HMC/GS');
+                        return 5;
                     } else {
                         return 3;
                     }
@@ -2437,6 +2517,13 @@
                 return 3;
             }
 
+            // If no gas station name, replace with brand name
+            if (hpMode.harmFlag && item.attributes.categories[0] === 'GAS_STATION' && (!newName || newName.trim().length === 0) && item.attributes.brand) {
+                newName = item.attributes.brand;
+                actions.push(new UpdateObject(item, {name: newName }));
+                fieldUpdateObject.name = '#dfd';
+            }
+
             // Clear attributes from residential places
             if (item.attributes.residential) {
                 if (hpMode.harmFlag) {
@@ -2476,15 +2563,10 @@
                 if (item.is2D()) {
                     bannButt.pointNotArea.active = true;
                 }
-            } else if (item.attributes.categories[0] === 'PARKING_LOT' || (item.attributes.name && item.attributes.name.trim().length > 0)) {  // for non-residential places
+            } else if (item.attributes.categories[0] === 'PARKING_LOT' || (newName && newName.trim().length > 0)) {  // for non-residential places
                 // Place Harmonization
                 var PNHMatchData;
                 if (hpMode.harmFlag) {
-
-                    // *********
-                    // 12/29/2016 (mapomatic) Skip PNH lookup for Parking Lots until we come up with a way to match operator instead of name. 
-                    // *********
-
                     if (item.attributes.categories[0] === 'PARKING_LOT') {
                         PNHMatchData = ['NoMatch'];
                     } else {
@@ -2774,6 +2856,8 @@
                                 if (frontText.length > 0) { newName = frontText + ' ' + newName; }
                                 if (backText.length > 0) { newName = newName + ' ' + backText; }
                                 newName = newName.replace(/ {2,}/g,' ');
+                            } else {
+                                newName = PNHMatchData[ph_name_ix];
                             }
                         }
                         if ( altCategories !== "0" && altCategories !== "" ) {  // if PNH alts exist
@@ -3178,7 +3262,6 @@
                 // PNH specific Services:
 
 
-
                 // ### remove unnecessary parent categories (Restaurant doesn't need food and drink)
                 if ( hpMode.harmFlag && newCategories.indexOf('FOOD_AND_DRINK') > -1 ) {
                     if (newCategories.indexOf('RESTAURANT') > -1 || newCategories.indexOf('FAST_FOOD') > -1 ) {
@@ -3260,7 +3343,7 @@
                         }
                         // display any messaged regarding the category
                         pc_message = CH_DATA_Temp[CH_DATA_headers.indexOf('pc_message')];
-                        if (pc_message !== '0' && pc_message !== '' && pc_message === null) {
+                        if (pc_message && pc_message !== '0' && pc_message !== '') {
                             bannButt.pnhCatMess.active = true;
                             bannButt.pnhCatMess.message = pc_message;
                         }
@@ -3446,7 +3529,7 @@
             }  // END if (!residential && has name)
 
             // Name check
-            if ( !item.attributes.residential && ( !item.attributes.name || item.attributes.name.replace(/[^A-Za-z0-9]/g,'').length === 0 )) {
+            if ( !item.attributes.residential && ( !newName || newName.replace(/[^A-Za-z0-9]/g,'').length === 0 )) {
                 if (item.attributes.categories[0] === 'PARKING_LOT') {
                     if (currentWL.plaNameMissing) {
                         bannButt.plaNameMissing.active = false;
@@ -3629,10 +3712,13 @@
             // but due to a bug in WME, we can't force that.  I've temporarily changed the check for TRANSPORTATION
             // and SCENIC_LOOKOUT_VIEWPOINT to be < 2 instead of === 0 and === 1, respectively.
             // ****************************************************************************************************
-            if ( (newName.toLowerCase().indexOf('rest area') > -1 || newName.toLowerCase().indexOf('rest stop') > -1 || newName.toLowerCase().indexOf('service plaza') > -1) ||
-                ( categories.indexOf('TRANSPORTATION') > -1 && categories.indexOf('SCENIC_LOOKOUT_VIEWPOINT') > -1 ) ) {
-                if ( categories.indexOf('TRANSPORTATION') < 2 && categories.indexOf('SCENIC_LOOKOUT_VIEWPOINT') < 2) {
-                    if ( item.isPoint() ) {  // needs to be area point
+            var transCatIndex = categories.indexOf('TRANSPORTATION');
+            var lookoutCatIndex = categories.indexOf('SCENIC_LOOKOUT_VIEWPOINT');
+            if ( /rest area/i.test(newName) || /rest stop/i.test(newName) || /service plaza/i.test(newName) ||
+                ( transCatIndex > -1 && lookoutCatIndex > -1 ) ) {
+                if ( transCatIndex < 2 && transCatIndex > -1 && lookoutCatIndex < 2 && lookoutCatIndex > -1 ) {
+
+                    if ( item.isPoint() ) {  // needs to be area
                         bannButt.areaNotPoint.active = true;
                     }
                     bannButt.pointNotArea.active = false;
@@ -3912,7 +3998,7 @@
                                     venueWhitelist[dID].dupeWL.push(itemID);  // WL the id for the duplicate venue
                                     console.log('3914 // About to call uniq() once inside of harmonizePlaceGo()');
                                     venueWhitelist[dID].dupeWL = uniq(venueWhitelist[dID].dupeWL);
-                                    saveWL_LS(compressedWLLS);  // Save the WL to local storage
+                                    saveWL_LS(true);  // Save the WL to local storage
                                     WMEPH_WLCounter();
                                     bannButt2.clearWL.active = true;
                                     bannDupl[dID].active = false;
@@ -3961,15 +4047,7 @@
                 }
             }
 
-            if(actions.length > 0) {
-                var MultiAction = require("Waze/Action/MultiAction");
-                var m_action = new MultiAction();
-                m_action.setModel(W.model);
-                actions.forEach(function(action) {
-                    m_action.doSubAction(action);
-                });
-                W.model.actionManager.add(m_action);
-            }
+            executeMultiAction(actions);
 
             if (hpMode.harmFlag) {
                 // Update icons to reflect current WME place services
@@ -4153,6 +4231,9 @@
             for ( tempKey in bannButt ) {
                 if ( bannButt.hasOwnProperty(tempKey) && bannButt[tempKey].hasOwnProperty('active') && bannButt[tempKey].active ) {  //  If the particular message is active
                     strButt1 = bannButt[tempKey].message;
+                    if (bannButt[tempKey].badInput) {
+                        strButt1 = strButt1.replace(/#DDF/i,'pink');
+                    }
                     if (bannButt[tempKey].hasOwnProperty('action')) {
                         strButt1 += ' <input class="btn btn-default btn-xs wmeph-btn" id="WMEPH_' + tempKey + '" title="' + bannButt[tempKey].title + '" type="button" value="' + bannButt[tempKey].value + '"></input>';
                         if (tempKey === 'noHours') {
@@ -4245,10 +4326,17 @@
                 }
             });
 
-            // If pressing enter in the phone entry box, add the HN
+            // If pressing enter in the phone entry box, add the phone
             $("#WMEPH-PhoneAdd"+devVersStr).keyup(function(event){
                 if( event.keyCode === 13 && $('#WMEPH-PhoneAdd'+devVersStr).val() !== '' ){
                     $("#WMEPH_phoneMissing").click();
+                }
+            });
+
+            // If pressing enter in the URL entry box, add the URL
+            $("#WMEPH-UrlAdd"+devVersStr).keyup(function(event){
+                if( event.keyCode === 13 && $('#WMEPH-UrlAdd'+devVersStr).val() !== '' ){
+                    $("#WMEPH_urlMissing").click();
                 }
             });
 
@@ -5151,6 +5239,9 @@
                 itemCompAddr = true;
             }
 
+            function isPLA(venue) {
+                return venue.attributes.categories && venue.attributes.categories[0] === 'PARKING_LOT';
+            }
 
             for (var venix in venueList) {  // for each place on the map:
                 if (venueList.hasOwnProperty(venix)) {  // hOP filter
@@ -5158,148 +5249,152 @@
                     nameMatch = false;
                     altNameMatch = -1;
                     testVenueAtt = venueList[venix].attributes;
-                    var pt2ptDistance =  item.geometry.getCentroid().distanceTo(venueList[venix].geometry.getCentroid());
-                    if ( pt2ptDistance < 2 && item.attributes.id !== testVenueAtt.id ) {
-                        overlappingFlag = true;
-                    }
-                    wlDupeMatch = false;
-                    if (wlDupeList.length>0 && wlDupeList.indexOf(testVenueAtt.id) > -1) {
-                        wlDupeMatch = true;
-                    }
+                    var excludePLADupes = $('#WMEPH-ExcludePLADupes' + devVersStr).prop('checked');
+                    if (!excludePLADupes || isPLA(item) === isPLA(venueList[venix])) {
 
-                    // get HNs for places on same street
-                    var addrDupe = venueList[venix].getAddress();
-                    if ( addrDupe.hasOwnProperty('attributes') ) {
-                        addrDupe = addrDupe.attributes;
-                    }
-                    if (itemCompAddr && addrDupe.street !== null && addrDupe.street.name !== null && testVenueAtt.houseNumber && testVenueAtt.houseNumber !== '' &&
-                        venix !== item.attributes.id && addrItem.street.name === addrDupe.street.name && testVenueAtt.houseNumber < 1000000) {
-                        dupeHNRangeList.push(parseInt(testVenueAtt.houseNumber));
-                        dupeHNRangeIDList.push(testVenueAtt.id);
-                        dupeHNRangeDistList.push(pt2ptDistance);
-                    }
+                        var pt2ptDistance =  item.geometry.getCentroid().distanceTo(venueList[venix].geometry.getCentroid());
+                        if ( item.isPoint() && venueList[venix].isPoint() && pt2ptDistance < 2 && item.attributes.id !== testVenueAtt.id ) {
+                            overlappingFlag = true;
+                        }
+                        wlDupeMatch = false;
+                        if (wlDupeList.length>0 && wlDupeList.indexOf(testVenueAtt.id) > -1) {
+                            wlDupeMatch = true;
+                        }
 
-
-                    // Check for duplicates
-                    if ( !wlDupeMatch && dupeIDList.length<6 && pt2ptDistance < 800 && !testVenueAtt.residential && venix !== item.attributes.id && 'string' === typeof testVenueAtt.id && testVenueAtt.name !== null && testVenueAtt.name.length>1 ) {  // don't do res, the point itself, new points or no name
-                        // If item has a complete address and test venue does, and they are different, then no dupe
-                        var suppressMatch = false;
-                        if ( itemCompAddr && addrDupe.street !== null && addrDupe.street.name !== null && testVenueAtt.houseNumber && testVenueAtt.houseNumber.match(/\d/g) !== null ) {
-                            if ( item.attributes.lockRank > 0 && testVenueAtt.lockRank > 0 ) {
-                                if ( item.attributes.houseNumber !== testVenueAtt.houseNumber || addrItem.street.name !== addrDupe.street.name ) {
-                                    suppressMatch = true;
-                                }
-                            } else {
-                                if ( item.attributes.houseNumber !== testVenueAtt.houseNumber && addrItem.street.name !== addrDupe.street.name ) {
-                                    suppressMatch = true;
-                                }
-                            }
+                        // get HNs for places on same street
+                        var addrDupe = venueList[venix].getAddress();
+                        if ( addrDupe.hasOwnProperty('attributes') ) {
+                            addrDupe = addrDupe.attributes;
+                        }
+                        if (itemCompAddr && addrDupe.street !== null && addrDupe.street.name !== null && testVenueAtt.houseNumber && testVenueAtt.houseNumber !== '' &&
+                            venix !== item.attributes.id && addrItem.street.name === addrDupe.street.name && testVenueAtt.houseNumber < 1000000) {
+                            dupeHNRangeList.push(parseInt(testVenueAtt.houseNumber));
+                            dupeHNRangeIDList.push(testVenueAtt.id);
+                            dupeHNRangeDistList.push(pt2ptDistance);
                         }
 
 
-                        if ( !suppressMatch ) {
-                            //Reformat the testPlace name
-                            testName = testVenueAtt.name.toUpperCase().replace(/ AND /g, '').replace(/^THE /g, '').replace(/[^A-Z0-9]/g, '');  // Format test name
-                            if (  (testName.length>2 && noNumSkip.indexOf(testName) === -1) || allowedTwoLetters.indexOf(testName) > -1  ) {
-                                testNameList = [testName];
-                            } else {
-                                testNameList = ['TESTNAMETOOSHORTQZJXS'+randInt];
-                                randInt++;
-                            }
-
-                            testNameNoNum = testName.replace(/[^A-Z]/g, '');  // Clear non-letter characters for alternate match
-                            if ( ((testNameNoNum.length>2 && noNumSkip.indexOf(testNameNoNum) === -1) || allowedTwoLetters.indexOf(testNameNoNum) > -1) && testVenueAtt.categories.indexOf('PARKING_LOT') === -1 ) {  //  only add de-numbered name if at least 2 chars remain
-                                testNameList.push(testNameNoNum);
-                            }
-                            // primary name matching loop
-
-                            for (tnlix=0; tnlix < testNameList.length; tnlix++) {
-                                for (cnlix=0; cnlix < currNameList.length; cnlix++) {
-                                    if ( (testNameList[tnlix].indexOf(currNameList[cnlix]) > -1 || currNameList[cnlix].indexOf(testNameList[tnlix]) > -1) ) {
-                                        nameMatch = true;
-                                        break;
+                        // Check for duplicates
+                        if ( !wlDupeMatch && dupeIDList.length<6 && pt2ptDistance < 800 && !testVenueAtt.residential && venix !== item.attributes.id && 'string' === typeof testVenueAtt.id && testVenueAtt.name !== null && testVenueAtt.name.length>1 ) {  // don't do res, the point itself, new points or no name
+                            // If item has a complete address and test venue does, and they are different, then no dupe
+                            var suppressMatch = false;
+                            if ( itemCompAddr && addrDupe.street !== null && addrDupe.street.name !== null && testVenueAtt.houseNumber && testVenueAtt.houseNumber.match(/\d/g) !== null ) {
+                                if ( item.attributes.lockRank > 0 && testVenueAtt.lockRank > 0 ) {
+                                    if ( item.attributes.houseNumber !== testVenueAtt.houseNumber || addrItem.street.name !== addrDupe.street.name ) {
+                                        suppressMatch = true;
+                                    }
+                                } else {
+                                    if ( item.attributes.houseNumber !== testVenueAtt.houseNumber && addrItem.street.name !== addrDupe.street.name ) {
+                                        suppressMatch = true;
                                     }
                                 }
-                                if (nameMatch) {break;}  // break if a match found
                             }
-                            if (!nameMatch && testVenueAtt.aliases.length > 0) {
-                                for (aliix=0; aliix<testVenueAtt.aliases.length; aliix++) {
-                                    aliasNameRF = testVenueAtt.aliases[aliix].toUpperCase().replace(/ AND /g, '').replace(/^THE /g, '').replace(/[^A-Z0-9]/g, '');  // Format name
-                                    if ( (aliasNameRF.length>2 && noNumSkip.indexOf(aliasNameRF) === -1) || allowedTwoLetters.indexOf(aliasNameRF) > -1  ) {
-                                        testNameList = [aliasNameRF];
-                                    } else {
-                                        testNameList = ['ALIASNAMETOOSHORTQOFUH'+randInt];
-                                        randInt++;
-                                    }
-                                    aliasNameNoNum = aliasNameRF.replace(/[^A-Z]/g, '');  // Clear non-letter characters for alternate match ( HOLLYIVYPUB23 --> HOLLYIVYPUB )
-                                    if (((aliasNameNoNum.length>2 && noNumSkip.indexOf(aliasNameNoNum) === -1) || allowedTwoLetters.indexOf(aliasNameNoNum) > -1) && testVenueAtt.categories.indexOf('PARKING_LOT') === -1) {  //  only add de-numbered name if at least 2 characters remain
-                                        testNameList.push(aliasNameNoNum);
-                                    } else {
-                                        testNameList.push('111231643239'+randInt);  //  just to keep track of the alias in question, always add something.
-                                        randInt++;
-                                    }
+
+
+                            if ( !suppressMatch ) {
+                                //Reformat the testPlace name
+                                testName = testVenueAtt.name.toUpperCase().replace(/ AND /g, '').replace(/^THE /g, '').replace(/[^A-Z0-9]/g, '');  // Format test name
+                                if (  (testName.length>2 && noNumSkip.indexOf(testName) === -1) || allowedTwoLetters.indexOf(testName) > -1  ) {
+                                    testNameList = [testName];
+                                } else {
+                                    testNameList = ['TESTNAMETOOSHORTQZJXS'+randInt];
+                                    randInt++;
                                 }
+
+                                testNameNoNum = testName.replace(/[^A-Z]/g, '');  // Clear non-letter characters for alternate match
+                                if ( ((testNameNoNum.length>2 && noNumSkip.indexOf(testNameNoNum) === -1) || allowedTwoLetters.indexOf(testNameNoNum) > -1) && testVenueAtt.categories.indexOf('PARKING_LOT') === -1 ) {  //  only add de-numbered name if at least 2 chars remain
+                                    testNameList.push(testNameNoNum);
+                                }
+                                // primary name matching loop
+
                                 for (tnlix=0; tnlix < testNameList.length; tnlix++) {
                                     for (cnlix=0; cnlix < currNameList.length; cnlix++) {
                                         if ( (testNameList[tnlix].indexOf(currNameList[cnlix]) > -1 || currNameList[cnlix].indexOf(testNameList[tnlix]) > -1) ) {
-                                            // get index of that match (half of the array index with floor)
-                                            altNameMatch = Math.floor(tnlix/2);
+                                            nameMatch = true;
                                             break;
                                         }
                                     }
-                                    if (altNameMatch > -1) {break;}  // break from the rest of the alts if a match found
+                                    if (nameMatch) {break;}  // break if a match found
                                 }
-                            }
-                            // If a match was found:
-                            if ( nameMatch || altNameMatch > -1 ) {
-                                dupeIDList.push(testVenueAtt.id);  // Add the item to the list of matches
-                                WMEPH_NameLayer.setVisibility(true);  // If anything found, make visible the dupe layer
-                                if (nameMatch) {
-                                    labelText = testVenueAtt.name;  // Pull duplicate name
-                                } else {
-                                    labelText = testVenueAtt.aliases[altNameMatch] + ' (Alt)';  // Pull duplicate alt name
-                                }
-                                phlogdev('Possible duplicate found. WME place: ' + itemName + ' / Nearby place: ' + labelText);
-
-                                // Reformat the name into multiple lines based on length
-                                var startIX=0, endIX=0, labelTextBuild = [], maxLettersPerLine = Math.round(2*Math.sqrt(labelText.replace(/ /g,'').length/2));
-                                maxLettersPerLine = Math.max(maxLettersPerLine,4);
-                                while (endIX !== -1) {
-                                    endIX = labelText.indexOf(' ', endIX+1);
-                                    if (endIX - startIX > maxLettersPerLine) {
-                                        labelTextBuild.push( labelText.substr(startIX,endIX-startIX) );
-                                        startIX = endIX+1;
-                                    }
-                                }
-                                labelTextBuild.push( labelText.substr(startIX) );  // Add last line
-                                labelTextReformat = labelTextBuild.join('\n');
-                                // Add photo icons
-                                if (testVenueAtt.images.length > 0 ) {
-                                    labelTextReformat = labelTextReformat + ' ';
-                                    for (var phix=0; phix<testVenueAtt.images.length; phix++) {
-                                        if (phix===3) {
-                                            labelTextReformat = labelTextReformat + '+';
-                                            break;
+                                if (!nameMatch && testVenueAtt.aliases.length > 0) {
+                                    for (aliix=0; aliix<testVenueAtt.aliases.length; aliix++) {
+                                        aliasNameRF = testVenueAtt.aliases[aliix].toUpperCase().replace(/ AND /g, '').replace(/^THE /g, '').replace(/[^A-Z0-9]/g, '');  // Format name
+                                        if ( (aliasNameRF.length>2 && noNumSkip.indexOf(aliasNameRF) === -1) || allowedTwoLetters.indexOf(aliasNameRF) > -1  ) {
+                                            testNameList = [aliasNameRF];
+                                        } else {
+                                            testNameList = ['ALIASNAMETOOSHORTQOFUH'+randInt];
+                                            randInt++;
                                         }
-                                        //labelTextReformat = labelTextReformat + '\u25A3';  // add photo icons
-                                        labelTextReformat = labelTextReformat + '\u25A3';  // add photo icons
+                                        aliasNameNoNum = aliasNameRF.replace(/[^A-Z]/g, '');  // Clear non-letter characters for alternate match ( HOLLYIVYPUB23 --> HOLLYIVYPUB )
+                                        if (((aliasNameNoNum.length>2 && noNumSkip.indexOf(aliasNameNoNum) === -1) || allowedTwoLetters.indexOf(aliasNameNoNum) > -1) && testVenueAtt.categories.indexOf('PARKING_LOT') === -1) {  //  only add de-numbered name if at least 2 characters remain
+                                            testNameList.push(aliasNameNoNum);
+                                        } else {
+                                            testNameList.push('111231643239'+randInt);  //  just to keep track of the alias in question, always add something.
+                                            randInt++;
+                                        }
+                                    }
+                                    for (tnlix=0; tnlix < testNameList.length; tnlix++) {
+                                        for (cnlix=0; cnlix < currNameList.length; cnlix++) {
+                                            if ( (testNameList[tnlix].indexOf(currNameList[cnlix]) > -1 || currNameList[cnlix].indexOf(testNameList[tnlix]) > -1) ) {
+                                                // get index of that match (half of the array index with floor)
+                                                altNameMatch = Math.floor(tnlix/2);
+                                                break;
+                                            }
+                                        }
+                                        if (altNameMatch > -1) {break;}  // break from the rest of the alts if a match found
                                     }
                                 }
+                                // If a match was found:
+                                if ( nameMatch || altNameMatch > -1 ) {
+                                    dupeIDList.push(testVenueAtt.id);  // Add the item to the list of matches
+                                    WMEPH_NameLayer.setVisibility(true);  // If anything found, make visible the dupe layer
+                                    if (nameMatch) {
+                                        labelText = testVenueAtt.name;  // Pull duplicate name
+                                    } else {
+                                        labelText = testVenueAtt.aliases[altNameMatch] + ' (Alt)';  // Pull duplicate alt name
+                                    }
+                                    phlogdev('Possible duplicate found. WME place: ' + itemName + ' / Nearby place: ' + labelText);
 
-                                pt = venueList[venix].geometry.getCentroid();
-                                if ( !mapExtent.containsLonLat(pt.toLonLat()) ) {
-                                    outOfExtent = true;
+                                    // Reformat the name into multiple lines based on length
+                                    var startIX=0, endIX=0, labelTextBuild = [], maxLettersPerLine = Math.round(2*Math.sqrt(labelText.replace(/ /g,'').length/2));
+                                    maxLettersPerLine = Math.max(maxLettersPerLine,4);
+                                    while (endIX !== -1) {
+                                        endIX = labelText.indexOf(' ', endIX+1);
+                                        if (endIX - startIX > maxLettersPerLine) {
+                                            labelTextBuild.push( labelText.substr(startIX,endIX-startIX) );
+                                            startIX = endIX+1;
+                                        }
+                                    }
+                                    labelTextBuild.push( labelText.substr(startIX) );  // Add last line
+                                    labelTextReformat = labelTextBuild.join('\n');
+                                    // Add photo icons
+                                    if (testVenueAtt.images.length > 0 ) {
+                                        labelTextReformat = labelTextReformat + ' ';
+                                        for (var phix=0; phix<testVenueAtt.images.length; phix++) {
+                                            if (phix===3) {
+                                                labelTextReformat = labelTextReformat + '+';
+                                                break;
+                                            }
+                                            //labelTextReformat = labelTextReformat + '\u25A3';  // add photo icons
+                                            labelTextReformat = labelTextReformat + '\u25A3';  // add photo icons
+                                        }
+                                    }
+
+                                    pt = venueList[venix].geometry.getCentroid();
+                                    if ( !mapExtent.containsLonLat(pt.toLonLat()) ) {
+                                        outOfExtent = true;
+                                    }
+                                    minLat = Math.min(minLat, pt.y); minLon = Math.min(minLon, pt.x);
+                                    maxLat = Math.max(maxLat, pt.y); maxLon = Math.max(maxLon, pt.x);
+
+                                    textFeature = new OpenLayers.Feature.Vector( pt, {labelText: labelTextReformat, fontColor: '#fff',
+                                                                                      strokeColor: labelColorList[labelColorIX%labelColorList.length], labelAlign: 'cm', pointRadius: 25 , dupeID: testVenueAtt.id } );
+                                    labelFeatures.push(textFeature);
+                                    //WMEPH_NameLayer.addFeatures(labelFeatures);
+                                    dupeNames.push(labelText);
                                 }
-                                minLat = Math.min(minLat, pt.y); minLon = Math.min(minLon, pt.x);
-                                maxLat = Math.max(maxLat, pt.y); maxLon = Math.max(maxLon, pt.x);
-
-                                textFeature = new OpenLayers.Feature.Vector( pt, {labelText: labelTextReformat, fontColor: '#fff',
-                                                                                  strokeColor: labelColorList[labelColorIX%labelColorList.length], labelAlign: 'cm', pointRadius: 25 , dupeID: testVenueAtt.id } );
-                                labelFeatures.push(textFeature);
-                                //WMEPH_NameLayer.addFeatures(labelFeatures);
-                                dupeNames.push(labelText);
+                                labelColorIX++;
                             }
-                            labelColorIX++;
                         }
                     }
                 }
@@ -5740,6 +5835,7 @@
             createSettingsCheckbox("sidepanel-harmonizer" + devVersStr, "WMEPH-DisableDFZoom" + devVersStr,"Disable zoom & center for duplicates");
             createSettingsCheckbox("sidepanel-harmonizer" + devVersStr, "WMEPH-EnableIAZoom" + devVersStr,"Enable zoom & center for places with no address");
             createSettingsCheckbox("sidepanel-harmonizer" + devVersStr, "WMEPH-HidePlacesWiki" + devVersStr,"Hide 'Places Wiki' button in results banner");
+            createSettingsCheckbox("sidepanel-harmonizer" + devVersStr, "WMEPH-ExcludePLADupes" + devVersStr,"Exclude parking lots when searching for duplicate places.");
             if (devUser || betaUser || usrRank > 1) {
                 createSettingsCheckbox("sidepanel-harmonizer" + devVersStr, "WMEPH-EnableServices" + devVersStr,"Enable automatic addition of common services");
             }
@@ -5904,14 +6000,14 @@
                 if ($('#WMEPH-WLInput'+devVersStr).val() === 'resetWhitelist') {
                     if (confirm('***Do you want to reset all Whitelist data?\nClick OK to erase.') ) {  // if the category doesn't translate, then pop an alert that will make a forum post to the thread
                         venueWhitelist = { '1.1.1': { Placeholder: {  } } }; // Populate with a dummy place
-                        saveWL_LS(compressedWLLS);
+                        saveWL_LS(true);
                     }
                 } else {  // try to merge uncompressed WL data
                     WLSToMerge = validateWLS($('#WMEPH-WLInput'+devVersStr).val());
                     if (WLSToMerge) {
                         phlog('Whitelists merged!');
                         venueWhitelist = mergeWL(venueWhitelist,WLSToMerge);
-                        saveWL_LS(compressedWLLS);
+                        saveWL_LS(true);
                         phWLContentHtml = '<p style="color:green">Whitelist data merged<p>';
                         $("#PlaceHarmonizerWLToolsMsg" + devVersStr).append(phWLContentHtml);
                         $('#WMEPH-WLInputBeta').val('');
@@ -5920,7 +6016,7 @@
                         if (WLSToMerge) {
                             phlog('Whitelists merged!');
                             venueWhitelist = mergeWL(venueWhitelist,WLSToMerge);
-                            saveWL_LS(compressedWLLS);
+                            saveWL_LS(true);
                             phWLContentHtml = '<p style="color:green">Whitelist data merged<p>';
                             $("#PlaceHarmonizerWLToolsMsg" + devVersStr).append(phWLContentHtml);
                             $('#WMEPH-WLInputBeta').val('');
@@ -5935,12 +6031,7 @@
             // Pull the data to the text field
             $("#WMEPH-WLPull" + devVersStr).click(function() {
                 $("#PlaceHarmonizerWLToolsMsg" + devVersStr).empty();
-                if (compressedWLLS) {
-                    //$('#WMEPH-WLInput'+devVersStr).val(localStorage.getItem(WLlocalStoreNameCompressed));
-                    $('#WMEPH-WLInput'+devVersStr).val( LZString.decompressFromUTF16(localStorage.getItem(WLlocalStoreNameCompressed)) );
-                } else {
-                    $('#WMEPH-WLInput'+devVersStr).val(localStorage.getItem(WLlocalStoreName));
-                }
+                $('#WMEPH-WLInput'+devVersStr).val( LZString.decompressFromUTF16(localStorage.getItem(WLlocalStoreNameCompressed)) );
                 phWLContentHtml = '<p style="color:green">To backup the data, copy & paste the text in the box to a safe location.<p>';
                 $("#PlaceHarmonizerWLToolsMsg" + devVersStr).append(phWLContentHtml);
                 localStorage.setItem('WMEPH_WLAddCount', 1);
@@ -5951,13 +6042,7 @@
                 $("#PlaceHarmonizerWLToolsMsg" + devVersStr).empty();
                 $('#WMEPH-WLInputBeta').val('');
                 var currWLData;
-                if (compressedWLLS) {
-                    //$('#WMEPH-WLInput'+devVersStr).val(localStorage.getItem(WLlocalStoreNameCompressed));
-                    currWLData = JSON.parse( LZString.decompressFromUTF16( localStorage.getItem(WLlocalStoreNameCompressed) ) );
-                } else {
-                    currWLData = JSON.parse( localStorage.getItem(WLlocalStoreName) );
-                }
-                //var WLSize = _.size(currWLData);
+                currWLData = JSON.parse( LZString.decompressFromUTF16( localStorage.getItem(WLlocalStoreNameCompressed) ) );
                 var countryWL = {};
                 var stateWL = {};
                 var itemCount = 0;
@@ -6018,12 +6103,8 @@
                     $("#PlaceHarmonizerWLToolsMsg" + devVersStr).append(phWLContentHtml);
                 } else {
                     var currWLData, venueToRemove = [];
-                    if (compressedWLLS) {
-                        //$('#WMEPH-WLInput'+devVersStr).val(localStorage.getItem(WLlocalStoreNameCompressed));
-                        currWLData = JSON.parse( LZString.decompressFromUTF16( localStorage.getItem(WLlocalStoreNameCompressed) ) );
-                    } else {
-                        currWLData = JSON.parse( localStorage.getItem(WLlocalStoreName) );
-                    }
+                    currWLData = JSON.parse( LZString.decompressFromUTF16( localStorage.getItem(WLlocalStoreNameCompressed) ) );
+
                     //var WLSize = _.size(currWLData);
 
                     for (var venueKey in currWLData) {
@@ -6041,12 +6122,12 @@
                     if (venueToRemove.length > 0) {
                         if (localStorage.WMEPH_WLAddCount === '1') {
                             if (confirm('Are you sure you want to clear all whitelist data for '+stateToRemove+'? This CANNOT be undone. Press OK to delete, cancel to preserve the data.') ) {  // misclick check
-                                backupWL_LS(compressedWLLS);
+                                backupWL_LS(true);
                                 for (var ixwl=0; ixwl<venueToRemove.length; ixwl++) {
                                     delete venueWhitelist[venueToRemove[ixwl]];
                                     //phlogdev(venueWhitelist[venueToRemove[ixwl]]);
                                 }
-                                saveWL_LS(compressedWLLS);
+                                saveWL_LS(true);
                                 phWLContentHtml = '<p style="color:green">'+venueToRemove.length+' items removed from WL<p>';
                                 $("#PlaceHarmonizerWLToolsMsg" + devVersStr).append(phWLContentHtml);
                                 $('#WMEPH-WLInputBeta').val('');
@@ -6792,7 +6873,7 @@
         venueWhitelist[itemID].state = addressTemp.state.name;  // Store state for the venue
         venueWhitelist[itemID].country = addressTemp.country.name;  // Store country for the venue
         venueWhitelist[itemID].gps = itemGPS;  // Store GPS coords for the venue
-        saveWL_LS(compressedWLLS);  // Save the WL to local storage
+        saveWL_LS(true);  // Save the WL to local storage
         WMEPH_WLCounter();
         bannButt2.clearWL.active = true;
     }
@@ -6832,7 +6913,7 @@
                                     if (data.result.place_id === gpids[i].innerHTML) {
                                         gpids[i].innerHTML = "<a href='" + data.result.url + "' target='_wmegpid'>" + data.result.place_id + "</a>";
                                     }
-                                };
+                                }
                             }
                         }
                     }
