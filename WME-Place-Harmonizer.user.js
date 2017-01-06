@@ -12,7 +12,7 @@
 // ==UserScript==
 // @name        WME Place Harmonizer
 // @namespace   https://github.com/WazeUSA/WME-Place-Harmonizer/raw/master/WME-Place-Harmonizer.user.js
-// @version     1.1.52
+// @version     1.1.64
 // @description Harmonizes, formats, and locks a selected place
 // @author      WMEPH development group
 // @include     https://*.waze.com/editor/*
@@ -23,7 +23,6 @@
 // ==/UserScript==
 
 (function () {
-    // item = W.selectionManager.selectedItems[0].model
     var WMEPHversion = GM_info.script.version.toString(); // pull version from header
     var WMEPHversionMeta = WMEPHversion.match(/(\d+\.\d+)/i)[1];  // get the X.X version
     var majorNewFeature = true;  // set to true to make an alert pop up after script update with new feature
@@ -48,7 +47,6 @@
     var venueWhitelist, venueWhitelistStr, WLSToMerge, wlKeyName, wlButtText = 'WL';  // Whitelisting vars
     var WLlocalStoreName = 'WMEPH-venueWhitelistNew';
     var WLlocalStoreNameCompressed = 'WMEPH-venueWhitelistCompressed';
-    var compressedWLLS;
     var WMEPH_NameLayer, nameLayer, dupeIDList = [], dupeHNRangeList, dupeHNRangeIDList, dupeHNRangeDistList;
     // Web search Window forming:
     var searchResultsWindowSpecs = '"resizable=yes, top='+ Math.round(window.screen.height*0.1) +', left='+ Math.round(window.screen.width*0.3) +', width='+ Math.round(window.screen.width*0.7) +', height='+ Math.round(window.screen.height*0.8) +'"';
@@ -245,24 +243,26 @@
             } else {
                 phlog("Login failed...?  Reload WME.");
             }
-
         }
     }
 
     function runPH() {
         // Script update info
         var WMEPHWhatsNewList = [  // New in this version
-            '1.1.52: Fixed bug reporting PMs.',
-            '1.1.51: Fixed lowercase alphanumeric phone number parsing.',
-            '1.1.50: Fixed bug with adding hours more than once.',
-            '1.1.49: Added a Glink modification to turn them into links and limit search radius.',
-            '1.1.47: Fix for one-field-update-per-click issue',
-            '1.1.46: allow for https:// in urls. (credit RavenDT)',
-            '1.1.45: Add disable highlights for above rank function (credit RavenDT), stop url link from adding http://',
-            '1.1.44: Fix for adding hours (credit RavenDT)',
-            '1.1.42: Temporarily disabled PLA checking until it is more stable',
-            '1.1.41: Fixed bug with whitelisting.',
-            '1.1.38: Fixed clone utility'
+            '1.1.64: Added URL entry box when missing.',
+            '1.1.64: Missing gas station name automatically set to brand name.',
+            '1.1.64: Minor UI adjustments to fit some messages on one line.',
+            '1.1.63: Added option to exclude PLAs when searching for duplicate places, and vice versa.',
+            '1.1.62: FIXED - Whitelisted flags not saved for new (unsaved) places.',
+            '1.1.61: Fixed issues with Rest Areas.',
+            '1.1.60: Fix to get place category "special messages" to display.',
+            '1.1.59: Fix for erroneous "stacked place" warning on area places.',
+            '1.1.58: Fix for multi-edits when runnning harmonizer in some cases.',
+            '1.1.57: Fix for Store Locator button not showing up on first run, and unpredictable Service button behavior.',
+            '1.1.56: Fix for needing to run twice when useless alt names are removed.',
+            '1.1.55: Added Waze3rdParty and renamed "edited by waze maint bot" to "account administered by waze staff',
+            '1.1.53: Fixed bug where blank space was being inserted in front of hotel brandParent name',
+            '1.1.52: Fixed bug reporting PMs.'
         ];
         var WMEPHWhatsNewMetaList = [  // New in this major version
             '1.1: Built-in place highlighter shows which places on the map need work'
@@ -279,27 +279,24 @@
         }
         var thisUser = W.loginManager.user;
         var UpdateObject = require("Waze/Action/UpdateObject");
+        var _disableHighlightTest = false;  // Set to true to temporarily disable highlight checks immediately when venues change.
 
         modifyGoogleLinks();
 
         // Whitelist initialization
-        compressedWLLS = false;
         if ( validateWLS( LZString.decompressFromUTF16(localStorage.getItem(WLlocalStoreNameCompressed)) ) === false ) {  // If no compressed WL string exists
             if ( validateWLS(localStorage.getItem(WLlocalStoreName)) === false ) {  // If no regular WL exists
                 venueWhitelist = { '1.1.1': { Placeholder: {  } } }; // Populate with a dummy place
-                saveWL_LS(compressedWLLS);
-                compressedWLLS = true;
-                saveWL_LS(compressedWLLS);
+                saveWL_LS(false);
+                saveWL_LS(true);
             } else {  // if regular WL string exists, then transfer to compressed version
                 localStorage.setItem('WMEPH-OneTimeWLBU', localStorage.getItem(WLlocalStoreName));
-                loadWL_LS(compressedWLLS);
-                compressedWLLS = true;
-                saveWL_LS(compressedWLLS);
+                loadWL_LS(false);
+                saveWL_LS(true);
                 alert('Whitelists are being converted to a compressed format.  If you have trouble with your WL, please submit an error report.');
             }
         } else {
-            compressedWLLS = true;
-            loadWL_LS(compressedWLLS);
+            loadWL_LS(true);
         }
 
         if (W.loginManager.user.userName === 'ggrane') {
@@ -333,7 +330,10 @@
             }
             localStorage.setItem('WMEPHversion'+devVersStr, WMEPHversion);  // store last installed version in localstorage
         }
-
+        if (localStorage.getItem('WMEPH-plaNameWLWarning'+devVersStr) === null) {
+            localStorage.setItem('WMEPH-plaNameWLWarning'+devVersStr, '1');
+            alert('WME Place Harmonizer\n\nParking Lot Areas (PLA) now have the ability to be Whitelisted if they are unnamed. Please consult the wiki for when it is ok to have a PLA with no name.');
+        }
         // Settings setup
         var GLinkWarning = 'GLinkWarning';  // Warning message for first time using Google search to not to use the Google info itself.
         if (!localStorage.getItem(GLinkWarning)) {  // store settings so the warning is only given once
@@ -348,12 +348,39 @@
 
         // Event listeners
         W.selectionManager.events.registerPriority("selectionchanged", this, checkSelection);
-        if ( W.model.venues.hasOwnProperty('events') ) {
-            W.model.venues.events.registerPriority('objectschanged', this, deleteDupeLabel);
-        } else if ( W.model.venues.hasOwnProperty('on') ) {
-            W.model.venues.on('objectschanged', deleteDupeLabel);
-        }
+        W.model.venues.on('objectschanged', deleteDupeLabel);
         W.accelerators.events.registerPriority('save', null, destroyDupeLabels);
+        W.model.venues.on('objectssynced', syncWL);
+
+        // Remove any temporary ID values (ID < 0) from the WL store at startup.
+        var removedWLCount = 0;
+        Object.keys(venueWhitelist).forEach(function(venueID) {
+            if (venueID < 0) {
+                delete venueWhitelist[venueID];
+                removedWLCount += 1;
+            }
+        });
+        if (removedWLCount > 0) {
+            saveWL_LS(true);
+            phlogdev('Removed ' + removedWLCount + ' venues with temporary ID\'s from WL store');
+        }
+
+        // This should be called after new venues are saved (using venues'objectssynced' event), so the new IDs can be retrieved and used
+        // to replace the temporary IDs in the whitelist.  If WME errors during save, this function may not run.  At that point, the
+        // temporary IDs can no longer be traced to the new IDs so the WL for those new venues will be orphaned, and the temporary IDs
+        // will be removed from the WL store the next time the script starts.
+        function syncWL(newVenues) {
+            newVenues.forEach(function(newVenue) {
+                var oldID = newVenue._prevID;
+                var newID = newVenue.attributes.id;
+                if (oldID && newID && venueWhitelist[oldID]) {
+                    venueWhitelist[newID] = venueWhitelist[oldID];
+                    delete venueWhitelist[oldID];
+                }
+            });
+            saveWL_LS(true);
+        }
+
         var WMEPHurl = 'https://www.waze.com/forum/posting.php?mode=reply&f=819&t=164962';  // WMEPH Forum thread URL
         var USAPNHMasURL = 'https://docs.google.com/spreadsheets/d/1-f-JTWY5UnBx-rFTa4qhyGMYdHBZWNirUTOgn222zMY/edit#gid=0';  // Master USA PNH link
         var placesWikiURL = 'https://wiki.waze.com/wiki/Places';  // WME Places wiki
@@ -371,7 +398,6 @@
         }
         if (devUser) {
             betaUser = true; // dev users are beta users
-            //if (thisUser.userName !== 'bmtg') { debugger; }
         }
         var usrRank = thisUser.normalizedLevel;  // get editor's level (actual level)
         var userLanguage = 'en';
@@ -576,7 +602,9 @@
                 }
                 // Add listeners
                 W.model.venues.on('objectschanged', function (e) {
-                    applyHighlightsTest(e);
+                    if (!_disableHighlightTest) {
+                        applyHighlightsTest(e);
+                    }
                 });
 
                 W.model.venues.on('objectsadded', function (e) {
@@ -718,7 +746,7 @@
             var s1 = s.replace(/\D/g, '');  // remove non-number characters
             var m = s1.match(/^1?([2-9]\d{2})([2-9]\d{2})(\d{4})$/);  // Ignore leading 1, and also don't allow area code or exchange to start with 0 or 1 (***USA/CAN specific)
             if (!m) {  // then try alphanumeric matching
-                if (s) { s = s.toUpperCase() };
+                if (s) { s = s.toUpperCase(); }
                 s1 = s.replace(/[^0-9A-Z]/g, '').replace(/^\D*(\d)/,'$1').replace(/^1?([2-9][0-9]{2}[0-9A-Z]{7})/g,'$1');
                 s1 = replaceLetters(s1);
                 m = s1.match(/^([2-9]\d{2})([2-9]\d{2})(\d{4})$/);  // Ignore leading 1, and also don't allow area code or exchange to start with 0 or 1 (***USA/CAN specific)
@@ -757,9 +785,22 @@
             });
         }
 
+        var MultiAction = require("Waze/Action/MultiAction");
+        // Add array of actions to a MultiAction to be executed at once (counts as one edit for redo/undo purposes)
+        function executeMultiAction(actions) {
+            if(actions.length > 0) {
+                var m_action = new MultiAction();
+                m_action.setModel(W.model);
+                actions.forEach(function(action) {
+                    m_action.doSubAction(action);
+                });
+                W.model.actionManager.add(m_action);
+            }
+        }
+
         // Normalize url
-        function normalizeURL(s, lc) {
-            if (!s) {  // Notify that url is missing and provide web search to find website and gather data (provided for all editors)
+        function normalizeURL(s, lc, skipBannerActivate) {
+            if (!s && !skipBannerActivate) {  // Notify that url is missing and provide web search to find website and gather data (provided for all editors)
                 bannButt.urlMissing.active = true;
                 if (currentWL.urlWL) {
                     bannButt.urlMissing.WLactive = false;
@@ -767,6 +808,7 @@
                 bannButt.webSearch.active = true;  // Activate websearch button
                 return s;
             }
+
             s = s.replace(/ \(.*/g, '');  // remove anything with parentheses after it
             s = s.replace(/ /g, '');  // remove any spaces
             var m = s.match(/^http:\/\/(.*)$/i);  // remove http://
@@ -791,6 +833,12 @@
             if (m) { s = m[1]; }
             m = s.match(/^(.*)\/$/i);  // remove final slash
             if (m) { s = m[1]; }
+
+            // This regex doesn't catch every possible bad URL.  There may be better alternatives, but going with this for now. 
+            var regx = /^((ht|f)tp(s?)\:\/\/)?[0-9a-zA-Z]([-.\w]*[0-9a-zA-Z])*(:(0-9)*)*(\/?)([a-zA-Z0-9\-\.\?\,\'\/\\\+&amp;%\$#_]*)?$/i;
+            if (s.trim().length === 0 || !regx.test(s)) {
+                s = 'badURL';
+            }
             return s;
         }  // END normalizeURL function
 
@@ -810,14 +858,11 @@
             if (W.selectionManager.selectedItems.length === 1) {
                 var item = W.selectionManager.selectedItems[0].model;
                 if (item.type === "venue") {
-
-                    // 2016-12-17 (mapomatic) Until we can get parking lots working without better, I'm forcing the code to skip them.
-                    // ****************************************************************************************************************
-                    if (item.attributes.categories.length === 1 && item.attributes.categories[0] === "PARKING_LOT") { return; }
-                    // ****************************************************************************************************************
-
                     blurAll();  // focus away from current cursor position
+                    _disableHighlightTest = true;
                     harmonizePlaceGo(item,'harmonize');
+                    _disableHighlightTest = false;
+                    applyHighlightsTest(item);
                 } else {  // Remove duplicate labels
                     WMEPH_NameLayer.destroyFeatures();
                 }
@@ -894,7 +939,8 @@
                 phoneWL: false,
                 aCodeWL: false,
                 noHours: false,
-                nameMissing: false
+                nameMissing: false,
+                plaNameMissing: false
             };
 
             // **** Set up banner action buttons.  Structure:
@@ -915,10 +961,14 @@
                 },
 
                 nameMissing: {  // no WL
-                    active: false, severity: 3, message: 'Name is missing.',
+                    active: false, severity: 3, message: 'Name is missing.'
+                },
+
+                plaNameMissing: {
+                    active: false, severity: 1, message: 'Name is missing.',
                     WLactive: true, WLmessage: '', WLtitle: 'Whitelist missing name',
                     WLaction: function() {
-                        wlKeyName = 'nameMissing';
+                        wlKeyName = 'plaNameMissing';
                         whitelistAction(itemID, wlKeyName);
                     }
                 },
@@ -949,26 +999,32 @@
                     active: false, severity: 3, message: 'Gas stations at Rest Areas should be separate area places.'
                 },
 
-                restAreaSpec: {  // if the gas brand and name don't match
+                restAreaSpec: {  // if it appears to be a rest area
                     active: false, severity: 3, message: "Is this a rest area?", value: "Yes", title: 'Update with proper categories and services.',
                     action: function() {
                         var actions = [];
                         // update categories according to spec
-                        newCategories = insertAtIX(newCategories,"TRANSPORTATION",0);  // Insert/move Gas category in the first position
-                        newCategories = insertAtIX(newCategories,"SCENIC_LOOKOUT_VIEWPOINT",1);  // Insert/move Gas category in the first position
+                        newCategories = insertAtIX(newCategories,"TRANSPORTATION",0);  // Insert/move TRANSPORTATION category in the first position
+                        newCategories = insertAtIX(newCategories,"SCENIC_LOOKOUT_VIEWPOINT",1);  // Insert/move SCENIC_LOOKOUT_VIEWPOINT category in the 2nd position
+
                         actions.push(new UpdateObject(item, { categories: newCategories }));
                         fieldUpdateObject.categories='#dfd';
                         // make it 24/7
                         actions.push(new UpdateObject(item, { openingHours: [{days: [1,2,3,4,5,6,0], fromHour: "00:00", toHour: "00:00"}] }));
                         fieldUpdateObject.openingHours='#dfd';
-                        //higlightChangedFields(fieldUpdateObject,hpMode);
+                        //highlightChangedFields(fieldUpdateObject,hpMode);
 
                         bannServ.add247.checked = true;
-                        bannServ.addParking.actionOn();  // add parking service
-                        bannServ.addWheelchair.actionOn();  // add parking service
+                        bannServ.addParking.actionOn(actions);  // add parking service
+                        bannServ.addWheelchair.actionOn(actions);  // add parking service
                         bannButt.restAreaSpec.active = false;  // reset the display flag
 
-                        harmonizePlaceGo(item,'harmonize', actions);
+                        executeMultiAction(actions);
+
+                        _disableHighlightTest = true;
+                        harmonizePlaceGo(item,'harmonize');
+                        _disableHighlightTest = false;
+                        applyHighlightsTest(item);
                     },
                     WLactive: true, WLmessage: '', WLtitle: 'Whitelist place',
                     WLaction: function() {
@@ -989,7 +1045,7 @@
                         W.model.actionManager.add(new UpdateObject(item, { name: newName, aliases: newAliases }));
                         fieldUpdateObject.name='#dfd';
                         fieldUpdateObject.aliases='#dfd';
-                        higlightChangedFields(fieldUpdateObject,hpMode);
+                        highlightChangedFields(fieldUpdateObject,hpMode);
                         bannButt.gasMismatch.active = false;  // reset the display flag
                     },
                     WLactive: true, WLmessage: '', WLtitle: 'Whitelist gas brand mismatch',
@@ -1011,7 +1067,8 @@
                         actions.push(new UpdateObject(item, { categories: newCategories }));
                         fieldUpdateObject.categories='#dfd';
                         bannButt.gasMkPrim.active = false;  // reset the display flag
-                        harmonizePlaceGo(item,'harmonize', actions);
+                        executeMultiAction(actions);
+                        harmonizePlaceGo(item,'harmonize');
                     }
                 },
 
@@ -1023,7 +1080,8 @@
                         actions.push(new UpdateObject(item, { categories: newCategories }));
                         fieldUpdateObject.categories='#dfd';
                         bannButt.hotelMkPrim.active = false;  // reset the display flag
-                        harmonizePlaceGo(item,'harmonize', actions);
+                        executeMultiAction(actions);
+                        harmonizePlaceGo(item,'harmonize');
                     },
                     WLactive: true, WLmessage: '', WLtitle: 'Whitelist hotel as secondary category',
                     WLaction: function() {
@@ -1041,7 +1099,8 @@
                         actions.push(new UpdateObject(item, { categories: newCategories }));
                         fieldUpdateObject.categories='#dfd';
                         bannButt.changeHMC2Office.active = false;  // reset the display flag
-                        harmonizePlaceGo(item,'harmonize', actions);  // Rerun the script to update fields and lock
+                        executeMultiAction(actions);
+                        harmonizePlaceGo(item,'harmonize');  // Rerun the script to update fields and lock
                     },
                     WLactive: true, WLmessage: '', WLtitle: 'Whitelist Hospital category',
                     WLaction: function() {
@@ -1058,7 +1117,8 @@
                         actions.push(new UpdateObject(item, { categories: newCategories }));
                         fieldUpdateObject.categories='#dfd';
                         bannButt.changeHMC2PetVet.active = false;  // reset the display flag
-                        harmonizePlaceGo(item,'harmonize', actions);  // Rerun the script to update fields and lock
+                        executeMultiAction(actions);
+                        harmonizePlaceGo(item,'harmonize');  // Rerun the script to update fields and lock
                     },
                     WLactive: true, WLmessage: '', WLtitle: 'Whitelist PetVet category',
                     WLaction: function() {
@@ -1075,7 +1135,8 @@
                         actions.push(new UpdateObject(item, { categories: newCategories }));
                         fieldUpdateObject.categories='#dfd';
                         bannButt.changeSchool2Offices.active = false;  // reset the display flag
-                        harmonizePlaceGo(item,'harmonize', actions);  // Rerun the script to update fields and lock
+                        executeMultiAction(actions);
+                        harmonizePlaceGo(item,'harmonize');  // Rerun the script to update fields and lock
                     },
                     WLactive: true, WLmessage: '', WLtitle: 'Whitelist School category',
                     WLaction: function() {
@@ -1119,8 +1180,9 @@
                 },
 
                 hnMissing: {
-                    active: false, severity: 3, message: 'No HN: <input type="text" id="WMEPH-HNAdd'+devVersStr+'" autocomplete="off" style="width:100px;padding-left:3px;color:#000;background-color:#FDD">',
+                    active: false, severity: 3, message: 'No HN: <input type="text" id="WMEPH-HNAdd'+devVersStr+'" autocomplete="off" style="font-size:0.85em;width:100px;padding-left:3px;color:#000;background-color:#FDD">',
                     value: "Add", title: 'Add HN to place',
+                    badInput: false,
                     action: function() {
                         var newHN = $('#WMEPH-HNAdd'+devVersStr).val();
                         newHN = newHN.replace(/ +/g, '');
@@ -1131,8 +1193,9 @@
                             W.model.actionManager.add(new UpdateObject(item, { houseNumber: hnTempDash }));
                             fieldUpdateObject.address='#dfd';
                             bannButt.hnMissing.active = false;
+                            badInput = false;
                         } else {
-                            $('#WMEPH-HNAdd'+devVersStr)[0].style="background-color: pink";
+                            badInput = true;
                         }
 
                     },
@@ -1181,7 +1244,7 @@
                         W.model.actionManager.add(new UpdateObject(item, { name: newName, categories: newCategories }));
                         fieldUpdateObject.name='#dfd';
                         fieldUpdateObject.categories='#dfd';
-                        higlightChangedFields(fieldUpdateObject,hpMode);
+                        highlightChangedFields(fieldUpdateObject,hpMode);
                         bannButt.bankCorporate.active = false;   // reset the bank Branch display flag
                         bannButt.bankBranch.active = false;   // reset the bank Branch display flag
                         bannButt.standaloneATM.active = false;   // reset the standalone ATM display flag
@@ -1199,7 +1262,7 @@
                         W.model.actionManager.add(new UpdateObject(item, { name: newName, categories: newCategories }));
                         fieldUpdateObject.name='#dfd';
                         fieldUpdateObject.categories='#dfd';
-                        higlightChangedFields(fieldUpdateObject,hpMode);
+                        highlightChangedFields(fieldUpdateObject,hpMode);
                         bannButt.bankCorporate.active = false;   // reset the bank Branch display flag
                         bannButt.bankBranch.active = false;   // reset the bank Branch display flag
                         bannButt.standaloneATM.active = false;   // reset the standalone ATM display flag
@@ -1215,7 +1278,7 @@
                         W.model.actionManager.add(new UpdateObject(item, { name: newName + ' - Corporate Offices', categories: newCategories }));
                         fieldUpdateObject.name='#dfd';
                         fieldUpdateObject.categories='#dfd';
-                        higlightChangedFields(fieldUpdateObject,hpMode);
+                        highlightChangedFields(fieldUpdateObject,hpMode);
                         bannButt.bankCorporate.active = false;   // reset the bank Branch display flag
                         bannButt.bankBranch.active = false;   // reset the bank Branch display flag
                         bannButt.standaloneATM.active = false;   // reset the standalone ATM display flag
@@ -1232,7 +1295,7 @@
                 },
 
                 wazeBot: {  // no WL
-                    active: false, severity: 2, message: 'Last edited by waze-bot-maint'
+                    active: false, severity: 2, message: 'Last edited by a waze staff administered account'
                 },
 
                 parentCategory: {
@@ -1302,7 +1365,7 @@
                         if (tempPNHURL !== '') {
                             W.model.actionManager.add(new UpdateObject(item, { url: tempPNHURL }));
                             fieldUpdateObject.url='#dfd';
-                            higlightChangedFields(fieldUpdateObject,hpMode);
+                            highlightChangedFields(fieldUpdateObject,hpMode);
                             bannButt.longURL.active = false;
                             updateURL = true;
                         } else {
@@ -1393,7 +1456,22 @@
                 },
 
                 urlMissing: {
-                    active: false, severity: 1, message: "URL missing",
+                    active: false, severity: 1, message: 'No URL: <input type="text" id="WMEPH-UrlAdd'+devVersStr+'" autocomplete="off" style="font-size:0.85em;width:100px;padding-left:3px;color:#000;background-color:#DDF">',
+                    value: "Add", title: 'Add URL to place',
+                    badInput: false,
+                    action: function() {
+                        var newUrlValue = $('#WMEPH-UrlAdd'+devVersStr).val();
+                        var newUrl = normalizeURL(newUrlValue, true, true);
+                        if (newUrl === 'badURL') {
+                            this.badInput = true;
+                        } else {
+                            phlogdev(newUrl);
+                            W.model.actionManager.add(new UpdateObject(item, { url: newUrl }));
+                            fieldUpdateObject.url='#dfd';
+                            bannButt.urlMissing.active = false;
+                            this.badInput = false;
+                        }
+                    },
                     WLactive: true, WLmessage: '', WLtitle: 'Whitelist empty URL',
                     WLaction: function() {
                         wlKeyName = 'urlWL';
@@ -1402,15 +1480,16 @@
                 },
 
                 phoneMissing: {
-                    active: false, severity: 1, message: 'No phone: <input type="text" id="WMEPH-PhoneAdd'+devVersStr+'" autocomplete="off" style="width:120px;padding-left:3px;color:#000;background-color:#DDF">',
+                    active: false, severity: 1, message: 'No ph#: <input type="text" id="WMEPH-PhoneAdd'+devVersStr+'" autocomplete="off" style="font-size:0.85em;width:100px;padding-left:3px;color:#000;background-color:#DDF">',
                     value: "Add", title: 'Add phone to place',
+                    badInput: false,
                     action: function() {
                         var newPhoneVal = $('#WMEPH-PhoneAdd'+devVersStr).val();
                         var newPhone = normalizePhone(newPhoneVal, outputFormat, 'inputted');
                         if (newPhone === 'badPhone') {
-                            // bad input
-                            $('#WMEPH-PhoneAdd'+devVersStr)[0].style="background-color: pink";
+                            this.badInput = true;
                         } else {
+                            this.badInput = false;
                             phlogdev(newPhone);
                             if (countryCode === "USA" || countryCode === "CAN") {
                                 if (newPhone !== null && newPhone.match(/[2-9]\d{2}/) !== null) {
@@ -1446,7 +1525,7 @@
                 },
 
                 noHours: {
-                    active: false, severity: 1, message: 'No hours: <input type="text" value="Paste Hours Here" id="WMEPH-HoursPaste'+devVersStr+'" autocomplete="off" style="width:170px;padding-left:3px;color:#AAA">',
+                    active: false, severity: 1, message: 'No hours: <input type="text" value="Paste Hours Here" id="WMEPH-HoursPaste'+devVersStr+'" autocomplete="off" style="font-size:0.85em;width:170px;padding-left:3px;color:#AAA">',
                     value: "Add hours", title: 'Add pasted hours to existing',
                     action: function() {
                         var pasteHours = $('#WMEPH-HoursPaste'+devVersStr).val();
@@ -1458,7 +1537,7 @@
                             phlogdev(hoursObjectArray);
                             W.model.actionManager.add(new UpdateObject(item, { openingHours: hoursObjectArray }));
                             fieldUpdateObject.openingHours='#dfd';
-                            higlightChangedFields(fieldUpdateObject,hpMode);
+                            highlightChangedFields(fieldUpdateObject,hpMode);
                             bannButt.noHours.value = 'Add hours';
                             bannButt.noHours.severity = 0;
                             bannButt.noHours.WLactive = false;
@@ -1482,7 +1561,7 @@
                             item.attributes.openingHours.push.apply(item.attributes.openingHours, hoursObjectArray);
                             W.model.actionManager.add(new UpdateObject(item, { openingHours: hoursObjectArray }));
                             fieldUpdateObject.openingHours='#dfd';
-                            higlightChangedFields(fieldUpdateObject,hpMode);
+                            highlightChangedFields(fieldUpdateObject,hpMode);
                             bannButt.noHours.value2 = 'Replace hours';
                             bannButt.noHours.severity = 0;
                             bannButt.noHours.WLactive = false;
@@ -1535,12 +1614,12 @@
                             newDescripion = optionalAlias + '\n' + newDescripion;
                             W.model.actionManager.add(new UpdateObject(item, { description: newDescripion }));
                             fieldUpdateObject.description='#dfd';
-                            higlightChangedFields(fieldUpdateObject,hpMode);
+                            highlightChangedFields(fieldUpdateObject,hpMode);
                         }
                         newAliases = removeSFAliases(newName, newAliases);
                         W.model.actionManager.add(new UpdateObject(item, { aliases: newAliases }));
                         fieldUpdateObject.aliases='#dfd';
-                        higlightChangedFields(fieldUpdateObject,hpMode);
+                        highlightChangedFields(fieldUpdateObject,hpMode);
                         bannButt.addAlias.active = false;  // reset the display flag
                     }
                 },
@@ -1551,7 +1630,7 @@
                         newCategories.push.apply(newCategories,altCategories);
                         W.model.actionManager.add(new UpdateObject(item, { categories: newCategories }));
                         fieldUpdateObject.categories='#dfd';
-                        higlightChangedFields(fieldUpdateObject,hpMode);
+                        highlightChangedFields(fieldUpdateObject,hpMode);
                         bannButt.addCat2.active = false;  // reset the display flag
                     }
                 },
@@ -1562,7 +1641,7 @@
                         newCategories = insertAtIX(newCategories, 'PHARMACY', 1);
                         W.model.actionManager.add(new UpdateObject(item, { categories: newCategories }));
                         fieldUpdateObject.categories='#dfd';
-                        higlightChangedFields(fieldUpdateObject,hpMode);
+                        highlightChangedFields(fieldUpdateObject,hpMode);
                         bannButt.addPharm.active = false;  // reset the display flag
                     }
                 },
@@ -1573,7 +1652,7 @@
                         newCategories = insertAtIX(newCategories, 'SUPERMARKET_GROCERY', 1);
                         W.model.actionManager.add(new UpdateObject(item, { categories: newCategories }));
                         fieldUpdateObject.categories='#dfd';
-                        higlightChangedFields(fieldUpdateObject,hpMode);
+                        highlightChangedFields(fieldUpdateObject,hpMode);
                         bannButt.addSuper.active = false;  // reset the display flag
                     }
                 },
@@ -1588,7 +1667,7 @@
                         fieldUpdateObject.name='#dfd';
                         fieldUpdateObject.url='#dfd';
                         fieldUpdateObject.categories='#dfd';
-                        higlightChangedFields(fieldUpdateObject,hpMode);
+                        highlightChangedFields(fieldUpdateObject,hpMode);
                         bannButt.appendAMPM.active = false;  // reset the display flag
                         bannButt.addConvStore.active = false;  // also reset the addConvStore display flag
                     }
@@ -1600,7 +1679,7 @@
                         newCategories = insertAtIX(newCategories,"ATM",1);  // Insert ATM category in the second position
                         W.model.actionManager.add(new UpdateObject(item, { categories: newCategories }));
                         fieldUpdateObject.categories='#dfd';
-                        higlightChangedFields(fieldUpdateObject,hpMode);
+                        highlightChangedFields(fieldUpdateObject,hpMode);
                         bannButt.addATM.active = false;   // reset the display flag
                     }
                 },
@@ -1611,7 +1690,7 @@
                         newCategories = insertAtIX(newCategories,"CONVENIENCE_STORE",1);  // Insert C.S. category in the second position
                         W.model.actionManager.add(new UpdateObject(item, { categories: newCategories }));
                         fieldUpdateObject.categories='#dfd';
-                        higlightChangedFields(fieldUpdateObject,hpMode);
+                        highlightChangedFields(fieldUpdateObject,hpMode);
                         bannButt.addConvStore.active = false;   // reset the display flag
                     }
                 },
@@ -1626,11 +1705,11 @@
                         bannServ.addWheelchair.actionOn();
                         W.model.actionManager.add(new UpdateObject(item, { url: "usps.com" }));
                         fieldUpdateObject.url='#dfd';
-                        higlightChangedFields(fieldUpdateObject,hpMode);
+                        highlightChangedFields(fieldUpdateObject,hpMode);
                         if (region === 'SER') {
                             W.model.actionManager.add(new UpdateObject(item, { aliases: ["United States Postal Service"] }));
                             fieldUpdateObject.aliases='#dfd';
-                            higlightChangedFields(fieldUpdateObject,hpMode);
+                            highlightChangedFields(fieldUpdateObject,hpMode);
                         }
                         bannButt.isitUSPS.active = false;
                     }
@@ -1643,7 +1722,7 @@
                         if (newName !== item.attributes.name) {  // if they are not equal
                             W.model.actionManager.add(new UpdateObject(item, { name: newName }));
                             fieldUpdateObject.name='#dfd';
-                            higlightChangedFields(fieldUpdateObject,hpMode);
+                            highlightChangedFields(fieldUpdateObject,hpMode);
                         }
                         bannButt.STC.active = false;  // reset the display flag
                     }
@@ -1766,7 +1845,7 @@
                     action: function() {
                         if (confirm('Are you sure you want to clear all whitelisted fields for this place?') ) {  // misclick check
                             delete venueWhitelist[itemID];
-                            saveWL_LS(compressedWLLS);
+                            saveWL_LS(true);
                             harmonizePlaceGo(item,'harmonize');  // rerun the script to check all flags again
                         }
                     }
@@ -1791,6 +1870,54 @@
                 }
             };  // END bannButt2 definitions
 
+            function addUpdateAction(updateObj, actions) {
+                var action = new UpdateObject(item, updateObj);
+                if (actions) {
+                    actions.push(action);
+                } else {
+                    W.model.actionManager.add(action);
+                }
+            }
+
+            function setServiceChecked(servBtn, checked, actions) {
+                var servID = WMEServicesArray[servBtn.servIDIndex];
+                var checkboxChecked = $("#service-checkbox-"+servID).prop('checked');
+                var toggle = typeof checked === 'undefined';
+                var noAdd = false;
+                checked = (toggle) ? !servBtn.checked : checked;
+                if (checkboxChecked === servBtn.checked && checkboxChecked !== checked) {
+                    servBtn.checked = checked;
+                    var services;
+                    if (actions) {
+                        for (var i=0; i<actions.length; i++ ) {
+                            var existingAction = actions[i];
+                            if (existingAction.newAttributes && existingAction.newAttributes.services) {
+                                services = existingAction.newAttributes.services;
+                            }
+                        }
+                    }
+                    if (!services) {
+                        services = item.attributes.services.slice(0);
+                    } else {
+                        noAdd = services.indexOf(servID) > -1;
+                    }
+                    if (checked) {
+                        services.push(servID);
+                    } else {
+                        var index = services.indexOf(servID);
+                        if (index > -1) {
+                            services.splice(index, 1);
+                        }
+                    }
+                    if (!noAdd) {
+                        addUpdateAction({services:services}, actions);
+                        fieldUpdateObject.services[servID] = '#dfd';
+                    }
+                }
+                updateServicesChecks(bannServ);
+                if (!toggle) servBtn.active = checked;
+            }
+
             // set up banner action buttons.  Structure:
             // active: false until activated in the script
             // checked: whether the service is already set on the place. Determines grey vs white icon color
@@ -1800,408 +1927,168 @@
             // action: The action that happens if the button is pressed
             bannServ = {
                 addValet: {  // append optional Alias to the name
-                    active: false, checked: false, icon: "serv-valet", w2hratio: 50/50, value: "Valet", title: 'Valet',
-                    action: function() {
-                        servID = WMEServicesArray[0];
-                        if ( ($("#service-checkbox-"+servID).prop('checked') && bannServ.addValet.checked) ||
-                            (!$("#service-checkbox-"+servID).prop('checked') && !bannServ.addValet.checked) ) {
-                            $("#service-checkbox-"+servID).trigger('click');
-                            fieldUpdateObject.services[servID] = '#dfd';
-                        }
-                        updateServicesChecks(bannServ);
+                    active: false, checked: false, icon: "serv-valet", w2hratio: 50/50, value: "Valet", title: 'Valet', servIDIndex: 0,
+                    action: function(actions, checked) {
+                        setServiceChecked(this, checked, actions);
                     },
                     pnhOverride: false,
-                    actionOn: function() {
-                        servID = WMEServicesArray[0];
-                        if ( !$("#service-checkbox-"+servID).prop('checked') ) {
-                            $("#service-checkbox-"+servID).trigger('click');
-                            fieldUpdateObject.services[servID] = '#dfd';
-                            bannServ.addValet.checked = true;
-                        }
-                        updateServicesChecks(bannServ);
-                        bannServ.addValet.active = true;
+                    actionOn: function(actions) {
+                        this.action(actions, true);
                     },
-                    actionOff: function() {
-                        servID = WMEServicesArray[0];
-                        if ( $("#service-checkbox-"+servID).prop('checked') ) {
-                            $("#service-checkbox-"+servID).trigger('click');
-                            fieldUpdateObject.services[servID] = '#dfd';
-                            bannServ.addValet.checked = false;
-                        }
-                        updateServicesChecks(bannServ);
-                        bannServ.addValet.active = false;
+                    actionOff: function(actions) {
+                        this.action(actions, false);
                     }
                 },
                 addDriveThru: {  // append optional Alias to the name
-                    active: false, checked: false, icon: "serv-drivethru", w2hratio: 78/50, value: "DriveThru", title: 'Drive-Thru',
-                    action: function() {
-                        servID = WMEServicesArray[1];
-                        if ( ($("#service-checkbox-"+servID).prop('checked') && bannServ.addDriveThru.checked) ||
-                            (!$("#service-checkbox-"+servID).prop('checked') && !bannServ.addDriveThru.checked) ) {
-                            $("#service-checkbox-"+servID).trigger('click');
-                            fieldUpdateObject.services[servID] = '#dfd';
-                        }
-                        updateServicesChecks(bannServ);
+                    active: false, checked: false, icon: "serv-drivethru", w2hratio: 78/50, value: "DriveThru", title: 'Drive-Thru', servIDIndex: 1,
+                    action: function(actions, checked) {
+                        setServiceChecked(this, checked, actions);
                     },
                     pnhOverride: false,
-                    actionOn: function() {
-                        servID = WMEServicesArray[1];
-                        if ( !$("#service-checkbox-"+servID).prop('checked') ) {
-                            $("#service-checkbox-"+servID).trigger('click');
-                            fieldUpdateObject.services[servID] = '#dfd';
-                            bannServ.addDriveThru.checked = true;
-                        }
-                        updateServicesChecks(bannServ);
-                        bannServ.addDriveThru.active = true;
+                    actionOn: function(actions) {
+                        this.action(actions, true);
                     },
-                    actionOff: function() {
-                        servID = WMEServicesArray[1];
-                        if ( $("#service-checkbox-"+servID).prop('checked') ) {
-                            $("#service-checkbox-"+servID).trigger('click');
-                            fieldUpdateObject.services[servID] = '#dfd';
-                            bannServ.addDriveThru.checked = false;
-                        }
-                        updateServicesChecks(bannServ);
-                        bannServ.addDriveThru.active = false;
+                    actionOff: function(actions) {
+                        this.action(actions, false);
                     }
                 },
                 addWiFi: {  // append optional Alias to the name
-                    active: false, checked: false, icon: "serv-wifi", w2hratio: 67/50, value: "WiFi", title: 'WiFi',
-                    action: function() {
-                        servID = WMEServicesArray[2];
-                        if ( ($("#service-checkbox-"+servID).prop('checked') && bannServ.addWiFi.checked) ||
-                            (!$("#service-checkbox-"+servID).prop('checked') && !bannServ.addWiFi.checked) ) {
-                            $("#service-checkbox-"+servID).trigger('click');
-                            fieldUpdateObject.services[servID] = '#dfd';
-                        }
-                        updateServicesChecks(bannServ);
+                    active: false, checked: false, icon: "serv-wifi", w2hratio: 67/50, value: "WiFi", title: 'WiFi', servIDIndex: 2,
+                    action: function(actions, checked) {
+                        setServiceChecked(this, checked, actions);
                     },
                     pnhOverride: false,
-                    actionOn: function() {
-                        servID = WMEServicesArray[2];
-                        if ( !$("#service-checkbox-"+servID).prop('checked') ) {
-                            $("#service-checkbox-"+servID).trigger('click');
-                            fieldUpdateObject.services[servID] = '#dfd';
-                            bannServ.addWiFi.checked = true;
-                        }
-                        updateServicesChecks(bannServ);
-                        bannServ.addWiFi.active = true;
+                    actionOn: function(actions) {
+                        this.action(actions, true);
                     },
-                    actionOff: function() {
-                        servID = WMEServicesArray[2];
-                        if ( $("#service-checkbox-"+servID).prop('checked') ) {
-                            $("#service-checkbox-"+servID).trigger('click');
-                            fieldUpdateObject.services[servID] = '#dfd';
-                            bannServ.addWiFi.checked = false;
-                        }
-                        updateServicesChecks(bannServ);
-                        bannServ.addWiFi.active = false;
+                    actionOff: function(actions) {
+                        this.action(actions, false);
                     }
                 },
                 addRestrooms: {  // append optional Alias to the name
-                    active: false, checked: false, icon: "serv-restrooms", w2hratio: 49/50, value: "Restroom", title: 'Restrooms',
-                    action: function() {
-                        servID = WMEServicesArray[3];
-                        if ( ($("#service-checkbox-"+servID).prop('checked') && bannServ.addRestrooms.checked) ||
-                            (!$("#service-checkbox-"+servID).prop('checked') && !bannServ.addRestrooms.checked) ) {
-                            $("#service-checkbox-"+servID).trigger('click');
-                            fieldUpdateObject.services[servID] = '#dfd';
-                        }
-                        updateServicesChecks(bannServ);
+                    active: false, checked: false, icon: "serv-restrooms", w2hratio: 49/50, value: "Restroom", title: 'Restrooms', servIDIndex: 3,
+                    action: function(actions, checked) {
+                        setServiceChecked(this, checked, actions);
                     },
                     pnhOverride: false,
-                    actionOn: function() {
-                        servID = WMEServicesArray[3];
-                        if ( !$("#service-checkbox-"+servID).prop('checked') ) {
-                            $("#service-checkbox-"+servID).trigger('click');
-                            fieldUpdateObject.services[servID] = '#dfd';
-                            bannServ.addRestrooms.checked = true;
-                        }
-                        updateServicesChecks(bannServ);
-                        bannServ.addRestrooms.active = true;
+                    actionOn: function(actions) {
+                        this.action(actions, true);
                     },
-                    actionOff: function() {
-                        servID = WMEServicesArray[3];
-                        if ( $("#service-checkbox-"+servID).prop('checked') ) {
-                            $("#service-checkbox-"+servID).trigger('click');
-                            fieldUpdateObject.services[servID] = '#dfd';
-                            bannServ.addRestrooms.checked = false;
-                        }
-                        updateServicesChecks(bannServ);
-                        bannServ.addRestrooms.active = false;
+                    actionOff: function(actions) {
+                        this.action(actions, false);
                     }
                 },
                 addCreditCards: {  // append optional Alias to the name
-                    active: false, checked: false, icon: "serv-credit", w2hratio: 73/50, value: "CC", title: 'Credit Cards',
-                    action: function() {
-                        servID = WMEServicesArray[4];
-                        if ( ($("#service-checkbox-"+servID).prop('checked') && bannServ.addCreditCards.checked) ||
-                            (!$("#service-checkbox-"+servID).prop('checked') && !bannServ.addCreditCards.checked) ) {
-                            $("#service-checkbox-"+servID).trigger('click');
-                            fieldUpdateObject.services[servID] = '#dfd';
-                        }
-                        updateServicesChecks(bannServ);
+                    active: false, checked: false, icon: "serv-credit", w2hratio: 73/50, value: "CC", title: 'Credit Cards', servIDIndex: 4,
+                    action: function(actions, checked) {
+                        setServiceChecked(this, checked, actions);
                     },
                     pnhOverride: false,
-                    actionOn: function() {
-                        servID = WMEServicesArray[4];
-                        if ( !$("#service-checkbox-"+servID).prop('checked') ) {
-                            $("#service-checkbox-"+servID).trigger('click');
-                            fieldUpdateObject.services[servID] = '#dfd';
-                            bannServ.addCreditCards.checked = true;
-                        }
-                        updateServicesChecks(bannServ);
-                        bannServ.addCreditCards.active = true;
+                    actionOn: function(actions) {
+                        this.action(actions, true);
                     },
-                    actionOff: function() {
-                        servID = WMEServicesArray[4];
-                        if ( $("#service-checkbox-"+servID).prop('checked') ) {
-                            $("#service-checkbox-"+servID).trigger('click');
-                            fieldUpdateObject.services[servID] = '#dfd';
-                            bannServ.addCreditCards.checked = false;
-                        }
-                        updateServicesChecks(bannServ);
-                        bannServ.addCreditCards.active = false;
+                    actionOff: function(actions) {
+                        this.action(actions, false);
                     }
                 },
                 addReservations: {  // append optional Alias to the name
-                    active: false, checked: false, icon: "serv-reservations", w2hratio: 55/50, value: "Reserve", title: 'Reservations',
-                    action: function() {
-                        servID = WMEServicesArray[5];
-                        if ( ($("#service-checkbox-"+servID).prop('checked') && bannServ.addReservations.checked) ||
-                            (!$("#service-checkbox-"+servID).prop('checked') && !bannServ.addReservations.checked) ) {
-                            $("#service-checkbox-"+servID).trigger('click');
-                            fieldUpdateObject.services[servID] = '#dfd';
-                        }
-                        updateServicesChecks(bannServ);
+                    active: false, checked: false, icon: "serv-reservations", w2hratio: 55/50, value: "Reserve", title: 'Reservations', servIDIndex: 5,
+                    action: function(actions, checked) {
+                        setServiceChecked(this, checked, actions);
                     },
                     pnhOverride: false,
-                    actionOn: function() {
-                        servID = WMEServicesArray[5];
-                        if ( !$("#service-checkbox-"+servID).prop('checked') ) {
-                            $("#service-checkbox-"+servID).trigger('click');
-                            fieldUpdateObject.services[servID] = '#dfd';
-                            bannServ.addReservations.checked = true;
-                        }
-                        updateServicesChecks(bannServ);
-                        bannServ.addReservations.active = true;
+                    actionOn: function(actions) {
+                        this.action(actions, true);
                     },
-                    actionOff: function() {
-                        servID = WMEServicesArray[5];
-                        if ( $("#service-checkbox-"+servID).prop('checked') ) {
-                            $("#service-checkbox-"+servID).trigger('click');
-                            fieldUpdateObject.services[servID] = '#dfd';
-                            bannServ.addReservations.checked = false;
-                        }
-                        updateServicesChecks(bannServ);
-                        bannServ.addReservations.active = false;
+                    actionOff: function(actions) {
+                        this.action(actions, false);
                     }
                 },
                 addOutside: {  // append optional Alias to the name
-                    active: false, checked: false, icon: "serv-outdoor", w2hratio: 73/50, value: "OusideSeat", title: 'Outside Seating',
-                    action: function() {
-                        servID = WMEServicesArray[6];
-                        if ( ($("#service-checkbox-"+servID).prop('checked') && bannServ.addOutside.checked) ||
-                            (!$("#service-checkbox-"+servID).prop('checked') && !bannServ.addOutside.checked) ) {
-                            $("#service-checkbox-"+servID).trigger('click');
-                            fieldUpdateObject.services[servID] = '#dfd';
-                        }
-                        updateServicesChecks(bannServ);
+                    active: false, checked: false, icon: "serv-outdoor", w2hratio: 73/50, value: "OusideSeat", title: 'Outside Seating', servIDIndex: 6,
+                    action: function(actions, checked) {
+                        setServiceChecked(this, checked, actions);
                     },
                     pnhOverride: false,
-                    actionOn: function() {
-                        servID = WMEServicesArray[6];
-                        if ( !$("#service-checkbox-"+servID).prop('checked') ) {
-                            $("#service-checkbox-"+servID).trigger('click');
-                            fieldUpdateObject.services[servID] = '#dfd';
-                            bannServ.addOutside.checked = true;
-                        }
-                        updateServicesChecks(bannServ);
-                        bannServ.addOutside.active = true;
+                    actionOn: function(actions) {
+                        this.action(actions, true);
                     },
-                    actionOff: function() {
-                        servID = WMEServicesArray[6];
-                        if ( $("#service-checkbox-"+servID).prop('checked') ) {
-                            $("#service-checkbox-"+servID).trigger('click');
-                            fieldUpdateObject.services[servID] = '#dfd';
-                            bannServ.addOutside.checked = false;
-                        }
-                        updateServicesChecks(bannServ);
-                        bannServ.addOutside.active = false;
+                    actionOff: function(actions) {
+                        this.action(actions, false);
                     }
                 },
                 addAC: {  // append optional Alias to the name
-                    active: false, checked: false, icon: "serv-ac", w2hratio: 50/50, value: "AC", title: 'AC',
-                    action: function() {
-                        servID = WMEServicesArray[7];
-                        if ( ($("#service-checkbox-"+servID).prop('checked') && bannServ.addAC.checked) ||
-                            (!$("#service-checkbox-"+servID).prop('checked') && !bannServ.addAC.checked) ) {
-                            $("#service-checkbox-"+servID).trigger('click');
-                            fieldUpdateObject.services[servID] = '#dfd';
-                        }
-                        updateServicesChecks(bannServ);
+                    active: false, checked: false, icon: "serv-ac", w2hratio: 50/50, value: "AC", title: 'AC', servIDIndex: 7,
+                    action: function(actions, checked) {
+                        setServiceChecked(this, checked, actions);
                     },
                     pnhOverride: false,
-                    actionOn: function() {
-                        servID = WMEServicesArray[7];
-                        if ( !$("#service-checkbox-"+servID).prop('checked') ) {
-                            $("#service-checkbox-"+servID).trigger('click');
-                            fieldUpdateObject.services[servID] = '#dfd';
-                            bannServ.addAC.checked = true;
-                        }
-                        updateServicesChecks(bannServ);
-                        bannServ.addAC.active = true;
+                    actionOn: function(actions) {
+                        this.action(actions, true);
                     },
-                    actionOff: function() {
-                        servID = WMEServicesArray[7];
-                        if ( $("#service-checkbox-"+servID).prop('checked') ) {
-                            $("#service-checkbox-"+servID).trigger('click');
-                            fieldUpdateObject.services[servID] = '#dfd';
-                            bannServ.addAC.checked = false;
-                        }
-                        updateServicesChecks(bannServ);
-                        bannServ.addAC.active = false;
+                    actionOff: function(actions) {
+                        this.action(actions, false);
                     }
                 },
                 addParking: {  // append optional Alias to the name
-                    active: false, checked: false, icon: "serv-parking", w2hratio: 46/50, value: "Parking", title: 'Parking',
-                    action: function() {
-                        servID = WMEServicesArray[8];
-                        if ( ($("#service-checkbox-"+servID).prop('checked') && bannServ.addParking.checked) ||
-                            (!$("#service-checkbox-"+servID).prop('checked') && !bannServ.addParking.checked) ) {
-                            $("#service-checkbox-"+servID).trigger('click');
-                            fieldUpdateObject.services[servID] = '#dfd';
-                        }
-                        updateServicesChecks(bannServ);
+                    active: false, checked: false, icon: "serv-parking", w2hratio: 46/50, value: "Parking", title: 'Parking', servIDIndex: 8,
+                    action: function(actions, checked) {
+                        setServiceChecked(this, checked, actions);
                     },
                     pnhOverride: false,
-                    actionOn: function() {
-                        servID = WMEServicesArray[8];
-                        if ( !$("#service-checkbox-"+servID).prop('checked') ) {
-                            $("#service-checkbox-"+servID).trigger('click');
-                            fieldUpdateObject.services[servID] = '#dfd';
-                            bannServ.addParking.checked = true;
-                        }
-                        updateServicesChecks(bannServ);
-                        bannServ.addParking.active = true;
+                    actionOn: function(actions) {
+                        this.action(actions, true);
                     },
-                    actionOff: function() {
-                        servID = WMEServicesArray[8];
-                        if ( $("#service-checkbox-"+servID).prop('checked') ) {
-                            $("#service-checkbox-"+servID).trigger('click');
-                            fieldUpdateObject.services[servID] = '#dfd';
-                            bannServ.addParking.checked = false;
-                        }
-                        updateServicesChecks(bannServ);
-                        bannServ.addParking.active = false;
+                    actionOff: function(actions) {
+                        this.action(actions, false);
                     }
                 },
                 addDeliveries: {  // append optional Alias to the name
-                    active: false, checked: false, icon: "serv-deliveries", w2hratio: 86/50, value: "Delivery", title: 'Deliveries',
-                    action: function() {
-                        servID = WMEServicesArray[9];
-                        if ( ($("#service-checkbox-"+servID).prop('checked') && bannServ.addDeliveries.checked) ||
-                            (!$("#service-checkbox-"+servID).prop('checked') && !bannServ.addDeliveries.checked) ) {
-                            $("#service-checkbox-"+servID).trigger('click');
-                            fieldUpdateObject.services[servID] = '#dfd';
-                        }
-                        updateServicesChecks(bannServ);
+                    active: false, checked: false, icon: "serv-deliveries", w2hratio: 86/50, value: "Delivery", title: 'Deliveries', servIDIndex: 9,
+                    action: function(actions, checked) {
+                        setServiceChecked(this, checked, actions);
                     },
                     pnhOverride: false,
-                    actionOn: function() {
-                        servID = WMEServicesArray[9];
-                        if ( !$("#service-checkbox-"+servID).prop('checked') ) {
-                            $("#service-checkbox-"+servID).trigger('click');
-                            fieldUpdateObject.services[servID] = '#dfd';
-                            bannServ.addDeliveries.checked = true;
-                        }
-                        updateServicesChecks(bannServ);
-                        bannServ.addDeliveries.active = true;
+                    actionOn: function(actions) {
+                        this.action(actions, true);
                     },
-                    actionOff: function() {
-                        servID = WMEServicesArray[9];
-                        if ( $("#service-checkbox-"+servID).prop('checked') ) {
-                            $("#service-checkbox-"+servID).trigger('click');
-                            fieldUpdateObject.services[servID] = '#dfd';
-                            bannServ.addDeliveries.checked = false;
-                        }
-                        updateServicesChecks(bannServ);
-                        bannServ.addDeliveries.active = false;
+                    actionOff: function(actions) {
+                        this.action(actions, false);
                     }
                 },
                 addTakeAway: {  // append optional Alias to the name
-                    active: false, checked: false, icon: "serv-takeaway", w2hratio: 34/50, value: "TakeOut", title: 'Take Out',
-                    action: function() {
-                        servID = WMEServicesArray[10];
-                        if ( ($("#service-checkbox-"+servID).prop('checked') && bannServ.addTakeAway.checked) ||
-                            (!$("#service-checkbox-"+servID).prop('checked') && !bannServ.addTakeAway.checked) ) {
-                            $("#service-checkbox-"+servID).trigger('click');
-                            fieldUpdateObject.services[servID] = '#dfd';
-                        }
-                        updateServicesChecks(bannServ);
+                    active: false, checked: false, icon: "serv-takeaway", w2hratio: 34/50, value: "TakeOut", title: 'Take Out', servIDIndex: 10,
+                    action: function(actions, checked) {
+                        setServiceChecked(this, checked, actions);
                     },
                     pnhOverride: false,
-                    actionOn: function() {
-                        servID = WMEServicesArray[10];
-                        if ( !$("#service-checkbox-"+servID).prop('checked') ) {
-                            $("#service-checkbox-"+servID).trigger('click');
-                            fieldUpdateObject.services[servID] = '#dfd';
-                            bannServ.addTakeAway.checked = true;
-                        }
-                        updateServicesChecks(bannServ);
-                        bannServ.addTakeAway.active = true;
+                    actionOn: function(actions) {
+                        this.action(actions, true);
                     },
-                    actionOff: function() {
-                        servID = WMEServicesArray[10];
-                        if ( $("#service-checkbox-"+servID).prop('checked') ) {
-                            $("#service-checkbox-"+servID).trigger('click');
-                            fieldUpdateObject.services[servID] = '#dfd';
-                            bannServ.addTakeAway.checked = false;
-                        }
-                        updateServicesChecks(bannServ);
-                        bannServ.addTakeAway.active = false;
+                    actionOff: function(actions) {
+                        this.action(actions, false);
                     }
                 },
                 addWheelchair: {  // add service
-                    active: false, checked: false, icon: "serv-wheelchair", w2hratio: 50/50, value: "WhCh", title: 'Wheelchair Accessible',
-                    action: function() {
-                        servID = WMEServicesArray[11];
-                        if ( ($("#service-checkbox-"+servID).prop('checked') && bannServ.addWheelchair.checked) ||
-                            (!$("#service-checkbox-"+servID).prop('checked') && !bannServ.addWheelchair.checked) ) {
-                            $("#service-checkbox-"+servID).trigger('click');
-                            fieldUpdateObject.services[servID] = '#dfd';
-                        }
-                        updateServicesChecks(bannServ);
+                    active: false, checked: false, icon: "serv-wheelchair", w2hratio: 50/50, value: "WhCh", title: 'Wheelchair Accessible', servIDIndex: 11,
+                    action: function(actions, checked) {
+                        setServiceChecked(this, checked, actions);
                     },
                     pnhOverride: false,
-                    actionOn: function() {
-                        servID = WMEServicesArray[11];
-                        if ( !$("#service-checkbox-"+servID).prop('checked') ) {
-                            $("#service-checkbox-"+servID).trigger('click');
-                            fieldUpdateObject.services[servID] = '#dfd';
-                            bannServ.addWheelchair.checked = true;
-                        }
-                        updateServicesChecks(bannServ);
-                        bannServ.addWheelchair.active = true;
+                    actionOn: function(actions) {
+                        this.action(actions, true);
                     },
-                    actionOff: function() {
-                        servID = WMEServicesArray[11];
-                        if ( $("#service-checkbox-"+servID).prop('checked') ) {
-                            $("#service-checkbox-"+servID).trigger('click');
-                            fieldUpdateObject.services[servID] = '#dfd';
-                            bannServ.addWheelchair.checked = false;
-                        }
-                        updateServicesChecks(bannServ);
-                        bannServ.addWheelchair.active = false;
+                    actionOff: function(actions) {
+                        this.action(actions, false);
                     }
                 },
                 add247: {  // add 24/7 hours
                     active: false, checked: false, icon: "serv-247", w2hratio: 73/50, value: "247", title: 'Hours: Open 24\/7',
-                    action: function() {
+                    action: function(actions) {
                         if (!bannServ.add247.checked) {
-                            W.model.actionManager.add(new UpdateObject(item, { openingHours: [{days: [1,2,3,4,5,6,0], fromHour: "00:00", toHour: "00:00"}] }));
+                            addUpdateAction({ openingHours: [{days: [1,2,3,4,5,6,0], fromHour: "00:00", toHour: "00:00"}] }, actions);
                             fieldUpdateObject.openingHours='#dfd';
-                            higlightChangedFields(fieldUpdateObject,hpMode);
+                            highlightChangedFields(fieldUpdateObject,hpMode);
                             bannServ.add247.checked = true;
                             bannButt.noHours.active = false;
                         }
@@ -2275,7 +2162,7 @@
                         if (inferredAddress && inferredAddress.state && inferredAddress.country ) {
                             addr = inferredAddress;
                             if ( $("#WMEPH-AddAddresses" + devVersStr).prop('checked') ) {  // update the item's address if option is enabled
-                                updateAddress(item, addr);
+                                updateAddress(item, addr, actions);
                                 fieldUpdateObject.address='#dfd';
                                 if (item.attributes.houseNumber && item.attributes.houseNumber.replace(/[^0-9A-Za-z]/g,'').length > 0 ) {
                                     bannButt.fullAddressInference.active = true;
@@ -2294,11 +2181,9 @@
                 } else if (hpMode.hlFlag) {
                     if ( item.attributes.adLocked ) {
                         return 'adLock';
-                    } else if ( item.attributes.categories.indexOf("PARKING_LOT") > -1 && item.attributes.lockRank < levelToLock ) {
-                        return 4;
                     } else if ( item.isPoint() && (item.attributes.categories.indexOf("HOSPITAL_MEDICAL_CARE") > -1 || item.attributes.categories.indexOf("GAS_STATION") > -1) ) {
-                        return 5;
                         phlogdev('Unaddressed HMC/GS');
+                        return 5;
                     } else {
                         return 3;
                     }
@@ -2413,6 +2298,13 @@
                 return 3;
             }
 
+            // If no gas station name, replace with brand name
+            if (hpMode.harmFlag && item.attributes.categories[0] === 'GAS_STATION' && (!newName || newName.trim().length === 0) && item.attributes.brand) {
+                newName = item.attributes.brand;
+                actions.push(new UpdateObject(item, {name: newName }));
+                fieldUpdateObject.name = '#dfd';
+            }
+
             // Clear attributes from residential places
             if (item.attributes.residential) {
                 if (hpMode.harmFlag) {
@@ -2452,11 +2344,15 @@
                 if (item.is2D()) {
                     bannButt.pointNotArea.active = true;
                 }
-            } else if (item.attributes.name !== "" && item.attributes.name !== " " && item.attributes.name !== null) {  // for non-residential places
+            } else if (item.attributes.categories[0] === 'PARKING_LOT' || (newName && newName.trim().length > 0)) {  // for non-residential places
                 // Place Harmonization
                 var PNHMatchData;
                 if (hpMode.harmFlag) {
-                    PNHMatchData = harmoList(newName,state2L,region,countryCode,newCategories);  // check against the PNH list
+                    if (item.attributes.categories[0] === 'PARKING_LOT') {
+                        PNHMatchData = ['NoMatch'];
+                    } else {
+                        PNHMatchData = harmoList(newName,state2L,region,countryCode,newCategories);  // check against the PNH list
+                    }
                 } else if (hpMode.hlFlag) {
                     PNHMatchData = ['Highlight'];
                     //PNHMatchData = harmoList(newName,state2L,region,countryCode,newCategories);  // check against the PNH list
@@ -2549,11 +2445,11 @@
                                 bannButt[scFlag].active = false;
                             } else if ( specCases[scix].match(/^psOn_/g) !== null ) {
                                 scFlag = specCases[scix].match(/^psOn_(.+)/i)[1];
-                                bannServ[scFlag].actionOn();
+                                bannServ[scFlag].actionOn(actions);
                                 bannServ[scFlag].pnhOverride = true;
                             } else if ( specCases[scix].match(/^psOff_/g) !== null ) {
                                 scFlag = specCases[scix].match(/^psOff_(.+)/i)[1];
-                                bannServ[scFlag].actionOff();
+                                bannServ[scFlag].actionOff(actions);
                                 bannServ[scFlag].pnhOverride = true;
                             }
                             // parseout localURL data if exists (meaning place can have a URL distinct from the chain URL
@@ -2726,7 +2622,6 @@
                     }
 
                     // name parsing with category exceptions
-                    var splix;
                     if (["HOTEL"].indexOf(priPNHPlaceCat) > -1) {
                         if (newName.toUpperCase() === PNHMatchData[ph_name_ix].toUpperCase()) {  // If no localization
                             bannButt.catHotel.message = 'Check hotel website for any name localization (e.g. '+ PNHMatchData[ph_name_ix] +' - Tampa Airport).';
@@ -2734,10 +2629,16 @@
                             newName = PNHMatchData[ph_name_ix];
                         } else {
                             // Replace PNH part of name with PNH name
-                            splix = newName.toUpperCase().replace(/[-\/]/g,' ').indexOf(PNHMatchData[ph_name_ix].toUpperCase().replace(/[-\/]/g,' ') );
+                            var splix = newName.toUpperCase().replace(/[-\/]/g,' ').indexOf(PNHMatchData[ph_name_ix].toUpperCase().replace(/[-\/]/g,' ') );
                             if (splix>-1) {
-                                newName = newName.slice(0,splix) + ' ' + PNHMatchData[ph_name_ix] + ' ' + newName.slice(splix+PNHMatchData[ph_name_ix].length);
+                                var frontText = newName.slice(0,splix);
+                                var backText = newName.slice(splix+PNHMatchData[ph_name_ix].length);
+                                newName = PNHMatchData[ph_name_ix];
+                                if (frontText.length > 0) { newName = frontText + ' ' + newName; }
+                                if (backText.length > 0) { newName = newName + ' ' + backText; }
                                 newName = newName.replace(/ {2,}/g,' ');
+                            } else {
+                                newName = PNHMatchData[ph_name_ix];
                             }
                         }
                         if ( altCategories !== "0" && altCategories !== "" ) {  // if PNH alts exist
@@ -3119,7 +3020,7 @@
                                     bannServ[servKeys[psix]].active = true;
                                     if ( hpMode.harmFlag && $("#WMEPH-EnableServices" + devVersStr).prop('checked')  ) {
                                         // Automatically enable new services
-                                        bannServ[servKeys[psix]].actionOn();
+                                        bannServ[servKeys[psix]].actionOn(actions);
                                     }
                                 } else if (CH_DATA_Temp[servHeaders[psix]] === '2') {  // these are never automatically added but shown
                                     bannServ[servKeys[psix]].active = true;
@@ -3129,7 +3030,7 @@
                                         var servAutoRegion = CH_DATA_Temp[servHeaders[psix]].replace(/,[^A-za-z0-9]*/g, ",").split(",");
                                         // if the sheet data matches the state, region, or username then auto add
                                         if ( servAutoRegion.indexOf(state2L) > -1 || servAutoRegion.indexOf(region) > -1 || servAutoRegion.indexOf(thisUser.userName) > -1 ) {
-                                            bannServ[servKeys[psix]].actionOn();
+                                            bannServ[servKeys[psix]].actionOn(actions);
                                         }
                                     }
                                 }
@@ -3139,7 +3040,6 @@
                 }
 
                 // PNH specific Services:
-
 
 
                 // ### remove unnecessary parent categories (Restaurant doesn't need food and drink)
@@ -3223,7 +3123,7 @@
                         }
                         // display any messaged regarding the category
                         pc_message = CH_DATA_Temp[CH_DATA_headers.indexOf('pc_message')];
-                        if (pc_message !== '0' && pc_message !== '' && pc_message === null) {
+                        if (pc_message && pc_message !== '0' && pc_message !== '') {
                             bannButt.pnhCatMess.active = true;
                             bannButt.pnhCatMess.message = pc_message;
                         }
@@ -3409,8 +3309,14 @@
             }  // END if (!residential && has name)
 
             // Name check
-            if ( !item.attributes.residential && ( !item.attributes.name || item.attributes.name.replace(/[^A-Za-z0-9]/g,'').length === 0 )) {
-                if ( 'ISLAND|FOREST_GROVE|SEA_LAKE_POOL|RIVER_STREAM|CANAL'.split('|').indexOf(item.attributes.categories[0]) === -1 ) {
+            if ( !item.attributes.residential && ( !newName || newName.replace(/[^A-Za-z0-9]/g,'').length === 0 )) {
+                if (item.attributes.categories[0] === 'PARKING_LOT') {
+                    if (currentWL.plaNameMissing) {
+                        bannButt.plaNameMissing.active = false;
+                    } else {
+                        bannButt.plaNameMissing.active = true;
+                    }
+                }else if ( 'ISLAND|FOREST_GROVE|SEA_LAKE_POOL|RIVER_STREAM|CANAL'.split('|').indexOf(item.attributes.categories[0]) === -1 ) {
                     bannButt.nameMissing.active = true;
                     lockOK = false;
                 }
@@ -3580,10 +3486,19 @@
 
             // *** Rest Area parsing
             // check rest area name against standard formats or if has the right categories
-            if ( (newName.toLowerCase().indexOf('rest area') > -1 || newName.toLowerCase().indexOf('rest stop') > -1 || newName.toLowerCase().indexOf('service plaza') > -1) ||
-                ( categories.indexOf('TRANSPORTATION') > -1 && categories.indexOf('SCENIC_LOOKOUT_VIEWPOINT') > -1 ) ) {
-                if ( categories.indexOf('TRANSPORTATION') === 0 && categories.indexOf('SCENIC_LOOKOUT_VIEWPOINT') === 1) {
-                    if ( item.isPoint() ) {  // needs to be area point
+
+            // ****************************************************************************************************
+            // 1/2/2017 (mapomatic) Technically, TRANSPORTATION should be the 1st category according to the wiki,
+            // but due to a bug in WME, we can't force that.  I've temporarily changed the check for TRANSPORTATION
+            // and SCENIC_LOOKOUT_VIEWPOINT to be < 2 instead of === 0 and === 1, respectively.
+            // ****************************************************************************************************
+            var transCatIndex = categories.indexOf('TRANSPORTATION');
+            var lookoutCatIndex = categories.indexOf('SCENIC_LOOKOUT_VIEWPOINT');
+            if ( /rest area/i.test(newName) || /rest stop/i.test(newName) || /service plaza/i.test(newName) ||
+                ( transCatIndex > -1 && lookoutCatIndex > -1 ) ) {
+                if ( transCatIndex < 2 && transCatIndex > -1 && lookoutCatIndex < 2 && lookoutCatIndex > -1 ) {
+
+                    if ( item.isPoint() ) {  // needs to be area
                         bannButt.areaNotPoint.active = true;
                     }
                     bannButt.pointNotArea.active = false;
@@ -3592,6 +3507,7 @@
                     if ( categories.indexOf('GAS_STATION') > -1 ) {
                         bannButt.restAreaGas.active = true;
                     }
+
                     if ( newName.match(/^Rest Area.* \- /) === null ) {
                         bannButt.restAreaName.active = true;
                         if (currentWL.restAreaName) {
@@ -3599,10 +3515,24 @@
                         }
                     } else {
                         newName = newName.replace(/Mile/i, 'mile');
-                        if (newName !== item.attributes.name) {  // if they are not equal
-                            actions.push(new UpdateObject(item, { name: newName }));
-                            fieldUpdateObject.name='#dfd';
-                            phlogdev('Lower case "mile"');
+                        if (hpMode.harmFlag) {
+                            if (newName !== item.attributes.name) {
+                                actions.push(new UpdateObject(item, { name: newName }));
+                                fieldUpdateObject.name='#dfd';
+                                phlogdev('Lower case "mile"');
+                            } else {
+                                // The new name matches the original name, so the only change would have been to capitalize "Mile", which
+                                // we don't want. So remove any previous name-change action.  Note: this feels like a hack and is probably
+                                // a fragile workaround.  The name shouldn't be capitalized in the first place, unless necessary.
+                                for (var i=0; i<actions.length; i++) {
+                                    var action = actions[i];
+                                    if (action.newAttributes.name) {
+                                        actions.splice(i,1);
+                                        fieldUpdateObject.name='';
+                                        break;
+                                    }
+                                }
+                            }
                         }
                     }
 
@@ -3679,7 +3609,7 @@
 
             //waze_maint_bot check
             if (!item.attributes.residential && item.attributes.updatedBy && W.model.users.get(item.attributes.updatedBy) &&
-                W.model.users.get(item.attributes.updatedBy).userName && W.model.users.get(item.attributes.updatedBy).userName.match(/^waze-maint-bot/i) !== null) {
+                W.model.users.get(item.attributes.updatedBy).userName && W.model.users.get(item.attributes.updatedBy).userName.match(/^waze-maint-bot|waze3rdparty|WazeParking1|admin/i) !== null) {
                 bannButt.wazeBot.active = true;
             }
 
@@ -3775,9 +3705,6 @@
                 //phlogdev('calculated in harmGo: ' +severityButt + '; ' + item.attributes.name);
 
                 // Special case flags
-                if ( item.attributes.categories.indexOf("PARKING_LOT") > -1 && item.attributes.lockRank < levelToLock ) {
-                    severityButt = 4;
-                }
                 if ( item.isPoint() && item.attributes.lockRank < levelToLock && (item.attributes.categories.indexOf("HOSPITAL_MEDICAL_CARE") > -1 || item.attributes.categories.indexOf("GAS_STATION") > -1) ) {
                     severityButt = 5;
                 }
@@ -3849,7 +3776,7 @@
                                     }
                                     venueWhitelist[dID].dupeWL.push(itemID);  // WL the id for the duplicate venue
                                     venueWhitelist[dID].dupeWL = uniq(venueWhitelist[dID].dupeWL);
-                                    saveWL_LS(compressedWLLS);  // Save the WL to local storage
+                                    saveWL_LS(true);  // Save the WL to local storage
                                     WMEPH_WLCounter();
                                     bannButt2.clearWL.active = true;
                                     bannDupl[dID].active = false;
@@ -3898,14 +3825,11 @@
                 }
             }
 
-            if(actions.length > 0) {
-                var MultiAction = require("Waze/Action/MultiAction");
-                var m_action = new MultiAction();
-                m_action.setModel(W.model);
-                actions.forEach(function(action) {
-                    m_action.doSubAction(action);
-                });
-                W.model.actionManager.add(m_action);
+            executeMultiAction(actions);
+
+            if (hpMode.harmFlag) {
+                // Update icons to reflect current WME place services
+                updateServicesChecks(bannServ);
             }
 
             // Turn on website linking button if there is a url
@@ -3913,21 +3837,18 @@
                 bannButt.PlaceWebsite.active = true;
             }
 
-
             // Highlight the changes made
-            higlightChangedFields(fieldUpdateObject,hpMode);
+            highlightChangedFields(fieldUpdateObject,hpMode);
 
             // Assemble the banners
             assembleBanner();  // Make Messaging banners
-
-
 
         }  // END harmonizePlaceGo function
 
         // **** vvv Function definitions vvv ****
 
         // highlight changed fields
-        function higlightChangedFields(fieldUpdateObject,hpMode) {
+        function highlightChangedFields(fieldUpdateObject,hpMode) {
 
             if (hpMode.harmFlag) {
                 //var panelFields = {};
@@ -3940,7 +3861,8 @@
                     tab1HL = true;
                 }
                 if (fieldUpdateObject.aliases) {
-                    $('.alias-name')[0].style="background-color:"+fieldUpdateObject.aliases;
+                    var field = $('.alias-name')[0];
+                    if (field) field.style="background-color:"+fieldUpdateObject.aliases;
                     tab1HL = true;
                 }
                 if (fieldUpdateObject.categories) {
@@ -4050,9 +3972,6 @@
                 if (tab2HL) {
                     $('.nav')[panelFields.navTabsIX].children[panelFields.navTabMore].children[0].style='background-color:#dfd';
                 }
-
-
-
             }
         }
 
@@ -4088,6 +4007,9 @@
             for ( tempKey in bannButt ) {
                 if ( bannButt.hasOwnProperty(tempKey) && bannButt[tempKey].hasOwnProperty('active') && bannButt[tempKey].active ) {  //  If the particular message is active
                     strButt1 = bannButt[tempKey].message;
+                    if (bannButt[tempKey].badInput) {
+                        strButt1 = strButt1.replace(/#DDF/i,'pink');
+                    }
                     if (bannButt[tempKey].hasOwnProperty('action')) {
                         strButt1 += ' <input class="btn btn-default btn-xs wmeph-btn" id="WMEPH_' + tempKey + '" title="' + bannButt[tempKey].title + '" type="button" value="' + bannButt[tempKey].value + '"></input>';
                         if (tempKey === 'noHours') {
@@ -4180,10 +4102,17 @@
                 }
             });
 
-            // If pressing enter in the phone entry box, add the HN
+            // If pressing enter in the phone entry box, add the phone
             $("#WMEPH-PhoneAdd"+devVersStr).keyup(function(event){
                 if( event.keyCode === 13 && $('#WMEPH-PhoneAdd'+devVersStr).val() !== '' ){
                     $("#WMEPH_phoneMissing").click();
+                }
+            });
+
+            // If pressing enter in the URL entry box, add the URL
+            $("#WMEPH-UrlAdd"+devVersStr).keyup(function(event){
+                if( event.keyCode === 13 && $('#WMEPH-UrlAdd'+devVersStr).val() !== '' ){
+                    $("#WMEPH_urlMissing").click();
                 }
             });
 
@@ -4252,18 +4181,21 @@
             } else {
                 $('#WMEPH_banner').empty();
             }
-            if (sev === 0) {
-                $('#WMEPH_banner').css({"background-color": "rgb(36, 172, 36)"});
+            var bgColor;
+            switch (sev) {
+                case 1:
+                    bgColor = "rgb(50, 50, 230)";  // blue
+                    break;
+                case 2:
+                    bgColor = "rgb(217, 173, 42)";  // yellow
+                    break;
+                case 3:
+                    bgColor = "rgb(211, 48, 48)";  // red
+                    break;
+                default:
+                    bgColor = "rgb(36, 172, 36)";  // green
             }
-            if (sev === 1) {
-                $('#WMEPH_banner').css({"background-color": "rgb(50, 50, 230)"});
-            }
-            if (sev === 2) {
-                $('#WMEPH_banner').css({"background-color": "rgb(217, 173, 42)"});
-            }
-            if (sev === 3) {
-                $('#WMEPH_banner').css({"background-color": "rgb(211, 48, 48)"});
-            }
+            $('#WMEPH_banner').css({"background-color": bgColor});
             sbm = "<li>" + sbm;
             $("#WMEPH_banner").append(sbm);
             $('#select2-drop').css({display:'none'});
@@ -4276,7 +4208,7 @@
             } else {
                 $('#WMEPH_tools').empty();
             }
-            sbm = "<li>" + sbm;
+            sbm = '<li><span style="position:relative;left:-10px;">' + sbm+ '</span></li>';
             $("#WMEPH_tools").append(sbm);
             $('#select2-drop').css({display:'none'});
         }  // END displayBanners funtion
@@ -5067,6 +4999,9 @@
                 itemCompAddr = true;
             }
 
+            function isPLA(venue) {
+                return venue.attributes.categories && venue.attributes.categories[0] === 'PARKING_LOT';
+            }
 
             for (var venix in venueList) {  // for each place on the map:
                 if (venueList.hasOwnProperty(venix)) {  // hOP filter
@@ -5074,148 +5009,152 @@
                     nameMatch = false;
                     altNameMatch = -1;
                     testVenueAtt = venueList[venix].attributes;
-                    var pt2ptDistance =  item.geometry.getCentroid().distanceTo(venueList[venix].geometry.getCentroid());
-                    if ( pt2ptDistance < 2 && item.attributes.id !== testVenueAtt.id ) {
-                        overlappingFlag = true;
-                    }
-                    wlDupeMatch = false;
-                    if (wlDupeList.length>0 && wlDupeList.indexOf(testVenueAtt.id) > -1) {
-                        wlDupeMatch = true;
-                    }
+                    var excludePLADupes = $('#WMEPH-ExcludePLADupes' + devVersStr).prop('checked');
+                    if (!excludePLADupes || isPLA(item) === isPLA(venueList[venix])) {
 
-                    // get HNs for places on same street
-                    var addrDupe = venueList[venix].getAddress();
-                    if ( addrDupe.hasOwnProperty('attributes') ) {
-                        addrDupe = addrDupe.attributes;
-                    }
-                    if (itemCompAddr && addrDupe.street !== null && addrDupe.street.name !== null && testVenueAtt.houseNumber && testVenueAtt.houseNumber !== '' &&
-                        venix !== item.attributes.id && addrItem.street.name === addrDupe.street.name && testVenueAtt.houseNumber < 1000000) {
-                        dupeHNRangeList.push(parseInt(testVenueAtt.houseNumber));
-                        dupeHNRangeIDList.push(testVenueAtt.id);
-                        dupeHNRangeDistList.push(pt2ptDistance);
-                    }
+                        var pt2ptDistance =  item.geometry.getCentroid().distanceTo(venueList[venix].geometry.getCentroid());
+                        if ( item.isPoint() && venueList[venix].isPoint() && pt2ptDistance < 2 && item.attributes.id !== testVenueAtt.id ) {
+                            overlappingFlag = true;
+                        }
+                        wlDupeMatch = false;
+                        if (wlDupeList.length>0 && wlDupeList.indexOf(testVenueAtt.id) > -1) {
+                            wlDupeMatch = true;
+                        }
 
-
-                    // Check for duplicates
-                    if ( !wlDupeMatch && dupeIDList.length<6 && pt2ptDistance < 800 && !testVenueAtt.residential && venix !== item.attributes.id && 'string' === typeof testVenueAtt.id && testVenueAtt.name !== null && testVenueAtt.name.length>1 ) {  // don't do res, the point itself, new points or no name
-                        // If item has a complete address and test venue does, and they are different, then no dupe
-                        var suppressMatch = false;
-                        if ( itemCompAddr && addrDupe.street !== null && addrDupe.street.name !== null && testVenueAtt.houseNumber && testVenueAtt.houseNumber.match(/\d/g) !== null ) {
-                            if ( item.attributes.lockRank > 0 && testVenueAtt.lockRank > 0 ) {
-                                if ( item.attributes.houseNumber !== testVenueAtt.houseNumber || addrItem.street.name !== addrDupe.street.name ) {
-                                    suppressMatch = true;
-                                }
-                            } else {
-                                if ( item.attributes.houseNumber !== testVenueAtt.houseNumber && addrItem.street.name !== addrDupe.street.name ) {
-                                    suppressMatch = true;
-                                }
-                            }
+                        // get HNs for places on same street
+                        var addrDupe = venueList[venix].getAddress();
+                        if ( addrDupe.hasOwnProperty('attributes') ) {
+                            addrDupe = addrDupe.attributes;
+                        }
+                        if (itemCompAddr && addrDupe.street !== null && addrDupe.street.name !== null && testVenueAtt.houseNumber && testVenueAtt.houseNumber !== '' &&
+                            venix !== item.attributes.id && addrItem.street.name === addrDupe.street.name && testVenueAtt.houseNumber < 1000000) {
+                            dupeHNRangeList.push(parseInt(testVenueAtt.houseNumber));
+                            dupeHNRangeIDList.push(testVenueAtt.id);
+                            dupeHNRangeDistList.push(pt2ptDistance);
                         }
 
 
-                        if ( !suppressMatch ) {
-                            //Reformat the testPlace name
-                            testName = testVenueAtt.name.toUpperCase().replace(/ AND /g, '').replace(/^THE /g, '').replace(/[^A-Z0-9]/g, '');  // Format test name
-                            if (  (testName.length>2 && noNumSkip.indexOf(testName) === -1) || allowedTwoLetters.indexOf(testName) > -1  ) {
-                                testNameList = [testName];
-                            } else {
-                                testNameList = ['TESTNAMETOOSHORTQZJXS'+randInt];
-                                randInt++;
-                            }
-
-                            testNameNoNum = testName.replace(/[^A-Z]/g, '');  // Clear non-letter characters for alternate match
-                            if ( ((testNameNoNum.length>2 && noNumSkip.indexOf(testNameNoNum) === -1) || allowedTwoLetters.indexOf(testNameNoNum) > -1) && testVenueAtt.categories.indexOf('PARKING_LOT') === -1 ) {  //  only add de-numbered name if at least 2 chars remain
-                                testNameList.push(testNameNoNum);
-                            }
-                            // primary name matching loop
-
-                            for (tnlix=0; tnlix < testNameList.length; tnlix++) {
-                                for (cnlix=0; cnlix < currNameList.length; cnlix++) {
-                                    if ( (testNameList[tnlix].indexOf(currNameList[cnlix]) > -1 || currNameList[cnlix].indexOf(testNameList[tnlix]) > -1) ) {
-                                        nameMatch = true;
-                                        break;
+                        // Check for duplicates
+                        if ( !wlDupeMatch && dupeIDList.length<6 && pt2ptDistance < 800 && !testVenueAtt.residential && venix !== item.attributes.id && 'string' === typeof testVenueAtt.id && testVenueAtt.name !== null && testVenueAtt.name.length>1 ) {  // don't do res, the point itself, new points or no name
+                            // If item has a complete address and test venue does, and they are different, then no dupe
+                            var suppressMatch = false;
+                            if ( itemCompAddr && addrDupe.street !== null && addrDupe.street.name !== null && testVenueAtt.houseNumber && testVenueAtt.houseNumber.match(/\d/g) !== null ) {
+                                if ( item.attributes.lockRank > 0 && testVenueAtt.lockRank > 0 ) {
+                                    if ( item.attributes.houseNumber !== testVenueAtt.houseNumber || addrItem.street.name !== addrDupe.street.name ) {
+                                        suppressMatch = true;
+                                    }
+                                } else {
+                                    if ( item.attributes.houseNumber !== testVenueAtt.houseNumber && addrItem.street.name !== addrDupe.street.name ) {
+                                        suppressMatch = true;
                                     }
                                 }
-                                if (nameMatch) {break;}  // break if a match found
                             }
-                            if (!nameMatch && testVenueAtt.aliases.length > 0) {
-                                for (aliix=0; aliix<testVenueAtt.aliases.length; aliix++) {
-                                    aliasNameRF = testVenueAtt.aliases[aliix].toUpperCase().replace(/ AND /g, '').replace(/^THE /g, '').replace(/[^A-Z0-9]/g, '');  // Format name
-                                    if ( (aliasNameRF.length>2 && noNumSkip.indexOf(aliasNameRF) === -1) || allowedTwoLetters.indexOf(aliasNameRF) > -1  ) {
-                                        testNameList = [aliasNameRF];
-                                    } else {
-                                        testNameList = ['ALIASNAMETOOSHORTQOFUH'+randInt];
-                                        randInt++;
-                                    }
-                                    aliasNameNoNum = aliasNameRF.replace(/[^A-Z]/g, '');  // Clear non-letter characters for alternate match ( HOLLYIVYPUB23 --> HOLLYIVYPUB )
-                                    if (((aliasNameNoNum.length>2 && noNumSkip.indexOf(aliasNameNoNum) === -1) || allowedTwoLetters.indexOf(aliasNameNoNum) > -1) && testVenueAtt.categories.indexOf('PARKING_LOT') === -1) {  //  only add de-numbered name if at least 2 characters remain
-                                        testNameList.push(aliasNameNoNum);
-                                    } else {
-                                        testNameList.push('111231643239'+randInt);  //  just to keep track of the alias in question, always add something.
-                                        randInt++;
-                                    }
+
+
+                            if ( !suppressMatch ) {
+                                //Reformat the testPlace name
+                                testName = testVenueAtt.name.toUpperCase().replace(/ AND /g, '').replace(/^THE /g, '').replace(/[^A-Z0-9]/g, '');  // Format test name
+                                if (  (testName.length>2 && noNumSkip.indexOf(testName) === -1) || allowedTwoLetters.indexOf(testName) > -1  ) {
+                                    testNameList = [testName];
+                                } else {
+                                    testNameList = ['TESTNAMETOOSHORTQZJXS'+randInt];
+                                    randInt++;
                                 }
+
+                                testNameNoNum = testName.replace(/[^A-Z]/g, '');  // Clear non-letter characters for alternate match
+                                if ( ((testNameNoNum.length>2 && noNumSkip.indexOf(testNameNoNum) === -1) || allowedTwoLetters.indexOf(testNameNoNum) > -1) && testVenueAtt.categories.indexOf('PARKING_LOT') === -1 ) {  //  only add de-numbered name if at least 2 chars remain
+                                    testNameList.push(testNameNoNum);
+                                }
+                                // primary name matching loop
+
                                 for (tnlix=0; tnlix < testNameList.length; tnlix++) {
                                     for (cnlix=0; cnlix < currNameList.length; cnlix++) {
                                         if ( (testNameList[tnlix].indexOf(currNameList[cnlix]) > -1 || currNameList[cnlix].indexOf(testNameList[tnlix]) > -1) ) {
-                                            // get index of that match (half of the array index with floor)
-                                            altNameMatch = Math.floor(tnlix/2);
+                                            nameMatch = true;
                                             break;
                                         }
                                     }
-                                    if (altNameMatch > -1) {break;}  // break from the rest of the alts if a match found
+                                    if (nameMatch) {break;}  // break if a match found
                                 }
-                            }
-                            // If a match was found:
-                            if ( nameMatch || altNameMatch > -1 ) {
-                                dupeIDList.push(testVenueAtt.id);  // Add the item to the list of matches
-                                WMEPH_NameLayer.setVisibility(true);  // If anything found, make visible the dupe layer
-                                if (nameMatch) {
-                                    labelText = testVenueAtt.name;  // Pull duplicate name
-                                } else {
-                                    labelText = testVenueAtt.aliases[altNameMatch] + ' (Alt)';  // Pull duplicate alt name
-                                }
-                                phlogdev('Possible duplicate found. WME place: ' + itemName + ' / Nearby place: ' + labelText);
-
-                                // Reformat the name into multiple lines based on length
-                                var startIX=0, endIX=0, labelTextBuild = [], maxLettersPerLine = Math.round(2*Math.sqrt(labelText.replace(/ /g,'').length/2));
-                                maxLettersPerLine = Math.max(maxLettersPerLine,4);
-                                while (endIX !== -1) {
-                                    endIX = labelText.indexOf(' ', endIX+1);
-                                    if (endIX - startIX > maxLettersPerLine) {
-                                        labelTextBuild.push( labelText.substr(startIX,endIX-startIX) );
-                                        startIX = endIX+1;
-                                    }
-                                }
-                                labelTextBuild.push( labelText.substr(startIX) );  // Add last line
-                                labelTextReformat = labelTextBuild.join('\n');
-                                // Add photo icons
-                                if (testVenueAtt.images.length > 0 ) {
-                                    labelTextReformat = labelTextReformat + ' ';
-                                    for (var phix=0; phix<testVenueAtt.images.length; phix++) {
-                                        if (phix===3) {
-                                            labelTextReformat = labelTextReformat + '+';
-                                            break;
+                                if (!nameMatch && testVenueAtt.aliases.length > 0) {
+                                    for (aliix=0; aliix<testVenueAtt.aliases.length; aliix++) {
+                                        aliasNameRF = testVenueAtt.aliases[aliix].toUpperCase().replace(/ AND /g, '').replace(/^THE /g, '').replace(/[^A-Z0-9]/g, '');  // Format name
+                                        if ( (aliasNameRF.length>2 && noNumSkip.indexOf(aliasNameRF) === -1) || allowedTwoLetters.indexOf(aliasNameRF) > -1  ) {
+                                            testNameList = [aliasNameRF];
+                                        } else {
+                                            testNameList = ['ALIASNAMETOOSHORTQOFUH'+randInt];
+                                            randInt++;
                                         }
-                                        //labelTextReformat = labelTextReformat + '\u25A3';  // add photo icons
-                                        labelTextReformat = labelTextReformat + '\u25A3';  // add photo icons
+                                        aliasNameNoNum = aliasNameRF.replace(/[^A-Z]/g, '');  // Clear non-letter characters for alternate match ( HOLLYIVYPUB23 --> HOLLYIVYPUB )
+                                        if (((aliasNameNoNum.length>2 && noNumSkip.indexOf(aliasNameNoNum) === -1) || allowedTwoLetters.indexOf(aliasNameNoNum) > -1) && testVenueAtt.categories.indexOf('PARKING_LOT') === -1) {  //  only add de-numbered name if at least 2 characters remain
+                                            testNameList.push(aliasNameNoNum);
+                                        } else {
+                                            testNameList.push('111231643239'+randInt);  //  just to keep track of the alias in question, always add something.
+                                            randInt++;
+                                        }
+                                    }
+                                    for (tnlix=0; tnlix < testNameList.length; tnlix++) {
+                                        for (cnlix=0; cnlix < currNameList.length; cnlix++) {
+                                            if ( (testNameList[tnlix].indexOf(currNameList[cnlix]) > -1 || currNameList[cnlix].indexOf(testNameList[tnlix]) > -1) ) {
+                                                // get index of that match (half of the array index with floor)
+                                                altNameMatch = Math.floor(tnlix/2);
+                                                break;
+                                            }
+                                        }
+                                        if (altNameMatch > -1) {break;}  // break from the rest of the alts if a match found
                                     }
                                 }
+                                // If a match was found:
+                                if ( nameMatch || altNameMatch > -1 ) {
+                                    dupeIDList.push(testVenueAtt.id);  // Add the item to the list of matches
+                                    WMEPH_NameLayer.setVisibility(true);  // If anything found, make visible the dupe layer
+                                    if (nameMatch) {
+                                        labelText = testVenueAtt.name;  // Pull duplicate name
+                                    } else {
+                                        labelText = testVenueAtt.aliases[altNameMatch] + ' (Alt)';  // Pull duplicate alt name
+                                    }
+                                    phlogdev('Possible duplicate found. WME place: ' + itemName + ' / Nearby place: ' + labelText);
 
-                                pt = venueList[venix].geometry.getCentroid();
-                                if ( !mapExtent.containsLonLat(pt.toLonLat()) ) {
-                                    outOfExtent = true;
+                                    // Reformat the name into multiple lines based on length
+                                    var startIX=0, endIX=0, labelTextBuild = [], maxLettersPerLine = Math.round(2*Math.sqrt(labelText.replace(/ /g,'').length/2));
+                                    maxLettersPerLine = Math.max(maxLettersPerLine,4);
+                                    while (endIX !== -1) {
+                                        endIX = labelText.indexOf(' ', endIX+1);
+                                        if (endIX - startIX > maxLettersPerLine) {
+                                            labelTextBuild.push( labelText.substr(startIX,endIX-startIX) );
+                                            startIX = endIX+1;
+                                        }
+                                    }
+                                    labelTextBuild.push( labelText.substr(startIX) );  // Add last line
+                                    labelTextReformat = labelTextBuild.join('\n');
+                                    // Add photo icons
+                                    if (testVenueAtt.images.length > 0 ) {
+                                        labelTextReformat = labelTextReformat + ' ';
+                                        for (var phix=0; phix<testVenueAtt.images.length; phix++) {
+                                            if (phix===3) {
+                                                labelTextReformat = labelTextReformat + '+';
+                                                break;
+                                            }
+                                            //labelTextReformat = labelTextReformat + '\u25A3';  // add photo icons
+                                            labelTextReformat = labelTextReformat + '\u25A3';  // add photo icons
+                                        }
+                                    }
+
+                                    pt = venueList[venix].geometry.getCentroid();
+                                    if ( !mapExtent.containsLonLat(pt.toLonLat()) ) {
+                                        outOfExtent = true;
+                                    }
+                                    minLat = Math.min(minLat, pt.y); minLon = Math.min(minLon, pt.x);
+                                    maxLat = Math.max(maxLat, pt.y); maxLon = Math.max(maxLon, pt.x);
+
+                                    textFeature = new OpenLayers.Feature.Vector( pt, {labelText: labelTextReformat, fontColor: '#fff',
+                                                                                      strokeColor: labelColorList[labelColorIX%labelColorList.length], labelAlign: 'cm', pointRadius: 25 , dupeID: testVenueAtt.id } );
+                                    labelFeatures.push(textFeature);
+                                    //WMEPH_NameLayer.addFeatures(labelFeatures);
+                                    dupeNames.push(labelText);
                                 }
-                                minLat = Math.min(minLat, pt.y); minLon = Math.min(minLon, pt.x);
-                                maxLat = Math.max(maxLat, pt.y); maxLon = Math.max(maxLon, pt.x);
-
-                                textFeature = new OpenLayers.Feature.Vector( pt, {labelText: labelTextReformat, fontColor: '#fff',
-                                                                                  strokeColor: labelColorList[labelColorIX%labelColorList.length], labelAlign: 'cm', pointRadius: 25 , dupeID: testVenueAtt.id } );
-                                labelFeatures.push(textFeature);
-                                //WMEPH_NameLayer.addFeatures(labelFeatures);
-                                dupeNames.push(labelText);
+                                labelColorIX++;
                             }
-                            labelColorIX++;
                         }
                     }
                 }
@@ -5478,9 +5417,10 @@
          * Updates the address for a place.
          * @param feature {WME Venue Object} The place to update.
          * @param address {Object} An object containing the country, state, city, and street
+         * @param actions {Array of actions} Optional. If performing multiple actions at once.
          * objects.
          */
-        function updateAddress(feature, address) {
+        function updateAddress(feature, address, actions) {
             'use strict';
             var newAttributes,
                 UpdateFeatureAddress = require('Waze/Action/UpdateFeatureAddress');
@@ -5494,7 +5434,12 @@
                     streetName: address.street.name,
                     emptyStreet: address.street.name ? null : true
                 };
-                W.model.actionManager.add(new UpdateFeatureAddress(feature, newAttributes));
+                var action = new UpdateFeatureAddress(feature, newAttributes);
+                if(actions) {
+                    actions.push(action);
+                } else {
+                    W.model.actionManager.add(action);
+                }
                 phlogdev('Address inferred and updated');
             }
         } // END updateAddress function
@@ -5642,6 +5587,7 @@
             createSettingsCheckbox("sidepanel-harmonizer" + devVersStr, "WMEPH-DisableDFZoom" + devVersStr,"Disable zoom & center for duplicates");
             createSettingsCheckbox("sidepanel-harmonizer" + devVersStr, "WMEPH-EnableIAZoom" + devVersStr,"Enable zoom & center for places with no address");
             createSettingsCheckbox("sidepanel-harmonizer" + devVersStr, "WMEPH-HidePlacesWiki" + devVersStr,"Hide 'Places Wiki' button in results banner");
+            createSettingsCheckbox("sidepanel-harmonizer" + devVersStr, "WMEPH-ExcludePLADupes" + devVersStr,"Exclude parking lots when searching for duplicate places.");
             if (devUser || betaUser || usrRank > 1) {
                 createSettingsCheckbox("sidepanel-harmonizer" + devVersStr, "WMEPH-EnableServices" + devVersStr,"Enable automatic addition of common services");
             }
@@ -5806,14 +5752,14 @@
                 if ($('#WMEPH-WLInput'+devVersStr).val() === 'resetWhitelist') {
                     if (confirm('***Do you want to reset all Whitelist data?\nClick OK to erase.') ) {  // if the category doesn't translate, then pop an alert that will make a forum post to the thread
                         venueWhitelist = { '1.1.1': { Placeholder: {  } } }; // Populate with a dummy place
-                        saveWL_LS(compressedWLLS);
+                        saveWL_LS(true);
                     }
                 } else {  // try to merge uncompressed WL data
                     WLSToMerge = validateWLS($('#WMEPH-WLInput'+devVersStr).val());
                     if (WLSToMerge) {
                         phlog('Whitelists merged!');
                         venueWhitelist = mergeWL(venueWhitelist,WLSToMerge);
-                        saveWL_LS(compressedWLLS);
+                        saveWL_LS(true);
                         phWLContentHtml = '<p style="color:green">Whitelist data merged<p>';
                         $("#PlaceHarmonizerWLToolsMsg" + devVersStr).append(phWLContentHtml);
                         $('#WMEPH-WLInputBeta').val('');
@@ -5822,7 +5768,7 @@
                         if (WLSToMerge) {
                             phlog('Whitelists merged!');
                             venueWhitelist = mergeWL(venueWhitelist,WLSToMerge);
-                            saveWL_LS(compressedWLLS);
+                            saveWL_LS(true);
                             phWLContentHtml = '<p style="color:green">Whitelist data merged<p>';
                             $("#PlaceHarmonizerWLToolsMsg" + devVersStr).append(phWLContentHtml);
                             $('#WMEPH-WLInputBeta').val('');
@@ -5837,12 +5783,7 @@
             // Pull the data to the text field
             $("#WMEPH-WLPull" + devVersStr).click(function() {
                 $("#PlaceHarmonizerWLToolsMsg" + devVersStr).empty();
-                if (compressedWLLS) {
-                    //$('#WMEPH-WLInput'+devVersStr).val(localStorage.getItem(WLlocalStoreNameCompressed));
-                    $('#WMEPH-WLInput'+devVersStr).val( LZString.decompressFromUTF16(localStorage.getItem(WLlocalStoreNameCompressed)) );
-                } else {
-                    $('#WMEPH-WLInput'+devVersStr).val(localStorage.getItem(WLlocalStoreName));
-                }
+                $('#WMEPH-WLInput'+devVersStr).val( LZString.decompressFromUTF16(localStorage.getItem(WLlocalStoreNameCompressed)) );
                 phWLContentHtml = '<p style="color:green">To backup the data, copy & paste the text in the box to a safe location.<p>';
                 $("#PlaceHarmonizerWLToolsMsg" + devVersStr).append(phWLContentHtml);
                 localStorage.setItem('WMEPH_WLAddCount', 1);
@@ -5853,13 +5794,7 @@
                 $("#PlaceHarmonizerWLToolsMsg" + devVersStr).empty();
                 $('#WMEPH-WLInputBeta').val('');
                 var currWLData;
-                if (compressedWLLS) {
-                    //$('#WMEPH-WLInput'+devVersStr).val(localStorage.getItem(WLlocalStoreNameCompressed));
-                    currWLData = JSON.parse( LZString.decompressFromUTF16( localStorage.getItem(WLlocalStoreNameCompressed) ) );
-                } else {
-                    currWLData = JSON.parse( localStorage.getItem(WLlocalStoreName) );
-                }
-                //var WLSize = _.size(currWLData);
+                currWLData = JSON.parse( LZString.decompressFromUTF16( localStorage.getItem(WLlocalStoreNameCompressed) ) );
                 var countryWL = {};
                 var stateWL = {};
                 var itemCount = 0;
@@ -5920,12 +5855,8 @@
                     $("#PlaceHarmonizerWLToolsMsg" + devVersStr).append(phWLContentHtml);
                 } else {
                     var currWLData, venueToRemove = [];
-                    if (compressedWLLS) {
-                        //$('#WMEPH-WLInput'+devVersStr).val(localStorage.getItem(WLlocalStoreNameCompressed));
-                        currWLData = JSON.parse( LZString.decompressFromUTF16( localStorage.getItem(WLlocalStoreNameCompressed) ) );
-                    } else {
-                        currWLData = JSON.parse( localStorage.getItem(WLlocalStoreName) );
-                    }
+                    currWLData = JSON.parse( LZString.decompressFromUTF16( localStorage.getItem(WLlocalStoreNameCompressed) ) );
+
                     //var WLSize = _.size(currWLData);
 
                     for (var venueKey in currWLData) {
@@ -5943,12 +5874,12 @@
                     if (venueToRemove.length > 0) {
                         if (localStorage.WMEPH_WLAddCount === '1') {
                             if (confirm('Are you sure you want to clear all whitelist data for '+stateToRemove+'? This CANNOT be undone. Press OK to delete, cancel to preserve the data.') ) {  // misclick check
-                                backupWL_LS(compressedWLLS);
+                                backupWL_LS(true);
                                 for (var ixwl=0; ixwl<venueToRemove.length; ixwl++) {
                                     delete venueWhitelist[venueToRemove[ixwl]];
                                     //phlogdev(venueWhitelist[venueToRemove[ixwl]]);
                                 }
-                                saveWL_LS(compressedWLLS);
+                                saveWL_LS(true);
                                 phWLContentHtml = '<p style="color:green">'+venueToRemove.length+' items removed from WL<p>';
                                 $("#PlaceHarmonizerWLToolsMsg" + devVersStr).append(phWLContentHtml);
                                 $('#WMEPH-WLInputBeta').val('');
@@ -6163,6 +6094,11 @@
                     wsix++;
                 }
             }
+            // Highlight 24/7 button if hours are set that way, and add button for all places
+            if ( item.attributes.openingHours.length === 1 && item.attributes.openingHours[0].days.length === 7 && item.attributes.openingHours[0].fromHour === '00:00' && item.attributes.openingHours[0].toHour ==='00:00' ) {
+                bannServ.add247.checked = true;
+            }
+            bannServ.add247.active = true;
         }
 
         // Focus away from the current cursor focus, to set text box changes
@@ -6809,7 +6745,7 @@
         venueWhitelist[itemID].state = addressTemp.state.name;  // Store state for the venue
         venueWhitelist[itemID].country = addressTemp.country.name;  // Store country for the venue
         venueWhitelist[itemID].gps = itemGPS;  // Store GPS coords for the venue
-        saveWL_LS(compressedWLLS);  // Save the WL to local storage
+        saveWL_LS(true);  // Save the WL to local storage
         WMEPH_WLCounter();
         bannButt2.clearWL.active = true;
     }
@@ -6847,7 +6783,7 @@
                                     if (data.result.place_id === gpids[i].innerHTML) {
                                         gpids[i].innerHTML = "<a href='" + data.result.url + "' target='_wmegpid'>" + data.result.place_id + "</a>";
                                     }
-                                };
+                                }
                             }
                         }
                     }
