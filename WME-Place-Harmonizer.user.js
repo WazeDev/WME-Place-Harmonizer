@@ -12,7 +12,7 @@
 // ==UserScript==
 // @name        WME Place Harmonizer Beta
 // @namespace   https://github.com/WazeUSA/WME-Place-Harmonizer/raw/master/WME-Place-Harmonizer.user.js
-// @version     1.1.64
+// @version     1.1.65
 // @description Harmonizes, formats, and locks a selected place
 // @author      WMEPH development group
 // @include     https://*.waze.com/editor/*
@@ -249,6 +249,7 @@
     function runPH() {
         // Script update info
         var WMEPHWhatsNewList = [  // New in this version
+            '1.1.65: Fix for bug that caused hang in v1.1.64.',
             '1.1.64: Added URL entry box when missing.',
             '1.1.64: Missing gas station name automatically set to brand name.',
             '1.1.64: Minor UI adjustments to fit some messages on one line.',
@@ -844,11 +845,6 @@
             m = s.match(/^(.*)\/$/i);  // remove final slash
             if (m) { s = m[1]; }
 
-            // This regex doesn't catch every possible bad URL.  There may be better alternatives, but going with this for now. 
-            var regx = /^((ht|f)tp(s?)\:\/\/)?[0-9a-zA-Z]([-.\w]*[0-9a-zA-Z])*(:(0-9)*)*(\/?)([a-zA-Z0-9\-\.\?\,\'\/\\\+&amp;%\$#_]*)?$/i;
-            if (s.trim().length === 0 || !regx.test(s)) {
-                s = 'badURL';
-            }
             return s;
         }  // END normalizeURL function
 
