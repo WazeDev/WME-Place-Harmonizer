@@ -12,7 +12,7 @@
 // ==UserScript==
 // @name        WME Place Harmonizer Beta
 // @namespace   https://github.com/WazeUSA/WME-Place-Harmonizer/raw/master/WME-Place-Harmonizer.user.js
-// @version     1.1.66
+// @version     1.1.67
 // @description Harmonizes, formats, and locks a selected place
 // @author      WMEPH development group
 // @include     https://*.waze.com/editor/*
@@ -249,6 +249,7 @@
     function runPH() {
         // Script update info
         var WMEPHWhatsNewList = [  // New in this version
+            '1.1.67: Fixed optional 2nd categories.',
             '1.1.66: Fixed highlighting for unlocked hospitals and gas stations (purple / dashed).',
             '1.1.65: Fix for bug that caused hang in v1.1.64.',
             '1.1.64: Added URL entry box when missing.',
@@ -2714,9 +2715,9 @@
                         }
                     } else if (updatePNHName) {  // if not a special category then update the name
                         newName = PNHMatchData[ph_name_ix];
-                        newCategories = [priPNHPlaceCat];
+                        newCategories = insertAtIX(newCategories, priPNHPlaceCat,0);
                         if (altCategories !== "0" && altCategories !== "") {
-                            newCategories.push.apply(newCategories,altCategories);
+                            newCategories = insertAtIX(newCategories,altCategories,1);
                         }
                     }
 
@@ -2762,8 +2763,9 @@
                             //W.model.actionManager.add(new UpdateObject(item, { categories: newCategories }));
                             fieldUpdateObject.categories='#dfd';
                         } else {  // if second cat is optional
-                            phlogdev("Primary category updated" + " with " + priPNHPlaceCat);
-                            actions.push(new UpdateObject(item, { categories: [priPNHPlaceCat] }));
+                            phlogdev("Primary category updated with " + priPNHPlaceCat);
+                            newCategories = insertAtIX(newCategories, priPNHPlaceCat, 0);
+                            actions.push(new UpdateObject(item, { categories: newCategories }));
                             fieldUpdateObject.categories='#dfd';
                         }
                         // Enable optional 2nd category button
