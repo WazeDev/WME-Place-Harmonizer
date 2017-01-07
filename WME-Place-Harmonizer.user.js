@@ -12,7 +12,7 @@
 // ==UserScript==
 // @name        WME Place Harmonizer Beta
 // @namespace   https://github.com/WazeUSA/WME-Place-Harmonizer/raw/master/WME-Place-Harmonizer.user.js
-// @version     1.1.65-hospital_gas_station_highlights
+// @version     1.1.66
 // @description Harmonizes, formats, and locks a selected place
 // @author      WMEPH development group
 // @include     https://*.waze.com/editor/*
@@ -249,6 +249,7 @@
     function runPH() {
         // Script update info
         var WMEPHWhatsNewList = [  // New in this version
+            '1.1.66: Fixed highlighting for unlocked hospitals and gas stations (purple / dashed).',
             '1.1.65: Fix for bug that caused hang in v1.1.64.',
             '1.1.64: Added URL entry box when missing.',
             '1.1.64: Missing gas station name automatically set to brand name.',
