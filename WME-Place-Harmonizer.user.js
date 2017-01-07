@@ -12,7 +12,7 @@
 // ==UserScript==
 // @name        WME Place Harmonizer Beta
 // @namespace   https://github.com/WazeUSA/WME-Place-Harmonizer/raw/master/WME-Place-Harmonizer.user.js
-// @version     1.1.65
+// @version     1.1.65-hospital_gas_station_highlights
 // @description Harmonizes, formats, and locks a selected place
 // @author      WMEPH development group
 // @include     https://*.waze.com/editor/*
@@ -2187,7 +2187,7 @@
                 } else if (hpMode.hlFlag) {
                     if ( item.attributes.adLocked ) {
                         return 'adLock';
-                    } else if ( item.isPoint() && (item.attributes.categories.indexOf("HOSPITAL_MEDICAL_CARE") > -1 || item.attributes.categories.indexOf("GAS_STATION") > -1) ) {
+                    } else if ( item.attributes.categories.indexOf("HOSPITAL_MEDICAL_CARE") > -1 || item.attributes.categories.indexOf("GAS_STATION") > -1 ) {
                         phlogdev('Unaddressed HMC/GS');
                         return 5;
                     } else {
@@ -3711,7 +3711,7 @@
                 //phlogdev('calculated in harmGo: ' +severityButt + '; ' + item.attributes.name);
 
                 // Special case flags
-                if ( item.isPoint() && item.attributes.lockRank < levelToLock && (item.attributes.categories.indexOf("HOSPITAL_MEDICAL_CARE") > -1 || item.attributes.categories.indexOf("GAS_STATION") > -1) ) {
+                if (  item.attributes.lockRank < levelToLock && (item.attributes.categories.indexOf("HOSPITAL_MEDICAL_CARE") > -1 || item.attributes.categories.indexOf("GAS_STATION") > -1) ) {
                     severityButt = 5;
                 }
 
