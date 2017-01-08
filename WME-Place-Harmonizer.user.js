@@ -12,7 +12,7 @@
 // ==UserScript==
 // @name        WME Place Harmonizer Beta
 // @namespace   https://github.com/WazeUSA/WME-Place-Harmonizer/raw/master/WME-Place-Harmonizer.user.js
-// @version     1.1.68
+// @version     1.1.68-add-street-input
 // @description Harmonizes, formats, and locks a selected place
 // @author      WMEPH development group
 // @include     https://*.waze.com/editor/*
@@ -1235,7 +1235,7 @@
                 },
 
                 streetMissing: {  // no WL
-                    active: false, severity: 3, message: 'Street missing.'
+                    active: false, severity: 3, message: 'No street:<div class="ui-widget" style="display:inline"><input id="WMEPH_missingStreet" style="font-size:0.85em;color:#000;background-color:#FDD;width:170px;margin-right:3px;"></div><input class="btn btn-default btn-xs wmeph-btn disabled" id="WMEPH_addStreetBtn" title="Add street to place" type="button" value="Add" disabled>'
                 },
 
                 cityMissing: {  // no WL
@@ -4122,6 +4122,68 @@
                     assembleBanner();
                 };
             }
+
+            var streetNames = [];
+            var streetNamesCap = [];
+            W.model.streets.getObjectArray().forEach(function(st) {
+                if (!st.isEmpty) {
+                    streetNames.push(st.name);
+                    streetNamesCap.push(st.name.toUpperCase());
+                }
+            });
+            streetNames.sort();
+            streetNamesCap.sort();
+            $('#WMEPH_missingStreet').autocomplete({
+                source: streetNames,
+                change: onStreetChanged,
+                select: onStreetSelected
+            });
+            function onStreetSelected(e, ui) {
+                if (ui.item) {
+                    checkStreet(ui.item.value);
+                }
+            }
+            function onStreetChanged(e, ui) {
+                checkStreet(null);
+            }
+
+            $('#WMEPH_addStreetBtn').on('click', addStreetToVenue);
+            function addStreetToVenue() {
+                var stName = $('#WMEPH_missingStreet').val();
+                var street = W.model.streets.getByAttributes({name:stName})[0];
+                var addr = item.getAddress().attributes;
+                var newAddr = {
+                    country: addr.country,
+                    state: addr.state,
+                    city: addr.city,
+                    street: street
+                };
+                updateAddress(item, newAddr);
+                console.log('ADDED', W.model.streets.getByAttributes({name:$('#WMEPH_missingStreet').val()})[0]);
+                bannButt.streetMissing.active = false;
+                assembleBanner();
+            }
+            function checkStreet(name) {
+                name = (name || $("#WMEPH_missingStreet").val()).toUpperCase();
+                var ix = streetNamesCap.indexOf(name);
+                var enable = false;
+                if (ix > -1) {
+                    $("#WMEPH_missingStreet").val(streetNames[ix]);
+                    enable = true;
+                    $('#WMEPH_addStreetBtn').prop("disabled", false).removeClass('disabled');
+                } else {
+                    $('#WMEPH_addStreetBtn').prop('disabled', true).addClass('disabled');
+                }
+                return enable;
+            }
+            // If pressing enter in the street entry box, add the street
+            $("#WMEPH_missingStreet").keyup(function(event){
+                if( event.keyCode === 13 && $('#WMEPH_missingStreet').val() !== '' ){
+                    if(checkStreet(null)) {
+                        addStreetToVenue();
+                    }
+                }
+            });
 
             // If pressing enter in the HN entry box, add the HN
             $("#WMEPH-HNAdd"+devVersStr).keyup(function(event){
