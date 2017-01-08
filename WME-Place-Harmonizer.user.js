@@ -12,7 +12,7 @@
 // ==UserScript==
 // @name        WME Place Harmonizer Beta
 // @namespace   https://github.com/WazeUSA/WME-Place-Harmonizer/raw/master/WME-Place-Harmonizer.user.js
-// @version     1.1.67
+// @version     1.1.68
 // @description Harmonizes, formats, and locks a selected place
 // @author      WMEPH development group
 // @include     https://*.waze.com/editor/*
@@ -249,6 +249,7 @@
     function runPH() {
         // Script update info
         var WMEPHWhatsNewList = [  // New in this version
+            '1.1.68: Added "Missing External Provider" and option to treat as non-critical.',
             '1.1.67: Fixed optional 2nd categories.',
             '1.1.66: Fixed highlighting for unlocked hospitals and gas stations (purple / dashed).',
             '1.1.65: Fix for bug that caused hang in v1.1.64.',
@@ -948,7 +949,8 @@
                 aCodeWL: false,
                 noHours: false,
                 nameMissing: false,
-                plaNameMissing: false
+                plaNameMissing: false,
+                extProviderMissing: false
             };
 
             // **** Set up banner action buttons.  Structure:
@@ -1461,6 +1463,15 @@
 
                 specCaseMessageLow: {  // no WL
                     active: false, severity: 0, message: 'WMEPH: placeholder (please report this error if you see this message)'
+                },
+
+                extProviderMissing: {
+                    active:false, severity:3, message:'Missing External Provider ',
+                    WLactive:true, WLmessage:'', WLtitle:'Whitelist missing external provider',
+                    WLaction: function() {
+                        wlKeyName = 'extProviderMissing';
+                        whitelistAction(itemID, wlKeyName);
+                    }
                 },
 
                 urlMissing: {
@@ -2122,7 +2133,6 @@
                 }
                 // reset PNH lock level
                 PNHLockLevel = -1;
-
             }
 
 
@@ -2353,6 +2363,15 @@
                     bannButt.pointNotArea.active = true;
                 }
             } else if (item.attributes.categories[0] === 'PARKING_LOT' || (newName && newName.trim().length > 0)) {  // for non-residential places
+                var provIDs = item.attributes.externalProviderIDs;
+                if (usrRank > 2 && (!provIDs || provIDs.length === 0) ) {
+                    if ($('#WMEPH-ExtProviderSeverity' + devVersStr).prop('checked')) {
+                        bannButt.extProviderMissing.severity = 1;
+                    }
+                    bannButt.extProviderMissing.active = true;
+                    bannButt.extProviderMissing.WLactive = !currentWL.extProviderMissing;
+                }
+
                 // Place Harmonization
                 var PNHMatchData;
                 if (hpMode.harmFlag) {
@@ -5605,6 +5624,11 @@
                 createSettingsCheckbox("sidepanel-harmonizer" + devVersStr, "WMEPH-AddAddresses" + devVersStr,"Add detected address fields to places with no address");
                 createSettingsCheckbox("sidepanel-harmonizer" + devVersStr, "WMEPH-EnableCloneMode" + devVersStr,"Enable place cloning tools");
                 createSettingsCheckbox("sidepanel-harmonizer" + devVersStr, "WMEPH-AutoLockRPPs" + devVersStr,"Lock residential place points to region default");
+                createSettingsCheckbox("sidepanel-harmonizer" + devVersStr, "WMEPH-ExtProviderSeverity" + devVersStr,'Treat "Missing External Provider" as non-critical (blue)');
+                $("#WMEPH-ExtProviderSeverity" + devVersStr).on('click', function() {
+                    // Force highlight refresh on all venues.
+                    applyHighlightsTest(W.model.venues.getObjectArray());
+                });
                 createSettingsCheckbox("sidepanel-harmonizer" + devVersStr, "WMEPH-AutoRunOnSelect" + devVersStr,'Automatically run the script when selecting a place');
             }
 
