@@ -15,9 +15,7 @@
 // @version     1.1.69
 // @description Harmonizes, formats, and locks a selected place
 // @author      WMEPH development group
-// @include     https://*.waze.com/editor/*
-// @include     https://*.waze.com/*editor/*
-// @exclude     https://*.waze.com/user/*
+// @include     /^https:\/\/(www|beta)\.waze\.com\/(?!user\/)(.{2,6}\/)?editor\/.*$/
 // @resource jqUI_CSS  https://ajax.googleapis.com/ajax/libs/jqueryui/1.11.4/themes/smoothness/jquery-ui.css
 // @grant    GM_addStyle
 // @grant    GM_getResourceText
