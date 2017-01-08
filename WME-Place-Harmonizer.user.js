@@ -12,7 +12,7 @@
 // ==UserScript==
 // @name        WME Place Harmonizer Beta
 // @namespace   https://github.com/WazeUSA/WME-Place-Harmonizer/raw/master/WME-Place-Harmonizer.user.js
-// @version     1.1.64-refactor2017
+// @version     1.1.68-refactor2017
 // @description Harmonizes, formats, and locks a selected place
 // @author      WMEPH development group
 // @include     https://*.waze.com/editor/*
@@ -451,6 +451,10 @@
         console.log('--- runPH() called ---');
         // Script update info
         var WMEPHWhatsNewList = [  // New in this version
+            '1.1.68: Added "Missing External Provider" and option to treat as non-critical.',
+            '1.1.67: Fixed optional 2nd categories.',
+            '1.1.66: Fixed highlighting for unlocked hospitals and gas stations (purple / dashed).',
+            '1.1.65: Fix for bug that caused hang in v1.1.64.',
             '1.1.64: Added URL entry box when missing.',
             '1.1.64: Missing gas station name automatically set to brand name.',
             '1.1.64: Minor UI adjustments to fit some messages on one line.',
@@ -1052,11 +1056,6 @@
             m = s.match(/^(.*)\/$/i);  // remove final slash
             if (m) { s = m[1]; }
 
-            // This regex doesn't catch every possible bad URL.  There may be better alternatives, but going with this for now. 
-            var regx = /^((ht|f)tp(s?)\:\/\/)?[0-9a-zA-Z]([-.\w]*[0-9a-zA-Z])*(:(0-9)*)*(\/?)([a-zA-Z0-9\-\.\?\,\'\/\\\+&amp;%\$#_]*)?$/i;
-            if (s.trim().length === 0 || !regx.test(s)) {
-                s = 'badURL';
-            }
             return s;
         }  // END normalizeURL function
 
@@ -1159,7 +1158,8 @@
                 aCodeWL: false,
                 noHours: false,
                 nameMissing: false,
-                plaNameMissing: false
+                plaNameMissing: false,
+                extProviderMissing: false
             };
 
             // **** Set up banner action buttons.  Structure:
@@ -1672,6 +1672,15 @@
 
                 specCaseMessageLow: {  // no WL
                     active: false, severity: 0, message: 'WMEPH: placeholder (please report this error if you see this message)'
+                },
+
+                extProviderMissing: {
+                    active:false, severity:3, message:'Missing External Provider ',
+                    WLactive:true, WLmessage:'', WLtitle:'Whitelist missing external provider',
+                    WLaction: function() {
+                        wlKeyName = 'extProviderMissing';
+                        whitelistAction(itemID, wlKeyName);
+                    }
                 },
 
                 urlMissing: {
@@ -2333,7 +2342,6 @@
                 }
                 // reset PNH lock level
                 PNHLockLevel = -1;
-
             }
 
 
@@ -2400,7 +2408,7 @@
                 } else if (hpMode.hlFlag) {
                     if ( item.attributes.adLocked ) {
                         return 'adLock';
-                    } else if ( item.isPoint() && (item.attributes.categories.indexOf("HOSPITAL_MEDICAL_CARE") > -1 || item.attributes.categories.indexOf("GAS_STATION") > -1) ) {
+                    } else if ( item.attributes.categories.indexOf("HOSPITAL_MEDICAL_CARE") > -1 || item.attributes.categories.indexOf("GAS_STATION") > -1 ) {
                         phlogdev('Unaddressed HMC/GS');
                         return 5;
                     } else {
@@ -2564,6 +2572,15 @@
                     bannButt.pointNotArea.active = true;
                 }
             } else if (item.attributes.categories[0] === 'PARKING_LOT' || (newName && newName.trim().length > 0)) {  // for non-residential places
+                var provIDs = item.attributes.externalProviderIDs;
+                if (usrRank > 2 && (!provIDs || provIDs.length === 0) ) {
+                    if ($('#WMEPH-ExtProviderSeverity' + devVersStr).prop('checked')) {
+                        bannButt.extProviderMissing.severity = 1;
+                    }
+                    bannButt.extProviderMissing.active = true;
+                    bannButt.extProviderMissing.WLactive = !currentWL.extProviderMissing;
+                }
+
                 // Place Harmonization
                 var PNHMatchData;
                 if (hpMode.harmFlag) {
@@ -2926,9 +2943,9 @@
                         }
                     } else if (updatePNHName) {  // if not a special category then update the name
                         newName = PNHMatchData[ph_name_ix];
-                        newCategories = [priPNHPlaceCat];
+                        newCategories = insertAtIX(newCategories, priPNHPlaceCat,0);
                         if (altCategories !== "0" && altCategories !== "") {
-                            newCategories.push.apply(newCategories,altCategories);
+                            newCategories = insertAtIX(newCategories,altCategories,1);
                         }
                     }
 
@@ -2975,8 +2992,9 @@
                             //W.model.actionManager.add(new UpdateObject(item, { categories: newCategories }));
                             fieldUpdateObject.categories='#dfd';
                         } else {  // if second cat is optional
-                            phlogdev("Primary category updated" + " with " + priPNHPlaceCat);
-                            actions.push(new UpdateObject(item, { categories: [priPNHPlaceCat] }));
+                            phlogdev("Primary category updated with " + priPNHPlaceCat);
+                            newCategories = insertAtIX(newCategories, priPNHPlaceCat, 0);
+                            actions.push(new UpdateObject(item, { categories: newCategories }));
                             fieldUpdateObject.categories='#dfd';
                         }
                         // Enable optional 2nd category button
@@ -3925,7 +3943,7 @@
                 //phlogdev('calculated in harmGo: ' +severityButt + '; ' + item.attributes.name);
 
                 // Special case flags
-                if ( item.isPoint() && item.attributes.lockRank < levelToLock && (item.attributes.categories.indexOf("HOSPITAL_MEDICAL_CARE") > -1 || item.attributes.categories.indexOf("GAS_STATION") > -1) ) {
+                if (  item.attributes.lockRank < levelToLock && (item.attributes.categories.indexOf("HOSPITAL_MEDICAL_CARE") > -1 || item.attributes.categories.indexOf("GAS_STATION") > -1) ) {
                     severityButt = 5;
                 }
 
@@ -5844,6 +5862,11 @@
                 createSettingsCheckbox("sidepanel-harmonizer" + devVersStr, "WMEPH-AddAddresses" + devVersStr,"Add detected address fields to places with no address");
                 createSettingsCheckbox("sidepanel-harmonizer" + devVersStr, "WMEPH-EnableCloneMode" + devVersStr,"Enable place cloning tools");
                 createSettingsCheckbox("sidepanel-harmonizer" + devVersStr, "WMEPH-AutoLockRPPs" + devVersStr,"Lock residential place points to region default");
+                createSettingsCheckbox("sidepanel-harmonizer" + devVersStr, "WMEPH-ExtProviderSeverity" + devVersStr,'Treat "Missing External Provider" as non-critical (blue)');
+                $("#WMEPH-ExtProviderSeverity" + devVersStr).on('click', function() {
+                    // Force highlight refresh on all venues.
+                    applyHighlightsTest(W.model.venues.getObjectArray());
+                });
                 createSettingsCheckbox("sidepanel-harmonizer" + devVersStr, "WMEPH-AutoRunOnSelect" + devVersStr,'Automatically run the script when selecting a place');
             }
 
