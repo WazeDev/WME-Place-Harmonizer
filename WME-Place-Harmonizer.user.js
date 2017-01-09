@@ -2109,6 +2109,9 @@
                             bannServ.add247.checked = true;
                             bannButt.noHours.active = false;
                         }
+                    },
+                    actionOn: function(actions) {
+                        this.action(actions);
                     }
                 }
             };  // END bannServ definitions
