@@ -35,23 +35,187 @@
     // Generic utility functions //
     ///////////////////////////////
 
+    // NOTE: My own debugging console.log function. (So I know to take these out later)
+    function debug(m) {
+        if ('object' === typeof m) {
+            m = JSON.stringify(m)
+        }
+        console.log('[DEBUG]: ' + m);
+    }
+
+    // NOTE: This allows me to dump large objects to a new window so it doesn't clog the console.
+    function popUp(message) {
+        var newWindow = window.open("","popUp","width=600,height=800,scrollbars=1,resizable=1")
+
+        newWindow .document.open()
+        newWindow .document.write(message)
+        newWindow .document.close()
+    }
+
+    // Array prototype extensions (for Firefox fix)
+    Array.prototype.toSet = function () {
+        return this.reduce(function (e, t) {return e[t] = !0, e;}, {});
+    };
+    Array.prototype.first = function () {
+        return this[0];
+    };
+    Array.prototype.isEmpty = function () {
+        return 0 === this.length;
+    };
+
     // Removes duplicate strings from string array
     function uniq(a) {
-        console.log('--- uniq(a) called ---');
+        //debug('--- uniq(a) called ---');
         var seen = {};
         return a.filter(function(item) {
             return seen.hasOwnProperty(item) ? false : (seen[item] = true);
         });
     }  // END uniq function
 
-    // NOTE: What is the difference between this and phlogdev?
+    // Logs important information to console for all users.
     function phlog(m) {
-        console.log('--- phlog(m) called ---');
+        debug('--- phlog(m) called ---');
         if ('object' === typeof m) {
             //m = JSON.stringify(m);
         }
         console.log('WMEPH' + devVersStrDash + ': ' + m);
     }
+
+    // Logs verbose information to console for developers.
+    function phlogdev(m) {
+        debug('--- phlogdev(m) called ---');
+        if ('object' === typeof m) {
+            m = JSON.stringify(m);
+        }
+        if (devUser) {
+            console.log('WMEPH' + devVersStrDash + ': ' + m);
+        }
+    }
+
+
+    /////////////////////////////
+    // Database Load Functions //
+    /////////////////////////////
+    function loadExternalData() {
+        if (USE_NEW_GOOGLE_SHEETS) {
+            /* The new logic is currently pulling each part of the sheet piece by piece;
+               but, once it is approved, we will change the code to "slurp" all of the info
+               from the separate GitHub repo that contains all of the data pure, ready to
+               use JSON. */
+
+            // Pull Dev User List
+            WMEPHdevList = [];
+            $.ajax({
+                type: 'GET',
+                url: 'https://spreadsheets.google.com/feeds/list/1lllqCyG4SRdxETSHltIs-F10ldeiQatotROIiKsox7w/o43i1cy/public/values',
+                jsonp: 'callback', data: { alt: 'json' }, dataType: 'jsonp',
+                success: function(response) {
+                    debug('NEW DEV LIST AJAX - RESPONSE RECEIVED!');
+                    for (var i = 0, len = response.feed.entry.length; i < len; i++) {
+                        var userName = response.feed.entry[i].gsx$name.$t;
+                        WMEPHdevList.push(userName.toLowerCase());
+                    }
+                }
+            });
+            // NOTE: We're getting rid of WMEPHbetaList, but until then, copy WMEPHdevList
+            // NOTE: Delete this after permanent cut-over to new Google Sheets.
+            WMEPHbetaList = WMEPHdevList;
+        } else {
+            // Pull dev and beta UserList Data
+            $.ajax({
+                type: 'GET',
+                url: 'https://spreadsheets.google.com/feeds/list/1L82mM8Xg-MvKqK3WOfsMhFEGmVM46lA8BVcx8qwgmA8/ofblgob/public/values',
+                jsonp: 'callback', data: { alt: 'json-in-script' }, dataType: 'jsonp',
+                success: function(response) {
+                    var WMEPHuserList = response.feed.entry[0].gsx$phuserlist.$t;
+                    WMEPHuserList = WMEPHuserList.split("|");
+                    var betaix = WMEPHuserList.indexOf('BETAUSERS');
+                    WMEPHdevList = [];
+                    WMEPHbetaList = [];
+                    for (var ulix=1; ulix<betaix; ulix++) {
+                        WMEPHdevList.push(WMEPHuserList[ulix].toLowerCase());
+                    }
+                    for (ulix=betaix+1; ulix<WMEPHuserList.length; ulix++) {
+                        WMEPHbetaList.push(WMEPHuserList[ulix].toLowerCase());
+                    }
+                }
+            });
+        }
+        // Pull USA PNH Data
+            $.ajax({
+                type: 'GET',
+                url: 'https://spreadsheets.google.com/feeds/list/1-f-JTWY5UnBx-rFTa4qhyGMYdHBZWNirUTOgn222zMY/o6q7kx/public/values',
+                jsonp: 'callback', data: { alt: 'json-in-script' }, dataType: 'jsonp',
+                success: function(response) {
+                    USA_PNH_DATA = [];
+                    for (var i = 0; i < response.feed.entry.length; i++) {
+                        USA_PNH_DATA.push(response.feed.entry[i].gsx$pnhdata.$t);
+                    }
+                }
+            });
+
+        // Pull Category Data ( Includes CAN for now )
+            $.ajax({
+                type: 'GET',
+                url: 'https://spreadsheets.google.com/feeds/list/1-f-JTWY5UnBx-rFTa4qhyGMYdHBZWNirUTOgn222zMY/ov3dubz/public/values',
+                jsonp: 'callback', data: { alt: 'json-in-script' }, dataType: 'jsonp',
+                success: function(response) {
+                    USA_CH_DATA = [];
+                    for (var i = 0; i < response.feed.entry.length; i++) {
+                        USA_CH_DATA.push(response.feed.entry[i].gsx$pcdata.$t);
+                    }
+                }
+            });
+
+        // Pull State-based Data (includes CAN for now)
+            $.ajax({
+                type: 'GET',
+                url: 'https://spreadsheets.google.com/feeds/list/1-f-JTWY5UnBx-rFTa4qhyGMYdHBZWNirUTOgn222zMY/os2g2ln/public/values',
+                jsonp: 'callback', data: { alt: 'json-in-script' }, dataType: 'jsonp',
+                success: function(response) {
+                    USA_STATE_DATA = [];
+                    for (var i = 0; i < response.feed.entry.length; i++) {
+                        USA_STATE_DATA.push(response.feed.entry[i].gsx$psdata.$t);
+                    }
+                }
+            });
+
+        // Pull CAN PNH Data
+            $.ajax({
+                type: 'GET',
+                url: 'https://spreadsheets.google.com/feeds/list/1TIxQZVLUbAJ8iH6LPTkJsvqFb_DstrHpKsJbv1W1FZs/o4ghhas/public/values',
+                jsonp: 'callback', data: { alt: 'json-in-script' }, dataType: 'jsonp',
+                success: function(response) {
+                    CAN_PNH_DATA = [];
+                    for (var i = 0; i < response.feed.entry.length; i++) {
+                        CAN_PNH_DATA.push(response.feed.entry[i].gsx$pnhdata.$t);
+                    }
+                }
+            });
+
+        // Pull name-category lists
+            $.ajax({
+                type: 'GET',
+                url: 'https://spreadsheets.google.com/feeds/list/1qPjzDu7ZWcpz9xrWYgU7BFLVdbk9ycqgPK9f2mydYlA/op17piq/public/values',
+                jsonp: 'callback', data: { alt: 'json-in-script' }, dataType: 'jsonp',
+                success: function(response) {
+                    hospitalPartMatch = response.feed.entry[0].gsx$hmchp.$t;
+                    hospitalFullMatch = response.feed.entry[0].gsx$hmchf.$t;
+                    animalPartMatch = response.feed.entry[0].gsx$hmcap.$t;
+                    animalFullMatch = response.feed.entry[0].gsx$hmcaf.$t;
+                    schoolPartMatch = response.feed.entry[0].gsx$schp.$t;
+                    schoolFullMatch = response.feed.entry[0].gsx$schf.$t;
+                    hospitalPartMatch = hospitalPartMatch.toLowerCase().replace(/ \|/g,'|').replace(/\| /g,'|').split("|");
+                    hospitalFullMatch = hospitalFullMatch.toLowerCase().replace(/ \|/g,'|').replace(/\| /g,'|').split("|");
+                    animalPartMatch = animalPartMatch.toLowerCase().replace(/ \|/g,'|').replace(/\| /g,'|').split("|");
+                    animalFullMatch = animalFullMatch.toLowerCase().replace(/ \|/g,'|').replace(/\| /g,'|').split("|");
+                    schoolPartMatch = schoolPartMatch.toLowerCase().replace(/ \|/g,'|').replace(/\| /g,'|').split("|");
+                    schoolFullMatch = schoolFullMatch.toLowerCase().replace(/ \|/g,'|').replace(/\| /g,'|').split("|");
+                }
+            });
+
+    }
+
 
     /////////////////////////////////////
     // Bootstrap and Timeout Functions //
@@ -60,7 +224,7 @@
     // What does placeHarmonizer_bootstrap() do?
     // Put a meaningful explanation here.
     function placeHarmonizer_bootstrap() {
-        console.log('--- placeHarmonizer_bootstrap() called ---');
+        debug('--- placeHarmonizer_bootstrap() called ---');
         if ( "undefined" !== typeof W.loginManager && "undefined" !== typeof W.map) {
             dataReady() //  Run the code to check for data return from the Sheets
             // Create duplicatePlaceName layer
@@ -101,7 +265,7 @@
     // What does dataReady() do?
     // Put a meaningful explanation here.
     function dataReady() {
-        console.log('--- dataReady() called ---');
+        debug('--- dataReady() called ---');
         // If the data has returned, then start the script, otherwise wait a bit longer
         if ("undefined" !== typeof CAN_PNH_DATA && "undefined" !== typeof USA_PNH_DATA && "undefined" !== typeof USA_CH_DATA &&
             "undefined" !== typeof WMEPHdevList && "undefined" !== typeof WMEPHbetaList && "undefined" !== typeof hospitalPartMatch ) {
@@ -144,7 +308,7 @@
     // This function runs at script load, and builds the search name dataset to compare the WME selected place name to.
     // NOTE: Some of this code runs once for every single entry on the spreadsheet.  We need to make this more efficient.
     function makeNameCheckList(PNH_DATA) {
-        console.log('--- makeNameCheckList(PNH_DATA) called ---');  // Builds the list of search names to match to the WME place name
+        debug('--- makeNameCheckList(PNH_DATA) called ---');  // Builds the list of search names to match to the WME place name
         var PNH_NAMES = [];
         var PNH_DATA_headers = PNH_DATA[0].split("|");  // split the data headers out
         var ph_name_ix = PNH_DATA_headers.indexOf("ph_name");  // find the indices needed for the function
@@ -257,7 +421,7 @@
                         newNameList.push(newNameList[catix]+"RENTALCAR");
                     }
                 }
-                console.log('261 // About to call uniq() once inside of makeNameCheckList()');
+                //debug('429 // About to call uniq() once inside of makeNameCheckList()');
                 newNameList = uniq(newNameList);  // remove any duplicate search names
                 newNameList = newNameList.join("|");  // join the list with |
                 newNameList = newNameList.replace(/\|{2,}/g, '|');
@@ -268,7 +432,8 @@
             }
         }
         var t1 = performance.now();  // log search time
-        //phlog("Built search list of " + PNH_DATA.length + " PNH places in " + (t1 - t0) + " milliseconds.");
+        phlog("Built search list of " + PNH_DATA.length + " PNH places in " + (t1 - t0) + " milliseconds.");
+        popUp(JSON.stringify(PNH_DATA));
         return PNH_NAMES;
     }  // END makeNameCheckList
 
@@ -279,6 +444,16 @@
     //// Global WMEPH variables ////
     ////////////////////////////////
     ////////////////////////////////
+
+    ///////////////
+    // Constants //
+    ///////////////
+    var USE_NEW_GOOGLE_SHEETS = true;
+
+    ///////////////
+    // Variables //
+    ///////////////
+    var betaUser, devUser;
 
 
     //////////////////////////////
@@ -320,118 +495,17 @@
     var RPPLockString = 'Lock?';
     var panelFields = {};  // the fields for the sidebar
 
-    // Array prototype extensions (for Firefox fix)
-    Array.prototype.toSet = function () {
-        return this.reduce(function (e, t) {return e[t] = !0, e;}, {});
-    };
-    Array.prototype.first = function () {
-        return this[0];
-    };
-    Array.prototype.isEmpty = function () {
-        return 0 === this.length;
-    };
 
     /* ****** Pull PNH and Userlist data ****** */
+    loadExternalData();
 
-        // Pull USA PNH Data
-            $.ajax({
-                type: 'GET',
-                url: 'https://spreadsheets.google.com/feeds/list/1-f-JTWY5UnBx-rFTa4qhyGMYdHBZWNirUTOgn222zMY/o6q7kx/public/values',
-                jsonp: 'callback', data: { alt: 'json-in-script' }, dataType: 'jsonp',
-                success: function(response) {
-                    USA_PNH_DATA = [];
-                    for (var i = 0; i < response.feed.entry.length; i++) {
-                        USA_PNH_DATA.push(response.feed.entry[i].gsx$pnhdata.$t);
-                    }
-                }
-            });
-
-        // Pull Category Data ( Includes CAN for now )
-            $.ajax({
-                type: 'GET',
-                url: 'https://spreadsheets.google.com/feeds/list/1-f-JTWY5UnBx-rFTa4qhyGMYdHBZWNirUTOgn222zMY/ov3dubz/public/values',
-                jsonp: 'callback', data: { alt: 'json-in-script' }, dataType: 'jsonp',
-                success: function(response) {
-                    USA_CH_DATA = [];
-                    for (var i = 0; i < response.feed.entry.length; i++) {
-                        USA_CH_DATA.push(response.feed.entry[i].gsx$pcdata.$t);
-                    }
-                }
-            });
-
-        // Pull State-based Data (includes CAN for now)
-            $.ajax({
-                type: 'GET',
-                url: 'https://spreadsheets.google.com/feeds/list/1-f-JTWY5UnBx-rFTa4qhyGMYdHBZWNirUTOgn222zMY/os2g2ln/public/values',
-                jsonp: 'callback', data: { alt: 'json-in-script' }, dataType: 'jsonp',
-                success: function(response) {
-                    USA_STATE_DATA = [];
-                    for (var i = 0; i < response.feed.entry.length; i++) {
-                        USA_STATE_DATA.push(response.feed.entry[i].gsx$psdata.$t);
-                    }
-                }
-            });
-
-        // Pull CAN PNH Data
-            $.ajax({
-                type: 'GET',
-                url: 'https://spreadsheets.google.com/feeds/list/1TIxQZVLUbAJ8iH6LPTkJsvqFb_DstrHpKsJbv1W1FZs/o4ghhas/public/values',
-                jsonp: 'callback', data: { alt: 'json-in-script' }, dataType: 'jsonp',
-                success: function(response) {
-                    CAN_PNH_DATA = [];
-                    for (var i = 0; i < response.feed.entry.length; i++) {
-                        CAN_PNH_DATA.push(response.feed.entry[i].gsx$pnhdata.$t);
-                    }
-                }
-            });
-
-        // Pull name-category lists
-            $.ajax({
-                type: 'GET',
-                url: 'https://spreadsheets.google.com/feeds/list/1qPjzDu7ZWcpz9xrWYgU7BFLVdbk9ycqgPK9f2mydYlA/op17piq/public/values',
-                jsonp: 'callback', data: { alt: 'json-in-script' }, dataType: 'jsonp',
-                success: function(response) {
-                    hospitalPartMatch = response.feed.entry[0].gsx$hmchp.$t;
-                    hospitalFullMatch = response.feed.entry[0].gsx$hmchf.$t;
-                    animalPartMatch = response.feed.entry[0].gsx$hmcap.$t;
-                    animalFullMatch = response.feed.entry[0].gsx$hmcaf.$t;
-                    schoolPartMatch = response.feed.entry[0].gsx$schp.$t;
-                    schoolFullMatch = response.feed.entry[0].gsx$schf.$t;
-                    hospitalPartMatch = hospitalPartMatch.toLowerCase().replace(/ \|/g,'|').replace(/\| /g,'|').split("|");
-                    hospitalFullMatch = hospitalFullMatch.toLowerCase().replace(/ \|/g,'|').replace(/\| /g,'|').split("|");
-                    animalPartMatch = animalPartMatch.toLowerCase().replace(/ \|/g,'|').replace(/\| /g,'|').split("|");
-                    animalFullMatch = animalFullMatch.toLowerCase().replace(/ \|/g,'|').replace(/\| /g,'|').split("|");
-                    schoolPartMatch = schoolPartMatch.toLowerCase().replace(/ \|/g,'|').replace(/\| /g,'|').split("|");
-                    schoolFullMatch = schoolFullMatch.toLowerCase().replace(/ \|/g,'|').replace(/\| /g,'|').split("|");
-                }
-            });
-
-        // Pull dev and beta UserList Data
-            $.ajax({
-                type: 'GET',
-                url: 'https://spreadsheets.google.com/feeds/list/1L82mM8Xg-MvKqK3WOfsMhFEGmVM46lA8BVcx8qwgmA8/ofblgob/public/values',
-                jsonp: 'callback', data: { alt: 'json-in-script' }, dataType: 'jsonp',
-                success: function(response) {
-                    var WMEPHuserList = response.feed.entry[0].gsx$phuserlist.$t;
-                    WMEPHuserList = WMEPHuserList.split("|");
-                    var betaix = WMEPHuserList.indexOf('BETAUSERS');
-                    WMEPHdevList = [];
-                    WMEPHbetaList = [];
-                    for (var ulix=1; ulix<betaix; ulix++) {
-                        WMEPHdevList.push(WMEPHuserList[ulix].toLowerCase());
-                    }
-                    for (ulix=betaix+1; ulix<WMEPHuserList.length; ulix++) {
-                        WMEPHbetaList.push(WMEPHuserList[ulix].toLowerCase());
-                    }
-                }
-            });
 
     //function placeHarmonizer_bootstrap() {
 
     //function dataReady() {
 
     function loginReady() {
-        console.log('--- loginReady() called ---');
+        debug('--- loginReady() called ---');
         dataReadyCounter = 0;
         if ( W.loginManager.user !== null) {
             runPH();  //  start the main code
@@ -448,7 +522,7 @@
 
     // This function will need to be split up because it is way too big.
     function runPH() {
-        console.log('--- runPH() called ---');
+        debug('--- runPH() called ---');
         // Script update info
         var WMEPHWhatsNewList = [  // New in this version
             '1.1.68: Added "Missing External Provider" and option to treat as non-critical.',
@@ -601,14 +675,18 @@
         var USAPNHMasURL = 'https://docs.google.com/spreadsheets/d/1-f-JTWY5UnBx-rFTa4qhyGMYdHBZWNirUTOgn222zMY/edit#gid=0';  // Master USA PNH link
         var placesWikiURL = 'https://wiki.waze.com/wiki/Places';  // WME Places wiki
         var restAreaWikiURL = 'https://wiki.waze.com/wiki/Rest_areas#Adding_a_Place';  // WME Places wiki
-        var betaUser, devUser;
+        //var betaUser, devUser;
         if (WMEPHbetaList.length === 0 || "undefined" === typeof WMEPHbetaList) {
+            debug('WMEPHbetaList logic failure.');
             if (isDevVersion) {
                 alert('Beta user list access issue.  Please post in the GHO or PM/DM t0cableguy about this message.  Script should still work.');
             }
             betaUser = false;
             devUser = false;
         } else {
+            debug('WMEPHbetaList logic success?');
+            debug(WMEPHdevList);
+            debug(WMEPHbetaList);
             devUser = (WMEPHdevList.indexOf(thisUser.userName.toLowerCase()) > -1);
             betaUser = (WMEPHbetaList.indexOf(thisUser.userName.toLowerCase()) > -1);
         }
@@ -653,7 +731,7 @@
          */
         var layer = W.map.landmarkLayer;
         function initializeHighlights() {
-            console.log('--- initializeHighlights() called ---');
+            debug('--- initializeHighlights() called ---');
             var ruleGenerator = function(value, symbolizer) {
                 return new W.Rule({
                     filter: new OL.Filter.Comparison({
@@ -770,7 +848,7 @@
          * @param venues {array of venues, or single venue} Venues to check for highlights.
          */
         function applyHighlightsTest(venues) {
-            console.log('--- applyHighlightsTest(venues) called ---');
+            debug('--- applyHighlightsTest(venues) called ---');
             venues = venues ? _.isArray(venues) ? venues : [venues] : [];
             var storedBannButt = bannButt, storedBannServ = bannServ, storedBannButt2 = bannButt2;
             var t0 = performance.now();  // Speed check start
@@ -813,7 +891,7 @@
 
         // Set up CH loop
         function bootstrapWMEPH_CH() {
-            console.log('--- bootstrapWMEPH_CH() called ---');
+            debug('--- bootstrapWMEPH_CH() called ---');
             if ( $("#WMEPH-ColorHighlighting" + devVersStr).prop('checked') ) {
                 // Turn off place highlighting in WMECH if it's on.
                 if ( $("#_cbHighlightPlaces").prop('checked') ) {
@@ -857,7 +935,7 @@
         var specWords = "d'Bronx|iFix".split('|');
 
         function toTitleCase(str) {
-            console.log('--- toTitleCase(str) called ---');
+            debug('--- toTitleCase(str) called ---');
             if (!str) {
                 return str;
             }
@@ -910,7 +988,7 @@
 
         // Change place.name to title case
         function toTitleCaseStrong(str) {
-            console.log('--- toTitleCaseStrong(str) called ---');
+            debug('--- toTitleCaseStrong(str) called ---');
             if (!str) {
                 return str;
             }
@@ -988,7 +1066,7 @@
 
         // Alphanumeric phone conversion
         function replaceLetters(number) {
-            console.log('--- replaceLetters(number) called ---');
+            debug('--- replaceLetters(number) called ---');
             var conversionMap = _({
                 2: /A|B|C/,
                 3: /D|E|F/,
@@ -1061,7 +1139,7 @@
 
         // Only run the harmonization if a venue is selected
         function harmonizePlace() {
-            console.log('--- harmonizePlace() called ---');
+            debug('--- harmonizePlace() called ---');
             // Script is only for R2+ editors
             if (!betaUser && usrRank < 2) {
                 alert("Script is currently available for editors of Rank 2 and up.");
@@ -2984,7 +3062,7 @@
                         bannButt.addAlias.title = 'Add ' + optionalAlias;
                     }
                     // update categories if different and no Cat2 option
-                    console.log('2887 // About to call uniq() twice inside of harmonizePlaceGo()');
+                    debug('2887 // About to call uniq() twice inside of harmonizePlaceGo()');
                     if ( !matchSets( uniq(item.attributes.categories),uniq(newCategories) ) ) {
                         if ( specCases.indexOf('optionCat2') === -1 && specCases.indexOf('buttOn_addCat2') === -1 ) {
                             phlogdev("Categories updated" + " with " + newCategories);
@@ -4004,7 +4082,7 @@
                                         venueWhitelist[itemID][wlKeyName] = [];
                                     }
                                     venueWhitelist[itemID].dupeWL.push(dID);  // WL the id for the duplicate venue
-                                    console.log('3904 // About to call uniq() once inside of harmonizePlaceGo()');
+                                    debug('3904 // About to call uniq() once inside of harmonizePlaceGo()');
                                     venueWhitelist[itemID].dupeWL = uniq(venueWhitelist[itemID].dupeWL);
                                     // Make an entry for the opposite item
                                     if (!venueWhitelist.hasOwnProperty(dID)) {  // If venue is NOT on WL, then add it.
@@ -4014,7 +4092,7 @@
                                         venueWhitelist[dID][wlKeyName] = [];
                                     }
                                     venueWhitelist[dID].dupeWL.push(itemID);  // WL the id for the duplicate venue
-                                    console.log('3914 // About to call uniq() once inside of harmonizePlaceGo()');
+                                    debug('3914 // About to call uniq() once inside of harmonizePlaceGo()');
                                     venueWhitelist[dID].dupeWL = uniq(venueWhitelist[dID].dupeWL);
                                     saveWL_LS(true);  // Save the WL to local storage
                                     WMEPH_WLCounter();
@@ -4089,7 +4167,7 @@
 
         // highlight changed fields
         function highlightChangedFields(fieldUpdateObject,hpMode) {
-            console.log('--- highlightChangedFields(fieldUpdateObject,hpMode) called ---');
+            debug('--- highlightChangedFields(fieldUpdateObject,hpMode) called ---');
 
             if (hpMode.harmFlag) {
                 //var panelFields = {};
@@ -4189,16 +4267,17 @@
                 }
 
                 var placeNavTabs = $('.nav');
-                for (pfix=0; pfix<placeNavTabs.length; pfix++) {
-                    pfa = placeNavTabs[pfix].innerHTML;
+                var panelFieldsList;
+                for (var pfix=0; pfix<placeNavTabs.length; pfix++) {
+                    var pfa = placeNavTabs[pfix].innerHTML;
                     if (pfa.indexOf('landmark-edit') > -1) {
                         panelFieldsList = placeNavTabs[pfix].children;
                         panelFields.navTabsIX = pfix;
                         break;
                     }
                 }
-                for (pfix=0; pfix<panelFieldsList.length; pfix++) {
-                    pfa = panelFieldsList[pfix].innerHTML;
+                for (var pfix=0; pfix<panelFieldsList.length; pfix++) {
+                    var pfa = panelFieldsList[pfix].innerHTML;
                     if (pfa.indexOf('landmark-edit-general') > -1) {
                         panelFields.navTabGeneral = pfix;
                     }
@@ -4219,7 +4298,7 @@
 
         // Set up banner messages
         function assembleBanner() {
-            console.log('--- assembleBanner() called ---');
+            debug('--- assembleBanner() called ---');
             phlogdev('Building banners');
             // push together messages from active banner messages
             var sidebarMessage = [], sidebarTools = [];  // Initialize message array
@@ -4379,7 +4458,7 @@
 
         // Button onclick event handler
         function setupButtons(b) {
-            console.log('--- setupButtons(b) called ---');
+            debug('--- setupButtons(b) called ---');
             for ( var tempKey in b ) {  // Loop through the banner possibilities
                 if ( b.hasOwnProperty(tempKey) && b[tempKey].active ) {  //  If the particular message is active
                     if (b[tempKey].hasOwnProperty('action')) {  // If there is an action, set onclick
@@ -4394,7 +4473,7 @@
         }  // END setupButtons function
 
         function buttonAction(b,bKey) {
-            console.log('--- buttonAction(b,bKey) called ---');
+            debug('--- buttonAction(b,bKey) called ---');
             var button = document.getElementById('WMEPH_'+bKey);
             button.onclick = function() {
                 b[bKey].action();
@@ -4403,7 +4482,7 @@
             return button;
         }
         function buttonWhitelist(b,bKey) {
-            console.log('--- buttonWhitelist(b,bKey) called ---');
+            debug('--- buttonWhitelist(b,bKey) called ---');
             var button = document.getElementById('WMEPH_WL'+bKey);
             button.onclick = function() {
                 if ( bKey.match(/^\d{5,}/) !== null ) {
@@ -4421,7 +4500,7 @@
 
         // Setup div for banner messages and color
         function displayBanners(sbm,sev) {
-            console.log('--- displayBanners(sbm,sev) called ---');
+            debug('--- displayBanners(sbm,sev) called ---');
             if ($('#WMEPH_banner').length === 0 ) {
                 $('<div id="WMEPH_banner">').css({"width": "100%", "background-color": "#fff", "color": "white", "font-size": "15px", "font-weight": "bold", "padding": "3px", "margin-left": "auto", "margin-right": "auto"}).prependTo(".contents");
             } else {
@@ -4449,7 +4528,7 @@
 
         // Setup div for banner messages and color
         function displayTools(sbm) {
-            console.log('--- displayTools(sbm) called ---');
+            debug('--- displayTools(sbm) called ---');
             if ($('#WMEPH_tools').length === 0 ) {
                 $('<div id="WMEPH_tools">').css({"width": "100%", "background-color": "#eee", "color": "black", "font-size": "15px", "font-weight": "bold", "padding": "3px", "margin-left": "auto", "margin-right": "auto"}).prependTo(".contents");
             } else {
@@ -4471,7 +4550,7 @@
 
         // Display run button on place sidebar
         function displayRunButton() {
-            console.log('--- displayRunButton() called ---');
+            debug('--- displayRunButton() called ---');
             var betaDelay = 0;
             if (isDevVersion) { betaDelay = 30; }
             setTimeout(function() {
@@ -4501,7 +4580,7 @@
 
         // WMEPH Clone Tool
         function displayCloneButton() {
-            console.log('--- displayCloneButton() called ---');
+            debug('--- displayCloneButton() called ---');
             var betaDelay = 80;
             if (isDevVersion) { betaDelay = 300; }
             setTimeout(function() {
@@ -4632,7 +4711,7 @@
 
         // Catch PLs and reloads that have a place selected already and limit attempts to about 10 seconds
         function bootstrapRunButton() {
-            console.log('--- bootstrapRunButton() called ---');
+            debug('--- bootstrapRunButton() called ---');
             if (numAttempts < 10) {
                 numAttempts++;
                 if (W.selectionManager.selectedItems.length === 1) {
@@ -4653,7 +4732,7 @@
 
         // Find field divs
         function getPanelFields() {
-            console.log('--- getPanelFields() called ---');
+            debug('--- getPanelFields() called ---');
             var panelFieldsList = $('.form-control'), pfa;
             for (var pfix=0; pfix<panelFieldsList.length; pfix++) {
                 pfa = panelFieldsList[pfix].name;
@@ -4677,7 +4756,7 @@
                 }
             }
             var placeNavTabs = $('.nav');
-            for (pfix=0; pfix<placeNavTabs.length; pfix++) {
+            for (var pfix=0; pfix<placeNavTabs.length; pfix++) {
                 pfa = placeNavTabs[pfix].innerHTML;
                 if (pfa.indexOf('landmark-edit') > -1) {
                     panelFieldsList = placeNavTabs[pfix].children;
@@ -4685,7 +4764,7 @@
                     break;
                 }
             }
-            for (pfix=0; pfix<panelFieldsList.length; pfix++) {
+            for (var pfix=0; pfix<panelFieldsList.length; pfix++) {
                 pfa = panelFieldsList[pfix].innerHTML;
                 if (pfa.indexOf('landmark-edit-general') > -1) {
                     panelFields.navTabGeneral = pfix;
@@ -4701,7 +4780,7 @@
         // Catch PLs and reloads that have a place selected already and limit attempts to about 10 seconds
         numAttempts = 0;
         function bootstrapInferAddress() {
-            console.log('--- bootstrapInferAddress() called ---');
+            debug('--- bootstrapInferAddress() called ---');
             if (numAttempts < 20) {
                 numAttempts++;
                 var inferredAddress = WMEPH_inferAddress(7);
@@ -4715,7 +4794,7 @@
 
         // Function to clone info from a place
         function clonePlace() {
-            console.log('--- clonePlace() called ---');
+            debug('--- clonePlace() called ---');
             phlog('Cloning info...');
             var UpdateObject = require("Waze/Action/UpdateObject");
             if (cloneMaster !== null && cloneMaster.hasOwnProperty('url')) {
@@ -4772,7 +4851,7 @@
 
         // Formats "hour object" into a string.
         function formatOpeningHour(hourEntry) {
-            console.log('--- formatOpeningHour(hourEntry) called ---');
+            debug('--- formatOpeningHour(hourEntry) called ---');
             var dayNames = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
             var hours = hourEntry.attributes.fromHour + '-' + hourEntry.attributes.toHour;
             return hourEntry.attributes.days.map(function(day) {
@@ -4781,12 +4860,12 @@
         }
         // Pull natural text from opening hours
         function getOpeningHours(venue) {
-            console.log('--- getOpeningHours(venue) called ---');
+            debug('--- getOpeningHours(venue) called ---');
             return venue && venue.getOpeningHours && venue.getOpeningHours().map(formatOpeningHour);
         }
         // Parse hours paste for hours object array
         function parseHours(inputHours) {
-            console.log('--- parseHours(inputHours) called ---');
+            debug('--- parseHours(inputHours) called ---');
             var daysOfTheWeek = {
                 SS: ['saturdays', 'saturday', 'satur', 'sat', 'sa'],
                 UU: ['sundays', 'sunday', 'sun', 'su'],
@@ -5149,7 +5228,7 @@
 
         // function to check overlapping hours
         function checkHours(hoursObj) {
-            console.log('--- checkHours(hoursObj) called ---');
+            debug('--- checkHours(hoursObj) called ---');
             if (hoursObj.length === 1) {
                 return true;
             }
@@ -5231,7 +5310,7 @@
                     }
                 }
             }
-            console.log('5129 // About to call uniq() once inside of findNearbyDuplicate()');
+            debug('5129 // About to call uniq() once inside of findNearbyDuplicate()');
             currNameList = uniq(currNameList);  //  remove duplicates
 
             // Remove any previous search labels and move the layer above the places layer
@@ -5459,7 +5538,7 @@
 
         // On selection of new item:
         function checkSelection() {
-            console.log('--- checkSelection() called ---');
+            debug('--- checkSelection() called ---');
             if (W.selectionManager.selectedItems.length > 0) {
                 var newItem = W.selectionManager.selectedItems[0].model;
                 if (newItem.type === "venue") {
@@ -5485,7 +5564,7 @@
 
         // Functions to infer address from nearby segments
         function WMEPH_inferAddress(MAX_RECURSION_DEPTH) {
-            console.log('--- WMEPH_inferAddress(MAX_RECURSION_DEPTH) called ---');
+            debug('--- WMEPH_inferAddress(MAX_RECURSION_DEPTH) called ---');
             'use strict';
             var distanceToSegment,
                 foundAddresses = [],
@@ -5706,7 +5785,7 @@
 
         // Build a Google search url based on place name and address
         function buildGLink(searchName,addr,HN) {
-            console.log('--- buildGLink(searchName,addr,HN) called ---');
+            debug('--- buildGLink(searchName,addr,HN) called ---');
             var searchHN = "", searchStreet = "", searchCity = "";
             searchName = searchName.replace(/&/g, "%26");
             searchName = searchName.replace(/[ \/]/g, "%20");
@@ -5736,7 +5815,7 @@
 
         // WME Category translation from Natural language to object language  (Bank / Financial --> BANK_FINANCIAL)
         function catTranslate(natCategories) {
-            console.log('--- catTranslate(natCategories) called ---');
+            debug('--- catTranslate(natCategories) called ---');
             //console.log(natCategories);
             var natCategoriesRepl = natCategories.toUpperCase().replace(/ AND /g, "").replace(/[^A-Z]/g, "");
             if (natCategoriesRepl.indexOf('PETSTORE') > -1) {
@@ -5772,7 +5851,7 @@
 
         // function that checks if all elements of target are in array:source
         function containsAll(source,target) {
-            console.log('--- containsAll(source,target) called ---');
+            debug('--- containsAll(source,target) called ---');
             if (typeof(target) === "string") { target = [target]; }  // if a single string, convert to an array
             for (var ixx = 0; ixx < target.length; ixx++) {
                 if ( source.indexOf(target[ixx]) === -1 ) {
@@ -5784,7 +5863,7 @@
 
         // function that checks if any element of target are in source
         function containsAny(source,target) {
-            console.log('--- containsAny(source,target) called ---');
+            debug('--- containsAny(source,target) called ---');
             if (typeof(source) === "string") { source = [source]; }  // if a single string, convert to an array
             if (typeof(target) === "string") { target = [target]; }  // if a single string, convert to an array
             var result = source.filter(function(tt){ return target.indexOf(tt) > -1; });
@@ -5800,7 +5879,7 @@
                 arrayNew.push.apply(arrayNew, array2);  // add the insert
                 arrayNew.push.apply(arrayNew, arrayTemp);  // add the tail end of original
             }
-            console.log('5690 // About to call uniq() once inside of insertAtIX()');
+            debug('5690 // About to call uniq() once inside of insertAtIX()');
             return uniq(arrayNew);  // remove any duplicates (so the function can be used to move the position of a string)
         }
 
@@ -5821,7 +5900,7 @@
 
         // settings tab
         function add_PlaceHarmonizationSettingsTab() {
-            console.log('--- add_PlaceHarmonizationSettingsTab() called ---');
+            debug('--- add_PlaceHarmonizationSettingsTab() called ---');
             //Create Settings Tab
             var phTabHtml = '<li><a href="#sidepanel-ph' + devVersStr + '" data-toggle="tab" id="PlaceHarmonization' + devVersStr + '">WMEPH' + devVersStrSpace + '</a></li>';
             $("#user-tabs ul.nav-tabs:first").append(phTabHtml);
@@ -6272,7 +6351,7 @@
 
         //Function to add Shift+ to upper case KBS
         function parseKBSShift(kbs) {
-            console.log('--- parseKBSShift(kbs) called ---');
+            debug('--- parseKBSShift(kbs) called ---');
             if (kbs.match(/^[A-Z]{1}$/g) !== null) { // If upper case, then add a Shift+
                 kbs = 'Shift+' + kbs;
             }
@@ -6281,7 +6360,7 @@
 
         // Function to check shortcut conflict
         function checkWMEPH_KBSconflict(KBS) {
-            console.log('--- checkWMEPH_KBSconflict(KBS) called ---');
+            debug('--- checkWMEPH_KBSconflict(KBS) called ---');
             var LSString = '';
             if (!isDevVersion) {
                 LSString = devVersStringMaster;
@@ -6297,7 +6376,7 @@
 
         // Save settings prefs
         function saveSettingToLocalStorage(settingID) {
-            console.log('--- saveSettingToLocalStorage(settingID) called ---');
+            debug('--- saveSettingToLocalStorage(settingID) called ---');
             if ($("#" + settingID).prop('checked')) {
                 localStorage.setItem(settingID, '1');
             } else {
@@ -6307,7 +6386,7 @@
 
         // This function validates that the inputted text is a JSON
         function validateWLS(jsonString) {
-            console.log('--- validateWLS(jsonString) called ---');
+            debug('--- validateWLS(jsonString) called ---');
             "use strict";
             try {
                 var objTry = JSON.parse(jsonString);
@@ -6321,7 +6400,7 @@
 
         // This function merges and updates venues from object vWL_2 into vWL_1
         function mergeWL(vWL_1,vWL_2) {
-            console.log('--- mergeWL(vWL_1,vWL_2) called ---');
+            debug('--- mergeWL(vWL_1,vWL_2) called ---');
             "use strict";
             var venueKey, WLKey, vWL_1_Venue, vWL_2_Venue;
             for (venueKey in vWL_2) {
@@ -6350,7 +6429,7 @@
 
         // Get services checkbox status
         function getServicesChecks() {
-            console.log('--- getServicesChecks() called ---');
+            debug('--- getServicesChecks() called ---');
             var servArrayCheck = [];
             for (var wsix=0; wsix<WMEServicesArray.length; wsix++) {
                 if ($("#service-checkbox-" + WMEServicesArray[wsix]).prop('checked')) {
@@ -6363,7 +6442,7 @@
         }
 
         function updateServicesChecks(bannServ) {
-            console.log('--- updateServicesChecks(bannServ) called ---');
+            debug('--- updateServicesChecks(bannServ) called ---');
             var servArrayCheck = getServicesChecks(), wsix=0;
             for (var keys in bannServ) {
                 if (bannServ.hasOwnProperty(keys)) {
@@ -6381,7 +6460,7 @@
 
         // Focus away from the current cursor focus, to set text box changes
         function blurAll() {
-            console.log('--- blurAll() called ---');
+            debug('--- blurAll() called ---');
             var tmp = document.createElement("input");
             document.body.appendChild(tmp);
             tmp.focus();
@@ -6390,7 +6469,7 @@
 
         // Pulls the item PL
         function getItemPL() {
-            console.log('--- getItemPL() called ---');
+            debug('--- getItemPL() called ---');
             // Append a form div if it doesn't exist yet:
             if ( $('#WMEPH_formDiv').length ===0 ) {
                 var tempDiv = document.createElement('div');
@@ -6414,7 +6493,7 @@
 
         // Sets up error reporting
         function WMEPH_errorReport(data) {
-            console.log('--- WMEPH_errorReport(data) called ---');
+            debug('--- WMEPH_errorReport(data) called ---');
             data.preview = 'Preview';
             data.attach_sig = 'on';
             if (PMUserList.hasOwnProperty('WMEPH') && PMUserList.WMEPH.approvalActive) {
@@ -6476,7 +6555,7 @@
 
         // Function that checks current place against the Harmonization Data.  Returns place data or "NoMatch"
         function harmoList(itemName,state2L,region3L,country,itemCats) {
-            console.log('--- harmoList(itemName,state2L,region3L,country,itemCats) called ---');
+            debug('--- harmoList(itemName,state2L,region3L,country,itemCats) called ---');
             var PNH_DATA_headers;
             var ixendPNH_NAMES;
             if (country === 'USA') {
@@ -6754,21 +6833,12 @@
             }
         };  // END Shortcut function
 
-        function phlogdev(m) {
-            console.log('--- phlogdev(m) called ---');
-            if ('object' === typeof m) {
-                m = JSON.stringify(m);
-            }
-            if (devUser) {
-                console.log('WMEPH' + devVersStrDash + ': ' + m);
-            }
-        }
     } // END runPH Function
 
 
     // This function runs at script load, and splits the category dataset into the searchable categories.
     function makeCatCheckList(CH_DATA) {
-        console.log('--- makeCatCheckList(CH_DATA) called ---');  // Builds the list of search names to match to the WME place name
+        debug('--- makeCatCheckList(CH_DATA) called ---');  // Builds the list of search names to match to the WME place name
         var CH_CATS = [];
         var CH_DATA_headers = CH_DATA[0].split("|");  // split the data headers out
         var pc_wmecat_ix = CH_DATA_headers.indexOf("pc_wmecat");  // find the indices needed for the function
@@ -6784,7 +6854,7 @@
 
     // Whitelist stringifying and parsing
     function saveWL_LS(compress) {
-        console.log('--- saveWL_LS(compress) called ---');
+        debug('--- saveWL_LS(compress) called ---');
         venueWhitelistStr = JSON.stringify(venueWhitelist);
         if (compress) {
             if (venueWhitelistStr.length < 4800000 ) {  // Also save to regular storage as a back up
@@ -6797,7 +6867,7 @@
         }
     }
     function loadWL_LS(decompress) {
-        console.log('--- loadWL_LS(decompress) called ---');
+        debug('--- loadWL_LS(decompress) called ---');
         if (decompress) {
             venueWhitelistStr = localStorage.getItem(WLlocalStoreNameCompressed);
             venueWhitelistStr = LZString.decompressFromUTF16(venueWhitelistStr);
@@ -6807,7 +6877,7 @@
         venueWhitelist = JSON.parse(venueWhitelistStr);
     }
     function backupWL_LS(compress) {
-        console.log('--- backupWL_LS(compress) called ---');
+        debug('--- backupWL_LS(compress) called ---');
         venueWhitelistStr = JSON.stringify(venueWhitelist);
         if (compress) {
             venueWhitelistStr = LZString.compressToUTF16(venueWhitelistStr);
@@ -6822,7 +6892,7 @@
     //function phlog(m) {
 
     function zoomPlace() {
-        console.log('--- zoomPlace() called ---');
+        debug('--- zoomPlace() called ---');
         if (W.selectionManager.selectedItems.length === 1 && W.selectionManager.selectedItems[0].model.type === "venue") {
             W.map.moveTo(W.selectionManager.selectedItems[0].model.geometry.getCentroid().toLonLat(), 7);
         } else {
@@ -6831,7 +6901,7 @@
     }
 
     function sortWithIndex(toSort) {
-        console.log('--- sortWithIndex(toSort) called ---');
+        debug('--- sortWithIndex(toSort) called ---');
         for (var i = 0; i < toSort.length; i++) {
             toSort[i] = [toSort[i], i];
         }
@@ -6903,7 +6973,7 @@
 
     // Keep track of how many whitelists have been added since the last pull, alert if over a threshold (100?)
     function WMEPH_WLCounter() {
-        console.log('--- WMEPH_WLCounter() called ---');
+        debug('--- WMEPH_WLCounter() called ---');
         localStorage.WMEPH_WLAddCount = parseInt(localStorage.WMEPH_WLAddCount)+1;
         if (localStorage.WMEPH_WLAddCount > 50) {
             alert('Don\'t forget to periodically back up your Whitelist data using the Pull option in the WMEPH settings tab.');
@@ -6912,7 +6982,7 @@
     }
 
     function modifyGoogleLinks() {
-        console.log('--- modifyGoogleLinks() called ---');
+        debug('--- modifyGoogleLinks() called ---');
         $.ajaxPrefilter(function(options, originalOptions, jqXHR) {
             try {
                 if (originalOptions.type === "GET") {
