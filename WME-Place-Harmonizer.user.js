@@ -104,8 +104,7 @@
         if (USE_NEW_GOOGLE_SHEETS) {
             /* The new logic is currently pulling each part of the sheet piece by piece;
                but, once it is approved, we will change the code to "slurp" all of the info
-               from the separate GitHub repo that contains all of the data pure, ready to
-               use JSON. */
+               from the separate GitHub repo that contains all of the data ready-to-use JSON. */
 
             // Pull Dev User List
             WMEPHdevList = [];
@@ -145,79 +144,79 @@
                 }
             });
         }
+
         // Pull USA PNH Data
-            $.ajax({
-                type: 'GET',
-                url: 'https://spreadsheets.google.com/feeds/list/1-f-JTWY5UnBx-rFTa4qhyGMYdHBZWNirUTOgn222zMY/o6q7kx/public/values',
-                jsonp: 'callback', data: { alt: 'json-in-script' }, dataType: 'jsonp',
-                success: function(response) {
-                    USA_PNH_DATA = [];
-                    for (var i = 0; i < response.feed.entry.length; i++) {
-                        USA_PNH_DATA.push(response.feed.entry[i].gsx$pnhdata.$t);
-                    }
+        $.ajax({
+            type: 'GET',
+            url: 'https://spreadsheets.google.com/feeds/list/1-f-JTWY5UnBx-rFTa4qhyGMYdHBZWNirUTOgn222zMY/o6q7kx/public/values',
+            jsonp: 'callback', data: { alt: 'json-in-script' }, dataType: 'jsonp',
+            success: function(response) {
+                USA_PNH_DATA = [];
+                for (var i = 0; i < response.feed.entry.length; i++) {
+                    USA_PNH_DATA.push(response.feed.entry[i].gsx$pnhdata.$t);
                 }
-            });
+            }
+        });
 
         // Pull Category Data ( Includes CAN for now )
-            $.ajax({
-                type: 'GET',
-                url: 'https://spreadsheets.google.com/feeds/list/1-f-JTWY5UnBx-rFTa4qhyGMYdHBZWNirUTOgn222zMY/ov3dubz/public/values',
-                jsonp: 'callback', data: { alt: 'json-in-script' }, dataType: 'jsonp',
-                success: function(response) {
-                    USA_CH_DATA = [];
-                    for (var i = 0; i < response.feed.entry.length; i++) {
-                        USA_CH_DATA.push(response.feed.entry[i].gsx$pcdata.$t);
-                    }
+        $.ajax({
+            type: 'GET',
+            url: 'https://spreadsheets.google.com/feeds/list/1-f-JTWY5UnBx-rFTa4qhyGMYdHBZWNirUTOgn222zMY/ov3dubz/public/values',
+            jsonp: 'callback', data: { alt: 'json-in-script' }, dataType: 'jsonp',
+            success: function(response) {
+                USA_CH_DATA = [];
+                for (var i = 0; i < response.feed.entry.length; i++) {
+                    USA_CH_DATA.push(response.feed.entry[i].gsx$pcdata.$t);
                 }
-            });
+            }
+        });
 
         // Pull State-based Data (includes CAN for now)
-            $.ajax({
-                type: 'GET',
-                url: 'https://spreadsheets.google.com/feeds/list/1-f-JTWY5UnBx-rFTa4qhyGMYdHBZWNirUTOgn222zMY/os2g2ln/public/values',
-                jsonp: 'callback', data: { alt: 'json-in-script' }, dataType: 'jsonp',
-                success: function(response) {
-                    USA_STATE_DATA = [];
-                    for (var i = 0; i < response.feed.entry.length; i++) {
-                        USA_STATE_DATA.push(response.feed.entry[i].gsx$psdata.$t);
-                    }
+        $.ajax({
+            type: 'GET',
+            url: 'https://spreadsheets.google.com/feeds/list/1-f-JTWY5UnBx-rFTa4qhyGMYdHBZWNirUTOgn222zMY/os2g2ln/public/values',
+            jsonp: 'callback', data: { alt: 'json-in-script' }, dataType: 'jsonp',
+            success: function(response) {
+                USA_STATE_DATA = [];
+                for (var i = 0; i < response.feed.entry.length; i++) {
+                    USA_STATE_DATA.push(response.feed.entry[i].gsx$psdata.$t);
                 }
-            });
+            }
+        });
 
         // Pull CAN PNH Data
-            $.ajax({
-                type: 'GET',
-                url: 'https://spreadsheets.google.com/feeds/list/1TIxQZVLUbAJ8iH6LPTkJsvqFb_DstrHpKsJbv1W1FZs/o4ghhas/public/values',
-                jsonp: 'callback', data: { alt: 'json-in-script' }, dataType: 'jsonp',
-                success: function(response) {
-                    CAN_PNH_DATA = [];
-                    for (var i = 0; i < response.feed.entry.length; i++) {
-                        CAN_PNH_DATA.push(response.feed.entry[i].gsx$pnhdata.$t);
-                    }
+        $.ajax({
+            type: 'GET',
+            url: 'https://spreadsheets.google.com/feeds/list/1TIxQZVLUbAJ8iH6LPTkJsvqFb_DstrHpKsJbv1W1FZs/o4ghhas/public/values',
+            jsonp: 'callback', data: { alt: 'json-in-script' }, dataType: 'jsonp',
+            success: function(response) {
+                CAN_PNH_DATA = [];
+                for (var i = 0; i < response.feed.entry.length; i++) {
+                    CAN_PNH_DATA.push(response.feed.entry[i].gsx$pnhdata.$t);
                 }
-            });
+            }
+        });
 
         // Pull name-category lists
-            $.ajax({
-                type: 'GET',
-                url: 'https://spreadsheets.google.com/feeds/list/1pDmenZA-3FOTvhlCq9yz1dnemTmS9l_njZQbu_jLVMI/op17piq/public/values',
-                jsonp: 'callback', data: { alt: 'json-in-script' }, dataType: 'jsonp',
-                success: function(response) {
-                    hospitalPartMatch = response.feed.entry[0].gsx$hmchp.$t;
-                    hospitalFullMatch = response.feed.entry[0].gsx$hmchf.$t;
-                    animalPartMatch = response.feed.entry[0].gsx$hmcap.$t;
-                    animalFullMatch = response.feed.entry[0].gsx$hmcaf.$t;
-                    schoolPartMatch = response.feed.entry[0].gsx$schp.$t;
-                    schoolFullMatch = response.feed.entry[0].gsx$schf.$t;
-                    hospitalPartMatch = hospitalPartMatch.toLowerCase().replace(/ \|/g,'|').replace(/\| /g,'|').split("|");
-                    hospitalFullMatch = hospitalFullMatch.toLowerCase().replace(/ \|/g,'|').replace(/\| /g,'|').split("|");
-                    animalPartMatch = animalPartMatch.toLowerCase().replace(/ \|/g,'|').replace(/\| /g,'|').split("|");
-                    animalFullMatch = animalFullMatch.toLowerCase().replace(/ \|/g,'|').replace(/\| /g,'|').split("|");
-                    schoolPartMatch = schoolPartMatch.toLowerCase().replace(/ \|/g,'|').replace(/\| /g,'|').split("|");
-                    schoolFullMatch = schoolFullMatch.toLowerCase().replace(/ \|/g,'|').replace(/\| /g,'|').split("|");
-                }
-            });
-
+        $.ajax({
+            type: 'GET',
+            url: 'https://spreadsheets.google.com/feeds/list/1pDmenZA-3FOTvhlCq9yz1dnemTmS9l_njZQbu_jLVMI/op17piq/public/values',
+            jsonp: 'callback', data: { alt: 'json-in-script' }, dataType: 'jsonp',
+            success: function(response) {
+                notHospitalPartMatch = response.feed.entry[0].gsx$hmchp.$t;
+                notHospitalFullMatch = response.feed.entry[0].gsx$hmchf.$t;
+                animalPartMatch = response.feed.entry[0].gsx$hmcap.$t;
+                animalFullMatch = response.feed.entry[0].gsx$hmcaf.$t;
+                schoolPartMatch = response.feed.entry[0].gsx$schp.$t;
+                schoolFullMatch = response.feed.entry[0].gsx$schf.$t;
+                notHospitalPartMatch = notHospitalPartMatch.toLowerCase().replace(/ \|/g,'|').replace(/\| /g,'|').split("|");
+                notHospitalFullMatch = notHospitalFullMatch.toLowerCase().replace(/ \|/g,'|').replace(/\| /g,'|').split("|");
+                animalPartMatch = animalPartMatch.toLowerCase().replace(/ \|/g,'|').replace(/\| /g,'|').split("|");
+                animalFullMatch = animalFullMatch.toLowerCase().replace(/ \|/g,'|').replace(/\| /g,'|').split("|");
+                schoolPartMatch = schoolPartMatch.toLowerCase().replace(/ \|/g,'|').replace(/\| /g,'|').split("|");
+                schoolFullMatch = schoolFullMatch.toLowerCase().replace(/ \|/g,'|').replace(/\| /g,'|').split("|");
+            }
+        });
     }
 
 
@@ -225,8 +224,8 @@
     // Bootstrap and Timeout Functions //
     /////////////////////////////////////
 
-    // What does placeHarmonizer_bootstrap() do?
-    // Put a meaningful explanation here.
+    // First function of script.  Checks to see if external data is loaded and ready
+    // after the AJAX calls.  Continues to run until data is loaded or timeout is reached.
     function placeHarmonizer_bootstrap() {
         debug('--- placeHarmonizer_bootstrap() called ---');
         if ( "undefined" !== typeof W.loginManager && "undefined" !== typeof W.map) {
@@ -266,17 +265,17 @@
         }
     }
 
-    // What does dataReady() do?
-    // Put a meaningful explanation here.
+    // Checks to see if external data is loaded before proceeding with running the main script.
+    // Calls loginReady() once data is confirmed to be loaded.
     function dataReady() {
         debug('--- dataReady() called ---');
         // If the data has returned, then start the script, otherwise wait a bit longer
-        if ("undefined" !== typeof CAN_PNH_DATA && "undefined" !== typeof USA_PNH_DATA && "undefined" !== typeof USA_CH_DATA &&
-            "undefined" !== typeof WMEPHdevList && "undefined" !== typeof WMEPHbetaList && "undefined" !== typeof hospitalPartMatch ) {
-                USA_PNH_NAMES = makeNameCheckList(USA_PNH_DATA);
-                USA_CH_NAMES = makeCatCheckList(USA_CH_DATA);
-                CAN_PNH_NAMES = makeNameCheckList(CAN_PNH_DATA);
-                // CAN using USA_CH_NAMES at the moment
+        if ("undefined" !== typeof CAN_PNH_DATA && "undefined" !== typeof USA_PNH_DATA  && "undefined" !== typeof USA_CH_DATA &&
+            "undefined" !== typeof WMEPHdevList && "undefined" !== typeof WMEPHbetaList && "undefined" !== typeof notHospitalPartMatch ) {
+            USA_PNH_NAMES = makeNameCheckList(USA_PNH_DATA);
+            USA_CH_NAMES = makeCatCheckList(USA_CH_DATA);
+            CAN_PNH_NAMES = makeNameCheckList(CAN_PNH_DATA);
+            // CAN using USA_CH_NAMES at the moment
             loginReady();  //  start the main code
         } else {
             if (dataReadyCounter % 20 === 0) {
@@ -287,7 +286,7 @@
                 if ("undefined" === typeof USA_PNH_DATA) {
                     waitMessage = waitMessage + "USA PNH Data; ";
                 }
-                if ("undefined" === typeof hospitalPartMatch) {
+                if ("undefined" === typeof notHospitalPartMatch) {
                     waitMessage = waitMessage + "Cat-Name Data; ";
                 }
                 if ("undefined" === typeof WMEPHdevList) {
@@ -300,6 +299,25 @@
                 setTimeout(function () { dataReady(); }, 100);
             } else {
                 phlog("Data load took too long, reload WME...");
+            }
+        }
+    }
+
+
+    // Waits for WME Login to happen before running the main script.
+    // Calls runPH() once WME Login is defined.
+    function loginReady() {
+        debug('--- loginReady() called ---');
+        dataReadyCounter = 0;
+        if ( W.loginManager.user !== null) {
+            runPH();  //  start the main code
+        } else {
+            if (dataReadyCounter<50) {
+                dataReadyCounter++;
+                phlog("Waiting for WME login...");
+                setTimeout(function () { loginReady(); }, 200);
+            } else {
+                phlog("Login failed...?  Reload WME.");
             }
         }
     }
@@ -437,7 +455,6 @@
         }
         var t1 = performance.now();  // log search time
         phlog("Built search list of " + PNH_DATA.length + " PNH places in " + (t1 - t0) + " milliseconds.");
-        popUp(JSON.stringify(PNH_DATA));
         return PNH_NAMES;
     }  // END makeNameCheckList
 
@@ -457,6 +474,12 @@
     ///////////////
     // Variables //
     ///////////////
+    var WMEPHversion = GM_info.script.version.toString();           // Pull version from header
+    var WMEPHversionMeta = WMEPHversion.match(/(\d+\.\d+)/i)[1];    // Get the X.X version number
+    var majorNewFeature = false;                                    // Set to true to make an alert pop up after script update with new feature
+    var scriptName = GM_info.script.name.toString();
+    var isDevVersion = (scriptName.match(/Beta/i) !== null);  // enables dev messages and unique DOM options if the script is called "... Beta"
+    var WMEPHdevList, WMEPHbetaList;  // Userlists
     var betaUser, devUser;
 
 
@@ -465,15 +488,9 @@
     //// Begin old WMEPH code ////
     //////////////////////////////
     //////////////////////////////
-    var WMEPHversion = GM_info.script.version.toString(); // pull version from header
-    var WMEPHversionMeta = WMEPHversion.match(/(\d+\.\d+)/i)[1];  // get the X.X version
-    var majorNewFeature = false;  // set to true to make an alert pop up after script update with new feature
-    var scriptName = GM_info.script.name.toString();
-    var isDevVersion = (scriptName.match(/Beta/i) !== null);  //  enables dev messages and unique DOM options if the script is called "... Beta"
     var USA_PNH_DATA, USA_PNH_NAMES = [], USA_CH_DATA, USA_STATE_DATA, USA_CH_NAMES = [];  // Storage for PNH and Category data
     var CAN_PNH_DATA, CAN_PNH_NAMES = [];  // var CAN_CH_DATA, CAN_CH_NAMES = [] not used for now
-    var hospitalPartMatch, hospitalFullMatch, animalPartMatch, animalFullMatch, schoolPartMatch, schoolFullMatch;  // vars for cat-name checking
-    var WMEPHdevList, WMEPHbetaList;  // Userlists
+    var notHospitalPartMatch, notHospitalFullMatch, animalPartMatch, animalFullMatch, schoolPartMatch, schoolFullMatch;  // vars for cat-name checking
     var devVersStr='', devVersStrSpace='', devVersStrDash='';  // strings to differentiate DOM elements between regular and beta script
     var devVersStringMaster = "Beta";
     var dataReadyCounter = 0;
@@ -508,21 +525,8 @@
 
     //function dataReady() {
 
-    function loginReady() {
-        debug('--- loginReady() called ---');
-        dataReadyCounter = 0;
-        if ( W.loginManager.user !== null) {
-            runPH();  //  start the main code
-        } else {
-            if (dataReadyCounter<50) {
-                dataReadyCounter++;
-                phlog("Waiting for WME login...");
-                setTimeout(function () { loginReady(); }, 200);
-            } else {
-                phlog("Login failed...?  Reload WME.");
-            }
-        }
-    }
+    //function loginReady() {
+
 
     // This function will need to be split up because it is way too big.
     function runPH() {
@@ -3704,7 +3708,7 @@
             var testName = newName.toLowerCase().replace(/[^a-z]/g,' ');
             var testNameWords = testName.split(' ');
             // Hopsital vs. Name filter
-            if (newCategories.indexOf("HOSPITAL_MEDICAL_CARE") > -1 && hospitalPartMatch.length > 0) {
+            if (newCategories.indexOf("HOSPITAL_MEDICAL_CARE") > -1 && notHospitalPartMatch.length > 0) {
                 var hpmMatch = false;
                 if (containsAny(testNameWords,animalFullMatch)) {
                     bannButt.changeHMC2PetVet.active = true;
@@ -3714,7 +3718,7 @@
                         lockOK = false;
                     }
                     bannButt.pnhCatMess.active = false;
-                } else if (containsAny(testNameWords,hospitalFullMatch)) {
+                } else if (containsAny(testNameWords,notHospitalFullMatch)) {
                     bannButt.changeHMC2Office.active = true;
                     if (currentWL.changeHMC2Office) {
                         bannButt.changeHMC2Office.WLactive = false;
@@ -3737,8 +3741,8 @@
                         }
                     }
                     if (!hpmMatch) {  // don't run the human check if animal is found.
-                        for (var hpmix=0; hpmix<hospitalPartMatch.length; hpmix++) {
-                            if (testName.indexOf(hospitalPartMatch[hpmix]) > -1) {
+                        for (var hpmix=0; hpmix<notHospitalPartMatch.length; hpmix++) {
+                            if (testName.indexOf(notHospitalPartMatch[hpmix]) > -1) {
                                 bannButt.changeHMC2Office.active = true;
                                 if (currentWL.changeHMC2Office) {
                                     bannButt.changeHMC2Office.WLactive = false;
@@ -6062,6 +6066,7 @@
             }
             shortcutParse = parseKBSShift($('#WMEPH-KeyboardShortcut'+devVersStr).val());
             // Check for KBS conflict on Beta script load
+            /* NOTE: We are probably going to remove this because we are removing side-by-side support for Prod and Beta
             if (isDevVersion) {
                 if (checkWMEPH_KBSconflict(shortcutParse)) {
                     alert('You have the same shortcut for the Beta version and the Production version of the script. The Beta version is disabled until you change the Beta shortcut');
@@ -6075,6 +6080,7 @@
                 phKBContentHtml = $('<span style="font-weight:bold">Current shortcut: '+modifKey+shortcutParse+'</span>');
                 $("#PlaceHarmonizerKBCurrent" + devVersStr).append(phKBContentHtml);
             }
+            */
 
             // Modifier on-click changes
             var modifKeyNew;
