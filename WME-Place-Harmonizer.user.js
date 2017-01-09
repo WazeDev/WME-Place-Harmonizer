@@ -12,7 +12,7 @@
 // ==UserScript==
 // @name        WME Place Harmonizer Beta
 // @namespace   https://github.com/WazeUSA/WME-Place-Harmonizer/raw/master/WME-Place-Harmonizer.user.js
-// @version     1.1.70
+// @version     1.1.71
 // @description Harmonizes, formats, and locks a selected place
 // @author      WMEPH development group
 // @include     /^https:\/\/(www|beta)\.waze\.com\/(?!user\/)(.{2,6}\/)?editor\/.*$/
@@ -26,6 +26,7 @@
 (function () {
     var jqUI_CssSrc = GM_getResourceText("jqUI_CSS");
     GM_addStyle(jqUI_CssSrc);
+    // Was testing this, but I don't think the following line does anything. (mapomatic)
     GM_addStyle('  <style> .ui-autocomplete {max-height: 100px;overflow-y: auto;overflow-x: hidden;}  * html .ui-autocomplete {height: 100px;}</style>');
     var WMEPHversion = GM_info.script.version.toString(); // pull version from header
     var WMEPHversionMeta = WMEPHversion.match(/(\d+\.\d+)/i)[1];  // get the X.X version
@@ -253,6 +254,8 @@
     function runPH() {
         // Script update info
         var WMEPHWhatsNewList = [  // New in this version
+            '1.1.71: Added "avsus" to list of staff accounts.',
+            '1.1.70: Fix for adding 24/7 service from PNH spreadsheet.',
             '1.1.69: Added input box to enter missing street.',
             '1.1.68: Added "Missing External Provider" and option to treat as non-critical.',
             '1.1.67: Fixed optional 2nd categories.',
@@ -3635,7 +3638,7 @@
 
             //waze_maint_bot check
             if (!item.attributes.residential && item.attributes.updatedBy && W.model.users.get(item.attributes.updatedBy) &&
-                W.model.users.get(item.attributes.updatedBy).userName && W.model.users.get(item.attributes.updatedBy).userName.match(/^waze-maint-bot|waze3rdparty|WazeParking1|admin/i) !== null) {
+                W.model.users.get(item.attributes.updatedBy).userName && W.model.users.get(item.attributes.updatedBy).userName.match(/^waze-maint-bot|waze3rdparty|WazeParking1|admin|avsus/i) !== null) {
                 bannButt.wazeBot.active = true;
             }
 
