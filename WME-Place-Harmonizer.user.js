@@ -12,19 +12,23 @@
 // ==UserScript==
 // @name        WME Place Harmonizer Beta
 // @namespace   https://github.com/WazeUSA/WME-Place-Harmonizer/raw/master/WME-Place-Harmonizer.user.js
-// @version     1.1.68-refactor2017
+// @version     1.1.69a-refactor2017
 // @description Harmonizes, formats, and locks a selected place
 // @author      WMEPH development group
-// @include     https://*.waze.com/editor/*
-// @include     https://*.waze.com/*editor/*
-// @exclude     https://*.waze.com/user/*
-// @grant       none
-// @require     https://greasyfork.org/scripts/24851-wazewrap/code/WazeWrap.js
+// @include     /^https:\/\/(www|beta)\.waze\.com\/(?!user\/)(.{2,6}\/)?editor\/.*$/
+// @require     https://raw.githubusercontent.com/WazeUSA/WME-Place-Harmonizer/Beta/jquery-ui-1.11.4.custom.min.js
+// @resource    jqUI_CSS  https://ajax.googleapis.com/ajax/libs/jqueryui/1.11.4/themes/smoothness/jquery-ui.css
+// @grant       GM_addStyle
+// @grant       GM_getResourceText
 // ==/UserScript==
+
 
 // NOTE: Only reason to keep this anonymous function wrapper is for Opera compatibility.
 (function () {
     "use strict";
+    var jqUI_CssSrc = GM_getResourceText("jqUI_CSS");
+    GM_addStyle(jqUI_CssSrc);
+    GM_addStyle('  <style> .ui-autocomplete {max-height: 100px;overflow-y: auto;overflow-x: hidden;}  * html .ui-autocomplete {height: 100px;}</style>');
     /////////////////////////////////////
     /////////////////////////////////////
     //// WMEPH Function declarations ////
@@ -196,7 +200,7 @@
         // Pull name-category lists
             $.ajax({
                 type: 'GET',
-                url: 'https://spreadsheets.google.com/feeds/list/1qPjzDu7ZWcpz9xrWYgU7BFLVdbk9ycqgPK9f2mydYlA/op17piq/public/values',
+                url: 'https://spreadsheets.google.com/feeds/list/1pDmenZA-3FOTvhlCq9yz1dnemTmS9l_njZQbu_jLVMI/op17piq/public/values',
                 jsonp: 'callback', data: { alt: 'json-in-script' }, dataType: 'jsonp',
                 success: function(response) {
                     hospitalPartMatch = response.feed.entry[0].gsx$hmchp.$t;
@@ -525,6 +529,7 @@
         debug('--- runPH() called ---');
         // Script update info
         var WMEPHWhatsNewList = [  // New in this version
+            '1.1.69: Added input box to enter missing street.',
             '1.1.68: Added "Missing External Provider" and option to treat as non-critical.',
             '1.1.67: Fixed optional 2nd categories.',
             '1.1.66: Fixed highlighting for unlocked hospitals and gas stations (purple / dashed).',
@@ -542,17 +547,7 @@
             '1.1.56: Fix for needing to run twice when useless alt names are removed.',
             '1.1.55: Added Waze3rdParty and renamed "edited by waze maint bot" to "account administered by waze staff',
             '1.1.53: Fixed bug where blank space was being inserted in front of hotel brandParent name',
-            '1.1.52: Fixed bug reporting PMs.',
-            '1.1.51: Fixed lowercase alphanumeric phone number parsing.',
-            '1.1.50: Fixed bug with adding hours more than once.',
-            '1.1.49: Added a Glink modification to turn them into links and limit search radius.',
-            '1.1.47: Fix for one-field-update-per-click issue',
-            '1.1.46: allow for https:// in urls. (credit RavenDT)',
-            '1.1.45: Add disable highlights for above rank function (credit RavenDT), stop url link from adding http://',
-            '1.1.44: Fix for adding hours (credit RavenDT)',
-            '1.1.42: Temporarily disabled PLA checking until it is more stable',
-            '1.1.41: Fixed bug with whitelisting.',
-            '1.1.38: Fixed clone utility'
+            '1.1.52: Fixed bug reporting PMs.'
         ];
         var WMEPHWhatsNewMetaList = [  // New in this major version
             '1.1: Built-in place highlighter shows which places on the map need work'
@@ -1522,7 +1517,7 @@
                 },
 
                 streetMissing: {  // no WL
-                    active: false, severity: 3, message: 'Street missing.'
+                    active: false, severity: 3, message: 'No street:<div class="ui-widget" style="display:inline;"><input id="WMEPH_missingStreet" style="font-size:0.85em;color:#000;background-color:#FDD;width:170px;margin-right:3px;"></div><input class="btn btn-default btn-xs wmeph-btn disabled" id="WMEPH_addStreetBtn" title="Add street to place" type="button" value="Add" disabled>'
                 },
 
                 cityMissing: {  // no WL
@@ -4415,6 +4410,69 @@
                     assembleBanner();
                 };
             }
+
+            var streetNames = [];
+            var streetNamesCap = [];
+            W.model.streets.getObjectArray().forEach(function(st) {
+                if (!st.isEmpty) {
+                    streetNames.push(st.name);
+                    streetNamesCap.push(st.name.toUpperCase());
+                }
+            });
+            streetNames.sort();
+            streetNamesCap.sort();
+            $('#WMEPH_missingStreet').autocomplete({
+                source: streetNames,
+                change: onStreetChanged,
+                select: onStreetSelected
+            });
+            function onStreetSelected(e, ui) {
+                if (ui.item) {
+                    checkStreet(ui.item.value);
+                }
+            }
+            function onStreetChanged(e, ui) {
+                checkStreet(null);
+            }
+
+            $('#WMEPH_addStreetBtn').on('click', addStreetToVenue);
+            function addStreetToVenue() {
+                var stName = $('#WMEPH_missingStreet').val();
+                var street = W.model.streets.getByAttributes({name:stName})[0];
+                var addr = item.getAddress().attributes;
+                var newAddr = {
+                    country: addr.country,
+                    state: addr.state,
+                    city: addr.city,
+                    street: street
+                };
+                updateAddress(item, newAddr);
+                console.log('ADDED', W.model.streets.getByAttributes({name:$('#WMEPH_missingStreet').val()})[0]);
+                bannButt.streetMissing.active = false;
+                assembleBanner();
+            }
+            function checkStreet(name) {
+                name = (name || $("#WMEPH_missingStreet").val()).toUpperCase();
+                var ix = streetNamesCap.indexOf(name);
+                var enable = false;
+                if (ix > -1) {
+                    color = 'lightgreen';
+                    $("#WMEPH_missingStreet").val(streetNames[ix]);
+                    enable = true;
+                    $('#WMEPH_addStreetBtn').prop("disabled", false).removeClass('disabled');
+                } else {
+                    $('#WMEPH_addStreetBtn').prop('disabled', true).addClass('disabled');
+                }
+                return enable;
+            }
+            // If pressing enter in the street entry box, add the street
+            $("#WMEPH_missingStreet").keyup(function(event){
+                if( event.keyCode === 13 && $('#WMEPH_missingStreet').val() !== '' ){
+                    if(checkStreet(null)) {
+                        addStreetToVenue();
+                    }
+                }
+            });
 
             // If pressing enter in the HN entry box, add the HN
             $("#WMEPH-HNAdd"+devVersStr).keyup(function(event){
@@ -7506,5 +7564,3 @@
 
 })();
 
-//$('#service-checkbox-CREDIT_CARDS').siblings('label')[0].style="background-color:#dfd"
-//$('.form-control')[8].style="background-color:#dfd"
