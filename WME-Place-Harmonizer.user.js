@@ -12,7 +12,7 @@
 // ==UserScript==
 // @name        WME Place Harmonizer Beta
 // @namespace   https://github.com/WazeUSA/WME-Place-Harmonizer/raw/master/WME-Place-Harmonizer.user.js
-// @version     1.1.69a-refactor2017
+// @version     1.1.72-refactor2017
 // @description Harmonizes, formats, and locks a selected place
 // @author      WMEPH development group
 // @include     /^https:\/\/(www|beta)\.waze\.com\/(?!user\/)(.{2,6}\/)?editor\/.*$/
@@ -28,6 +28,7 @@
     "use strict";
     var jqUI_CssSrc = GM_getResourceText("jqUI_CSS");
     GM_addStyle(jqUI_CssSrc);
+    // Was testing this, but I don't think the following line does anything. (mapomatic)
     GM_addStyle('  <style> .ui-autocomplete {max-height: 100px;overflow-y: auto;overflow-x: hidden;}  * html .ui-autocomplete {height: 100px;}</style>');
 
     ////////////////////////////////
@@ -2432,6 +2433,9 @@
                             bannServ.add247.checked = true;
                             bannButt.noHours.active = false;
                         }
+                    },
+                    actionOn: function(actions) {
+                        this.action(actions);
                     }
                 }
             };  // END bannServ definitions
@@ -2689,7 +2693,7 @@
                     if ($('#WMEPH-ExtProviderSeverity' + devVersStr).prop('checked')) {
                         bannButt.extProviderMissing.severity = 1;
                     }
-                    bannButt.extProviderMissing.active = true;
+                    bannButt.extProviderMissing.active = !currentWL.extProviderMissing;;
                     bannButt.extProviderMissing.WLactive = !currentWL.extProviderMissing;
                 }
 
@@ -3959,7 +3963,7 @@
 
             //waze_maint_bot check
             if (!item.attributes.residential && item.attributes.updatedBy && W.model.users.get(item.attributes.updatedBy) &&
-                W.model.users.get(item.attributes.updatedBy).userName && W.model.users.get(item.attributes.updatedBy).userName.match(/^waze-maint-bot|waze3rdparty|WazeParking1|admin/i) !== null) {
+                W.model.users.get(item.attributes.updatedBy).userName && W.model.users.get(item.attributes.updatedBy).userName.match(/^waze-maint-bot|waze3rdparty|WazeParking1|admin|avsus/i) !== null) {
                 bannButt.wazeBot.active = true;
             }
 
