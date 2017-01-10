@@ -12,7 +12,7 @@
 // ==UserScript==
 // @name        WME Place Harmonizer Beta
 // @namespace   https://github.com/WazeUSA/WME-Place-Harmonizer/raw/master/WME-Place-Harmonizer.user.js
-// @version     1.1.73
+// @version     1.1.74
 // @description Harmonizes, formats, and locks a selected place
 // @author      WMEPH development group
 // @include     /^https:\/\/(www|beta)\.waze\.com\/(?!user\/)(.{2,6}\/)?editor\/.*$/
@@ -254,7 +254,8 @@
     function runPH() {
         // Script update info
         var WMEPHWhatsNewList = [  // New in this version
-            '1.1.73: Place Website button added when URL is added. Streets dropdown limited to 10 items.',
+            '1.1.74: Keep hours input visible at all times.',
+            '1.1.73: Place Website button added when URL is added.',
             '1.1.72: Fixed lock issue with Missing External Provider flag.',
             '1.1.71: Added "avsus" to list of staff accounts.',
             '1.1.70: Fix for adding 24/7 service from PNH spreadsheet.',
@@ -1562,7 +1563,6 @@
                             bannButt.noHours.severity = 0;
                             bannButt.noHours.WLactive = false;
                             bannButt.noHours.message = 'Hours: <input type="text" value="Paste Hours Here" id="WMEPH-HoursPaste'+devVersStr+'" style="width:170px;padding-left:3px;color:#AAA">';
-
                         } else {
                             phlog('Can\'t parse those hours');
                             bannButt.noHours.severity = 1;
@@ -3216,11 +3216,18 @@
                     if (hpMode.hlFlag && $("#WMEPH-DisableHoursHL" + devVersStr).prop('checked')) {
                         bannButt.noHours.severity = 0;
                     }
-                } else if (item.attributes.openingHours.length === 1) {  // if one set of hours exist, check for partial 24hrs setting
-                    if (item.attributes.openingHours[0].days.length < 7 && item.attributes.openingHours[0].fromHour==='00:00' &&
-                        (item.attributes.openingHours[0].toHour==='00:00' || item.attributes.openingHours[0].toHour==='23:59' ) ) {
-                        bannButt.mismatch247.active = true;
+                } else {
+                    if (item.attributes.openingHours.length === 1) {  // if one set of hours exist, check for partial 24hrs setting
+                        if (item.attributes.openingHours[0].days.length < 7 && item.attributes.openingHours[0].fromHour==='00:00' &&
+                            (item.attributes.openingHours[0].toHour==='00:00' || item.attributes.openingHours[0].toHour==='23:59' ) ) {
+                            bannButt.mismatch247.active = true;
+                        }
                     }
+                    bannButt.noHours.active = true;
+                    bannButt.noHours.value = 'Add hours';
+                    bannButt.noHours.severity = 0;
+                    bannButt.noHours.WLactive = false;
+                    bannButt.noHours.message = 'Hours: <input type="text" value="Paste Hours Here" id="WMEPH-HoursPaste'+devVersStr+'" style="width:170px;padding-left:3px;color:#AAA">';
                 }
                 if ( !checkHours(item.attributes.openingHours) ) {
                     //phlogdev('Overlapping hours');
@@ -4147,7 +4154,7 @@
                     if(ui.content.length > maxListLength) {
                         ui.content.splice(maxListLength, ui.content.length - maxListLength);
                     }
-                },
+                }
             });
             function onStreetSelected(e, ui) {
                 if (ui.item) {
