@@ -29,6 +29,66 @@
     var jqUI_CssSrc = GM_getResourceText("jqUI_CSS");
     GM_addStyle(jqUI_CssSrc);
     GM_addStyle('  <style> .ui-autocomplete {max-height: 100px;overflow-y: auto;overflow-x: hidden;}  * html .ui-autocomplete {height: 100px;}</style>');
+
+    ////////////////////////////////
+    ////////////////////////////////
+    //// Global WMEPH variables ////
+    ////////////////////////////////
+    ////////////////////////////////
+
+    ///////////////
+    // Constants //
+    ///////////////
+
+    // New in this version
+    var WHATS_NEW_LIST = [
+        '1.1.69: Added input box to enter missing street.',
+        '1.1.68: Added "Missing External Provider" and option to treat as non-critical.',
+        '1.1.67: Fixed optional 2nd categories.',
+        '1.1.66: Fixed highlighting for unlocked hospitals and gas stations (purple / dashed).',
+        '1.1.65: Fix for bug that caused hang in v1.1.64.',
+        '1.1.64: Added URL entry box when missing.',
+        '1.1.64: Missing gas station name automatically set to brand name.',
+        '1.1.64: Minor UI adjustments to fit some messages on one line.',
+        '1.1.63: Added option to exclude PLAs when searching for duplicate places, and vice versa.',
+        '1.1.62: FIXED - Whitelisted flags not saved for new (unsaved) places.',
+        '1.1.61: Fixed issues with Rest Areas.',
+        '1.1.60: Fix to get place category "special messages" to display.',
+        '1.1.59: Fix for erroneous "stacked place" warning on area places.',
+        '1.1.58: Fix for multi-edits when runnning harmonizer in some cases.',
+        '1.1.57: Fix for Store Locator button not showing up on first run, and unpredictable Service button behavior.',
+        '1.1.56: Fix for needing to run twice when useless alt names are removed.',
+        '1.1.55: Added Waze3rdParty and renamed "edited by waze maint bot" to "account administered by waze staff',
+        '1.1.53: Fixed bug where blank space was being inserted in front of hotel brandParent name',
+        '1.1.52: Fixed bug reporting PMs.'
+    ];
+    var WHATS_NEW_META_LIST = [  // New in this major version
+        '1.1: Built-in place highlighter shows which places on the map need work'
+    ];
+    var USE_NEW_GOOGLE_SHEETS = true;
+
+    ///////////////
+    // Variables //
+    ///////////////
+
+    var WMEPHversion = GM_info.script.version.toString();           // Pull version from header
+    var WMEPHversionMeta = WMEPHversion.match(/(\d+\.\d+)/i)[1];    // Get the X.X version number
+    var majorNewFeature = false;                                    // Set to true to make an alert pop up after script update with new feature
+    var scriptName = GM_info.script.name.toString();
+    var isDevVersion = (scriptName.match(/Beta/i) !== null);        // Enables dev messages and unique DOM options if the script is called "... Beta"
+    // Category Name Checking
+    var notHospitalPartMatch = [],
+        notHospitalFullMatch = [],
+        animalPartMatch = [],
+        animalFullMatch = [],
+        schoolPartMatch = [],
+        schoolFullMatch = [];
+    // Userlists
+    var WMEPHdevList, WMEPHbetaList;
+    var betaUser, devUser;
+
+
+
     /////////////////////////////////////
     /////////////////////////////////////
     //// WMEPH Function declarations ////
@@ -106,6 +166,29 @@
                but, once it is approved, we will change the code to "slurp" all of the info
                from the separate GitHub repo that contains all of the data ready-to-use JSON. */
 
+            // Pull name-category lists
+            $.ajax({
+                type: 'GET',
+                url: 'https://spreadsheets.google.com/feeds/list/1lllqCyG4SRdxETSHltIs-F10ldeiQatotROIiKsox7w/ovp1hvp/public/values',
+                jsonp: 'callback', data: { alt: 'json' }, dataType: 'jsonp',
+                success: function(response) {
+                    for (var i = 0, len = response.feed.entry.length; i < len; i++) {
+                        var hmchp = response.feed.entry[i].gsx$hmchp.$t;
+                        var hmchf = response.feed.entry[i].gsx$hmchf.$t;
+                        var hmcap = response.feed.entry[i].gsx$hmcap.$t;
+                        var hmcaf = response.feed.entry[i].gsx$hmcaf.$t;
+                        var schp  = response.feed.entry[i].gsx$schp.$t;
+                        var schf  = response.feed.entry[i].gsx$schf.$t;
+                        if (hmchp !== '') { notHospitalPartMatch.push(hmchp); }
+                        if (hmchf !== '') { notHospitalFullMatch.push(hmchf); }
+                        if (hmcap !== '') { animalPartMatch.push(hmcap); }
+                        if (hmcaf !== '') { animalFullMatch.push(hmcaf); }
+                        if ( schp !== '') { schoolPartMatch.push(schp); }
+                        if ( schf !== '') { schoolFullMatch.push(schf); }
+                    }
+                }
+            });
+
             // Pull Dev User List
             WMEPHdevList = [];
             $.ajax({
@@ -124,6 +207,27 @@
             // NOTE: Delete this after permanent cut-over to new Google Sheets.
             WMEPHbetaList = WMEPHdevList;
         } else {
+            // Pull name-category lists
+            $.ajax({
+                type: 'GET',
+                url: 'https://spreadsheets.google.com/feeds/list/1pDmenZA-3FOTvhlCq9yz1dnemTmS9l_njZQbu_jLVMI/op17piq/public/values',
+                jsonp: 'callback', data: { alt: 'json-in-script' }, dataType: 'jsonp',
+                success: function(response) {
+                    notHospitalPartMatch = response.feed.entry[0].gsx$hmchp.$t;
+                    notHospitalFullMatch = response.feed.entry[0].gsx$hmchf.$t;
+                    animalPartMatch = response.feed.entry[0].gsx$hmcap.$t;
+                    animalFullMatch = response.feed.entry[0].gsx$hmcaf.$t;
+                    schoolPartMatch = response.feed.entry[0].gsx$schp.$t;
+                    schoolFullMatch = response.feed.entry[0].gsx$schf.$t;
+                    notHospitalPartMatch = notHospitalPartMatch.toLowerCase().replace(/ \|/g,'|').replace(/\| /g,'|').split("|");
+                    notHospitalFullMatch = notHospitalFullMatch.toLowerCase().replace(/ \|/g,'|').replace(/\| /g,'|').split("|");
+                    animalPartMatch = animalPartMatch.toLowerCase().replace(/ \|/g,'|').replace(/\| /g,'|').split("|");
+                    animalFullMatch = animalFullMatch.toLowerCase().replace(/ \|/g,'|').replace(/\| /g,'|').split("|");
+                    schoolPartMatch = schoolPartMatch.toLowerCase().replace(/ \|/g,'|').replace(/\| /g,'|').split("|");
+                    schoolFullMatch = schoolFullMatch.toLowerCase().replace(/ \|/g,'|').replace(/\| /g,'|').split("|");
+                }
+            });
+
             // Pull dev and beta UserList Data
             $.ajax({
                 type: 'GET',
@@ -194,27 +298,6 @@
                 for (var i = 0; i < response.feed.entry.length; i++) {
                     CAN_PNH_DATA.push(response.feed.entry[i].gsx$pnhdata.$t);
                 }
-            }
-        });
-
-        // Pull name-category lists
-        $.ajax({
-            type: 'GET',
-            url: 'https://spreadsheets.google.com/feeds/list/1pDmenZA-3FOTvhlCq9yz1dnemTmS9l_njZQbu_jLVMI/op17piq/public/values',
-            jsonp: 'callback', data: { alt: 'json-in-script' }, dataType: 'jsonp',
-            success: function(response) {
-                notHospitalPartMatch = response.feed.entry[0].gsx$hmchp.$t;
-                notHospitalFullMatch = response.feed.entry[0].gsx$hmchf.$t;
-                animalPartMatch = response.feed.entry[0].gsx$hmcap.$t;
-                animalFullMatch = response.feed.entry[0].gsx$hmcaf.$t;
-                schoolPartMatch = response.feed.entry[0].gsx$schp.$t;
-                schoolFullMatch = response.feed.entry[0].gsx$schf.$t;
-                notHospitalPartMatch = notHospitalPartMatch.toLowerCase().replace(/ \|/g,'|').replace(/\| /g,'|').split("|");
-                notHospitalFullMatch = notHospitalFullMatch.toLowerCase().replace(/ \|/g,'|').replace(/\| /g,'|').split("|");
-                animalPartMatch = animalPartMatch.toLowerCase().replace(/ \|/g,'|').replace(/\| /g,'|').split("|");
-                animalFullMatch = animalFullMatch.toLowerCase().replace(/ \|/g,'|').replace(/\| /g,'|').split("|");
-                schoolPartMatch = schoolPartMatch.toLowerCase().replace(/ \|/g,'|').replace(/\| /g,'|').split("|");
-                schoolFullMatch = schoolFullMatch.toLowerCase().replace(/ \|/g,'|').replace(/\| /g,'|').split("|");
             }
         });
     }
@@ -460,29 +543,6 @@
 
 
 
-    ////////////////////////////////
-    ////////////////////////////////
-    //// Global WMEPH variables ////
-    ////////////////////////////////
-    ////////////////////////////////
-
-    ///////////////
-    // Constants //
-    ///////////////
-    var USE_NEW_GOOGLE_SHEETS = true;
-
-    ///////////////
-    // Variables //
-    ///////////////
-    var WMEPHversion = GM_info.script.version.toString();           // Pull version from header
-    var WMEPHversionMeta = WMEPHversion.match(/(\d+\.\d+)/i)[1];    // Get the X.X version number
-    var majorNewFeature = false;                                    // Set to true to make an alert pop up after script update with new feature
-    var scriptName = GM_info.script.name.toString();
-    var isDevVersion = (scriptName.match(/Beta/i) !== null);  // enables dev messages and unique DOM options if the script is called "... Beta"
-    var WMEPHdevList, WMEPHbetaList;  // Userlists
-    var betaUser, devUser;
-
-
     //////////////////////////////
     //////////////////////////////
     //// Begin old WMEPH code ////
@@ -490,7 +550,6 @@
     //////////////////////////////
     var USA_PNH_DATA, USA_PNH_NAMES = [], USA_CH_DATA, USA_STATE_DATA, USA_CH_NAMES = [];  // Storage for PNH and Category data
     var CAN_PNH_DATA, CAN_PNH_NAMES = [];  // var CAN_CH_DATA, CAN_CH_NAMES = [] not used for now
-    var notHospitalPartMatch, notHospitalFullMatch, animalPartMatch, animalFullMatch, schoolPartMatch, schoolFullMatch;  // vars for cat-name checking
     var devVersStr='', devVersStrSpace='', devVersStrDash='';  // strings to differentiate DOM elements between regular and beta script
     var devVersStringMaster = "Beta";
     var dataReadyCounter = 0;
@@ -532,35 +591,11 @@
     function runPH() {
         debug('--- runPH() called ---');
         // Script update info
-        var WMEPHWhatsNewList = [  // New in this version
-            '1.1.69: Added input box to enter missing street.',
-            '1.1.68: Added "Missing External Provider" and option to treat as non-critical.',
-            '1.1.67: Fixed optional 2nd categories.',
-            '1.1.66: Fixed highlighting for unlocked hospitals and gas stations (purple / dashed).',
-            '1.1.65: Fix for bug that caused hang in v1.1.64.',
-            '1.1.64: Added URL entry box when missing.',
-            '1.1.64: Missing gas station name automatically set to brand name.',
-            '1.1.64: Minor UI adjustments to fit some messages on one line.',
-            '1.1.63: Added option to exclude PLAs when searching for duplicate places, and vice versa.',
-            '1.1.62: FIXED - Whitelisted flags not saved for new (unsaved) places.',
-            '1.1.61: Fixed issues with Rest Areas.',
-            '1.1.60: Fix to get place category "special messages" to display.',
-            '1.1.59: Fix for erroneous "stacked place" warning on area places.',
-            '1.1.58: Fix for multi-edits when runnning harmonizer in some cases.',
-            '1.1.57: Fix for Store Locator button not showing up on first run, and unpredictable Service button behavior.',
-            '1.1.56: Fix for needing to run twice when useless alt names are removed.',
-            '1.1.55: Added Waze3rdParty and renamed "edited by waze maint bot" to "account administered by waze staff',
-            '1.1.53: Fixed bug where blank space was being inserted in front of hotel brandParent name',
-            '1.1.52: Fixed bug reporting PMs.'
-        ];
-        var WMEPHWhatsNewMetaList = [  // New in this major version
-            '1.1: Built-in place highlighter shows which places on the map need work'
-        ];
         var newSep = '\n - ', listSep = '<li>';  // joiners for script and html messages
-        var WMEPHWhatsNew = WMEPHWhatsNewList.join(newSep);
-        var WMEPHWhatsNewMeta = WMEPHWhatsNewMetaList.join(newSep);
-        var WMEPHWhatsNewHList = WMEPHWhatsNewList.join(listSep);
-        var WMEPHWhatsNewMetaHList = WMEPHWhatsNewMetaList.join(listSep);
+        var WMEPHWhatsNew = WHATS_NEW_LIST.join(newSep);
+        var WMEPHWhatsNewMeta = WHATS_NEW_META_LIST.join(newSep);
+        var WMEPHWhatsNewHList = WHATS_NEW_LIST.join(listSep);
+        var WMEPHWhatsNewMetaHList = WHATS_NEW_META_LIST.join(listSep);
         WMEPHWhatsNew = 'WMEPH v. ' + WMEPHversion + '\nUpdates:' + newSep + WMEPHWhatsNew;
         WMEPHWhatsNewMeta = 'WMEPH v. ' + WMEPHversionMeta + '\nMajor features:' + newSep + WMEPHWhatsNewMeta;
         if ( localStorage.getItem('WMEPH-featuresExamined'+devVersStr) === null ) {
