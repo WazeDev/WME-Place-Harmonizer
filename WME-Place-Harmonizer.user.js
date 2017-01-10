@@ -12,7 +12,7 @@
 // ==UserScript==
 // @name        WME Place Harmonizer Beta
 // @namespace   https://github.com/WazeUSA/WME-Place-Harmonizer/raw/master/WME-Place-Harmonizer.user.js
-// @version     1.1.71
+// @version     1.1.72
 // @description Harmonizes, formats, and locks a selected place
 // @author      WMEPH development group
 // @include     /^https:\/\/(www|beta)\.waze\.com\/(?!user\/)(.{2,6}\/)?editor\/.*$/
@@ -254,6 +254,7 @@
     function runPH() {
         // Script update info
         var WMEPHWhatsNewList = [  // New in this version
+            '1.1.72: Fixed lock issue with Missing External Provider flag.',
             '1.1.71: Added "avsus" to list of staff accounts.',
             '1.1.70: Fix for adding 24/7 service from PNH spreadsheet.',
             '1.1.69: Added input box to enter missing street.',
@@ -2369,7 +2370,7 @@
                     if ($('#WMEPH-ExtProviderSeverity' + devVersStr).prop('checked')) {
                         bannButt.extProviderMissing.severity = 1;
                     }
-                    bannButt.extProviderMissing.active = true;
+                    bannButt.extProviderMissing.active = !currentWL.extProviderMissing;;
                     bannButt.extProviderMissing.WLactive = !currentWL.extProviderMissing;
                 }
 
