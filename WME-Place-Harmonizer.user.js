@@ -12,7 +12,7 @@
 // ==UserScript==
 // @name        WME Place Harmonizer Beta
 // @namespace   https://github.com/WazeUSA/WME-Place-Harmonizer/raw/master/WME-Place-Harmonizer.user.js
-// @version     1.1.72
+// @version     1.1.73
 // @description Harmonizes, formats, and locks a selected place
 // @author      WMEPH development group
 // @include     /^https:\/\/(www|beta)\.waze\.com\/(?!user\/)(.{2,6}\/)?editor\/.*$/
@@ -254,6 +254,7 @@
     function runPH() {
         // Script update info
         var WMEPHWhatsNewList = [  // New in this version
+            '1.1.73: Place Website button added when URL is added. Streets dropdown limited to 10 items.',
             '1.1.72: Fixed lock issue with Missing External Provider flag.',
             '1.1.71: Added "avsus" to list of staff accounts.',
             '1.1.70: Fix for adding 24/7 service from PNH spreadsheet.',
@@ -1479,7 +1480,7 @@
                     badInput: false,
                     action: function() {
                         var newUrlValue = $('#WMEPH-UrlAdd'+devVersStr).val();
-                        var newUrl = normalizeURL(newUrlValue, true, true);
+                        var newUrl = normalizeURL(newUrlValue, true, false);
                         if (newUrl === 'badURL') {
                             this.badInput = true;
                         } else {
@@ -1487,6 +1488,7 @@
                             W.model.actionManager.add(new UpdateObject(item, { url: newUrl }));
                             fieldUpdateObject.url='#dfd';
                             bannButt.urlMissing.active = false;
+                            bannButt.PlaceWebsite.active = true;
                             this.badInput = false;
                         }
                     },
@@ -4125,6 +4127,7 @@
                 };
             }
 
+            // Street entry textbox stuff
             var streetNames = [];
             var streetNamesCap = [];
             W.model.streets.getObjectArray().forEach(function(st) {
@@ -4138,7 +4141,13 @@
             $('#WMEPH_missingStreet').autocomplete({
                 source: streetNames,
                 change: onStreetChanged,
-                select: onStreetSelected
+                select: onStreetSelected,
+                response: function(e, ui) {
+                    var maxListLength = 10;
+                    if(ui.content.length > maxListLength) {
+                        ui.content.splice(maxListLength, ui.content.length - maxListLength);
+                    }
+                },
             });
             function onStreetSelected(e, ui) {
                 if (ui.item) {
@@ -4148,7 +4157,6 @@
             function onStreetChanged(e, ui) {
                 checkStreet(null);
             }
-
             $('#WMEPH_addStreetBtn').on('click', addStreetToVenue);
             function addStreetToVenue() {
                 var stName = $('#WMEPH_missingStreet').val();
