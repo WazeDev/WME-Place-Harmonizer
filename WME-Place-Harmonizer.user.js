@@ -12,7 +12,7 @@
 // ==UserScript==
 // @name        WME Place Harmonizer Beta
 // @namespace   https://github.com/WazeUSA/WME-Place-Harmonizer/raw/master/WME-Place-Harmonizer.user.js
-// @version     1.1.75
+// @version     1.1.76
 // @description Harmonizes, formats, and locks a selected place
 // @author      WMEPH development group
 // @include     /^https:\/\/(www|beta)\.waze\.com\/(?!user\/)(.{2,6}\/)?editor\/.*$/
@@ -1307,7 +1307,7 @@
                 },
 
                 wazeBot: {  // no WL
-                    active: false, severity: 2, message: 'Last edited by a waze staff administered account'
+                    active: false, severity: 2, message: 'Edited last by an automated process. Please verify information is correct.'
                 },
 
                 parentCategory: {
