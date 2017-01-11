@@ -12,7 +12,7 @@
 // ==UserScript==
 // @name        WME Place Harmonizer Beta
 // @namespace   https://github.com/WazeUSA/WME-Place-Harmonizer/raw/master/WME-Place-Harmonizer.user.js
-// @version     1.1.74
+// @version     1.1.75
 // @description Harmonizes, formats, and locks a selected place
 // @author      WMEPH development group
 // @include     /^https:\/\/(www|beta)\.waze\.com\/(?!user\/)(.{2,6}\/)?editor\/.*$/
@@ -254,6 +254,7 @@
     function runPH() {
         // Script update info
         var WMEPHWhatsNewList = [  // New in this version
+            '1.1.75: Fix for Google hyperlinks not showing up after first click on place.',
             '1.1.74: Keep hours input visible at all times.',
             '1.1.73: Place Website button added when URL is added.',
             '1.1.72: Fixed lock issue with Missing External Provider flag.',
@@ -6872,7 +6873,33 @@
         }
     }
 
+    var _googleLinkHash = {};
     function modifyGoogleLinks() {
+        // MutationObserver will be notified when Google place ID divs are added, then update them to be hyperlinks.
+        var observer = new MutationObserver(function(mutations) {
+            mutations.forEach(function(mutation) {
+                // Mutation is a NodeList and doesn't support forEach like an array
+                for (var i = 0; i < mutation.addedNodes.length; i++) {
+                    var addedNode = mutation.addedNodes[i];
+                    // Only fire up if it's a node
+                    if (addedNode.nodeType === Node.ELEMENT_NODE) {
+                        if(addedNode.querySelector('div .placeId')) {
+                            console.log('*************** EDIT PANEL', addedNode);
+                            var placeLinkDivs = $(addedNode).find('.placeId');
+                            for(i=0; i<placeLinkDivs.length; i++) {
+                                var placeLinkDiv = placeLinkDivs[i];
+                                var placeLinkId = placeLinkDiv.innerHTML;
+                                if (_googleLinkHash.hasOwnProperty(placeLinkId)) {
+                                    placeLinkDiv.innerHTML = _googleLinkHash[placeLinkId];
+                                }
+                            }
+
+                        }
+                    }
+                }
+            });
+        });
+        observer.observe(document.getElementById('edit-panel'), { childList: true, subtree: true });
         $.ajaxPrefilter(function(options, originalOptions, jqXHR) {
             try {
                 if (originalOptions.type === "GET") {
@@ -6887,14 +6914,17 @@
         });
         $(document).ajaxSuccess(function(event, jqXHR, ajaxOptions, data) {
             try {
+                var ix;
                 if (ajaxOptions && ajaxOptions.hasOwnProperty("url")) {
                     if (ajaxOptions.url.startsWith("/maps/api/place/details/json")) {
                         if (data && data.hasOwnProperty("status") && data.status === "OK") {
                             if (data.hasOwnProperty("result") && data.result.hasOwnProperty("url") && data.result.hasOwnProperty("place_id")) {
                                 var gpids = document.getElementsByClassName("placeId");
-                                for (var i = 0; i < gpids.length; i++) {
-                                    if (data.result.place_id === gpids[i].innerHTML) {
-                                        gpids[i].innerHTML = "<a href='" + data.result.url + "' target='_wmegpid'>" + data.result.place_id + "</a>";
+                                for (ix = 0; ix < gpids.length; ix++) {
+                                    if (data.result.place_id === gpids[ix].innerHTML) {
+                                        var html = "<a href='" + data.result.url + "' target='_wmegpid'>" + data.result.place_id + "</a>";
+                                        _googleLinkHash[data.result.place_id] = html;
+                                        gpids[ix].innerHTML = html;
                                     }
                                 }
                             }
@@ -6902,11 +6932,11 @@
                     }
                     if (ajaxOptions.url.startsWith("/maps/api/place/autocomplete/json")) {
                         var uuids = document.getElementsByClassName("uuid");
-                        for (var i = 0; i < uuids.length; i++) {
-                            if (uuids[i].className === "uuid") {
-                                events = $._data(uuids[i], "events");
+                        for (ix = 0; ix < uuids.length; ix++) {
+                            if (uuids[ix].className === "uuid") {
+                                events = $._data(uuids[ix], "events");
                                 if (events && events.hasOwnProperty("change") && events.change.length === 1) {
-                                    $(uuids[i]).change(function(event) {
+                                    $(uuids[ix]).change(function(event) {
                                         if (event && event.hasOwnProperty("val")) {
                                             $.get(W.Config.places_api.url.details, {placeid: event.val, key: W.Config.places_api.key});
                                         }
