@@ -1,7 +1,7 @@
 Place Harmonizer
 ===============
 
-Development Team: bmtg, vtpearce, cardyin, fjsawicki, jtsmith2, joyriding, t0cableguy, mapomatic
+Development Team: bmtg, vtpearce, cardyin, fjsawicki, jtsmith2, joyriding, t0cableguy, MapOMatic, RavenDT
 
 Send comments to: t0cableguy
 
@@ -15,14 +15,14 @@ Install Tampermonkey/Greasemonkey depending on your browser.
 
 Then use the following links to install.
 
-<a href=https://goo.gl/g8O8qR>Production Version</a>
+<a href="https://goo.gl/SP9a9a">Production Version</a>
 
-<a href=https://goo.gl/I4V074>Beta Version</a>
+<a href="https://goo.gl/E22PPC">Beta Version</a>
 
 
-<a href=https://goo.gl/rQxVVB>**Current Bugs & Issues</a>
+<a href="https://goo.gl/rQxVVB">**Current Bugs & Issues</a>
 ------------------------
-SEE <a href=https://goo.gl/rQxVVB>ISSUES</a>
+SEE <a href="https://goo.gl/rQxVVB">ISSUES</a>
 
 Please report any bugs here at the link above. Be sure to search for an open similar issue before posting a new issue.
 
@@ -34,15 +34,15 @@ Select a place in WME, and press the RUN WMEPH Button, or use the shortcut key (
 ----------------------------------
 * Automatic correction of a McDonald's:
 
-<img src=http://img.prntscr.com/img?url=http://i.imgur.com/YazP0ci.png alt="Mcd's autocorrection" width="800">
+<img src="http://img.prntscr.com/img?url=http://i.imgur.com/YazP0ci.png" alt="Mcd's autocorrection" width="800" />
 
 * Automatic correction of a 7-Eleven:
 
-<img src=http://img.prntscr.com/img?url=http://i.imgur.com/fi5hBPe.png alt="711 autocorrection" width="800">
+<img src="http://img.prntscr.com/img?url=http://i.imgur.com/fi5hBPe.png" alt="711 autocorrection" width="800" />
 
 * A place with no harmonization data (standalone restaurant):
 
-<img src=http://img.prntscr.com/img?url=http://i.imgur.com/1MLCQZB.png alt="No Harm" width="800">
+<img src="http://img.prntscr.com/img?url=http://i.imgur.com/1MLCQZB.png" alt="No Harm" width="800">
 
 **Current features:
 
