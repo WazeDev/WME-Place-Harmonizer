@@ -8,11 +8,12 @@
 /* global OL */
 /* global _ */
 /* global define */
+/* global Node */
 
 // ==UserScript==
 // @name        WME Place Harmonizer Beta
 // @namespace   https://github.com/WazeUSA/WME-Place-Harmonizer/raw/master/WME-Place-Harmonizer.user.js
-// @version     1.1.77
+// @version     1.1.78
 // @description Harmonizes, formats, and locks a selected place
 // @author      WMEPH development group
 // @include     /^https:\/\/(www|beta)\.waze\.com\/(?!user\/)(.{2,6}\/)?editor\/.*$/
@@ -258,6 +259,7 @@
     function runPH() {
         // Script update info
         var WMEPHWhatsNewList = [  // New in this version
+            '1.1.78: Added yellow "caution" highlights.  Were previously red.',
             '1.1.77: Unlocked PLAs are highlighted with a bold red dotted outline',
             '1.1.75: Fix for Google hyperlinks not showing up after first click on place.',
             '1.1.74: Keep hours input visible at all times.',
@@ -500,8 +502,8 @@
             });
 
             var severity2 = ruleGenerator(2, {
-                'strokeColor': '#ff0000',
-                'strokeWidth': '4',
+                'strokeColor': '#ff0',
+                'strokeWidth': '6',
                 'pointRadius': '8'
             });
 
