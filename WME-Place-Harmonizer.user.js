@@ -139,7 +139,7 @@
 
     // Removes duplicate strings from string array
     function uniq(a) {
-        //debug('--- uniq(a) called ---');
+        //debug('- uniq(a) called -');
         var seen = {};
         return a.filter(function(item) {
             return seen.hasOwnProperty(item) ? false : (seen[item] = true);
@@ -148,7 +148,7 @@
 
     // Logs important information to console for all users.
     function phlog(m) {
-        debug('--- phlog(m) called ---');
+        debug('- phlog(m) called -');
         if ('object' === typeof m) {
             //m = JSON.stringify(m);
         }
@@ -157,7 +157,7 @@
 
     // Logs verbose information to console for developers.
     function phlogdev(m) {
-        debug('--- phlogdev(m) called ---');
+        debug('- phlogdev(m) called -');
         if ('object' === typeof m) {
             m = JSON.stringify(m);
         }
@@ -206,16 +206,26 @@
                 url: 'https://spreadsheets.google.com/feeds/list/1lllqCyG4SRdxETSHltIs-F10ldeiQatotROIiKsox7w/o43i1cy/public/values',
                 jsonp: 'callback', data: { alt: 'json' }, dataType: 'jsonp',
                 success: function(response) {
-                    debug('NEW DEV LIST AJAX - RESPONSE RECEIVED!');
                     for (var i = 0, len = response.feed.entry.length; i < len; i++) {
                         var userName = response.feed.entry[i].gsx$name.$t;
                         WMEPHdevList.push(userName.toLowerCase());
                     }
                 }
             });
-            // NOTE: We're getting rid of WMEPHbetaList, but until then, copy WMEPHdevList
-            // NOTE: Delete this after permanent cut-over to new Google Sheets.
-            WMEPHbetaList = WMEPHdevList;
+
+            // Pull Beta User List
+            WMEPHbetaList = [];
+            $.ajax({
+                type: 'GET',
+                url: 'https://spreadsheets.google.com/feeds/list/1lllqCyG4SRdxETSHltIs-F10ldeiQatotROIiKsox7w/o5akig6/public/values',
+                jsonp: 'callback', data: { alt: 'json' }, dataType: 'jsonp',
+                success: function(response) {
+                    for (var i = 0, len = response.feed.entry.length; i < len; i++) {
+                        var userName = response.feed.entry[i].gsx$name.$t;
+                        WMEPHbetaList.push(userName.toLowerCase());
+                    }
+                }
+            });
         } else {
             // Pull name-category lists
             $.ajax({
@@ -320,7 +330,7 @@
     // First function of script.  Checks to see if external data is loaded and ready
     // after the AJAX calls.  Continues to run until data is loaded or timeout is reached.
     function placeHarmonizer_bootstrap() {
-        debug('--- placeHarmonizer_bootstrap() called ---');
+        debug('- placeHarmonizer_bootstrap() called -');
         if ( "undefined" !== typeof W.loginManager && "undefined" !== typeof W.map) {
             dataReady() //  Run the code to check for data return from the Sheets
             // Create duplicatePlaceName layer
@@ -358,10 +368,11 @@
         }
     }
 
+
     // Checks to see if external data is loaded before proceeding with running the main script.
     // Calls loginReady() once data is confirmed to be loaded.
     function dataReady() {
-        debug('--- dataReady() called ---');
+        debug('- dataReady() called -');
         // If the data has returned, then start the script, otherwise wait a bit longer
         if ("undefined" !== typeof CAN_PNH_DATA && "undefined" !== typeof USA_PNH_DATA  && "undefined" !== typeof USA_CH_DATA &&
             "undefined" !== typeof WMEPHdevList && "undefined" !== typeof WMEPHbetaList && "undefined" !== typeof notHospitalPartMatch ) {
@@ -400,7 +411,7 @@
     // Waits for WME Login to happen before running the main script.
     // Calls runPH() once WME Login is defined.
     function loginReady() {
-        debug('--- loginReady() called ---');
+        debug('- loginReady() called -');
         dataReadyCounter = 0;
         if ( W.loginManager.user !== null) {
             runPH();  //  start the main code
@@ -429,10 +440,27 @@
     // Unsorted Functions //
     ////////////////////////
 
+    // This function runs at script load, and splits the category dataset into the searchable categories.
+    // NOTE: This is only part of the code.  The rest gets run every time a place gets harmonized.  Not okay.
+    // NOTE: Returns: ["pc_wmecat","","","CAR_SERVICES","GAS_STATION","PARKING_LOT","GARAGE_AUTOMOTIVE_SHOP","CAR_WASH","CHARGING_STATION","TRANSPORTATION","AIRPORT","BUS_STATION","FERRY_PIER","SEAPORT_MARINA_HARBOR","SUBWAY_STATION","TRAIN_STATION","BRIDGE","TUNNEL","TAXI_STATION","JUNCTION_INTERCHANGE","PROFESSIONAL_AND_PUBLIC","COLLEGE_UNIVERSITY","SCHOOL","CONVENTIONS_EVENT_CENTER","GOVERNMENT","LIBRARY","CITY_HALL","ORGANIZATION_OR_ASSOCIATION","PRISON_CORRECTIONAL_FACILITY","COURTHOUSE","CEMETERY","FIRE_DEPARTMENT","POLICE_STATION","MILITARY","HOSPITAL_MEDICAL_CARE","OFFICES","POST_OFFICE","RELIGIOUS_CENTER","KINDERGARDEN","FACTORY_INDUSTRIAL","EMBASSY_CONSULATE","INFORMATION_POINT","SHOPPING_AND_SERVICES","ARTS_AND_CRAFTS","BANK_FINANCIAL","SPORTING_GOODS","BOOKSTORE","PHOTOGRAPHY","CAR_DEALERSHIP","FASHION_AND_CLOTHING","CONVENIENCE_STORE","PERSONAL_CARE","DEPARTMENT_STORE","PHARMACY","ELECTRONICS","FLOWERS","FURNITURE_HOME_STORE","GIFTS","GYM_FITNESS","SWIMMING_POOL","HARDWARE_STORE","MARKET","SUPERMARKET_GROCERY","JEWELRY","LAUNDRY_DRY_CLEAN","SHOPPING_CENTER","MUSIC_STORE","PET_STORE_VETERINARIAN_SERVICES","TOY_STORE","TRAVEL_AGENCY","ATM","CURRENCY_EXCHANGE","CAR_RENTAL","FOOD_AND_DRINK","RESTAURANT","BAKERY","DESSERT","CAFE","FAST_FOOD","FOOD_COURT","BAR","ICE_CREAM","CULTURE_AND_ENTERTAINEMENT","ART_GALLERY","CASINO","CLUB","TOURIST_ATTRACTION_HISTORIC_SITE","MOVIE_THEATER","MUSEUM","MUSIC_VENUE","PERFORMING_ARTS_VENUE","GAME_CLUB","STADIUM_ARENA","THEME_PARK","ZOO_AQUARIUM","RACING_TRACK","THEATER","OTHER","RESIDENCE_HOME","CONSTRUCTION_SITE","LODGING","HOTEL","HOSTEL","CAMPING_TRAILER_PARK","COTTAGE_CABIN","BED_AND_BREAKFAST","OUTDOORS","PARK","PLAYGROUND","BEACH","SPORTS_COURT","GOLF_COURSE","PLAZA","PROMENADE","POOL","SCENIC_LOOKOUT_VIEWPOINT","SKI_AREA","NATURAL_FEATURES","ISLAND","SEA_LAKE_POOL","RIVER_STREAM","FOREST_GROVE","FARM","CANAL","SWAMP_MARSH","DAM","EMERGENCY_SHELTER"]
+    function makeCatCheckList(CH_DATA) {
+        debug('- makeCatCheckList(CH_DATA) called -');  // Builds the list of search names to match to the WME place name
+        popUp(JSON.stringify(CH_DATA));
+        var CH_CATS = [];
+        var CH_DATA_headers = CH_DATA[0].split("|");  // split the data headers out
+        var pc_wmecat_ix = CH_DATA_headers.indexOf("pc_wmecat");  // find the indices needed for the function
+        var chEntryTemp;
+        for (var chix=0; chix<CH_DATA.length; chix++) {  // loop through all PNH places
+            chEntryTemp = CH_DATA[chix].split("|");  // split the current PNH data line
+            CH_CATS.push(chEntryTemp[pc_wmecat_ix]);
+        }
+        return CH_CATS;
+    } // END makeCatCheckList function
+
     // This function runs at script load, and builds the search name dataset to compare the WME selected place name to.
     // NOTE: Some of this code runs once for every single entry on the spreadsheet.  We need to make this more efficient.
     function makeNameCheckList(PNH_DATA) {
-        debug('--- makeNameCheckList(PNH_DATA) called ---');  // Builds the list of search names to match to the WME place name
+        debug('- makeNameCheckList(PNH_DATA) called -');  // Builds the list of search names to match to the WME place name
         var PNH_NAMES = [];
         var PNH_DATA_headers = PNH_DATA[0].split("|");  // split the data headers out
         var ph_name_ix = PNH_DATA_headers.indexOf("ph_name");  // find the indices needed for the function
@@ -545,7 +573,7 @@
                         newNameList.push(newNameList[catix]+"RENTALCAR");
                     }
                 }
-                //debug('429 // About to call uniq() once inside of makeNameCheckList()');
+                //debug('566 // About to call uniq() once inside of makeNameCheckList()');
                 newNameList = uniq(newNameList);  // remove any duplicate search names
                 newNameList = newNameList.join("|");  // join the list with |
                 newNameList = newNameList.replace(/\|{2,}/g, '|');
@@ -608,7 +636,7 @@
 
     // This function will need to be split up because it is way too big.
     function runPH() {
-        debug('--- runPH() called ---');
+        debug('- runPH() called -');
         var newSep = '\n - ', listSep = '<li>';  // joiners for script and html messages
         var WMEPHWhatsNew = WHATS_NEW_LIST.join(newSep);
         var WMEPHWhatsNewMeta = WHATS_NEW_META_LIST.join(newSep);
@@ -783,7 +811,7 @@
          */
         var layer = W.map.landmarkLayer;
         function initializeHighlights() {
-            debug('--- initializeHighlights() called ---');
+            debug('-- initializeHighlights() called --');
             var ruleGenerator = function(value, symbolizer) {
                 return new W.Rule({
                     filter: new OL.Filter.Comparison({
@@ -880,7 +908,7 @@
          * @param venues {array of venues, or single venue} Venues to check for highlights.
          */
         function applyHighlightsTest(venues) {
-            debug('--- applyHighlightsTest(venues) called ---');
+            debug('-- applyHighlightsTest(venues) called --');
             venues = venues ? _.isArray(venues) ? venues : [venues] : [];
             var storedBannButt = bannButt, storedBannServ = bannServ, storedBannButt2 = bannButt2;
             var t0 = performance.now();  // Speed check start
@@ -923,7 +951,7 @@
 
         // Set up CH loop
         function bootstrapWMEPH_CH() {
-            debug('--- bootstrapWMEPH_CH() called ---');
+            debug('-- bootstrapWMEPH_CH() called --');
             if ( $("#WMEPH-ColorHighlighting" + devVersStr).prop('checked') ) {
                 // Turn off place highlighting in WMECH if it's on.
                 if ( $("#_cbHighlightPlaces").prop('checked') ) {
@@ -967,7 +995,7 @@
         var specWords = "d'Bronx|iFix".split('|');
 
         function toTitleCase(str) {
-            debug('--- toTitleCase(str) called ---');
+            debug('-- toTitleCase(str) called --');
             if (!str) {
                 return str;
             }
@@ -1020,7 +1048,7 @@
 
         // Change place.name to title case
         function toTitleCaseStrong(str) {
-            debug('--- toTitleCaseStrong(str) called ---');
+            debug('-- toTitleCaseStrong(str) called --');
             if (!str) {
                 return str;
             }
@@ -1098,7 +1126,7 @@
 
         // Alphanumeric phone conversion
         function replaceLetters(number) {
-            debug('--- replaceLetters(number) called ---');
+            debug('-- replaceLetters(number) called --');
             var conversionMap = _({
                 2: /A|B|C/,
                 3: /D|E|F/,
@@ -1171,7 +1199,7 @@
 
         // Only run the harmonization if a venue is selected
         function harmonizePlace() {
-            debug('--- harmonizePlace() called ---');
+            debug('-- harmonizePlace() called --');
             // Script is only for R2+ editors
             if (!betaUser && usrRank < 2) {
                 alert("Script is currently available for editors of Rank 2 and up.");
@@ -1201,6 +1229,7 @@
 
         // Main script
         function harmonizePlaceGo(item, useFlag, actions) {
+            debug('-- harmonizePlaceGo() called --');
             actions = actions || []; // Used for collecting all actions to be applied to the model.
 
             var hpMode = {
@@ -2169,6 +2198,7 @@
                 }
             };  // END bannButt definitions
 
+            // NOTE: Wait... Why?
             bannButtHL = bannButt;
 
             bannButt2 = {
@@ -3103,7 +3133,7 @@
                         bannButt.addAlias.title = 'Add ' + optionalAlias;
                     }
                     // update categories if different and no Cat2 option
-                    debug('2887 // About to call uniq() twice inside of harmonizePlaceGo()');
+                    debug('3126 // About to call uniq() twice inside of harmonizePlaceGo()');
                     if ( !matchSets( uniq(item.attributes.categories),uniq(newCategories) ) ) {
                         if ( specCases.indexOf('optionCat2') === -1 && specCases.indexOf('buttOn_addCat2') === -1 ) {
                             phlogdev("Categories updated" + " with " + newCategories);
@@ -3344,6 +3374,7 @@
                     approveRegionURL = regionFormURL + approvalAddon;
                 }
 
+                // NOTE: Some of this code can run once instead of happening every time harmonizePlaceGo() gets called.
                 // Category/Name-based Services, added to any existing services:
                 var CH_DATA, CH_NAMES;
                 if (countryCode === "USA") {
@@ -3367,6 +3398,8 @@
                     }
                 }
 
+                // NOTE: We are inside harmonizePlaceGo()
+                // NOTE: This code checks the servKeys and such to enable services.
                 var CH_DATA_Temp;
                 for (var iii=0; iii<CH_NAMES.length; iii++) {
                     if (newCategories.indexOf(CH_NAMES[iii]) > -1 ) {
@@ -3410,6 +3443,9 @@
 
 
                 // Area vs. Place checking, Category locking, and category-based messaging
+                var msg = '';
+                msg = JSON.stringify(CH_DATA);
+                //popUp(msg);
                 var pvaPoint, pvaArea, regPoint, regArea, pc_message, pc_lockTemp, pc_rare, pc_parent;
                 for (iii=0; iii<CH_NAMES.length; iii++) {
                     if (newCategories.indexOf(CH_NAMES[iii]) === 0 ) {  // Primary category
@@ -4130,7 +4166,7 @@
                                         venueWhitelist[itemID][wlKeyName] = [];
                                     }
                                     venueWhitelist[itemID].dupeWL.push(dID);  // WL the id for the duplicate venue
-                                    debug('3904 // About to call uniq() once inside of harmonizePlaceGo()');
+                                    debug('4159 // About to call uniq() once inside of harmonizePlaceGo()');
                                     venueWhitelist[itemID].dupeWL = uniq(venueWhitelist[itemID].dupeWL);
                                     // Make an entry for the opposite item
                                     if (!venueWhitelist.hasOwnProperty(dID)) {  // If venue is NOT on WL, then add it.
@@ -4140,7 +4176,7 @@
                                         venueWhitelist[dID][wlKeyName] = [];
                                     }
                                     venueWhitelist[dID].dupeWL.push(itemID);  // WL the id for the duplicate venue
-                                    debug('3914 // About to call uniq() once inside of harmonizePlaceGo()');
+                                    debug('4169 // About to call uniq() once inside of harmonizePlaceGo()');
                                     venueWhitelist[dID].dupeWL = uniq(venueWhitelist[dID].dupeWL);
                                     saveWL_LS(true);  // Save the WL to local storage
                                     WMEPH_WLCounter();
@@ -4215,7 +4251,7 @@
 
         // highlight changed fields
         function highlightChangedFields(fieldUpdateObject,hpMode) {
-            debug('--- highlightChangedFields(fieldUpdateObject,hpMode) called ---');
+            debug('-- highlightChangedFields(fieldUpdateObject,hpMode) called --');
 
             if (hpMode.harmFlag) {
                 //var panelFields = {};
@@ -4346,7 +4382,7 @@
 
         // Set up banner messages
         function assembleBanner() {
-            debug('--- assembleBanner() called ---');
+            debug('-- assembleBanner() called --');
             phlogdev('Building banners');
             // push together messages from active banner messages
             var sidebarMessage = [], sidebarTools = [];  // Initialize message array
@@ -4575,7 +4611,7 @@
 
         // Button onclick event handler
         function setupButtons(b) {
-            debug('--- setupButtons(b) called ---');
+            debug('-- setupButtons(b) called --');
             for ( var tempKey in b ) {  // Loop through the banner possibilities
                 if ( b.hasOwnProperty(tempKey) && b[tempKey].active ) {  //  If the particular message is active
                     if (b[tempKey].hasOwnProperty('action')) {  // If there is an action, set onclick
@@ -4590,7 +4626,7 @@
         }  // END setupButtons function
 
         function buttonAction(b,bKey) {
-            debug('--- buttonAction(b,bKey) called ---');
+            debug('-- buttonAction(b,bKey) called --');
             var button = document.getElementById('WMEPH_'+bKey);
             button.onclick = function() {
                 b[bKey].action();
@@ -4599,7 +4635,7 @@
             return button;
         }
         function buttonWhitelist(b,bKey) {
-            debug('--- buttonWhitelist(b,bKey) called ---');
+            debug('-- buttonWhitelist(b,bKey) called --');
             var button = document.getElementById('WMEPH_WL'+bKey);
             button.onclick = function() {
                 if ( bKey.match(/^\d{5,}/) !== null ) {
@@ -4617,7 +4653,7 @@
 
         // Setup div for banner messages and color
         function displayBanners(sbm,sev) {
-            debug('--- displayBanners(sbm,sev) called ---');
+            debug('-- displayBanners(sbm,sev) called --');
             if ($('#WMEPH_banner').length === 0 ) {
                 $('<div id="WMEPH_banner">').css({"width": "100%", "background-color": "#fff", "color": "white", "font-size": "15px", "font-weight": "bold", "padding": "3px", "margin-left": "auto", "margin-right": "auto"}).prependTo(".contents");
             } else {
@@ -4645,7 +4681,7 @@
 
         // Setup div for banner messages and color
         function displayTools(sbm) {
-            debug('--- displayTools(sbm) called ---');
+            debug('-- displayTools(sbm) called --');
             if ($('#WMEPH_tools').length === 0 ) {
                 $('<div id="WMEPH_tools">').css({"width": "100%", "background-color": "#eee", "color": "black", "font-size": "15px", "font-weight": "bold", "padding": "3px", "margin-left": "auto", "margin-right": "auto"}).prependTo(".contents");
             } else {
@@ -4667,7 +4703,7 @@
 
         // Display run button on place sidebar
         function displayRunButton() {
-            debug('--- displayRunButton() called ---');
+            debug('-- displayRunButton() called --');
             var betaDelay = 0;
             if (isDevVersion) { betaDelay = 30; }
             setTimeout(function() {
@@ -4697,7 +4733,7 @@
 
         // WMEPH Clone Tool
         function displayCloneButton() {
-            debug('--- displayCloneButton() called ---');
+            debug('-- displayCloneButton() called --');
             var betaDelay = 80;
             if (isDevVersion) { betaDelay = 300; }
             setTimeout(function() {
@@ -4828,7 +4864,7 @@
 
         // Catch PLs and reloads that have a place selected already and limit attempts to about 10 seconds
         function bootstrapRunButton() {
-            debug('--- bootstrapRunButton() called ---');
+            debug('-- bootstrapRunButton() called --');
             if (numAttempts < 10) {
                 numAttempts++;
                 if (W.selectionManager.selectedItems.length === 1) {
@@ -4849,7 +4885,7 @@
 
         // Find field divs
         function getPanelFields() {
-            debug('--- getPanelFields() called ---');
+            debug('-- getPanelFields() called --');
             var panelFieldsList = $('.form-control'), pfa;
             for (var pfix=0; pfix<panelFieldsList.length; pfix++) {
                 pfa = panelFieldsList[pfix].name;
@@ -4897,7 +4933,7 @@
         // Catch PLs and reloads that have a place selected already and limit attempts to about 10 seconds
         numAttempts = 0;
         function bootstrapInferAddress() {
-            debug('--- bootstrapInferAddress() called ---');
+            debug('-- bootstrapInferAddress() called --');
             if (numAttempts < 20) {
                 numAttempts++;
                 var inferredAddress = WMEPH_inferAddress(7);
@@ -4911,7 +4947,7 @@
 
         // Function to clone info from a place
         function clonePlace() {
-            debug('--- clonePlace() called ---');
+            debug('-- clonePlace() called --');
             phlog('Cloning info...');
             var UpdateObject = require("Waze/Action/UpdateObject");
             if (cloneMaster !== null && cloneMaster.hasOwnProperty('url')) {
@@ -4968,7 +5004,7 @@
 
         // Formats "hour object" into a string.
         function formatOpeningHour(hourEntry) {
-            debug('--- formatOpeningHour(hourEntry) called ---');
+            debug('-- formatOpeningHour(hourEntry) called --');
             var dayNames = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
             var hours = hourEntry.attributes.fromHour + '-' + hourEntry.attributes.toHour;
             return hourEntry.attributes.days.map(function(day) {
@@ -4977,12 +5013,12 @@
         }
         // Pull natural text from opening hours
         function getOpeningHours(venue) {
-            debug('--- getOpeningHours(venue) called ---');
+            debug('-- getOpeningHours(venue) called --');
             return venue && venue.getOpeningHours && venue.getOpeningHours().map(formatOpeningHour);
         }
         // Parse hours paste for hours object array
         function parseHours(inputHours) {
-            debug('--- parseHours(inputHours) called ---');
+            debug('-- parseHours(inputHours) called --');
             var daysOfTheWeek = {
                 SS: ['saturdays', 'saturday', 'satur', 'sat', 'sa'],
                 UU: ['sundays', 'sunday', 'sun', 'su'],
@@ -5345,7 +5381,7 @@
 
         // function to check overlapping hours
         function checkHours(hoursObj) {
-            debug('--- checkHours(hoursObj) called ---');
+            debug('-- checkHours(hoursObj) called --');
             if (hoursObj.length === 1) {
                 return true;
             }
@@ -5427,7 +5463,7 @@
                     }
                 }
             }
-            debug('5129 // About to call uniq() once inside of findNearbyDuplicate()');
+            debug('5456 // About to call uniq() once inside of findNearbyDuplicate()');
             currNameList = uniq(currNameList);  //  remove duplicates
 
             // Remove any previous search labels and move the layer above the places layer
@@ -5651,7 +5687,7 @@
 
         // On selection of new item:
         function checkSelection() {
-            debug('--- checkSelection() called ---');
+            debug('-- checkSelection() called --');
             if (W.selectionManager.selectedItems.length > 0) {
                 var newItem = W.selectionManager.selectedItems[0].model;
                 if (newItem.type === "venue") {
@@ -5677,7 +5713,7 @@
 
         // Functions to infer address from nearby segments
         function WMEPH_inferAddress(MAX_RECURSION_DEPTH) {
-            debug('--- WMEPH_inferAddress(MAX_RECURSION_DEPTH) called ---');
+            debug('-- WMEPH_inferAddress(MAX_RECURSION_DEPTH) called --');
             'use strict';
             var distanceToSegment,
                 foundAddresses = [],
@@ -5898,7 +5934,7 @@
 
         // Build a Google search url based on place name and address
         function buildGLink(searchName,addr,HN) {
-            debug('--- buildGLink(searchName,addr,HN) called ---');
+            debug('-- buildGLink(searchName,addr,HN) called --');
             var searchHN = "", searchStreet = "", searchCity = "";
             searchName = searchName.replace(/&/g, "%26");
             searchName = searchName.replace(/[ \/]/g, "%20");
@@ -5928,7 +5964,7 @@
 
         // WME Category translation from Natural language to object language  (Bank / Financial --> BANK_FINANCIAL)
         function catTranslate(natCategories) {
-            debug('--- catTranslate(natCategories) called ---');
+            debug('-- catTranslate(natCategories) called --');
             //console.log(natCategories);
             var natCategoriesRepl = natCategories.toUpperCase().replace(/ AND /g, "").replace(/[^A-Z]/g, "");
             if (natCategoriesRepl.indexOf('PETSTORE') > -1) {
@@ -5964,7 +6000,7 @@
 
         // function that checks if all elements of target are in array:source
         function containsAll(source,target) {
-            debug('--- containsAll(source,target) called ---');
+            debug('-- containsAll(source,target) called --');
             if (typeof(target) === "string") { target = [target]; }  // if a single string, convert to an array
             for (var ixx = 0; ixx < target.length; ixx++) {
                 if ( source.indexOf(target[ixx]) === -1 ) {
@@ -5976,7 +6012,7 @@
 
         // function that checks if any element of target are in source
         function containsAny(source,target) {
-            debug('--- containsAny(source,target) called ---');
+            debug('-- containsAny(source,target) called --');
             if (typeof(source) === "string") { source = [source]; }  // if a single string, convert to an array
             if (typeof(target) === "string") { target = [target]; }  // if a single string, convert to an array
             var result = source.filter(function(tt){ return target.indexOf(tt) > -1; });
@@ -5992,7 +6028,7 @@
                 arrayNew.push.apply(arrayNew, array2);  // add the insert
                 arrayNew.push.apply(arrayNew, arrayTemp);  // add the tail end of original
             }
-            debug('5690 // About to call uniq() once inside of insertAtIX()');
+            debug('6021 // About to call uniq() once inside of insertAtIX()');
             return uniq(arrayNew);  // remove any duplicates (so the function can be used to move the position of a string)
         }
 
@@ -6013,7 +6049,7 @@
 
         // settings tab
         function add_PlaceHarmonizationSettingsTab() {
-            debug('--- add_PlaceHarmonizationSettingsTab() called ---');
+            debug('-- add_PlaceHarmonizationSettingsTab() called --');
             //Create Settings Tab
             var phTabHtml = '<li><a href="#sidepanel-ph' + devVersStr + '" data-toggle="tab" id="PlaceHarmonization' + devVersStr + '">WMEPH' + devVersStrSpace + '</a></li>';
             $("#user-tabs ul.nav-tabs:first").append(phTabHtml);
@@ -6466,7 +6502,7 @@
 
         //Function to add Shift+ to upper case KBS
         function parseKBSShift(kbs) {
-            debug('--- parseKBSShift(kbs) called ---');
+            debug('-- parseKBSShift(kbs) called --');
             if (kbs.match(/^[A-Z]{1}$/g) !== null) { // If upper case, then add a Shift+
                 kbs = 'Shift+' + kbs;
             }
@@ -6475,7 +6511,7 @@
 
         // Function to check shortcut conflict
         function checkWMEPH_KBSconflict(KBS) {
-            debug('--- checkWMEPH_KBSconflict(KBS) called ---');
+            debug('-- checkWMEPH_KBSconflict(KBS) called --');
             var LSString = '';
             if (!isDevVersion) {
                 LSString = devVersStringMaster;
@@ -6491,7 +6527,7 @@
 
         // Save settings prefs
         function saveSettingToLocalStorage(settingID) {
-            debug('--- saveSettingToLocalStorage(settingID) called ---');
+            debug('-- saveSettingToLocalStorage(settingID) called --');
             if ($("#" + settingID).prop('checked')) {
                 localStorage.setItem(settingID, '1');
             } else {
@@ -6501,7 +6537,7 @@
 
         // This function validates that the inputted text is a JSON
         function validateWLS(jsonString) {
-            debug('--- validateWLS(jsonString) called ---');
+            debug('-- validateWLS(jsonString) called --');
             "use strict";
             try {
                 var objTry = JSON.parse(jsonString);
@@ -6515,7 +6551,7 @@
 
         // This function merges and updates venues from object vWL_2 into vWL_1
         function mergeWL(vWL_1,vWL_2) {
-            debug('--- mergeWL(vWL_1,vWL_2) called ---');
+            debug('-- mergeWL(vWL_1,vWL_2) called --');
             "use strict";
             var venueKey, WLKey, vWL_1_Venue, vWL_2_Venue;
             for (venueKey in vWL_2) {
@@ -6544,7 +6580,7 @@
 
         // Get services checkbox status
         function getServicesChecks() {
-            debug('--- getServicesChecks() called ---');
+            debug('-- getServicesChecks() called --');
             var servArrayCheck = [];
             for (var wsix=0; wsix<WMEServicesArray.length; wsix++) {
                 if ($("#service-checkbox-" + WMEServicesArray[wsix]).prop('checked')) {
@@ -6557,7 +6593,7 @@
         }
 
         function updateServicesChecks(bannServ) {
-            debug('--- updateServicesChecks(bannServ) called ---');
+            debug('-- updateServicesChecks(bannServ) called --');
             var servArrayCheck = getServicesChecks(), wsix=0;
             for (var keys in bannServ) {
                 if (bannServ.hasOwnProperty(keys)) {
@@ -6575,7 +6611,7 @@
 
         // Focus away from the current cursor focus, to set text box changes
         function blurAll() {
-            debug('--- blurAll() called ---');
+            debug('-- blurAll() called --');
             var tmp = document.createElement("input");
             document.body.appendChild(tmp);
             tmp.focus();
@@ -6584,7 +6620,7 @@
 
         // Pulls the item PL
         function getItemPL() {
-            debug('--- getItemPL() called ---');
+            debug('-- getItemPL() called --');
             // Append a form div if it doesn't exist yet:
             if ( $('#WMEPH_formDiv').length ===0 ) {
                 var tempDiv = document.createElement('div');
@@ -6608,7 +6644,7 @@
 
         // Sets up error reporting
         function WMEPH_errorReport(data) {
-            debug('--- WMEPH_errorReport(data) called ---');
+            debug('-- WMEPH_errorReport(data) called --');
             data.preview = 'Preview';
             data.attach_sig = 'on';
             if (PMUserList.hasOwnProperty('WMEPH') && PMUserList.WMEPH.approvalActive) {
@@ -6670,7 +6706,7 @@
 
         // Function that checks current place against the Harmonization Data.  Returns place data or "NoMatch"
         function harmoList(itemName,state2L,region3L,country,itemCats) {
-            debug('--- harmoList(itemName,state2L,region3L,country,itemCats) called ---');
+            debug('-- harmoList(itemName,state2L,region3L,country,itemCats) called --');
             var PNH_DATA_headers;
             var ixendPNH_NAMES;
             if (country === 'USA') {
@@ -6951,25 +6987,13 @@
     } // END runPH Function
 
 
-    // This function runs at script load, and splits the category dataset into the searchable categories.
-    function makeCatCheckList(CH_DATA) {
-        debug('--- makeCatCheckList(CH_DATA) called ---');  // Builds the list of search names to match to the WME place name
-        var CH_CATS = [];
-        var CH_DATA_headers = CH_DATA[0].split("|");  // split the data headers out
-        var pc_wmecat_ix = CH_DATA_headers.indexOf("pc_wmecat");  // find the indices needed for the function
-        var chEntryTemp;
-        for (var chix=0; chix<CH_DATA.length; chix++) {  // loop through all PNH places
-            chEntryTemp = CH_DATA[chix].split("|");  // split the current PNH data line
-            CH_CATS.push(chEntryTemp[pc_wmecat_ix]);
-        }
-        return CH_CATS;
-    } // END makeCatCheckList function
+    //function makeCatCheckList(CH_DATA) {
 
     //function makeNameCheckList(PNH_DATA) {
 
     // Whitelist stringifying and parsing
     function saveWL_LS(compress) {
-        debug('--- saveWL_LS(compress) called ---');
+        debug('- saveWL_LS(compress) called -');
         venueWhitelistStr = JSON.stringify(venueWhitelist);
         if (compress) {
             if (venueWhitelistStr.length < 4800000 ) {  // Also save to regular storage as a back up
@@ -6982,7 +7006,7 @@
         }
     }
     function loadWL_LS(decompress) {
-        debug('--- loadWL_LS(decompress) called ---');
+        debug('- loadWL_LS(decompress) called -');
         if (decompress) {
             venueWhitelistStr = localStorage.getItem(WLlocalStoreNameCompressed);
             venueWhitelistStr = LZString.decompressFromUTF16(venueWhitelistStr);
@@ -6992,7 +7016,7 @@
         venueWhitelist = JSON.parse(venueWhitelistStr);
     }
     function backupWL_LS(compress) {
-        debug('--- backupWL_LS(compress) called ---');
+        debug('- backupWL_LS(compress) called -');
         venueWhitelistStr = JSON.stringify(venueWhitelist);
         if (compress) {
             venueWhitelistStr = LZString.compressToUTF16(venueWhitelistStr);
@@ -7007,7 +7031,7 @@
     //function phlog(m) {
 
     function zoomPlace() {
-        debug('--- zoomPlace() called ---');
+        debug('- zoomPlace() called -');
         if (W.selectionManager.selectedItems.length === 1 && W.selectionManager.selectedItems[0].model.type === "venue") {
             W.map.moveTo(W.selectionManager.selectedItems[0].model.geometry.getCentroid().toLonLat(), 7);
         } else {
@@ -7016,7 +7040,7 @@
     }
 
     function sortWithIndex(toSort) {
-        debug('--- sortWithIndex(toSort) called ---');
+        debug('- sortWithIndex(toSort) called -');
         for (var i = 0; i < toSort.length; i++) {
             toSort[i] = [toSort[i], i];
         }
@@ -7088,7 +7112,7 @@
 
     // Keep track of how many whitelists have been added since the last pull, alert if over a threshold (100?)
     function WMEPH_WLCounter() {
-        debug('--- WMEPH_WLCounter() called ---');
+        debug('- WMEPH_WLCounter() called -');
         localStorage.WMEPH_WLAddCount = parseInt(localStorage.WMEPH_WLAddCount)+1;
         if (localStorage.WMEPH_WLAddCount > 50) {
             alert('Don\'t forget to periodically back up your Whitelist data using the Pull option in the WMEPH settings tab.');
@@ -7098,7 +7122,7 @@
 
     var _googleLinkHash = {};
     function modifyGoogleLinks() {
-        debug('--- modifyGoogleLinks() called ---');
+        debug('- modifyGoogleLinks() called -');
         // MutationObserver will be notified when Google place ID divs are added, then update them to be hyperlinks.
         var observer = new MutationObserver(function(mutations) {
             mutations.forEach(function(mutation) {
@@ -7178,6 +7202,7 @@
     placeHarmonizer_bootstrap();
 
 
+    // NOTE: Negative, Ghost Rider.  All CSS should be in a separate .css file and referenced (using @resource probably, so it can be cached).
     function insertCss( code ) {
         var style = document.createElement('style');
         style.type = 'text/css';
