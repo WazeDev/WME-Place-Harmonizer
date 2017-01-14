@@ -8,11 +8,12 @@
 /* global OL */
 /* global _ */
 /* global define */
+/* global Node */
 
 // ==UserScript==
 // @name        WME Place Harmonizer Beta
 // @namespace   https://github.com/WazeUSA/WME-Place-Harmonizer/raw/master/WME-Place-Harmonizer.user.js
-// @version     1.1.72-refactor2017
+// @version     1.1.78-Refactor2017
 // @description Harmonizes, formats, and locks a selected place
 // @author      WMEPH development group
 // @include     /^https:\/\/(www|beta)\.waze\.com\/(?!user\/)(.{2,6}\/)?editor\/.*$/
@@ -43,6 +44,14 @@
 
     // New in this version
     var WHATS_NEW_LIST = [
+        '1.1.78: Added yellow "caution" highlights.  Were previously red.',
+        '1.1.77: Unlocked PLAs are highlighted with a bold red dotted outline',
+        '1.1.75: Fix for Google hyperlinks not showing up after first click on place.',
+        '1.1.74: Keep hours input visible at all times.',
+        '1.1.73: Place Website button added when URL is added.',
+        '1.1.72: Fixed lock issue with Missing External Provider flag.',
+        '1.1.71: Added "avsus" to list of staff accounts.',
+        '1.1.70: Fix for adding 24/7 service from PNH spreadsheet.',
         '1.1.69: Added input box to enter missing street.',
         '1.1.68: Added "Missing External Provider" and option to treat as non-critical.',
         '1.1.67: Fixed optional 2nd categories.',
@@ -407,6 +416,15 @@
     }
 
 
+    //////////////////////////////
+    // Value-checking Functions //
+    //////////////////////////////
+
+    function isPLA(venue) {
+        return venue.attributes.categories && venue.attributes.categories[0] === 'PARKING_LOT';
+    }
+
+
     ////////////////////////
     // Unsorted Functions //
     ////////////////////////
@@ -591,7 +609,6 @@
     // This function will need to be split up because it is way too big.
     function runPH() {
         debug('--- runPH() called ---');
-        // Script update info
         var newSep = '\n - ', listSep = '<li>';  // joiners for script and html messages
         var WMEPHWhatsNew = WHATS_NEW_LIST.join(newSep);
         var WMEPHWhatsNewMeta = WHATS_NEW_META_LIST.join(newSep);
@@ -793,42 +810,24 @@
                 'strokeDashstyle': '7 2',
                 'strokeWidth': '5'
             });
-            if (thisUser.userName === 'bmtg') {
-                severityLock = ruleGenerator('lock', {
-                    'pointRadius': '8',
-                    'strokeColor': '#24ff14',
-                    'strokeLinecap': '1',
-                    'strokeDashstyle': '7 2',
-                    'strokeWidth': '11'
-                });
-            }
 
             var severity1 = ruleGenerator(1, {
-                'strokeColor': '#0099ff',
+                'strokeColor': '#0055ff',
                 'strokeWidth': '4',
                 'pointRadius': '7'
             });
 
             var severityLock1 = ruleGenerator('lock1', {
                 'pointRadius': '5',
-                'strokeColor': '#0099ff',
+                'strokeColor': '#0055ff',
                 'strokeLinecap': '1',
                 'strokeDashstyle': '7 2',
                 'strokeWidth': '5'
             });
-            if (thisUser.userName === 'bmtg') {
-                severityLock1 = ruleGenerator('lock1', {
-                    'pointRadius': '8',
-                    'strokeColor': '#0099ff',
-                    'strokeLinecap': '1',
-                    'strokeDashstyle': '7 2',
-                    'strokeWidth': '11'
-                });
-            }
 
             var severity2 = ruleGenerator(2, {
-                'strokeColor': '#ff0000',
-                'strokeWidth': '4',
+                'strokeColor': '#ff0',
+                'strokeWidth': '6',
                 'pointRadius': '8'
             });
 
@@ -867,8 +866,6 @@
                 'strokeDashstyle': '4 2'
             });
 
-
-
             Array.prototype.push.apply(layer.styleMap.styles['default'].rules, [severity0, severityLock, severity1, severityLock1, severity2, severity3, severity4, severityHigh, severityAdLock]);
             // to make Google Script linter happy ^^^ Array.prototype.push.apply(layer.styleMap.styles.default.rules, [severity0, severityLock, severity1, severity2, severity3, severity4, severityHigh]);
             /* Can apply to normal view or selection/highlight views as well.
@@ -898,7 +895,7 @@
                         try {
                             venue.attributes.wmephSeverity = harmonizePlaceGo(venue,'highlight');
                         } catch (err) {
-                            phlogdev("getCentroid error occurred.");
+                            phlogdev("highlight error: ",err);
                         }
                     } else {
                         venue.attributes.wmephSeverity = 'default';
@@ -1222,6 +1219,12 @@
             if ( useFlag.indexOf('scan') > -1 ) {
                 hpMode.scanFlag = true;
             }
+
+            // If it's an unlocked parking lot, return with severity 4.
+            if (hpMode.hlFlag && isPLA(item) && item.attributes.lockRank < 2) {
+                return 4;
+            }
+
             var placePL = getItemPL();  //  set up external post div and pull place PL
             // https://www.waze.com/editor/?env=usa&lon=-80.60757&lat=28.17850&layers=1957&zoom=4&segments=86124344&update_requestsFilter=false&problemsFilter=false&mapProblemFilter=0&mapUpdateRequestFilter=0&venueFilter=1
             placePL = placePL.replace(/\&layers=[^\&]+(\&?)/g, '$1');  // remove Permalink Layers
@@ -1627,7 +1630,7 @@
                 },
 
                 wazeBot: {  // no WL
-                    active: false, severity: 2, message: 'Last edited by a waze staff administered account'
+                    active: false, severity: 2, message: 'Edited last by an automated process. Please verify information is correct.'
                 },
 
                 parentCategory: {
@@ -1802,7 +1805,7 @@
                     badInput: false,
                     action: function() {
                         var newUrlValue = $('#WMEPH-UrlAdd'+devVersStr).val();
-                        var newUrl = normalizeURL(newUrlValue, true, true);
+                        var newUrl = normalizeURL(newUrlValue, true, false);
                         if (newUrl === 'badURL') {
                             this.badInput = true;
                         } else {
@@ -1810,6 +1813,7 @@
                             W.model.actionManager.add(new UpdateObject(item, { url: newUrl }));
                             fieldUpdateObject.url='#dfd';
                             bannButt.urlMissing.active = false;
+                            bannButt.PlaceWebsite.active = true;
                             this.badInput = false;
                         }
                     },
@@ -1883,7 +1887,6 @@
                             bannButt.noHours.severity = 0;
                             bannButt.noHours.WLactive = false;
                             bannButt.noHours.message = 'Hours: <input type="text" value="Paste Hours Here" id="WMEPH-HoursPaste'+devVersStr+'" style="width:170px;padding-left:3px;color:#AAA">';
-
                         } else {
                             phlog('Can\'t parse those hours');
                             bannButt.noHours.severity = 1;
@@ -2689,7 +2692,7 @@
                 }
             } else if (item.attributes.categories[0] === 'PARKING_LOT' || (newName && newName.trim().length > 0)) {  // for non-residential places
                 var provIDs = item.attributes.externalProviderIDs;
-                if (usrRank > 2 && (!provIDs || provIDs.length === 0) ) {
+                if (usrRank >= 3 && (!provIDs || provIDs.length === 0) ) {
                     if ($('#WMEPH-ExtProviderSeverity' + devVersStr).prop('checked')) {
                         bannButt.extProviderMissing.severity = 1;
                     }
@@ -3538,11 +3541,18 @@
                     if (hpMode.hlFlag && $("#WMEPH-DisableHoursHL" + devVersStr).prop('checked')) {
                         bannButt.noHours.severity = 0;
                     }
-                } else if (item.attributes.openingHours.length === 1) {  // if one set of hours exist, check for partial 24hrs setting
-                    if (item.attributes.openingHours[0].days.length < 7 && item.attributes.openingHours[0].fromHour==='00:00' &&
-                        (item.attributes.openingHours[0].toHour==='00:00' || item.attributes.openingHours[0].toHour==='23:59' ) ) {
-                        bannButt.mismatch247.active = true;
+                } else {
+                    if (item.attributes.openingHours.length === 1) {  // if one set of hours exist, check for partial 24hrs setting
+                        if (item.attributes.openingHours[0].days.length < 7 && item.attributes.openingHours[0].fromHour==='00:00' &&
+                            (item.attributes.openingHours[0].toHour==='00:00' || item.attributes.openingHours[0].toHour==='23:59' ) ) {
+                            bannButt.mismatch247.active = true;
+                        }
                     }
+                    bannButt.noHours.active = true;
+                    bannButt.noHours.value = 'Add hours';
+                    bannButt.noHours.severity = 0;
+                    bannButt.noHours.WLactive = false;
+                    bannButt.noHours.message = 'Hours: <input type="text" value="Paste Hours Here" id="WMEPH-HoursPaste'+devVersStr+'" style="width:170px;padding-left:3px;color:#AAA">';
                 }
                 if ( !checkHours(item.attributes.openingHours) ) {
                     //phlogdev('Overlapping hours');
@@ -3969,7 +3979,7 @@
 
             // RPP Locking option for R3+
             if (item.attributes.residential) {
-                if (devUser || betaUser || usrRank > 2) {  // Allow residential point locking by R3+
+                if (devUser || betaUser || usrRank >= 3) {  // Allow residential point locking by R3+
                     RPPLockString = 'Lock at <select id="RPPLockLevel">';
                     var ddlSelected = false;
                     for (var llix=1; llix<6; llix++) {
@@ -4454,6 +4464,7 @@
                 };
             }
 
+            // Street entry textbox stuff
             var streetNames = [];
             var streetNamesCap = [];
             W.model.streets.getObjectArray().forEach(function(st) {
@@ -4467,7 +4478,13 @@
             $('#WMEPH_missingStreet').autocomplete({
                 source: streetNames,
                 change: onStreetChanged,
-                select: onStreetSelected
+                select: onStreetSelected,
+                response: function(e, ui) {
+                    var maxListLength = 10;
+                    if(ui.content.length > maxListLength) {
+                        ui.content.splice(maxListLength, ui.content.length - maxListLength);
+                    }
+                }
             });
             function onStreetSelected(e, ui) {
                 if (ui.item) {
@@ -4477,7 +4494,6 @@
             function onStreetChanged(e, ui) {
                 checkStreet(null);
             }
-
             $('#WMEPH_addStreetBtn').on('click', addStreetToVenue);
             function addStreetToVenue() {
                 var stName = $('#WMEPH_missingStreet').val();
@@ -5437,10 +5453,6 @@
                 itemCompAddr = true;
             }
 
-            function isPLA(venue) {
-                return venue.attributes.categories && venue.attributes.categories[0] === 'PARKING_LOT';
-            }
-
             for (var venix in venueList) {  // for each place on the map:
                 if (venueList.hasOwnProperty(venix)) {  // hOP filter
                     numVenues++;
@@ -6034,10 +6046,10 @@
             createSettingsCheckbox("sidepanel-harmonizer" + devVersStr, "WMEPH-EnableIAZoom" + devVersStr,"Enable zoom & center for places with no address");
             createSettingsCheckbox("sidepanel-harmonizer" + devVersStr, "WMEPH-HidePlacesWiki" + devVersStr,"Hide 'Places Wiki' button in results banner");
             createSettingsCheckbox("sidepanel-harmonizer" + devVersStr, "WMEPH-ExcludePLADupes" + devVersStr,"Exclude parking lots when searching for duplicate places.");
-            if (devUser || betaUser || usrRank > 1) {
+            if (devUser || betaUser || usrRank >= 2) {
                 createSettingsCheckbox("sidepanel-harmonizer" + devVersStr, "WMEPH-EnableServices" + devVersStr,"Enable automatic addition of common services");
             }
-            if (devUser || betaUser || usrRank > 2) {
+            if (devUser || betaUser || usrRank >= 2) {
                 createSettingsCheckbox("sidepanel-harmonizer" + devVersStr, "WMEPH-ConvenienceStoreToGasStations" + devVersStr,'Automatically add "Convenience Store" category to gas stations');
                 createSettingsCheckbox("sidepanel-harmonizer" + devVersStr, "WMEPH-AddAddresses" + devVersStr,"Add detected address fields to places with no address");
                 createSettingsCheckbox("sidepanel-harmonizer" + devVersStr, "WMEPH-EnableCloneMode" + devVersStr,"Enable place cloning tools");
@@ -6057,7 +6069,7 @@
             createSettingsCheckbox("sidepanel-highlighter" + devVersStr, "WMEPH-DisableHoursHL" + devVersStr,"Disable highlighting for missing hours");
             createSettingsCheckbox("sidepanel-highlighter" + devVersStr, "WMEPH-DisableRankHL" + devVersStr,"Disable highlighting for places locked above your rank");
             createSettingsCheckbox("sidepanel-highlighter" + devVersStr, "WMEPH-DisableWLHL" + devVersStr,"Disable Whitelist highlighting (shows all missing info regardless of WL)");
-            if (devUser || betaUser || usrRank > 2) {
+            if (devUser || betaUser || usrRank >= 3) {
                 //createSettingsCheckbox("sidepanel-highlighter" + devVersStr, "WMEPH-UnlockedRPPs" + devVersStr,"Highlight unlocked residential place points");
             }
             var phHRContentHtml = '<hr align="center" width="90%">';
@@ -7084,8 +7096,34 @@
         }
     }
 
+    var _googleLinkHash = {};
     function modifyGoogleLinks() {
         debug('--- modifyGoogleLinks() called ---');
+        // MutationObserver will be notified when Google place ID divs are added, then update them to be hyperlinks.
+        var observer = new MutationObserver(function(mutations) {
+            mutations.forEach(function(mutation) {
+                // Mutation is a NodeList and doesn't support forEach like an array
+                for (var i = 0; i < mutation.addedNodes.length; i++) {
+                    var addedNode = mutation.addedNodes[i];
+                    // Only fire up if it's a node
+                    if (addedNode.nodeType === Node.ELEMENT_NODE) {
+                        if(addedNode.querySelector('div .placeId')) {
+                            console.log('*************** EDIT PANEL', addedNode);
+                            var placeLinkDivs = $(addedNode).find('.placeId');
+                            for(i=0; i<placeLinkDivs.length; i++) {
+                                var placeLinkDiv = placeLinkDivs[i];
+                                var placeLinkId = placeLinkDiv.innerHTML;
+                                if (_googleLinkHash.hasOwnProperty(placeLinkId)) {
+                                    placeLinkDiv.innerHTML = _googleLinkHash[placeLinkId];
+                                }
+                            }
+
+                        }
+                    }
+                }
+            });
+        });
+        observer.observe(document.getElementById('edit-panel'), { childList: true, subtree: true });
         $.ajaxPrefilter(function(options, originalOptions, jqXHR) {
             try {
                 if (originalOptions.type === "GET") {
@@ -7100,14 +7138,17 @@
         });
         $(document).ajaxSuccess(function(event, jqXHR, ajaxOptions, data) {
             try {
+                var ix;
                 if (ajaxOptions && ajaxOptions.hasOwnProperty("url")) {
                     if (ajaxOptions.url.startsWith("/maps/api/place/details/json")) {
                         if (data && data.hasOwnProperty("status") && data.status === "OK") {
                             if (data.hasOwnProperty("result") && data.result.hasOwnProperty("url") && data.result.hasOwnProperty("place_id")) {
                                 var gpids = document.getElementsByClassName("placeId");
-                                for (var i = 0; i < gpids.length; i++) {
-                                    if (data.result.place_id === gpids[i].innerHTML) {
-                                        gpids[i].innerHTML = "<a href='" + data.result.url + "' target='_wmegpid'>" + data.result.place_id + "</a>";
+                                for (ix = 0; ix < gpids.length; ix++) {
+                                    if (data.result.place_id === gpids[ix].innerHTML) {
+                                        var html = "<a href='" + data.result.url + "' target='_wmegpid'>" + data.result.place_id + "</a>";
+                                        _googleLinkHash[data.result.place_id] = html;
+                                        gpids[ix].innerHTML = html;
                                     }
                                 }
                             }
@@ -7115,11 +7156,11 @@
                     }
                     if (ajaxOptions.url.startsWith("/maps/api/place/autocomplete/json")) {
                         var uuids = document.getElementsByClassName("uuid");
-                        for (var i = 0; i < uuids.length; i++) {
-                            if (uuids[i].className === "uuid") {
-                                events = $._data(uuids[i], "events");
+                        for (ix = 0; ix < uuids.length; ix++) {
+                            if (uuids[ix].className === "uuid") {
+                                events = $._data(uuids[ix], "events");
                                 if (events && events.hasOwnProperty("change") && events.change.length === 1) {
-                                    $(uuids[i]).change(function(event) {
+                                    $(uuids[ix]).change(function(event) {
                                         if (event && event.hasOwnProperty("val")) {
                                             $.get(W.Config.places_api.url.details, {placeid: event.val, key: W.Config.places_api.key});
                                         }
