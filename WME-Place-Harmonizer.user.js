@@ -18,7 +18,8 @@
 // @author      WMEPH development group
 // @include     /^https:\/\/(www|beta)\.waze\.com\/(?!user\/)(.{2,6}\/)?editor\/.*$/
 // @require     https://raw.githubusercontent.com/WazeUSA/WME-Place-Harmonizer/Beta/jquery-ui-1.11.4.custom.min.js
-// @resource    jqUI_CSS  https://ajax.googleapis.com/ajax/libs/jqueryui/1.11.4/themes/smoothness/jquery-ui.css
+// @resource    newSheetData    https://raw.githubusercontent.com/WMEPH-Harmony/WMEPH-Test/dev/a.json
+// @resource    jqUI_CSS        https://ajax.googleapis.com/ajax/libs/jqueryui/1.11.4/themes/smoothness/jquery-ui.css
 // @grant       GM_addStyle
 // @grant       GM_getResourceText
 // ==/UserScript==
@@ -76,6 +77,26 @@
         '1.1: Built-in place highlighter shows which places on the map need work'
     ];
     var USE_NEW_GOOGLE_SHEETS = true;
+    var NEW_SHEET_DATA = JSON.parse(GM_getResourceText("newSheetData"));
+    var WMEPH_DEV_LIST; //= NEW_SHEET_DATA["devList"];
+    var WMEPH_BETA_LIST; //= NEW_SHEET_DATA["betaList"];
+    // Category Name Checking
+    var NON_HOSPITAL_PART_MATCH = [],
+        NON_HOSPITAL_FULL_MATCH = [],
+        ANIMAL_PART_MATCH = [],
+        ANIMAL_FULL_MATCH = [],
+        SCHOOL_PART_MATCH = [],
+        SCHOOL_FULL_MATCH = [];
+    if (USE_NEW_GOOGLE_SHEETS) {
+        WMEPH_DEV_LIST = NEW_SHEET_DATA["devList"];
+        WMEPH_BETA_LIST = NEW_SHEET_DATA["betaList"];
+        NON_HOSPITAL_PART_MATCH = NEW_SHEET_DATA['hmchp'],
+        NON_HOSPITAL_FULL_MATCH = NEW_SHEET_DATA['hmchf'],
+        ANIMAL_PART_MATCH = NEW_SHEET_DATA['hmcap'],
+        ANIMAL_FULL_MATCH = NEW_SHEET_DATA['hmcaf'],
+        SCHOOL_PART_MATCH = NEW_SHEET_DATA['schp'],
+        SCHOOL_FULL_MATCH = NEW_SHEET_DATA['schf'];
+    }
 
     ///////////////
     // Variables //
@@ -86,15 +107,7 @@
     var majorNewFeature = false;                                    // Set to true to make an alert pop up after script update with new feature
     var scriptName = GM_info.script.name.toString();
     var isDevVersion = (scriptName.match(/Beta/i) !== null);        // Enables dev messages and unique DOM options if the script is called "... Beta"
-    // Category Name Checking
-    var notHospitalPartMatch = [],
-        notHospitalFullMatch = [],
-        animalPartMatch = [],
-        animalFullMatch = [],
-        schoolPartMatch = [],
-        schoolFullMatch = [];
     // Userlists
-    var WMEPHdevList, WMEPHbetaList;
     var betaUser, devUser;
 
 
@@ -171,80 +184,25 @@
     // Database Load Functions //
     /////////////////////////////
     function loadExternalData() {
-        if (USE_NEW_GOOGLE_SHEETS) {
-            /* The new logic is currently pulling each part of the sheet piece by piece;
-               but, once it is approved, we will change the code to "slurp" all of the info
-               from the separate GitHub repo that contains all of the data ready-to-use JSON. */
-
-            // Pull name-category lists
-            $.ajax({
-                type: 'GET',
-                url: 'https://spreadsheets.google.com/feeds/list/1lllqCyG4SRdxETSHltIs-F10ldeiQatotROIiKsox7w/ovp1hvp/public/values',
-                jsonp: 'callback', data: { alt: 'json' }, dataType: 'jsonp',
-                success: function(response) {
-                    for (var i = 0, len = response.feed.entry.length; i < len; i++) {
-                        var hmchp = response.feed.entry[i].gsx$hmchp.$t;
-                        var hmchf = response.feed.entry[i].gsx$hmchf.$t;
-                        var hmcap = response.feed.entry[i].gsx$hmcap.$t;
-                        var hmcaf = response.feed.entry[i].gsx$hmcaf.$t;
-                        var schp  = response.feed.entry[i].gsx$schp.$t;
-                        var schf  = response.feed.entry[i].gsx$schf.$t;
-                        if (hmchp !== '') { notHospitalPartMatch.push(hmchp); }
-                        if (hmchf !== '') { notHospitalFullMatch.push(hmchf); }
-                        if (hmcap !== '') { animalPartMatch.push(hmcap); }
-                        if (hmcaf !== '') { animalFullMatch.push(hmcaf); }
-                        if ( schp !== '') { schoolPartMatch.push(schp); }
-                        if ( schf !== '') { schoolFullMatch.push(schf); }
-                    }
-                }
-            });
-
-            // Pull Dev User List
-            WMEPHdevList = [];
-            $.ajax({
-                type: 'GET',
-                url: 'https://spreadsheets.google.com/feeds/list/1lllqCyG4SRdxETSHltIs-F10ldeiQatotROIiKsox7w/o43i1cy/public/values',
-                jsonp: 'callback', data: { alt: 'json' }, dataType: 'jsonp',
-                success: function(response) {
-                    for (var i = 0, len = response.feed.entry.length; i < len; i++) {
-                        var userName = response.feed.entry[i].gsx$name.$t;
-                        WMEPHdevList.push(userName.toLowerCase());
-                    }
-                }
-            });
-
-            // Pull Beta User List
-            WMEPHbetaList = [];
-            $.ajax({
-                type: 'GET',
-                url: 'https://spreadsheets.google.com/feeds/list/1lllqCyG4SRdxETSHltIs-F10ldeiQatotROIiKsox7w/o5akig6/public/values',
-                jsonp: 'callback', data: { alt: 'json' }, dataType: 'jsonp',
-                success: function(response) {
-                    for (var i = 0, len = response.feed.entry.length; i < len; i++) {
-                        var userName = response.feed.entry[i].gsx$name.$t;
-                        WMEPHbetaList.push(userName.toLowerCase());
-                    }
-                }
-            });
-        } else {
+        if (!USE_NEW_GOOGLE_SHEETS) {
             // Pull name-category lists
             $.ajax({
                 type: 'GET',
                 url: 'https://spreadsheets.google.com/feeds/list/1pDmenZA-3FOTvhlCq9yz1dnemTmS9l_njZQbu_jLVMI/op17piq/public/values',
                 jsonp: 'callback', data: { alt: 'json-in-script' }, dataType: 'jsonp',
                 success: function(response) {
-                    notHospitalPartMatch = response.feed.entry[0].gsx$hmchp.$t;
-                    notHospitalFullMatch = response.feed.entry[0].gsx$hmchf.$t;
-                    animalPartMatch = response.feed.entry[0].gsx$hmcap.$t;
-                    animalFullMatch = response.feed.entry[0].gsx$hmcaf.$t;
-                    schoolPartMatch = response.feed.entry[0].gsx$schp.$t;
-                    schoolFullMatch = response.feed.entry[0].gsx$schf.$t;
-                    notHospitalPartMatch = notHospitalPartMatch.toLowerCase().replace(/ \|/g,'|').replace(/\| /g,'|').split("|");
-                    notHospitalFullMatch = notHospitalFullMatch.toLowerCase().replace(/ \|/g,'|').replace(/\| /g,'|').split("|");
-                    animalPartMatch = animalPartMatch.toLowerCase().replace(/ \|/g,'|').replace(/\| /g,'|').split("|");
-                    animalFullMatch = animalFullMatch.toLowerCase().replace(/ \|/g,'|').replace(/\| /g,'|').split("|");
-                    schoolPartMatch = schoolPartMatch.toLowerCase().replace(/ \|/g,'|').replace(/\| /g,'|').split("|");
-                    schoolFullMatch = schoolFullMatch.toLowerCase().replace(/ \|/g,'|').replace(/\| /g,'|').split("|");
+                    NON_HOSPITAL_PART_MATCH = response.feed.entry[0].gsx$hmchp.$t;
+                    NON_HOSPITAL_FULL_MATCH = response.feed.entry[0].gsx$hmchf.$t;
+                    ANIMAL_PART_MATCH = response.feed.entry[0].gsx$hmcap.$t;
+                    ANIMAL_FULL_MATCH = response.feed.entry[0].gsx$hmcaf.$t;
+                    SCHOOL_PART_MATCH = response.feed.entry[0].gsx$schp.$t;
+                    SCHOOL_FULL_MATCH = response.feed.entry[0].gsx$schf.$t;
+                    NON_HOSPITAL_PART_MATCH = NON_HOSPITAL_PART_MATCH.toLowerCase().replace(/ \|/g,'|').replace(/\| /g,'|').split("|");
+                    NON_HOSPITAL_FULL_MATCH = NON_HOSPITAL_FULL_MATCH.toLowerCase().replace(/ \|/g,'|').replace(/\| /g,'|').split("|");
+                    ANIMAL_PART_MATCH = ANIMAL_PART_MATCH.toLowerCase().replace(/ \|/g,'|').replace(/\| /g,'|').split("|");
+                    ANIMAL_FULL_MATCH = ANIMAL_FULL_MATCH.toLowerCase().replace(/ \|/g,'|').replace(/\| /g,'|').split("|");
+                    SCHOOL_PART_MATCH = SCHOOL_PART_MATCH.toLowerCase().replace(/ \|/g,'|').replace(/\| /g,'|').split("|");
+                    SCHOOL_FULL_MATCH = SCHOOL_FULL_MATCH.toLowerCase().replace(/ \|/g,'|').replace(/\| /g,'|').split("|");
                 }
             });
 
@@ -257,13 +215,13 @@
                     var WMEPHuserList = response.feed.entry[0].gsx$phuserlist.$t;
                     WMEPHuserList = WMEPHuserList.split("|");
                     var betaix = WMEPHuserList.indexOf('BETAUSERS');
-                    WMEPHdevList = [];
-                    WMEPHbetaList = [];
+                    WMEPH_DEV_LIST = [];
+                    WMEPH_BETA_LIST = [];
                     for (var ulix=1; ulix<betaix; ulix++) {
-                        WMEPHdevList.push(WMEPHuserList[ulix].toLowerCase());
+                        WMEPH_DEV_LIST.push(WMEPHuserList[ulix].toLowerCase());
                     }
                     for (ulix=betaix+1; ulix<WMEPHuserList.length; ulix++) {
-                        WMEPHbetaList.push(WMEPHuserList[ulix].toLowerCase());
+                        WMEPH_BETA_LIST.push(WMEPHuserList[ulix].toLowerCase());
                     }
                 }
             });
@@ -375,7 +333,7 @@
         debug('- dataReady() called -');
         // If the data has returned, then start the script, otherwise wait a bit longer
         if ("undefined" !== typeof CAN_PNH_DATA && "undefined" !== typeof USA_PNH_DATA  && "undefined" !== typeof USA_CH_DATA &&
-            "undefined" !== typeof WMEPHdevList && "undefined" !== typeof WMEPHbetaList && "undefined" !== typeof notHospitalPartMatch ) {
+            "undefined" !== typeof WMEPH_DEV_LIST && "undefined" !== typeof WMEPH_BETA_LIST && "undefined" !== typeof NON_HOSPITAL_PART_MATCH ) {
             USA_PNH_NAMES = makeNameCheckList(USA_PNH_DATA);
             USA_CH_NAMES = makeCatCheckList(USA_CH_DATA);
             CAN_PNH_NAMES = makeNameCheckList(CAN_PNH_DATA);
@@ -390,10 +348,10 @@
                 if ("undefined" === typeof USA_PNH_DATA) {
                     waitMessage = waitMessage + "USA PNH Data; ";
                 }
-                if ("undefined" === typeof notHospitalPartMatch) {
+                if ("undefined" === typeof NON_HOSPITAL_PART_MATCH) {
                     waitMessage = waitMessage + "Cat-Name Data; ";
                 }
-                if ("undefined" === typeof WMEPHdevList) {
+                if ("undefined" === typeof WMEPH_DEV_LIST) {
                     waitMessage = waitMessage + "User List Data;";
                 }
                 phlog(waitMessage);
@@ -445,7 +403,7 @@
     // NOTE: Returns: ["pc_wmecat","","","CAR_SERVICES","GAS_STATION","PARKING_LOT","GARAGE_AUTOMOTIVE_SHOP","CAR_WASH","CHARGING_STATION","TRANSPORTATION","AIRPORT","BUS_STATION","FERRY_PIER","SEAPORT_MARINA_HARBOR","SUBWAY_STATION","TRAIN_STATION","BRIDGE","TUNNEL","TAXI_STATION","JUNCTION_INTERCHANGE","PROFESSIONAL_AND_PUBLIC","COLLEGE_UNIVERSITY","SCHOOL","CONVENTIONS_EVENT_CENTER","GOVERNMENT","LIBRARY","CITY_HALL","ORGANIZATION_OR_ASSOCIATION","PRISON_CORRECTIONAL_FACILITY","COURTHOUSE","CEMETERY","FIRE_DEPARTMENT","POLICE_STATION","MILITARY","HOSPITAL_MEDICAL_CARE","OFFICES","POST_OFFICE","RELIGIOUS_CENTER","KINDERGARDEN","FACTORY_INDUSTRIAL","EMBASSY_CONSULATE","INFORMATION_POINT","SHOPPING_AND_SERVICES","ARTS_AND_CRAFTS","BANK_FINANCIAL","SPORTING_GOODS","BOOKSTORE","PHOTOGRAPHY","CAR_DEALERSHIP","FASHION_AND_CLOTHING","CONVENIENCE_STORE","PERSONAL_CARE","DEPARTMENT_STORE","PHARMACY","ELECTRONICS","FLOWERS","FURNITURE_HOME_STORE","GIFTS","GYM_FITNESS","SWIMMING_POOL","HARDWARE_STORE","MARKET","SUPERMARKET_GROCERY","JEWELRY","LAUNDRY_DRY_CLEAN","SHOPPING_CENTER","MUSIC_STORE","PET_STORE_VETERINARIAN_SERVICES","TOY_STORE","TRAVEL_AGENCY","ATM","CURRENCY_EXCHANGE","CAR_RENTAL","FOOD_AND_DRINK","RESTAURANT","BAKERY","DESSERT","CAFE","FAST_FOOD","FOOD_COURT","BAR","ICE_CREAM","CULTURE_AND_ENTERTAINEMENT","ART_GALLERY","CASINO","CLUB","TOURIST_ATTRACTION_HISTORIC_SITE","MOVIE_THEATER","MUSEUM","MUSIC_VENUE","PERFORMING_ARTS_VENUE","GAME_CLUB","STADIUM_ARENA","THEME_PARK","ZOO_AQUARIUM","RACING_TRACK","THEATER","OTHER","RESIDENCE_HOME","CONSTRUCTION_SITE","LODGING","HOTEL","HOSTEL","CAMPING_TRAILER_PARK","COTTAGE_CABIN","BED_AND_BREAKFAST","OUTDOORS","PARK","PLAYGROUND","BEACH","SPORTS_COURT","GOLF_COURSE","PLAZA","PROMENADE","POOL","SCENIC_LOOKOUT_VIEWPOINT","SKI_AREA","NATURAL_FEATURES","ISLAND","SEA_LAKE_POOL","RIVER_STREAM","FOREST_GROVE","FARM","CANAL","SWAMP_MARSH","DAM","EMERGENCY_SHELTER"]
     function makeCatCheckList(CH_DATA) {
         debug('- makeCatCheckList(CH_DATA) called -');  // Builds the list of search names to match to the WME place name
-        popUp(JSON.stringify(CH_DATA));
+        //popUp(JSON.stringify(CH_DATA));
         var CH_CATS = [];
         var CH_DATA_headers = CH_DATA[0].split("|");  // split the data headers out
         var pc_wmecat_ix = CH_DATA_headers.indexOf("pc_wmecat");  // find the indices needed for the function
@@ -756,19 +714,19 @@
         var placesWikiURL = 'https://wiki.waze.com/wiki/Places';  // WME Places wiki
         var restAreaWikiURL = 'https://wiki.waze.com/wiki/Rest_areas#Adding_a_Place';  // WME Places wiki
         //var betaUser, devUser;
-        if (WMEPHbetaList.length === 0 || "undefined" === typeof WMEPHbetaList) {
-            debug('WMEPHbetaList logic failure.');
+        if (WMEPH_BETA_LIST.length === 0 || "undefined" === typeof WMEPH_BETA_LIST) {
+            debug('WMEPH_BETA_LIST logic failure.');
             if (isDevVersion) {
                 alert('Beta user list access issue.  Please post in the GHO or PM/DM t0cableguy about this message.  Script should still work.');
             }
             betaUser = false;
             devUser = false;
         } else {
-            debug('WMEPHbetaList logic success?');
-            debug(WMEPHdevList);
-            debug(WMEPHbetaList);
-            devUser = (WMEPHdevList.indexOf(thisUser.userName.toLowerCase()) > -1);
-            betaUser = (WMEPHbetaList.indexOf(thisUser.userName.toLowerCase()) > -1);
+            debug('WMEPH_BETA_LIST logic success?');
+            debug(WMEPH_DEV_LIST);
+            debug(WMEPH_BETA_LIST);
+            devUser = (WMEPH_DEV_LIST.indexOf(thisUser.userName.toLowerCase()) > -1);
+            betaUser = (WMEPH_BETA_LIST.indexOf(thisUser.userName.toLowerCase()) > -1);
         }
         if (devUser) {
             betaUser = true; // dev users are beta users
@@ -3793,9 +3751,9 @@
             var testName = newName.toLowerCase().replace(/[^a-z]/g,' ');
             var testNameWords = testName.split(' ');
             // Hopsital vs. Name filter
-            if (newCategories.indexOf("HOSPITAL_MEDICAL_CARE") > -1 && notHospitalPartMatch.length > 0) {
+            if (newCategories.indexOf("HOSPITAL_MEDICAL_CARE") > -1 && NON_HOSPITAL_PART_MATCH.length > 0) {
                 var hpmMatch = false;
-                if (containsAny(testNameWords,animalFullMatch)) {
+                if (containsAny(testNameWords,ANIMAL_FULL_MATCH)) {
                     bannButt.changeHMC2PetVet.active = true;
                     if (currentWL.changeHMC2PetVet) {
                         bannButt.changeHMC2PetVet.WLactive = false;
@@ -3803,7 +3761,7 @@
                         lockOK = false;
                     }
                     bannButt.pnhCatMess.active = false;
-                } else if (containsAny(testNameWords,notHospitalFullMatch)) {
+                } else if (containsAny(testNameWords,NON_HOSPITAL_FULL_MATCH)) {
                     bannButt.changeHMC2Office.active = true;
                     if (currentWL.changeHMC2Office) {
                         bannButt.changeHMC2Office.WLactive = false;
@@ -3812,8 +3770,8 @@
                     }
                     bannButt.pnhCatMess.active = false;
                 } else {
-                    for (var apmix=0; apmix<animalPartMatch.length; apmix++) {
-                        if (testName.indexOf(animalPartMatch[apmix]) > -1) {
+                    for (var apmix=0; apmix<ANIMAL_PART_MATCH.length; apmix++) {
+                        if (testName.indexOf(ANIMAL_PART_MATCH[apmix]) > -1) {
                             bannButt.changeHMC2PetVet.active = true;
                             if (currentWL.changeHMC2PetVet) {
                                 bannButt.changeHMC2PetVet.WLactive = false;
@@ -3826,8 +3784,8 @@
                         }
                     }
                     if (!hpmMatch) {  // don't run the human check if animal is found.
-                        for (var hpmix=0; hpmix<notHospitalPartMatch.length; hpmix++) {
-                            if (testName.indexOf(notHospitalPartMatch[hpmix]) > -1) {
+                        for (var hpmix=0; hpmix<NON_HOSPITAL_PART_MATCH.length; hpmix++) {
+                            if (testName.indexOf(NON_HOSPITAL_PART_MATCH[hpmix]) > -1) {
                                 bannButt.changeHMC2Office.active = true;
                                 if (currentWL.changeHMC2Office) {
                                     bannButt.changeHMC2Office.WLactive = false;
@@ -3843,8 +3801,8 @@
             }  // END HOSPITAL/Name check
 
             // School vs. Name filter
-            if (newCategories.indexOf("SCHOOL") > -1 && schoolPartMatch.length>0) {
-                if (containsAny(testNameWords,schoolFullMatch)) {
+            if (newCategories.indexOf("SCHOOL") > -1 && SCHOOL_PART_MATCH.length>0) {
+                if (containsAny(testNameWords,SCHOOL_FULL_MATCH)) {
                     bannButt.changeSchool2Offices.active = true;
                     if (currentWL.changeSchool2Offices) {
                         bannButt.changeSchool2Offices.WLactive = false;
@@ -3853,8 +3811,8 @@
                     }
                     bannButt.pnhCatMess.active = false;
                 } else {
-                    for (var schix=0; schix<schoolPartMatch.length; schix++) {
-                        if (testName.indexOf(schoolPartMatch[schix]) > -1) {
+                    for (var schix=0; schix<SCHOOL_PART_MATCH.length; schix++) {
+                        if (testName.indexOf(SCHOOL_PART_MATCH[schix]) > -1) {
                             bannButt.changeSchool2Offices.active = true;
                             if (currentWL.changeSchool2Offices) {
                                 bannButt.changeSchool2Offices.WLactive = false;
