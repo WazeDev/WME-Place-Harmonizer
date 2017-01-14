@@ -13,7 +13,7 @@
 // ==UserScript==
 // @name        WME Place Harmonizer Beta
 // @namespace   https://github.com/WazeUSA/WME-Place-Harmonizer/raw/master/WME-Place-Harmonizer.user.js
-// @version     1.1.78
+// @version     1.1.79
 // @description Harmonizes, formats, and locks a selected place
 // @author      WMEPH development group
 // @include     /^https:\/\/(www|beta)\.waze\.com\/(?!user\/)(.{2,6}\/)?editor\/.*$/
@@ -255,10 +255,14 @@
     function isPLA(venue) {
         return venue.attributes.categories && venue.attributes.categories[0] === 'PARKING_LOT';
     }
+    function getPvaSeverity(pvaValue) {
+        return (pvaValue ==='' || pvaValue === '0' || pvaValue === 'hosp') ? 3 : (pvaValue ==='2') ? 1 : (pvaValue ==='3') ? 2 : 0;
+    }
 
     function runPH() {
         // Script update info
         var WMEPHWhatsNewList = [  // New in this version
+            '1.1.79: Fixed area / point warning when multiple categories are present.',
             '1.1.78: Added yellow "caution" highlights.  Were previously red.',
             '1.1.77: Unlocked PLAs are highlighted with a bold red dotted outline',
             '1.1.75: Fix for Google hyperlinks not showing up after first click on place.',
@@ -2366,7 +2370,7 @@
                     if ($('#WMEPH-ExtProviderSeverity' + devVersStr).prop('checked')) {
                         bannButt.extProviderMissing.severity = 1;
                     }
-                    bannButt.extProviderMissing.active = !currentWL.extProviderMissing;;
+                    bannButt.extProviderMissing.active = !currentWL.extProviderMissing;
                     bannButt.extProviderMissing.WLactive = !currentWL.extProviderMissing;
                 }
 
@@ -3077,18 +3081,22 @@
                     }
                 }
 
+                var isPoint = item.isPoint();
+                var isArea = item.is2D();
+                var maxPointSeverity = 0;
+                var maxAreaSeverity = 0;
 
-                // Area vs. Place checking, Category locking, and category-based messaging
-                var pvaPoint, pvaArea, regPoint, regArea, pc_message, pc_lockTemp, pc_rare, pc_parent;
-                for (iii=0; iii<CH_NAMES.length; iii++) {
-                    if (newCategories.indexOf(CH_NAMES[iii]) === 0 ) {  // Primary category
-                        CH_DATA_Temp = CH_DATA[iii].split("|");
+                for(var ixPlaceCat=0; ixPlaceCat<newCategories.length; ixPlaceCat++) {
+                    var category = newCategories[ixPlaceCat];
+                    var ixPNHCat = CH_NAMES.indexOf(category);
+                    if (ixPNHCat>-1) {
+                        CH_DATA_Temp = CH_DATA[ixPNHCat].split("|");
                         // CH_DATA_headers
                         //pc_point    pc_area    pc_regpoint    pc_regarea    pc_lock1    pc_lock2    pc_lock3    pc_lock4    pc_lock5    pc_rare    pc_parent    pc_message
-                        pvaPoint = CH_DATA_Temp[CH_DATA_headers.indexOf('pc_point')];
-                        pvaArea = CH_DATA_Temp[CH_DATA_headers.indexOf('pc_area')];
-                        regPoint = CH_DATA_Temp[CH_DATA_headers.indexOf('pc_regpoint')].replace(/,[^A-za-z0-9]*/g, ",").split(",");
-                        regArea = CH_DATA_Temp[CH_DATA_headers.indexOf('pc_regarea')].replace(/,[^A-za-z0-9]*/g, ",").split(",");
+                        var pvaPoint = CH_DATA_Temp[CH_DATA_headers.indexOf('pc_point')];
+                        var pvaArea = CH_DATA_Temp[CH_DATA_headers.indexOf('pc_area')];
+                        var regPoint = CH_DATA_Temp[CH_DATA_headers.indexOf('pc_regpoint')].replace(/,[^A-za-z0-9]*/g, ",").split(",");
+                        var regArea = CH_DATA_Temp[CH_DATA_headers.indexOf('pc_regarea')].replace(/,[^A-za-z0-9]*/g, ",").split(",");
                         if (regPoint.indexOf(state2L) > -1 || regPoint.indexOf(region) > -1 || regPoint.indexOf(countryCode) > -1) {
                             pvaPoint = '1';
                             pvaArea = '';
@@ -3096,92 +3104,94 @@
                             pvaPoint = '';
                             pvaArea = '1';
                         }
-                        if (item.isPoint()) {
-                            if (pvaPoint === '' || pvaPoint === '0') {
-                                bannButt.areaNotPoint.active = true;
-                                if (currentWL.areaNotPoint) {
-                                    bannButt.areaNotPoint.WLactive = false;
-                                } else {
-                                    lockOK = false;
-                                }
-                            } else if (pvaPoint === '2') {
-                                bannButt.areaNotPointLow.active = true;
-                                if (currentWL.areaNotPoint) {
-                                    bannButt.areaNotPointLow.WLactive = false;
-                                }
-                            } else if (pvaPoint === '3') {
-                                bannButt.areaNotPointMid.active = true;
-                                if (currentWL.areaNotPoint) {
-                                    bannButt.areaNotPointMid.WLactive = false;
-                                } else {
-                                    lockOK = false;
-                                }
-                            } else if (pvaPoint === 'hosp' && newName.toUpperCase().match(/\bER\b/g) === null && newName.toUpperCase().match(/\bEMERGENCY ROOM\b/g) === null ) {
-                                // hopsitals get flagged high unless ER or Emergency Room in the name
-                                bannButt.areaNotPoint.active = true;
-                                if (currentWL.areaNotPoint) {
-                                    bannButt.areaNotPoint.WLactive = false;
-                                } else {
-                                    lockOK = false;
-                                }
-                            }
-                        } else if (item.is2D()) {
-                            if (pvaArea === '' || pvaArea === '0') {
-                                bannButt.pointNotArea.active = true;
-                                if (currentWL.pointNotArea) {
-                                    bannButt.pointNotArea.WLactive = false;
-                                } else {
-                                    lockOK = false;
-                                }
-                            } else if (pvaArea === '2') {
-                                bannButt.pointNotAreaLow.active = true;
-                                if (currentWL.pointNotArea) {
-                                    bannButt.pointNotAreaLow.WLactive = false;
-                                }
-                            } else if (pvaArea === '3') {
-                                bannButt.pointNotAreaMid.active = true;
-                                if (currentWL.pointNotArea) {
-                                    bannButt.pointNotAreaMid.WLactive = false;
-                                } else {
-                                    lockOK = false;
-                                }
-                            }
+                        var pointSeverity = getPvaSeverity(pvaPoint);
+                        var areaSeverity = getPvaSeverity(pvaArea);
+
+                        if (isPoint && pointSeverity > 0) {
+                            maxPointSeverity = Math.max(pointSeverity, maxPointSeverity);
+                        } else if (isArea && areaSeverity < 3) {
+                            maxAreaSeverity = Math.max(areaSeverity, maxAreaSeverity);
                         }
-                        // display any messaged regarding the category
-                        pc_message = CH_DATA_Temp[CH_DATA_headers.indexOf('pc_message')];
-                        if (pc_message && pc_message !== '0' && pc_message !== '') {
-                            bannButt.pnhCatMess.active = true;
-                            bannButt.pnhCatMess.message = pc_message;
-                        }
-                        // Unmapped categories
-                        pc_rare     = CH_DATA_Temp[CH_DATA_headers.indexOf('pc_rare')].replace(/,[^A-Za-z0-9}]+/g, ",").split(',');
-                        if (pc_rare.indexOf(state2L) > -1 || pc_rare.indexOf(region) > -1 || pc_rare.indexOf(countryCode) > -1) {
-                            bannButt.unmappedRegion.active = true;
-                            if (currentWL.unmappedRegion) {
-                                bannButt.unmappedRegion.WLactive = false;
-                            } else {
-                                lockOK = false;
-                            }
-                        }
-                        // Parent Category
-                        pc_parent     = CH_DATA_Temp[CH_DATA_headers.indexOf('pc_parent')].replace(/,[^A-Za-z0-9}]+/g, ",").split(',');
-                        if (pc_parent.indexOf(state2L) > -1 || pc_parent.indexOf(region) > -1 || pc_parent.indexOf(countryCode) > -1) {
-                            bannButt.parentCategory.active = true;
-                            if (currentWL.parentCategory) {
-                                bannButt.parentCategory.WLactive = false;
-                            }
-                        }
-                        // Set lock level
-                        for (var lockix=1; lockix<6; lockix++) {
-                            pc_lockTemp = CH_DATA_Temp[CH_DATA_headers.indexOf('pc_lock'+lockix)].replace(/,[^A-Za-z0-9}]+/g, ",").split(',');
-                            if (pc_lockTemp.indexOf(state2L) > -1 || pc_lockTemp.indexOf(region) > -1 || pc_lockTemp.indexOf(countryCode) > -1) {
-                                defaultLockLevel = lockix - 1;  // Offset by 1 since lock ranks start at 0
-                                break;
-                            }
-                        }
-                        break;  // If only looking at primary category, then break
                     }
                 }
+
+                if (isPoint) {
+                    if (maxPointSeverity === 3) {
+                        bannButt.areaNotPoint.active = true;
+                        if (currentWL.areaNotPoint) {
+                            bannButt.areaNotPoint.WLactive = false;
+                        } else {
+                            lockOK = false;
+                        }
+                    } else if (maxPointSeverity === 2) {
+                        bannButt.areaNotPointMid.active = true;
+                        if (currentWL.areaNotPoint) {
+                            bannButt.areaNotPointMid.WLactive = false;
+                        } else {
+                            lockOK = false;
+                        }
+                    } else if (maxPointSeverity === 1) {
+                        bannButt.areaNotPointLow.active = true;
+                        if (currentWL.areaNotPoint) {
+                            bannButt.areaNotPointLow.WLactive = false;
+                        }
+                    }
+                } else {
+                    if (maxAreaSeverity === 3) {
+                        bannButt.pointNotArea.active = true;
+                        if (currentWL.pointNotArea) {
+                            bannButt.pointNotArea.WLactive = false;
+                        } else {
+                            lockOK = false;
+                        }
+                    } else if (maxAreaSeverity === 2) {
+                        bannButt.pointNotAreaMid.active = true;
+                        if (currentWL.pointNotArea) {
+                            bannButt.pointNotAreaMid.WLactive = false;
+                        } else {
+                            lockOK = false;
+                        }
+                    } else if (maxAreaSeverity === 1) {
+                        bannButt.areaNotPointLow.active = true;
+                        if (currentWL.pointNotArea) {
+                            bannButt.pointNotAreaLow.WLactive = false;
+                        }
+                    }
+                }
+
+                // display any messaged regarding the category
+                pc_message = CH_DATA_Temp[CH_DATA_headers.indexOf('pc_message')];
+                if (pc_message && pc_message !== '0' && pc_message !== '') {
+                    bannButt.pnhCatMess.active = true;
+                    bannButt.pnhCatMess.message = pc_message;
+                }
+                // Unmapped categories
+                pc_rare     = CH_DATA_Temp[CH_DATA_headers.indexOf('pc_rare')].replace(/,[^A-Za-z0-9}]+/g, ",").split(',');
+                if (pc_rare.indexOf(state2L) > -1 || pc_rare.indexOf(region) > -1 || pc_rare.indexOf(countryCode) > -1) {
+                    bannButt.unmappedRegion.active = true;
+                    if (currentWL.unmappedRegion) {
+                        bannButt.unmappedRegion.WLactive = false;
+                    } else {
+                        lockOK = false;
+                    }
+                }
+                // Parent Category
+                pc_parent     = CH_DATA_Temp[CH_DATA_headers.indexOf('pc_parent')].replace(/,[^A-Za-z0-9}]+/g, ",").split(',');
+                if (pc_parent.indexOf(state2L) > -1 || pc_parent.indexOf(region) > -1 || pc_parent.indexOf(countryCode) > -1) {
+                    bannButt.parentCategory.active = true;
+                    if (currentWL.parentCategory) {
+                        bannButt.parentCategory.WLactive = false;
+                    }
+                }
+                // Set lock level
+                for (var lockix=1; lockix<6; lockix++) {
+                    pc_lockTemp = CH_DATA_Temp[CH_DATA_headers.indexOf('pc_lock'+lockix)].replace(/,[^A-Za-z0-9}]+/g, ",").split(',');
+                    if (pc_lockTemp.indexOf(state2L) > -1 || pc_lockTemp.indexOf(region) > -1 || pc_lockTemp.indexOf(countryCode) > -1) {
+                        defaultLockLevel = lockix - 1;  // Offset by 1 since lock ranks start at 0
+                        break;
+                    }
+                }
+
 
                 var anpNone = collegeAbbreviations.split('|'), anpNoneRE;
                 for (var cii=0; cii<anpNone.length; cii++) {
