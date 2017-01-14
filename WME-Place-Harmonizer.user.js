@@ -12,7 +12,7 @@
 // ==UserScript==
 // @name        WME Place Harmonizer Beta
 // @namespace   https://github.com/WazeUSA/WME-Place-Harmonizer/raw/master/WME-Place-Harmonizer.user.js
-// @version     1.1.76
+// @version     1.1.77
 // @description Harmonizes, formats, and locks a selected place
 // @author      WMEPH development group
 // @include     /^https:\/\/(www|beta)\.waze\.com\/(?!user\/)(.{2,6}\/)?editor\/.*$/
@@ -251,9 +251,14 @@
         }
     }
 
+    function isPLA(venue) {
+        return venue.attributes.categories && venue.attributes.categories[0] === 'PARKING_LOT';
+    }
+
     function runPH() {
         // Script update info
         var WMEPHWhatsNewList = [  // New in this version
+            '1.1.77: Unlocked PLAs are highlighted with a bold red dotted outline',
             '1.1.75: Fix for Google hyperlinks not showing up after first click on place.',
             '1.1.74: Keep hours input visible at all times.',
             '1.1.73: Place Website button added when URL is added.',
@@ -479,38 +484,20 @@
                 'strokeDashstyle': '7 2',
                 'strokeWidth': '5'
             });
-            if (thisUser.userName === 'bmtg') {
-                severityLock = ruleGenerator('lock', {
-                    'pointRadius': '8',
-                    'strokeColor': '#24ff14',
-                    'strokeLinecap': '1',
-                    'strokeDashstyle': '7 2',
-                    'strokeWidth': '11'
-                });
-            }
 
             var severity1 = ruleGenerator(1, {
-                'strokeColor': '#0099ff',
+                'strokeColor': '#0055ff',
                 'strokeWidth': '4',
                 'pointRadius': '7'
             });
 
             var severityLock1 = ruleGenerator('lock1', {
                 'pointRadius': '5',
-                'strokeColor': '#0099ff',
+                'strokeColor': '#0055ff',
                 'strokeLinecap': '1',
                 'strokeDashstyle': '7 2',
                 'strokeWidth': '5'
             });
-            if (thisUser.userName === 'bmtg') {
-                severityLock1 = ruleGenerator('lock1', {
-                    'pointRadius': '8',
-                    'strokeColor': '#0099ff',
-                    'strokeLinecap': '1',
-                    'strokeDashstyle': '7 2',
-                    'strokeWidth': '11'
-                });
-            }
 
             var severity2 = ruleGenerator(2, {
                 'strokeColor': '#ff0000',
@@ -553,8 +540,6 @@
                 'strokeDashstyle': '4 2'
             });
 
-
-
             Array.prototype.push.apply(layer.styleMap.styles['default'].rules, [severity0, severityLock, severity1, severityLock1, severity2, severity3, severity4, severityHigh, severityAdLock]);
             // to make Google Script linter happy ^^^ Array.prototype.push.apply(layer.styleMap.styles.default.rules, [severity0, severityLock, severity1, severity2, severity3, severity4, severityHigh]);
             /* Can apply to normal view or selection/highlight views as well.
@@ -583,7 +568,7 @@
                         try {
                             venue.attributes.wmephSeverity = harmonizePlaceGo(venue,'highlight');
                         } catch (err) {
-                            phlogdev("getCentroid error occurred.");
+                            phlogdev("highlight error: ",err);
                         }
                     } else {
                         venue.attributes.wmephSeverity = 'default';
@@ -902,6 +887,12 @@
             if ( useFlag.indexOf('scan') > -1 ) {
                 hpMode.scanFlag = true;
             }
+
+            // If it's an unlocked parking lot, return with severity 4.
+            if (hpMode.hlFlag && isPLA(item) && item.attributes.lockRank < 2) {
+                return 4;
+            }
+
             var placePL = getItemPL();  //  set up external post div and pull place PL
             // https://www.waze.com/editor/?env=usa&lon=-80.60757&lat=28.17850&layers=1957&zoom=4&segments=86124344&update_requestsFilter=false&problemsFilter=false&mapProblemFilter=0&mapUpdateRequestFilter=0&venueFilter=1
             placePL = placePL.replace(/\&layers=[^\&]+(\&?)/g, '$1');  // remove Permalink Layers
@@ -2369,7 +2360,7 @@
                 }
             } else if (item.attributes.categories[0] === 'PARKING_LOT' || (newName && newName.trim().length > 0)) {  // for non-residential places
                 var provIDs = item.attributes.externalProviderIDs;
-                if (usrRank > 2 && (!provIDs || provIDs.length === 0) ) {
+                if (usrRank >= 3 && (!provIDs || provIDs.length === 0) ) {
                     if ($('#WMEPH-ExtProviderSeverity' + devVersStr).prop('checked')) {
                         bannButt.extProviderMissing.severity = 1;
                     }
@@ -3655,7 +3646,7 @@
 
             // RPP Locking option for R3+
             if (item.attributes.residential) {
-                if (devUser || betaUser || usrRank > 2) {  // Allow residential point locking by R3+
+                if (devUser || betaUser || usrRank >= 3) {  // Allow residential point locking by R3+
                     RPPLockString = 'Lock at <select id="RPPLockLevel">';
                     var ddlSelected = false;
                     for (var llix=1; llix<6; llix++) {
@@ -5108,10 +5099,6 @@
                 itemCompAddr = true;
             }
 
-            function isPLA(venue) {
-                return venue.attributes.categories && venue.attributes.categories[0] === 'PARKING_LOT';
-            }
-
             for (var venix in venueList) {  // for each place on the map:
                 if (venueList.hasOwnProperty(venix)) {  // hOP filter
                     numVenues++;
@@ -5697,10 +5684,10 @@
             createSettingsCheckbox("sidepanel-harmonizer" + devVersStr, "WMEPH-EnableIAZoom" + devVersStr,"Enable zoom & center for places with no address");
             createSettingsCheckbox("sidepanel-harmonizer" + devVersStr, "WMEPH-HidePlacesWiki" + devVersStr,"Hide 'Places Wiki' button in results banner");
             createSettingsCheckbox("sidepanel-harmonizer" + devVersStr, "WMEPH-ExcludePLADupes" + devVersStr,"Exclude parking lots when searching for duplicate places.");
-            if (devUser || betaUser || usrRank > 1) {
+            if (devUser || betaUser || usrRank >= 2) {
                 createSettingsCheckbox("sidepanel-harmonizer" + devVersStr, "WMEPH-EnableServices" + devVersStr,"Enable automatic addition of common services");
             }
-            if (devUser || betaUser || usrRank > 2) {
+            if (devUser || betaUser || usrRank >= 2) {
                 createSettingsCheckbox("sidepanel-harmonizer" + devVersStr, "WMEPH-ConvenienceStoreToGasStations" + devVersStr,'Automatically add "Convenience Store" category to gas stations');
                 createSettingsCheckbox("sidepanel-harmonizer" + devVersStr, "WMEPH-AddAddresses" + devVersStr,"Add detected address fields to places with no address");
                 createSettingsCheckbox("sidepanel-harmonizer" + devVersStr, "WMEPH-EnableCloneMode" + devVersStr,"Enable place cloning tools");
@@ -5720,7 +5707,7 @@
             createSettingsCheckbox("sidepanel-highlighter" + devVersStr, "WMEPH-DisableHoursHL" + devVersStr,"Disable highlighting for missing hours");
             createSettingsCheckbox("sidepanel-highlighter" + devVersStr, "WMEPH-DisableRankHL" + devVersStr,"Disable highlighting for places locked above your rank");
             createSettingsCheckbox("sidepanel-highlighter" + devVersStr, "WMEPH-DisableWLHL" + devVersStr,"Disable Whitelist highlighting (shows all missing info regardless of WL)");
-            if (devUser || betaUser || usrRank > 2) {
+            if (devUser || betaUser || usrRank >= 3) {
                 //createSettingsCheckbox("sidepanel-highlighter" + devVersStr, "WMEPH-UnlockedRPPs" + devVersStr,"Highlight unlocked residential place points");
             }
             var phHRContentHtml = '<hr align="center" width="90%">';
@@ -6586,12 +6573,9 @@
             }
         };  // END Shortcut function
 
-        function phlogdev(m) {
-            if ('object' === typeof m) {
-                m = JSON.stringify(m);
-            }
+        function phlogdev(msg, obj) {
             if (devUser) {
-                console.log('WMEPH' + devVersStrDash + ': ' + m);
+                console.log('WMEPH' + devVersStrDash + ': ' + msg, obj);
             }
         }
     } // END runPH Function
