@@ -13,7 +13,7 @@
 // ==UserScript==
 // @name        WME Place Harmonizer Beta
 // @namespace   https://github.com/WazeUSA/WME-Place-Harmonizer/raw/master/WME-Place-Harmonizer.user.js
-// @version     1.1.79-pt-vs-area.2
+// @version     1.1.79
 // @description Harmonizes, formats, and locks a selected place
 // @author      WMEPH development group
 // @include     /^https:\/\/(www|beta)\.waze\.com\/(?!user\/)(.{2,6}\/)?editor\/.*$/
@@ -3084,7 +3084,7 @@
                 var isPoint = item.isPoint();
                 var isArea = item.is2D();
                 var maxPointSeverity = 0;
-                var maxAreaSeverity = 0;
+                var maxAreaSeverity = 3;
 
                 for(var ixPlaceCat=0; ixPlaceCat<newCategories.length; ixPlaceCat++) {
                     var category = newCategories[ixPlaceCat];
@@ -3109,8 +3109,8 @@
 
                         if (isPoint && pointSeverity > 0) {
                             maxPointSeverity = Math.max(pointSeverity, maxPointSeverity);
-                        } else if (isArea && areaSeverity > 0) {
-                            maxAreaSeverity = Math.max(areaSeverity, maxAreaSeverity);
+                        } else if (isArea) {
+                            maxAreaSeverity = Math.min(areaSeverity, maxAreaSeverity);
                         }
                     }
                 }
