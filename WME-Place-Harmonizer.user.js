@@ -77,36 +77,26 @@
         '1.1: Built-in place highlighter shows which places on the map need work'
     ];
     var USE_NEW_GOOGLE_SHEETS = true;
-    var NEW_SHEET_DATA = JSON.parse(GM_getResourceText("newSheetData"));
-    var WMEPH_DEV_LIST; //= NEW_SHEET_DATA["devList"];
-    var WMEPH_BETA_LIST; //= NEW_SHEET_DATA["betaList"];
+    var NEW_SHEET_DATA,
+        WMEPH_DEV_LIST,
+        WMEPH_BETA_LIST,
     // Category Name Checking
-    var NON_HOSPITAL_PART_MATCH = [],
-        NON_HOSPITAL_FULL_MATCH = [],
-        ANIMAL_PART_MATCH = [],
-        ANIMAL_FULL_MATCH = [],
-        SCHOOL_PART_MATCH = [],
-        SCHOOL_FULL_MATCH = [];
-    if (USE_NEW_GOOGLE_SHEETS) {
-        WMEPH_DEV_LIST = NEW_SHEET_DATA["devList"];
-        WMEPH_BETA_LIST = NEW_SHEET_DATA["betaList"];
-        NON_HOSPITAL_PART_MATCH = NEW_SHEET_DATA['hmchp'],
-        NON_HOSPITAL_FULL_MATCH = NEW_SHEET_DATA['hmchf'],
-        ANIMAL_PART_MATCH = NEW_SHEET_DATA['hmcap'],
-        ANIMAL_FULL_MATCH = NEW_SHEET_DATA['hmcaf'],
-        SCHOOL_PART_MATCH = NEW_SHEET_DATA['schp'],
-        SCHOOL_FULL_MATCH = NEW_SHEET_DATA['schf'];
-    }
+        NON_HOSPITAL_PART_MATCH,
+        NON_HOSPITAL_FULL_MATCH,
+        ANIMAL_PART_MATCH,
+        ANIMAL_FULL_MATCH,
+        SCHOOL_PART_MATCH,
+        SCHOOL_FULL_MATCH;
 
     ///////////////
     // Variables //
     ///////////////
 
-    var WMEPHversion = GM_info.script.version.toString();           // Pull version from header
-    var WMEPHversionMeta = WMEPHversion.match(/(\d+\.\d+)/i)[1];    // Get the X.X version number
-    var majorNewFeature = false;                                    // Set to true to make an alert pop up after script update with new feature
-    var scriptName = GM_info.script.name.toString();
-    var isDevVersion = (scriptName.match(/Beta/i) !== null);        // Enables dev messages and unique DOM options if the script is called "... Beta"
+    var WMEPH_VERSION_LONG = GM_info.script.version.toString();             // Pull version from header
+    var WMEPH_VERSION_MAJOR = WMEPH_VERSION_LONG.match(/(\d+\.\d+)/i)[1];   // Get the X.X version number
+    var NEW_MAJOR_FEATURE = false;                                          // Set to true to make an alert pop up after script update with new feature
+    var SCRIPT_NAME = GM_info.script.name.toString();
+    var IS_DEV_VERSION = (SCRIPT_NAME.match(/Beta/i) !== null);             // Enables dev messages and unique DOM options if the script is called "... Beta"
     // Userlists
     var betaUser, devUser;
 
@@ -184,7 +174,25 @@
     // Database Load Functions //
     /////////////////////////////
     function loadExternalData() {
-        if (!USE_NEW_GOOGLE_SHEETS) {
+        if (USE_NEW_GOOGLE_SHEETS) {
+            $.ajax({
+                type: 'GET',
+                url: 'https://raw.githubusercontent.com/WMEPH-Harmony/WMEPH-Test/dev/a.json',
+                jsonp: 'callback',
+                dataType: 'json',
+                success: function(response) {
+                    NEW_SHEET_DATA = response;
+                    WMEPH_DEV_LIST = NEW_SHEET_DATA["devList"];
+                    WMEPH_BETA_LIST = NEW_SHEET_DATA["betaList"];
+                    NON_HOSPITAL_PART_MATCH = NEW_SHEET_DATA['hmchp'],
+                    NON_HOSPITAL_FULL_MATCH = NEW_SHEET_DATA['hmchf'],
+                    ANIMAL_PART_MATCH = NEW_SHEET_DATA['hmcap'],
+                    ANIMAL_FULL_MATCH = NEW_SHEET_DATA['hmcaf'],
+                    SCHOOL_PART_MATCH = NEW_SHEET_DATA['schp'],
+                    SCHOOL_FULL_MATCH = NEW_SHEET_DATA['schf'];
+                }
+            });
+        } else {
             // Pull name-category lists
             $.ajax({
                 type: 'GET',
@@ -559,7 +567,7 @@
     var devVersStringMaster = "Beta";
     var dataReadyCounter = 0;
     var betaDataDelay = 10;
-    if (isDevVersion) {
+    if (IS_DEV_VERSION) {
         devVersStr = devVersStringMaster; devVersStrSpace = " " + devVersStr; devVersStrDash = "-" + devVersStr;
         betaDataDelay = 20;
     }
@@ -600,8 +608,8 @@
         var WMEPHWhatsNewMeta = WHATS_NEW_META_LIST.join(newSep);
         var WMEPHWhatsNewHList = WHATS_NEW_LIST.join(listSep);
         var WMEPHWhatsNewMetaHList = WHATS_NEW_META_LIST.join(listSep);
-        WMEPHWhatsNew = 'WMEPH v. ' + WMEPHversion + '\nUpdates:' + newSep + WMEPHWhatsNew;
-        WMEPHWhatsNewMeta = 'WMEPH v. ' + WMEPHversionMeta + '\nMajor features:' + newSep + WMEPHWhatsNewMeta;
+        WMEPHWhatsNew = 'WMEPH v. ' + WMEPH_VERSION_LONG + '\nUpdates:' + newSep + WMEPHWhatsNew;
+        WMEPHWhatsNewMeta = 'WMEPH v. ' + WMEPH_VERSION_MAJOR + '\nMajor features:' + newSep + WMEPHWhatsNewMeta;
         if ( localStorage.getItem('WMEPH-featuresExamined'+devVersStr) === null ) {
             localStorage.setItem('WMEPH-featuresExamined'+devVersStr, '0');  // Storage for whether the User has pressed the button to look at updates
         }
@@ -635,28 +643,28 @@
         var currentWL = {};
 
         // If the editor installs for the 1st time, alert with the new elements
-        if ( localStorage.getItem('WMEPHversionMeta'+devVersStr) === null ) {
+        if ( localStorage.getItem('WMEPH_VERSION_MAJOR'+devVersStr) === null ) {
             alert(WMEPHWhatsNewMeta);
-            localStorage.setItem('WMEPHversionMeta'+devVersStr, WMEPHversionMeta);
-            localStorage.setItem('WMEPHversion'+devVersStr, WMEPHversion);
+            localStorage.setItem('WMEPH_VERSION_MAJOR'+devVersStr, WMEPH_VERSION_MAJOR);
+            localStorage.setItem('WMEPH_VERSION_LONG'+devVersStr, WMEPH_VERSION_LONG);
             localStorage.setItem(GLinkWarning, '0');  // Reset warnings
             localStorage.setItem(SFURLWarning, '0');
             localStorage.setItem('WMEPH-featuresExamined'+devVersStr, '1');  // disable the button
-        } else if (localStorage.getItem('WMEPHversionMeta'+devVersStr) !== WMEPHversionMeta) { // If the editor installs a newer MAJOR version, alert with the new elements
+        } else if (localStorage.getItem('WMEPH_VERSION_MAJOR'+devVersStr) !== WMEPH_VERSION_MAJOR) { // If the editor installs a newer MAJOR version, alert with the new elements
             alert(WMEPHWhatsNewMeta);
-            localStorage.setItem('WMEPHversionMeta'+devVersStr, WMEPHversionMeta);
-            localStorage.setItem('WMEPHversion'+devVersStr, WMEPHversion);
+            localStorage.setItem('WMEPH_VERSION_MAJOR'+devVersStr, WMEPH_VERSION_MAJOR);
+            localStorage.setItem('WMEPH_VERSION_LONG'+devVersStr, WMEPH_VERSION_LONG);
             localStorage.setItem(GLinkWarning, '0');  // Reset warnings
             localStorage.setItem(SFURLWarning, '0');
             localStorage.setItem('WMEPH-featuresExamined'+devVersStr, '1');  // disable the button
-        } else if (localStorage.getItem('WMEPHversion'+devVersStr) !== WMEPHversion) {  // If MINOR version....
-            if (majorNewFeature) {  //  with major feature update, then alert
+        } else if (localStorage.getItem('WMEPH_VERSION_LONG'+devVersStr) !== WMEPH_VERSION_LONG) {  // If MINOR version....
+            if (NEW_MAJOR_FEATURE) {  //  with major feature update, then alert
                 alert(WMEPHWhatsNew);
                 localStorage.setItem('WMEPH-featuresExamined'+devVersStr, '1');  // disable the button
             } else {  //  if not major feature update, then keep the button
                 localStorage.setItem('WMEPH-featuresExamined'+devVersStr, '0');
             }
-            localStorage.setItem('WMEPHversion'+devVersStr, WMEPHversion);  // store last installed version in localstorage
+            localStorage.setItem('WMEPH_VERSION_LONG'+devVersStr, WMEPH_VERSION_LONG);  // store last installed version in localstorage
         }
         if (localStorage.getItem('WMEPH-plaNameWLWarning'+devVersStr) === null) {
             localStorage.setItem('WMEPH-plaNameWLWarning'+devVersStr, '1');
@@ -716,7 +724,7 @@
         //var betaUser, devUser;
         if (WMEPH_BETA_LIST.length === 0 || "undefined" === typeof WMEPH_BETA_LIST) {
             debug('WMEPH_BETA_LIST logic failure.');
-            if (isDevVersion) {
+            if (IS_DEV_VERSION) {
                 alert('Beta user list access issue.  Please post in the GHO or PM/DM t0cableguy about this message.  Script should still work.');
             }
             betaUser = false;
@@ -1164,7 +1172,7 @@
                 return;
             }
             // Beta version for approved users only
-            if (isDevVersion && !betaUser) {
+            if (IS_DEV_VERSION && !betaUser) {
                 alert("Please sign up to beta-test this script version.\nSend a PM or Slack-DM to t0cableguy or Tonestertm, or post in the WMEPH forum thread. Thanks.");
                 return;
             }
@@ -2187,7 +2195,7 @@
                     action: function() {
                         var forumMsgInputs = {
                             subject: 'WMEPH Bug report: Scrpt Error',
-                            message: 'Script version: ' + WMEPHversion + devVersStr + '\nPermalink: ' + placePL + '\nPlace name: ' + item.attributes.name + '\nCountry: ' + addr.country.name + '\n--------\nDescribe the error:  \n '
+                            message: 'Script version: ' + WMEPH_VERSION_LONG + devVersStr + '\nPermalink: ' + placePL + '\nPlace name: ' + item.attributes.name + '\nCountry: ' + addr.country.name + '\n--------\nDescribe the error:  \n '
                         };
                         WMEPH_errorReport(forumMsgInputs);
                     }
@@ -4101,7 +4109,7 @@
                         if (confirm('WMEPH: Dupefinder Error!\nClick OK to report this') ) {  // if the category doesn't translate, then pop an alert that will make a forum post to the thread
                             forumMsgInputs = {
                                 subject: 'WMEPH Bug report DupeID',
-                                message: 'Script version: ' + WMEPHversion + devVersStr + '\nPermalink: ' + placePL + '\nPlace name: ' + item.attributes.name + '\nCountry: ' + addr.country.name + '\n--------\nDescribe the error:\nDupeID mismatch with dupeName list'
+                                message: 'Script version: ' + WMEPH_VERSION_LONG + devVersStr + '\nPermalink: ' + placePL + '\nPlace name: ' + item.attributes.name + '\nCountry: ' + addr.country.name + '\n--------\nDescribe the error:\nDupeID mismatch with dupeName list'
                             };
                             WMEPH_errorReport(forumMsgInputs);
                         }
@@ -4431,7 +4439,7 @@
             }
 
             // Add banner indicating that it's the beta version
-            if (isDevVersion) {
+            if (IS_DEV_VERSION) {
                 sidebarTools.push('WMEPH Beta');
             }
 
@@ -4663,7 +4671,7 @@
         function displayRunButton() {
             debug('-- displayRunButton() called --');
             var betaDelay = 0;
-            if (isDevVersion) { betaDelay = 30; }
+            if (IS_DEV_VERSION) { betaDelay = 30; }
             setTimeout(function() {
                 if ($('#WMEPH_runButton').length === 0 ) {
                     $('<div id="WMEPH_runButton">').css({"padding-bottom": "6px", "padding-top": "3px", "width": "290", "background-color": "#FFF", "color": "black", "font-size": "15px", "font-weight": "bold", "margin-left": "auto", "margin-right": "auto"}).prependTo(".contents");
@@ -4693,7 +4701,7 @@
         function displayCloneButton() {
             debug('-- displayCloneButton() called --');
             var betaDelay = 80;
-            if (isDevVersion) { betaDelay = 300; }
+            if (IS_DEV_VERSION) { betaDelay = 300; }
             setTimeout(function() {
                 if ($('#WMEPH_runButton').length === 0 ) {
                     $('<div id="WMEPH_runButton">').css({"padding-bottom": "6px", "padding-top": "3px", "width": "290", "background-color": "#FFF", "color": "black", "font-size": "15px", "font-weight": "bold", "margin-left": "auto", "margin-right": "auto"}).prependTo(".contents");
@@ -6014,7 +6022,7 @@
 
             //Create Settings Tab Content
             var phContentHtml = '<div class="tab-pane" id="sidepanel-ph' + devVersStr + '"><div id="PlaceHarmonizer' + devVersStr + '">WMEPH' +
-                devVersStrSpace + ' v. ' + WMEPHversion + '</div></div>';
+                devVersStrSpace + ' v. ' + WMEPH_VERSION_LONG + '</div></div>';
             $("#user-info div.tab-content:first").append(phContentHtml);
 
             var c = '<div id="wmephtab" class="active" style="padding-top: 5px;">' +
@@ -6081,7 +6089,7 @@
 
             // User pref for KB Shortcut:
             // Set defaults
-            if (isDevVersion) {
+            if (IS_DEV_VERSION) {
                 if (thisUser.userName.toLowerCase() === 't0cableguy') {
                     defaultKBShortcut = 'p';
                 } else {
@@ -6112,7 +6120,7 @@
             shortcutParse = parseKBSShift($('#WMEPH-KeyboardShortcut'+devVersStr).val());
             // Check for KBS conflict on Beta script load
             /* NOTE: We are probably going to remove this because we are removing side-by-side support for Prod and Beta
-            if (isDevVersion) {
+            if (IS_DEV_VERSION) {
                 if (checkWMEPH_KBSconflict(shortcutParse)) {
                     alert('You have the same shortcut for the Beta version and the Production version of the script. The Beta version is disabled until you change the Beta shortcut');
                 } else {
@@ -6370,7 +6378,7 @@
             var phContentHtml2 = '<hr align="center" width="95%"><p><a href="' +
                 placesWikiURL + '" target="_blank" title="'+placesWikiStr+'">'+placesWikiStr+'</a><p><a href="' +
                 WMEPHurl + '" target="_blank" title="'+feedbackString+'">'+feedbackString+'</a></p><hr align="center" width="95%">Major features for v. ' +
-                WMEPHversionMeta+':<ul><li>'+WMEPHWhatsNewMetaHList+'</ul>Recent updates:<ul><li>'+WMEPHWhatsNewHList+'</ul>';
+                WMEPH_VERSION_MAJOR+':<ul><li>'+WMEPHWhatsNewMetaHList+'</ul>Recent updates:<ul><li>'+WMEPHWhatsNewHList+'</ul>';
             $("#sidepanel-harmonizer" + devVersStr).append(phContentHtml2);
 
             W.map.events.register("mousemove", W.map, function (e) {
@@ -6471,7 +6479,7 @@
         function checkWMEPH_KBSconflict(KBS) {
             debug('-- checkWMEPH_KBSconflict(KBS) called --');
             var LSString = '';
-            if (!isDevVersion) {
+            if (!IS_DEV_VERSION) {
                 LSString = devVersStringMaster;
             }
             if ( localStorage.getItem('WMEPH-KeyboardShortcut'+LSString) === null || localStorage.getItem('WMEPH-KBSModifierKey'+LSString) === null ) {
