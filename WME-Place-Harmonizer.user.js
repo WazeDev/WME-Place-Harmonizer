@@ -130,7 +130,7 @@
         setTimeout(function() {
             $.ajax({
                 type: 'GET',
-                url: 'https://spreadsheets.google.com/feeds/list/1pDmenZA-3FOTvhlCq9yz1dnemTmS9l_njZQbu_jLVMI/public/values',
+                url: 'https://spreadsheets.google.com/feeds/list/1pDmenZA-3FOTvhlCq9yz1dnemTmS9l_njZQbu_jLVMI/op17piq/public/values',
                 jsonp: 'callback', data: { alt: 'json-in-script' }, dataType: 'jsonp',
                 success: function(response) {
                     hospitalPartMatch = response.feed.entry[0].gsx$hmchp.$t;
