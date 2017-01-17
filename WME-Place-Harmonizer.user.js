@@ -18,14 +18,12 @@
 // @author      WMEPH development group
 // @include     /^https:\/\/(www|beta)\.waze\.com\/(?!user\/)(.{2,6}\/)?editor\/.*$/
 // @require     https://raw.githubusercontent.com/WazeUSA/WME-Place-Harmonizer/Beta/jquery-ui-1.11.4.custom.min.js
-// @resource    newSheetData    https://raw.githubusercontent.com/WMEPH-Harmony/WMEPH-Test/dev/a.json
 // @resource    jqUI_CSS        https://ajax.googleapis.com/ajax/libs/jqueryui/1.11.4/themes/smoothness/jquery-ui.css
 // @grant       GM_addStyle
 // @grant       GM_getResourceText
 // ==/UserScript==
 
 
-// NOTE: Only reason to keep this anonymous function wrapper is for Opera compatibility.
 (function () {
     "use strict";
     var jqUI_CssSrc = GM_getResourceText("jqUI_CSS");
@@ -76,6 +74,18 @@
     var WHATS_NEW_META_LIST = [  // New in this major version
         '1.1: Built-in place highlighter shows which places on the map need work'
     ];
+    // Script Name, Version, Meta info
+    var WMEPH_VERSION_LONG = GM_info.script.version.toString(),             // Pull version from header
+        WMEPH_VERSION_MAJOR = WMEPH_VERSION_LONG.match(/(\d+\.\d+)/i)[1],   // Get the X.X version number
+        NEW_MAJOR_FEATURE = false,                                          // Set to true to make an alert pop up after script update with new feature
+        SCRIPT_NAME = GM_info.script.name.toString(),
+        IS_DEV_VERSION = (SCRIPT_NAME.match(/Beta/i) !== null);             // Enables dev messages and unique DOM options if the script is called "... Beta"
+    // Important Links
+    var WMEPH_FORUM_URL     = 'https://www.waze.com/forum/posting.php?mode=reply&f=819&t=164962',   // WMEPH Forum thread URL
+        USA_PNH_MASTER_URL  = 'https://docs.google.com/spreadsheets/d/1-f-JTWY5UnBx-rFTa4qhyGMYdHBZWNirUTOgn222zMY/edit#gid=0',  // Master USA PNH link
+        PLACES_WIKI_URL     = 'https://wiki.waze.com/wiki/Places',                                  // WME Places wiki
+        RESTAREA_WIKI_URL   = 'https://wiki.waze.com/wiki/Rest_areas#Adding_a_Place';               // WME Places wiki
+    // Cutover to new google sheets
     var USE_NEW_GOOGLE_SHEETS = true;
     var NEW_SHEET_DATA,
         WMEPH_DEV_LIST,
@@ -86,17 +96,48 @@
         ANIMAL_PART_MATCH,
         ANIMAL_FULL_MATCH,
         SCHOOL_PART_MATCH,
-        SCHOOL_FULL_MATCH;
+        SCHOOL_FULL_MATCH,
+    // Categories and Services
+        NA_CAT_DATA;
+    // Bit mapping regions
+    // NOTE: I might not need this once the cutover to the new sheets is complete.
+    // NOTE: At least, the goal is NOT to have this in WMEPH.
+    var TWO_PWR_15_DBL = 1 << 15;
+    var TWO_PWR_30_DBL = TWO_PWR_15_DBL * TWO_PWR_15_DBL;
+    var NA_PROVINCES    = [ 'AB','AK','AL','AR','AS','AZ','BC','CA','CO','CT',
+                            'DC','DE','FL','FM','GA','GU','HI','IA','ID','IL',
+                            'IN','KS','KY','LA','MA','MB','MD','ME','MH','MI',
+                            'MN','MO','MP','MS','MT','NB','NC','ND','NE','NH',
+                            'NJ','NL','NM','NS','NV','NY','OH','OK','ON','OR',
+                            'PA','PE','PR','PW','QC','RI','SC','SD','SK','TN',
+                            'TX','UT','VA','VI','VT','WA','WI','WV','WY' ];
+    var NA_REGIONS      = { 'ATR' : [ 'AS','GU','MP','PR','VI' ],
+                            'CAN' : [ 'AB','BC','MB','NB','NL','NS','ON','PE','QC','SK' ],
+                            'GLR' : [ 'IL','IN','MI','OH','WI' ],
+                            'MAR' : [ 'DC','MD','VA','WV' ],
+                            'NER' : [ 'CT','ME','MA','NH','VT','RI' ],
+                            'NOR' : [ 'DE','NY','NJ','PA' ],
+                            'NWR' : [ 'WA','OR','ID','MT','WY','AK' ],
+                            'PLN' : [ 'IA','KS','MN','MO','NE','ND','SD' ],
+                            'SAT' : [ 'KY','NC','SC','TN' ],
+                            'SCR' : [ 'AR','LA','MS','OK','TX' ],
+                            'SER' : [ 'FL','AL','GA' ],
+                            'SWR' : [ 'CA','NV','UT','AZ','NM','CO','HI' ],
+                            'USA' : [ 'AK','AL','AR','AS','AZ','CA','CO','CT','DC','DE',
+                                      'FL','FM','GA','GU','HI','IA','ID','IL','IN','KS',
+                                      'KY','LA','MA','MD','ME','MH','MI','MN','MO','MP',
+                                      'MS','MT','NC','ND','NE','NH','NJ','NM','NV','NY',
+                                      'OH','OK','OR','PA','PR','PW','RI','SC','SD','TN',
+                                      'TX','UT','VA','VI','VT','WA','WI','WY','WV' ] };
+    var NA_REGION_LIST = [].concat(NA_PROVINCES, Object.keys(NA_REGIONS));
+    var NA_REGION_MAP = makeRegionMap(NA_PROVINCES, NA_REGIONS);
+
+
 
     ///////////////
     // Variables //
     ///////////////
 
-    var WMEPH_VERSION_LONG = GM_info.script.version.toString();             // Pull version from header
-    var WMEPH_VERSION_MAJOR = WMEPH_VERSION_LONG.match(/(\d+\.\d+)/i)[1];   // Get the X.X version number
-    var NEW_MAJOR_FEATURE = false;                                          // Set to true to make an alert pop up after script update with new feature
-    var SCRIPT_NAME = GM_info.script.name.toString();
-    var IS_DEV_VERSION = (SCRIPT_NAME.match(/Beta/i) !== null);             // Enables dev messages and unique DOM options if the script is called "... Beta"
     // Userlists
     var betaUser, devUser;
 
@@ -169,6 +210,55 @@
         }
     }
 
+    // Creates the NA_REGION_MAP object needed to translate codes to bits
+    function makeRegionMap(provs, regs) {
+        var map = {};
+
+        // First, bitmap all of the states/provinces
+        for (var i = 0, len = provs.length; i < len; i++) {
+            var high = Math.floor(Math.pow(2,i) / TWO_PWR_30_DBL / TWO_PWR_30_DBL) % TWO_PWR_30_DBL;
+            var med = Math.floor(Math.pow(2,i) / TWO_PWR_30_DBL) % TWO_PWR_30_DBL;
+            var low = Math.floor(Math.pow(2,i)) % TWO_PWR_30_DBL;
+            map[provs[i]] = { 'high': high, 'med': med, 'low': low };
+        }
+
+        // Then, add regional bitmappings
+        for (var reg in regs) {
+            var high = 0;
+            var med = 0;
+            var low = 0;
+            for (var i = 0, len = regs[reg].length; i < len; i++) {
+                high = high | map[regs[reg][i]]['high'];
+                med = med | map[regs[reg][i]]['med'];
+                low = low | map[regs[reg][i]]['low'];
+            }
+            map[reg] = { 'high': high, 'med': med, 'low': low };
+        }
+
+        return map;
+    }
+
+    // Takes a CSV string of regions and converts it to a bit mapping.
+    function convertRegionsToBits(str) {
+        var x = {};
+        if (typeof(str) === "undefined") { debug('undefined passed to convertRegionsToBits()'); return x; }
+        if (str === "") { return x; }
+        var matches = str.match(/[A-Z]{2,3}/g);
+        if (matches === null) { return x; }
+        var high = 0;
+        var med = 0;
+        var low = 0;
+        for (var i = 0, len = matches.length; i < len; i++) {
+            if (typeof(NA_REGION_MAP[matches[i]]) !== "undefined") {
+                high = high | NA_REGION_MAP[matches[i]]['high'];
+                med = med | NA_REGION_MAP[matches[i]]['med'];
+                low = low | NA_REGION_MAP[matches[i]]['low'];
+            }
+        }
+        x = { 'high': high, 'med': med, 'low': low };
+        return x;
+    }
+
 
     /////////////////////////////
     // Database Load Functions //
@@ -182,14 +272,16 @@
                 dataType: 'json',
                 success: function(response) {
                     NEW_SHEET_DATA = response;
-                    WMEPH_DEV_LIST = NEW_SHEET_DATA["devList"];
-                    WMEPH_BETA_LIST = NEW_SHEET_DATA["betaList"];
+                    WMEPH_DEV_LIST = NEW_SHEET_DATA["devList"],
+                    WMEPH_BETA_LIST = NEW_SHEET_DATA["betaList"],
                     NON_HOSPITAL_PART_MATCH = NEW_SHEET_DATA['hmchp'],
                     NON_HOSPITAL_FULL_MATCH = NEW_SHEET_DATA['hmchf'],
                     ANIMAL_PART_MATCH = NEW_SHEET_DATA['hmcap'],
                     ANIMAL_FULL_MATCH = NEW_SHEET_DATA['hmcaf'],
                     SCHOOL_PART_MATCH = NEW_SHEET_DATA['schp'],
                     SCHOOL_FULL_MATCH = NEW_SHEET_DATA['schf'];
+                    // NOTE: Old var name was USA_CH_NAMES
+                    //NA_CAT_DATA = NEW_SHEET_DATA['catList'];
                 }
             });
         } else {
@@ -233,7 +325,132 @@
                     }
                 }
             });
+
         }
+            // Pull Category Data ( Includes CAN for now )
+            $.ajax({
+                type: 'GET',
+                url: 'https://spreadsheets.google.com/feeds/list/1-f-JTWY5UnBx-rFTa4qhyGMYdHBZWNirUTOgn222zMY/ov3dubz/public/values',
+                jsonp: 'callback', data: { alt: 'json-in-script' }, dataType: 'jsonp',
+                success: function(response) {
+                    // NOTE: Don't worry, this horrendous code will go away after cutover to new sheets.
+                    NA_CAT_DATA = {};
+                    for (var i = 3, len = response.feed.entry.length; i < len; i++) {
+                        var arr = response.feed.entry[i].gsx$pcdata.$t.split("|");
+                        var key                 = arr[0],
+                            pcPoint             = arr[2],
+                            pcArea              = arr[3],
+                            pcPointRegion       = convertRegionsToBits(arr[4]),
+                            pcAreaRegion        = convertRegionsToBits(arr[5]),
+                            pcLock1             = convertRegionsToBits(arr[6]),
+                            pcLock2             = convertRegionsToBits(arr[7]),
+                            pcLock3             = convertRegionsToBits(arr[8]),
+                            pcLock4             = convertRegionsToBits(arr[9]),
+                            pcLock5             = convertRegionsToBits(arr[10]),
+                            pcRare              = convertRegionsToBits(arr[11]),
+                            pcParent            = convertRegionsToBits(arr[12]),
+                            pcMessage           = arr[13],
+                            psValet_temp        = arr[14],
+                            psDrivethru_temp    = arr[15],
+                            psWifi_temp         = arr[16],
+                            psRestrooms_temp    = arr[17],
+                            psCredit_temp       = arr[18],
+                            psReservations_temp = arr[19],
+                            psOutside_temp      = arr[20],
+                            psAircond_temp      = arr[21],
+                            psParking_temp      = arr[22],
+                            psDelivery_temp     = arr[23],
+                            psCarryout_temp     = arr[24],
+                            psWheelchair_temp   = arr[25];
+                        var psValet                 = "",
+                            psValetRegion           = {},
+                            psDrivethru             = "",
+                            psDrivethruRegion       = {},
+                            psWifi                  = "",
+                            psWifiRegion            = {},
+                            psRestrooms             = "",
+                            psRestroomsRegion       = {},
+                            psCredit                = "",
+                            psCreditRegion          = {},
+                            psReservations          = "",
+                            psReservationsRegion    = {},
+                            psOutside               = "",
+                            psOutsideRegion         = {},
+                            psAircond               = "",
+                            psAircondRegion         = {},
+                            psParking               = "",
+                            psParkingRegion         = {},
+                            psDelivery              = "",
+                            psDeliveryRegion        = {},
+                            psCarryout              = "",
+                            psCarryoutRegion        = {},
+                            psWheelchair            = "",
+                            psWheelchairRegion      = {};
+                        if (psValet_temp.match(/\d/))           { psValet           = psValet_temp;         }
+                        else { psValetRegion        = convertRegionsToBits(psValet_temp);           }
+                        if (psDrivethru_temp.match(/\d/))       { psDrivethru       = psDrivethru_temp;     }
+                        else { psDrivethruRegion    = convertRegionsToBits(psDrivethru_temp);       }
+                        if (psWifi_temp.match(/\d/))            { psWifi            = psWifi_temp;          }
+                        else { psWifiRegion         = convertRegionsToBits(psWifi_temp);            }
+                        if (psRestrooms_temp.match(/\d/))       { psRestrooms       = psRestrooms_temp;     }
+                        else { psRestroomsRegion    = convertRegionsToBits(psRestrooms_temp);       }
+                        if (psCredit_temp.match(/\d/))          { psCredit          = psCredit_temp;        }
+                        else { psCreditRegion       = convertRegionsToBits(psCredit_temp);          }
+                        if (psReservations_temp.match(/\d/))    { psReservations    = psReservations_temp;  }
+                        else { psReservationsRegion = convertRegionsToBits(psReservations_temp);    }
+                        if (psOutside_temp.match(/\d/))         { psOutside         = psOutside_temp;       }
+                        else { psOutsideRegion      = convertRegionsToBits(psOutside_temp);         }
+                        if (psAircond_temp.match(/\d/))         { psAircond         = psAircond_temp;       }
+                        else { psAircondRegion      = convertRegionsToBits(psAircond_temp);         }
+                        if (psParking_temp.match(/\d/))         { psParking         = psParking_temp;       }
+                        else { psParkingRegion      = convertRegionsToBits(psParking_temp);         }
+                        if (psDelivery_temp.match(/\d/))        { psDelivery        = psDelivery_temp;      }
+                        else { psDeliveryRegion     = convertRegionsToBits(psDelivery_temp);        }
+                        if (psCarryout_temp.match(/\d/))        { psCarryout        = psCarryout_temp;      }
+                        else { psCarryoutRegion     = convertRegionsToBits(psCarryout_temp);        }
+                        if (psWheelchair_temp.match(/\d/))      { psWheelchair      = psWheelchair_temp;    }
+                        else { psWheelchairRegion   = convertRegionsToBits(psWheelchair_temp);      }
+
+                        NA_CAT_DATA[key]    = { "pcPoint"               :   pcPoint,
+                                                "pcArea"                :   pcArea,
+                                                "pcPointRegion"         :   pcPointRegion,
+                                                "pcAreaRegion"          :   pcAreaRegion,
+                                                "pcLock1"               :   pcLock1,
+                                                "pcLock2"               :   pcLock2,
+                                                "pcLock3"               :   pcLock3,
+                                                "pcLock4"               :   pcLock4,
+                                                "pcLock5"               :   pcLock5,
+                                                "pcRare"                :   pcRare,
+                                                "pcParent"              :   pcParent,
+                                                "pcMessage"             :   pcMessage,
+                                                "psValet"               :   psValet,
+                                                "psValetRegion"         :   psValetRegion,
+                                                "psDrivethru"           :   psDrivethru,
+                                                "psDrivethruRegion"     :   psDrivethruRegion,
+                                                "psWifi"                :   psWifi,
+                                                "psWifiRegion"          :   psWifiRegion,
+                                                "psRestrooms"           :   psRestrooms,
+                                                "psRestroomsRegion"     :   psRestroomsRegion,
+                                                "psCredit"              :   psCredit,
+                                                "psCreditRegion"        :   psCreditRegion,
+                                                "psReservations"        :   psReservations,
+                                                "psReservationsRegion"  :   psReservationsRegion,
+                                                "psOutside"             :   psOutside,
+                                                "psOutsideRegion"       :   psOutsideRegion,
+                                                "psAircond"             :   psAircond,
+                                                "psAircondRegion"       :   psAircondRegion,
+                                                "psParking"             :   psParking,
+                                                "psParkingRegion"       :   psParkingRegion,
+                                                "psDelivery"            :   psDelivery,
+                                                "psDeliveryRegion"      :   psDeliveryRegion,
+                                                "psCarryout"            :   psCarryout,
+                                                "psCarryoutRegion"      :   psCarryoutRegion,
+                                                "psWheelchair"          :   psWheelchair,
+                                                "psWheelchairRegion"    :   psWheelchairRegion };
+                    }
+                    popUp('NA_CAT_DATA = ' + JSON.stringify(NA_CAT_DATA));
+                }
+            });
 
         // Pull USA PNH Data
         $.ajax({
@@ -244,19 +461,6 @@
                 USA_PNH_DATA = [];
                 for (var i = 0; i < response.feed.entry.length; i++) {
                     USA_PNH_DATA.push(response.feed.entry[i].gsx$pnhdata.$t);
-                }
-            }
-        });
-
-        // Pull Category Data ( Includes CAN for now )
-        $.ajax({
-            type: 'GET',
-            url: 'https://spreadsheets.google.com/feeds/list/1-f-JTWY5UnBx-rFTa4qhyGMYdHBZWNirUTOgn222zMY/ov3dubz/public/values',
-            jsonp: 'callback', data: { alt: 'json-in-script' }, dataType: 'jsonp',
-            success: function(response) {
-                USA_CH_DATA = [];
-                for (var i = 0; i < response.feed.entry.length; i++) {
-                    USA_CH_DATA.push(response.feed.entry[i].gsx$pcdata.$t);
                 }
             }
         });
@@ -340,10 +544,10 @@
     function dataReady() {
         debug('- dataReady() called -');
         // If the data has returned, then start the script, otherwise wait a bit longer
-        if ("undefined" !== typeof CAN_PNH_DATA && "undefined" !== typeof USA_PNH_DATA  && "undefined" !== typeof USA_CH_DATA &&
+        if ("undefined" !== typeof CAN_PNH_DATA && "undefined" !== typeof USA_PNH_DATA  && "undefined" !== typeof NA_CAT_DATA &&
             "undefined" !== typeof WMEPH_DEV_LIST && "undefined" !== typeof WMEPH_BETA_LIST && "undefined" !== typeof NON_HOSPITAL_PART_MATCH ) {
             USA_PNH_NAMES = makeNameCheckList(USA_PNH_DATA);
-            USA_CH_NAMES = makeCatCheckList(USA_CH_DATA);
+            //USA_CH_NAMES = makeCatCheckList(NA_CAT_DATA);
             CAN_PNH_NAMES = makeNameCheckList(CAN_PNH_DATA);
             // CAN using USA_CH_NAMES at the moment
             loginReady();  //  start the main code
@@ -360,7 +564,10 @@
                     waitMessage = waitMessage + "Cat-Name Data; ";
                 }
                 if ("undefined" === typeof WMEPH_DEV_LIST) {
-                    waitMessage = waitMessage + "User List Data;";
+                    waitMessage = waitMessage + "Dev User List Data; ";
+                }
+                if ("undefined" === typeof WMEPH_BETA_LIST) {
+                    waitMessage = waitMessage + "Beta User List Data;";
                 }
                 phlog(waitMessage);
             }
@@ -409,19 +616,8 @@
     // This function runs at script load, and splits the category dataset into the searchable categories.
     // NOTE: This is only part of the code.  The rest gets run every time a place gets harmonized.  Not okay.
     // NOTE: Returns: ["pc_wmecat","","","CAR_SERVICES","GAS_STATION","PARKING_LOT","GARAGE_AUTOMOTIVE_SHOP","CAR_WASH","CHARGING_STATION","TRANSPORTATION","AIRPORT","BUS_STATION","FERRY_PIER","SEAPORT_MARINA_HARBOR","SUBWAY_STATION","TRAIN_STATION","BRIDGE","TUNNEL","TAXI_STATION","JUNCTION_INTERCHANGE","PROFESSIONAL_AND_PUBLIC","COLLEGE_UNIVERSITY","SCHOOL","CONVENTIONS_EVENT_CENTER","GOVERNMENT","LIBRARY","CITY_HALL","ORGANIZATION_OR_ASSOCIATION","PRISON_CORRECTIONAL_FACILITY","COURTHOUSE","CEMETERY","FIRE_DEPARTMENT","POLICE_STATION","MILITARY","HOSPITAL_MEDICAL_CARE","OFFICES","POST_OFFICE","RELIGIOUS_CENTER","KINDERGARDEN","FACTORY_INDUSTRIAL","EMBASSY_CONSULATE","INFORMATION_POINT","SHOPPING_AND_SERVICES","ARTS_AND_CRAFTS","BANK_FINANCIAL","SPORTING_GOODS","BOOKSTORE","PHOTOGRAPHY","CAR_DEALERSHIP","FASHION_AND_CLOTHING","CONVENIENCE_STORE","PERSONAL_CARE","DEPARTMENT_STORE","PHARMACY","ELECTRONICS","FLOWERS","FURNITURE_HOME_STORE","GIFTS","GYM_FITNESS","SWIMMING_POOL","HARDWARE_STORE","MARKET","SUPERMARKET_GROCERY","JEWELRY","LAUNDRY_DRY_CLEAN","SHOPPING_CENTER","MUSIC_STORE","PET_STORE_VETERINARIAN_SERVICES","TOY_STORE","TRAVEL_AGENCY","ATM","CURRENCY_EXCHANGE","CAR_RENTAL","FOOD_AND_DRINK","RESTAURANT","BAKERY","DESSERT","CAFE","FAST_FOOD","FOOD_COURT","BAR","ICE_CREAM","CULTURE_AND_ENTERTAINEMENT","ART_GALLERY","CASINO","CLUB","TOURIST_ATTRACTION_HISTORIC_SITE","MOVIE_THEATER","MUSEUM","MUSIC_VENUE","PERFORMING_ARTS_VENUE","GAME_CLUB","STADIUM_ARENA","THEME_PARK","ZOO_AQUARIUM","RACING_TRACK","THEATER","OTHER","RESIDENCE_HOME","CONSTRUCTION_SITE","LODGING","HOTEL","HOSTEL","CAMPING_TRAILER_PARK","COTTAGE_CABIN","BED_AND_BREAKFAST","OUTDOORS","PARK","PLAYGROUND","BEACH","SPORTS_COURT","GOLF_COURSE","PLAZA","PROMENADE","POOL","SCENIC_LOOKOUT_VIEWPOINT","SKI_AREA","NATURAL_FEATURES","ISLAND","SEA_LAKE_POOL","RIVER_STREAM","FOREST_GROVE","FARM","CANAL","SWAMP_MARSH","DAM","EMERGENCY_SHELTER"]
-    function makeCatCheckList(CH_DATA) {
-        debug('- makeCatCheckList(CH_DATA) called -');  // Builds the list of search names to match to the WME place name
-        //popUp(JSON.stringify(CH_DATA));
-        var CH_CATS = [];
-        var CH_DATA_headers = CH_DATA[0].split("|");  // split the data headers out
-        var pc_wmecat_ix = CH_DATA_headers.indexOf("pc_wmecat");  // find the indices needed for the function
-        var chEntryTemp;
-        for (var chix=0; chix<CH_DATA.length; chix++) {  // loop through all PNH places
-            chEntryTemp = CH_DATA[chix].split("|");  // split the current PNH data line
-            CH_CATS.push(chEntryTemp[pc_wmecat_ix]);
-        }
-        return CH_CATS;
-    } // END makeCatCheckList function
+    //function makeCatCheckList(CH_DATA) {
+        // Moved inside AJAX call
 
     // This function runs at script load, and builds the search name dataset to compare the WME selected place name to.
     // NOTE: Some of this code runs once for every single entry on the spreadsheet.  We need to make this more efficient.
@@ -561,7 +757,7 @@
     //// Begin old WMEPH code ////
     //////////////////////////////
     //////////////////////////////
-    var USA_PNH_DATA, USA_PNH_NAMES = [], USA_CH_DATA, USA_STATE_DATA, USA_CH_NAMES = [];  // Storage for PNH and Category data
+    var USA_PNH_DATA, USA_PNH_NAMES = [], USA_STATE_DATA, USA_CH_NAMES = [];  // Storage for PNH and Category data
     var CAN_PNH_DATA, CAN_PNH_NAMES = [];  // var CAN_CH_DATA, CAN_CH_NAMES = [] not used for now
     var devVersStr='', devVersStrSpace='', devVersStrDash='';  // strings to differentiate DOM elements between regular and beta script
     var devVersStringMaster = "Beta";
@@ -717,11 +913,6 @@
             saveWL_LS(true);
         }
 
-        var WMEPHurl = 'https://www.waze.com/forum/posting.php?mode=reply&f=819&t=164962';  // WMEPH Forum thread URL
-        var USAPNHMasURL = 'https://docs.google.com/spreadsheets/d/1-f-JTWY5UnBx-rFTa4qhyGMYdHBZWNirUTOgn222zMY/edit#gid=0';  // Master USA PNH link
-        var placesWikiURL = 'https://wiki.waze.com/wiki/Places';  // WME Places wiki
-        var restAreaWikiURL = 'https://wiki.waze.com/wiki/Rest_areas#Adding_a_Place';  // WME Places wiki
-        //var betaUser, devUser;
         if (WMEPH_BETA_LIST.length === 0 || "undefined" === typeof WMEPH_BETA_LIST) {
             debug('WMEPH_BETA_LIST logic failure.');
             if (IS_DEV_VERSION) {
@@ -2171,13 +2362,13 @@
                 placesWiki: {
                     active: true, severity: 0, message: "", value: "Places wiki", title: "Open the places wiki page",
                     action: function() {
-                        window.open(placesWikiURL);
+                        window.open(PLACES_WIKI_URL);
                     }
                 },
                 restAreaWiki: {
                     active: false, severity: 0, message: "", value: "Rest Area wiki", title: "Open the Rest Area wiki page",
                     action: function() {
-                        window.open(restAreaWikiURL);
+                        window.open(RESTAREA_WIKI_URL);
                     }
                 },
                 clearWL: {
@@ -3344,10 +3535,10 @@
                 // Category/Name-based Services, added to any existing services:
                 var CH_DATA, CH_NAMES;
                 if (countryCode === "USA") {
-                    CH_DATA = USA_CH_DATA;
+                    CH_DATA = NA_CAT_DATA;
                     CH_NAMES = USA_CH_NAMES;
                 } else if (countryCode === "CAN") {
-                    CH_DATA = USA_CH_DATA;   // #### CAN shares the USA sheet, can eventually can be split to new sheet if needed
+                    CH_DATA = NA_CAT_DATA;   // #### CAN shares the USA sheet, can eventually can be split to new sheet if needed
                     CH_NAMES = USA_CH_NAMES;
                 }
                 var CH_DATA_headers = CH_DATA[0].split("|");
@@ -6376,8 +6567,8 @@
             var feedbackString = 'Submit script feedback & suggestions';
             var placesWikiStr = 'Open the WME Places Wiki page';
             var phContentHtml2 = '<hr align="center" width="95%"><p><a href="' +
-                placesWikiURL + '" target="_blank" title="'+placesWikiStr+'">'+placesWikiStr+'</a><p><a href="' +
-                WMEPHurl + '" target="_blank" title="'+feedbackString+'">'+feedbackString+'</a></p><hr align="center" width="95%">Major features for v. ' +
+                PLACES_WIKI_URL + '" target="_blank" title="'+placesWikiStr+'">'+placesWikiStr+'</a><p><a href="' +
+                WMEPH_FORUM_URL + '" target="_blank" title="'+feedbackString+'">'+feedbackString+'</a></p><hr align="center" width="95%">Major features for v. ' +
                 WMEPH_VERSION_MAJOR+':<ul><li>'+WMEPHWhatsNewMetaHList+'</ul>Recent updates:<ul><li>'+WMEPHWhatsNewHList+'</ul>';
             $("#sidepanel-harmonizer" + devVersStr).append(phContentHtml2);
 
@@ -6619,7 +6810,7 @@
             } else {
                 data.addbbcode20 = 'to';
                 data.notify = 'on';
-                WMEPH_newForumPost(WMEPHurl + '#preview', data);
+                WMEPH_newForumPost(WMEPH_FORUM_URL + '#preview', data);
             }
         }  // END WMEPH_errorReport function
 
