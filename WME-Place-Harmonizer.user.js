@@ -13,7 +13,7 @@
 // ==UserScript==
 // @name        WME Place Harmonizer Beta
 // @namespace   https://github.com/WazeUSA/WME-Place-Harmonizer/raw/master/WME-Place-Harmonizer.user.js
-// @version     1.1.80
+// @version     1.1.81
 // @description Harmonizes, formats, and locks a selected place
 // @author      WMEPH development group
 // @include     /^https:\/\/(www|beta)\.waze\.com\/(?!user\/)(.{2,6}\/)?editor\/.*$/
@@ -262,6 +262,7 @@
     function runPH() {
         // Script update info
         var WMEPHWhatsNewList = [  // New in this version
+            '1.1.81: Fix for incorrect capitalization when "mc" is in the middle of a word.',
             '1.1.80: Fix to allow entering phone #s longer than 10 digits, e.g. 800-THE-CRAVE',
             '1.1.79: Fixed area / point warning when multiple categories are present.',
             '1.1.78: Added yellow "caution" highlights.  Were previously red.',
@@ -655,11 +656,11 @@
                 return ((txt === txt.toUpperCase()) && !allCaps) ? txt : txt.charAt(0).toUpperCase() + txt.substr(1);
             });
             // Cap O'Reilley's, L'Amour, D'Artagnan as long as 5+ letters
-            str = str.replace(/[oOlLdD]'[A-Za-z']{3,}/g, function(txt) {
+            str = str.replace(/\b[oOlLdD]'[A-Za-z']{3,}/g, function(txt) {
                 return ((txt === txt.toUpperCase()) && !allCaps) ? txt : txt.charAt(0).toUpperCase() + txt.charAt(1) + txt.charAt(2).toUpperCase() + txt.substr(3);
             });
             // Cap McFarley's, as long as 5+ letters long
-            str = str.replace(/[mM][cC][A-Za-z']{3,}/g, function(txt) {
+            str = str.replace(/\b[mM][cC][A-Za-z']{3,}/g, function(txt) {
                 return ((txt === txt.toUpperCase()) && !allCaps) ? txt : txt.charAt(0).toUpperCase() + txt.charAt(1).toLowerCase() + txt.charAt(2).toUpperCase() + txt.substr(3);
             });
             // anything with an "&" sign, cap the character after &
@@ -707,11 +708,11 @@
                 return ((txt === txt.toUpperCase()) && !allCaps) ? txt : txt.charAt(0).toUpperCase() + txt.substr(1).toLowerCase();
             });
             // Cap O'Reilley's, L'Amour, D'Artagnan as long as 5+ letters
-            str = str.replace(/[oOlLdD]'[A-Za-z']{3,}/g, function(txt) {
+            str = str.replace(/\b[oOlLdD]'[A-Za-z']{3,}/g, function(txt) {
                 return ((txt === txt.toUpperCase()) && !allCaps) ? txt : txt.charAt(0).toUpperCase() + txt.charAt(1) + txt.charAt(2).toUpperCase() + txt.substr(3).toLowerCase();
             });
             // Cap McFarley's, as long as 5+ letters long
-            str = str.replace(/[mM][cC][A-Za-z']{3,}/g, function(txt) {
+            str = str.replace(/\b[mM][cC][A-Za-z']{3,}/g, function(txt) {
                 return ((txt === txt.toUpperCase()) && !allCaps) ? txt : txt.charAt(0).toUpperCase() + txt.charAt(1).toLowerCase() + txt.charAt(2).toUpperCase() + txt.substr(3).toLowerCase();
             });
             // anything sith an "&" sign, cap the word after &
