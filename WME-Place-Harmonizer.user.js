@@ -13,7 +13,7 @@
 // ==UserScript==
 // @name        WME Place Harmonizer Beta
 // @namespace   https://github.com/WazeUSA/WME-Place-Harmonizer/raw/master/WME-Place-Harmonizer.user.js
-// @version     1.1.79
+// @version     1.1.80
 // @description Harmonizes, formats, and locks a selected place
 // @author      WMEPH development group
 // @include     /^https:\/\/(www|beta)\.waze\.com\/(?!user\/)(.{2,6}\/)?editor\/.*$/
@@ -262,6 +262,7 @@
     function runPH() {
         // Script update info
         var WMEPHWhatsNewList = [  // New in this version
+            '1.1.80: Fix to allow entering phone #s longer than 10 digits, e.g. 800-THE-CRAVE',
             '1.1.79: Fixed area / point warning when multiple categories are present.',
             '1.1.78: Added yellow "caution" highlights.  Were previously red.',
             '1.1.77: Unlocked PLAs are highlighted with a bold red dotted outline',
@@ -746,17 +747,14 @@
                 }
                 return s;
             }
-            s = s.replace(/(\d{3}.*)extension.*/i, '$1');
-            s = s.replace(/(\d{3}.*)ext.*/i, '$1');
-            s = s.replace(/(\d{3}.*) xt\.? \d.*/i, '$1');
-            s = s.replace(/(\d{3}.*) x\.? \d.*/i, '$1');
+            s = s.replace(/(\d{3}.*)(?:extension|ext|xt|x).*/i, '$1');
             var s1 = s.replace(/\D/g, '');  // remove non-number characters
             var m = s1.match(/^1?([2-9]\d{2})([2-9]\d{2})(\d{4})$/);  // Ignore leading 1, and also don't allow area code or exchange to start with 0 or 1 (***USA/CAN specific)
             if (!m) {  // then try alphanumeric matching
                 if (s) { s = s.toUpperCase(); }
-                s1 = s.replace(/[^0-9A-Z]/g, '').replace(/^\D*(\d)/,'$1').replace(/^1?([2-9][0-9]{2}[0-9A-Z]{7})/g,'$1');
+                s1 = s.replace(/[^0-9A-Z]/g, '').replace(/^\D*(\d)/,'$1').replace(/^1?([2-9][0-9]{2}[0-9A-Z]{7,10})/g,'$1');
                 s1 = replaceLetters(s1);
-                m = s1.match(/^([2-9]\d{2})([2-9]\d{2})(\d{4})$/);  // Ignore leading 1, and also don't allow area code or exchange to start with 0 or 1 (***USA/CAN specific)
+                m = s1.match(/^([2-9]\d{2})([2-9]\d{2})(\d{4})(?:.{0,3})$/);  // Ignore leading 1, and also don't allow area code or exchange to start with 0 or 1 (***USA/CAN specific)
                 if (!m) {
                     if ( returnType === 'inputted' ) {
                         return 'badPhone';
