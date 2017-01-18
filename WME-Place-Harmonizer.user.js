@@ -18,7 +18,7 @@
 // @author      WMEPH development group
 // @include     /^https:\/\/(www|beta)\.waze\.com\/(?!user\/)(.{2,6}\/)?editor\/.*$/
 // @require     https://raw.githubusercontent.com/WazeUSA/WME-Place-Harmonizer/Beta/jquery-ui-1.11.4.custom.min.js
-// @resource    jqUI_CSS        https://ajax.googleapis.com/ajax/libs/jqueryui/1.11.4/themes/smoothness/jquery-ui.css
+// @resource    jqUI_CSS    https://ajax.googleapis.com/ajax/libs/jqueryui/1.11.4/themes/smoothness/jquery-ui.css
 // @grant       GM_addStyle
 // @grant       GM_getResourceText
 // ==/UserScript==
@@ -26,6 +26,18 @@
 
 (function () {
     "use strict";
+    var USA_CH_DATA;
+    function makeCatCheckList(CH_DATA) {  // Builds the list of search names to match to the WME place name
+        var CH_CATS = [];
+        var CH_DATA_headers = CH_DATA[0].split("|");  // split the data headers out
+        var pc_wmecat_ix = CH_DATA_headers.indexOf("pc_wmecat");  // find the indices needed for the function
+        var chEntryTemp;
+        for (var chix=0; chix<CH_DATA.length; chix++) {  // loop through all PNH places
+            chEntryTemp = CH_DATA[chix].split("|");  // split the current PNH data line
+            CH_CATS.push(chEntryTemp[pc_wmecat_ix]);
+        }
+        return CH_CATS;
+    } // END makeCatCheckList function
     var jqUI_CssSrc = GM_getResourceText("jqUI_CSS");
     GM_addStyle(jqUI_CssSrc);
     // Was testing this, but I don't think the following line does anything. (mapomatic)
@@ -99,11 +111,41 @@
         SCHOOL_FULL_MATCH,
     // Categories and Services
         NA_CAT_DATA;
+    var WME_SERVICE_MAP = { "psValet"       : { "action":"addValet",        "name":"VALLET_SERVICE"        },
+                            "psDriveThru"   : { "action":"addDriveThru",    "name":"DRIVETHROUGH"          },
+                            "psWiFi"        : { "action":"addWiFi",         "name":"WI_FI"                 },
+                            "psRestrooms"   : { "action":"addRestrooms",    "name":"RESTROOMS"             },
+                            "psCreditCards" : { "action":"addCreditCards",  "name":"CREDIT_CARDS"          },
+                            "psReservations": { "action":"addReservations", "name":"RESERVATIONS"          },
+                            "psOutside"     : { "action":"addOutside",      "name":"OUTSIDE_SEATING"       },
+                            "psAirCond"     : { "action":"addAC",           "name":"AIR_CONDITIONING"      },
+                            "psParking"     : { "action":"addParking",      "name":"PARKING_FOR_CUSTOMERS" },
+                            "psDelivery"    : { "action":"addDeliveries",   "name":"DELIVERIES"            },
+                            "psTakeAway"    : { "action":"addTakeAway",     "name":"TAKE_AWAY"             },
+                            "psWheelchair"  : { "action":"addWheelchair",   "name":"WHEELCHAIR_ACCESSIBLE" } };
+    var WME_SERVICES    = [ "VALLET_SERVICE","DRIVETHROUGH","WI_FI","RESTROOMS",
+                            "CREDIT_CARDS","RESERVATIONS","OUTSIDE_SEATING",
+                            "AIR_CONDITIONING","PARKING_FOR_CUSTOMERS","DELIVERIES",
+                            "TAKE_AWAY","WHEELCHAIR_ACCESSIBLE" ];
     // Bit mapping regions
     // NOTE: I might not need this once the cutover to the new sheets is complete.
     // NOTE: At least, the goal is NOT to have this in WMEPH.
     var TWO_PWR_15_DBL = 1 << 15;
     var TWO_PWR_30_DBL = TWO_PWR_15_DBL * TWO_PWR_15_DBL;
+    var NA_PROV_FULL    = [ "Alberta","Alaska","Alabama","Arkansas","American Samoa","Arizona",
+                            "British Columbia","California","Colorado","Connecticut",
+                            "District of Columbia","Delaware","Florida","Micronesia",
+                            "Georgia","Guam","Hawaii","Iowa","Idaho","Illinois","Indiana",
+                            "Kansas","Kentucky","Louisiana","Massachusetts","Manitoba","Maryland",
+                            "Maine","Marshal Islands","Michigan","Minnesota","Missouri",
+                            "Northern Marianas","Mississippi","Montana","New Brunswick",
+                            "North Carolina","North Dakota","Nebraska","New Hampshire",
+                            "New Jersey","Newfoundland and Labrador","New Mexico","Nova Scotia",
+                            "Nevada","New York","Ohio","Oklahoma","Ontario","Oregon",
+                            "Pennsylvania","Prince Edward Island","Puerto Rico","Palau","Quebec",
+                            "Rhode Island","South Carolina","South Dakota","Saskatchewan",
+                            "Tennessee","Texas","Utah","Virginia","Virgin Islands","Vermont",
+                            "Washington","Wisconsin","West Virginia","Wyoming" ];
     var NA_PROVINCES    = [ 'AB','AK','AL','AR','AS','AZ','BC','CA','CO','CT',
                             'DC','DE','FL','FM','GA','GU','HI','IA','ID','IL',
                             'IN','KS','KY','LA','MA','MB','MD','ME','MH','MI',
@@ -111,6 +153,7 @@
                             'NJ','NL','NM','NS','NV','NY','OH','OK','ON','OR',
                             'PA','PE','PR','PW','QC','RI','SC','SD','SK','TN',
                             'TX','UT','VA','VI','VT','WA','WI','WV','WY' ];
+    var NA_PROV_ABBR    = _.object(NA_PROV_FULL,NA_PROVINCES);
     var NA_REGIONS      = { 'ATR' : [ 'AS','GU','MP','PR','VI' ],
                             'CAN' : [ 'AB','BC','MB','NB','NL','NS','ON','PE','QC','SK' ],
                             'GLR' : [ 'IL','IN','MI','OH','WI' ],
@@ -129,8 +172,8 @@
                                       'MS','MT','NC','ND','NE','NH','NJ','NM','NV','NY',
                                       'OH','OK','OR','PA','PR','PW','RI','SC','SD','TN',
                                       'TX','UT','VA','VI','VT','WA','WI','WY','WV' ] };
-    var NA_REGION_LIST = [].concat(NA_PROVINCES, Object.keys(NA_REGIONS));
-    var NA_REGION_MAP = makeRegionMap(NA_PROVINCES, NA_REGIONS);
+    var NA_REGION_LIST  = [].concat(NA_PROVINCES, Object.keys(NA_REGIONS));
+    var NA_REGION_MAP   = makeRegionMap(NA_PROVINCES, NA_REGIONS);
 
 
 
@@ -140,7 +183,6 @@
 
     // Userlists
     var betaUser, devUser;
-
 
 
     /////////////////////////////////////
@@ -155,10 +197,28 @@
 
     // NOTE: My own debugging console.log function. (So I know to take these out later)
     function debug(m) {
-        if ('object' === typeof m) {
-            m = JSON.stringify(m)
-        }
+        //if ('object' === typeof m) {
+        //    m = JSON.stringify(m)
+        //}
         console.log('[DEBUG]: ' + m);
+    }
+
+    // NOTE: This prevents circular references when invoking JSON.stringify.
+    var cache = []
+    function censor(censor) {
+        var i = 0;
+
+        return function(key, value) {
+            if(i !== 0 && typeof(censor) === 'object' && typeof(value) == 'object' && censor == value)
+                return '[Circular]';
+
+            if(i >= 29) // seems to be a harded maximum of 30 serialized objects?
+                return '[Unknown]';
+
+            ++i; // so we know we aren't using the original object anymore
+
+            return value;
+        }
     }
 
     // NOTE: This allows me to dump large objects to a new window so it doesn't clog the console.
@@ -192,7 +252,7 @@
 
     // Logs important information to console for all users.
     function phlog(m) {
-        debug('- phlog(m) called -');
+        //debug('- phlog(m) called -');
         if ('object' === typeof m) {
             //m = JSON.stringify(m);
         }
@@ -201,7 +261,7 @@
 
     // Logs verbose information to console for developers.
     function phlogdev(m) {
-        debug('- phlogdev(m) called -');
+        //debug('- phlogdev(m) called -');
         if ('object' === typeof m) {
             m = JSON.stringify(m);
         }
@@ -241,22 +301,57 @@
     // Takes a CSV string of regions and converts it to a bit mapping.
     function convertRegionsToBits(str) {
         var x = {};
-        if (typeof(str) === "undefined") { debug('undefined passed to convertRegionsToBits()'); return x; }
-        if (str === "") { return x; }
-        var matches = str.match(/[A-Z]{2,3}/g);
-        if (matches === null) { return x; }
+        str = str.replace(/\s+/,"");
+        var regs = str.split(/,/);
         var high = 0;
         var med = 0;
         var low = 0;
-        for (var i = 0, len = matches.length; i < len; i++) {
-            if (typeof(NA_REGION_MAP[matches[i]]) !== "undefined") {
-                high = high | NA_REGION_MAP[matches[i]]['high'];
-                med = med | NA_REGION_MAP[matches[i]]['med'];
-                low = low | NA_REGION_MAP[matches[i]]['low'];
+        for (var i = 0, len = regs.length; i < len; i++) {
+            if (NA_REGION_MAP.hasOwnProperty(regs[i])) {
+                high = high | NA_REGION_MAP[regs[i]]['high'];
+                med = med | NA_REGION_MAP[regs[i]]['med'];
+                low = low | NA_REGION_MAP[regs[i]]['low'];
             }
         }
         x = { 'high': high, 'med': med, 'low': low };
         return x;
+    }
+
+
+    //////////////////////////////
+    // Value-checking Functions //
+    //////////////////////////////
+
+    function isPLA(venue) {
+        return venue.attributes.categories && venue.attributes.categories[0] === 'PARKING_LOT';
+    }
+
+    // Test to see if province is in region
+    function matchPNHRegion(prov, reg) {
+        var a, b;
+        if (typeof(prov) === "string" && Object.keys(NA_REGION_MAP).indexOf(prov)) {
+            a = NA_REGION_MAP[prov];
+        } else if (prov.hasOwnProperty('high') && prov.hasOwnProperty('med') && prov.hasOwnProperty('low')) {
+            a = prov;
+        } else {
+            console.log('Bad value sent to matchPNHRegion()');
+        }
+        if (typeof(reg) === "string" && Object.keys(NA_REGION_MAP).indexOf(reg)) {
+            b = NA_REGION_MAP[reg];
+        } else if (reg.hasOwnProperty('high') && reg.hasOwnProperty('med') && reg.hasOwnProperty('low')) {
+            b = reg;
+        } else {
+            console.log('Bad value sent to matchPNHRegion()');
+        }
+        var compHigh = (a['high'] & b['high']);
+        var compMed  = (a['med']  & b['med']);
+        var compLow  = (a['low']  & b['low']);
+        if ( (compHigh == a['high'] || (compHigh < 0) && ((compHigh * -1) == a['high']))
+          && (compMed  == a['med']  || (compMed  < 0) && ((compMed  * -1) == a['med']))
+          && (compLow  == a['low']  || (compLow  < 0) && ((compLow  * -1) == a['low']))) {
+            return true;
+        }
+        return false;
     }
 
 
@@ -327,7 +422,19 @@
             });
 
         }
-            // Pull Category Data ( Includes CAN for now )
+            $.ajax({
+                type: 'GET',
+                url: 'https://spreadsheets.google.com/feeds/list/1-f-JTWY5UnBx-rFTa4qhyGMYdHBZWNirUTOgn222zMY/ov3dubz/public/values',
+                jsonp: 'callback', data: { alt: 'json-in-script' }, dataType: 'jsonp',
+                success: function(response) {
+                    USA_CH_DATA = [];
+                    for (var i = 0; i < response.feed.entry.length; i++) {
+                        USA_CH_DATA.push(response.feed.entry[i].gsx$pcdata.$t);
+                    }
+                }
+            });
+
+            // Pull Category Data
             $.ajax({
                 type: 'GET',
                 url: 'https://spreadsheets.google.com/feeds/list/1-f-JTWY5UnBx-rFTa4qhyGMYdHBZWNirUTOgn222zMY/ov3dubz/public/values',
@@ -335,6 +442,7 @@
                 success: function(response) {
                     // NOTE: Don't worry, this horrendous code will go away after cutover to new sheets.
                     NA_CAT_DATA = {};
+                    var services = {};
                     for (var i = 3, len = response.feed.entry.length; i < len; i++) {
                         var arr = response.feed.entry[i].gsx$pcdata.$t.split("|");
                         var key                 = arr[0],
@@ -351,66 +459,102 @@
                             pcParent            = convertRegionsToBits(arr[12]),
                             pcMessage           = arr[13],
                             psValet_temp        = arr[14],
-                            psDrivethru_temp    = arr[15],
-                            psWifi_temp         = arr[16],
+                            psDriveThru_temp    = arr[15],
+                            psWiFi_temp         = arr[16],
                             psRestrooms_temp    = arr[17],
-                            psCredit_temp       = arr[18],
+                            psCreditCards_temp  = arr[18],
                             psReservations_temp = arr[19],
                             psOutside_temp      = arr[20],
-                            psAircond_temp      = arr[21],
+                            psAirCond_temp      = arr[21],
                             psParking_temp      = arr[22],
                             psDelivery_temp     = arr[23],
-                            psCarryout_temp     = arr[24],
+                            psTakeAway_temp     = arr[24],
                             psWheelchair_temp   = arr[25];
                         var psValet                 = "",
-                            psValetRegion           = {},
-                            psDrivethru             = "",
-                            psDrivethruRegion       = {},
-                            psWifi                  = "",
-                            psWifiRegion            = {},
+                            psDriveThru             = "",
+                            psWiFi                  = "",
                             psRestrooms             = "",
-                            psRestroomsRegion       = {},
-                            psCredit                = "",
-                            psCreditRegion          = {},
+                            psCreditCards           = "",
                             psReservations          = "",
-                            psReservationsRegion    = {},
                             psOutside               = "",
-                            psOutsideRegion         = {},
-                            psAircond               = "",
-                            psAircondRegion         = {},
+                            psAirCond               = "",
                             psParking               = "",
-                            psParkingRegion         = {},
                             psDelivery              = "",
-                            psDeliveryRegion        = {},
-                            psCarryout              = "",
-                            psCarryoutRegion        = {},
-                            psWheelchair            = "",
-                            psWheelchairRegion      = {};
-                        if (psValet_temp.match(/\d/))           { psValet           = psValet_temp;         }
-                        else { psValetRegion        = convertRegionsToBits(psValet_temp);           }
-                        if (psDrivethru_temp.match(/\d/))       { psDrivethru       = psDrivethru_temp;     }
-                        else { psDrivethruRegion    = convertRegionsToBits(psDrivethru_temp);       }
-                        if (psWifi_temp.match(/\d/))            { psWifi            = psWifi_temp;          }
-                        else { psWifiRegion         = convertRegionsToBits(psWifi_temp);            }
-                        if (psRestrooms_temp.match(/\d/))       { psRestrooms       = psRestrooms_temp;     }
-                        else { psRestroomsRegion    = convertRegionsToBits(psRestrooms_temp);       }
-                        if (psCredit_temp.match(/\d/))          { psCredit          = psCredit_temp;        }
-                        else { psCreditRegion       = convertRegionsToBits(psCredit_temp);          }
-                        if (psReservations_temp.match(/\d/))    { psReservations    = psReservations_temp;  }
-                        else { psReservationsRegion = convertRegionsToBits(psReservations_temp);    }
-                        if (psOutside_temp.match(/\d/))         { psOutside         = psOutside_temp;       }
-                        else { psOutsideRegion      = convertRegionsToBits(psOutside_temp);         }
-                        if (psAircond_temp.match(/\d/))         { psAircond         = psAircond_temp;       }
-                        else { psAircondRegion      = convertRegionsToBits(psAircond_temp);         }
-                        if (psParking_temp.match(/\d/))         { psParking         = psParking_temp;       }
-                        else { psParkingRegion      = convertRegionsToBits(psParking_temp);         }
-                        if (psDelivery_temp.match(/\d/))        { psDelivery        = psDelivery_temp;      }
-                        else { psDeliveryRegion     = convertRegionsToBits(psDelivery_temp);        }
-                        if (psCarryout_temp.match(/\d/))        { psCarryout        = psCarryout_temp;      }
-                        else { psCarryoutRegion     = convertRegionsToBits(psCarryout_temp);        }
-                        if (psWheelchair_temp.match(/\d/))      { psWheelchair      = psWheelchair_temp;    }
-                        else { psWheelchairRegion   = convertRegionsToBits(psWheelchair_temp);      }
+                            psTakeAway              = "",
+                            psWheelchair            = "";
+                        if (psValet_temp.match(/\d/) || psValet_temp === "") {
+                            psValet = psValet_temp;
+                        } else {
+                            psValet = convertRegionsToBits(psValet_temp);
+                        }
+                        if (psDriveThru_temp.match(/\d/) || psDriveThru_temp === "") {
+                            psDriveThru = psDriveThru_temp;
+                        } else {
+                            psDriveThru = convertRegionsToBits(psDriveThru_temp);
+                        }
+                        if (psWiFi_temp.match(/\d/) || psWiFi_temp === "") {
+                            psWiFi = psWiFi_temp;
+                        } else {
+                            psWiFi = convertRegionsToBits(psWiFi_temp);
+                        }
+                        if (psRestrooms_temp.match(/\d/) || psRestrooms_temp === "") {
+                            psRestrooms = psRestrooms_temp;
+                        } else {
+                            psRestrooms = convertRegionsToBits(psRestrooms_temp);
+                        }
+                        if (psCreditCards_temp.match(/\d/) || psCreditCards_temp === "") {
+                            psCreditCards = psCreditCards_temp;
+                        } else {
+                            psCreditCards = convertRegionsToBits(psCreditCards_temp);
+                        }
+                        if (psReservations_temp.match(/\d/) || psReservations_temp === "") {
+                            psReservations = psReservations_temp;
+                        } else {
+                            psReservations = convertRegionsToBits(psReservations_temp);
+                        }
+                        if (psOutside_temp.match(/\d/) || psOutside_temp === "") {
+                            psOutside = psOutside_temp;
+                        } else {
+                            psOutside = convertRegionsToBits(psOutside_temp);
+                        }
+                        if (psAirCond_temp.match(/\d/) || psAirCond_temp === "") {
+                            psAirCond = psAirCond_temp;
+                        } else {
+                            psAirCond = convertRegionsToBits(psAirCond_temp);
+                        }
+                        if (psParking_temp.match(/\d/) || psParking_temp === "") {
+                            psParking = psParking_temp;
+                        } else {
+                            psParking = convertRegionsToBits(psParking_temp);
+                        }
+                        if (psDelivery_temp.match(/\d/) || psDelivery_temp === "") {
+                            psDelivery = psDelivery_temp;
+                        } else {
+                            psDelivery = convertRegionsToBits(psDelivery_temp);
+                        }
+                        if (psTakeAway_temp.match(/\d/) || psTakeAway_temp === "") {
+                            psTakeAway = psTakeAway_temp;
+                        } else {
+                            psTakeAway = convertRegionsToBits(psTakeAway_temp);
+                        }
+                        if (psWheelchair_temp.match(/\d/) || psWheelchair_temp === "") {
+                            psWheelchair = psWheelchair_temp;
+                        } else {
+                            psWheelchair = convertRegionsToBits(psWheelchair_temp);
+                        }
 
+                        services            = { "psValet"               :   psValet,
+                                                "psDriveThru"           :   psDriveThru,
+                                                "psWiFi"                :   psWiFi,
+                                                "psRestrooms"           :   psRestrooms,
+                                                "psCreditCards"         :   psCreditCards,
+                                                "psReservations"        :   psReservations,
+                                                "psOutside"             :   psOutside,
+                                                "psAirCond"             :   psAirCond,
+                                                "psParking"             :   psParking,
+                                                "psDelivery"            :   psDelivery,
+                                                "psTakeAway"            :   psTakeAway,
+                                                "psWheelchair"          :   psWheelchair };
                         NA_CAT_DATA[key]    = { "pcPoint"               :   pcPoint,
                                                 "pcArea"                :   pcArea,
                                                 "pcPointRegion"         :   pcPointRegion,
@@ -423,32 +567,11 @@
                                                 "pcRare"                :   pcRare,
                                                 "pcParent"              :   pcParent,
                                                 "pcMessage"             :   pcMessage,
-                                                "psValet"               :   psValet,
-                                                "psValetRegion"         :   psValetRegion,
-                                                "psDrivethru"           :   psDrivethru,
-                                                "psDrivethruRegion"     :   psDrivethruRegion,
-                                                "psWifi"                :   psWifi,
-                                                "psWifiRegion"          :   psWifiRegion,
-                                                "psRestrooms"           :   psRestrooms,
-                                                "psRestroomsRegion"     :   psRestroomsRegion,
-                                                "psCredit"              :   psCredit,
-                                                "psCreditRegion"        :   psCreditRegion,
-                                                "psReservations"        :   psReservations,
-                                                "psReservationsRegion"  :   psReservationsRegion,
-                                                "psOutside"             :   psOutside,
-                                                "psOutsideRegion"       :   psOutsideRegion,
-                                                "psAircond"             :   psAircond,
-                                                "psAircondRegion"       :   psAircondRegion,
-                                                "psParking"             :   psParking,
-                                                "psParkingRegion"       :   psParkingRegion,
-                                                "psDelivery"            :   psDelivery,
-                                                "psDeliveryRegion"      :   psDeliveryRegion,
-                                                "psCarryout"            :   psCarryout,
-                                                "psCarryoutRegion"      :   psCarryoutRegion,
-                                                "psWheelchair"          :   psWheelchair,
-                                                "psWheelchairRegion"    :   psWheelchairRegion };
+                                                "services"              :   services };
                     }
-                    popUp('NA_CAT_DATA = ' + JSON.stringify(NA_CAT_DATA));
+                    var msg = JSON.stringify(NA_CAT_DATA, null, 2);
+                    msg = '<pre>NA_CAT_DATA = ' + msg + '</pre>';
+                    popUp(msg);
                 }
             });
 
@@ -500,7 +623,7 @@
     // First function of script.  Checks to see if external data is loaded and ready
     // after the AJAX calls.  Continues to run until data is loaded or timeout is reached.
     function placeHarmonizer_bootstrap() {
-        debug('- placeHarmonizer_bootstrap() called -');
+        //debug('- placeHarmonizer_bootstrap() called -');
         if ( "undefined" !== typeof W.loginManager && "undefined" !== typeof W.map) {
             dataReady() //  Run the code to check for data return from the Sheets
             // Create duplicatePlaceName layer
@@ -542,12 +665,12 @@
     // Checks to see if external data is loaded before proceeding with running the main script.
     // Calls loginReady() once data is confirmed to be loaded.
     function dataReady() {
-        debug('- dataReady() called -');
+        //debug('- dataReady() called -');
         // If the data has returned, then start the script, otherwise wait a bit longer
         if ("undefined" !== typeof CAN_PNH_DATA && "undefined" !== typeof USA_PNH_DATA  && "undefined" !== typeof NA_CAT_DATA &&
             "undefined" !== typeof WMEPH_DEV_LIST && "undefined" !== typeof WMEPH_BETA_LIST && "undefined" !== typeof NON_HOSPITAL_PART_MATCH ) {
             USA_PNH_NAMES = makeNameCheckList(USA_PNH_DATA);
-            //USA_CH_NAMES = makeCatCheckList(NA_CAT_DATA);
+            USA_CH_NAMES = makeCatCheckList(USA_CH_DATA);
             CAN_PNH_NAMES = makeNameCheckList(CAN_PNH_DATA);
             // CAN using USA_CH_NAMES at the moment
             loginReady();  //  start the main code
@@ -560,7 +683,7 @@
                 if ("undefined" === typeof USA_PNH_DATA) {
                     waitMessage = waitMessage + "USA PNH Data; ";
                 }
-                if ("undefined" === typeof NON_HOSPITAL_PART_MATCH) {
+                if ("undefined" === typeof NA_CAT_DATA) {
                     waitMessage = waitMessage + "Cat-Name Data; ";
                 }
                 if ("undefined" === typeof WMEPH_DEV_LIST) {
@@ -584,7 +707,7 @@
     // Waits for WME Login to happen before running the main script.
     // Calls runPH() once WME Login is defined.
     function loginReady() {
-        debug('- loginReady() called -');
+        //debug('- loginReady() called -');
         dataReadyCounter = 0;
         if ( W.loginManager.user !== null) {
             runPH();  //  start the main code
@@ -597,15 +720,6 @@
                 phlog("Login failed...?  Reload WME.");
             }
         }
-    }
-
-
-    //////////////////////////////
-    // Value-checking Functions //
-    //////////////////////////////
-
-    function isPLA(venue) {
-        return venue.attributes.categories && venue.attributes.categories[0] === 'PARKING_LOT';
     }
 
 
@@ -622,7 +736,7 @@
     // This function runs at script load, and builds the search name dataset to compare the WME selected place name to.
     // NOTE: Some of this code runs once for every single entry on the spreadsheet.  We need to make this more efficient.
     function makeNameCheckList(PNH_DATA) {
-        debug('- makeNameCheckList(PNH_DATA) called -');  // Builds the list of search names to match to the WME place name
+        //debug('- makeNameCheckList(PNH_DATA) called -');  // Builds the list of search names to match to the WME place name
         var PNH_NAMES = [];
         var PNH_DATA_headers = PNH_DATA[0].split("|");  // split the data headers out
         var ph_name_ix = PNH_DATA_headers.indexOf("ph_name");  // find the indices needed for the function
@@ -767,7 +881,6 @@
         devVersStr = devVersStringMaster; devVersStrSpace = " " + devVersStr; devVersStrDash = "-" + devVersStr;
         betaDataDelay = 20;
     }
-    var WMEServicesArray = ["VALLET_SERVICE","DRIVETHROUGH","WI_FI","RESTROOMS","CREDIT_CARDS","RESERVATIONS","OUTSIDE_SEATING","AIR_CONDITIONING","PARKING_FOR_CUSTOMERS","DELIVERIES","TAKE_AWAY","WHEELCHAIR_ACCESSIBLE"];
     var collegeAbbreviations = 'USF|USFSP|UF|UCF|UA|UGA|FSU|UM|SCP|FAU|FIU';
     var defaultKBShortcut,shortcutParse, modifKey = 'Alt+';
     var forumMsgInputs;
@@ -798,7 +911,7 @@
 
     // This function will need to be split up because it is way too big.
     function runPH() {
-        debug('- runPH() called -');
+        //debug('- runPH() called -');
         var newSep = '\n - ', listSep = '<li>';  // joiners for script and html messages
         var WMEPHWhatsNew = WHATS_NEW_LIST.join(newSep);
         var WMEPHWhatsNewMeta = WHATS_NEW_META_LIST.join(newSep);
@@ -914,16 +1027,12 @@
         }
 
         if (WMEPH_BETA_LIST.length === 0 || "undefined" === typeof WMEPH_BETA_LIST) {
-            debug('WMEPH_BETA_LIST logic failure.');
             if (IS_DEV_VERSION) {
                 alert('Beta user list access issue.  Please post in the GHO or PM/DM t0cableguy about this message.  Script should still work.');
             }
             betaUser = false;
             devUser = false;
         } else {
-            debug('WMEPH_BETA_LIST logic success?');
-            debug(WMEPH_DEV_LIST);
-            debug(WMEPH_BETA_LIST);
             devUser = (WMEPH_DEV_LIST.indexOf(thisUser.userName.toLowerCase()) > -1);
             betaUser = (WMEPH_BETA_LIST.indexOf(thisUser.userName.toLowerCase()) > -1);
         }
@@ -968,7 +1077,7 @@
          */
         var layer = W.map.landmarkLayer;
         function initializeHighlights() {
-            debug('-- initializeHighlights() called --');
+            //debug('-- initializeHighlights() called --');
             var ruleGenerator = function(value, symbolizer) {
                 return new W.Rule({
                     filter: new OL.Filter.Comparison({
@@ -1065,7 +1174,7 @@
          * @param venues {array of venues, or single venue} Venues to check for highlights.
          */
         function applyHighlightsTest(venues) {
-            debug('-- applyHighlightsTest(venues) called --');
+            //debug('-- applyHighlightsTest(venues) called --');
             venues = venues ? _.isArray(venues) ? venues : [venues] : [];
             var storedBannButt = bannButt, storedBannServ = bannServ, storedBannButt2 = bannButt2;
             var t0 = performance.now();  // Speed check start
@@ -1108,7 +1217,7 @@
 
         // Set up CH loop
         function bootstrapWMEPH_CH() {
-            debug('-- bootstrapWMEPH_CH() called --');
+            //debug('-- bootstrapWMEPH_CH() called --');
             if ( $("#WMEPH-ColorHighlighting" + devVersStr).prop('checked') ) {
                 // Turn off place highlighting in WMECH if it's on.
                 if ( $("#_cbHighlightPlaces").prop('checked') ) {
@@ -1152,7 +1261,7 @@
         var specWords = "d'Bronx|iFix".split('|');
 
         function toTitleCase(str) {
-            debug('-- toTitleCase(str) called --');
+            //debug('-- toTitleCase(str) called --');
             if (!str) {
                 return str;
             }
@@ -1205,7 +1314,7 @@
 
         // Change place.name to title case
         function toTitleCaseStrong(str) {
-            debug('-- toTitleCaseStrong(str) called --');
+            //debug('-- toTitleCaseStrong(str) called --');
             if (!str) {
                 return str;
             }
@@ -1283,7 +1392,7 @@
 
         // Alphanumeric phone conversion
         function replaceLetters(number) {
-            debug('-- replaceLetters(number) called --');
+            //debug('-- replaceLetters(number) called --');
             var conversionMap = _({
                 2: /A|B|C/,
                 3: /D|E|F/,
@@ -1356,7 +1465,7 @@
 
         // Only run the harmonization if a venue is selected
         function harmonizePlace() {
-            debug('-- harmonizePlace() called --');
+            //debug('-- harmonizePlace() called --');
             // Script is only for R2+ editors
             if (!betaUser && usrRank < 2) {
                 alert("Script is currently available for editors of Rank 2 and up.");
@@ -1386,7 +1495,10 @@
 
         // Main script
         function harmonizePlaceGo(item, useFlag, actions) {
-            debug('-- harmonizePlaceGo() called --');
+            //debug('-- harmonizePlaceGo() called --');
+            //debug('  item = ' + JSON.stringify(item, censor(item), 2));
+            //debug('  useFlag = ' + JSON.stringify(useFlag, null, 2));
+            //debug('  actions = ' + JSON.stringify(actions, null, 2));
             actions = actions || []; // Used for collecting all actions to be applied to the model.
 
             var hpMode = {
@@ -2411,7 +2523,7 @@
             }
 
             function setServiceChecked(servBtn, checked, actions) {
-                var servID = WMEServicesArray[servBtn.servIDIndex];
+                var servID = WME_SERVICES[servBtn.servIDIndex];
                 var checkboxChecked = $("#service-checkbox-"+servID).prop('checked');
                 var toggle = typeof checked === 'undefined';
                 var noAdd = false;
@@ -2673,6 +2785,16 @@
             }
             newPhone = item.attributes.phone;
             var addr = item.getAddress();
+            /*
+            debug('  addr.attributes.state = ');
+            for (var k in addr.attributes.state) {
+                debug(k + ' : ' + addr.attributes.state[k]);
+            }
+            debug('  addr.attributes.country = ');
+            for (var k in addr.attributes.country) {
+                debug(k + ' : ' + addr.attributes.country[k]);
+            }
+            */
             if ( addr.hasOwnProperty('attributes') ) {
                 addr = addr.attributes;
             }
@@ -3290,7 +3412,7 @@
                         bannButt.addAlias.title = 'Add ' + optionalAlias;
                     }
                     // update categories if different and no Cat2 option
-                    debug('3126 // About to call uniq() twice inside of harmonizePlaceGo()');
+                    //debug('3126 // About to call uniq() twice inside of harmonizePlaceGo()');
                     if ( !matchSets( uniq(item.attributes.categories),uniq(newCategories) ) ) {
                         if ( specCases.indexOf('optionCat2') === -1 && specCases.indexOf('buttOn_addCat2') === -1 ) {
                             phlogdev("Categories updated" + " with " + newCategories);
@@ -3533,12 +3655,13 @@
 
                 // NOTE: Some of this code can run once instead of happening every time harmonizePlaceGo() gets called.
                 // Category/Name-based Services, added to any existing services:
+                /* Don't need this anymore. */
                 var CH_DATA, CH_NAMES;
                 if (countryCode === "USA") {
-                    CH_DATA = NA_CAT_DATA;
+                    CH_DATA = USA_CH_DATA;
                     CH_NAMES = USA_CH_NAMES;
                 } else if (countryCode === "CAN") {
-                    CH_DATA = NA_CAT_DATA;   // #### CAN shares the USA sheet, can eventually can be split to new sheet if needed
+                    CH_DATA = USA_CAT_DATA;   // #### CAN shares the USA sheet, can eventually can be split to new sheet if needed
                     CH_NAMES = USA_CH_NAMES;
                 }
                 var CH_DATA_headers = CH_DATA[0].split("|");
@@ -3554,30 +3677,36 @@
                         servList.push(CH_DATA_list[jjj]);
                     }
                 }
+                /**/
 
                 // NOTE: We are inside harmonizePlaceGo()
                 // NOTE: This code checks the servKeys and such to enable services.
-                var CH_DATA_Temp;
-                for (var iii=0; iii<CH_NAMES.length; iii++) {
-                    if (newCategories.indexOf(CH_NAMES[iii]) > -1 ) {
-                        CH_DATA_Temp = CH_DATA[iii].split("|");
-                        for (var psix=0; psix<servHeaders.length; psix++) {
-                            if ( !bannServ[servKeys[psix]].pnhOverride ) {
-                                if (CH_DATA_Temp[servHeaders[psix]] === '1') {  // These are automatically added to all countries/regions (if auto setting is on)
-                                    bannServ[servKeys[psix]].active = true;
-                                    if ( hpMode.harmFlag && $("#WMEPH-EnableServices" + devVersStr).prop('checked')  ) {
+                // Rewrite
+                for (var i = 0, len = newCategories.length; i < len; i++) {
+                    var cat = newCategories[i];
+                    if (NA_CAT_DATA.hasOwnProperty(cat)) {
+                        for (var service in WME_SERVICE_MAP) {
+                            debug("service = " + JSON.stringify(service));
+                            var act = WME_SERVICE_MAP[service].action;
+                            debug("act = " + JSON.stringify(act));
+                            debug("bannServ[act] = " + JSON.stringify(bannServ[act]));
+                            if (!bannServ[act].pnhOverride) {
+                                var flag = NA_CAT_DATA[cat].services[service];
+                                debug("flag = " + JSON.stringify(flag));
+                                if (flag === 1) {
+                                    bannServ[act].active = true;
+                                    if (hpMode.harmFlag && $("#WMEPH-EnableServices" + devVersStr).prop('checked')) {
                                         // Automatically enable new services
-                                        bannServ[servKeys[psix]].actionOn(actions);
+                                        bannServ[act].actionOn(actions);
                                     }
-                                } else if (CH_DATA_Temp[servHeaders[psix]] === '2') {  // these are never automatically added but shown
-                                    bannServ[servKeys[psix]].active = true;
-                                } else if (CH_DATA_Temp[servHeaders[psix]] !== '') {  // check for state/region auto add
-                                    bannServ[servKeys[psix]].active = true;
+                                } else if (flag === 2) {  // these are never automatically added but shown
+                                    bannServ[act].active = true;
+                                } else if (typeof(flag) === "object") {  // Check for state/region auto add
+                                    bannServ[act].active = true;
                                     if ( hpMode.harmFlag && $("#WMEPH-EnableServices" + devVersStr).prop('checked')) {
-                                        var servAutoRegion = CH_DATA_Temp[servHeaders[psix]].replace(/,[^A-za-z0-9]*/g, ",").split(",");
-                                        // if the sheet data matches the state, region, or username then auto add
-                                        if ( servAutoRegion.indexOf(state2L) > -1 || servAutoRegion.indexOf(region) > -1 || servAutoRegion.indexOf(thisUser.userName) > -1 ) {
-                                            bannServ[servKeys[psix]].actionOn(actions);
+                                        // If the sheet data matches the state or region, then auto add
+                                        if (matchPNHRegion(state2L, flag) || matchPNHRegion(region, flag)) {
+                                            bannServ[act].actionOn(actions);
                                         }
                                     }
                                 }
@@ -3585,6 +3714,35 @@
                         }
                     }
                 }
+
+                //var CH_DATA_Temp;
+                //for (var iii=0; iii<CH_NAMES.length; iii++) {
+                //    if (newCategories.indexOf(CH_NAMES[iii]) > -1 ) {
+                //        CH_DATA_Temp = CH_DATA[iii].split("|");
+                //        for (var psix=0; psix<servHeaders.length; psix++) {
+                //            if ( !bannServ[servKeys[psix]].pnhOverride ) {
+                //                if (CH_DATA_Temp[servHeaders[psix]] === '1') {  // These are automatically added to all countries/regions (if auto setting is on)
+                //                    bannServ[servKeys[psix]].active = true;
+                //                    if ( hpMode.harmFlag && $("#WMEPH-EnableServices" + devVersStr).prop('checked')  ) {
+                //                        // Automatically enable new services
+                //                        bannServ[servKeys[psix]].actionOn(actions);
+                //                    }
+                //                } else if (CH_DATA_Temp[servHeaders[psix]] === '2') {  // these are never automatically added but shown
+                //                    bannServ[servKeys[psix]].active = true;
+                //                } else if (CH_DATA_Temp[servHeaders[psix]] !== '') {  // check for state/region auto add
+                //                    bannServ[servKeys[psix]].active = true;
+                //                    if ( hpMode.harmFlag && $("#WMEPH-EnableServices" + devVersStr).prop('checked')) {
+                //                        var servAutoRegion = CH_DATA_Temp[servHeaders[psix]].replace(/,[^A-za-z0-9]*/g, ",").split(",");
+                //                        // if the sheet data matches the state, region, or username then auto add
+                //                        if ( servAutoRegion.indexOf(state2L) > -1 || servAutoRegion.indexOf(region) > -1 || servAutoRegion.indexOf(thisUser.userName) > -1 ) {
+                //                            bannServ[servKeys[psix]].actionOn(actions);
+                //                        }
+                //                    }
+                //                }
+                //            }
+                //        }
+                //    }
+                //}
 
                 // PNH specific Services:
 
@@ -3601,12 +3759,12 @@
 
                 // Area vs. Place checking, Category locking, and category-based messaging
                 var msg = '';
-                msg = JSON.stringify(CH_DATA);
+                msg = JSON.stringify(CH_DATA, censor(CH_DATA), 2);
                 //popUp(msg);
                 var pvaPoint, pvaArea, regPoint, regArea, pc_message, pc_lockTemp, pc_rare, pc_parent;
-                for (iii=0; iii<CH_NAMES.length; iii++) {
+                for (var iii=0; iii<CH_NAMES.length; iii++) {
                     if (newCategories.indexOf(CH_NAMES[iii]) === 0 ) {  // Primary category
-                        CH_DATA_Temp = CH_DATA[iii].split("|");
+                        var CH_DATA_Temp = CH_DATA[iii].split("|");
                         // CH_DATA_headers
                         //pc_point    pc_area    pc_regpoint    pc_regarea    pc_lock1    pc_lock2    pc_lock3    pc_lock4    pc_lock5    pc_rare    pc_parent    pc_message
                         pvaPoint = CH_DATA_Temp[CH_DATA_headers.indexOf('pc_point')];
@@ -4323,7 +4481,7 @@
                                         venueWhitelist[itemID][wlKeyName] = [];
                                     }
                                     venueWhitelist[itemID].dupeWL.push(dID);  // WL the id for the duplicate venue
-                                    debug('4159 // About to call uniq() once inside of harmonizePlaceGo()');
+                                    //debug('4159 // About to call uniq() once inside of harmonizePlaceGo()');
                                     venueWhitelist[itemID].dupeWL = uniq(venueWhitelist[itemID].dupeWL);
                                     // Make an entry for the opposite item
                                     if (!venueWhitelist.hasOwnProperty(dID)) {  // If venue is NOT on WL, then add it.
@@ -4333,7 +4491,7 @@
                                         venueWhitelist[dID][wlKeyName] = [];
                                     }
                                     venueWhitelist[dID].dupeWL.push(itemID);  // WL the id for the duplicate venue
-                                    debug('4169 // About to call uniq() once inside of harmonizePlaceGo()');
+                                    //debug('4169 // About to call uniq() once inside of harmonizePlaceGo()');
                                     venueWhitelist[dID].dupeWL = uniq(venueWhitelist[dID].dupeWL);
                                     saveWL_LS(true);  // Save the WL to local storage
                                     WMEPH_WLCounter();
@@ -4408,7 +4566,7 @@
 
         // highlight changed fields
         function highlightChangedFields(fieldUpdateObject,hpMode) {
-            debug('-- highlightChangedFields(fieldUpdateObject,hpMode) called --');
+            //debug('-- highlightChangedFields(fieldUpdateObject,hpMode) called --');
 
             if (hpMode.harmFlag) {
                 //var panelFields = {};
@@ -4539,7 +4697,7 @@
 
         // Set up banner messages
         function assembleBanner() {
-            debug('-- assembleBanner() called --');
+            //debug('-- assembleBanner() called --');
             phlogdev('Building banners');
             // push together messages from active banner messages
             var sidebarMessage = [], sidebarTools = [];  // Initialize message array
@@ -4768,7 +4926,7 @@
 
         // Button onclick event handler
         function setupButtons(b) {
-            debug('-- setupButtons(b) called --');
+            //debug('-- setupButtons(b) called --');
             for ( var tempKey in b ) {  // Loop through the banner possibilities
                 if ( b.hasOwnProperty(tempKey) && b[tempKey].active ) {  //  If the particular message is active
                     if (b[tempKey].hasOwnProperty('action')) {  // If there is an action, set onclick
@@ -4783,7 +4941,7 @@
         }  // END setupButtons function
 
         function buttonAction(b,bKey) {
-            debug('-- buttonAction(b,bKey) called --');
+            //debug('-- buttonAction(b,bKey) called --');
             var button = document.getElementById('WMEPH_'+bKey);
             button.onclick = function() {
                 b[bKey].action();
@@ -4792,7 +4950,7 @@
             return button;
         }
         function buttonWhitelist(b,bKey) {
-            debug('-- buttonWhitelist(b,bKey) called --');
+            //debug('-- buttonWhitelist(b,bKey) called --');
             var button = document.getElementById('WMEPH_WL'+bKey);
             button.onclick = function() {
                 if ( bKey.match(/^\d{5,}/) !== null ) {
@@ -4810,7 +4968,7 @@
 
         // Setup div for banner messages and color
         function displayBanners(sbm,sev) {
-            debug('-- displayBanners(sbm,sev) called --');
+            //debug('-- displayBanners(sbm,sev) called --');
             if ($('#WMEPH_banner').length === 0 ) {
                 $('<div id="WMEPH_banner">').css({"width": "100%", "background-color": "#fff", "color": "white", "font-size": "15px", "font-weight": "bold", "padding": "3px", "margin-left": "auto", "margin-right": "auto"}).prependTo(".contents");
             } else {
@@ -4838,7 +4996,7 @@
 
         // Setup div for banner messages and color
         function displayTools(sbm) {
-            debug('-- displayTools(sbm) called --');
+            //debug('-- displayTools(sbm) called --');
             if ($('#WMEPH_tools').length === 0 ) {
                 $('<div id="WMEPH_tools">').css({"width": "100%", "background-color": "#eee", "color": "black", "font-size": "15px", "font-weight": "bold", "padding": "3px", "margin-left": "auto", "margin-right": "auto"}).prependTo(".contents");
             } else {
@@ -4860,7 +5018,7 @@
 
         // Display run button on place sidebar
         function displayRunButton() {
-            debug('-- displayRunButton() called --');
+            //debug('-- displayRunButton() called --');
             var betaDelay = 0;
             if (IS_DEV_VERSION) { betaDelay = 30; }
             setTimeout(function() {
@@ -4890,7 +5048,7 @@
 
         // WMEPH Clone Tool
         function displayCloneButton() {
-            debug('-- displayCloneButton() called --');
+            //debug('-- displayCloneButton() called --');
             var betaDelay = 80;
             if (IS_DEV_VERSION) { betaDelay = 300; }
             setTimeout(function() {
@@ -5021,7 +5179,7 @@
 
         // Catch PLs and reloads that have a place selected already and limit attempts to about 10 seconds
         function bootstrapRunButton() {
-            debug('-- bootstrapRunButton() called --');
+            //debug('-- bootstrapRunButton() called --');
             if (numAttempts < 10) {
                 numAttempts++;
                 if (W.selectionManager.selectedItems.length === 1) {
@@ -5042,7 +5200,7 @@
 
         // Find field divs
         function getPanelFields() {
-            debug('-- getPanelFields() called --');
+            //debug('-- getPanelFields() called --');
             var panelFieldsList = $('.form-control'), pfa;
             for (var pfix=0; pfix<panelFieldsList.length; pfix++) {
                 pfa = panelFieldsList[pfix].name;
@@ -5090,7 +5248,7 @@
         // Catch PLs and reloads that have a place selected already and limit attempts to about 10 seconds
         numAttempts = 0;
         function bootstrapInferAddress() {
-            debug('-- bootstrapInferAddress() called --');
+            //debug('-- bootstrapInferAddress() called --');
             if (numAttempts < 20) {
                 numAttempts++;
                 var inferredAddress = WMEPH_inferAddress(7);
@@ -5104,7 +5262,7 @@
 
         // Function to clone info from a place
         function clonePlace() {
-            debug('-- clonePlace() called --');
+            //debug('-- clonePlace() called --');
             phlog('Cloning info...');
             var UpdateObject = require("Waze/Action/UpdateObject");
             if (cloneMaster !== null && cloneMaster.hasOwnProperty('url')) {
@@ -5161,7 +5319,7 @@
 
         // Formats "hour object" into a string.
         function formatOpeningHour(hourEntry) {
-            debug('-- formatOpeningHour(hourEntry) called --');
+            //debug('-- formatOpeningHour(hourEntry) called --');
             var dayNames = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
             var hours = hourEntry.attributes.fromHour + '-' + hourEntry.attributes.toHour;
             return hourEntry.attributes.days.map(function(day) {
@@ -5170,12 +5328,12 @@
         }
         // Pull natural text from opening hours
         function getOpeningHours(venue) {
-            debug('-- getOpeningHours(venue) called --');
+            //debug('-- getOpeningHours(venue) called --');
             return venue && venue.getOpeningHours && venue.getOpeningHours().map(formatOpeningHour);
         }
         // Parse hours paste for hours object array
         function parseHours(inputHours) {
-            debug('-- parseHours(inputHours) called --');
+            //debug('-- parseHours(inputHours) called --');
             var daysOfTheWeek = {
                 SS: ['saturdays', 'saturday', 'satur', 'sat', 'sa'],
                 UU: ['sundays', 'sunday', 'sun', 'su'],
@@ -5538,7 +5696,7 @@
 
         // function to check overlapping hours
         function checkHours(hoursObj) {
-            debug('-- checkHours(hoursObj) called --');
+            //debug('-- checkHours(hoursObj) called --');
             if (hoursObj.length === 1) {
                 return true;
             }
@@ -5620,7 +5778,7 @@
                     }
                 }
             }
-            debug('5456 // About to call uniq() once inside of findNearbyDuplicate()');
+            //debug('5456 // About to call uniq() once inside of findNearbyDuplicate()');
             currNameList = uniq(currNameList);  //  remove duplicates
 
             // Remove any previous search labels and move the layer above the places layer
@@ -5844,7 +6002,7 @@
 
         // On selection of new item:
         function checkSelection() {
-            debug('-- checkSelection() called --');
+            //debug('-- checkSelection() called --');
             if (W.selectionManager.selectedItems.length > 0) {
                 var newItem = W.selectionManager.selectedItems[0].model;
                 if (newItem.type === "venue") {
@@ -5870,7 +6028,7 @@
 
         // Functions to infer address from nearby segments
         function WMEPH_inferAddress(MAX_RECURSION_DEPTH) {
-            debug('-- WMEPH_inferAddress(MAX_RECURSION_DEPTH) called --');
+            //debug('-- WMEPH_inferAddress(MAX_RECURSION_DEPTH) called --');
             'use strict';
             var distanceToSegment,
                 foundAddresses = [],
@@ -6091,7 +6249,7 @@
 
         // Build a Google search url based on place name and address
         function buildGLink(searchName,addr,HN) {
-            debug('-- buildGLink(searchName,addr,HN) called --');
+            //debug('-- buildGLink(searchName,addr,HN) called --');
             var searchHN = "", searchStreet = "", searchCity = "";
             searchName = searchName.replace(/&/g, "%26");
             searchName = searchName.replace(/[ \/]/g, "%20");
@@ -6121,7 +6279,7 @@
 
         // WME Category translation from Natural language to object language  (Bank / Financial --> BANK_FINANCIAL)
         function catTranslate(natCategories) {
-            debug('-- catTranslate(natCategories) called --');
+            //debug('-- catTranslate(natCategories) called --');
             //console.log(natCategories);
             var natCategoriesRepl = natCategories.toUpperCase().replace(/ AND /g, "").replace(/[^A-Z]/g, "");
             if (natCategoriesRepl.indexOf('PETSTORE') > -1) {
@@ -6157,7 +6315,7 @@
 
         // function that checks if all elements of target are in array:source
         function containsAll(source,target) {
-            debug('-- containsAll(source,target) called --');
+            //debug('-- containsAll(source,target) called --');
             if (typeof(target) === "string") { target = [target]; }  // if a single string, convert to an array
             for (var ixx = 0; ixx < target.length; ixx++) {
                 if ( source.indexOf(target[ixx]) === -1 ) {
@@ -6169,7 +6327,7 @@
 
         // function that checks if any element of target are in source
         function containsAny(source,target) {
-            debug('-- containsAny(source,target) called --');
+            //debug('-- containsAny(source,target) called --');
             if (typeof(source) === "string") { source = [source]; }  // if a single string, convert to an array
             if (typeof(target) === "string") { target = [target]; }  // if a single string, convert to an array
             var result = source.filter(function(tt){ return target.indexOf(tt) > -1; });
@@ -6185,7 +6343,7 @@
                 arrayNew.push.apply(arrayNew, array2);  // add the insert
                 arrayNew.push.apply(arrayNew, arrayTemp);  // add the tail end of original
             }
-            debug('6021 // About to call uniq() once inside of insertAtIX()');
+            //debug('6021 // About to call uniq() once inside of insertAtIX()');
             return uniq(arrayNew);  // remove any duplicates (so the function can be used to move the position of a string)
         }
 
@@ -6206,7 +6364,7 @@
 
         // settings tab
         function add_PlaceHarmonizationSettingsTab() {
-            debug('-- add_PlaceHarmonizationSettingsTab() called --');
+            //debug('-- add_PlaceHarmonizationSettingsTab() called --');
             //Create Settings Tab
             var phTabHtml = '<li><a href="#sidepanel-ph' + devVersStr + '" data-toggle="tab" id="PlaceHarmonization' + devVersStr + '">WMEPH' + devVersStrSpace + '</a></li>';
             $("#user-tabs ul.nav-tabs:first").append(phTabHtml);
@@ -6659,7 +6817,7 @@
 
         //Function to add Shift+ to upper case KBS
         function parseKBSShift(kbs) {
-            debug('-- parseKBSShift(kbs) called --');
+            //debug('-- parseKBSShift(kbs) called --');
             if (kbs.match(/^[A-Z]{1}$/g) !== null) { // If upper case, then add a Shift+
                 kbs = 'Shift+' + kbs;
             }
@@ -6668,7 +6826,7 @@
 
         // Function to check shortcut conflict
         function checkWMEPH_KBSconflict(KBS) {
-            debug('-- checkWMEPH_KBSconflict(KBS) called --');
+            //debug('-- checkWMEPH_KBSconflict(KBS) called --');
             var LSString = '';
             if (!IS_DEV_VERSION) {
                 LSString = devVersStringMaster;
@@ -6684,7 +6842,7 @@
 
         // Save settings prefs
         function saveSettingToLocalStorage(settingID) {
-            debug('-- saveSettingToLocalStorage(settingID) called --');
+            //debug('-- saveSettingToLocalStorage(settingID) called --');
             if ($("#" + settingID).prop('checked')) {
                 localStorage.setItem(settingID, '1');
             } else {
@@ -6694,7 +6852,7 @@
 
         // This function validates that the inputted text is a JSON
         function validateWLS(jsonString) {
-            debug('-- validateWLS(jsonString) called --');
+            //debug('-- validateWLS(jsonString) called --');
             "use strict";
             try {
                 var objTry = JSON.parse(jsonString);
@@ -6708,7 +6866,7 @@
 
         // This function merges and updates venues from object vWL_2 into vWL_1
         function mergeWL(vWL_1,vWL_2) {
-            debug('-- mergeWL(vWL_1,vWL_2) called --');
+            //debug('-- mergeWL(vWL_1,vWL_2) called --');
             "use strict";
             var venueKey, WLKey, vWL_1_Venue, vWL_2_Venue;
             for (venueKey in vWL_2) {
@@ -6737,10 +6895,10 @@
 
         // Get services checkbox status
         function getServicesChecks() {
-            debug('-- getServicesChecks() called --');
+            //debug('-- getServicesChecks() called --');
             var servArrayCheck = [];
-            for (var wsix=0; wsix<WMEServicesArray.length; wsix++) {
-                if ($("#service-checkbox-" + WMEServicesArray[wsix]).prop('checked')) {
+            for (var wsix=0; wsix<WME_SERVICES.length; wsix++) {
+                if ($("#service-checkbox-" + WME_SERVICES[wsix]).prop('checked')) {
                     servArrayCheck[wsix] = true;
                 } else {
                     servArrayCheck[wsix] = false;
@@ -6750,7 +6908,7 @@
         }
 
         function updateServicesChecks(bannServ) {
-            debug('-- updateServicesChecks(bannServ) called --');
+            //debug('-- updateServicesChecks(bannServ) called --');
             var servArrayCheck = getServicesChecks(), wsix=0;
             for (var keys in bannServ) {
                 if (bannServ.hasOwnProperty(keys)) {
@@ -6768,7 +6926,7 @@
 
         // Focus away from the current cursor focus, to set text box changes
         function blurAll() {
-            debug('-- blurAll() called --');
+            //debug('-- blurAll() called --');
             var tmp = document.createElement("input");
             document.body.appendChild(tmp);
             tmp.focus();
@@ -6777,7 +6935,7 @@
 
         // Pulls the item PL
         function getItemPL() {
-            debug('-- getItemPL() called --');
+            //debug('-- getItemPL() called --');
             // Append a form div if it doesn't exist yet:
             if ( $('#WMEPH_formDiv').length ===0 ) {
                 var tempDiv = document.createElement('div');
@@ -6801,7 +6959,7 @@
 
         // Sets up error reporting
         function WMEPH_errorReport(data) {
-            debug('-- WMEPH_errorReport(data) called --');
+            //debug('-- WMEPH_errorReport(data) called --');
             data.preview = 'Preview';
             data.attach_sig = 'on';
             if (PMUserList.hasOwnProperty('WMEPH') && PMUserList.WMEPH.approvalActive) {
@@ -6863,7 +7021,7 @@
 
         // Function that checks current place against the Harmonization Data.  Returns place data or "NoMatch"
         function harmoList(itemName,state2L,region3L,country,itemCats) {
-            debug('-- harmoList(itemName,state2L,region3L,country,itemCats) called --');
+            //debug('-- harmoList(itemName,state2L,region3L,country,itemCats) called --');
             var PNH_DATA_headers;
             var ixendPNH_NAMES;
             if (country === 'USA') {
@@ -7150,7 +7308,7 @@
 
     // Whitelist stringifying and parsing
     function saveWL_LS(compress) {
-        debug('- saveWL_LS(compress) called -');
+        //debug('- saveWL_LS(compress) called -');
         venueWhitelistStr = JSON.stringify(venueWhitelist);
         if (compress) {
             if (venueWhitelistStr.length < 4800000 ) {  // Also save to regular storage as a back up
@@ -7163,7 +7321,7 @@
         }
     }
     function loadWL_LS(decompress) {
-        debug('- loadWL_LS(decompress) called -');
+        //debug('- loadWL_LS(decompress) called -');
         if (decompress) {
             venueWhitelistStr = localStorage.getItem(WLlocalStoreNameCompressed);
             venueWhitelistStr = LZString.decompressFromUTF16(venueWhitelistStr);
@@ -7173,7 +7331,7 @@
         venueWhitelist = JSON.parse(venueWhitelistStr);
     }
     function backupWL_LS(compress) {
-        debug('- backupWL_LS(compress) called -');
+        //debug('- backupWL_LS(compress) called -');
         venueWhitelistStr = JSON.stringify(venueWhitelist);
         if (compress) {
             venueWhitelistStr = LZString.compressToUTF16(venueWhitelistStr);
@@ -7188,7 +7346,7 @@
     //function phlog(m) {
 
     function zoomPlace() {
-        debug('- zoomPlace() called -');
+        //debug('- zoomPlace() called -');
         if (W.selectionManager.selectedItems.length === 1 && W.selectionManager.selectedItems[0].model.type === "venue") {
             W.map.moveTo(W.selectionManager.selectedItems[0].model.geometry.getCentroid().toLonLat(), 7);
         } else {
@@ -7197,7 +7355,7 @@
     }
 
     function sortWithIndex(toSort) {
-        debug('- sortWithIndex(toSort) called -');
+        //debug('- sortWithIndex(toSort) called -');
         for (var i = 0; i < toSort.length; i++) {
             toSort[i] = [toSort[i], i];
         }
@@ -7269,7 +7427,7 @@
 
     // Keep track of how many whitelists have been added since the last pull, alert if over a threshold (100?)
     function WMEPH_WLCounter() {
-        debug('- WMEPH_WLCounter() called -');
+        //debug('- WMEPH_WLCounter() called -');
         localStorage.WMEPH_WLAddCount = parseInt(localStorage.WMEPH_WLAddCount)+1;
         if (localStorage.WMEPH_WLAddCount > 50) {
             alert('Don\'t forget to periodically back up your Whitelist data using the Pull option in the WMEPH settings tab.');
@@ -7279,7 +7437,7 @@
 
     var _googleLinkHash = {};
     function modifyGoogleLinks() {
-        debug('- modifyGoogleLinks() called -');
+        //debug('- modifyGoogleLinks() called -');
         // MutationObserver will be notified when Google place ID divs are added, then update them to be hyperlinks.
         var observer = new MutationObserver(function(mutations) {
             mutations.forEach(function(mutation) {
