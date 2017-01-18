@@ -13,7 +13,7 @@
 // ==UserScript==
 // @name        WME Place Harmonizer Beta
 // @namespace   https://github.com/WazeUSA/WME-Place-Harmonizer/raw/master/WME-Place-Harmonizer.user.js
-// @version     1.1.81
+// @version     1.1.82
 // @description Harmonizes, formats, and locks a selected place
 // @author      WMEPH development group
 // @include     /^https:\/\/(www|beta)\.waze\.com\/(?!user\/)(.{2,6}\/)?editor\/.*$/
@@ -262,6 +262,7 @@
     function runPH() {
         // Script update info
         var WMEPHWhatsNewList = [  // New in this version
+            '1.1.82: Added option to disable check for missing external provider on parking lots.',
             '1.1.81: Fix for incorrect capitalization when "mc" is in the middle of a word.',
             '1.1.80: Fix to allow entering phone #s longer than 10 digits, e.g. 800-THE-CRAVE',
             '1.1.79: Fixed area / point warning when multiple categories are present.',
@@ -2363,14 +2364,16 @@
                 if (item.is2D()) {
                     bannButt.pointNotArea.active = true;
                 }
-            } else if (item.attributes.categories[0] === 'PARKING_LOT' || (newName && newName.trim().length > 0)) {  // for non-residential places
-                var provIDs = item.attributes.externalProviderIDs;
-                if (usrRank >= 3 && (!provIDs || provIDs.length === 0) ) {
-                    if ($('#WMEPH-ExtProviderSeverity' + devVersStr).prop('checked')) {
-                        bannButt.extProviderMissing.severity = 1;
+            } else if (isPLA(item) || (newName && newName.trim().length > 0)) {  // for non-residential places
+                if (usrRank >= 3 && !(isPLA(item) && $('#WMEPH-DisablePLAExtProviderCheck' + devVersStr).prop('checked'))) {
+                    var provIDs = item.attributes.externalProviderIDs;
+                    if (!provIDs || provIDs.length === 0) {
+                        if ($('#WMEPH-ExtProviderSeverity' + devVersStr).prop('checked')) {
+                            bannButt.extProviderMissing.severity = 1;
+                        }
+                        bannButt.extProviderMissing.active = !currentWL.extProviderMissing;
+                        bannButt.extProviderMissing.WLactive = !currentWL.extProviderMissing;
                     }
-                    bannButt.extProviderMissing.active = !currentWL.extProviderMissing;
-                    bannButt.extProviderMissing.WLactive = !currentWL.extProviderMissing;
                 }
 
                 // Place Harmonization
@@ -5696,20 +5699,22 @@
             createSettingsCheckbox("sidepanel-harmonizer" + devVersStr, "WMEPH-HidePlacesWiki" + devVersStr,"Hide 'Places Wiki' button in results banner");
             createSettingsCheckbox("sidepanel-harmonizer" + devVersStr, "WMEPH-ExcludePLADupes" + devVersStr,"Exclude parking lots when searching for duplicate places.");
             if (devUser || betaUser || usrRank >= 2) {
+                createSettingsCheckbox("sidepanel-harmonizer" + devVersStr, "WMEPH-DisablePLAExtProviderCheck" + devVersStr,'Disable check for "Missing External Provider" on Parking Lot Areas');
+                createSettingsCheckbox("sidepanel-harmonizer" + devVersStr, "WMEPH-ExtProviderSeverity" + devVersStr,'Treat "Missing External Provider" as non-critical (blue)');
                 createSettingsCheckbox("sidepanel-harmonizer" + devVersStr, "WMEPH-EnableServices" + devVersStr,"Enable automatic addition of common services");
-            }
-            if (devUser || betaUser || usrRank >= 2) {
                 createSettingsCheckbox("sidepanel-harmonizer" + devVersStr, "WMEPH-ConvenienceStoreToGasStations" + devVersStr,'Automatically add "Convenience Store" category to gas stations');
                 createSettingsCheckbox("sidepanel-harmonizer" + devVersStr, "WMEPH-AddAddresses" + devVersStr,"Add detected address fields to places with no address");
                 createSettingsCheckbox("sidepanel-harmonizer" + devVersStr, "WMEPH-EnableCloneMode" + devVersStr,"Enable place cloning tools");
                 createSettingsCheckbox("sidepanel-harmonizer" + devVersStr, "WMEPH-AutoLockRPPs" + devVersStr,"Lock residential place points to region default");
-                createSettingsCheckbox("sidepanel-harmonizer" + devVersStr, "WMEPH-ExtProviderSeverity" + devVersStr,'Treat "Missing External Provider" as non-critical (blue)');
-                $("#WMEPH-ExtProviderSeverity" + devVersStr).on('click', function() {
+                createSettingsCheckbox("sidepanel-harmonizer" + devVersStr, "WMEPH-AutoRunOnSelect" + devVersStr,'Automatically run the script when selecting a place');
+            }
+
+            ["#WMEPH-ExtProviderSeverity" + devVersStr, "#WMEPH-DisablePLAExtProviderCheck" + devVersStr].map(function(id) {
+                $(id).on('click', function() {
                     // Force highlight refresh on all venues.
                     applyHighlightsTest(W.model.venues.getObjectArray());
                 });
-                createSettingsCheckbox("sidepanel-harmonizer" + devVersStr, "WMEPH-AutoRunOnSelect" + devVersStr,'Automatically run the script when selecting a place');
-            }
+            });
 
             // Highlighter settings
             var phDevContentHtml = '<p>Highlighter Settings:</p>';
@@ -6586,7 +6591,7 @@
 
         function phlogdev(msg, obj) {
             if (devUser) {
-                console.log('WMEPH' + devVersStrDash + ': ' + msg, obj);
+                console.log('WMEPH' + devVersStrDash + ': ' + msg, (obj ? obj : ''));
             }
         }
     } // END runPH Function
@@ -6879,7 +6884,6 @@
                     // Only fire up if it's a node
                     if (addedNode.nodeType === Node.ELEMENT_NODE) {
                         if(addedNode.querySelector('div .placeId')) {
-                            console.log('*************** EDIT PANEL', addedNode);
                             var placeLinkDivs = $(addedNode).find('.placeId');
                             for(i=0; i<placeLinkDivs.length; i++) {
                                 var placeLinkDiv = placeLinkDivs[i];
@@ -6888,7 +6892,6 @@
                                     placeLinkDiv.innerHTML = _googleLinkHash[placeLinkId];
                                 }
                             }
-
                         }
                     }
                 }
