@@ -26,18 +26,6 @@
 
 (function () {
     "use strict";
-    var USA_CH_DATA;
-    function makeCatCheckList(CH_DATA) {  // Builds the list of search names to match to the WME place name
-        var CH_CATS = [];
-        var CH_DATA_headers = CH_DATA[0].split("|");  // split the data headers out
-        var pc_wmecat_ix = CH_DATA_headers.indexOf("pc_wmecat");  // find the indices needed for the function
-        var chEntryTemp;
-        for (var chix=0; chix<CH_DATA.length; chix++) {  // loop through all PNH places
-            chEntryTemp = CH_DATA[chix].split("|");  // split the current PNH data line
-            CH_CATS.push(chEntryTemp[pc_wmecat_ix]);
-        }
-        return CH_CATS;
-    } // END makeCatCheckList function
     var jqUI_CssSrc = GM_getResourceText("jqUI_CSS");
     GM_addStyle(jqUI_CssSrc);
     // Was testing this, but I don't think the following line does anything. (mapomatic)
@@ -422,17 +410,6 @@
             });
 
         }
-            $.ajax({
-                type: 'GET',
-                url: 'https://spreadsheets.google.com/feeds/list/1-f-JTWY5UnBx-rFTa4qhyGMYdHBZWNirUTOgn222zMY/ov3dubz/public/values',
-                jsonp: 'callback', data: { alt: 'json-in-script' }, dataType: 'jsonp',
-                success: function(response) {
-                    USA_CH_DATA = [];
-                    for (var i = 0; i < response.feed.entry.length; i++) {
-                        USA_CH_DATA.push(response.feed.entry[i].gsx$pcdata.$t);
-                    }
-                }
-            });
 
             // Pull Category Data
             $.ajax({
@@ -448,8 +425,8 @@
                         var key                 = arr[0],
                             pcPoint             = arr[2],
                             pcArea              = arr[3],
-                            pcPointRegion       = convertRegionsToBits(arr[4]),
-                            pcAreaRegion        = convertRegionsToBits(arr[5]),
+                            pcRegPoint          = convertRegionsToBits(arr[4]),
+                            pcRegArea           = convertRegionsToBits(arr[5]),
                             pcLock1             = convertRegionsToBits(arr[6]),
                             pcLock2             = convertRegionsToBits(arr[7]),
                             pcLock3             = convertRegionsToBits(arr[8]),
@@ -543,31 +520,31 @@
                             psWheelchair = convertRegionsToBits(psWheelchair_temp);
                         }
 
-                        services            = { "psValet"               :   psValet,
-                                                "psDriveThru"           :   psDriveThru,
-                                                "psWiFi"                :   psWiFi,
-                                                "psRestrooms"           :   psRestrooms,
-                                                "psCreditCards"         :   psCreditCards,
-                                                "psReservations"        :   psReservations,
-                                                "psOutside"             :   psOutside,
-                                                "psAirCond"             :   psAirCond,
-                                                "psParking"             :   psParking,
-                                                "psDelivery"            :   psDelivery,
-                                                "psTakeAway"            :   psTakeAway,
-                                                "psWheelchair"          :   psWheelchair };
-                        NA_CAT_DATA[key]    = { "pcPoint"               :   pcPoint,
-                                                "pcArea"                :   pcArea,
-                                                "pcPointRegion"         :   pcPointRegion,
-                                                "pcAreaRegion"          :   pcAreaRegion,
-                                                "pcLock1"               :   pcLock1,
-                                                "pcLock2"               :   pcLock2,
-                                                "pcLock3"               :   pcLock3,
-                                                "pcLock4"               :   pcLock4,
-                                                "pcLock5"               :   pcLock5,
-                                                "pcRare"                :   pcRare,
-                                                "pcParent"              :   pcParent,
-                                                "pcMessage"             :   pcMessage,
-                                                "services"              :   services };
+                        services            = { "psValet"           :   psValet,
+                                                "psDriveThru"       :   psDriveThru,
+                                                "psWiFi"            :   psWiFi,
+                                                "psRestrooms"       :   psRestrooms,
+                                                "psCreditCards"     :   psCreditCards,
+                                                "psReservations"    :   psReservations,
+                                                "psOutside"         :   psOutside,
+                                                "psAirCond"         :   psAirCond,
+                                                "psParking"         :   psParking,
+                                                "psDelivery"        :   psDelivery,
+                                                "psTakeAway"        :   psTakeAway,
+                                                "psWheelchair"      :   psWheelchair };
+                        NA_CAT_DATA[key]    = { "pcPoint"           :   pcPoint,
+                                                "pcArea"            :   pcArea,
+                                                "pcRegPoint"        :   pcRegPoint,
+                                                "pcRegArea"         :   pcRegArea,
+                                                "pcLock1"           :   pcLock1,
+                                                "pcLock2"           :   pcLock2,
+                                                "pcLock3"           :   pcLock3,
+                                                "pcLock4"           :   pcLock4,
+                                                "pcLock5"           :   pcLock5,
+                                                "pcRare"            :   pcRare,
+                                                "pcParent"          :   pcParent,
+                                                "pcMessage"         :   pcMessage,
+                                                "services"          :   services };
                     }
                     var msg = JSON.stringify(NA_CAT_DATA, null, 2);
                     msg = '<pre>NA_CAT_DATA = ' + msg + '</pre>';
@@ -670,7 +647,7 @@
         if ("undefined" !== typeof CAN_PNH_DATA && "undefined" !== typeof USA_PNH_DATA  && "undefined" !== typeof NA_CAT_DATA &&
             "undefined" !== typeof WMEPH_DEV_LIST && "undefined" !== typeof WMEPH_BETA_LIST && "undefined" !== typeof NON_HOSPITAL_PART_MATCH ) {
             USA_PNH_NAMES = makeNameCheckList(USA_PNH_DATA);
-            USA_CH_NAMES = makeCatCheckList(USA_CH_DATA);
+            //USA_CH_NAMES = makeCatCheckList(USA_CH_DATA);
             CAN_PNH_NAMES = makeNameCheckList(CAN_PNH_DATA);
             // CAN using USA_CH_NAMES at the moment
             loginReady();  //  start the main code
@@ -3655,44 +3632,18 @@
 
                 // NOTE: Some of this code can run once instead of happening every time harmonizePlaceGo() gets called.
                 // Category/Name-based Services, added to any existing services:
-                /* Don't need this anymore. */
-                var CH_DATA, CH_NAMES;
-                if (countryCode === "USA") {
-                    CH_DATA = USA_CH_DATA;
-                    CH_NAMES = USA_CH_NAMES;
-                } else if (countryCode === "CAN") {
-                    CH_DATA = USA_CAT_DATA;   // #### CAN shares the USA sheet, can eventually can be split to new sheet if needed
-                    CH_NAMES = USA_CH_NAMES;
-                }
-                var CH_DATA_headers = CH_DATA[0].split("|");
-                var CH_DATA_keys = CH_DATA[1].split("|");
-                var CH_DATA_list = CH_DATA[2].split("|");
 
-                var servHeaders = [], servKeys = [], servList = [], servHeaderCheck;
-                for (var jjj=0; jjj<CH_DATA_headers.length; jjj++) {
-                    servHeaderCheck = CH_DATA_headers[jjj].match(/^ps_/i);  // if it's a service header
-                    if (servHeaderCheck) {
-                        servHeaders.push(jjj);
-                        servKeys.push(CH_DATA_keys[jjj]);
-                        servList.push(CH_DATA_list[jjj]);
-                    }
-                }
-                /**/
 
                 // NOTE: We are inside harmonizePlaceGo()
                 // NOTE: This code checks the servKeys and such to enable services.
                 // Rewrite
                 for (var i = 0, len = newCategories.length; i < len; i++) {
-                    var cat = newCategories[i];
-                    if (NA_CAT_DATA.hasOwnProperty(cat)) {
+                    var catName = newCategories[i];
+                    if (NA_CAT_DATA.hasOwnProperty(catName)) {
                         for (var service in WME_SERVICE_MAP) {
-                            debug("service = " + JSON.stringify(service));
                             var act = WME_SERVICE_MAP[service].action;
-                            debug("act = " + JSON.stringify(act));
-                            debug("bannServ[act] = " + JSON.stringify(bannServ[act]));
                             if (!bannServ[act].pnhOverride) {
-                                var flag = NA_CAT_DATA[cat].services[service];
-                                debug("flag = " + JSON.stringify(flag));
+                                var flag = NA_CAT_DATA[catName].services[service];
                                 if (flag === 1) {
                                     bannServ[act].active = true;
                                     if (hpMode.harmFlag && $("#WMEPH-EnableServices" + devVersStr).prop('checked')) {
@@ -3715,37 +3666,7 @@
                     }
                 }
 
-                //var CH_DATA_Temp;
-                //for (var iii=0; iii<CH_NAMES.length; iii++) {
-                //    if (newCategories.indexOf(CH_NAMES[iii]) > -1 ) {
-                //        CH_DATA_Temp = CH_DATA[iii].split("|");
-                //        for (var psix=0; psix<servHeaders.length; psix++) {
-                //            if ( !bannServ[servKeys[psix]].pnhOverride ) {
-                //                if (CH_DATA_Temp[servHeaders[psix]] === '1') {  // These are automatically added to all countries/regions (if auto setting is on)
-                //                    bannServ[servKeys[psix]].active = true;
-                //                    if ( hpMode.harmFlag && $("#WMEPH-EnableServices" + devVersStr).prop('checked')  ) {
-                //                        // Automatically enable new services
-                //                        bannServ[servKeys[psix]].actionOn(actions);
-                //                    }
-                //                } else if (CH_DATA_Temp[servHeaders[psix]] === '2') {  // these are never automatically added but shown
-                //                    bannServ[servKeys[psix]].active = true;
-                //                } else if (CH_DATA_Temp[servHeaders[psix]] !== '') {  // check for state/region auto add
-                //                    bannServ[servKeys[psix]].active = true;
-                //                    if ( hpMode.harmFlag && $("#WMEPH-EnableServices" + devVersStr).prop('checked')) {
-                //                        var servAutoRegion = CH_DATA_Temp[servHeaders[psix]].replace(/,[^A-za-z0-9]*/g, ",").split(",");
-                //                        // if the sheet data matches the state, region, or username then auto add
-                //                        if ( servAutoRegion.indexOf(state2L) > -1 || servAutoRegion.indexOf(region) > -1 || servAutoRegion.indexOf(thisUser.userName) > -1 ) {
-                //                            bannServ[servKeys[psix]].actionOn(actions);
-                //                        }
-                //                    }
-                //                }
-                //            }
-                //        }
-                //    }
-                //}
-
                 // PNH specific Services:
-
 
                 // ### remove unnecessary parent categories (Restaurant doesn't need food and drink)
                 if ( hpMode.harmFlag && newCategories.indexOf('FOOD_AND_DRINK') > -1 ) {
@@ -3756,25 +3677,60 @@
                     }
                 }
 
-
                 // Area vs. Place checking, Category locking, and category-based messaging
-                var msg = '';
-                msg = JSON.stringify(CH_DATA, censor(CH_DATA), 2);
-                //popUp(msg);
-                var pvaPoint, pvaArea, regPoint, regArea, pc_message, pc_lockTemp, pc_rare, pc_parent;
-                for (var iii=0; iii<CH_NAMES.length; iii++) {
-                    if (newCategories.indexOf(CH_NAMES[iii]) === 0 ) {  // Primary category
-                        var CH_DATA_Temp = CH_DATA[iii].split("|");
-                        // CH_DATA_headers
-                        //pc_point    pc_area    pc_regpoint    pc_regarea    pc_lock1    pc_lock2    pc_lock3    pc_lock4    pc_lock5    pc_rare    pc_parent    pc_message
-                        pvaPoint = CH_DATA_Temp[CH_DATA_headers.indexOf('pc_point')];
-                        pvaArea = CH_DATA_Temp[CH_DATA_headers.indexOf('pc_area')];
-                        regPoint = CH_DATA_Temp[CH_DATA_headers.indexOf('pc_regpoint')].replace(/,[^A-za-z0-9]*/g, ",").split(",");
-                        regArea = CH_DATA_Temp[CH_DATA_headers.indexOf('pc_regarea')].replace(/,[^A-za-z0-9]*/g, ",").split(",");
-                        if (regPoint.indexOf(state2L) > -1 || regPoint.indexOf(region) > -1 || regPoint.indexOf(countryCode) > -1) {
+                // NOTE: Since we have to keep looping through categories, maybe see about combining actions inside of the same loops.
+                // NOTE: If it gets too complicated, the code should probably be segregated into other functions and then called within the same loop.
+                for (var i = 0, len = newCategories.length; i < len; i++) {
+                    var catName = newCategories[i];
+                    if (NA_CAT_DATA.hasOwnProperty(catName)) {
+                        var myCat       = NA_CAT_DATA[catName];
+                        var pvaPoint    = myCat.pcPoint,
+                            pvaArea     = myCat.pcArea,
+                            regPoint    = myCat.pcRegPoint,
+                            regArea     = myCat.pcRegArea,
+                            pcMessage   = myCat.pcMessage,
+                            pcLockTemp,
+                            pcRare      = myCat.pcRare,
+                            pcParent    = myCat.pcParent;
+
+                        // Display any messaged regarding the category
+                        if (pcMessage && pcMessage !== '0' && pcMessage !== '') {
+                            bannButt.pnhCatMess.active = true;
+                            bannButt.pnhCatMess.message = pcMessage;
+                        }
+
+                        // Unmapped categories
+                        if (matchPNHRegion(state2L, pcRare) || matchPNHRegion(region, pcRare)) {
+                            bannButt.unmappedRegion.active = true;
+                            if (currentWL.unmappedRegion) {
+                                bannButt.unmappedRegion.WLactive = false;
+                            } else {
+                                lockOK = false;
+                            }
+                        }
+
+                        // Parent Category
+                        if (matchPNHRegion(state2L, pcParent) || matchPNHRegion(region, pcParent)) {
+                            bannButt.parentCategory.active = true;
+                            if (currentWL.parentCategory) {
+                                bannButt.parentCategory.WLactive = false;
+                            }
+                        }
+
+                        // Set lock level
+                        for (var i = 1; i < 6; i++) {
+                            pcLockTemp = myCat['pcLock'+i];
+                            if (matchPNHRegion(state2L, pcLockTemp) || matchPNHRegion(region, pcLockTemp)) {
+                                defaultLockLevel = i - 1;  // Offset by 1 since lock ranks start at 0
+                                break;
+                            }
+                        }
+
+                        // Determine regional overrides for Point vs Area
+                        if (matchPNHRegion(state2L, regPoint) || matchPNHRegion(region, regPoint)) {
                             pvaPoint = '1';
                             pvaArea = '';
-                        } else if (regArea.indexOf(state2L) > -1 || regArea.indexOf(region) > -1 || regArea.indexOf(countryCode) > -1) {
+                        } else if (matchPNHRegion(state2L, regArea) || matchPNHRegion(region, regArea)) {
                             pvaPoint = '';
                             pvaArea = '1';
                         }
@@ -3829,38 +3785,7 @@
                                 }
                             }
                         }
-                        // display any messaged regarding the category
-                        pc_message = CH_DATA_Temp[CH_DATA_headers.indexOf('pc_message')];
-                        if (pc_message && pc_message !== '0' && pc_message !== '') {
-                            bannButt.pnhCatMess.active = true;
-                            bannButt.pnhCatMess.message = pc_message;
-                        }
-                        // Unmapped categories
-                        pc_rare     = CH_DATA_Temp[CH_DATA_headers.indexOf('pc_rare')].replace(/,[^A-Za-z0-9}]+/g, ",").split(',');
-                        if (pc_rare.indexOf(state2L) > -1 || pc_rare.indexOf(region) > -1 || pc_rare.indexOf(countryCode) > -1) {
-                            bannButt.unmappedRegion.active = true;
-                            if (currentWL.unmappedRegion) {
-                                bannButt.unmappedRegion.WLactive = false;
-                            } else {
-                                lockOK = false;
-                            }
-                        }
-                        // Parent Category
-                        pc_parent     = CH_DATA_Temp[CH_DATA_headers.indexOf('pc_parent')].replace(/,[^A-Za-z0-9}]+/g, ",").split(',');
-                        if (pc_parent.indexOf(state2L) > -1 || pc_parent.indexOf(region) > -1 || pc_parent.indexOf(countryCode) > -1) {
-                            bannButt.parentCategory.active = true;
-                            if (currentWL.parentCategory) {
-                                bannButt.parentCategory.WLactive = false;
-                            }
-                        }
-                        // Set lock level
-                        for (var lockix=1; lockix<6; lockix++) {
-                            pc_lockTemp = CH_DATA_Temp[CH_DATA_headers.indexOf('pc_lock'+lockix)].replace(/,[^A-Za-z0-9}]+/g, ",").split(',');
-                            if (pc_lockTemp.indexOf(state2L) > -1 || pc_lockTemp.indexOf(region) > -1 || pc_lockTemp.indexOf(countryCode) > -1) {
-                                defaultLockLevel = lockix - 1;  // Offset by 1 since lock ranks start at 0
-                                break;
-                            }
-                        }
+
                         break;  // If only looking at primary category, then break
                     }
                 }
@@ -4031,7 +3956,7 @@
                     } else {
                         bannButt.plaNameMissing.active = true;
                     }
-                }else if ( 'ISLAND|FOREST_GROVE|SEA_LAKE_POOL|RIVER_STREAM|CANAL'.split('|').indexOf(item.attributes.categories[0]) === -1 ) {
+                } else if ( 'ISLAND|FOREST_GROVE|SEA_LAKE_POOL|RIVER_STREAM|CANAL'.split('|').indexOf(item.attributes.categories[0]) === -1 ) {
                     bannButt.nameMissing.active = true;
                     lockOK = false;
                 }
