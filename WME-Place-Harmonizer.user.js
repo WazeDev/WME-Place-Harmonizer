@@ -88,18 +88,6 @@
         RESTAREA_WIKI_URL   = 'https://wiki.waze.com/wiki/Rest_areas#Adding_a_Place';               // WME Places wiki
     // Cutover to new google sheets
     var USE_NEW_GOOGLE_SHEETS = true;
-    var NEW_SHEET_DATA,
-        WMEPH_DEV_LIST,
-        WMEPH_BETA_LIST,
-    // Category Name Checking
-        NON_HOSPITAL_PART_MATCH,
-        NON_HOSPITAL_FULL_MATCH,
-        ANIMAL_PART_MATCH,
-        ANIMAL_FULL_MATCH,
-        SCHOOL_PART_MATCH,
-        SCHOOL_FULL_MATCH,
-    // Categories and Services
-        NA_CAT_DATA;
     var WME_SERVICE_MAP = { "psValet"       : { "action":"addValet",        "name":"VALLET_SERVICE"        },
                             "psDriveThru"   : { "action":"addDriveThru",    "name":"DRIVETHROUGH"          },
                             "psWiFi"        : { "action":"addWiFi",         "name":"WI_FI"                 },
@@ -165,13 +153,37 @@
     var NA_REGION_MAP   = makeRegionMap(NA_PROVINCES, NA_REGIONS);
 
 
+    //////////////////////////////////
+    // Delayed-assignment Constants //
+    //////////////////////////////////
+
+    var NEW_SHEET_DATA,
+        WMEPH_DEV_LIST,
+        WMEPH_BETA_LIST,
+    // Category Name Checking
+        NON_HOSPITAL_PART_MATCH,
+        NON_HOSPITAL_FULL_MATCH,
+        ANIMAL_PART_MATCH,
+        ANIMAL_FULL_MATCH,
+        SCHOOL_PART_MATCH,
+        SCHOOL_FULL_MATCH,
+    // Categories and Services
+        NA_CAT_DATA;
+    // User-specific values
+    var IS_DEV_USER,
+        IS_BETA_USER,
+        USER_NAME,
+        USER_RANK;
+    var USER_LANG = 'en';  // This will probably become a delayed constant once we add support for other languages.
+    // Duplicates
+    var WMEPH_NAME_LAYER;
+
 
     ///////////////
     // Variables //
     ///////////////
 
-    // Userlists
-    var betaUser, devUser;
+    // None at this time.
 
 
     /////////////////////////////////////
@@ -193,16 +205,24 @@
     }
 
     // NOTE: This prevents circular references when invoking JSON.stringify.
-    var cache = []
-    function censor(censor) {
+    function censor(obj) {
+        var cache = [];
+        var value;
+        value = doCensor(obj);
+        cache = null; // Enable garbage collection
+        return value;
+    }
+
+    function doCensor(obj) {
         var i = 0;
-
         return function(key, value) {
-            if(i !== 0 && typeof(censor) === 'object' && typeof(value) == 'object' && censor == value)
+            if(i !== 0 && typeof(obj) === 'object' && typeof(value) == 'object' && obj == value) {
                 return '[Circular]';
+            }
 
-            if(i >= 29) // seems to be a harded maximum of 30 serialized objects?
+            if(i >= 29) { // seems to be a harded maximum of 30 serialized objects?
                 return '[Unknown]';
+            }
 
             ++i; // so we know we aren't using the original object anymore
 
@@ -241,10 +261,6 @@
 
     // Logs important information to console for all users.
     function phlog(m) {
-        //debug('- phlog(m) called -');
-        if ('object' === typeof m) {
-            //m = JSON.stringify(m);
-        }
         console.log('WMEPH' + devVersStrDash + ': ' + m);
     }
 
@@ -252,9 +268,9 @@
     function phlogdev(m) {
         //debug('- phlogdev(m) called -');
         if ('object' === typeof m) {
-            m = JSON.stringify(m);
+            m = JSON.stringify(m, censor(m));
         }
-        if (devUser) {
+        if (IS_DEV_USER) {
             console.log('WMEPH' + devVersStrDash + ': ' + m);
         }
     }
@@ -635,49 +651,18 @@
     // First function of script.  Checks to see if external data is loaded and ready
     // after the AJAX calls.  Continues to run until data is loaded or timeout is reached.
     function placeHarmonizer_bootstrap() {
-        //debug('- placeHarmonizer_bootstrap() called -');
-        if ( "undefined" !== typeof W.loginManager && "undefined" !== typeof W.map) {
-            dataReady() //  Run the code to check for data return from the Sheets
-            // Create duplicatePlaceName layer
-            var rlayers = W.map.getLayersBy("uniqueName","__DuplicatePlaceNames");
-            if(rlayers.length === 0) {
-                var lname = "WMEPH Duplicate Names";
-                var style = new OpenLayers.Style({  label : "${labelText}",
-                                                    labelOutlineColor: '#333',
-                                                    labelOutlineWidth: 3,
-                                                    labelAlign: '${labelAlign}',
-                                                    fontColor: "${fontColor}",
-                                                    fontOpacity: 1.0,
-                                                    fontSize: "20px",
-                                                    labelYOffset: -30,
-                                                    labelXOffset: 0,
-                                                    fontWeight: "bold",
-                                                    fill: false,
-                                                    strokeColor: "${strokeColor}",
-                                                    strokeWidth: 10,
-                                                    pointRadius: "${pointRadius}"
-                                                });
-                nameLayer = new OpenLayers.Layer.Vector(lname, {    displayInLayerSwitcher: false,
-                                                                    uniqueName: "__DuplicatePlaceNames",
-                                                                    styleMap: new OpenLayers.StyleMap(style)
-                                                                });
-                nameLayer.setVisibility(false);
-                W.map.addLayer(nameLayer);
-                WMEPH_NameLayer = nameLayer;
-            } else {
-                WMEPH_NameLayer = rlayers[0];
-            }
+        if ("undefined" !== typeof W.loginManager && "undefined" !== typeof W.map) {
+            createDuplicatePlaceLayer();
+            isDataReady();  //  Run the code to check for data return from the Sheets
         } else {
             phlog("Waiting for WME map and login...");
             placeHarmonizer_bootstrap();
         }
     }
 
-
     // Checks to see if external data is loaded before proceeding with running the main script.
-    // Calls loginReady() once data is confirmed to be loaded.
-    function dataReady() {
-        //debug('- dataReady() called -');
+    // Calls isLoginReady() once data is confirmed to be loaded.
+    function isDataReady() {
         // If the data has returned, then start the script, otherwise wait a bit longer
         if ("undefined" !== typeof CAN_PNH_DATA && "undefined" !== typeof USA_PNH_DATA  && "undefined" !== typeof NA_CAT_DATA &&
             "undefined" !== typeof WMEPH_DEV_LIST && "undefined" !== typeof WMEPH_BETA_LIST && "undefined" !== typeof NON_HOSPITAL_PART_MATCH ) {
@@ -685,7 +670,7 @@
             //USA_CH_NAMES = makeCatCheckList(USA_CH_DATA);
             CAN_PNH_NAMES = makeNameCheckList(CAN_PNH_DATA);
             // CAN using USA_CH_NAMES at the moment
-            loginReady();  //  start the main code
+            isLoginReady();  //  start the main code
         } else {
             if (dataReadyCounter % 20 === 0) {
                 var waitMessage = 'Waiting for ';
@@ -708,32 +693,74 @@
             }
             if (dataReadyCounter<200) {
                 dataReadyCounter++;
-                setTimeout(function () { dataReady(); }, 100);
+                setTimeout(isDataReady, 100);
             } else {
                 phlog("Data load took too long, reload WME...");
             }
         }
     }
 
-
     // Waits for WME Login to happen before running the main script.
     // Calls runPH() once WME Login is defined.
-    function loginReady() {
-        //debug('- loginReady() called -');
+    function isLoginReady() {
         dataReadyCounter = 0;
         if ( W.loginManager.user !== null) {
+            USER_NAME = W.loginManager.user.userName,
+            USER_RANK = W.loginManager.user.normalizedLevel;
             runPH();  //  start the main code
         } else {
             if (dataReadyCounter<50) {
                 dataReadyCounter++;
                 phlog("Waiting for WME login...");
-                setTimeout(function () { loginReady(); }, 200);
+                setTimeout(isLoginReady, 200);
             } else {
                 phlog("Login failed...?  Reload WME.");
             }
         }
     }
 
+    ////////////////////
+    // Task Functions //
+    ////////////////////
+
+    // Create __DuplicatePlaceNames layer
+    function createDuplicatePlaceLayer() {
+        var nameLayer;
+        var rlayers = W.map.getLayersBy("uniqueName","__DuplicatePlaceNames");
+        if(rlayers.length === 0) {
+            var lname = "WMEPH Duplicate Names";
+            var style = new OpenLayers.Style({  label : "${labelText}",
+                                                labelOutlineColor: '#333',
+                                                labelOutlineWidth: 3,
+                                                labelAlign: '${labelAlign}',
+                                                fontColor: "${fontColor}",
+                                                fontOpacity: 1.0,
+                                                fontSize: "20px",
+                                                labelYOffset: -30,
+                                                labelXOffset: 0,
+                                                fontWeight: "bold",
+                                                fill: false,
+                                                strokeColor: "${strokeColor}",
+                                                strokeWidth: 10,
+                                                pointRadius: "${pointRadius}"
+                                            });
+            nameLayer = new OpenLayers.Layer.Vector(lname, {    displayInLayerSwitcher: false,
+                                                                uniqueName: "__DuplicatePlaceNames",
+                                                                styleMap: new OpenLayers.StyleMap(style)
+                                                            });
+            nameLayer.setVisibility(false);
+            W.map.addLayer(nameLayer);
+            WMEPH_NAME_LAYER = nameLayer;
+        } else {
+            WMEPH_NAME_LAYER = rlayers[0];
+        }
+    }
+
+    // Destroy Dupe Labels
+    function destroyDupeLabels(){
+        WMEPH_NAME_LAYER.destroyFeatures();
+        WMEPH_NAME_LAYER.setVisibility(false);
+    }
 
     ////////////////////////
     // Unsorted Functions //
@@ -899,7 +926,7 @@
     var venueWhitelist, venueWhitelistStr, WLSToMerge, wlKeyName, wlButtText = 'WL';  // Whitelisting vars
     var WLlocalStoreName = 'WMEPH-venueWhitelistNew';
     var WLlocalStoreNameCompressed = 'WMEPH-venueWhitelistCompressed';
-    var WMEPH_NameLayer, nameLayer, dupeIDList = [], dupeHNRangeList, dupeHNRangeIDList, dupeHNRangeDistList;
+    var dupeIDList = [], dupeHNRangeList, dupeHNRangeIDList, dupeHNRangeDistList;
     // Web search Window forming:
     var searchResultsWindowSpecs = '"resizable=yes, top='+ Math.round(window.screen.height*0.1) +', left='+ Math.round(window.screen.width*0.3) +', width='+ Math.round(window.screen.width*0.7) +', height='+ Math.round(window.screen.height*0.8) +'"';
     var searchResultsWindowName = '"WMEPH Search Results"';
@@ -912,13 +939,6 @@
 
     /* ****** Pull PNH and Userlist data ****** */
     loadExternalData();
-
-
-    //function placeHarmonizer_bootstrap() {
-
-    //function dataReady() {
-
-    //function loginReady() {
 
 
     // This function will need to be split up because it is way too big.
@@ -934,7 +954,6 @@
         if ( localStorage.getItem('WMEPH-featuresExamined'+devVersStr) === null ) {
             localStorage.setItem('WMEPH-featuresExamined'+devVersStr, '0');  // Storage for whether the User has pressed the button to look at updates
         }
-        var thisUser = W.loginManager.user;
         var UpdateObject = require("Waze/Action/UpdateObject");
         var _disableHighlightTest = false;  // Set to true to temporarily disable highlight checks immediately when venues change.
 
@@ -956,7 +975,7 @@
             loadWL_LS(true);
         }
 
-        if (W.loginManager.user.userName === 'ggrane') {
+        if (USER_NAME === 'ggrane') {
             searchResultsWindowSpecs = '"resizable=yes, top='+ Math.round(window.screen.height*0.1) +', left='+ Math.round(window.screen.width*0.3) +', width='+ Math.round(window.screen.width*0.86) +', height='+ Math.round(window.screen.height*0.8) +'"';
         }
 
@@ -1038,21 +1057,20 @@
             saveWL_LS(true);
         }
 
+
         if (WMEPH_BETA_LIST.length === 0 || "undefined" === typeof WMEPH_BETA_LIST) {
             if (IS_DEV_VERSION) {
                 alert('Beta user list access issue.  Please post in the GHO or PM/DM t0cableguy about this message.  Script should still work.');
             }
-            betaUser = false;
-            devUser = false;
+            IS_BETA_USER = false;
+            IS_DEV_USER = false;
         } else {
-            devUser = (WMEPH_DEV_LIST.indexOf(thisUser.userName.toLowerCase()) > -1);
-            betaUser = (WMEPH_BETA_LIST.indexOf(thisUser.userName.toLowerCase()) > -1);
+            IS_DEV_USER = (WMEPH_DEV_LIST.indexOf(USER_NAME.toLowerCase()) > -1);
+            IS_BETA_USER = (WMEPH_BETA_LIST.indexOf(USER_NAME.toLowerCase()) > -1);
         }
-        if (devUser) {
-            betaUser = true; // dev users are beta users
+        if (IS_DEV_USER) {
+            IS_BETA_USER = true; // dev users are beta users
         }
-        var usrRank = thisUser.normalizedLevel;  // get editor's level (actual level)
-        var userLanguage = 'en';
 
         // lock levels are offset by one
         var lockLevel1 = 0, lockLevel2 = 1, lockLevel3 = 2, lockLevel4 = 3, lockLevel5 = 4;
@@ -1063,7 +1081,7 @@
         };
         var severityButt=0;  // error tracking to determine banner color (action buttons)
         var duplicateName = '';
-        var catTransWaze2Lang = I18n.translations[userLanguage].venues.categories;  // pulls the category translations
+        var catTransWaze2Lang = I18n.translations[USER_LANG].venues.categories;  // pulls the category translations
         var item, itemID, newName, optionalAlias, newURL, tempPNHURL = '', newPhone;
         var newAliases = [], newAliasesTemp = [], newCategories = [];
         var numAttempts = 0;
@@ -1197,7 +1215,7 @@
                     // Highlighting logic would go here
                     // Severity can be: 0, 'lock', 1, 2, 3, 4, or 'high'. Set to
                     // anything else to use default WME style.
-                    if ( $("#WMEPH-ColorHighlighting" + devVersStr).prop('checked') && !($("#WMEPH-DisableRankHL" + devVersStr).prop('checked') && venue.attributes.lockRank > (usrRank - 1))) {
+                    if ( $("#WMEPH-ColorHighlighting" + devVersStr).prop('checked') && !($("#WMEPH-DisableRankHL" + devVersStr).prop('checked') && venue.attributes.lockRank > (USER_RANK - 1))) {
                         try {
                             venue.attributes.wmephSeverity = harmonizePlaceGo(venue,'highlight');
                         } catch (err) {
@@ -1479,12 +1497,12 @@
         function harmonizePlace() {
             //debug('-- harmonizePlace() called --');
             // Script is only for R2+ editors
-            if (!betaUser && usrRank < 2) {
+            if (!IS_BETA_USER && USER_RANK < 2) {
                 alert("Script is currently available for editors of Rank 2 and up.");
                 return;
             }
             // Beta version for approved users only
-            if (IS_DEV_VERSION && !betaUser) {
+            if (IS_DEV_VERSION && !IS_BETA_USER) {
                 alert("Please sign up to beta-test this script version.\nSend a PM or Slack-DM to t0cableguy or Tonestertm, or post in the WMEPH forum thread. Thanks.");
                 return;
             }
@@ -1498,10 +1516,10 @@
                     _disableHighlightTest = false;
                     applyHighlightsTest(item);
                 } else {  // Remove duplicate labels
-                    WMEPH_NameLayer.destroyFeatures();
+                    WMEPH_NAME_LAYER.destroyFeatures();
                 }
             } else {  // Remove duplicate labels
-                WMEPH_NameLayer.destroyFeatures();
+                WMEPH_NAME_LAYER.destroyFeatures();
             }
         }
 
@@ -2767,7 +2785,7 @@
                     bannButt2.placesWiki.active = false;
                 }
                 // provide Google search link to places
-                if (devUser || betaUser || usrRank > 1) {  // enable the link for all places, for R2+ and betas
+                if (IS_DEV_USER || IS_BETA_USER || USER_RANK > 1) {  // enable the link for all places, for R2+ and betas
                     bannButt.webSearch.active = true;
                 }
                 // reset PNH lock level
@@ -3013,7 +3031,7 @@
                 }
             } else if (item.attributes.categories[0] === 'PARKING_LOT' || (newName && newName.trim().length > 0)) {  // for non-residential places
                 var provIDs = item.attributes.externalProviderIDs;
-                if (usrRank >= 3 && (!provIDs || provIDs.length === 0) ) {
+                if (USER_RANK >= 3 && (!provIDs || provIDs.length === 0) ) {
                     if ($('#WMEPH-ExtProviderSeverity' + devVersStr).prop('checked')) {
                         bannButt.extProviderMissing.severity = 1;
                     }
@@ -3526,7 +3544,7 @@
                 }  // END PNH match/no-match updates
 
                 // Strip/add suffixes
-                if ( hpMode.harmFlag && thisUser.userName === 'bmtg' )  {
+                if ( hpMode.harmFlag && USER_NAME === 'bmtg' )  {
                     var suffixStr = ' - ZQXWCEVRBT';
                     var suffixStrRE = new RegExp(suffixStr, 'i');
                     if ( newName.indexOf(suffixStr) > -1 ) {
@@ -3600,56 +3618,56 @@
                 if (hpMode.harmFlag) {
                     switch (region) {
                         case "NWR": regionFormURL = 'https://docs.google.com/forms/d/1hv5hXBlGr1pTMmo4n3frUx1DovUODbZodfDBwwTc7HE/viewform';
-                            newPlaceAddon = '?entry.925969794='+tempSubmitName+'&entry.1970139752='+newURLSubmit+'&entry.1749047694='+thisUser.userName+gFormState;
-                            approvalAddon = '?entry.925969794='+PNHNameTempWeb+'&entry.50214576='+approvalMessage+'&entry.1749047694='+thisUser.userName+gFormState;
+                            newPlaceAddon = '?entry.925969794='+tempSubmitName+'&entry.1970139752='+newURLSubmit+'&entry.1749047694='+USER_NAME+gFormState;
+                            approvalAddon = '?entry.925969794='+PNHNameTempWeb+'&entry.50214576='+approvalMessage+'&entry.1749047694='+USER_NAME+gFormState;
                             break;
                         case "SWR": regionFormURL = 'https://docs.google.com/forms/d/1Qf2N4fSkNzhVuXJwPBJMQBmW0suNuy8W9itCo1qgJL4/viewform';
-                            newPlaceAddon = '?entry.1497446659='+tempSubmitName+'&entry.1970139752='+newURLSubmit+'&entry.1749047694='+thisUser.userName+gFormState;
-                            approvalAddon = '?entry.1497446659='+PNHNameTempWeb+'&entry.50214576='+approvalMessage+'&entry.1749047694='+thisUser.userName+gFormState;
+                            newPlaceAddon = '?entry.1497446659='+tempSubmitName+'&entry.1970139752='+newURLSubmit+'&entry.1749047694='+USER_NAME+gFormState;
+                            approvalAddon = '?entry.1497446659='+PNHNameTempWeb+'&entry.50214576='+approvalMessage+'&entry.1749047694='+USER_NAME+gFormState;
                             break;
                         case "HI": regionFormURL = 'https://docs.google.com/forms/d/1K7Dohm8eamIKry3KwMTVnpMdJLaMIyDGMt7Bw6iqH_A/viewform';
-                            newPlaceAddon = '?entry.1497446659='+tempSubmitName+'&entry.1970139752='+newURLSubmit+'&entry.1749047694='+thisUser.userName+gFormState;
-                            approvalAddon = '?entry.1497446659='+PNHNameTempWeb+'&entry.50214576='+approvalMessage+'&entry.1749047694='+thisUser.userName+gFormState;
+                            newPlaceAddon = '?entry.1497446659='+tempSubmitName+'&entry.1970139752='+newURLSubmit+'&entry.1749047694='+USER_NAME+gFormState;
+                            approvalAddon = '?entry.1497446659='+PNHNameTempWeb+'&entry.50214576='+approvalMessage+'&entry.1749047694='+USER_NAME+gFormState;
                             break;
                         case "PLN": regionFormURL = 'https://docs.google.com/forms/d/1ycXtAppoR5eEydFBwnghhu1hkHq26uabjUu8yAlIQuI/viewform';
-                            newPlaceAddon = '?entry.925969794='+tempSubmitName+'&entry.1970139752='+newURLSubmit+'&entry.1749047694='+thisUser.userName+gFormState;
-                            approvalAddon = '?entry.925969794='+PNHNameTempWeb+'&entry.50214576='+approvalMessage+'&entry.1749047694='+thisUser.userName+gFormState;
+                            newPlaceAddon = '?entry.925969794='+tempSubmitName+'&entry.1970139752='+newURLSubmit+'&entry.1749047694='+USER_NAME+gFormState;
+                            approvalAddon = '?entry.925969794='+PNHNameTempWeb+'&entry.50214576='+approvalMessage+'&entry.1749047694='+USER_NAME+gFormState;
                             break;
                         case "SCR": regionFormURL = 'https://docs.google.com/forms/d/1KZzLdlX0HLxED5Bv0wFB-rWccxUp2Mclih5QJIQFKSQ/viewform';
-                            newPlaceAddon = '?entry.925969794='+tempSubmitName+'&entry.1970139752='+newURLSubmit+'&entry.1749047694='+thisUser.userName+gFormState;
-                            approvalAddon = '?entry.925969794='+PNHNameTempWeb+'&entry.50214576='+approvalMessage+'&entry.1749047694='+thisUser.userName+gFormState;
+                            newPlaceAddon = '?entry.925969794='+tempSubmitName+'&entry.1970139752='+newURLSubmit+'&entry.1749047694='+USER_NAME+gFormState;
+                            approvalAddon = '?entry.925969794='+PNHNameTempWeb+'&entry.50214576='+approvalMessage+'&entry.1749047694='+USER_NAME+gFormState;
                             break;
                         case "TX": regionFormURL = 'https://docs.google.com/forms/d/1x7VM7ofPOKVnWOaX7d70OWXpnVKf6Mkadn4dgYxx4ic/viewform';
-                            newPlaceAddon = '?entry.925969794='+tempSubmitName+'&entry.1970139752='+newURLSubmit+'&entry.1749047694='+thisUser.userName+gFormState;
-                            approvalAddon = '?entry.925969794='+PNHNameTempWeb+'&entry.50214576='+approvalMessage+'&entry.1749047694='+thisUser.userName+gFormState;
+                            newPlaceAddon = '?entry.925969794='+tempSubmitName+'&entry.1970139752='+newURLSubmit+'&entry.1749047694='+USER_NAME+gFormState;
+                            approvalAddon = '?entry.925969794='+PNHNameTempWeb+'&entry.50214576='+approvalMessage+'&entry.1749047694='+USER_NAME+gFormState;
                             break;
                         case "GLR": regionFormURL = 'https://docs.google.com/forms/d/19btj-Qt2-_TCRlcS49fl6AeUT95Wnmu7Um53qzjj9BA/viewform';
-                            newPlaceAddon = '?entry.925969794='+tempSubmitName+'&entry.1970139752='+newURLSubmit+'&entry.1749047694='+thisUser.userName+gFormState;
-                            approvalAddon = '?entry.925969794='+PNHNameTempWeb+'&entry.50214576='+approvalMessage+'&entry.1749047694='+thisUser.userName+gFormState;
+                            newPlaceAddon = '?entry.925969794='+tempSubmitName+'&entry.1970139752='+newURLSubmit+'&entry.1749047694='+USER_NAME+gFormState;
+                            approvalAddon = '?entry.925969794='+PNHNameTempWeb+'&entry.50214576='+approvalMessage+'&entry.1749047694='+USER_NAME+gFormState;
                             break;
                         case "SAT": regionFormURL = 'https://docs.google.com/forms/d/1bxgK_20Jix2ahbmUvY1qcY0-RmzUBT6KbE5kjDEObF8/viewform';
-                            newPlaceAddon = '?entry.2063110249='+tempSubmitName+'&entry.2018912633='+newURLSubmit+'&entry.1924826395='+thisUser.userName+gFormState;
-                            approvalAddon = '?entry.2063110249='+PNHNameTempWeb+'&entry.123778794='+approvalMessage+'&entry.1924826395='+thisUser.userName+gFormState;
+                            newPlaceAddon = '?entry.2063110249='+tempSubmitName+'&entry.2018912633='+newURLSubmit+'&entry.1924826395='+USER_NAME+gFormState;
+                            approvalAddon = '?entry.2063110249='+PNHNameTempWeb+'&entry.123778794='+approvalMessage+'&entry.1924826395='+USER_NAME+gFormState;
                             break;
                         case "SER": regionFormURL = 'https://docs.google.com/forms/d/1jYBcxT3jycrkttK5BxhvPXR240KUHnoFMtkZAXzPg34/viewform';
-                            newPlaceAddon = '?entry.822075961='+tempSubmitName+'&entry.1422079728='+newURLSubmit+'&entry.1891389966='+thisUser.userName+gFormState;
-                            approvalAddon = '?entry.822075961='+PNHNameTempWeb+'&entry.607048307='+approvalMessage+'&entry.1891389966='+thisUser.userName+gFormState;
+                            newPlaceAddon = '?entry.822075961='+tempSubmitName+'&entry.1422079728='+newURLSubmit+'&entry.1891389966='+USER_NAME+gFormState;
+                            approvalAddon = '?entry.822075961='+PNHNameTempWeb+'&entry.607048307='+approvalMessage+'&entry.1891389966='+USER_NAME+gFormState;
                             break;
                         case "ATR": regionFormURL = 'https://docs.google.com/forms/d/1v7JhffTfr62aPSOp8qZHA_5ARkBPldWWJwDeDzEioR0/viewform';
-                            newPlaceAddon = '?entry.925969794='+tempSubmitName+'&entry.1970139752='+newURLSubmit+'&entry.1749047694='+thisUser.userName+gFormState;
-                            approvalAddon = '?entry.925969794='+PNHNameTempWeb+'&entry.50214576='+approvalMessage+'&entry.1749047694='+thisUser.userName+gFormState;
+                            newPlaceAddon = '?entry.925969794='+tempSubmitName+'&entry.1970139752='+newURLSubmit+'&entry.1749047694='+USER_NAME+gFormState;
+                            approvalAddon = '?entry.925969794='+PNHNameTempWeb+'&entry.50214576='+approvalMessage+'&entry.1749047694='+USER_NAME+gFormState;
                             break;
                         case "NER": regionFormURL = 'https://docs.google.com/forms/d/1UgFAMdSQuJAySHR0D86frvphp81l7qhEdJXZpyBZU6c/viewform';
-                            newPlaceAddon = '?entry.925969794='+tempSubmitName+'&entry.1970139752='+newURLSubmit+'&entry.1749047694='+thisUser.userName+gFormState;
-                            approvalAddon = '?entry.925969794='+PNHNameTempWeb+'&entry.50214576='+approvalMessage+'&entry.1749047694='+thisUser.userName+gFormState;
+                            newPlaceAddon = '?entry.925969794='+tempSubmitName+'&entry.1970139752='+newURLSubmit+'&entry.1749047694='+USER_NAME+gFormState;
+                            approvalAddon = '?entry.925969794='+PNHNameTempWeb+'&entry.50214576='+approvalMessage+'&entry.1749047694='+USER_NAME+gFormState;
                             break;
                         case "NOR": regionFormURL = 'https://docs.google.com/forms/d/1iYq2rd9HRd-RBsKqmbHDIEBGuyWBSyrIHC6QLESfm4c/viewform';
-                            newPlaceAddon = '?entry.925969794='+tempSubmitName+'&entry.1970139752='+newURLSubmit+'&entry.1749047694='+thisUser.userName+gFormState;
-                            approvalAddon = '?entry.925969794='+PNHNameTempWeb+'&entry.50214576='+approvalMessage+'&entry.1749047694='+thisUser.userName+gFormState;
+                            newPlaceAddon = '?entry.925969794='+tempSubmitName+'&entry.1970139752='+newURLSubmit+'&entry.1749047694='+USER_NAME+gFormState;
+                            approvalAddon = '?entry.925969794='+PNHNameTempWeb+'&entry.50214576='+approvalMessage+'&entry.1749047694='+USER_NAME+gFormState;
                             break;
                         case "MAR": regionFormURL = 'https://docs.google.com/forms/d/1PhL1iaugbRMc3W-yGdqESoooeOz-TJIbjdLBRScJYOk/viewform';
-                            newPlaceAddon = '?entry.925969794='+tempSubmitName+'&entry.1970139752='+newURLSubmit+'&entry.1749047694='+thisUser.userName+gFormState;
-                            approvalAddon = '?entry.925969794='+PNHNameTempWeb+'&entry.50214576='+approvalMessage+'&entry.1749047694='+thisUser.userName+gFormState;
+                            newPlaceAddon = '?entry.925969794='+tempSubmitName+'&entry.1970139752='+newURLSubmit+'&entry.1749047694='+USER_NAME+gFormState;
+                            approvalAddon = '?entry.925969794='+PNHNameTempWeb+'&entry.50214576='+approvalMessage+'&entry.1749047694='+USER_NAME+gFormState;
                             break;
                         case "CA_EN": regionFormURL = 'https://docs.google.com/forms/d/13JwXsrWPNmCdfGR5OVr5jnGZw-uNGohwgjim-JYbSws/viewform';
                             newPlaceAddon = '?entry_839085807='+tempSubmitName+'&entry_1067461077='+newURLSubmit;
@@ -3922,7 +3940,7 @@
                 var outputFormat = "({0}) {1}-{2}";
                 if ( containsAny(["CA","CO"],[region,state2L]) && (/^\d{3}-\d{3}-\d{4}$/.test(item.attributes.phone))) {
                     outputFormat = "{0}-{1}-{2}";
-                } else if (region === "SER" && thisUser.userName === 't0cableguy') {
+                } else if (region === "SER" && USER_NAME === 't0cableguy') {
                     outputFormat = "{0}-{1}-{2}";
                 } else if (region === "SER" && !(/^\(\d{3}\) \d{3}-\d{4}$/.test(item.attributes.phone))) {
                     outputFormat = "{0}-{1}-{2}";
@@ -4261,7 +4279,7 @@
                 }
             }
 
-            if (levelToLock > (usrRank - 1)) {levelToLock = (usrRank - 1);}  // Only lock up to the user's level
+            if (levelToLock > (USER_RANK - 1)) {levelToLock = (USER_RANK - 1);}  // Only lock up to the user's level
             if ( lockOK && severityButt < 2) {
                 // Campus project exceptions
                 if ( item.attributes.lockRank < levelToLock) {
@@ -4290,12 +4308,12 @@
 
             // RPP Locking option for R3+
             if (item.attributes.residential) {
-                if (devUser || betaUser || usrRank >= 3) {  // Allow residential point locking by R3+
+                if (IS_DEV_USER || IS_BETA_USER || USER_RANK >= 3) {  // Allow residential point locking by R3+
                     RPPLockString = 'Lock at <select id="RPPLockLevel">';
                     var ddlSelected = false;
                     for (var llix=1; llix<6; llix++) {
-                        if (llix < usrRank+1) {
-                            if ( !ddlSelected && (defaultLockLevel === llix - 1 || llix === usrRank) ) {
+                        if (llix < USER_RANK+1) {
+                            if ( !ddlSelected && (defaultLockLevel === llix - 1 || llix === USER_RANK) ) {
                                 RPPLockString += '<option value="'+llix+'" selected="selected">'+llix+'</option>';
                                 ddlSelected = true;
                             } else {
@@ -4414,7 +4432,7 @@
                 }
                 duplicateName = duplicateName[0];
                 if (duplicateName.length > 0) {
-                    if (duplicateName.length+1 !== dupeIDList.length && devUser) {  // If there's an issue with the data return, allow an error report
+                    if (duplicateName.length+1 !== dupeIDList.length && IS_DEV_USER) {  // If there's an issue with the data return, allow an error report
                         if (confirm('WMEPH: Dupefinder Error!\nClick OK to report this') ) {  // if the category doesn't translate, then pop an alert that will make a forum post to the thread
                             forumMsgInputs = {
                                 subject: 'WMEPH Bug report DupeID',
@@ -4965,18 +4983,18 @@
             if (IS_DEV_VERSION) { betaDelay = 300; }
             setTimeout(function() {
                 if ($('#WMEPH_runButton').length === 0 ) {
-                    $('<div id="WMEPH_runButton">').css({"padding-bottom": "6px", "padding-top": "3px", "width": "290", "background-color": "#FFF", "color": "black", "font-size": "15px", "font-weight": "bold", "margin-left": "auto", "margin-right": "auto"}).prependTo(".contents");
+                    $('<div id="WMEPH_runButton">').prependTo(".contents");
                 }
                 var strButt1, btn;
                 item = W.selectionManager.selectedItems[0].model;
                 var openPlaceWebsiteURL = item.attributes.url;
 
-                if (openPlaceWebsiteURL !== null && openPlaceWebsiteURL.replace(/[^A-Za-z0-9]/g,'').length > 2 && (thisUser.userName === 't0cableguy' || thisUser.userName === 't0cableguy') ) {
-                    if ($('#WMEPHurl').length === 0 ) {
-                        strButt1 = '<br><input class="btn btn-success btn-xs" id="WMEPHurl" title="Open place URL" type="button" value="Open URL">';
+                if (openPlaceWebsiteURL !== null && openPlaceWebsiteURL.replace(/[^A-Za-z0-9]/g,'').length > 2 && (USER_NAME === 't0cableguy' || USER_NAME === 't0cableguy') ) {
+                    if ($('#WMEPH_urlButton').length === 0 ) {
+                        strButt1 = '<br><input class="btn btn-success btn-xs" id="WMEPH_urlButton" title="Open place URL" type="button" value="Open URL">';
                         $("#WMEPH_runButton").append(strButt1);
                     }
-                    btn = document.getElementById("WMEPHurl");
+                    btn = document.getElementById("WMEPH_urlButton");
                     if (btn !== null) {
                         btn.onclick = function() {
                             if (openPlaceWebsiteURL.match(/^http/i) === null) {
@@ -5694,9 +5712,9 @@
             currNameList = uniq(currNameList);  //  remove duplicates
 
             // Remove any previous search labels and move the layer above the places layer
-            WMEPH_NameLayer.destroyFeatures();
+            WMEPH_NAME_LAYER.destroyFeatures();
             var vecLyrPlaces = W.map.getLayersBy("uniqueName","landmarks")[0];
-            WMEPH_NameLayer.setZIndex(parseInt(vecLyrPlaces.getZIndex())+3);  // Move layer to just on top of Places layer
+            WMEPH_NAME_LAYER.setZIndex(parseInt(vecLyrPlaces.getZIndex())+3);  // Move layer to just on top of Places layer
 
             if ( venueWhitelist.hasOwnProperty(item.attributes.id) ) {
                 if ( venueWhitelist[item.attributes.id].hasOwnProperty('dupeWL') ) {
@@ -5704,7 +5722,7 @@
                 }
             }
 
-            if (devUser) {
+            if (IS_DEV_USER) {
                 t0 = performance.now();  // Speed check start
             }
             var numVenues = 0, overlappingFlag = false;
@@ -5820,7 +5838,7 @@
                                 // If a match was found:
                                 if ( nameMatch || altNameMatch > -1 ) {
                                     dupeIDList.push(testVenueAtt.id);  // Add the item to the list of matches
-                                    WMEPH_NameLayer.setVisibility(true);  // If anything found, make visible the dupe layer
+                                    WMEPH_NAME_LAYER.setVisibility(true);  // If anything found, make visible the dupe layer
                                     if (nameMatch) {
                                         labelText = testVenueAtt.name;  // Pull duplicate name
                                     } else {
@@ -5863,7 +5881,7 @@
                                     textFeature = new OpenLayers.Feature.Vector( pt, {labelText: labelTextReformat, fontColor: '#fff',
                                                                                       strokeColor: labelColorList[labelColorIX%labelColorList.length], labelAlign: 'cm', pointRadius: 25 , dupeID: testVenueAtt.id } );
                                     labelFeatures.push(textFeature);
-                                    //WMEPH_NameLayer.addFeatures(labelFeatures);
+                                    //WMEPH_NAME_LAYER.addFeatures(labelFeatures);
                                     dupeNames.push(labelText);
                                 }
                                 labelColorIX++;
@@ -5895,9 +5913,9 @@
                 }
                 textFeature = new OpenLayers.Feature.Vector( pt, {labelText: currentLabel, fontColor: '#fff', strokeColor: '#fff', labelAlign: 'cm', pointRadius: 25 , dupeID: item.attributes.id} );
                 labelFeatures.push(textFeature);
-                WMEPH_NameLayer.addFeatures(labelFeatures);
+                WMEPH_NAME_LAYER.addFeatures(labelFeatures);
             }
-            if (devUser) {
+            if (IS_DEV_USER) {
                 t1 = performance.now();  // log search time
                 //phlogdev("Ran dupe search on " + numVenues + " nearby venues in " + (t1 - t0) + " milliseconds.");
             }
@@ -5933,15 +5951,14 @@
                     }
                 }
                 // If the selection is anything else, clear the labels
-                WMEPH_NameLayer.destroyFeatures();
-                WMEPH_NameLayer.setVisibility(false);
+                WMEPH_NAME_LAYER.destroyFeatures();
+                WMEPH_NAME_LAYER.setVisibility(false);
             }
         }  // END checkSelection function
 
         // Functions to infer address from nearby segments
         function WMEPH_inferAddress(MAX_RECURSION_DEPTH) {
             //debug('-- WMEPH_inferAddress(MAX_RECURSION_DEPTH) called --');
-            'use strict';
             var distanceToSegment,
                 foundAddresses = [],
                 i,
@@ -6136,7 +6153,6 @@
          * objects.
          */
         function updateAddress(feature, address, actions) {
-            'use strict';
             var newAttributes,
                 UpdateFeatureAddress = require('Waze/Action/UpdateFeatureAddress');
             feature = feature || item;
@@ -6309,10 +6325,10 @@
             createSettingsCheckbox("sidepanel-harmonizer" + devVersStr, "WMEPH-EnableIAZoom" + devVersStr,"Enable zoom & center for places with no address");
             createSettingsCheckbox("sidepanel-harmonizer" + devVersStr, "WMEPH-HidePlacesWiki" + devVersStr,"Hide 'Places Wiki' button in results banner");
             createSettingsCheckbox("sidepanel-harmonizer" + devVersStr, "WMEPH-ExcludePLADupes" + devVersStr,"Exclude parking lots when searching for duplicate places.");
-            if (devUser || betaUser || usrRank >= 2) {
+            if (IS_DEV_USER || IS_BETA_USER || USER_RANK >= 2) {
                 createSettingsCheckbox("sidepanel-harmonizer" + devVersStr, "WMEPH-EnableServices" + devVersStr,"Enable automatic addition of common services");
             }
-            if (devUser || betaUser || usrRank >= 2) {
+            if (IS_DEV_USER || IS_BETA_USER || USER_RANK >= 2) {
                 createSettingsCheckbox("sidepanel-harmonizer" + devVersStr, "WMEPH-ConvenienceStoreToGasStations" + devVersStr,'Automatically add "Convenience Store" category to gas stations');
                 createSettingsCheckbox("sidepanel-harmonizer" + devVersStr, "WMEPH-AddAddresses" + devVersStr,"Add detected address fields to places with no address");
                 createSettingsCheckbox("sidepanel-harmonizer" + devVersStr, "WMEPH-EnableCloneMode" + devVersStr,"Enable place cloning tools");
@@ -6332,7 +6348,7 @@
             createSettingsCheckbox("sidepanel-highlighter" + devVersStr, "WMEPH-DisableHoursHL" + devVersStr,"Disable highlighting for missing hours");
             createSettingsCheckbox("sidepanel-highlighter" + devVersStr, "WMEPH-DisableRankHL" + devVersStr,"Disable highlighting for places locked above your rank");
             createSettingsCheckbox("sidepanel-highlighter" + devVersStr, "WMEPH-DisableWLHL" + devVersStr,"Disable Whitelist highlighting (shows all missing info regardless of WL)");
-            if (devUser || betaUser || usrRank >= 3) {
+            if (IS_DEV_USER || IS_BETA_USER || USER_RANK >= 3) {
                 //createSettingsCheckbox("sidepanel-highlighter" + devVersStr, "WMEPH-UnlockedRPPs" + devVersStr,"Highlight unlocked residential place points");
             }
             var phHRContentHtml = '<hr align="center" width="90%">';
@@ -6351,7 +6367,7 @@
             // User pref for KB Shortcut:
             // Set defaults
             if (IS_DEV_VERSION) {
-                if (thisUser.userName.toLowerCase() === 't0cableguy') {
+                if (USER_NAME.toLowerCase() === 't0cableguy') {
                     defaultKBShortcut = 'p';
                 } else {
                     defaultKBShortcut = 'S';
@@ -6454,7 +6470,7 @@
             });
 
 
-            if (devUser) {  // Override script regionality (devs only)
+            if (IS_DEV_USER) {  // Override script regionality (devs only)
                 phDevContentHtml = '<hr align="center" width="90%"><p>Dev Only Settings:</p>';
                 $("#sidepanel-harmonizer" + devVersStr).append(phDevContentHtml);
                 createSettingsCheckbox("sidepanel-harmonizer" + devVersStr, "WMEPH-RegionOverride" + devVersStr,"Disable Region Specificity");
@@ -6630,7 +6646,7 @@
 
             // Share the data to a Google Form post
             $("#WMEPH-WLShare" + devVersStr).click(function() {
-                var submitWLURL = 'https://docs.google.com/forms/d/1k_5RyOq81Fv4IRHzltC34kW3IUbXnQqDVMogwJKFNbE/viewform?entry.1173700072='+thisUser.userName;
+                var submitWLURL = 'https://docs.google.com/forms/d/1k_5RyOq81Fv4IRHzltC34kW3IUbXnQqDVMogwJKFNbE/viewform?entry.1173700072='+USER_NAME;
                 window.open(submitWLURL);
             });
 
@@ -6651,7 +6667,7 @@
                 zoomPlace();
             });
 
-            if (thisUser.userName === 't0cableguy' || thisUser.userName === 't0cableguy') {
+            if (USER_NAME === 't0cableguy' || USER_NAME === 't0cableguy') {
                 shortcut.add("Control+Alt+E", function() {
                     clonePlace();
                 });
@@ -6682,7 +6698,7 @@
             });
 
             // Add Autorun shortcut
-            if (thisUser.userName === 'bmtg') {
+            if (USER_NAME === 'bmtg') {
                 shortcut.add("Control+Alt+u", function() {
                     $("#WMEPH-AutoRunOnSelect" + devVersStr).trigger('click');
                 });
@@ -6765,7 +6781,6 @@
         // This function validates that the inputted text is a JSON
         function validateWLS(jsonString) {
             //debug('-- validateWLS(jsonString) called --');
-            "use strict";
             try {
                 var objTry = JSON.parse(jsonString);
                 if (objTry && typeof objTry === "object" && objTry !== null) {
@@ -6779,7 +6794,6 @@
         // This function merges and updates venues from object vWL_2 into vWL_1
         function mergeWL(vWL_1,vWL_2) {
             //debug('-- mergeWL(vWL_1,vWL_2) called --');
-            "use strict";
             var venueKey, WLKey, vWL_1_Venue, vWL_2_Venue;
             for (venueKey in vWL_2) {
                 if (vWL_2.hasOwnProperty(venueKey)) {  // basic filter
@@ -6976,7 +6990,7 @@
 
             // Search performance stats
             var t0; var t1;
-            if (devUser) {
+            if (IS_DEV_USER) {
                 t0 = performance.now();  // Speed check start
             }
 
@@ -7046,7 +7060,7 @@
                         if (approvedRegions.indexOf(state2L) > -1 || approvedRegions.indexOf(region3L) > -1 ||  // if the WME-selected item matches the state, region
                             approvedRegions.indexOf(country) > -1 ||  //  OR if the country code is in the data then it is approved for all regions therein
                             $("#WMEPH-RegionOverride" + devVersStr).prop('checked')) {  // OR if region override is selected (dev setting
-                            if (devUser) {
+                            if (IS_DEV_USER) {
                                 t1 = performance.now();  // log search time
                                 //phlogdev("Found place in " + (t1 - t0) + " milliseconds.");
                             }
@@ -7073,7 +7087,7 @@
             } else if (PNHNameMatch) {  // if a name match was found but not for region, prod the user to get it approved
                 bannButt.ApprovalSubmit.active = true;
                 //phlogdev("PNH data exists but not approved for this area.");
-                if (devUser) {
+                if (IS_DEV_USER) {
                     t1 = performance.now();  // log search time
                     //phlogdev("Searched all PNH entries in " + (t1 - t0) + " milliseconds.");
                 }
@@ -7081,7 +7095,7 @@
             } else {  // if no match was found, suggest adding the place to the sheet if it's a chain
                 bannButt.NewPlaceSubmit.active = true;
                 //phlogdev("Place not found in the " + country + " PNH list.");
-                if (devUser) {
+                if (IS_DEV_USER) {
                     t1 = performance.now();  // log search time
                     //phlogdev("Searched all PNH entries in " + (t1 - t0) + " milliseconds.");
                 }
@@ -7214,10 +7228,6 @@
     } // END runPH Function
 
 
-    //function makeCatCheckList(CH_DATA) {
-
-    //function makeNameCheckList(PNH_DATA) {
-
     // Whitelist stringifying and parsing
     function saveWL_LS(compress) {
         //debug('- saveWL_LS(compress) called -');
@@ -7253,10 +7263,6 @@
         }
     }
 
-    //function uniq(a) {
-
-    //function phlog(m) {
-
     function zoomPlace() {
         //debug('- zoomPlace() called -');
         if (W.selectionManager.selectedItems.length === 1 && W.selectionManager.selectedItems[0].model.type === "venue") {
@@ -7282,10 +7288,6 @@
         return toSort;
     }
 
-    function destroyDupeLabels(){
-        WMEPH_NameLayer.destroyFeatures();
-        WMEPH_NameLayer.setVisibility(false);
-    }
 
     // When a dupe is deleted, delete the dupe label
     function deleteDupeLabel(){
@@ -7296,11 +7298,11 @@
             if ( 'undefined' !== typeof lastAction && lastAction.hasOwnProperty('object') && lastAction.object.hasOwnProperty('state') && lastAction.object.state === 'Delete' ) {
                 if ( dupeIDList.indexOf(lastAction.object.attributes.id) > -1 ) {
                     if (dupeIDList.length === 2) {
-                        WMEPH_NameLayer.destroyFeatures();
-                        WMEPH_NameLayer.setVisibility(false);
+                        WMEPH_NAME_LAYER.destroyFeatures();
+                        WMEPH_NAME_LAYER.setVisibility(false);
                     } else {
-                        var deletedDupe = WMEPH_NameLayer.getFeaturesByAttribute('dupeID', lastAction.object.attributes.id) ;
-                        WMEPH_NameLayer.removeFeatures(deletedDupe);
+                        var deletedDupe = WMEPH_NAME_LAYER.getFeaturesByAttribute('dupeID', lastAction.object.attributes.id) ;
+                        WMEPH_NAME_LAYER.removeFeatures(deletedDupe);
                         dupeIDList.splice(dupeIDList.indexOf(lastAction.object.attributes.id),1);
                     }
                     phlog('Deleted a dupe');
@@ -7317,7 +7319,6 @@
 
     //  Whitelist an item
     function whitelistAction(itemID, wlKeyName) {
-        'use strict';
         var item = W.selectionManager.selectedItems[0].model;
         var addressTemp = item.getAddress();
         if ( addressTemp.hasOwnProperty('attributes') ) {

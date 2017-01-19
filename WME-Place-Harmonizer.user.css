@@ -9,7 +9,7 @@
 .banner-severity-3 { background-color: rgb(211, 48, 48) !important; }
 
 /* ??? */
-#WMEPH_runButton { padding-bottom: 6px; padding-top: 3px; width: 290; background-color: #FFF; color: black; font-size: 15px; font-weight: bold; margin-left: auto; margin-right: auto; }
+#WMEPH_runButton { padding-bottom: 6px; padding-top: 3px; width: 290; background-color: #fff; color: black; font-size: 15px; font-weight: bold; margin-left: auto; margin-right: auto; }
 .btn.wmeph-btn { padding: 0px 3px; }
 .btn.wmephwl-btn { padding: 0px 1px; }
 
