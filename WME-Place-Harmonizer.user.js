@@ -155,6 +155,10 @@
                                       'TX','UT','VA','VI','VT','WA','WI','WY','WV' ] };
     var NA_REGION_LIST  = [].concat(NA_PROVINCES, Object.keys(NA_REGIONS));
     var NA_REGION_MAP   = makeRegionMap(NA_PROVINCES, NA_REGIONS);
+    var NA_COUNTRIES    = [ "United States","Canada","American Samoa","Guam",
+                            "Northern Mariana Islands","Puerto Rico",
+                            "Virgin Islands (U.S.)" ];
+    var TOLL_FREE       = [ "800","822","833","844","855","866","877","888" ];
 
 
     //////////////////////////////////
@@ -162,6 +166,7 @@
     //////////////////////////////////
 
     var NEW_SHEET_DATA,
+    // User Lists
         WMEPH_DEV_LIST,
         WMEPH_BETA_LIST,
     // Category Name Checking
@@ -172,7 +177,8 @@
         SCHOOL_PART_MATCH,
         SCHOOL_FULL_MATCH,
     // Categories and Services
-        NA_CAT_DATA;
+        NA_CAT_DATA,
+        REGION_DATA;
     // User-specific values
     var IS_DEV_USER,
         IS_BETA_USER,
@@ -187,8 +193,9 @@
     // Variables //
     ///////////////
 
-    // None at this time.
-
+    var region, state2L,
+        areaCodeList,
+        gFormState = "";
 
     /////////////////////////////////////
     /////////////////////////////////////
@@ -236,11 +243,11 @@
 
     // NOTE: This allows me to dump large objects to a new window so it doesn't clog the console.
     function popUp(message) {
-        var newWindow = window.open("","popUp","width=600,height=800,scrollbars=1,resizable=1")
+        var newWindow = window.open("","popUp","width=600,height=800,scrollbars=1,resizable=1");
 
-        newWindow .document.open()
-        newWindow .document.write(message)
-        newWindow .document.close()
+        newWindow .document.open();
+        newWindow .document.write("<pre>"+message+"</pre>");
+        newWindow .document.close();
     }
 
     // Array prototype extensions (for Firefox fix)
@@ -415,9 +422,9 @@
                     ANIMAL_PART_MATCH = NEW_SHEET_DATA['hmcap'],
                     ANIMAL_FULL_MATCH = NEW_SHEET_DATA['hmcaf'],
                     SCHOOL_PART_MATCH = NEW_SHEET_DATA['schp'],
-                    SCHOOL_FULL_MATCH = NEW_SHEET_DATA['schf'];
-                    // NOTE: Old var name was USA_CH_NAMES
-                    //NA_CAT_DATA = NEW_SHEET_DATA['catList'];
+                    SCHOOL_FULL_MATCH = NEW_SHEET_DATA['schf'],
+                    NA_CAT_DATA = NEW_SHEET_DATA['catList'];
+                    //REGION_DATA = NEW_SHEET_DATA['regionList'];
                 }
             });
         } else {
@@ -461,8 +468,6 @@
                     }
                 }
             });
-
-        }
 
             // Pull Category Data
             $.ajax({
@@ -599,13 +604,9 @@
                                                 "pcMessage"         :   pcMessage,
                                                 "services"          :   services };
                     }
-                    /*
-                    var msg = JSON.stringify(NA_CAT_DATA, null, 2);
-                    msg = '<pre>NA_CAT_DATA = ' + msg + '</pre>';
-                    popUp(msg);
-                    */
                 }
             });
+        }
 
         // Pull USA PNH Data
         $.ajax({
@@ -626,9 +627,19 @@
             url: 'https://spreadsheets.google.com/feeds/list/1-f-JTWY5UnBx-rFTa4qhyGMYdHBZWNirUTOgn222zMY/os2g2ln/public/values',
             jsonp: 'callback', data: { alt: 'json-in-script' }, dataType: 'jsonp',
             success: function(response) {
-                USA_STATE_DATA = [];
-                for (var i = 0; i < response.feed.entry.length; i++) {
-                    USA_STATE_DATA.push(response.feed.entry[i].gsx$psdata.$t);
+                USA_STATE_DATA = {};
+                for (var i = 1, len = response.feed.entry.length; i < len; i++) {
+                    var arr = response.feed.entry[i].gsx$psdata.$t.split("|");
+                    var key = arr[0];
+                    USA_STATE_DATA[key] = { "psState2L"     : arr[1],
+                                            "psRegion"      : arr[2],
+                                            "psGoogleForm"  : arr[3],
+                                            "psDefaultLock" : arr[4],
+                                            "psRequirePhone": arr[5],
+                                            "psRequireUrl"  : arr[6],
+                                            "psAreaCode"    : (arr[7].replace(/[, ]+/g,",")).split(/,/),
+                                            "psIsRegion"    : false };
+                    //popUp(JSON.stringify(USA_STATE_DATA, null, 2));
                 }
             }
         });
@@ -671,7 +682,6 @@
         if ("undefined" !== typeof CAN_PNH_DATA && "undefined" !== typeof USA_PNH_DATA  && "undefined" !== typeof NA_CAT_DATA &&
             "undefined" !== typeof WMEPH_DEV_LIST && "undefined" !== typeof WMEPH_BETA_LIST && "undefined" !== typeof NON_HOSPITAL_PART_MATCH ) {
             USA_PNH_NAMES = makeNameCheckList(USA_PNH_DATA);
-            //USA_CH_NAMES = makeCatCheckList(USA_CH_DATA);
             CAN_PNH_NAMES = makeNameCheckList(CAN_PNH_DATA);
             // CAN using USA_CH_NAMES at the moment
             isLoginReady();  //  start the main code
@@ -683,6 +693,9 @@
                 }
                 if ("undefined" === typeof USA_PNH_DATA) {
                     waitMessage = waitMessage + "USA PNH Data; ";
+                }
+                if ("undefined" === typeof USA_STATE_DATA) {
+                    waitMessage = waitMessage + "USA State Data; ";
                 }
                 if ("undefined" === typeof NA_CAT_DATA) {
                     waitMessage = waitMessage + "Cat-Name Data; ";
@@ -914,7 +927,7 @@
     //// Begin old WMEPH code ////
     //////////////////////////////
     //////////////////////////////
-    var USA_PNH_DATA, USA_PNH_NAMES = [], USA_STATE_DATA, USA_CH_NAMES = [];  // Storage for PNH and Category data
+    var USA_PNH_DATA, USA_PNH_NAMES = [], USA_STATE_DATA;  // Storage for PNH and Category data
     var CAN_PNH_DATA, CAN_PNH_NAMES = [];  // var CAN_CH_DATA, CAN_CH_NAMES = [] not used for now
     var devVersStr='', devVersStrSpace='', devVersStrDash='';  // strings to differentiate DOM elements between regular and beta script
     var devVersStringMaster = "Beta";
@@ -1078,7 +1091,7 @@
 
         // lock levels are offset by one
         var lockLevel1 = 0, lockLevel2 = 1, lockLevel3 = 2, lockLevel4 = 3, lockLevel5 = 4;
-        var defaultLockLevel = lockLevel2, PNHLockLevel;
+        var defaultLock = lockLevel2, PNHLockLevel;
         var PMUserList = { // user names and IDs for PM functions
             SER: {approvalActive: true, modID: '16941753', modName: 't0cableguy'},
             WMEPH: {approvalActive: true, modID: '16941753', modName: 't0cableguy'}
@@ -1091,6 +1104,7 @@
         var numAttempts = 0;
 
         // Split out state-based data (USA_STATE_DATA)
+        /* Already done
         var USA_STATE_HEADERS = USA_STATE_DATA[0].split("|");
         var ps_state_ix = USA_STATE_HEADERS.indexOf('ps_state');
         var ps_state2L_ix = USA_STATE_HEADERS.indexOf('ps_state2L');
@@ -1101,6 +1115,7 @@
         //var ps_requireURL_ix = USA_STATE_HEADERS.indexOf('ps_requireURL');
         var ps_areacode_ix = USA_STATE_HEADERS.indexOf('ps_areacode');
         var stateDataTemp, areaCodeList = '800,822,833,844,855,866,877,888';  //  include toll free non-geographic area codes
+        */
         var ixBank, ixATM, ixOffices;
 
         // Set up Run WMEPH button once place is selected
@@ -1562,8 +1577,7 @@
             placePL = placePL.replace(/\&mapProblemFilter=[^\&]+(\&?)/g, '$1');  // remove Permalink Layers
             placePL = placePL.replace(/\&mapUpdateRequestFilter=[^\&]+(\&?)/g, '$1');  // remove Permalink Layers
             placePL = placePL.replace(/\&venueFilter=[^\&]+(\&?)/g, '$1');  // remove Permalink Layers
-            var region, state2L, newPlaceURL, approveRegionURL, servID, useState = true;
-            var gFormState = "";
+            var newPlaceURL, approveRegionURL, servID, useState = true;
             var PNHOrderNum = '', PNHNameTemp = '', PNHNameTempWeb = '';
             severityButt = 0;
             var customStoreFinder = false;  // switch indicating place-specific custom store finder url
@@ -2269,7 +2283,7 @@
                 lockRPP: {    // no WL
                     active: false, severity: 0, message: 'Lock this residential point?', value: "Lock", title: 'Lock the residential point',
                     action: function() {
-                        var RPPlevelToLock = $("#RPPLockLevel :selected").val() || defaultLockLevel + 1;
+                        var RPPlevelToLock = $("#RPPLockLevel :selected").val() || defaultLock + 1;
                         phlogdev('RPPlevelToLock: '+ RPPlevelToLock);
 
                         RPPlevelToLock = RPPlevelToLock -1 ;
@@ -2816,16 +2830,6 @@
             }
             newPhone = item.attributes.phone;
             var addr = item.getAddress();
-            /*
-            debug('  addr.attributes.state = ');
-            for (var k in addr.attributes.state) {
-                debug(k + ' : ' + addr.attributes.state[k]);
-            }
-            debug('  addr.attributes.country = ');
-            for (var k in addr.attributes.country) {
-                debug(k + ' : ' + addr.attributes.country[k]);
-            }
-            */
             if ( addr.hasOwnProperty('attributes') ) {
                 addr = addr.attributes;
             }
@@ -2910,19 +2914,7 @@
                 countryCode = "USA";
             } else if (addr.country.name === "Canada") {
                 countryCode = "CAN";
-            } else if (addr.country.name === "American Samoa") {
-                countryCode = "USA";
-                useState = false;
-            } else if (addr.country.name === "Guam") {
-                countryCode = "USA";
-                useState = false;
-            } else if (addr.country.name === "Northern Mariana Islands") {
-                countryCode = "USA";
-                useState = false;
-            } else if (addr.country.name === "Puerto Rico") {
-                countryCode = "USA";
-                useState = false;
-            } else if (addr.country.name === "Virgin Islands (U.S.)") {
+            } else if (NA_COUNTRIES.indexOf(addr.country.name) > -1) {
                 countryCode = "USA";
                 useState = false;
             } else {
@@ -2933,45 +2925,14 @@
             }
 
             // Parse state-based data
+            var regName;
             state2L = "Unknown"; region = "Unknown";
-            for (var usdix=1; usdix<USA_STATE_DATA.length; usdix++) {
-                stateDataTemp = USA_STATE_DATA[usdix].split("|");
-                if (addr.state.name === stateDataTemp[ps_state_ix]) {
-                    state2L = stateDataTemp[ps_state2L_ix];
-                    region = stateDataTemp[ps_region_ix];
-                    gFormState = stateDataTemp[ps_gFormState_ix];
-                    if (stateDataTemp[ps_defaultLockLevel_ix].match(/[1-5]{1}/) !== null) {
-                        defaultLockLevel = stateDataTemp[ps_defaultLockLevel_ix] - 1;  // normalize by -1
-                    } else {
-                        if (hpMode.harmFlag) {
-                            alert('Lock level sheet data is not correct');
-                        } else if (hpMode.hlFlag) {
-                            return '3';
-                        }
-                    }
-                    areaCodeList = areaCodeList+','+stateDataTemp[ps_areacode_ix];
-                    break;
-                }
+            if (USA_STATE_DATA.hasOwnProperty(addr.state.name)) {
+                regName = addr.state.name;
+            } else if (USA_STATE_DATA.hasOwnProperty(addr.country.name)) {
                 // If State is not found, then use the country
-                if (addr.country.name === stateDataTemp[ps_state_ix]) {
-                    state2L = stateDataTemp[ps_state2L_ix];
-                    region = stateDataTemp[ps_region_ix];
-                    gFormState = stateDataTemp[ps_gFormState_ix];
-                    if (stateDataTemp[ps_defaultLockLevel_ix].match(/[1-5]{1}/) !== null) {
-                        defaultLockLevel = stateDataTemp[ps_defaultLockLevel_ix] - 1;  // normalize by -1
-                    } else {
-                        if (hpMode.harmFlag) {
-                            alert('Lock level sheet data is not correct');
-                        } else if (hpMode.hlFlag) {
-                            return '3';
-                        }
-                    }
-                    areaCodeList = areaCodeList+','+stateDataTemp[ps_areacode_ix];
-                    break;
-                }
-
-            }
-            if (state2L === "Unknown" || region === "Unknown") {    // if nothing found:
+                regName = addr.country.name;
+            } else {  // if nothing found:
                 if (hpMode.harmFlag) {
                     if (confirm('WMEPH: Localization Error!\nClick OK to report this error') ) {  // if the category doesn't translate, then pop an alert that will make a forum post to the thread
                         forumMsgInputs = {
@@ -2983,6 +2944,22 @@
                 }
                 return 3;
             }
+            state2L         = USA_STATE_DATA[regName].psState2L;
+            region          = USA_STATE_DATA[regName].psRegion;
+            gFormState      = USA_STATE_DATA[regName].psGoogleForm;
+            areaCodeList    = USA_STATE_DATA[regName].psAreaCode.concat(TOLL_FREE);
+            //areaCodeList+','+stateDataTemp[ps_areacode_ix];
+            defaultLock     = USA_STATE_DATA[regName].psDefaultLock;
+            if (defaultLock.match(/[1-5]/) !== null) {
+                defaultLock -= 1;
+            } else {
+                if (hpMode.harmFlag) {
+                    alert('Lock level sheet data is not correct');
+                } else if (hpMode.hlFlag) {
+                    return '3';
+                }
+            }
+
 
             // If no gas station name, replace with brand name
             if (hpMode.harmFlag && item.attributes.categories[0] === 'GAS_STATION' && (!newName || newName.trim().length === 0) && item.attributes.brand) {
@@ -3847,7 +3824,7 @@
                 for (var i = 1; i < 6; i++) {
                     pcLockTemp = myCat['pcLock'+i];
                     if (matchPNHRegion(state2L, pcLockTemp) || matchPNHRegion(region, pcLockTemp)) {
-                        defaultLockLevel = i - 1;  // Offset by 1 since lock ranks start at 0
+                        defaultLock = i - 1;  // Offset by 1 since lock ranks start at 0
                         break;
                     }
                 }
@@ -4279,7 +4256,7 @@
                 phlogdev('PNHLockLevel: '+PNHLockLevel);
                 levelToLock = PNHLockLevel;
             } else {
-                levelToLock = defaultLockLevel;
+                levelToLock = defaultLock;
             }
             if (region === "SER") {
                 if (newCategories.indexOf("COLLEGE_UNIVERSITY") > -1 && newCategories.indexOf("PARKING_LOT") > -1) {
@@ -4323,7 +4300,7 @@
                     var ddlSelected = false;
                     for (var llix=1; llix<6; llix++) {
                         if (llix < USER_RANK+1) {
-                            if ( !ddlSelected && (defaultLockLevel === llix - 1 || llix === USER_RANK) ) {
+                            if ( !ddlSelected && (defaultLock === llix - 1 || llix === USER_RANK) ) {
                                 RPPLockString += '<option value="'+llix+'" selected="selected">'+llix+'</option>';
                                 ddlSelected = true;
                             } else {
