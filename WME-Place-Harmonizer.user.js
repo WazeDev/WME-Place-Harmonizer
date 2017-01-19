@@ -13,7 +13,7 @@
 // ==UserScript==
 // @name        WME Place Harmonizer Beta
 // @namespace   https://github.com/WazeUSA/WME-Place-Harmonizer/raw/master/WME-Place-Harmonizer.user.js
-// @version     1.1.78-Refactor2017
+// @version     1.1.82-Refactor2017
 // @description Harmonizes, formats, and locks a selected place
 // @author      WMEPH development group
 // @include     /^https:\/\/(www|beta)\.waze\.com\/(?!user\/)(.{2,6}\/)?editor\/.*$/
@@ -39,6 +39,10 @@
 
     // New in this version
     var WHATS_NEW_LIST = [
+        '1.1.82: Added option to disable check for missing external provider on parking lots.',
+        '1.1.81: Fix for incorrect capitalization when "mc" is in the middle of a word.',
+        '1.1.80: Fix to allow entering phone #s longer than 10 digits, e.g. 800-THE-CRAVE',
+        '1.1.79: Fixed area / point warning when multiple categories are present.',
         '1.1.78: Added yellow "caution" highlights.  Were previously red.',
         '1.1.77: Unlocked PLAs are highlighted with a bold red dotted outline',
         '1.1.75: Fix for Google hyperlinks not showing up after first click on place.',
@@ -265,13 +269,9 @@
     }
 
     // Logs verbose information to console for developers.
-    function phlogdev(m) {
-        //debug('- phlogdev(m) called -');
-        if ('object' === typeof m) {
-            m = JSON.stringify(m, censor(m));
-        }
+    function phlogdev(msg, obj) {
         if (IS_DEV_USER) {
-            console.log('WMEPH' + devVersStrDash + ': ' + m);
+            console.log('WMEPH' + devVersStrDash + ': ' + msg, (obj ? obj : ''));
         }
     }
 
@@ -329,6 +329,10 @@
 
     function isPLA(venue) {
         return venue.attributes.categories && venue.attributes.categories[0] === 'PARKING_LOT';
+    }
+
+    function getPvaSeverity(pvaValue) {
+        return (pvaValue ==='' || pvaValue === '0' || pvaValue === 'hosp') ? 3 : (pvaValue ==='2') ? 1 : (pvaValue ==='3') ? 2 : 0;
     }
 
     // Test to see if province is in region
@@ -1301,11 +1305,11 @@
                 return ((txt === txt.toUpperCase()) && !allCaps) ? txt : txt.charAt(0).toUpperCase() + txt.substr(1);
             });
             // Cap O'Reilley's, L'Amour, D'Artagnan as long as 5+ letters
-            str = str.replace(/[oOlLdD]'[A-Za-z']{3,}/g, function(txt) {
+            str = str.replace(/\b[oOlLdD]'[A-Za-z']{3,}/g, function(txt) {
                 return ((txt === txt.toUpperCase()) && !allCaps) ? txt : txt.charAt(0).toUpperCase() + txt.charAt(1) + txt.charAt(2).toUpperCase() + txt.substr(3);
             });
             // Cap McFarley's, as long as 5+ letters long
-            str = str.replace(/[mM][cC][A-Za-z']{3,}/g, function(txt) {
+            str = str.replace(/\b[mM][cC][A-Za-z']{3,}/g, function(txt) {
                 return ((txt === txt.toUpperCase()) && !allCaps) ? txt : txt.charAt(0).toUpperCase() + txt.charAt(1).toLowerCase() + txt.charAt(2).toUpperCase() + txt.substr(3);
             });
             // anything with an "&" sign, cap the character after &
@@ -1354,11 +1358,11 @@
                 return ((txt === txt.toUpperCase()) && !allCaps) ? txt : txt.charAt(0).toUpperCase() + txt.substr(1).toLowerCase();
             });
             // Cap O'Reilley's, L'Amour, D'Artagnan as long as 5+ letters
-            str = str.replace(/[oOlLdD]'[A-Za-z']{3,}/g, function(txt) {
+            str = str.replace(/\b[oOlLdD]'[A-Za-z']{3,}/g, function(txt) {
                 return ((txt === txt.toUpperCase()) && !allCaps) ? txt : txt.charAt(0).toUpperCase() + txt.charAt(1) + txt.charAt(2).toUpperCase() + txt.substr(3).toLowerCase();
             });
             // Cap McFarley's, as long as 5+ letters long
-            str = str.replace(/[mM][cC][A-Za-z']{3,}/g, function(txt) {
+            str = str.replace(/\b[mM][cC][A-Za-z']{3,}/g, function(txt) {
                 return ((txt === txt.toUpperCase()) && !allCaps) ? txt : txt.charAt(0).toUpperCase() + txt.charAt(1).toLowerCase() + txt.charAt(2).toUpperCase() + txt.substr(3).toLowerCase();
             });
             // anything sith an "&" sign, cap the word after &
@@ -1394,17 +1398,14 @@
                 }
                 return s;
             }
-            s = s.replace(/(\d{3}.*)extension.*/i, '$1');
-            s = s.replace(/(\d{3}.*)ext.*/i, '$1');
-            s = s.replace(/(\d{3}.*) xt\.? \d.*/i, '$1');
-            s = s.replace(/(\d{3}.*) x\.? \d.*/i, '$1');
+            s = s.replace(/(\d{3}.*)(?:extension|ext|xt|x).*/i, '$1');
             var s1 = s.replace(/\D/g, '');  // remove non-number characters
             var m = s1.match(/^1?([2-9]\d{2})([2-9]\d{2})(\d{4})$/);  // Ignore leading 1, and also don't allow area code or exchange to start with 0 or 1 (***USA/CAN specific)
             if (!m) {  // then try alphanumeric matching
                 if (s) { s = s.toUpperCase(); }
-                s1 = s.replace(/[^0-9A-Z]/g, '').replace(/^\D*(\d)/,'$1').replace(/^1?([2-9][0-9]{2}[0-9A-Z]{7})/g,'$1');
+                s1 = s.replace(/[^0-9A-Z]/g, '').replace(/^\D*(\d)/,'$1').replace(/^1?([2-9][0-9]{2}[0-9A-Z]{7,10})/g,'$1');
                 s1 = replaceLetters(s1);
-                m = s1.match(/^([2-9]\d{2})([2-9]\d{2})(\d{4})$/);  // Ignore leading 1, and also don't allow area code or exchange to start with 0 or 1 (***USA/CAN specific)
+                m = s1.match(/^([2-9]\d{2})([2-9]\d{2})(\d{4})(?:.{0,3})$/);  // Ignore leading 1, and also don't allow area code or exchange to start with 0 or 1 (***USA/CAN specific)
                 if (!m) {
                     if ( returnType === 'inputted' ) {
                         return 'badPhone';
@@ -3029,14 +3030,16 @@
                 if (item.is2D()) {
                     bannButt.pointNotArea.active = true;
                 }
-            } else if (item.attributes.categories[0] === 'PARKING_LOT' || (newName && newName.trim().length > 0)) {  // for non-residential places
-                var provIDs = item.attributes.externalProviderIDs;
-                if (USER_RANK >= 3 && (!provIDs || provIDs.length === 0) ) {
-                    if ($('#WMEPH-ExtProviderSeverity' + devVersStr).prop('checked')) {
-                        bannButt.extProviderMissing.severity = 1;
+            } else if (isPLA(item) || (newName && newName.trim().length > 0)) {  // for non-residential places
+                if (USER_RANK >= 3 && !(isPLA(item) && $('#WMEPH-DisablePLAExtProviderCheck' + devVersStr).prop('checked'))) {
+                    var provIDs = item.attributes.externalProviderIDs;
+                    if (!provIDs || provIDs.length === 0) {
+                        if ($('#WMEPH-ExtProviderSeverity' + devVersStr).prop('checked')) {
+                            bannButt.extProviderMissing.severity = 1;
+                        }
+                        bannButt.extProviderMissing.active = !currentWL.extProviderMissing;
+                        bannButt.extProviderMissing.WLactive = !currentWL.extProviderMissing;
                     }
-                    bannButt.extProviderMissing.active = !currentWL.extProviderMissing;;
-                    bannButt.extProviderMissing.WLactive = !currentWL.extProviderMissing;
                 }
 
                 // Place Harmonization
@@ -3730,6 +3733,11 @@
                     }
                 }
 
+                var isPoint = item.isPoint();
+                var isArea = item.is2D();
+                var maxPointSeverity = 0;
+                var maxAreaSeverity = 3;
+
                 // Area vs. Place checking, Category locking, and category-based messaging
                 // NOTE: Since we have to keep looping through categories, maybe see about combining actions inside of the same loops.
                 // NOTE: If it gets too complicated, the code should probably be segregated into other functions and then called within the same loop.
@@ -3746,39 +3754,6 @@
                             pcRare      = myCat.pcRare,
                             pcParent    = myCat.pcParent;
 
-                        // Display any messaged regarding the category
-                        if (pcMessage && pcMessage !== '0' && pcMessage !== '') {
-                            bannButt.pnhCatMess.active = true;
-                            bannButt.pnhCatMess.message = pcMessage;
-                        }
-
-                        // Unmapped categories
-                        if (matchPNHRegion(state2L, pcRare) || matchPNHRegion(region, pcRare)) {
-                            bannButt.unmappedRegion.active = true;
-                            if (currentWL.unmappedRegion) {
-                                bannButt.unmappedRegion.WLactive = false;
-                            } else {
-                                lockOK = false;
-                            }
-                        }
-
-                        // Parent Category
-                        if (matchPNHRegion(state2L, pcParent) || matchPNHRegion(region, pcParent)) {
-                            bannButt.parentCategory.active = true;
-                            if (currentWL.parentCategory) {
-                                bannButt.parentCategory.WLactive = false;
-                            }
-                        }
-
-                        // Set lock level
-                        for (var i = 1; i < 6; i++) {
-                            pcLockTemp = myCat['pcLock'+i];
-                            if (matchPNHRegion(state2L, pcLockTemp) || matchPNHRegion(region, pcLockTemp)) {
-                                defaultLockLevel = i - 1;  // Offset by 1 since lock ranks start at 0
-                                break;
-                            }
-                        }
-
                         // Determine regional overrides for Point vs Area
                         if (matchPNHRegion(state2L, regPoint) || matchPNHRegion(region, regPoint)) {
                             pvaPoint = '1';
@@ -3787,61 +3762,96 @@
                             pvaPoint = '';
                             pvaArea = '1';
                         }
-                        if (item.isPoint()) {
-                            if (pvaPoint === '' || pvaPoint === '0') {
-                                bannButt.areaNotPoint.active = true;
-                                if (currentWL.areaNotPoint) {
-                                    bannButt.areaNotPoint.WLactive = false;
-                                } else {
-                                    lockOK = false;
-                                }
-                            } else if (pvaPoint === '2') {
-                                bannButt.areaNotPointLow.active = true;
-                                if (currentWL.areaNotPoint) {
-                                    bannButt.areaNotPointLow.WLactive = false;
-                                }
-                            } else if (pvaPoint === '3') {
-                                bannButt.areaNotPointMid.active = true;
-                                if (currentWL.areaNotPoint) {
-                                    bannButt.areaNotPointMid.WLactive = false;
-                                } else {
-                                    lockOK = false;
-                                }
-                            } else if (pvaPoint === 'hosp' && newName.toUpperCase().match(/\bER\b/g) === null && newName.toUpperCase().match(/\bEMERGENCY ROOM\b/g) === null ) {
-                                // hopsitals get flagged high unless ER or Emergency Room in the name
-                                bannButt.areaNotPoint.active = true;
-                                if (currentWL.areaNotPoint) {
-                                    bannButt.areaNotPoint.WLactive = false;
-                                } else {
-                                    lockOK = false;
-                                }
-                            }
-                        } else if (item.is2D()) {
-                            if (pvaArea === '' || pvaArea === '0') {
-                                bannButt.pointNotArea.active = true;
-                                if (currentWL.pointNotArea) {
-                                    bannButt.pointNotArea.WLactive = false;
-                                } else {
-                                    lockOK = false;
-                                }
-                            } else if (pvaArea === '2') {
-                                bannButt.pointNotAreaLow.active = true;
-                                if (currentWL.pointNotArea) {
-                                    bannButt.pointNotAreaLow.WLactive = false;
-                                }
-                            } else if (pvaArea === '3') {
-                                bannButt.pointNotAreaMid.active = true;
-                                if (currentWL.pointNotArea) {
-                                    bannButt.pointNotAreaMid.WLactive = false;
-                                } else {
-                                    lockOK = false;
-                                }
-                            }
-                        }
 
-                        break;  // If only looking at primary category, then break
+                        var pointSeverity = getPvaSeverity(pvaPoint);
+                        var areaSeverity = getPvaSeverity(pvaArea);
+
+                        if (isPoint && pointSeverity > 0) {
+                            maxPointSeverity = Math.max(pointSeverity, maxPointSeverity);
+                        } else if (isArea) {
+                            maxAreaSeverity = Math.min(areaSeverity, maxAreaSeverity);
+                        }
                     }
                 }
+
+                if (isPoint) {
+                    if (maxPointSeverity === 3) {
+                        bannButt.areaNotPoint.active = true;
+                        if (currentWL.areaNotPoint) {
+                            bannButt.areaNotPoint.WLactive = false;
+                        } else {
+                            lockOK = false;
+                        }
+                    } else if (maxPointSeverity === 2) {
+                        bannButt.areaNotPointMid.active = true;
+                        if (currentWL.areaNotPoint) {
+                            bannButt.areaNotPointMid.WLactive = false;
+                        } else {
+                            lockOK = false;
+                        }
+                    } else if (maxPointSeverity === 1) {
+                        bannButt.areaNotPointLow.active = true;
+                        if (currentWL.areaNotPoint) {
+                            bannButt.areaNotPointLow.WLactive = false;
+                        }
+                    }
+                } else {
+                    if (maxAreaSeverity === 3) {
+                        bannButt.pointNotArea.active = true;
+                        if (currentWL.pointNotArea) {
+                            bannButt.pointNotArea.WLactive = false;
+                        } else {
+                            lockOK = false;
+                        }
+                    } else if (maxAreaSeverity === 2) {
+                        bannButt.pointNotAreaMid.active = true;
+                        if (currentWL.pointNotArea) {
+                            bannButt.pointNotAreaMid.WLactive = false;
+                        } else {
+                            lockOK = false;
+                        }
+                    } else if (maxAreaSeverity === 1) {
+                        bannButt.areaNotPointLow.active = true;
+                        if (currentWL.pointNotArea) {
+                            bannButt.pointNotAreaLow.WLactive = false;
+                        }
+                    }
+                }
+
+
+                // Display any messaged regarding the category
+                if (pcMessage && pcMessage !== '0' && pcMessage !== '') {
+                    bannButt.pnhCatMess.active = true;
+                    bannButt.pnhCatMess.message = pcMessage;
+                }
+
+                // Unmapped categories
+                if (matchPNHRegion(state2L, pcRare) || matchPNHRegion(region, pcRare)) {
+                    bannButt.unmappedRegion.active = true;
+                    if (currentWL.unmappedRegion) {
+                        bannButt.unmappedRegion.WLactive = false;
+                    } else {
+                        lockOK = false;
+                    }
+                }
+
+                // Parent Category
+                if (matchPNHRegion(state2L, pcParent) || matchPNHRegion(region, pcParent)) {
+                    bannButt.parentCategory.active = true;
+                    if (currentWL.parentCategory) {
+                        bannButt.parentCategory.WLactive = false;
+                    }
+                }
+
+                // Set lock level
+                for (var i = 1; i < 6; i++) {
+                    pcLockTemp = myCat['pcLock'+i];
+                    if (matchPNHRegion(state2L, pcLockTemp) || matchPNHRegion(region, pcLockTemp)) {
+                        defaultLockLevel = i - 1;  // Offset by 1 since lock ranks start at 0
+                        break;
+                    }
+                }
+
 
                 var anpNone = collegeAbbreviations.split('|'), anpNoneRE;
                 for (var cii=0; cii<anpNone.length; cii++) {
@@ -6326,20 +6336,22 @@
             createSettingsCheckbox("sidepanel-harmonizer" + devVersStr, "WMEPH-HidePlacesWiki" + devVersStr,"Hide 'Places Wiki' button in results banner");
             createSettingsCheckbox("sidepanel-harmonizer" + devVersStr, "WMEPH-ExcludePLADupes" + devVersStr,"Exclude parking lots when searching for duplicate places.");
             if (IS_DEV_USER || IS_BETA_USER || USER_RANK >= 2) {
+                createSettingsCheckbox("sidepanel-harmonizer" + devVersStr, "WMEPH-DisablePLAExtProviderCheck" + devVersStr,'Disable check for "Missing External Provider" on Parking Lot Areas');
+                createSettingsCheckbox("sidepanel-harmonizer" + devVersStr, "WMEPH-ExtProviderSeverity" + devVersStr,'Treat "Missing External Provider" as non-critical (blue)');
                 createSettingsCheckbox("sidepanel-harmonizer" + devVersStr, "WMEPH-EnableServices" + devVersStr,"Enable automatic addition of common services");
-            }
-            if (IS_DEV_USER || IS_BETA_USER || USER_RANK >= 2) {
                 createSettingsCheckbox("sidepanel-harmonizer" + devVersStr, "WMEPH-ConvenienceStoreToGasStations" + devVersStr,'Automatically add "Convenience Store" category to gas stations');
                 createSettingsCheckbox("sidepanel-harmonizer" + devVersStr, "WMEPH-AddAddresses" + devVersStr,"Add detected address fields to places with no address");
                 createSettingsCheckbox("sidepanel-harmonizer" + devVersStr, "WMEPH-EnableCloneMode" + devVersStr,"Enable place cloning tools");
                 createSettingsCheckbox("sidepanel-harmonizer" + devVersStr, "WMEPH-AutoLockRPPs" + devVersStr,"Lock residential place points to region default");
-                createSettingsCheckbox("sidepanel-harmonizer" + devVersStr, "WMEPH-ExtProviderSeverity" + devVersStr,'Treat "Missing External Provider" as non-critical (blue)');
-                $("#WMEPH-ExtProviderSeverity" + devVersStr).on('click', function() {
+                createSettingsCheckbox("sidepanel-harmonizer" + devVersStr, "WMEPH-AutoRunOnSelect" + devVersStr,'Automatically run the script when selecting a place');
+            }
+
+            ["#WMEPH-ExtProviderSeverity" + devVersStr, "#WMEPH-DisablePLAExtProviderCheck" + devVersStr].map(function(id) {
+                $(id).on('click', function() {
                     // Force highlight refresh on all venues.
                     applyHighlightsTest(W.model.venues.getObjectArray());
                 });
-                createSettingsCheckbox("sidepanel-harmonizer" + devVersStr, "WMEPH-AutoRunOnSelect" + devVersStr,'Automatically run the script when selecting a place');
-            }
+            });
 
             // Highlighter settings
             var phDevContentHtml = '<p>Highlighter Settings:</p>';
@@ -7360,7 +7372,6 @@
                     // Only fire up if it's a node
                     if (addedNode.nodeType === Node.ELEMENT_NODE) {
                         if(addedNode.querySelector('div .placeId')) {
-                            console.log('*************** EDIT PANEL', addedNode);
                             var placeLinkDivs = $(addedNode).find('.placeId');
                             for(i=0; i<placeLinkDivs.length; i++) {
                                 var placeLinkDiv = placeLinkDivs[i];
@@ -7369,7 +7380,6 @@
                                     placeLinkDiv.innerHTML = _googleLinkHash[placeLinkId];
                                 }
                             }
-
                         }
                     }
                 }
