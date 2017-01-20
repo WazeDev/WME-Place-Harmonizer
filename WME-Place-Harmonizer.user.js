@@ -13,7 +13,7 @@
 // ==UserScript==
 // @name        WME Place Harmonizer Beta
 // @namespace   https://github.com/WazeUSA/WME-Place-Harmonizer/raw/master/WME-Place-Harmonizer.user.js
-// @version     1.1.82
+// @version     1.1.83
 // @description Harmonizes, formats, and locks a selected place
 // @author      WMEPH development group
 // @include     /^https:\/\/(www|beta)\.waze\.com\/(?!user\/)(.{2,6}\/)?editor\/.*$/
@@ -262,6 +262,7 @@
     function runPH() {
         // Script update info
         var WMEPHWhatsNewList = [  // New in this version
+            '1.1.83: Improved check for automated (bot) account edits.',
             '1.1.82: Added option to disable check for missing external provider on parking lots.',
             '1.1.81: Fix for incorrect capitalization when "mc" is in the middle of a word.',
             '1.1.80: Fix to allow entering phone #s longer than 10 digits, e.g. 800-THE-CRAVE',
@@ -3653,8 +3654,19 @@
             }
 
             //waze_maint_bot check
-            if (!item.attributes.residential && item.attributes.updatedBy && W.model.users.get(item.attributes.updatedBy) &&
-                W.model.users.get(item.attributes.updatedBy).userName && W.model.users.get(item.attributes.updatedBy).userName.match(/^waze-maint-bot|waze3rdparty|WazeParking1|admin|avsus/i) !== null) {
+            var updatedById = item.attributes.updatedBy ? item.attributes.updatedBy : item.attributes.createdBy;
+            var updatedBy = W.model.users.get(updatedById);
+            var updatedByName = updatedBy ? updatedBy.userName : null;
+            var botNamesAndIDs = [
+                '^waze-maint', '^105774162$',
+                '^waze3rdparty$', '^361008095$',
+                '^WazeParking1$', '^338475699$',
+                '^admin$', '^-1$',
+                '^avsus$', '^107668852$'
+            ];
+            var re = new RegExp(botNamesAndIDs.join('|'),'i');
+
+            if (!item.attributes.residential && updatedById && (re.test(updatedById.toString()) || (updatedByName && re.test(updatedByName))))  {
                 bannButt.wazeBot.active = true;
             }
 
@@ -4182,7 +4194,6 @@
                     street: street
                 };
                 updateAddress(item, newAddr);
-                console.log('ADDED', W.model.streets.getByAttributes({name:$('#WMEPH_missingStreet').val()})[0]);
                 bannButt.streetMissing.active = false;
                 assembleBanner();
             }
@@ -5585,7 +5596,6 @@
 
         // WME Category translation from Natural language to object language  (Bank / Financial --> BANK_FINANCIAL)
         function catTranslate(natCategories) {
-            //console.log(natCategories);
             var natCategoriesRepl = natCategories.toUpperCase().replace(/ AND /g, "").replace(/[^A-Z]/g, "");
             if (natCategoriesRepl.indexOf('PETSTORE') > -1) {
                 return "PET_STORE_VETERINARIAN_SERVICES";
@@ -6404,7 +6414,7 @@
                 }
                 // if a match was found:
                 if ( PNHStringMatch ) {  // Compare WME place name to PNH search name list
-                    console.log('Matched PNH Order No.: '+currMatchData[ph_order_ix]);
+                    phlogdev('Matched PNH Order No.: '+currMatchData[ph_order_ix]);
 
                     PNHPriCat = catTranslate(currMatchData[ph_category1_ix]);
                     PNHForceCat = currMatchData[ph_forcecat_ix];
