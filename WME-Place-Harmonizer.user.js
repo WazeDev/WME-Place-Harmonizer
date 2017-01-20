@@ -13,7 +13,7 @@
 // ==UserScript==
 // @name        WME Place Harmonizer Beta
 // @namespace   https://github.com/WazeUSA/WME-Place-Harmonizer/raw/master/WME-Place-Harmonizer.user.js
-// @version     1.1.83
+// @version     1.1.84
 // @description Harmonizes, formats, and locks a selected place
 // @author      WMEPH development group
 // @include     /^https:\/\/(www|beta)\.waze\.com\/(?!user\/)(.{2,6}\/)?editor\/.*$/
@@ -262,6 +262,7 @@
     function runPH() {
         // Script update info
         var WMEPHWhatsNewList = [  // New in this version
+            '1.1.84: Fix to ignore title casing inside parens at end of PLA names.',
             '1.1.83: Improved check for automated (bot) account edits.',
             '1.1.82: Added option to disable check for missing external provider on parking lots.',
             '1.1.81: Fix for incorrect capitalization when "mc" is in the middle of a word.',
@@ -648,9 +649,18 @@
         var capWords = "3M|AAA|AMC|AOL|AT&T|ATM|BBC|BLT|BMV|BMW|BP|CBS|CCS|CGI|CISCO|CJ|CNN|CVS|DHL|DKNY|DMV|DSW|EMS|ER|ESPN|FCU|FCUK|FDNY|GNC|H&M|HP|HSBC|IBM|IHOP|IKEA|IRS|JBL|JCPenney|KFC|LLC|MBNA|MCA|MCI|NBC|NYPD|PDQ|PNC|TCBY|TNT|TV|UPS|USA|USPS|VW|XYZ|ZZZ".split('|');
         var specWords = "d'Bronx|iFix".split('|');
 
-        function toTitleCase(str) {
+        function toTitleCase(str, ignoreParensAtEnd) {
             if (!str) {
                 return str;
+            }
+            str = str.trim();
+            var parensPart = '';
+            if (ignoreParensAtEnd) {
+                var m = str.match(/.*(\(.*\))$/);
+                if (m) {
+                    parensPart = m[1];
+                    str = str.slice(0,str.length - parensPart.length);
+                }
             }
             var allCaps = (str === str.toUpperCase());
             // Cap first letter of each word
@@ -696,13 +706,22 @@
             str = str.replace(/\b(\d+)th\b/gi, '$1th');
             // Cap first letter of entire name
             str = str.charAt(0).toUpperCase() + str.substr(1);
-            return str;
+            return str + parensPart;
         }
 
         // Change place.name to title case
-        function toTitleCaseStrong(str) {
+        function toTitleCaseStrong(str, ignoreParensAtEnd) {
             if (!str) {
                 return str;
+            }
+            str = str.trim();
+            var parensPart = '';
+            if (ignoreParensAtEnd) {
+                var m = str.match(/.*(\(.*\))$/);
+                if (m) {
+                    parensPart = m[1];
+                    str = str.slice(0,str.length - parensPart.length);
+                }
             }
             var allCaps = (str === str.toUpperCase());
             // Cap first letter of each word
@@ -738,7 +757,7 @@
             str = str.replace(/\b(\d+)th\b/gi, '$1th');
             // Cap first letter of entire name
             str = str.charAt(0).toUpperCase() + str.substr(1);
-            return str;
+            return str + parensPart;
         }
 
         // normalize phone
@@ -1737,7 +1756,7 @@
                 STC: {    // no WL
                     active: false, severity: 0, message: "Force Title Case: ", value: "Yes", title: "Force Title Case to InterNal CaPs",
                     action: function() {
-                        newName = toTitleCaseStrong(item.attributes.name);  // Get the Strong Title Case name
+                        newName = toTitleCaseStrong(item.attributes.name, isPLA(item));  // Get the Strong Title Case name
                         if (newName !== item.attributes.name) {  // if they are not equal
                             W.model.actionManager.add(new UpdateObject(item, { name: newName }));
                             fieldUpdateObject.name='#dfd';
@@ -2145,12 +2164,12 @@
             var categories = item.attributes.categories;
             newCategories = categories.slice(0);
             newName = item.attributes.name;
-            newName = toTitleCase(newName);
+            newName = toTitleCase(newName, isPLA(item));
             // var nameShort = newName.replace(/[^A-Za-z]/g, '');  // strip non-letters for PNH name searching
             // var nameNumShort = newName.replace(/[^A-Za-z0-9]/g, ''); // strip non-letters/non-numbers for PNH name searching
             newAliases = item.attributes.aliases.slice(0);
             for (var naix=0; naix<newAliases.length; naix++) {
-                newAliases[naix] = toTitleCase(newAliases[naix]);
+                newAliases[naix] = toTitleCase(newAliases[naix], isPLA(item));
             }
             var brand = item.attributes.brand;
             var newDescripion = item.attributes.description;
@@ -2816,7 +2835,6 @@
                         PNHLockLevel = 4;
                     }
 
-
                 } else {  // if no PNH match found
                     if (PNHMatchData[0] === "ApprovalNeeded") {
                         //PNHNameTemp = PNHMatchData[1].join(', ');
@@ -2828,7 +2846,7 @@
                     }
 
                     // Strong title case option for non-PNH places
-                    if (newName !== toTitleCaseStrong(newName)) {
+                    if (newName !== toTitleCaseStrong(newName, isPLA(item))) {
                         bannButt.STC.active = true;
                     }
 
@@ -2903,7 +2921,7 @@
                 // Update aliases
                 newAliases = removeSFAliases(newName, newAliases);
                 for (naix=0; naix<newAliases.length; naix++) {
-                    newAliases[naix] = toTitleCase(newAliases[naix]);
+                    newAliases[naix] = toTitleCase(newAliases[naix], isPLA(item));
                 }
                 if (hpMode.harmFlag && newAliases !== item.attributes.aliases && newAliases.length !== item.attributes.aliases.length) {
                     phlogdev("Alt Names updated");
