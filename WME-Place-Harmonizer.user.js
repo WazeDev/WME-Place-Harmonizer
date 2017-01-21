@@ -150,6 +150,8 @@
         myCountry2L,
         areaCodeList,
         gFormState = "";
+    var currentWL = {};
+
 
     /////////////////////////////////////
     /////////////////////////////////////
@@ -324,43 +326,148 @@
     }
 
 
+    ///////////////////////
+    // Parsing Functions //
+    ///////////////////////
+
+    // Alphanumeric phone conversion
+    function replaceLetters(number) {
+        var conversionMap = _({
+            2: /A|B|C/,
+            3: /D|E|F/,
+            4: /G|H|I/,
+            5: /J|K|L/,
+            6: /M|N|O/,
+            7: /P|Q|R|S/,
+            8: /T|U|V/,
+            9: /W|X|Y|Z/
+        });
+        number = typeof number === 'string' ? number.toUpperCase() : '';
+        return number.replace(/[A-Z]/g, function(match, offset, string) {
+            return conversionMap.findKey(function(re) {
+                return re.test(match);
+            });
+        });
+    }
+
+    // NOTE: Haven't refactored this yet.
+    // Normalize url
+    function normalizeURL(s, lc, skipBannerActivate) {
+        if (!s && !skipBannerActivate) {  // Notify that url is missing and provide web search to find website and gather data (provided for all editors)
+            bannButt.urlMissing.active = true;
+            if (currentWL.urlWL) {
+                bannButt.urlMissing.WLactive = false;
+            }
+            bannButt.webSearch.active = true;  // Activate websearch button
+            return s;
+        }
+
+        s = s.replace(/ \(.*/g, '');  // remove anything with parentheses after it
+        s = s.replace(/ /g, '');  // remove any spaces
+        var m = s.match(/^http:\/\/(.*)$/i);  // remove http://
+        if (m) { s = m[1]; }
+        if (lc) {  // lowercase the entire domain
+            s = s.replace(/[^\/]+/i, function(txt) { // lowercase the domain
+                return (txt === txt.toLowerCase()) ? txt : txt.toLowerCase();
+            });
+        } else {  // lowercase only the www and com
+            s = s.replace(/www\./i, 'www.');
+            s = s.replace(/\.com/i, '.com');
+        }
+        m = s.match(/^(.*)\/pages\/welcome.aspx$/i);  // remove unneeded terms
+        if (m) { s = m[1]; }
+        m = s.match(/^(.*)\/pages\/default.aspx$/i);  // remove unneeded terms
+        if (m) { s = m[1]; }
+        m = s.match(/^(.*)\/index.html$/i);  // remove unneeded terms
+        if (m) { s = m[1]; }
+        m = s.match(/^(.*)\/index.htm$/i);  // remove unneeded terms
+        if (m) { s = m[1]; }
+        m = s.match(/^(.*)\/index.php$/i);  // remove unneeded terms
+        if (m) { s = m[1]; }
+        m = s.match(/^(.*)\/$/i);  // remove final slash
+        if (m) { s = m[1]; }
+
+        return s;
+    }  // END normalizeURL function
+
+
     //////////////////////////////
     // Display/UI/CSS Functions //
     //////////////////////////////
 
     // Setup div for banner messages and color
     function displayBanners(sbm,sev) {
-        debug('- displayBanners(sbm,sev) called -');
-        debug('sbm = ' + JSON.stringify(sbm));
+        //debug('- displayBanners(sbm,sev) called -');
+        //debug('sbm = ' + JSON.stringify(sbm));
         if ($('#WMEPH_banner').length === 0 ) {
             $('<div id="WMEPH_banner">').prependTo(".contents");
             $('#WMEPH_banner').prepend('<ul>');
         } else {
-            $('#WMEPH_banner').empty();
+            $('#WMEPH_banner > ul').empty();
         }
 
         $('#WMEPH_banner').removeClass();
         $('#WMEPH_banner').addClass("banner-severity-" + sev);
 
-        sbm = "<li>" + sbm + "</li>";
+        sbm = "<li>" + sbm;
         $("#WMEPH_banner > ul").append(sbm);
         $('#select2-drop').hide();
     }
 
     // Setup div for banner messages and color
     function displayTools(sbm) {
-        debug('- displayTools(sbm) called -');
-        debug('sbm = ' + JSON.stringify(sbm));
+        //debug('- displayTools(sbm) called -');
+        //debug('sbm = ' + JSON.stringify(sbm));
         if ($("#WMEPH_tools").length === 0 ) {
             $('<div id="WMEPH_tools">').prependTo(".contents");
             $("#WMEPH_tools").prepend("<ul>");
         } else {
-            $("#WMEPH_tools").empty();
+            $("#WMEPH_tools > ul").empty();
         }
         //sbm = '<li><span style="position:relative;left:-10px;">' + sbm + '</span></li>';
         sbm = "<li>" + sbm + "</li>";
         $("#WMEPH_tools > ul").append(sbm);
         $('#select2-drop').hide();
+    }
+
+    // NOTE: Haven't refactored this yet.
+    function setServiceChecked(servBtn, checked, actions) {
+        var servID = WME_SERVICES[servBtn.servIDIndex];
+        var checkboxChecked = $("#service-checkbox-"+servID).prop('checked');
+        var toggle = typeof checked === 'undefined';
+        var noAdd = false;
+        checked = (toggle) ? !servBtn.checked : checked;
+        if (checkboxChecked === servBtn.checked && checkboxChecked !== checked) {
+            servBtn.checked = checked;
+            var services;
+            if (actions) {
+                for (var i = 0, len = actions.length; i < len; i++) {
+                    var existingAction = actions[i];
+                    if (existingAction.newAttributes && existingAction.newAttributes.services) {
+                        services = existingAction.newAttributes.services;
+                    }
+                }
+            }
+            if (!services) {
+                services = item.attributes.services.slice(0);
+            } else {
+                noAdd = services.indexOf(servID) > -1;
+            }
+            if (checked) {
+                services.push(servID);
+            } else {
+                var index = services.indexOf(servID);
+                if (index > -1) {
+                    services.splice(index, 1);
+                }
+            }
+            if (!noAdd) {
+                addUpdateAction({services:services}, actions);
+                fieldUpdateObject.services[servID] = '#dfd';
+            }
+        }
+        updateServicesChecks(bannServ);
+        if (!toggle) servBtn.active = checked;
     }
 
     /////////////////////////////
@@ -709,9 +816,64 @@
         }
     }
 
-    ////////////////////
-    // Task Functions //
-    ////////////////////
+    /////////////////////////
+    // Whitelist Functions //
+    /////////////////////////
+
+    // NOTE: Haven't refactored this yet.
+    //  Whitelist an item
+    function whitelistAction(itemID, wlKeyName) {
+        var item = W.selectionManager.selectedItems[0].model;
+        var addressTemp = item.getAddress();
+        if ( addressTemp.hasOwnProperty('attributes') ) {
+            addressTemp = addressTemp.attributes;
+        }
+        var itemGPS = OpenLayers.Layer.SphericalMercator.inverseMercator(item.attributes.geometry.getCentroid().x,item.attributes.geometry.getCentroid().y);
+        if (!venueWhitelist.hasOwnProperty(itemID)) {  // If venue is NOT on WL, then add it.
+            venueWhitelist[itemID] = { };
+        }
+        venueWhitelist[itemID][wlKeyName] = {active: true};  // WL the flag for the venue
+        venueWhitelist[itemID].city = addressTemp.city.attributes.name;  // Store city for the venue
+        venueWhitelist[itemID].state = addressTemp.state.name;  // Store state for the venue
+        venueWhitelist[itemID].country = addressTemp.country.name;  // Store country for the venue
+        venueWhitelist[itemID].gps = itemGPS;  // Store GPS coords for the venue
+        saveWL_LS(true);  // Save the WL to local storage
+        WMEPH_WLCounter();
+        bannButt2.clearWL.active = true;
+    }
+
+    // NOTE: Haven't refactored this yet.
+    // Keep track of how many whitelists have been added since the last pull, alert if over a threshold (100?)
+    function WMEPH_WLCounter() {
+        //debug('- WMEPH_WLCounter() called -');
+        localStorage.WMEPH_WLAddCount = parseInt(localStorage.WMEPH_WLAddCount)+1;
+        if (localStorage.WMEPH_WLAddCount > 50) {
+            alert('Don\'t forget to periodically back up your Whitelist data using the Pull option in the WMEPH settings tab.');
+            localStorage.WMEPH_WLAddCount = 2;
+        }
+    }
+
+    // NOTE: Haven't refactored this yet.
+    // This should be called after new venues are saved (using venues'objectssynced' event), so the new IDs can be retrieved and used
+    // to replace the temporary IDs in the whitelist.  If WME errors during save, this function may not run.  At that point, the
+    // temporary IDs can no longer be traced to the new IDs so the WL for those new venues will be orphaned, and the temporary IDs
+    // will be removed from the WL store the next time the script starts.
+    function syncWL(newVenues) {
+        newVenues.forEach(function(newVenue) {
+            var oldID = newVenue._prevID;
+            var newID = newVenue.attributes.id;
+            if (oldID && newID && venueWhitelist[oldID]) {
+                venueWhitelist[newID] = venueWhitelist[oldID];
+                delete venueWhitelist[oldID];
+            }
+        });
+        saveWL_LS(true);
+    }
+
+
+    //////////////////////////////
+    // Ungrouped Task Functions //
+    //////////////////////////////
 
     // Create __DuplicatePlaceNames layer
     function createDuplicatePlaceLayer() {
@@ -752,6 +914,7 @@
         WMEPH_NAME_LAYER.setVisibility(false);
     }
 
+
     ////////////////////////
     // Unsorted Functions //
     ////////////////////////
@@ -762,6 +925,7 @@
     //function makeCatCheckList(CH_DATA) {
         // Moved inside AJAX call
 
+    // NOTE: Haven't refactored this yet.// This will be moved inside AJAX call when I get to PNH data.
     // This function runs at script load, and builds the search name dataset to compare the WME selected place name to.
     // NOTE: Some of this code runs once for every single entry on the spreadsheet.  We need to make this more efficient.
     function makeNameCheckList(PNH_DATA) {
@@ -968,9 +1132,6 @@
             searchResultsWindowSpecs = '"resizable=yes, top='+ Math.round(window.screen.height*0.1) +', left='+ Math.round(window.screen.width*0.3) +', width='+ Math.round(window.screen.width*0.86) +', height='+ Math.round(window.screen.height*0.8) +'"';
         }
 
-        // Initialize the WL Object
-        var currentWL = {};
-
         // If the editor installs for the 1st time, alert with the new elements
         if ( localStorage.getItem('WMEPH_VERSION_MAJOR'+devVersStr) === null ) {
             alert(WMEPHWhatsNewMeta);
@@ -1030,21 +1191,7 @@
             phlogdev('Removed ' + removedWLCount + ' venues with temporary ID\'s from WL store');
         }
 
-        // This should be called after new venues are saved (using venues'objectssynced' event), so the new IDs can be retrieved and used
-        // to replace the temporary IDs in the whitelist.  If WME errors during save, this function may not run.  At that point, the
-        // temporary IDs can no longer be traced to the new IDs so the WL for those new venues will be orphaned, and the temporary IDs
-        // will be removed from the WL store the next time the script starts.
-        function syncWL(newVenues) {
-            newVenues.forEach(function(newVenue) {
-                var oldID = newVenue._prevID;
-                var newID = newVenue.attributes.id;
-                if (oldID && newID && venueWhitelist[oldID]) {
-                    venueWhitelist[newID] = venueWhitelist[oldID];
-                    delete venueWhitelist[oldID];
-                }
-            });
-            saveWL_LS(true);
-        }
+        //function syncWL(newVenues) {
 
 
         if (WMEPH_BETA_LIST.length === 0 || "undefined" === typeof WMEPH_BETA_LIST) {
@@ -1074,20 +1221,6 @@
         var item, itemID, newName, optionalAlias, newURL, tempPNHURL = '', newPhone;
         var newAliases = [], newAliasesTemp = [], newCategories = [];
         var numAttempts = 0;
-
-        // Split out state-based data (USA_STATE_DATA)
-        /* Already done
-        var USA_STATE_HEADERS = USA_STATE_DATA[0].split("|");
-        var ps_state_ix = USA_STATE_HEADERS.indexOf('ps_state');
-        var ps_state2L_ix = USA_STATE_HEADERS.indexOf('ps_state2L');
-        var ps_region_ix = USA_STATE_HEADERS.indexOf('ps_region');
-        var ps_gFormState_ix = USA_STATE_HEADERS.indexOf('ps_gFormState');
-        var ps_defaultLockLevel_ix = USA_STATE_HEADERS.indexOf('ps_defaultLockLevel');
-        //var ps_requirePhone_ix = USA_STATE_HEADERS.indexOf('ps_requirePhone');
-        //var ps_requireURL_ix = USA_STATE_HEADERS.indexOf('ps_requireURL');
-        var ps_areacode_ix = USA_STATE_HEADERS.indexOf('ps_areacode');
-        var stateDataTemp, areaCodeList = '800,822,833,844,855,866,877,888';  //  include toll free non-geographic area codes
-        */
         var ixBank, ixATM, ixOffices;
 
         // Set up Run WMEPH button once place is selected
@@ -1408,26 +1541,6 @@
             }
         }
 
-        // Alphanumeric phone conversion
-        function replaceLetters(number) {
-            //debug('-- replaceLetters(number) called --');
-            var conversionMap = _({
-                2: /A|B|C/,
-                3: /D|E|F/,
-                4: /G|H|I/,
-                5: /J|K|L/,
-                6: /M|N|O/,
-                7: /P|Q|R|S/,
-                8: /T|U|V/,
-                9: /W|X|Y|Z/
-            });
-            number = typeof number === 'string' ? number.toUpperCase() : '';
-            return number.replace(/[A-Z]/g, function(match, offset, string) {
-                return conversionMap.findKey(function(re) {
-                    return re.test(match);
-                });
-            });
-        }
 
         var MultiAction = require("Waze/Action/MultiAction");
         // Add array of actions to a MultiAction to be executed at once (counts as one edit for redo/undo purposes)
@@ -1441,45 +1554,6 @@
                 W.model.actionManager.add(m_action);
             }
         }
-
-        // Normalize url
-        function normalizeURL(s, lc, skipBannerActivate) {
-            if (!s && !skipBannerActivate) {  // Notify that url is missing and provide web search to find website and gather data (provided for all editors)
-                bannButt.urlMissing.active = true;
-                if (currentWL.urlWL) {
-                    bannButt.urlMissing.WLactive = false;
-                }
-                bannButt.webSearch.active = true;  // Activate websearch button
-                return s;
-            }
-
-            s = s.replace(/ \(.*/g, '');  // remove anything with parentheses after it
-            s = s.replace(/ /g, '');  // remove any spaces
-            var m = s.match(/^http:\/\/(.*)$/i);  // remove http://
-            if (m) { s = m[1]; }
-            if (lc) {  // lowercase the entire domain
-                s = s.replace(/[^\/]+/i, function(txt) { // lowercase the domain
-                    return (txt === txt.toLowerCase()) ? txt : txt.toLowerCase();
-                });
-            } else {  // lowercase only the www and com
-                s = s.replace(/www\./i, 'www.');
-                s = s.replace(/\.com/i, '.com');
-            }
-            m = s.match(/^(.*)\/pages\/welcome.aspx$/i);  // remove unneeded terms
-            if (m) { s = m[1]; }
-            m = s.match(/^(.*)\/pages\/default.aspx$/i);  // remove unneeded terms
-            if (m) { s = m[1]; }
-            m = s.match(/^(.*)\/index.html$/i);  // remove unneeded terms
-            if (m) { s = m[1]; }
-            m = s.match(/^(.*)\/index.htm$/i);  // remove unneeded terms
-            if (m) { s = m[1]; }
-            m = s.match(/^(.*)\/index.php$/i);  // remove unneeded terms
-            if (m) { s = m[1]; }
-            m = s.match(/^(.*)\/$/i);  // remove final slash
-            if (m) { s = m[1]; }
-
-            return s;
-        }  // END normalizeURL function
 
         // Only run the harmonization if a venue is selected
         function harmonizePlace() {
@@ -1830,7 +1904,7 @@
                 },
 
                 hnMissing: {
-                    active: false, severity: 3, message: 'No HN: <input type="text" id="WMEPH-HNAdd'+devVersStr+'" autocomplete="off" style="font-size:0.85em;width:100px;padding-left:3px;color:#000;background-color:#FDD">',
+                    active: false, severity: 3, message: 'No HN: <input type="text" id="WMEPH-HNAdd'+devVersStr+'" autocomplete="off" class="wmeph-input-box">',
                     value: "Add", title: 'Add HN to place',
                     badInput: false,
                     action: function() {
@@ -1875,7 +1949,7 @@
                 },
 
                 streetMissing: {  // no WL
-                    active: false, severity: 3, message: 'No street:<div class="ui-widget" style="display:inline;"><input id="WMEPH_missingStreet" style="font-size:0.85em;color:#000;background-color:#FDD;width:170px;margin-right:3px;"></div><input class="btn btn-default btn-xs wmeph-btn disabled" id="WMEPH_addStreetBtn" title="Add street to place" type="button" value="Add" disabled>'
+                    active: false, severity: 3, message: 'No street:<div class="ui-widget" style="display:inline;"><input id="WMEPH_missingStreet" class="wmeph-input-box"></div><input class="btn btn-default btn-xs wmeph-btn disabled" id="WMEPH_addStreetBtn" title="Add street to place" type="button" value="Add" disabled>'
                 },
 
                 cityMissing: {  // no WL
@@ -2115,7 +2189,7 @@
                 },
 
                 urlMissing: {
-                    active: false, severity: 1, message: 'No URL: <input type="text" id="WMEPH-UrlAdd'+devVersStr+'" autocomplete="off" style="font-size:0.85em;width:100px;padding-left:3px;color:#000;background-color:#DDF">',
+                    active: false, severity: 1, message: 'No URL: <input type="text" id="WMEPH-UrlAdd'+devVersStr+'" autocomplete="off" class="wmeph-input-box">',
                     value: "Add", title: 'Add URL to place',
                     badInput: false,
                     action: function() {
@@ -2140,7 +2214,7 @@
                 },
 
                 phoneMissing: {
-                    active: false, severity: 1, message: 'No ph#: <input type="text" id="WMEPH-PhoneAdd'+devVersStr+'" autocomplete="off" style="font-size:0.85em;width:100px;padding-left:3px;color:#000;background-color:#DDF">',
+                    active: false, severity: 1, message: 'No Phone #: <input type="text" id="WMEPH-PhoneAdd'+devVersStr+'" autocomplete="off" class="wmeph-input-box">',
                     value: "Add", title: 'Add phone to place',
                     badInput: false,
                     action: function() {
@@ -2185,7 +2259,7 @@
                 },
 
                 noHours: {
-                    active: false, severity: 1, message: 'No hours: <input type="text" value="Paste Hours Here" id="WMEPH-HoursPaste'+devVersStr+'" autocomplete="off" style="font-size:0.85em;width:170px;padding-left:3px;color:#AAA">',
+                    active: false, severity: 1, message: 'No hours: <input type="text" value="Paste Hours Here" id="WMEPH-HoursPaste'+devVersStr+'" autocomplete="off" class="wmeph-input-box"><br>',
                     value: "Add hours", title: 'Add pasted hours to existing',
                     action: function() {
                         var pasteHours = $('#WMEPH-HoursPaste'+devVersStr).val();
@@ -2201,12 +2275,12 @@
                             bannButt.noHours.value = 'Add hours';
                             bannButt.noHours.severity = 0;
                             bannButt.noHours.WLactive = false;
-                            bannButt.noHours.message = 'Hours: <input type="text" value="Paste Hours Here" id="WMEPH-HoursPaste'+devVersStr+'" style="width:170px;padding-left:3px;color:#AAA">';
+                            bannButt.noHours.message = 'Hours: <input type="text" value="Paste Hours Here" id="WMEPH-HoursPaste'+devVersStr+'" class="wmeph-input-box">';
                         } else {
                             phlog('Can\'t parse those hours');
                             bannButt.noHours.severity = 1;
                             bannButt.noHours.WLactive = true;
-                            bannButt.noHours.message = 'Hours: <input type="text" value="Can\'t parse, try again" id="WMEPH-HoursPaste'+devVersStr+'" style="width:170px;padding-left:3px;color:#AAA">';
+                            bannButt.noHours.message = 'Hours: <input type="text" value="Can\'t parse, try again" id="WMEPH-HoursPaste'+devVersStr+'" class="wmeph-input-box">';
                         }
                     },
                     value2: "Replace all hours", title2: 'Replace existing hours with pasted hours',
@@ -2224,12 +2298,12 @@
                             bannButt.noHours.value2 = 'Replace hours';
                             bannButt.noHours.severity = 0;
                             bannButt.noHours.WLactive = false;
-                            bannButt.noHours.message = 'Hours: <input type="text" value="Paste Hours Here" id="WMEPH-HoursPaste'+devVersStr+'" style="width:170px;padding-left:3px;color:#AAA">';
+                            bannButt.noHours.message = 'Hours: <input type="text" value="Paste Hours Here" id="WMEPH-HoursPaste'+devVersStr+'" class="wmeph-input-box">';
                         } else {
                             phlog('Can\'t parse those hours');
                             bannButt.noHours.severity = 1;
                             bannButt.noHours.WLactive = true;
-                            bannButt.noHours.message = 'Hours: <input type="text" value="Can\'t parse, try again" id="WMEPH-HoursPaste'+devVersStr+'" style="width:170px;padding-left:3px;color:#AAA">';
+                            bannButt.noHours.message = 'Hours: <input type="text" value="Can\'t parse, try again" id="WMEPH-HoursPaste'+devVersStr+'" class="wmeph-input-box">';
                         }
 
                     },
@@ -2539,44 +2613,8 @@
                 }
             }
 
-            function setServiceChecked(servBtn, checked, actions) {
-                var servID = WME_SERVICES[servBtn.servIDIndex];
-                var checkboxChecked = $("#service-checkbox-"+servID).prop('checked');
-                var toggle = typeof checked === 'undefined';
-                var noAdd = false;
-                checked = (toggle) ? !servBtn.checked : checked;
-                if (checkboxChecked === servBtn.checked && checkboxChecked !== checked) {
-                    servBtn.checked = checked;
-                    var services;
-                    if (actions) {
-                        for (var i=0; i<actions.length; i++ ) {
-                            var existingAction = actions[i];
-                            if (existingAction.newAttributes && existingAction.newAttributes.services) {
-                                services = existingAction.newAttributes.services;
-                            }
-                        }
-                    }
-                    if (!services) {
-                        services = item.attributes.services.slice(0);
-                    } else {
-                        noAdd = services.indexOf(servID) > -1;
-                    }
-                    if (checked) {
-                        services.push(servID);
-                    } else {
-                        var index = services.indexOf(servID);
-                        if (index > -1) {
-                            services.splice(index, 1);
-                        }
-                    }
-                    if (!noAdd) {
-                        addUpdateAction({services:services}, actions);
-                        fieldUpdateObject.services[servID] = '#dfd';
-                    }
-                }
-                updateServicesChecks(bannServ);
-                if (!toggle) servBtn.active = checked;
-            }
+            //function setServiceChecked(servBtn, checked, actions) {
+
 
             // set up banner action buttons.  Structure:
             // active: false until activated in the script
@@ -3838,7 +3876,7 @@
                     bannButt.noHours.value = 'Add hours';
                     bannButt.noHours.severity = 0;
                     bannButt.noHours.WLactive = false;
-                    bannButt.noHours.message = 'Hours: <input type="text" value="Paste Hours Here" id="WMEPH-HoursPaste'+devVersStr+'" style="width:170px;padding-left:3px;color:#AAA">';
+                    bannButt.noHours.message = 'Hours: <input type="text" value="Paste Hours Here" id="WMEPH-HoursPaste'+devVersStr+'" class="wmeph-input-box">';
                 }
                 if ( !checkHours(item.attributes.openingHours) ) {
                     //phlogdev('Overlapping hours');
@@ -4648,7 +4686,7 @@
                     }
                     if (bannDupl[tempKey].hasOwnProperty('WLactive') && bannDupl[tempKey].WLactive && bannDupl[tempKey].hasOwnProperty('WLaction') ) {  // If there's a WL option, enable it
                         severityButt = Math.max(bannDupl[tempKey].severity, severityButt);
-                        strButt1 += ' <input class="btn btn-success btn-xs wmephwl-btn" id="WMEPH_WL' + tempKey + '" title="' + bannDupl[tempKey].WLtitle + '" type="button" value="' + bannDupl[tempKey].WLvalue + '">';
+                        strButt1 += ' <input class="btn btn-success btn-xs wmeph-btn" id="WMEPH_WL' + tempKey + '" title="' + bannDupl[tempKey].WLtitle + '" type="button" value="' + bannDupl[tempKey].WLvalue + '">';
                     }
                 }
             }
@@ -4672,7 +4710,7 @@
                     if ( bannButt[tempKey].hasOwnProperty('WLactive') ) {
                         if ( bannButt[tempKey].WLactive && bannButt[tempKey].hasOwnProperty('WLaction') ) {  // If there's a WL option, enable it
                             severityButt = Math.max(bannButt[tempKey].severity, severityButt);
-                            strButt1 += bannButt[tempKey].WLmessage + ' <input class="btn btn-success btn-xs wmephwl-btn" id="WMEPH_WL' + tempKey + '" title="' + bannButt[tempKey].WLtitle + '" type="button" value="WL">';
+                            strButt1 += bannButt[tempKey].WLmessage + ' <input class="btn btn-success btn-xs wmeph-btn" id="WMEPH_WL' + tempKey + '" title="' + bannButt[tempKey].WLtitle + '" type="button" value="WL">';
                             //strButt1 += bannButt[tempKey].WLmessage + ' <input class="fa fa-check-square" id="WMEPH_WL' + tempKey + '" title="' + bannButt[tempKey].WLtitle + '" type="button" style="color:green;" >';
                             //strButt1 += bannButt[tempKey].WLmessage + ' <button class="btn btn-default btn-xs wmephwl-btn" id="WMEPH_WL' + tempKey + '" title="' + bannButt[tempKey].WLtitle + '" type="button" ><i class="fa fa-check-square" style="color:green;></i></button>';
                         }
@@ -4737,10 +4775,12 @@
 
             if (bannButt.noHours.active) {
                 var button = document.getElementById('WMEPH_noHoursA2');
-                button.onclick = function() {
-                    bannButt.noHours.action2();
-                    assembleBanner();
-                };
+                if (button !== null) {
+                    button.onclick = function() {
+                        bannButt.noHours.action2();
+                        assembleBanner();
+                    };
+                }
             }
 
             // Street entry textbox stuff
@@ -4871,25 +4911,29 @@
         function buttonAction(b,bKey) {
             //debug('-- buttonAction(b,bKey) called --');
             var button = document.getElementById('WMEPH_'+bKey);
-            button.onclick = function() {
-                b[bKey].action();
-                assembleBanner();
-            };
+            if (button !== null) {
+                button.onclick = function() {
+                    b[bKey].action();
+                    assembleBanner();
+                };
+            }
             return button;
         }
         function buttonWhitelist(b,bKey) {
             //debug('-- buttonWhitelist(b,bKey) called --');
             var button = document.getElementById('WMEPH_WL'+bKey);
-            button.onclick = function() {
-                if ( bKey.match(/^\d{5,}/) !== null ) {
-                    b[bKey].WLaction(bKey);
-                } else {
-                    b[bKey].WLaction();
-                }
-                b[bKey].WLactive = false;
-                b[bKey].severity = 0;
-                assembleBanner();
-            };
+            if (button !== null) {
+                button.onclick = function() {
+                    if ( bKey.match(/^\d{5,}/) !== null ) {
+                        b[bKey].WLaction(bKey);
+                    } else {
+                        b[bKey].WLaction();
+                    }
+                    b[bKey].WLactive = false;
+                    b[bKey].severity = 0;
+                    assembleBanner();
+                };
+            }
             return button;
         }
 
@@ -4906,7 +4950,7 @@
                     $('<div id="WMEPH_runButton">').prependTo(".contents");
                 }
                 if ($('#runWMEPH'+devVersStr).length === 0 ) {
-                    var strButt1 = '<input class="btn btn-primary" id="runWMEPH'+devVersStr+'" title="Run WMEPH'+devVersStrSpace+' on Place" type="button" value="Run WMEPH'+devVersStrSpace+'">';
+                    var strButt1 = '<input class="btn btn-primary" id="runWMEPH'+devVersStr+'" title="Run WMEPH'+devVersStrSpace+' on Place" style="" type="button" value="Run WMEPH'+devVersStrSpace+'">';
                     $("#WMEPH_runButton").append(strButt1);
                 }
                 var btn = document.getElementById("runWMEPH"+devVersStr);
@@ -7269,36 +7313,6 @@
         },20);
     }
 
-    //  Whitelist an item
-    function whitelistAction(itemID, wlKeyName) {
-        var item = W.selectionManager.selectedItems[0].model;
-        var addressTemp = item.getAddress();
-        if ( addressTemp.hasOwnProperty('attributes') ) {
-            addressTemp = addressTemp.attributes;
-        }
-        var itemGPS = OpenLayers.Layer.SphericalMercator.inverseMercator(item.attributes.geometry.getCentroid().x,item.attributes.geometry.getCentroid().y);
-        if (!venueWhitelist.hasOwnProperty(itemID)) {  // If venue is NOT on WL, then add it.
-            venueWhitelist[itemID] = { };
-        }
-        venueWhitelist[itemID][wlKeyName] = {active: true};  // WL the flag for the venue
-        venueWhitelist[itemID].city = addressTemp.city.attributes.name;  // Store city for the venue
-        venueWhitelist[itemID].state = addressTemp.state.name;  // Store state for the venue
-        venueWhitelist[itemID].country = addressTemp.country.name;  // Store country for the venue
-        venueWhitelist[itemID].gps = itemGPS;  // Store GPS coords for the venue
-        saveWL_LS(true);  // Save the WL to local storage
-        WMEPH_WLCounter();
-        bannButt2.clearWL.active = true;
-    }
-
-    // Keep track of how many whitelists have been added since the last pull, alert if over a threshold (100?)
-    function WMEPH_WLCounter() {
-        //debug('- WMEPH_WLCounter() called -');
-        localStorage.WMEPH_WLAddCount = parseInt(localStorage.WMEPH_WLAddCount)+1;
-        if (localStorage.WMEPH_WLAddCount > 50) {
-            alert('Don\'t forget to periodically back up your Whitelist data using the Pull option in the WMEPH settings tab.');
-            localStorage.WMEPH_WLAddCount = 2;
-        }
-    }
 
     var _googleLinkHash = {};
     function modifyGoogleLinks() {
