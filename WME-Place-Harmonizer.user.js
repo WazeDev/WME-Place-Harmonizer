@@ -108,56 +108,6 @@
                             "CREDIT_CARDS","RESERVATIONS","OUTSIDE_SEATING",
                             "AIR_CONDITIONING","PARKING_FOR_CUSTOMERS","DELIVERIES",
                             "TAKE_AWAY","WHEELCHAIR_ACCESSIBLE" ];
-    // Bit mapping regions
-    // NOTE: I might not need this once the cutover to the new sheets is complete.
-    // NOTE: At least, the goal is NOT to have this in WMEPH.
-    var TWO_PWR_15_DBL = 1 << 15;
-    var TWO_PWR_30_DBL = TWO_PWR_15_DBL * TWO_PWR_15_DBL;
-    var NA_PROV_FULL    = [ "Alberta","Alaska","Alabama","Arkansas","American Samoa","Arizona",
-                            "British Columbia","California","Colorado","Connecticut",
-                            "District of Columbia","Delaware","Florida","Micronesia",
-                            "Georgia","Guam","Hawaii","Iowa","Idaho","Illinois","Indiana",
-                            "Kansas","Kentucky","Louisiana","Massachusetts","Manitoba","Maryland",
-                            "Maine","Marshal Islands","Michigan","Minnesota","Missouri",
-                            "Northern Marianas","Mississippi","Montana","New Brunswick",
-                            "North Carolina","North Dakota","Nebraska","New Hampshire",
-                            "New Jersey","Newfoundland and Labrador","New Mexico","Nova Scotia",
-                            "Nevada","New York","Ohio","Oklahoma","Ontario","Oregon",
-                            "Pennsylvania","Prince Edward Island","Puerto Rico","Palau","Quebec",
-                            "Rhode Island","South Carolina","South Dakota","Saskatchewan",
-                            "Tennessee","Texas","Utah","Virginia","Virgin Islands","Vermont",
-                            "Washington","Wisconsin","West Virginia","Wyoming" ];
-    var NA_PROVINCES    = [ 'AB','AK','AL','AR','AS','AZ','BC','CA','CO','CT',
-                            'DC','DE','FL','FM','GA','GU','HI','IA','ID','IL',
-                            'IN','KS','KY','LA','MA','MB','MD','ME','MH','MI',
-                            'MN','MO','MP','MS','MT','NB','NC','ND','NE','NH',
-                            'NJ','NL','NM','NS','NV','NY','OH','OK','ON','OR',
-                            'PA','PE','PR','PW','QC','RI','SC','SD','SK','TN',
-                            'TX','UT','VA','VI','VT','WA','WI','WV','WY' ];
-    var NA_PROV_ABBR    = _.object(NA_PROV_FULL,NA_PROVINCES);
-    var NA_REGIONS      = { 'ATR' : [ 'AS','GU','MP','PR','VI' ],
-                            'CAN' : [ 'AB','BC','MB','NB','NL','NS','ON','PE','QC','SK' ],
-                            'GLR' : [ 'IL','IN','MI','OH','WI' ],
-                            'MAR' : [ 'DC','MD','VA','WV' ],
-                            'NER' : [ 'CT','ME','MA','NH','VT','RI' ],
-                            'NOR' : [ 'DE','NY','NJ','PA' ],
-                            'NWR' : [ 'WA','OR','ID','MT','WY','AK' ],
-                            'PLN' : [ 'IA','KS','MN','MO','NE','ND','SD' ],
-                            'SAT' : [ 'KY','NC','SC','TN' ],
-                            'SCR' : [ 'AR','LA','MS','OK','TX' ],
-                            'SER' : [ 'FL','AL','GA' ],
-                            'SWR' : [ 'CA','NV','UT','AZ','NM','CO','HI' ],
-                            'USA' : [ 'AK','AL','AR','AS','AZ','CA','CO','CT','DC','DE',
-                                      'FL','FM','GA','GU','HI','IA','ID','IL','IN','KS',
-                                      'KY','LA','MA','MD','ME','MH','MI','MN','MO','MP',
-                                      'MS','MT','NC','ND','NE','NH','NJ','NM','NV','NY',
-                                      'OH','OK','OR','PA','PR','PW','RI','SC','SD','TN',
-                                      'TX','UT','VA','VI','VT','WA','WI','WY','WV' ] };
-    var NA_REGION_LIST  = [].concat(NA_PROVINCES, Object.keys(NA_REGIONS));
-    var NA_REGION_MAP   = makeRegionMap(NA_PROVINCES, NA_REGIONS);
-    var NA_COUNTRIES    = [ "United States","Canada","American Samoa","Guam",
-                            "Northern Mariana Islands","Puerto Rico",
-                            "Virgin Islands (U.S.)" ];
     var TOLL_FREE       = [ "800","822","833","844","855","866","877","888" ];
 
 
@@ -178,7 +128,7 @@
         SCHOOL_FULL_MATCH,
     // Categories and Services
         NA_CAT_DATA,
-        REGION_DATA;
+        REGION_DATA = {};
     // User-specific values
     var IS_DEV_USER,
         IS_BETA_USER,
@@ -193,7 +143,11 @@
     // Variables //
     ///////////////
 
-    var region, state2L,
+    var dataReadyCounter = 0;
+    var myState,
+        myState2L,
+        myCountry,
+        myCountry2L,
         areaCodeList,
         gFormState = "";
 
@@ -282,53 +236,6 @@
         }
     }
 
-    // Creates the NA_REGION_MAP object needed to translate codes to bits
-    function makeRegionMap(provs, regs) {
-        var map = {};
-
-        // First, bitmap all of the states/provinces
-        for (var i = 0, len = provs.length; i < len; i++) {
-            var high = Math.floor(Math.pow(2,i) / TWO_PWR_30_DBL / TWO_PWR_30_DBL) % TWO_PWR_30_DBL;
-            var med = Math.floor(Math.pow(2,i) / TWO_PWR_30_DBL) % TWO_PWR_30_DBL;
-            var low = Math.floor(Math.pow(2,i)) % TWO_PWR_30_DBL;
-            map[provs[i]] = { 'high': high, 'med': med, 'low': low };
-        }
-
-        // Then, add regional bitmappings
-        for (var reg in regs) {
-            var high = 0;
-            var med = 0;
-            var low = 0;
-            for (var i = 0, len = regs[reg].length; i < len; i++) {
-                high = high | map[regs[reg][i]]['high'];
-                med = med | map[regs[reg][i]]['med'];
-                low = low | map[regs[reg][i]]['low'];
-            }
-            map[reg] = { 'high': high, 'med': med, 'low': low };
-        }
-
-        return map;
-    }
-
-    // Takes a CSV string of regions and converts it to a bit mapping.
-    function convertRegionsToBits(str) {
-        var x = {};
-        str = str.replace(/\s+/,"");
-        var regs = str.split(/,/);
-        var high = 0;
-        var med = 0;
-        var low = 0;
-        for (var i = 0, len = regs.length; i < len; i++) {
-            if (NA_REGION_MAP.hasOwnProperty(regs[i])) {
-                high = high | NA_REGION_MAP[regs[i]]['high'];
-                med = med | NA_REGION_MAP[regs[i]]['med'];
-                low = low | NA_REGION_MAP[regs[i]]['low'];
-            }
-        }
-        x = { 'high': high, 'med': med, 'low': low };
-        return x;
-    }
-
 
     //////////////////////////////
     // Value-checking Functions //
@@ -342,33 +249,80 @@
         return (pvaValue ==='' || pvaValue === '0' || pvaValue === 'hosp') ? 3 : (pvaValue ==='2') ? 1 : (pvaValue ==='3') ? 2 : 0;
     }
 
-    // Test to see if province is in region
-    function matchPNHRegion(prov, reg) {
-        var a, b;
-        if (typeof(prov) === "string" && Object.keys(NA_REGION_MAP).indexOf(prov)) {
-            a = NA_REGION_MAP[prov];
-        } else if (prov.hasOwnProperty('high') && prov.hasOwnProperty('med') && prov.hasOwnProperty('low')) {
-            a = prov;
-        } else {
-            console.log('Bad value sent to matchPNHRegion()');
+    // Checks to see if State/Country "a" belongs to Region "b"
+    // "a" = State or Country name as a string
+    // "b" = Region code as a string or list object.
+    /* Examples:  American Samoa -> AQ
+                  American Samoa -> ATR
+                  American Samoa -> USA */
+    // Why you ask? Because states don't have abbreviations in W.
+    function isMemberOfRegion(a, b) {
+        // If "a" is not a string
+        if (!(typeof(a) === "string" && a !== "")) {
+            //debug('Trap 1');
+            return false;
         }
-        if (typeof(reg) === "string" && Object.keys(NA_REGION_MAP).indexOf(reg)) {
-            b = NA_REGION_MAP[reg];
-        } else if (reg.hasOwnProperty('high') && reg.hasOwnProperty('med') && reg.hasOwnProperty('low')) {
-            b = reg;
-        } else {
-            console.log('Bad value sent to matchPNHRegion()');
-        }
-        var compHigh = (a['high'] & b['high']);
-        var compMed  = (a['med']  & b['med']);
-        var compLow  = (a['low']  & b['low']);
-        if ( (compHigh == a['high'] || (compHigh < 0) && ((compHigh * -1) == a['high']))
-          && (compMed  == a['med']  || (compMed  < 0) && ((compMed  * -1) == a['med']))
-          && (compLow  == a['low']  || (compLow  < 0) && ((compLow  * -1) == a['low']))) {
+        // If "a" and "b" are the same, easy money.
+        if (a === b) {
+            //debug('Condition 2');
             return true;
         }
+
+        // If "b" is a string, make it an object.
+        //debug('Changing "b" to an object.');
+        var bObj;
+        if (typeof(b) === "string") {
+            if (b.match(/,/)) {
+                bObj = b.split(/,/);
+            } else {
+                bObj = [ b ];
+            }
+        }
+
+        // If "b" is not an object by now, then we got something bad.
+        if (typeof(bObj) !== "object") {
+            //debug('Trap 3');
+            return false;
+        }
+
+        // If "a" is in the list of "b".
+        if (a.indexOf(bObj) > -1) {
+            //debug('Condition 4');
+            return true;
+        }
+
+        //debug('Changing "a" to an object.');
+            var aObj;
+        if (REGION_DATA.states.hasOwnProperty(a)) {
+            aObj = REGION_DATA.states[a];
+        } else if (REGION_DATA.countries.hasOwnProperty(a)) {
+            aObj = REGION_DATA.countries[a];
+        } else {
+            // "a" is not found in Region data; nothing more to do.
+            //debug('Trap 5');
+            return false;
+        }
+
+            // If the abbreviation is inside the list
+        if ((aObj.psAbbrev).indexOf(bObj) > -1) {
+            //debug('Condition 6 -- aObj.psAbbrev = '+aObj.psAbbrev+' // aObj.psRegion = '+aObj.psRegion+' // b = '+JSON.stringify(bObj));
+            return true;
+        }
+        // If the region is inside the list
+        if (aObj.psRegion.indexOf(bObj) > -1) {
+            //debug('Condition 7 -- aObj.psAbbrev = '+aObj.psAbbrev+' // aObj.psRegion = '+aObj.psRegion+' // b = '+JSON.stringify(bObj));
+                return true;
+        }
+        // If the region's region is inside the list
+        if (REGION_DATA.regions.hasOwnProperty(aObj.psRegion) && (REGION_DATA.regions[aObj.psRegion].psRegion.indexOf(b) > -1)) {
+            //debug('Condition 8 -- aObj.psAbbrev = '+aObj.psAbbrev+' // aObj.psRegion = '+aObj.psRegion+' // b = '+JSON.stringify(bObj));
+            return true;
+        }
+
+        //debug('Fail-through 9 -- aObj.psAbbrev = '+aObj.psAbbrev+' // aObj.psRegion = '+aObj.psRegion+' // b = '+JSON.stringify(bObj));
         return false;
     }
+
 
     //////////////////////////////
     // Display/UI/CSS Functions //
@@ -376,8 +330,11 @@
 
     // Setup div for banner messages and color
     function displayBanners(sbm,sev) {
+        debug('- displayBanners(sbm,sev) called -');
+        debug('sbm = ' + JSON.stringify(sbm));
         if ($('#WMEPH_banner').length === 0 ) {
             $('<div id="WMEPH_banner">').prependTo(".contents");
+            $('#WMEPH_banner').prepend('<ul>');
         } else {
             $('#WMEPH_banner').empty();
         }
@@ -385,21 +342,24 @@
         $('#WMEPH_banner').removeClass();
         $('#WMEPH_banner').addClass("banner-severity-" + sev);
 
-        sbm = "<li>" + sbm;
-        $("#WMEPH_banner").append(sbm);
+        sbm = "<li>" + sbm + "</li>";
+        $("#WMEPH_banner > ul").append(sbm);
         $('#select2-drop').hide();
     }
 
     // Setup div for banner messages and color
     function displayTools(sbm) {
         debug('- displayTools(sbm) called -');
-        if ($('#WMEPH_tools').length === 0 ) {
+        debug('sbm = ' + JSON.stringify(sbm));
+        if ($("#WMEPH_tools").length === 0 ) {
             $('<div id="WMEPH_tools">').prependTo(".contents");
+            $("#WMEPH_tools").prepend("<ul>");
         } else {
-            $('#WMEPH_tools').empty();
+            $("#WMEPH_tools").empty();
         }
-        sbm = '<li><span style="position:relative;left:-10px;">' + sbm+ '</span></li>';
-        $("#WMEPH_tools").append(sbm);
+        //sbm = '<li><span style="position:relative;left:-10px;">' + sbm + '</span></li>';
+        sbm = "<li>" + sbm + "</li>";
+        $("#WMEPH_tools > ul").append(sbm);
         $('#select2-drop').hide();
     }
 
@@ -410,21 +370,23 @@
         if (USE_NEW_GOOGLE_SHEETS) {
             $.ajax({
                 type: 'GET',
-                url: 'https://raw.githubusercontent.com/WMEPH-Harmony/WMEPH-Test/dev/a.json',
+                url: 'https://raw.githubusercontent.com/WMEPH-Harmony/WMEPH-Test/master/WMEPH-Data.json',
                 jsonp: 'callback',
                 dataType: 'json',
                 success: function(response) {
                     NEW_SHEET_DATA = response;
-                    WMEPH_DEV_LIST = NEW_SHEET_DATA["devList"],
-                    WMEPH_BETA_LIST = NEW_SHEET_DATA["betaList"],
+                    WMEPH_DEV_LIST          = NEW_SHEET_DATA["devList"],
+                    WMEPH_BETA_LIST         = NEW_SHEET_DATA["betaList"],
                     NON_HOSPITAL_PART_MATCH = NEW_SHEET_DATA['hmchp'],
                     NON_HOSPITAL_FULL_MATCH = NEW_SHEET_DATA['hmchf'],
-                    ANIMAL_PART_MATCH = NEW_SHEET_DATA['hmcap'],
-                    ANIMAL_FULL_MATCH = NEW_SHEET_DATA['hmcaf'],
-                    SCHOOL_PART_MATCH = NEW_SHEET_DATA['schp'],
-                    SCHOOL_FULL_MATCH = NEW_SHEET_DATA['schf'],
-                    NA_CAT_DATA = NEW_SHEET_DATA['catList'];
-                    //REGION_DATA = NEW_SHEET_DATA['regionList'];
+                    ANIMAL_PART_MATCH       = NEW_SHEET_DATA['hmcap'],
+                    ANIMAL_FULL_MATCH       = NEW_SHEET_DATA['hmcaf'],
+                    SCHOOL_PART_MATCH       = NEW_SHEET_DATA['schp'],
+                    SCHOOL_FULL_MATCH       = NEW_SHEET_DATA['schf'],
+                    NA_CAT_DATA             = NEW_SHEET_DATA['catList'];
+                    REGION_DATA.states      = NEW_SHEET_DATA['states'];
+                    REGION_DATA.countries   = NEW_SHEET_DATA['countries'];
+                    REGION_DATA.regions     = NEW_SHEET_DATA['regions'];
                 }
             });
         } else {
@@ -620,7 +582,7 @@
                 }
             }
         });
-
+/*
         // Pull State-based Data (includes CAN for now)
         $.ajax({
             type: 'GET',
@@ -643,7 +605,7 @@
                 }
             }
         });
-
+*/
         // Pull CAN PNH Data
         $.ajax({
             type: 'GET',
@@ -668,10 +630,18 @@
     function placeHarmonizer_bootstrap() {
         if ("undefined" !== typeof W.loginManager && "undefined" !== typeof W.map) {
             createDuplicatePlaceLayer();
+            dataReadyCounter = 0;
             isDataReady();  //  Run the code to check for data return from the Sheets
         } else {
-            phlog("Waiting for WME map and login...");
-            placeHarmonizer_bootstrap();
+            if (dataReadyCounter % 20 === 0) {
+                phlog("Waiting for WME map and login...");
+            }
+            if (dataReadyCounter<200) {
+                dataReadyCounter++;
+                setTimeout(placeHarmonizer_bootstrap, 100);
+            } else {
+                phlog("WME didn't load; please reload WME...");
+            }
         }
     }
 
@@ -712,7 +682,7 @@
                 dataReadyCounter++;
                 setTimeout(isDataReady, 100);
             } else {
-                phlog("Data load took too long, reload WME...");
+                phlog("Data load took too long. Please reload WME.");
             }
         }
     }
@@ -720,18 +690,21 @@
     // Waits for WME Login to happen before running the main script.
     // Calls runPH() once WME Login is defined.
     function isLoginReady() {
-        dataReadyCounter = 0;
         if ( W.loginManager.user !== null) {
             USER_NAME = W.loginManager.user.userName,
             USER_RANK = W.loginManager.user.normalizedLevel;
+            //debug('REGION_DATA = ' + JSON.stringify(REGION_DATA));
+            dataReadyCounter = 0;
             runPH();  //  start the main code
         } else {
+            if (dataReadyCounter % 10 === 0) {
+                phlog("Waiting for WME login...");
+            }
             if (dataReadyCounter<50) {
                 dataReadyCounter++;
-                phlog("Waiting for WME login...");
                 setTimeout(isLoginReady, 200);
             } else {
-                phlog("Login failed...?  Reload WME.");
+                phlog("WME Login failed. Please reload WME.");
             }
         }
     }
@@ -927,11 +900,10 @@
     //// Begin old WMEPH code ////
     //////////////////////////////
     //////////////////////////////
-    var USA_PNH_DATA, USA_PNH_NAMES = [], USA_STATE_DATA;  // Storage for PNH and Category data
+    var USA_PNH_DATA, USA_PNH_NAMES = [];  // Storage for PNH and Category data
     var CAN_PNH_DATA, CAN_PNH_NAMES = [];  // var CAN_CH_DATA, CAN_CH_NAMES = [] not used for now
     var devVersStr='', devVersStrSpace='', devVersStrDash='';  // strings to differentiate DOM elements between regular and beta script
     var devVersStringMaster = "Beta";
-    var dataReadyCounter = 0;
     var betaDataDelay = 10;
     if (IS_DEV_VERSION) {
         devVersStr = devVersStringMaster; devVersStrSpace = " " + devVersStr; devVersStrDash = "-" + devVersStr;
@@ -2179,7 +2151,7 @@
                         } else {
                             this.badInput = false;
                             phlogdev(newPhone);
-                            if (countryCode === "USA" || countryCode === "CAN") {
+                            if (myCountry2L === "US" || myCountry2L === "CA") {
                                 if (newPhone !== null && newPhone.match(/[2-9]\d{2}/) !== null) {
                                     var areaCode = newPhone.match(/[2-9]\d{2}/)[0];
                                     if ( areaCodeList.indexOf(areaCode) === -1 ) {
@@ -2393,7 +2365,7 @@
                         W.model.actionManager.add(new UpdateObject(item, { url: "usps.com" }));
                         fieldUpdateObject.url='#dfd';
                         highlightChangedFields(fieldUpdateObject,hpMode);
-                        if (region === 'SER') {
+                        if (myPlace.psRegion === 'SER') {
                             W.model.actionManager.add(new UpdateObject(item, { aliases: ["United States Postal Service"] }));
                             fieldUpdateObject.aliases='#dfd';
                             highlightChangedFields(fieldUpdateObject,hpMode);
@@ -2497,13 +2469,13 @@
                 ApprovalSubmit: {  // no WL
                     active: false, severity: 0, message: "PNH data exists but is not approved for this region: ", value: "Request approval", title: "Request region/country approval of this place",
                     action: function() {
-                        if ( PMUserList.hasOwnProperty(region) && PMUserList[region].approvalActive ) {
+                        if ( PMUserList.hasOwnProperty(myPlace.psRegion) && PMUserList[myPlace.psRegion].approvalActive ) {
                             var forumPMInputs = {
                                 subject: 'PNH approval for "' + PNHNameTemp + '"',
-                                message: 'Please approve "' + PNHNameTemp + '" for the ' + region + ' region.  Thanks\n \nPNH order number: ' + PNHOrderNum + '\n \nExample Permalink: ' + placePL + '\n \nPNH Link: ' + USAPNHMasURL,
+                                message: 'Please approve "' + PNHNameTemp + '" for the ' + myPlace.psRegion + ' region.  Thanks\n \nPNH order number: ' + PNHOrderNum + '\n \nExample Permalink: ' + placePL + '\n \nPNH Link: ' + USAPNHMasURL,
                                 preview: 'Preview', attach_sig: 'on'
                             };
-                            forumPMInputs['address_list[u]['+PMUserList[region].modID+']'] = 'to';  // Sends a PM to the regional mod instead of the submission form
+                            forumPMInputs['address_list[u]['+PMUserList[myPlace.psRegion].modID+']'] = 'to';  // Sends a PM to the regional mod instead of the submission form
                             WMEPH_newForumPost('https://www.waze.com/forum/ucp.php?i=pm&mode=compose', forumPMInputs);
                         } else {
                             window.open(approveRegionURL);
@@ -2909,30 +2881,30 @@
             }
 
             // Country restrictions
-            var countryCode;
-            if (addr.country.name === "United States") {
-                countryCode = "USA";
-            } else if (addr.country.name === "Canada") {
-                countryCode = "CAN";
-            } else if (NA_COUNTRIES.indexOf(addr.country.name) > -1) {
-                countryCode = "USA";
-                useState = false;
-            } else {
+            if (addr.country.env !== "NA") {
                 if (hpMode.harmFlag) {
-                    alert("At present this script is not supported in this country.");
+                    alert("At present, this script is not supported in this country.");
                 }
                 return 3;
             }
 
-            // Parse state-based data
-            var regName;
-            state2L = "Unknown"; region = "Unknown";
-            if (USA_STATE_DATA.hasOwnProperty(addr.state.name)) {
-                regName = addr.state.name;
-            } else if (USA_STATE_DATA.hasOwnProperty(addr.country.name)) {
-                // If State is not found, then use the country
-                regName = addr.country.name;
-            } else {  // if nothing found:
+            // Parse Regional Data
+            var myPlace;
+            myState = "Unknown", myCountry = "Unknown";
+            if (typeof(addr.country.name) !== "undefined") {
+                myCountry = addr.country.name;
+                myCountry2L = REGION_DATA.countries[myCountry].psAbbrev || addr.country.abbr;
+                myPlace = REGION_DATA.countries[myCountry];
+            }
+            if (typeof(addr.state.name) !== "undefined") {
+                myState = addr.state.name;
+                myState2L = REGION_DATA.states[myState].psAbbrev;
+                myPlace = REGION_DATA.states[myState];      // I know this overwrites the previous assignment;
+            }                                               // but that's ok, because State is more specific.
+
+            //var myCountryCode;  // Do we need this still?
+
+            if (typeof(myPlace) === "undefined") {
                 if (hpMode.harmFlag) {
                     if (confirm('WMEPH: Localization Error!\nClick OK to report this error') ) {  // if the category doesn't translate, then pop an alert that will make a forum post to the thread
                         forumMsgInputs = {
@@ -2944,12 +2916,10 @@
                 }
                 return 3;
             }
-            state2L         = USA_STATE_DATA[regName].psState2L;
-            region          = USA_STATE_DATA[regName].psRegion;
-            gFormState      = USA_STATE_DATA[regName].psGoogleForm;
-            areaCodeList    = USA_STATE_DATA[regName].psAreaCode.concat(TOLL_FREE);
-            //areaCodeList+','+stateDataTemp[ps_areacode_ix];
-            defaultLock     = USA_STATE_DATA[regName].psDefaultLock;
+
+            gFormState      = myPlace.psGoogleForm;
+            areaCodeList    = myPlace.psAreaCode.concat(TOLL_FREE);
+            defaultLock     = myPlace.psDefaultLock;
             if (defaultLock.match(/[1-5]/) !== null) {
                 defaultLock -= 1;
             } else {
@@ -3025,7 +2995,7 @@
                     if (item.attributes.categories[0] === 'PARKING_LOT') {
                         PNHMatchData = ['NoMatch'];
                     } else {
-                        PNHMatchData = harmoList(newName,state2L,region,countryCode,newCategories);  // check against the PNH list
+                        PNHMatchData = harmoList(newName,myState2L,myPlace.psRegion,myCountry2L,newCategories);  // check against the PNH list
                     }
                 } else if (hpMode.hlFlag) {
                     PNHMatchData = ['Highlight'];
@@ -3038,9 +3008,9 @@
                     var updatePNHName = true;
                     // Break out the data headers
                     var PNH_DATA_headers;
-                    if (countryCode === "USA") {
+                    if (myCountry2L === "US") {
                         PNH_DATA_headers = USA_PNH_DATA[0].split("|");
-                    } else if (countryCode === "CAN") {
+                    } else if (myCountry2L === "CA") {
                         PNH_DATA_headers = CAN_PNH_DATA[0].split("|");
                     }
                     var ph_name_ix = PNH_DATA_headers.indexOf("ph_name");
@@ -3241,7 +3211,7 @@
                                 } else if (tempLocalURL[tlix] === 'ph_stateNamePlus') {
                                     customStoreFinderLocalURL = customStoreFinderLocalURL + searchStatePlus;
                                 } else if (tempLocalURL[tlix] === 'ph_state2L') {
-                                    customStoreFinderLocalURL = customStoreFinderLocalURL + state2L;
+                                    customStoreFinderLocalURL = customStoreFinderLocalURL + myState2L;
                                 } else if (tempLocalURL[tlix] === 'ph_latitudeEW') {
                                     //customStoreFinderLocalURL = customStoreFinderLocalURL + itemGPS[0];
                                 } else if (tempLocalURL[tlix] === 'ph_longitudeNS') {
@@ -3596,7 +3566,7 @@
                 var approvalMessage = 'Submitted via WMEPH. PNH order number ' + PNHOrderNum;
                 var tempSubmitName = newName.replace(/\&/g,'%26').replace(/\//g, "%2F").replace(/\#/g, "%23");
                 if (hpMode.harmFlag) {
-                    switch (region) {
+                    switch (myPlace.psRegion) {
                         case "NWR": regionFormURL = 'https://docs.google.com/forms/d/1hv5hXBlGr1pTMmo4n3frUx1DovUODbZodfDBwwTc7HE/viewform';
                             newPlaceAddon = '?entry.925969794='+tempSubmitName+'&entry.1970139752='+newURLSubmit+'&entry.1749047694='+USER_NAME+gFormState;
                             approvalAddon = '?entry.925969794='+PNHNameTempWeb+'&entry.50214576='+approvalMessage+'&entry.1749047694='+USER_NAME+gFormState;
@@ -3689,7 +3659,7 @@
                                     bannServ[act].active = true;
                                     if ( hpMode.harmFlag && $("#WMEPH-EnableServices" + devVersStr).prop('checked')) {
                                         // If the sheet data matches the state or region, then auto add
-                                        if (matchPNHRegion(state2L, flag) || matchPNHRegion(region, flag)) {
+                                        if (isMemberOfRegion(myState, flag) || isMemberOfRegion(myCountry, flag)) {
                                             bannServ[act].actionOn(actions);
                                         }
                                     }
@@ -3732,10 +3702,10 @@
                             pcParent    = myCat.pcParent;
 
                         // Determine regional overrides for Point vs Area
-                        if (matchPNHRegion(state2L, regPoint) || matchPNHRegion(region, regPoint)) {
+                        if (isMemberOfRegion(myState, regPoint) || isMemberOfRegion(myCountry, regPoint)) {
                             pvaPoint = '1';
                             pvaArea = '';
-                        } else if (matchPNHRegion(state2L, regArea) || matchPNHRegion(region, regArea)) {
+                        } else if (isMemberOfRegion(myState, regArea) || isMemberOfRegion(myCountry, regArea)) {
                             pvaPoint = '';
                             pvaArea = '1';
                         }
@@ -3803,7 +3773,7 @@
                 }
 
                 // Unmapped categories
-                if (matchPNHRegion(state2L, pcRare) || matchPNHRegion(region, pcRare)) {
+                if (isMemberOfRegion(myState, pcRare) || isMemberOfRegion(myCountry, pcRare)) {
                     bannButt.unmappedRegion.active = true;
                     if (currentWL.unmappedRegion) {
                         bannButt.unmappedRegion.WLactive = false;
@@ -3813,7 +3783,7 @@
                 }
 
                 // Parent Category
-                if (matchPNHRegion(state2L, pcParent) || matchPNHRegion(region, pcParent)) {
+                if (isMemberOfRegion(myState, pcParent) || isMemberOfRegion(myCountry, pcParent)) {
                     bannButt.parentCategory.active = true;
                     if (currentWL.parentCategory) {
                         bannButt.parentCategory.WLactive = false;
@@ -3823,7 +3793,7 @@
                 // Set lock level
                 for (var i = 1; i < 6; i++) {
                     pcLockTemp = myCat['pcLock'+i];
-                    if (matchPNHRegion(state2L, pcLockTemp) || matchPNHRegion(region, pcLockTemp)) {
+                    if (isMemberOfRegion(myState, pcLockTemp) || isMemberOfRegion(myCountry, pcLockTemp)) {
                         defaultLock = i - 1;  // Offset by 1 since lock ranks start at 0
                         break;
                     }
@@ -3924,24 +3894,22 @@
                 }
 
                 // Phone formatting
-                var outputFormat = "({0}) {1}-{2}";
-                if ( containsAny(["CA","CO"],[region,state2L]) && (/^\d{3}-\d{3}-\d{4}$/.test(item.attributes.phone))) {
-                    outputFormat = "{0}-{1}-{2}";
-                } else if (region === "SER" && USER_NAME === 't0cableguy') {
-                    outputFormat = "{0}-{1}-{2}";
-                } else if (region === "SER" && !(/^\(\d{3}\) \d{3}-\d{4}$/.test(item.attributes.phone))) {
-                    outputFormat = "{0}-{1}-{2}";
-                } else if (region === "GLR") {
-                    outputFormat = "{0}-{1}-{2}";
-                } else if (state2L === "NV") {
-                    outputFormat = "{0}-{1}-{2}";
-                } else if (countryCode === "CAN") {
-                    outputFormat = "+1-{0}-{1}-{2}";
+                var outputFormat = "{0}-{1}-{2}";
+                switch (Number(myPlace.psPhoneFormat)) {
+                    case 1:
+                        outputFormat = "+1-{0}-{1}-{2}";
+                        break;
+                    case 2:
+                        outputFormat = "({0}) {1}-{2}";
+                        break;
+                    default:
+                        outputFormat = "{0}-{1}-{2}";
                 }
+
                 newPhone = normalizePhone(item.attributes.phone, outputFormat, 'existing');
 
                 // Check if valid area code  #LOC# USA and CAN only
-                if (countryCode === "USA" || countryCode === "CAN") {
+                if (myCountry2L === "US" || myCountry2L === "CA") {
                     if (newPhone !== null && newPhone.match(/[2-9]\d{2}/) !== null) {
                         var areaCode = newPhone.match(/[2-9]\d{2}/)[0];
                         if ( areaCodeList.indexOf(areaCode) === -1 ) {
@@ -3959,7 +3927,7 @@
                 }
 
                 // Post Office cat check
-                if (newCategories.indexOf("POST_OFFICE") > -1 && countryCode === "USA" ) {
+                if (newCategories.indexOf("POST_OFFICE") > -1 && myCountry2L === "US" ) {
                     var USPSStrings = ['USPS','POSTOFFICE','USPOSTALSERVICE','UNITEDSTATESPOSTALSERVICE','USPO','USPOSTOFFICE','UNITEDSTATESPOSTOFFICE','UNITEDSTATESPOSTALOFFICE'];
                     var USPSMatch = false;
                     for (var uspix=0; uspix<USPSStrings.length; uspix++) {
@@ -3967,7 +3935,7 @@
                             USPSMatch = true;
                             customStoreFinderURL = "https://tools.usps.com/go/POLocatorAction.action";
                             customStoreFinder = true;
-                            if (hpMode.harmFlag && region === 'SER' && item.attributes.aliases.indexOf("United States Postal Service") === -1) {
+                            if (hpMode.harmFlag && myPlace.psRegion === 'SER' && item.attributes.aliases.indexOf("United States Postal Service") === -1) {
                                 actions.push(new UpdateObject(item, { aliases: ["United States Postal Service"], url: 'www.usps.com' }));
                                 fieldUpdateObject.aliases='#dfd';
                                 fieldUpdateObject.url='#dfd';
@@ -4005,7 +3973,7 @@
             // House number check
             if (!item.attributes.houseNumber || item.attributes.houseNumber.replace(/\D/g,'').length === 0 ) {
                 if ( 'BRIDGE|ISLAND|FOREST_GROVE|SEA_LAKE_POOL|RIVER_STREAM|CANAL|DAM|TUNNEL'.split('|').indexOf(item.attributes.categories[0]) === -1 ) {
-                    if (state2L === 'PR') {
+                    if (myState2L === 'RQ') {
                         bannButt.hnMissing.active = true;
                         bannButt.hnMissing.severity = 0;
                     } else {
@@ -4021,14 +3989,14 @@
                 var hnOK = false, updateHNflag = false;
                 var hnTemp = item.attributes.houseNumber.replace(/[^\d]/g, '');  // Digits only
                 var hnTempDash = item.attributes.houseNumber.replace(/[^\d-]/g, '');  // Digits and dashes only
-                if ( hnTemp < 1000000 && state2L === "NY" && addr.city.attributes.name === 'Queens' && hnTempDash.match(/^\d{1,4}-\d{1,4}$/g) !== null ) {
+                if ( hnTemp < 1000000 && myState2L === "NY" && addr.city.attributes.name === 'Queens' && hnTempDash.match(/^\d{1,4}-\d{1,4}$/g) !== null ) {
                     updateHNflag = true;
                     hnOK = true;
                 }
                 if (hnTemp === item.attributes.houseNumber && hnTemp < 1000000) {  //  general check that HN is 6 digits or less, & that it is only [0-9]
                     hnOK = true;
                 }
-                if (state2L === "HI" && hnTempDash.match(/^\d{1,2}-\d{1,4}$/g) !== null) {
+                if (myState2L === "HI" && hnTempDash.match(/^\d{1,2}-\d{1,4}$/g) !== null) {
                     if (hnTempDash === hnTempDash.match(/^\d{1,2}-\d{1,4}$/g)[0]) {
                         hnOK = true;
                     }
@@ -4258,7 +4226,7 @@
             } else {
                 levelToLock = defaultLock;
             }
-            if (region === "SER") {
+            if (myPlace.psRegion === "SER") {
                 if (newCategories.indexOf("COLLEGE_UNIVERSITY") > -1 && newCategories.indexOf("PARKING_LOT") > -1) {
                     levelToLock = lockLevel4;
                 } else if ( item.isPoint() && newCategories.indexOf("COLLEGE_UNIVERSITY") > -1 && newCategories.indexOf("HOSPITAL_MEDICAL_CARE") === -1 ) {
@@ -4745,16 +4713,11 @@
                 if ( bannButt2.hasOwnProperty(tempKey) && bannButt2[tempKey].hasOwnProperty('active') && bannButt2[tempKey].active ) {  //  If the particular message is active
                     strButt1 = bannButt2[tempKey].message;
                     if (bannButt2[tempKey].hasOwnProperty('action')) {
-                        strButt1 += ' <input class="btn btn-info btn-xs wmeph-btn" id="WMEPH_' + tempKey + '" title="' + bannButt2[tempKey].title + '" style="" type="button" value="' + bannButt2[tempKey].value + '">';
+                        strButt1 += ' <input class="btn btn-info btn-xs wmeph-btn" id="WMEPH_' + tempKey + '" title="' + bannButt2[tempKey].title + '" type="button" value="' + bannButt2[tempKey].value + '">';
                     }
                     sidebarTools.push(strButt1);
                     severityButt = Math.max(bannButt2[tempKey].severity, severityButt);
                 }
-            }
-
-            // Add banner indicating that it's the beta version
-            if (IS_DEV_VERSION) {
-                sidebarTools.push('WMEPH Beta');
             }
 
             // Post the banners to the sidebar
@@ -6939,10 +6902,10 @@
             //debug('-- harmoList(itemName,state2L,region3L,country,itemCats) called --');
             var PNH_DATA_headers;
             var ixendPNH_NAMES;
-            if (country === 'USA') {
+            if (country === 'US') {
                 PNH_DATA_headers = USA_PNH_DATA[0].split("|");  // pull the data header names
                 ixendPNH_NAMES = USA_PNH_NAMES.length;
-            } else if (country === 'CAN') {
+            } else if (country === 'CA') {
                 PNH_DATA_headers = CAN_PNH_DATA[0].split("|");  // pull the data header names
                 ixendPNH_NAMES = CAN_PNH_NAMES.length;
             } else {
@@ -6988,10 +6951,10 @@
             for (var phnum=1; phnum<ixendPNH_NAMES; phnum++) {
                 PNHMatchProceed = false;
                 PNHStringMatch = false;
-                if (country === 'USA') {
+                if (country === 'US') {
                     nameComps = USA_PNH_NAMES[phnum].split("|");  // splits all possible search names for the current PNH entry
                     PNHMatchData = USA_PNH_DATA[phnum];
-                } else if (country === 'CAN') {
+                } else if (country === 'CA') {
                     nameComps = CAN_PNH_NAMES[phnum].split("|");  // splits all possible search names for the current PNH entry
                     PNHMatchData = CAN_PNH_DATA[phnum];
                 }

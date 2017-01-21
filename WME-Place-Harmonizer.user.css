@@ -1,15 +1,23 @@
 /* Tools Stuff */
-#WMEPH_tools { width: 100%; background-color: #eee; color: black; font-size: 15px; font-weight: bold; padding: 3px; margin-left: auto; margin-right: auto; }
+#WMEPH_tools { width: 100%; background-color: #eee; color: black; font-size: 14px; font-weight: bold; padding: 3px; margin-left: auto; margin-right: auto; }
+#WMEPH_tools > ul { list-style: none; margin-left: -35px; }
+#WMEPH_tools > ul > li { margin-top: 8px; }
+
 
 /* Banner Stuff */
-#WMEPH_banner { width: 100%; background-color: #fff; color: white; font-size: 15px; font-weight: bold; padding: 3px; margin-left: auto; margin-right: auto; }
+#WMEPH_banner { width: 100%; background-color: #fff; color: white; font-size: 14px; font-weight: bold; padding: 3px; margin-left: auto; margin-right: auto; }
+#WMEPH_banner > ul { list-style: none; margin-left: -35px; }
+#WMEPH_banner > ul > li { margin-top: 8px; }
 .banner-severity-0 { background-color: rgb(36, 172, 36) !important; }
 .banner-severity-1 { background-color: rgb(50, 50, 230) !important; }
 .banner-severity-2 { background-color: rgb(217, 173, 42) !important; }
 .banner-severity-3 { background-color: rgb(211, 48, 48) !important; }
 
-/* ??? */
+/* Button Stuff */
 #WMEPH_runButton { padding-bottom: 6px; padding-top: 3px; width: 290; background-color: #fff; color: black; font-size: 15px; font-weight: bold; margin-left: auto; margin-right: auto; }
+.btn { height: 20px; padding: 3px 20px; border-radius: 4px; }
+.btn-primary { height: 28px !important; padding: 6px 20px !important; }
+
 .btn.wmeph-btn { padding: 0px 3px; }
 .btn.wmephwl-btn { padding: 0px 1px; }
 
