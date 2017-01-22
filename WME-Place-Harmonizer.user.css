@@ -1,12 +1,12 @@
 /***************/
-/* TOOLS STUFF */
+/* Tools Stuff */
 /***************/
 #WMEPH_tools { width: 100%; background-color: #eee; color: black; font-size: 14px; font-weight: bold; padding: 3px; margin-left: auto; margin-right: auto; }
 #WMEPH_tools > ul { list-style: none; margin-left: -35px; }
 #WMEPH_tools > ul > li { margin-top: 8px; }
 
 /****************/
-/* BANNER STUFF */
+/* Banner Stuff */
 /****************/
 #WMEPH_banner { width: 100%; background-color: #fff; color: white; font-size: 14px; font-weight: bold; padding: 5px 7px 1px 2px; margin-left: auto; margin-right: auto; margin-bottom: 6px; border-radius: 10px; }
 #WMEPH_banner > ul { list-style: none; margin-left: -35px; }
@@ -15,7 +15,6 @@
 .banner-severity-1 { background-color: rgb(50, 50, 230) !important; }
 .banner-severity-2 { background-color: rgb(217, 173, 42) !important; }
 .banner-severity-3 { background-color: rgb(211, 48, 48) !important; }
-
 .banner-row-severity-0 { color: rgb(16, 152, 16) !important; }
 .banner-row-severity-1 { color: rgb(20, 20, 200) !important; }
 .banner-row-severity-2 { color: rgb(197, 153, 22) !important; }
@@ -24,19 +23,19 @@
 #WMEPH_runButton { padding-bottom: 6px; padding-top: 3px; width: 290px; background-color: #fff; color: black; font-size: 15px; font-weight: bold; margin-left: auto; margin-right: auto; }
 
 /****************/
-/* BUTTON STUFF */
+/* Button Stuff */
 /****************/
 #runWMEPH, #runWMEPHBeta { margin-bottom: 4px; }
 .wmeph-btn { height: 22px; padding: 0px 3px; border-radius: 4px; margin-top: -4px;}
 .fullWidth { width: 100%; margin: 3px 0px; border-radius: 6px }
 
 /***************/
-/* LABEL STUFF */
+/* Label Stuff */
 /***************/
 .wmeph-label { margin-right:8px; }
 
 /***************/
-/* INPUT STUFF */
+/* Input Stuff */
 /***************/
 .wmeph-input-box { font-size: 0.85em; height: 24px !important; width: 120px; margin: 0px 0px 0px 0px; padding: 0px 4px; border: 1px solid #ccc; border-radius: 4px; color: black; }
 /*.wmeph-btn-primary { height: 28px !important; padding: 6px 20px !important; }*/
@@ -48,7 +47,7 @@
 /*.btn.wmephwl-btn { padding: 0px 1px; }*/
 
 /*******************/
-/* SERVICE BUTTONS */
+/* Service Buttons */
 /*******************/
 .wmeph-btn-service { border: 0; background-size: contain; display: inline-block; height: 27px; width: 27px; }
 .wmeph-btn-service-disabled { -webkit-filter: opacity(.25); filter: opacity(.25); }
