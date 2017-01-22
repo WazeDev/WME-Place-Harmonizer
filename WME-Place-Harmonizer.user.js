@@ -26,6 +26,8 @@
 
 
 (function () {
+    // debugger;
+
     "use strict";
     ////////////////////////////////
     ////////////////////////////////
@@ -93,21 +95,21 @@
     // Cutover to new google sheets
     var USE_NEW_GOOGLE_SHEETS = true;
     var WME_SERVICE_MAP = { "psValet"       : { "action":"addValet",        "name":"VALLET_SERVICE"        },
-                            "psDriveThru"   : { "action":"addDriveThru",    "name":"DRIVETHROUGH"          },
-                            "psWiFi"        : { "action":"addWiFi",         "name":"WI_FI"                 },
-                            "psRestrooms"   : { "action":"addRestrooms",    "name":"RESTROOMS"             },
-                            "psCreditCards" : { "action":"addCreditCards",  "name":"CREDIT_CARDS"          },
-                            "psReservations": { "action":"addReservations", "name":"RESERVATIONS"          },
-                            "psOutside"     : { "action":"addOutside",      "name":"OUTSIDE_SEATING"       },
-                            "psAirCond"     : { "action":"addAC",           "name":"AIR_CONDITIONING"      },
-                            "psParking"     : { "action":"addParking",      "name":"PARKING_FOR_CUSTOMERS" },
-                            "psDelivery"    : { "action":"addDeliveries",   "name":"DELIVERIES"            },
-                            "psTakeAway"    : { "action":"addTakeAway",     "name":"TAKE_AWAY"             },
-                            "psWheelchair"  : { "action":"addWheelchair",   "name":"WHEELCHAIR_ACCESSIBLE" } };
+                           "psDriveThru"   : { "action":"addDriveThru",    "name":"DRIVETHROUGH"          },
+                           "psWiFi"        : { "action":"addWiFi",         "name":"WI_FI"                 },
+                           "psRestrooms"   : { "action":"addRestrooms",    "name":"RESTROOMS"             },
+                           "psCreditCards" : { "action":"addCreditCards",  "name":"CREDIT_CARDS"          },
+                           "psReservations": { "action":"addReservations", "name":"RESERVATIONS"          },
+                           "psOutside"     : { "action":"addOutside",      "name":"OUTSIDE_SEATING"       },
+                           "psAirCond"     : { "action":"addAC",           "name":"AIR_CONDITIONING"      },
+                           "psParking"     : { "action":"addParking",      "name":"PARKING_FOR_CUSTOMERS" },
+                           "psDelivery"    : { "action":"addDeliveries",   "name":"DELIVERIES"            },
+                           "psTakeAway"    : { "action":"addTakeAway",     "name":"TAKE_AWAY"             },
+                           "psWheelchair"  : { "action":"addWheelchair",   "name":"WHEELCHAIR_ACCESSIBLE" } };
     var WME_SERVICES    = [ "VALLET_SERVICE","DRIVETHROUGH","WI_FI","RESTROOMS",
-                            "CREDIT_CARDS","RESERVATIONS","OUTSIDE_SEATING",
-                            "AIR_CONDITIONING","PARKING_FOR_CUSTOMERS","DELIVERIES",
-                            "TAKE_AWAY","WHEELCHAIR_ACCESSIBLE" ];
+                           "CREDIT_CARDS","RESERVATIONS","OUTSIDE_SEATING",
+                           "AIR_CONDITIONING","PARKING_FOR_CUSTOMERS","DELIVERIES",
+                           "TAKE_AWAY","WHEELCHAIR_ACCESSIBLE" ];
     var TOLL_FREE       = [ "800","822","833","844","855","866","877","888" ];
 
 
@@ -116,17 +118,17 @@
     //////////////////////////////////
 
     var NEW_SHEET_DATA,
-    // User Lists
+        // User Lists
         WMEPH_DEV_LIST,
         WMEPH_BETA_LIST,
-    // Category Name Checking
+        // Category Name Checking
         NON_HOSPITAL_PART_MATCH,
         NON_HOSPITAL_FULL_MATCH,
         ANIMAL_PART_MATCH,
         ANIMAL_FULL_MATCH,
         SCHOOL_PART_MATCH,
         SCHOOL_FULL_MATCH,
-    // Categories and Services
+        // Categories and Services
         NA_CAT_DATA,
         REGION_DATA = {};
     // User-specific values
@@ -194,7 +196,7 @@
             ++i; // so we know we aren't using the original object anymore
 
             return value;
-        }
+        };
     }
 
     // NOTE: This allows me to dump large objects to a new window so it doesn't clog the console.
@@ -294,7 +296,7 @@
         }
 
         //debug('Changing "a" to an object.');
-            var aObj;
+        var aObj;
         if (REGION_DATA.states.hasOwnProperty(a)) {
             aObj = REGION_DATA.states[a];
         } else if (REGION_DATA.countries.hasOwnProperty(a)) {
@@ -305,7 +307,7 @@
             return false;
         }
 
-            // If the abbreviation is inside the list
+        // If the abbreviation is inside the list
         if ((aObj.psAbbrev).indexOf(bObj) > -1) {
             //debug('Condition 6 -- aObj.psAbbrev = '+aObj.psAbbrev+' // aObj.psRegion = '+aObj.psRegion+' // b = '+JSON.stringify(bObj));
             return true;
@@ -313,7 +315,7 @@
         // If the region is inside the list
         if (aObj.psRegion.indexOf(bObj) > -1) {
             //debug('Condition 7 -- aObj.psAbbrev = '+aObj.psAbbrev+' // aObj.psRegion = '+aObj.psRegion+' // b = '+JSON.stringify(bObj));
-                return true;
+            return true;
         }
         // If the region's region is inside the list
         if (REGION_DATA.regions.hasOwnProperty(aObj.psRegion) && (REGION_DATA.regions[aObj.psRegion].psRegion.indexOf(b) > -1)) {
@@ -396,9 +398,7 @@
     //////////////////////////////
 
     // Setup div for banner messages and color
-    function displayBanners(sbm,sev) {
-        //debug('- displayBanners(sbm,sev) called -');
-        //debug('sbm = ' + JSON.stringify(sbm));
+    function displayBanners(sbm,maxSev,severities) {
         if ($('#WMEPH_banner').length === 0 ) {
             $('<div id="WMEPH_banner">').prependTo(".contents");
             $('#WMEPH_banner').prepend('<ul>');
@@ -407,10 +407,13 @@
         }
 
         $('#WMEPH_banner').removeClass();
-        $('#WMEPH_banner').addClass("banner-severity-" + sev);
+        $('#WMEPH_banner').addClass("banner-severity-" + maxSev);
 
-        sbm = "<li>" + sbm;
-        $("#WMEPH_banner > ul").append(sbm);
+        var html = [];
+        for (var idx=0; idx<sbm.length; idx++) {
+            html.push('<li class="wmeph-banner-row banner-row-severity-' + severities[idx] + '">' + sbm[idx] + '</li>');
+        }
+        $("#WMEPH_banner > ul").append(html.join(' '));
         $('#select2-drop').hide();
     }
 
@@ -482,18 +485,18 @@
                 dataType: 'json',
                 success: function(response) {
                     NEW_SHEET_DATA = response;
-                    WMEPH_DEV_LIST          = NEW_SHEET_DATA["devList"],
-                    WMEPH_BETA_LIST         = NEW_SHEET_DATA["betaList"],
-                    NON_HOSPITAL_PART_MATCH = NEW_SHEET_DATA['hmchp'],
-                    NON_HOSPITAL_FULL_MATCH = NEW_SHEET_DATA['hmchf'],
-                    ANIMAL_PART_MATCH       = NEW_SHEET_DATA['hmcap'],
-                    ANIMAL_FULL_MATCH       = NEW_SHEET_DATA['hmcaf'],
-                    SCHOOL_PART_MATCH       = NEW_SHEET_DATA['schp'],
-                    SCHOOL_FULL_MATCH       = NEW_SHEET_DATA['schf'],
-                    NA_CAT_DATA             = NEW_SHEET_DATA['catList'];
-                    REGION_DATA.states      = NEW_SHEET_DATA['states'];
-                    REGION_DATA.countries   = NEW_SHEET_DATA['countries'];
-                    REGION_DATA.regions     = NEW_SHEET_DATA['regions'];
+                    WMEPH_DEV_LIST          = NEW_SHEET_DATA.devList;
+                    WMEPH_BETA_LIST         = NEW_SHEET_DATA.betaList;
+                    NON_HOSPITAL_PART_MATCH = NEW_SHEET_DATA.hmchp;
+                    NON_HOSPITAL_FULL_MATCH = NEW_SHEET_DATA.hmchf;
+                    ANIMAL_PART_MATCH       = NEW_SHEET_DATA.hmcap;
+                    ANIMAL_FULL_MATCH       = NEW_SHEET_DATA.hmcaf;
+                    SCHOOL_PART_MATCH       = NEW_SHEET_DATA.schp;
+                    SCHOOL_FULL_MATCH       = NEW_SHEET_DATA.schf;
+                    NA_CAT_DATA             = NEW_SHEET_DATA.catList;
+                    REGION_DATA.states      = NEW_SHEET_DATA.states;
+                    REGION_DATA.countries   = NEW_SHEET_DATA.countries;
+                    REGION_DATA.regions     = NEW_SHEET_DATA.regions;
                 }
             });
         } else {
@@ -648,30 +651,30 @@
                         }
 
                         services            = { "psValet"           :   psValet,
-                                                "psDriveThru"       :   psDriveThru,
-                                                "psWiFi"            :   psWiFi,
-                                                "psRestrooms"       :   psRestrooms,
-                                                "psCreditCards"     :   psCreditCards,
-                                                "psReservations"    :   psReservations,
-                                                "psOutside"         :   psOutside,
-                                                "psAirCond"         :   psAirCond,
-                                                "psParking"         :   psParking,
-                                                "psDelivery"        :   psDelivery,
-                                                "psTakeAway"        :   psTakeAway,
-                                                "psWheelchair"      :   psWheelchair };
+                                               "psDriveThru"       :   psDriveThru,
+                                               "psWiFi"            :   psWiFi,
+                                               "psRestrooms"       :   psRestrooms,
+                                               "psCreditCards"     :   psCreditCards,
+                                               "psReservations"    :   psReservations,
+                                               "psOutside"         :   psOutside,
+                                               "psAirCond"         :   psAirCond,
+                                               "psParking"         :   psParking,
+                                               "psDelivery"        :   psDelivery,
+                                               "psTakeAway"        :   psTakeAway,
+                                               "psWheelchair"      :   psWheelchair };
                         NA_CAT_DATA[key]    = { "pcPoint"           :   pcPoint,
-                                                "pcArea"            :   pcArea,
-                                                "pcRegPoint"        :   pcRegPoint,
-                                                "pcRegArea"         :   pcRegArea,
-                                                "pcLock1"           :   pcLock1,
-                                                "pcLock2"           :   pcLock2,
-                                                "pcLock3"           :   pcLock3,
-                                                "pcLock4"           :   pcLock4,
-                                                "pcLock5"           :   pcLock5,
-                                                "pcRare"            :   pcRare,
-                                                "pcParent"          :   pcParent,
-                                                "pcMessage"         :   pcMessage,
-                                                "services"          :   services };
+                                               "pcArea"            :   pcArea,
+                                               "pcRegPoint"        :   pcRegPoint,
+                                               "pcRegArea"         :   pcRegArea,
+                                               "pcLock1"           :   pcLock1,
+                                               "pcLock2"           :   pcLock2,
+                                               "pcLock3"           :   pcLock3,
+                                               "pcLock4"           :   pcLock4,
+                                               "pcLock5"           :   pcLock5,
+                                               "pcRare"            :   pcRare,
+                                               "pcParent"          :   pcParent,
+                                               "pcMessage"         :   pcMessage,
+                                               "services"          :   services };
                     }
                 }
             });
@@ -689,7 +692,7 @@
                 }
             }
         });
-/*
+        /*
         // Pull State-based Data (includes CAN for now)
         $.ajax({
             type: 'GET',
@@ -798,7 +801,7 @@
     // Calls runPH() once WME Login is defined.
     function isLoginReady() {
         if ( W.loginManager.user !== null) {
-            USER_NAME = W.loginManager.user.userName,
+            USER_NAME = W.loginManager.user.userName;
             USER_RANK = W.loginManager.user.normalizedLevel;
             //debug('REGION_DATA = ' + JSON.stringify(REGION_DATA));
             dataReadyCounter = 0;
@@ -882,24 +885,24 @@
         if(rlayers.length === 0) {
             var lname = "WMEPH Duplicate Names";
             var style = new OpenLayers.Style({  label : "${labelText}",
-                                                labelOutlineColor: '#333',
-                                                labelOutlineWidth: 3,
-                                                labelAlign: '${labelAlign}',
-                                                fontColor: "${fontColor}",
-                                                fontOpacity: 1.0,
-                                                fontSize: "20px",
-                                                labelYOffset: -30,
-                                                labelXOffset: 0,
-                                                fontWeight: "bold",
-                                                fill: false,
-                                                strokeColor: "${strokeColor}",
-                                                strokeWidth: 10,
-                                                pointRadius: "${pointRadius}"
-                                            });
+                                              labelOutlineColor: '#333',
+                                              labelOutlineWidth: 3,
+                                              labelAlign: '${labelAlign}',
+                                              fontColor: "${fontColor}",
+                                              fontOpacity: 1.0,
+                                              fontSize: "20px",
+                                              labelYOffset: -30,
+                                              labelXOffset: 0,
+                                              fontWeight: "bold",
+                                              fill: false,
+                                              strokeColor: "${strokeColor}",
+                                              strokeWidth: 10,
+                                              pointRadius: "${pointRadius}"
+                                             });
             nameLayer = new OpenLayers.Layer.Vector(lname, {    displayInLayerSwitcher: false,
-                                                                uniqueName: "__DuplicatePlaceNames",
-                                                                styleMap: new OpenLayers.StyleMap(style)
-                                                            });
+                                                            uniqueName: "__DuplicatePlaceNames",
+                                                            styleMap: new OpenLayers.StyleMap(style)
+                                                           });
             nameLayer.setVisibility(false);
             W.map.addLayer(nameLayer);
             WMEPH_NAME_LAYER = nameLayer;
@@ -923,7 +926,7 @@
     // NOTE: This is only part of the code.  The rest gets run every time a place gets harmonized.  Not okay.
     // NOTE: Returns: ["pc_wmecat","","","CAR_SERVICES","GAS_STATION","PARKING_LOT","GARAGE_AUTOMOTIVE_SHOP","CAR_WASH","CHARGING_STATION","TRANSPORTATION","AIRPORT","BUS_STATION","FERRY_PIER","SEAPORT_MARINA_HARBOR","SUBWAY_STATION","TRAIN_STATION","BRIDGE","TUNNEL","TAXI_STATION","JUNCTION_INTERCHANGE","PROFESSIONAL_AND_PUBLIC","COLLEGE_UNIVERSITY","SCHOOL","CONVENTIONS_EVENT_CENTER","GOVERNMENT","LIBRARY","CITY_HALL","ORGANIZATION_OR_ASSOCIATION","PRISON_CORRECTIONAL_FACILITY","COURTHOUSE","CEMETERY","FIRE_DEPARTMENT","POLICE_STATION","MILITARY","HOSPITAL_MEDICAL_CARE","OFFICES","POST_OFFICE","RELIGIOUS_CENTER","KINDERGARDEN","FACTORY_INDUSTRIAL","EMBASSY_CONSULATE","INFORMATION_POINT","SHOPPING_AND_SERVICES","ARTS_AND_CRAFTS","BANK_FINANCIAL","SPORTING_GOODS","BOOKSTORE","PHOTOGRAPHY","CAR_DEALERSHIP","FASHION_AND_CLOTHING","CONVENIENCE_STORE","PERSONAL_CARE","DEPARTMENT_STORE","PHARMACY","ELECTRONICS","FLOWERS","FURNITURE_HOME_STORE","GIFTS","GYM_FITNESS","SWIMMING_POOL","HARDWARE_STORE","MARKET","SUPERMARKET_GROCERY","JEWELRY","LAUNDRY_DRY_CLEAN","SHOPPING_CENTER","MUSIC_STORE","PET_STORE_VETERINARIAN_SERVICES","TOY_STORE","TRAVEL_AGENCY","ATM","CURRENCY_EXCHANGE","CAR_RENTAL","FOOD_AND_DRINK","RESTAURANT","BAKERY","DESSERT","CAFE","FAST_FOOD","FOOD_COURT","BAR","ICE_CREAM","CULTURE_AND_ENTERTAINEMENT","ART_GALLERY","CASINO","CLUB","TOURIST_ATTRACTION_HISTORIC_SITE","MOVIE_THEATER","MUSEUM","MUSIC_VENUE","PERFORMING_ARTS_VENUE","GAME_CLUB","STADIUM_ARENA","THEME_PARK","ZOO_AQUARIUM","RACING_TRACK","THEATER","OTHER","RESIDENCE_HOME","CONSTRUCTION_SITE","LODGING","HOTEL","HOSTEL","CAMPING_TRAILER_PARK","COTTAGE_CABIN","BED_AND_BREAKFAST","OUTDOORS","PARK","PLAYGROUND","BEACH","SPORTS_COURT","GOLF_COURSE","PLAZA","PROMENADE","POOL","SCENIC_LOOKOUT_VIEWPOINT","SKI_AREA","NATURAL_FEATURES","ISLAND","SEA_LAKE_POOL","RIVER_STREAM","FOREST_GROVE","FARM","CANAL","SWAMP_MARSH","DAM","EMERGENCY_SHELTER"]
     //function makeCatCheckList(CH_DATA) {
-        // Moved inside AJAX call
+    // Moved inside AJAX call
 
     // NOTE: Haven't refactored this yet.// This will be moved inside AJAX call when I get to PNH data.
     // This function runs at script load, and builds the search name dataset to compare the WME selected place name to.
@@ -1904,7 +1907,7 @@
                 },
 
                 hnMissing: {
-                    active: false, severity: 3, message: 'No HN: <input type="text" id="WMEPH-HNAdd'+devVersStr+'" autocomplete="off" class="wmeph-input-box">',
+                    active: false, severity: 3, message: '<span class="wmeph-label">No HN</span> <input type="text" id="WMEPH-HNAdd'+devVersStr+'" autocomplete="off" class="wmeph-input-box">',
                     value: "Add", title: 'Add HN to place',
                     badInput: false,
                     action: function() {
@@ -1949,11 +1952,11 @@
                 },
 
                 streetMissing: {  // no WL
-                    active: false, severity: 3, message: 'No street:<div class="ui-widget" style="display:inline;"><input id="WMEPH_missingStreet" class="wmeph-input-box"></div><input class="btn btn-default btn-xs wmeph-btn disabled" id="WMEPH_addStreetBtn" title="Add street to place" type="button" value="Add" disabled>'
+                    active: false, severity: 3, message: '<span class="wmeph-label">No street</span><span><div class="ui-widget" style="display:inline;"><input id="WMEPH_missingStreet" class="wmeph-input-box"></div><input class="btn btn-default btn-xs wmeph-btn disabled" id="WMEPH_addStreetBtn" title="Add street to place" type="button" value="Add" disabled>'
                 },
 
                 cityMissing: {  // no WL
-                    active: false, severity: 3, message: 'City missing.'
+                    active: false, severity: 3, message: 'City missing'
                 },
 
                 bankType1: {   // no WL
@@ -2189,7 +2192,7 @@
                 },
 
                 urlMissing: {
-                    active: false, severity: 1, message: 'No URL: <input type="text" id="WMEPH-UrlAdd'+devVersStr+'" autocomplete="off" class="wmeph-input-box">',
+                    active: false, severity: 1, message: '<span class="wmeph-label">No URL</span><input type="text" id="WMEPH-UrlAdd'+devVersStr+'" autocomplete="off" class="wmeph-input-box">',
                     value: "Add", title: 'Add URL to place',
                     badInput: false,
                     action: function() {
@@ -2214,7 +2217,7 @@
                 },
 
                 phoneMissing: {
-                    active: false, severity: 1, message: 'No Phone #: <input type="text" id="WMEPH-PhoneAdd'+devVersStr+'" autocomplete="off" class="wmeph-input-box">',
+                    active: false, severity: 1, message: '<span class="wmeph-label">No Ph#</span><input type="text" id="WMEPH-PhoneAdd'+devVersStr+'" autocomplete="off" class="wmeph-input-box">',
                     value: "Add", title: 'Add phone to place',
                     badInput: false,
                     action: function() {
@@ -2250,7 +2253,7 @@
                 },
 
                 badAreaCode: {
-                    active: false, severity: 1, message: "Area Code mismatch ",
+                    active: false, severity: 1, message: '<span class="wmeph-label">Area Code mismatch</span>',
                     WLactive: true, WLmessage: '', WLtitle: 'Whitelist the area code',
                     WLaction: function() {
                         wlKeyName = 'aCodeWL';
@@ -2259,7 +2262,7 @@
                 },
 
                 noHours: {
-                    active: false, severity: 1, message: 'No hours: <input type="text" value="Paste Hours Here" id="WMEPH-HoursPaste'+devVersStr+'" autocomplete="off" class="wmeph-input-box"><br>',
+                    active: false, severity: 1, message: '<span class="wmeph-label">No hours</span><input type="text" value="Paste Hours Here" id="WMEPH-HoursPaste'+devVersStr+'" autocomplete="off" class="wmeph-input-box"><br>',
                     value: "Add hours", title: 'Add pasted hours to existing',
                     action: function() {
                         var pasteHours = $('#WMEPH-HoursPaste'+devVersStr).val();
@@ -2275,12 +2278,12 @@
                             bannButt.noHours.value = 'Add hours';
                             bannButt.noHours.severity = 0;
                             bannButt.noHours.WLactive = false;
-                            bannButt.noHours.message = 'Hours: <input type="text" value="Paste Hours Here" id="WMEPH-HoursPaste'+devVersStr+'" class="wmeph-input-box">';
+                            bannButt.noHours.message = '<span class="wmeph-label">Hours</span><input type="text" value="Paste Hours Here" id="WMEPH-HoursPaste'+devVersStr+'" class="wmeph-input-box">';
                         } else {
                             phlog('Can\'t parse those hours');
                             bannButt.noHours.severity = 1;
                             bannButt.noHours.WLactive = true;
-                            bannButt.noHours.message = 'Hours: <input type="text" value="Can\'t parse, try again" id="WMEPH-HoursPaste'+devVersStr+'" class="wmeph-input-box">';
+                            bannButt.noHours.message = '<span class="wmeph-label">Hours</span><input type="text" value="Can\'t parse, try again" id="WMEPH-HoursPaste'+devVersStr+'" class="wmeph-input-box">';
                         }
                     },
                     value2: "Replace all hours", title2: 'Replace existing hours with pasted hours',
@@ -2298,7 +2301,7 @@
                             bannButt.noHours.value2 = 'Replace hours';
                             bannButt.noHours.severity = 0;
                             bannButt.noHours.WLactive = false;
-                            bannButt.noHours.message = 'Hours: <input type="text" value="Paste Hours Here" id="WMEPH-HoursPaste'+devVersStr+'" class="wmeph-input-box">';
+                            bannButt.noHours.message = '<span class="wmeph-label">Hours</span><input type="text" value="Paste Hours Here" id="WMEPH-HoursPaste'+devVersStr+'" class="wmeph-input-box">';
                         } else {
                             phlog('Can\'t parse those hours');
                             bannButt.noHours.severity = 1;
@@ -2470,11 +2473,11 @@
                 },
 
                 placeLocked: {    // no WL
-                    active: false, severity: 0, message: 'Place locked.'
+                    active: false, severity: 0, message: '<span class="fa fa-lock"></span> Place locked'
                 },
 
                 PlaceWebsite: {    // no WL
-                    active: false, severity: 0, message: "", value: "Place Website", title: "Direct link to place website",
+                    active: false, severity: 0, message: "", value: "Place Website", title: "Direct link to place website", fullWidthButton: true,
                     action: function() {
                         var openPlaceWebsiteURL, linkProceed = true;
                         if (updateURL) {
@@ -2516,7 +2519,7 @@
                 },
 
                 webSearch: {  // no WL
-                    active: false, severity: 0, message: "", value: "Web Search", title: "Search the web for this place.  Do not copy info from 3rd party sources!",
+                    active: false, severity: 0, message: "", value: "Web Search", title: "Search the web for this place.  Do not copy info from 3rd party sources!", fullWidthButton: true,
                     action: function() {
                         if (localStorage.getItem(GLinkWarning) !== '1') {
                             if (confirm('***Please DO NOT copy info from Google or third party sources.*** This link is to help you find the business webpage.\nClick OK to agree and continue.') ) {  // if the category doesn't translate, then pop an alert that will make a forum post to the thread
@@ -2534,7 +2537,7 @@
                 },
 
                 NewPlaceSubmit: {    // no WL
-                    active: false, severity: 0, message: "No PNH match. If it's a chain: ", value: "Submit new chain data", title: "Submit info for a new chain through the linked form",
+                    active: false, severity: 0, message: "No PNH match. If it's a chain: ", fullWidthButton: true, value: "Submit new chain data", title: "Submit info for a new chain through the linked form",
                     action: function() {
                         window.open(newPlaceURL);
                     }
@@ -2928,7 +2931,7 @@
 
             // Parse Regional Data
             var myPlace;
-            myState = "Unknown", myCountry = "Unknown";
+            myState = "Unknown"; myCountry = "Unknown";
             if (typeof(addr.country.name) !== "undefined") {
                 myCountry = addr.country.name;
                 myCountry2L = REGION_DATA.countries[myCountry].psAbbrev || addr.country.abbr;
@@ -3726,8 +3729,8 @@
                 // Area vs. Place checking, Category locking, and category-based messaging
                 // NOTE: Since we have to keep looping through categories, maybe see about combining actions inside of the same loops.
                 // NOTE: If it gets too complicated, the code should probably be segregated into other functions and then called within the same loop.
-                for (var i = 0, len = newCategories.length; i < len; i++) {
-                    var catName = newCategories[i];
+                for (i = 0, len = newCategories.length; i < len; i++) {
+                    catName = newCategories[i];
                     if (NA_CAT_DATA.hasOwnProperty(catName)) {
                         var myCat       = NA_CAT_DATA[catName];
                         var pvaPoint    = myCat.pcPoint,
@@ -3804,7 +3807,7 @@
                 }
 
 
-                // Display any messaged regarding the category
+                // Display any messages regarding the category
                 if (pcMessage && pcMessage !== '0' && pcMessage !== '') {
                     bannButt.pnhCatMess.active = true;
                     bannButt.pnhCatMess.message = pcMessage;
@@ -4646,8 +4649,8 @@
                         break;
                     }
                 }
-                for (var pfix=0; pfix<panelFieldsList.length; pfix++) {
-                    var pfa = panelFieldsList[pfix].innerHTML;
+                for (pfix=0; pfix<panelFieldsList.length; pfix++) {
+                    pfa = panelFieldsList[pfix].innerHTML;
                     if (pfa.indexOf('landmark-edit-general') > -1) {
                         panelFields.navTabGeneral = pfix;
                     }
@@ -4672,6 +4675,7 @@
             phlogdev('Building banners');
             // push together messages from active banner messages
             var sidebarMessage = [], sidebarTools = [];  // Initialize message array
+            var sidebarSeverities = [];
             var tempKey, strButt1, dupesFound = false;
             severityButt = 0;
 
@@ -4702,7 +4706,7 @@
                         strButt1 = strButt1.replace(/#DDF/i,'pink');
                     }
                     if (bannButt[tempKey].hasOwnProperty('action')) {
-                        strButt1 += ' <input class="btn btn-default btn-xs wmeph-btn" id="WMEPH_' + tempKey + '" title="' + bannButt[tempKey].title + '" type="button" value="' + bannButt[tempKey].value + '"></input>';
+                        strButt1 += ' <input class="btn btn-default btn-xs wmeph-btn' + (bannButt[tempKey].fullWidthButton ? ' fullWidth' : '') + '" id="WMEPH_' + tempKey + '" title="' + bannButt[tempKey].title + '" type="button" value="' + bannButt[tempKey].value + '"></input>';
                         if (tempKey === 'noHours') {
                             strButt1 += ' <input class="btn btn-default btn-xs wmeph-btn" id="WMEPH_' + tempKey + 'A2" title="' + bannButt[tempKey].title2 + '" type="button" value="' + bannButt[tempKey].value2 + '"></input>';
                         }
@@ -4717,6 +4721,7 @@
                     } else {
                         severityButt = Math.max(bannButt[tempKey].severity, severityButt);
                     }
+                    sidebarSeverities.push(bannButt[tempKey].severity);
                     sidebarMessage.push(strButt1);
                 }
             }
@@ -4760,7 +4765,7 @@
 
             // Post the banners to the sidebar
             displayTools( sidebarTools.join("<li>") );
-            displayBanners(sidebarMessage.join("<li>"), severityButt );
+            displayBanners(sidebarMessage, severityButt, sidebarSeverities );
 
             // Set up Duplicate onclicks
             if ( dupesFound ) {
