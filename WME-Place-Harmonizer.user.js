@@ -113,6 +113,9 @@
     var TOLL_FREE       = [ "800","822","833","844","855","866","877","888" ];
 
 
+    // NOTE: These will probably get their own section.
+    var UpdateObject = require("Waze/Action/UpdateObject");
+
     //////////////////////////////////
     // Delayed-assignment Constants //
     //////////////////////////////////
@@ -226,7 +229,7 @@
         return a.filter(function(item) {
             return seen.hasOwnProperty(item) ? false : (seen[item] = true);
         });
-    }  // END uniq function
+    }
 
     // Logs important information to console for all users.
     function phlog(m) {
@@ -237,6 +240,15 @@
     function phlogdev(msg, obj) {
         if (IS_DEV_USER) {
             console.log('WMEPH' + devVersStrDash + ': ' + msg, (obj ? obj : ''));
+        }
+    }
+
+    function addUpdateAction(item, updateObj, actions) {
+        var action = new UpdateObject(item, updateObj);
+        if (actions) {
+            actions.push(action);
+        } else {
+            W.model.actionManager.add(action);
         }
     }
 
@@ -328,6 +340,25 @@
     }
 
 
+    /////////////////////////////
+    // Value-getting Functions //
+    /////////////////////////////
+
+    // Get services checkbox status
+    function getServicesChecks() {
+        //debug('-- getServicesChecks() called --');
+        var servArrayCheck = [];
+        for (var wsix=0; wsix<WME_SERVICES.length; wsix++) {
+            if ($("#service-checkbox-" + WME_SERVICES[wsix]).prop('checked')) {
+                servArrayCheck[wsix] = true;
+            } else {
+                servArrayCheck[wsix] = false;
+            }
+        }
+        return servArrayCheck;
+    }
+
+
     ///////////////////////
     // Parsing Functions //
     ///////////////////////
@@ -397,6 +428,15 @@
     // Display/UI/CSS Functions //
     //////////////////////////////
 
+    // Focus away from the current cursor focus, to set text box changes
+    function blurAll() {
+        //debug('-- blurAll() called --');
+        var tmp = document.createElement("input");
+        document.body.appendChild(tmp);
+        tmp.focus();
+        document.body.removeChild(tmp);
+    }
+
     // Setup div for banner messages and color
     function displayBanners(sbm,maxSev,severities) {
         if ($('#WMEPH_banner').length === 0 ) {
@@ -433,45 +473,6 @@
         $('#select2-drop').hide();
     }
 
-    // NOTE: Haven't refactored this yet.
-    function setServiceChecked(servBtn, checked, actions) {
-        var servID = WME_SERVICES[servBtn.servIDIndex];
-        var checkboxChecked = $("#service-checkbox-"+servID).prop('checked');
-        var toggle = typeof checked === 'undefined';
-        var noAdd = false;
-        checked = (toggle) ? !servBtn.checked : checked;
-        if (checkboxChecked === servBtn.checked && checkboxChecked !== checked) {
-            servBtn.checked = checked;
-            var services;
-            if (actions) {
-                for (var i = 0, len = actions.length; i < len; i++) {
-                    var existingAction = actions[i];
-                    if (existingAction.newAttributes && existingAction.newAttributes.services) {
-                        services = existingAction.newAttributes.services;
-                    }
-                }
-            }
-            if (!services) {
-                services = item.attributes.services.slice(0);
-            } else {
-                noAdd = services.indexOf(servID) > -1;
-            }
-            if (checked) {
-                services.push(servID);
-            } else {
-                var index = services.indexOf(servID);
-                if (index > -1) {
-                    services.splice(index, 1);
-                }
-            }
-            if (!noAdd) {
-                addUpdateAction({services:services}, actions);
-                fieldUpdateObject.services[servID] = '#dfd';
-            }
-        }
-        updateServicesChecks(bannServ);
-        if (!toggle) servBtn.active = checked;
-    }
 
     /////////////////////////////
     // Database Load Functions //
@@ -874,6 +875,72 @@
     }
 
 
+    ////////////////////////
+    // Services Functions //
+    ////////////////////////
+
+    // NOTE: Haven't refactored this yet.  (fUO is field update object)
+    function setServiceChecked(item, fUO, servBtn, checked, actions) {
+        //debug('- setServiceChecked(servBtn, checked, actions) called -');
+        //debug('  servBtn = '+JSON.stringify(servBtn));
+        //debug('  checked = '+JSON.stringify(checked));
+        //debug('  actions = '+JSON.stringify(actions));
+        var servID = WME_SERVICES[servBtn.servIDIndex];
+        var checkboxChecked = $("#service-checkbox-"+servID).prop('checked');
+        var toggle = typeof checked === 'undefined';
+        var noAdd = false;
+        checked = (toggle) ? !servBtn.checked : checked;
+        if (checkboxChecked === servBtn.checked && checkboxChecked !== checked) {
+            servBtn.checked = checked;
+            var services;
+            if (actions) {
+                for (var i = 0, len = actions.length; i < len; i++) {
+                    var existingAction = actions[i];
+                    if (existingAction.newAttributes && existingAction.newAttributes.services) {
+                        services = existingAction.newAttributes.services;
+                    }
+                }
+            }
+            if (!services) {
+                services = item.attributes.services.slice(0);
+            } else {
+                noAdd = services.indexOf(servID) > -1;
+            }
+            if (checked) {
+                services.push(servID);
+            } else {
+                var index = services.indexOf(servID);
+                if (index > -1) {
+                    services.splice(index, 1);
+                }
+            }
+            if (!noAdd) {
+                addUpdateAction(item, {services:services}, actions);
+                fUO.services[servID] = '#dfd';
+            }
+        }
+        updateServicesChecks(item, bannServ);
+        if (!toggle) servBtn.active = checked;
+    }
+
+    function updateServicesChecks(item, bannServ) {
+        //debug('-- updateServicesChecks(bannServ) called --');
+        var servArrayCheck = getServicesChecks(), wsix=0;
+        for (var keys in bannServ) {
+            if (bannServ.hasOwnProperty(keys)) {
+                bannServ[keys].checked = servArrayCheck[wsix];  // reset all icons to match any checked changes
+                bannServ[keys].active = bannServ[keys].active || servArrayCheck[wsix];  // display any manually checked non-active icons
+                wsix++;
+            }
+        }
+        // Highlight 24/7 button if hours are set that way, and add button for all places
+        if ( item.attributes.openingHours.length === 1 && item.attributes.openingHours[0].days.length === 7 && item.attributes.openingHours[0].fromHour === '00:00' && item.attributes.openingHours[0].toHour ==='00:00' ) {
+            bannServ.add247.checked = true;
+        }
+        bannServ.add247.active = true;
+    }
+
+
     //////////////////////////////
     // Ungrouped Task Functions //
     //////////////////////////////
@@ -1110,7 +1177,6 @@
         if ( localStorage.getItem('WMEPH-featuresExamined'+devVersStr) === null ) {
             localStorage.setItem('WMEPH-featuresExamined'+devVersStr, '0');  // Storage for whether the User has pressed the button to look at updates
         }
-        var UpdateObject = require("Waze/Action/UpdateObject");
         var _disableHighlightTest = false;  // Set to true to temporarily disable highlight checks immediately when venues change.
 
         modifyGoogleLinks();
@@ -2607,14 +2673,7 @@
                 }
             };  // END bannButt2 definitions
 
-            function addUpdateAction(updateObj, actions) {
-                var action = new UpdateObject(item, updateObj);
-                if (actions) {
-                    actions.push(action);
-                } else {
-                    W.model.actionManager.add(action);
-                }
-            }
+            //function addUpdateAction(updateObj, actions) {
 
             //function setServiceChecked(servBtn, checked, actions) {
 
@@ -2630,7 +2689,7 @@
                 addValet: {  // append optional Alias to the name
                     active: false, checked: false, icon: "serv-valet", w2hratio: 50/50, value: "Valet", title: 'Valet', servIDIndex: 0,
                     action: function(actions, checked) {
-                        setServiceChecked(this, checked, actions);
+                        setServiceChecked(item, fieldUpdateObject, this, checked, actions);
                     },
                     pnhOverride: false,
                     actionOn: function(actions) {
@@ -2643,7 +2702,7 @@
                 addDriveThru: {  // append optional Alias to the name
                     active: false, checked: false, icon: "serv-drivethru", w2hratio: 78/50, value: "DriveThru", title: 'Drive-Thru', servIDIndex: 1,
                     action: function(actions, checked) {
-                        setServiceChecked(this, checked, actions);
+                        setServiceChecked(item, fieldUpdateObject, this, checked, actions);
                     },
                     pnhOverride: false,
                     actionOn: function(actions) {
@@ -2656,7 +2715,7 @@
                 addWiFi: {  // append optional Alias to the name
                     active: false, checked: false, icon: "serv-wifi", w2hratio: 67/50, value: "WiFi", title: 'WiFi', servIDIndex: 2,
                     action: function(actions, checked) {
-                        setServiceChecked(this, checked, actions);
+                        setServiceChecked(item, fieldUpdateObject, this, checked, actions);
                     },
                     pnhOverride: false,
                     actionOn: function(actions) {
@@ -2669,7 +2728,7 @@
                 addRestrooms: {  // append optional Alias to the name
                     active: false, checked: false, icon: "serv-restrooms", w2hratio: 49/50, value: "Restroom", title: 'Restrooms', servIDIndex: 3,
                     action: function(actions, checked) {
-                        setServiceChecked(this, checked, actions);
+                        setServiceChecked(item, fieldUpdateObject, this, checked, actions);
                     },
                     pnhOverride: false,
                     actionOn: function(actions) {
@@ -2682,7 +2741,7 @@
                 addCreditCards: {  // append optional Alias to the name
                     active: false, checked: false, icon: "serv-credit", w2hratio: 73/50, value: "CC", title: 'Credit Cards', servIDIndex: 4,
                     action: function(actions, checked) {
-                        setServiceChecked(this, checked, actions);
+                        setServiceChecked(item, fieldUpdateObject, this, checked, actions);
                     },
                     pnhOverride: false,
                     actionOn: function(actions) {
@@ -2695,7 +2754,7 @@
                 addReservations: {  // append optional Alias to the name
                     active: false, checked: false, icon: "serv-reservations", w2hratio: 55/50, value: "Reserve", title: 'Reservations', servIDIndex: 5,
                     action: function(actions, checked) {
-                        setServiceChecked(this, checked, actions);
+                        setServiceChecked(item, fieldUpdateObject, this, checked, actions);
                     },
                     pnhOverride: false,
                     actionOn: function(actions) {
@@ -2708,7 +2767,7 @@
                 addOutside: {  // append optional Alias to the name
                     active: false, checked: false, icon: "serv-outdoor", w2hratio: 73/50, value: "OusideSeat", title: 'Outside Seating', servIDIndex: 6,
                     action: function(actions, checked) {
-                        setServiceChecked(this, checked, actions);
+                        setServiceChecked(item, fieldUpdateObject, this, checked, actions);
                     },
                     pnhOverride: false,
                     actionOn: function(actions) {
@@ -2721,7 +2780,7 @@
                 addAC: {  // append optional Alias to the name
                     active: false, checked: false, icon: "serv-ac", w2hratio: 50/50, value: "AC", title: 'AC', servIDIndex: 7,
                     action: function(actions, checked) {
-                        setServiceChecked(this, checked, actions);
+                        setServiceChecked(item, fieldUpdateObject, this, checked, actions);
                     },
                     pnhOverride: false,
                     actionOn: function(actions) {
@@ -2734,7 +2793,7 @@
                 addParking: {  // append optional Alias to the name
                     active: false, checked: false, icon: "serv-parking", w2hratio: 46/50, value: "Parking", title: 'Parking', servIDIndex: 8,
                     action: function(actions, checked) {
-                        setServiceChecked(this, checked, actions);
+                        setServiceChecked(item, fieldUpdateObject, this, checked, actions);
                     },
                     pnhOverride: false,
                     actionOn: function(actions) {
@@ -2747,7 +2806,7 @@
                 addDeliveries: {  // append optional Alias to the name
                     active: false, checked: false, icon: "serv-deliveries", w2hratio: 86/50, value: "Delivery", title: 'Deliveries', servIDIndex: 9,
                     action: function(actions, checked) {
-                        setServiceChecked(this, checked, actions);
+                        setServiceChecked(item, fieldUpdateObject, this, checked, actions);
                     },
                     pnhOverride: false,
                     actionOn: function(actions) {
@@ -2760,7 +2819,7 @@
                 addTakeAway: {  // append optional Alias to the name
                     active: false, checked: false, icon: "serv-takeaway", w2hratio: 34/50, value: "TakeOut", title: 'Take Out', servIDIndex: 10,
                     action: function(actions, checked) {
-                        setServiceChecked(this, checked, actions);
+                        setServiceChecked(item, fieldUpdateObject, this, checked, actions);
                     },
                     pnhOverride: false,
                     actionOn: function(actions) {
@@ -2773,7 +2832,7 @@
                 addWheelchair: {  // add service
                     active: false, checked: false, icon: "serv-wheelchair", w2hratio: 50/50, value: "WhCh", title: 'Wheelchair Accessible', servIDIndex: 11,
                     action: function(actions, checked) {
-                        setServiceChecked(this, checked, actions);
+                        setServiceChecked(item, fieldUpdateObject, this, checked, actions);
                     },
                     pnhOverride: false,
                     actionOn: function(actions) {
@@ -2787,7 +2846,7 @@
                     active: false, checked: false, icon: "serv-247", w2hratio: 73/50, value: "247", title: 'Hours: Open 24\/7',
                     action: function(actions) {
                         if (!bannServ.add247.checked) {
-                            addUpdateAction({ openingHours: [{days: [1,2,3,4,5,6,0], fromHour: "00:00", toHour: "00:00"}] }, actions);
+                            addUpdateAction(item, { openingHours: [{days: [1,2,3,4,5,6,0], fromHour: "00:00", toHour: "00:00"}] }, actions);
                             fieldUpdateObject.openingHours='#dfd';
                             highlightChangedFields(fieldUpdateObject,hpMode);
                             bannServ.add247.checked = true;
@@ -2802,7 +2861,7 @@
 
             if (hpMode.harmFlag) {
                 // Update icons to reflect current WME place services
-                updateServicesChecks(bannServ);
+                updateServicesChecks(item, bannServ);
 
                 // Turn on New Features Button if not looked at yet
                 if (localStorage.getItem('WMEPH-featuresExamined'+devVersStr) === '0') {
@@ -4520,7 +4579,7 @@
 
             if (hpMode.harmFlag) {
                 // Update icons to reflect current WME place services
-                updateServicesChecks(bannServ);
+                updateServicesChecks(item, bannServ);
             }
 
             // Turn on website linking button if there is a url
@@ -6820,45 +6879,9 @@
             return vWL_1;
         }
 
-        // Get services checkbox status
-        function getServicesChecks() {
-            //debug('-- getServicesChecks() called --');
-            var servArrayCheck = [];
-            for (var wsix=0; wsix<WME_SERVICES.length; wsix++) {
-                if ($("#service-checkbox-" + WME_SERVICES[wsix]).prop('checked')) {
-                    servArrayCheck[wsix] = true;
-                } else {
-                    servArrayCheck[wsix] = false;
-                }
-            }
-            return servArrayCheck;
-        }
+        //function getServicesChecks() {
 
-        function updateServicesChecks(bannServ) {
-            //debug('-- updateServicesChecks(bannServ) called --');
-            var servArrayCheck = getServicesChecks(), wsix=0;
-            for (var keys in bannServ) {
-                if (bannServ.hasOwnProperty(keys)) {
-                    bannServ[keys].checked = servArrayCheck[wsix];  // reset all icons to match any checked changes
-                    bannServ[keys].active = bannServ[keys].active || servArrayCheck[wsix];  // display any manually checked non-active icons
-                    wsix++;
-                }
-            }
-            // Highlight 24/7 button if hours are set that way, and add button for all places
-            if ( item.attributes.openingHours.length === 1 && item.attributes.openingHours[0].days.length === 7 && item.attributes.openingHours[0].fromHour === '00:00' && item.attributes.openingHours[0].toHour ==='00:00' ) {
-                bannServ.add247.checked = true;
-            }
-            bannServ.add247.active = true;
-        }
-
-        // Focus away from the current cursor focus, to set text box changes
-        function blurAll() {
-            //debug('-- blurAll() called --');
-            var tmp = document.createElement("input");
-            document.body.appendChild(tmp);
-            tmp.focus();
-            document.body.removeChild(tmp);
-        }
+        //function updateServicesChecks(bannServ) {
 
         // Pulls the item PL
         function getItemPL() {
