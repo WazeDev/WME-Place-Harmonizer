@@ -156,6 +156,7 @@
         areaCodeList,
         gFormState = "";
     var currentWL = {};
+    var _popupWindow;
 
 
     /////////////////////////////////////
@@ -200,6 +201,15 @@
 
             return value;
         };
+    }
+
+    function openWindow(url) {
+        if (!_popupWindow || _popupWindow.closed) {
+            _popupWindow = window.open(url, '_blank');
+        } else {
+            _popupWindow.focus();
+            _popupWindow.location = url;
+        }
     }
 
     // NOTE: This allows me to dump large objects to a new window so it doesn't clog the console.
@@ -1138,10 +1148,8 @@
     var CAN_PNH_DATA, CAN_PNH_NAMES = [];  // var CAN_CH_DATA, CAN_CH_NAMES = [] not used for now
     var devVersStr='', devVersStrSpace='', devVersStrDash='';  // strings to differentiate DOM elements between regular and beta script
     var devVersStringMaster = "Beta";
-    var betaDataDelay = 10;
     if (IS_DEV_VERSION) {
         devVersStr = devVersStringMaster; devVersStrSpace = " " + devVersStr; devVersStrDash = "-" + devVersStr;
-        betaDataDelay = 20;
     }
     var collegeAbbreviations = 'USF|USFSP|UF|UCF|UA|UGA|FSU|UM|SCP|FAU|FIU';
     var defaultKBShortcut,shortcutParse, modifKey = 'Alt+';
@@ -2329,7 +2337,7 @@
 
                 noHours: {
                     active: false, severity: 1, message: '<span class="wmeph-label">No hours</span><input type="text" value="Paste Hours Here" id="WMEPH-HoursPaste'+devVersStr+'" autocomplete="off" class="wmeph-input-box"><br>',
-                    value: "Add hours", title: 'Add pasted hours to existing',
+                    value: "Add", title: 'Add pasted hours to existing',
                     action: function() {
                         var pasteHours = $('#WMEPH-HoursPaste'+devVersStr).val();
                         phlogdev(pasteHours);
@@ -2341,7 +2349,7 @@
                             W.model.actionManager.add(new UpdateObject(item, { openingHours: hoursObjectArray }));
                             fieldUpdateObject.openingHours='#dfd';
                             highlightChangedFields(fieldUpdateObject,hpMode);
-                            bannButt.noHours.value = 'Add hours';
+                            bannButt.noHours.value = 'Add';
                             bannButt.noHours.severity = 0;
                             bannButt.noHours.WLactive = false;
                             bannButt.noHours.message = '<span class="wmeph-label">Hours</span><input type="text" value="Paste Hours Here" id="WMEPH-HoursPaste'+devVersStr+'" class="wmeph-input-box">';
@@ -2576,7 +2584,7 @@
                         // open the link depending on new window setting
                         if (linkProceed) {
                             if ( $("#WMEPH-WebSearchNewTab" + devVersStr).prop('checked') ) {
-                                window.open(openPlaceWebsiteURL);
+                                openWindow(openPlaceWebsiteURL);
                             } else {
                                 window.open(openPlaceWebsiteURL, searchResultsWindowName, searchResultsWindowSpecs);
                             }
@@ -2594,7 +2602,7 @@
                         }
                         if (localStorage.getItem(GLinkWarning) === '1') {
                             if ( $("#WMEPH-WebSearchNewTab" + devVersStr).prop('checked') ) {
-                                window.open(buildGLink(newName,addr,item.attributes.houseNumber));
+                                openWindow(buildGLink(newName,addr,item.attributes.houseNumber));
                             } else {
                                 window.open(buildGLink(newName,addr,item.attributes.houseNumber), searchResultsWindowName, searchResultsWindowSpecs);
                             }
@@ -3935,10 +3943,10 @@
                         }
                     }
                     bannButt.noHours.active = true;
-                    bannButt.noHours.value = 'Add hours';
+                    bannButt.noHours.value = 'Add';
                     bannButt.noHours.severity = 0;
                     bannButt.noHours.WLactive = false;
-                    bannButt.noHours.message = 'Hours: <input type="text" value="Paste Hours Here" id="WMEPH-HoursPaste'+devVersStr+'" class="wmeph-input-box">';
+                    bannButt.noHours.message = '<span class="wmeph-label">Hours</span><input type="text" value="Paste Hours Here" id="WMEPH-HoursPaste'+devVersStr+'" class="wmeph-input-box">';
                 }
                 if ( !checkHours(item.attributes.openingHours) ) {
                     //phlogdev('Overlapping hours');
@@ -5059,7 +5067,7 @@
                                 openPlaceWebsiteURL = 'http:\/\/'+openPlaceWebsiteURL;
                             }
                             if ( $("#WMEPH-WebSearchNewTab" + devVersStr).prop('checked') ) {
-                                window.open(openPlaceWebsiteURL);
+                                openWindow(openPlaceWebsiteURL);
                             } else {
                                 window.open(openPlaceWebsiteURL, searchResultsWindowName, searchResultsWindowSpecs);
                             }
