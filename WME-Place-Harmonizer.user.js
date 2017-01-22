@@ -26,8 +26,6 @@
 
 
 (function () {
-    // debugger;
-
     "use strict";
     ////////////////////////////////
     ////////////////////////////////
@@ -95,21 +93,21 @@
     // Cutover to new google sheets
     var USE_NEW_GOOGLE_SHEETS = true;
     var WME_SERVICE_MAP = { "psValet"       : { "action":"addValet",        "name":"VALLET_SERVICE"        },
-                           "psDriveThru"   : { "action":"addDriveThru",    "name":"DRIVETHROUGH"          },
-                           "psWiFi"        : { "action":"addWiFi",         "name":"WI_FI"                 },
-                           "psRestrooms"   : { "action":"addRestrooms",    "name":"RESTROOMS"             },
-                           "psCreditCards" : { "action":"addCreditCards",  "name":"CREDIT_CARDS"          },
-                           "psReservations": { "action":"addReservations", "name":"RESERVATIONS"          },
-                           "psOutside"     : { "action":"addOutside",      "name":"OUTSIDE_SEATING"       },
-                           "psAirCond"     : { "action":"addAC",           "name":"AIR_CONDITIONING"      },
-                           "psParking"     : { "action":"addParking",      "name":"PARKING_FOR_CUSTOMERS" },
-                           "psDelivery"    : { "action":"addDeliveries",   "name":"DELIVERIES"            },
-                           "psTakeAway"    : { "action":"addTakeAway",     "name":"TAKE_AWAY"             },
-                           "psWheelchair"  : { "action":"addWheelchair",   "name":"WHEELCHAIR_ACCESSIBLE" } };
+                            "psDriveThru"   : { "action":"addDriveThru",    "name":"DRIVETHROUGH"          },
+                            "psWiFi"        : { "action":"addWiFi",         "name":"WI_FI"                 },
+                            "psRestrooms"   : { "action":"addRestrooms",    "name":"RESTROOMS"             },
+                            "psCreditCards" : { "action":"addCreditCards",  "name":"CREDIT_CARDS"          },
+                            "psReservations": { "action":"addReservations", "name":"RESERVATIONS"          },
+                            "psOutside"     : { "action":"addOutside",      "name":"OUTSIDE_SEATING"       },
+                            "psAirCond"     : { "action":"addAC",           "name":"AIR_CONDITIONING"      },
+                            "psParking"     : { "action":"addParking",      "name":"PARKING_FOR_CUSTOMERS" },
+                            "psDelivery"    : { "action":"addDeliveries",   "name":"DELIVERIES"            },
+                            "psTakeAway"    : { "action":"addTakeAway",     "name":"TAKE_AWAY"             },
+                            "psWheelchair"  : { "action":"addWheelchair",   "name":"WHEELCHAIR_ACCESSIBLE" } };
     var WME_SERVICES    = [ "VALLET_SERVICE","DRIVETHROUGH","WI_FI","RESTROOMS",
-                           "CREDIT_CARDS","RESERVATIONS","OUTSIDE_SEATING",
-                           "AIR_CONDITIONING","PARKING_FOR_CUSTOMERS","DELIVERIES",
-                           "TAKE_AWAY","WHEELCHAIR_ACCESSIBLE" ];
+                            "CREDIT_CARDS","RESERVATIONS","OUTSIDE_SEATING",
+                            "AIR_CONDITIONING","PARKING_FOR_CUSTOMERS","DELIVERIES",
+                            "TAKE_AWAY","WHEELCHAIR_ACCESSIBLE" ];
     var TOLL_FREE       = [ "800","822","833","844","855","866","877","888" ];
 
 
@@ -120,19 +118,19 @@
     // Delayed-assignment Constants //
     //////////////////////////////////
 
-    var NEW_SHEET_DATA,
-        // User Lists
-        WMEPH_DEV_LIST,
-        WMEPH_BETA_LIST,
-        // Category Name Checking
-        NON_HOSPITAL_PART_MATCH,
+    var NEW_SHEET_DATA;
+    // User Lists
+    var WMEPH_DEV_LIST,
+        WMEPH_BETA_LIST;
+    // Category Name Checking
+    var NON_HOSPITAL_PART_MATCH,
         NON_HOSPITAL_FULL_MATCH,
         ANIMAL_PART_MATCH,
         ANIMAL_FULL_MATCH,
         SCHOOL_PART_MATCH,
-        SCHOOL_FULL_MATCH,
-        // Categories and Services
-        NA_CAT_DATA,
+        SCHOOL_FULL_MATCH;
+    // Categories and Services
+    var NA_CAT_DATA,
         REGION_DATA = {};
     // User-specific values
     var IS_DEV_USER,
@@ -460,8 +458,8 @@
         $('#WMEPH_banner').addClass("banner-severity-" + maxSev);
 
         var html = [];
-        for (var idx=0; idx<sbm.length; idx++) {
-            html.push('<li class="wmeph-banner-row banner-row-severity-' + severities[idx] + '">' + sbm[idx] + '</li>');
+        for (var i = 0, len = sbm.length; i < len; i++) {
+            html.push('<li class="wmeph-banner-row banner-row-severity-' + severities[i] + '">' + sbm[i] + '</li>');
         }
         $("#WMEPH_banner > ul").append(html.join(' '));
         $('#select2-drop').hide();
@@ -662,30 +660,30 @@
                         }
 
                         services            = { "psValet"           :   psValet,
-                                               "psDriveThru"       :   psDriveThru,
-                                               "psWiFi"            :   psWiFi,
-                                               "psRestrooms"       :   psRestrooms,
-                                               "psCreditCards"     :   psCreditCards,
-                                               "psReservations"    :   psReservations,
-                                               "psOutside"         :   psOutside,
-                                               "psAirCond"         :   psAirCond,
-                                               "psParking"         :   psParking,
-                                               "psDelivery"        :   psDelivery,
-                                               "psTakeAway"        :   psTakeAway,
-                                               "psWheelchair"      :   psWheelchair };
+                                                "psDriveThru"       :   psDriveThru,
+                                                "psWiFi"            :   psWiFi,
+                                                "psRestrooms"       :   psRestrooms,
+                                                "psCreditCards"     :   psCreditCards,
+                                                "psReservations"    :   psReservations,
+                                                "psOutside"         :   psOutside,
+                                                "psAirCond"         :   psAirCond,
+                                                "psParking"         :   psParking,
+                                                "psDelivery"        :   psDelivery,
+                                                "psTakeAway"        :   psTakeAway,
+                                                "psWheelchair"      :   psWheelchair };
                         NA_CAT_DATA[key]    = { "pcPoint"           :   pcPoint,
-                                               "pcArea"            :   pcArea,
-                                               "pcRegPoint"        :   pcRegPoint,
-                                               "pcRegArea"         :   pcRegArea,
-                                               "pcLock1"           :   pcLock1,
-                                               "pcLock2"           :   pcLock2,
-                                               "pcLock3"           :   pcLock3,
-                                               "pcLock4"           :   pcLock4,
-                                               "pcLock5"           :   pcLock5,
-                                               "pcRare"            :   pcRare,
-                                               "pcParent"          :   pcParent,
-                                               "pcMessage"         :   pcMessage,
-                                               "services"          :   services };
+                                                "pcArea"            :   pcArea,
+                                                "pcRegPoint"        :   pcRegPoint,
+                                                "pcRegArea"         :   pcRegArea,
+                                                "pcLock1"           :   pcLock1,
+                                                "pcLock2"           :   pcLock2,
+                                                "pcLock3"           :   pcLock3,
+                                                "pcLock4"           :   pcLock4,
+                                                "pcLock5"           :   pcLock5,
+                                                "pcRare"            :   pcRare,
+                                                "pcParent"          :   pcParent,
+                                                "pcMessage"         :   pcMessage,
+                                                "services"          :   services };
                     }
                 }
             });
@@ -703,7 +701,8 @@
                 }
             }
         });
-        /*
+
+        /* DO NOT DELETE THIS YET!
         // Pull State-based Data (includes CAN for now)
         $.ajax({
             type: 'GET',
@@ -726,7 +725,8 @@
                 }
             }
         });
-*/
+        */
+
         // Pull CAN PNH Data
         $.ajax({
             type: 'GET',
@@ -962,23 +962,23 @@
         if(rlayers.length === 0) {
             var lname = "WMEPH Duplicate Names";
             var style = new OpenLayers.Style({  label : "${labelText}",
-                                              labelOutlineColor: '#333',
-                                              labelOutlineWidth: 3,
-                                              labelAlign: '${labelAlign}',
-                                              fontColor: "${fontColor}",
-                                              fontOpacity: 1.0,
-                                              fontSize: "20px",
-                                              labelYOffset: -30,
-                                              labelXOffset: 0,
-                                              fontWeight: "bold",
-                                              fill: false,
-                                              strokeColor: "${strokeColor}",
-                                              strokeWidth: 10,
-                                              pointRadius: "${pointRadius}"
-                                             });
+                                                labelOutlineColor: '#333',
+                                                labelOutlineWidth: 3,
+                                                labelAlign: '${labelAlign}',
+                                                fontColor: "${fontColor}",
+                                                fontOpacity: 1.0,
+                                                fontSize: "20px",
+                                                labelYOffset: -30,
+                                                labelXOffset: 0,
+                                                fontWeight: "bold",
+                                                fill: false,
+                                                strokeColor: "${strokeColor}",
+                                                strokeWidth: 10,
+                                                pointRadius: "${pointRadius}"
+                                            });
             nameLayer = new OpenLayers.Layer.Vector(lname, {    displayInLayerSwitcher: false,
-                                                            uniqueName: "__DuplicatePlaceNames",
-                                                            styleMap: new OpenLayers.StyleMap(style)
+                                                                uniqueName: "__DuplicatePlaceNames",
+                                                                styleMap: new OpenLayers.StyleMap(style)
                                                            });
             nameLayer.setVisibility(false);
             W.map.addLayer(nameLayer);
@@ -1994,9 +1994,9 @@
                             W.model.actionManager.add(new UpdateObject(item, { houseNumber: hnTempDash }));
                             fieldUpdateObject.address='#dfd';
                             bannButt.hnMissing.active = false;
-                            badInput = false;
+                            this.badInput = false;
                         } else {
-                            badInput = true;
+                            this.badInput = true;
                         }
 
                     },
@@ -3796,8 +3796,8 @@
                 // Area vs. Place checking, Category locking, and category-based messaging
                 // NOTE: Since we have to keep looping through categories, maybe see about combining actions inside of the same loops.
                 // NOTE: If it gets too complicated, the code should probably be segregated into other functions and then called within the same loop.
-                for (i = 0, len = newCategories.length; i < len; i++) {
-                    catName = newCategories[i];
+                for (var i = 0, len = newCategories.length; i < len; i++) {
+                    var catName = newCategories[i];
                     if (NA_CAT_DATA.hasOwnProperty(catName)) {
                         var myCat       = NA_CAT_DATA[catName];
                         var pvaPoint    = myCat.pcPoint,
@@ -4716,8 +4716,8 @@
                         break;
                     }
                 }
-                for (pfix=0; pfix<panelFieldsList.length; pfix++) {
-                    pfa = panelFieldsList[pfix].innerHTML;
+                for (var pfix=0; pfix<panelFieldsList.length; pfix++) {
+                    var pfa = panelFieldsList[pfix].innerHTML;
                     if (pfa.indexOf('landmark-edit-general') > -1) {
                         panelFields.navTabGeneral = pfix;
                     }
