@@ -13,7 +13,7 @@
 // ==UserScript==
 // @name        WME Place Harmonizer Beta
 // @namespace   https://github.com/WazeUSA/WME-Place-Harmonizer/raw/master/WME-Place-Harmonizer.user.js
-// @version     1.1.85
+// @version     1.1.86
 // @description Harmonizes, formats, and locks a selected place
 // @author      WMEPH development group
 // @include     /^https:\/\/(www|beta)\.waze\.com\/(?!user\/)(.{2,6}\/)?editor\/.*$/
@@ -262,6 +262,7 @@
     function runPH() {
         // Script update info
         var WMEPHWhatsNewList = [  // New in this version
+            '1.1.86: Remove "No Street" flag when city doesn\'t exist.',
             '1.1.85: Remove bullets from banner to improve layout a bit until a new design is completed.',
             '1.1.84: Fix to ignore title casing inside parens at end of PLA names.',
             '1.1.83: Improved check for automated (bot) account edits.',
@@ -2210,7 +2211,6 @@
                                     lockOK = false;
                                 }
                             } else {
-                                bannButt.streetMissing.active = true;
                                 bannButt.cityMissing.active = true;
                                 lockOK = false;
                             }
@@ -3442,15 +3442,15 @@
                 }
             }
 
-            if ((!addr.street || addr.street.isEmpty) && 'BRIDGE|ISLAND|FOREST_GROVE|SEA_LAKE_POOL|RIVER_STREAM|CANAL|DAM|TUNNEL'.split('|').indexOf(item.attributes.categories[0]) === -1 ) {
-                bannButt.streetMissing.active = true;
-                lockOK = false;
-            }
             if ((!addr.city || addr.city.attributes.isEmpty) && 'BRIDGE|ISLAND|FOREST_GROVE|SEA_LAKE_POOL|RIVER_STREAM|CANAL|DAM|TUNNEL'.split('|').indexOf(item.attributes.categories[0]) === -1 ) {
                 bannButt.cityMissing.active = true;
                 if (item.attributes.residential && hpMode.hlFlag) {
                     bannButt.cityMissing.severity = 1;
                 }
+                lockOK = false;
+            }
+            if (addr.city && (!addr.street || addr.street.isEmpty) && 'BRIDGE|ISLAND|FOREST_GROVE|SEA_LAKE_POOL|RIVER_STREAM|CANAL|DAM|TUNNEL'.split('|').indexOf(item.attributes.categories[0]) === -1 ) {
+                bannButt.streetMissing.active = true;
                 lockOK = false;
             }
 
