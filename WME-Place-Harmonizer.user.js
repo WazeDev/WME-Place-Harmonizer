@@ -13,7 +13,7 @@
 // ==UserScript==
 // @name        WME Place Harmonizer Beta
 // @namespace   https://github.com/WazeUSA/WME-Place-Harmonizer/raw/master/WME-Place-Harmonizer.user.js
-// @version     1.1.84
+// @version     1.1.85
 // @description Harmonizes, formats, and locks a selected place
 // @author      WMEPH development group
 // @include     /^https:\/\/(www|beta)\.waze\.com\/(?!user\/)(.{2,6}\/)?editor\/.*$/
@@ -262,6 +262,7 @@
     function runPH() {
         // Script update info
         var WMEPHWhatsNewList = [  // New in this version
+            '1.1.85: Remove bullets from banner to improve layout a bit until a new design is completed.',
             '1.1.84: Fix to ignore title casing inside parens at end of PLA names.',
             '1.1.83: Improved check for automated (bot) account edits.',
             '1.1.82: Added option to disable check for missing external provider on parking lots.',
@@ -4320,7 +4321,7 @@
         // Setup div for banner messages and color
         function displayBanners(sbm,sev) {
             if ($('#WMEPH_banner').length === 0 ) {
-                $('<div id="WMEPH_banner">').css({"width": "100%", "background-color": "#fff", "color": "white", "font-size": "15px", "font-weight": "bold", "padding": "3px", "margin-left": "auto", "margin-right": "auto"}).prependTo(".contents");
+                $('<ul id="WMEPH_banner">').css({"width": "100%", "background-color": "#fff", "color": "white", "font-size": "15px", "font-weight": "bold", "padding": "3px", "margin-left": "auto", "margin-right": "auto"}).prependTo(".contents");
             } else {
                 $('#WMEPH_banner').empty();
             }
@@ -4339,7 +4340,7 @@
                     bgColor = "rgb(36, 172, 36)";  // green
             }
             $('#WMEPH_banner').css({"background-color": bgColor});
-            sbm = "<li>" + sbm;
+            sbm = '<li>' + sbm + '</span></li>';
             $("#WMEPH_banner").append(sbm);
             $('#select2-drop').css({display:'none'});
         }  // END displayBanners funtion
@@ -7336,8 +7337,6 @@
                         }
                         c = f(bits);
                         break;
-                    case 1:
-                        bits = 0;
                         maxpower = Math.pow(2, 16);
                         power = 1;
                         while (power !== maxpower) {
