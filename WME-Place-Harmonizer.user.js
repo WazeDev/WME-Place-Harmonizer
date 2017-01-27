@@ -13,7 +13,7 @@
 // ==UserScript==
 // @name        WME Place Harmonizer Beta
 // @namespace   https://github.com/WazeUSA/WME-Place-Harmonizer/raw/master/WME-Place-Harmonizer.user.js
-// @version     1.1.89
+// @version     1.1.90
 // @description Harmonizes, formats, and locks a selected place
 // @author      WMEPH development group
 // @include     /^https:\/\/(www|beta)\.waze\.com\/(?!user\/)(.{2,6}\/)?editor\/.*$/
@@ -265,6 +265,7 @@
     function runPH() {
         // Script update info
         var WMEPHWhatsNewList = [  // New in this version
+            '1.1.90: Fixed bug in data compression algorithm.',
             '1.1.89: Style tweaks.',
             '1.1.88: Uncheck "No City" when clicking "Edit address" button (wouldn\'t jump to the field.',
             '1.1.87: Removed "No HN" flag until street is set.',
@@ -7353,6 +7354,8 @@
                         }
                         c = f(bits);
                         break;
+                    case 1:
+                        bits = 0;
                         maxpower = Math.pow(2, 16);
                         power = 1;
                         while (power !== maxpower) {
