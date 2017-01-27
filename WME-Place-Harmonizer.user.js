@@ -81,7 +81,7 @@
         SCRIPT_NAME = GM_info.script.name.toString(),
         IS_DEV_VERSION = (SCRIPT_NAME.match(/Beta/i) !== null);             // Enables dev messages and unique DOM options if the script is called "... Beta"
     // CSS Stuff
-    var WMEPH_CSS = GM_getResourceText("WMEPH_CSS"); GM_addStyle(WMEPH_CSS);
+    var WMEPH_CSS = GM_getResourceText("WMEPH_CSS"); //GM_addStyle(WMEPH_CSS);
     var JQ_UI_CSS = GM_getResourceText("JQ_UI_CSS"); GM_addStyle(JQ_UI_CSS);
     // Was testing this, but I don't think the following line does anything. (mapomatic)
     //GM_addStyle('  <style> .ui-autocomplete {max-height: 100px;overflow-y: auto;overflow-x: hidden;}  * html .ui-autocomplete {height: 100px;}</style>');
@@ -93,21 +93,21 @@
     // Cutover to new google sheets
     var USE_NEW_GOOGLE_SHEETS = true;
     var WME_SERVICE_MAP = { "psValet"       : { "action":"addValet",        "name":"VALLET_SERVICE"        },
-                            "psDriveThru"   : { "action":"addDriveThru",    "name":"DRIVETHROUGH"          },
-                            "psWiFi"        : { "action":"addWiFi",         "name":"WI_FI"                 },
-                            "psRestrooms"   : { "action":"addRestrooms",    "name":"RESTROOMS"             },
-                            "psCreditCards" : { "action":"addCreditCards",  "name":"CREDIT_CARDS"          },
-                            "psReservations": { "action":"addReservations", "name":"RESERVATIONS"          },
-                            "psOutside"     : { "action":"addOutside",      "name":"OUTSIDE_SEATING"       },
-                            "psAirCond"     : { "action":"addAC",           "name":"AIR_CONDITIONING"      },
-                            "psParking"     : { "action":"addParking",      "name":"PARKING_FOR_CUSTOMERS" },
-                            "psDelivery"    : { "action":"addDeliveries",   "name":"DELIVERIES"            },
-                            "psTakeAway"    : { "action":"addTakeAway",     "name":"TAKE_AWAY"             },
-                            "psWheelchair"  : { "action":"addWheelchair",   "name":"WHEELCHAIR_ACCESSIBLE" } };
+                           "psDriveThru"   : { "action":"addDriveThru",    "name":"DRIVETHROUGH"          },
+                           "psWiFi"        : { "action":"addWiFi",         "name":"WI_FI"                 },
+                           "psRestrooms"   : { "action":"addRestrooms",    "name":"RESTROOMS"             },
+                           "psCreditCards" : { "action":"addCreditCards",  "name":"CREDIT_CARDS"          },
+                           "psReservations": { "action":"addReservations", "name":"RESERVATIONS"          },
+                           "psOutside"     : { "action":"addOutside",      "name":"OUTSIDE_SEATING"       },
+                           "psAirCond"     : { "action":"addAC",           "name":"AIR_CONDITIONING"      },
+                           "psParking"     : { "action":"addParking",      "name":"PARKING_FOR_CUSTOMERS" },
+                           "psDelivery"    : { "action":"addDeliveries",   "name":"DELIVERIES"            },
+                           "psTakeAway"    : { "action":"addTakeAway",     "name":"TAKE_AWAY"             },
+                           "psWheelchair"  : { "action":"addWheelchair",   "name":"WHEELCHAIR_ACCESSIBLE" } };
     var WME_SERVICES    = [ "VALLET_SERVICE","DRIVETHROUGH","WI_FI","RESTROOMS",
-                            "CREDIT_CARDS","RESERVATIONS","OUTSIDE_SEATING",
-                            "AIR_CONDITIONING","PARKING_FOR_CUSTOMERS","DELIVERIES",
-                            "TAKE_AWAY","WHEELCHAIR_ACCESSIBLE" ];
+                           "CREDIT_CARDS","RESERVATIONS","OUTSIDE_SEATING",
+                           "AIR_CONDITIONING","PARKING_FOR_CUSTOMERS","DELIVERIES",
+                           "TAKE_AWAY","WHEELCHAIR_ACCESSIBLE" ];
     var TOLL_FREE       = [ "800","822","833","844","855","866","877","888" ];
 
 
@@ -398,6 +398,7 @@
             bannButt.urlMissing.active = true;
             if (currentWL.urlWL) {
                 bannButt.urlMissing.WLactive = false;
+                bannButt.urlMissing.severity = 0;
             }
             bannButt.webSearch.active = true;  // Activate websearch button
             return s;
@@ -446,31 +447,11 @@
     }
 
     // Setup div for banner messages and color
-    function displayBanners(sbm,maxSev,severities) {
-        if ($('#WMEPH_banner').length === 0 ) {
-            $('<div id="WMEPH_banner">').prependTo(".contents");
-            $('#WMEPH_banner').prepend('<ul>');
-        } else {
-            $('#WMEPH_banner > ul').empty();
-        }
-
-        $('#WMEPH_banner').removeClass();
-        $('#WMEPH_banner').addClass("banner-severity-" + maxSev);
-
-        var html = [];
-        for (var i = 0, len = sbm.length; i < len; i++) {
-            html.push('<li class="wmeph-banner-row banner-row-severity-' + severities[i] + '">' + sbm[i] + '</li>');
-        }
-        $("#WMEPH_banner > ul").append(html.join(' '));
-        $('#select2-drop').hide();
-    }
-
-    // Setup div for banner messages and color
     function displayTools(sbm) {
         //debug('- displayTools(sbm) called -');
         //debug('sbm = ' + JSON.stringify(sbm));
         if ($("#WMEPH_tools").length === 0 ) {
-            $('<div id="WMEPH_tools">').prependTo(".contents");
+            $("#WMEPH_banner").after('<div id="WMEPH_tools">');
             $("#WMEPH_tools").prepend("<ul>");
         } else {
             $("#WMEPH_tools > ul").empty();
@@ -660,30 +641,30 @@
                         }
 
                         services            = { "psValet"           :   psValet,
-                                                "psDriveThru"       :   psDriveThru,
-                                                "psWiFi"            :   psWiFi,
-                                                "psRestrooms"       :   psRestrooms,
-                                                "psCreditCards"     :   psCreditCards,
-                                                "psReservations"    :   psReservations,
-                                                "psOutside"         :   psOutside,
-                                                "psAirCond"         :   psAirCond,
-                                                "psParking"         :   psParking,
-                                                "psDelivery"        :   psDelivery,
-                                                "psTakeAway"        :   psTakeAway,
-                                                "psWheelchair"      :   psWheelchair };
+                                               "psDriveThru"       :   psDriveThru,
+                                               "psWiFi"            :   psWiFi,
+                                               "psRestrooms"       :   psRestrooms,
+                                               "psCreditCards"     :   psCreditCards,
+                                               "psReservations"    :   psReservations,
+                                               "psOutside"         :   psOutside,
+                                               "psAirCond"         :   psAirCond,
+                                               "psParking"         :   psParking,
+                                               "psDelivery"        :   psDelivery,
+                                               "psTakeAway"        :   psTakeAway,
+                                               "psWheelchair"      :   psWheelchair };
                         NA_CAT_DATA[key]    = { "pcPoint"           :   pcPoint,
-                                                "pcArea"            :   pcArea,
-                                                "pcRegPoint"        :   pcRegPoint,
-                                                "pcRegArea"         :   pcRegArea,
-                                                "pcLock1"           :   pcLock1,
-                                                "pcLock2"           :   pcLock2,
-                                                "pcLock3"           :   pcLock3,
-                                                "pcLock4"           :   pcLock4,
-                                                "pcLock5"           :   pcLock5,
-                                                "pcRare"            :   pcRare,
-                                                "pcParent"          :   pcParent,
-                                                "pcMessage"         :   pcMessage,
-                                                "services"          :   services };
+                                               "pcArea"            :   pcArea,
+                                               "pcRegPoint"        :   pcRegPoint,
+                                               "pcRegArea"         :   pcRegArea,
+                                               "pcLock1"           :   pcLock1,
+                                               "pcLock2"           :   pcLock2,
+                                               "pcLock3"           :   pcLock3,
+                                               "pcLock4"           :   pcLock4,
+                                               "pcLock5"           :   pcLock5,
+                                               "pcRare"            :   pcRare,
+                                               "pcParent"          :   pcParent,
+                                               "pcMessage"         :   pcMessage,
+                                               "services"          :   services };
                     }
                 }
             });
@@ -844,13 +825,13 @@
         }
         var itemGPS = OpenLayers.Layer.SphericalMercator.inverseMercator(item.attributes.geometry.getCentroid().x,item.attributes.geometry.getCentroid().y);
         if (!venueWhitelist.hasOwnProperty(itemID)) {  // If venue is NOT on WL, then add it.
-            venueWhitelist[itemID] = { };
+            venueWhitelist[itemID] = currentWL;
         }
-        venueWhitelist[itemID][wlKeyName] = {active: true};  // WL the flag for the venue
-        venueWhitelist[itemID].city = addressTemp.city.attributes.name;  // Store city for the venue
-        venueWhitelist[itemID].state = addressTemp.state.name;  // Store state for the venue
-        venueWhitelist[itemID].country = addressTemp.country.name;  // Store country for the venue
-        venueWhitelist[itemID].gps = itemGPS;  // Store GPS coords for the venue
+        currentWL[wlKeyName] = true;  // WL the flag for the venue
+        currentWL.city = addressTemp.city.attributes.name;  // Store city for the venue
+        currentWL.state = addressTemp.state.name;  // Store state for the venue
+        currentWL.country = addressTemp.country.name;  // Store country for the venue
+        currentWL.gps = itemGPS;  // Store GPS coords for the venue
         saveWL_LS(true);  // Save the WL to local storage
         WMEPH_WLCounter();
         bannButt2.clearWL.active = true;
@@ -962,23 +943,23 @@
         if(rlayers.length === 0) {
             var lname = "WMEPH Duplicate Names";
             var style = new OpenLayers.Style({  label : "${labelText}",
-                                                labelOutlineColor: '#333',
-                                                labelOutlineWidth: 3,
-                                                labelAlign: '${labelAlign}',
-                                                fontColor: "${fontColor}",
-                                                fontOpacity: 1.0,
-                                                fontSize: "20px",
-                                                labelYOffset: -30,
-                                                labelXOffset: 0,
-                                                fontWeight: "bold",
-                                                fill: false,
-                                                strokeColor: "${strokeColor}",
-                                                strokeWidth: 10,
-                                                pointRadius: "${pointRadius}"
-                                            });
+                                              labelOutlineColor: '#333',
+                                              labelOutlineWidth: 3,
+                                              labelAlign: '${labelAlign}',
+                                              fontColor: "${fontColor}",
+                                              fontOpacity: 1.0,
+                                              fontSize: "20px",
+                                              labelYOffset: -30,
+                                              labelXOffset: 0,
+                                              fontWeight: "bold",
+                                              fill: false,
+                                              strokeColor: "${strokeColor}",
+                                              strokeWidth: 10,
+                                              pointRadius: "${pointRadius}"
+                                             });
             nameLayer = new OpenLayers.Layer.Vector(lname, {    displayInLayerSwitcher: false,
-                                                                uniqueName: "__DuplicatePlaceNames",
-                                                                styleMap: new OpenLayers.StyleMap(style)
+                                                            uniqueName: "__DuplicatePlaceNames",
+                                                            styleMap: new OpenLayers.StyleMap(style)
                                                            });
             nameLayer.setVisibility(false);
             W.map.addLayer(nameLayer);
@@ -1250,7 +1231,7 @@
         setTimeout(add_PlaceHarmonizationSettingsTab, 50);  // initialize the settings tab
 
         // Event listeners
-        W.selectionManager.events.registerPriority("selectionchanged", this, checkSelection);
+        W.selectionManager.events.registerPriority("selectionchanged", null, checkSelection);
         W.model.venues.on('objectschanged', deleteDupeLabel);
         W.accelerators.events.registerPriority('save', null, destroyDupeLabels);
         W.model.venues.on('objectssynced', syncWL);
@@ -1669,7 +1650,7 @@
             //debug('  useFlag = ' + JSON.stringify(useFlag, null, 2));
             //debug('  actions = ' + JSON.stringify(actions, null, 2));
             actions = actions || []; // Used for collecting all actions to be applied to the model.
-
+            var itemID = item.attributes.id;
             var hpMode = {
                 harmFlag: false,
                 hlFlag: false,
@@ -1712,37 +1693,42 @@
                                                 OUTSIDE_SEATING: false, AIR_CONDITIONING: false, PARKING_FOR_CUSTOMERS: false, DELIVERIES: false, TAKE_AWAY: false, WHEELCHAIR_ACCESSIBLE: false }
                                     };
             // Whitelist: reset flags
-            currentWL = {
-                dupeWL: [],
-                restAreaName: false,
-                restAreaSpec: false,
-                unmappedRegion: false,
-                gasMismatch: false,
-                hotelMkPrim: false,
-                changeHMC2Office: false,
-                changeHMC2PetVet: false,
-                changeSchool2Offices: false,
-                pointNotArea: false,
-                areaNotPoint: false,
-                HNWL: false,
-                hnNonStandard: false,
-                HNRange: false,
-                parentCategory: false,
-                suspectDesc: false,
-                resiTypeName: false,
-                longURL: false,
-                gasNoBrand: false,
-                subFuel: false,
-                hotelLocWL: false,
-                localizedName: false,
-                urlWL: false,
-                phoneWL: false,
-                aCodeWL: false,
-                noHours: false,
-                nameMissing: false,
-                plaNameMissing: false,
-                extProviderMissing: false
-            };
+
+            currentWL = venueWhitelist[itemID];
+            if (!currentWL) {
+                currentWL = {};
+            }
+
+            //     dupeWL: [],
+            //     restAreaName: false,
+            //     restAreaSpec: false,
+            //     unmappedRegion: false,
+            //     gasMismatch: false,
+            //     hotelMkPrim: false,
+            //     changeHMC2Office: false,
+            //     changeHMC2PetVet: false,
+            //     changeSchool2Offices: false,
+            //     pointNotArea: false,
+            //     areaNotPoint: false,
+            //     HNWL: false,
+            //     hnNonStandard: false,
+            //     HNRange: false,
+            //     parentCategory: false,
+            //     suspectDesc: false,
+            //     resiTypeName: false,
+            //     longURL: false,
+            //     gasNoBrand: false,
+            //     subFuel: false,
+            //     hotelLocWL: false,
+            //     localizedName: false,
+            //     urlWL: false,
+            //     phoneWL: false,
+            //     aCodeWL: false,
+            //     noHours: false,
+            //     nameMissing: false,
+            //     plaNameMissing: false,
+            //     extProviderMissing: false
+            // };
 
             // **** Set up banner action buttons.  Structure:
             // active: false until activated in the script
@@ -1765,34 +1751,23 @@
                     active: false, severity: 3, message: 'Name is missing.'
                 },
 
-                plaNameMissing: {
-                    active: false, severity: 1, message: 'Name is missing.',
-                    WLactive: true, WLmessage: '', WLtitle: 'Whitelist missing name',
-                    WLaction: function() {
-                        wlKeyName = 'plaNameMissing';
-                        whitelistAction(itemID, wlKeyName);
-                    }
-                },
-
                 hoursOverlap: {  // no WL
                     active: false, severity: 3, message: 'Overlapping hours of operation. Place might not save.'
                 },
 
                 unmappedRegion: {
                     active: false, severity: 3, message: 'This category is usually not mapped in this region.',
-                    WLactive: true, WLmessage: '', WLtitle: 'Whitelist unmapped category',
+                    WLactive: true, WLmessage: '', WLtitle: 'Whitelist unmapped category', WLkey: 'unmappedRegion',
                     WLaction: function() {
-                        wlKeyName = 'unmappedRegion';
-                        whitelistAction(itemID, wlKeyName);
+                        whitelistAction(itemID, this.WLkey);
                     }
                 },
 
                 restAreaName: {
                     active: false, severity: 3, message: 'Rest area name is out of spec. Use the Rest Area wiki button below to view formats.',
-                    WLactive: true, WLmessage: '', WLtitle: 'Whitelist rest area name',
+                    WLactive: true, WLmessage: '', WLtitle: 'Whitelist rest area name', WLkey: 'restAreaName',
                     WLaction: function() {
-                        wlKeyName = 'restAreaName';
-                        whitelistAction(itemID, wlKeyName);
+                        whitelistAction(itemID, this.WLkey);
                     }
                 },
 
@@ -1801,58 +1776,64 @@
                 },
 
                 restAreaSpec: {  // if it appears to be a rest area
-                    active: false, severity: 3, message: "Is this a rest area?", value: "Yes", title: 'Update with proper categories and services.',
-                    action: function() {
-                        var actions = [];
-                        // update categories according to spec
-                        newCategories = insertAtIX(newCategories,"TRANSPORTATION",0);  // Insert/move TRANSPORTATION category in the first position
-                        newCategories = insertAtIX(newCategories,"SCENIC_LOOKOUT_VIEWPOINT",1);  // Insert/move SCENIC_LOOKOUT_VIEWPOINT category in the 2nd position
+                    active: false, severity: 3, message: "Is this a rest area?",
+                    buttons: [{
+                        text: 'Yes',
+                        title: 'Update with proper categories and services.',
+                        action: function() {
+                            var actions = [];
+                            // update categories according to spec
+                            newCategories = insertAtIX(newCategories,"TRANSPORTATION",0);  // Insert/move TRANSPORTATION category in the first position
+                            newCategories = insertAtIX(newCategories,"SCENIC_LOOKOUT_VIEWPOINT",1);  // Insert/move SCENIC_LOOKOUT_VIEWPOINT category in the 2nd position
 
-                        actions.push(new UpdateObject(item, { categories: newCategories }));
-                        fieldUpdateObject.categories='#dfd';
-                        // make it 24/7
-                        actions.push(new UpdateObject(item, { openingHours: [{days: [1,2,3,4,5,6,0], fromHour: "00:00", toHour: "00:00"}] }));
-                        fieldUpdateObject.openingHours='#dfd';
-                        //highlightChangedFields(fieldUpdateObject,hpMode);
+                            actions.push(new UpdateObject(item, { categories: newCategories }));
+                            fieldUpdateObject.categories='#dfd';
+                            // make it 24/7
+                            actions.push(new UpdateObject(item, { openingHours: [{days: [1,2,3,4,5,6,0], fromHour: "00:00", toHour: "00:00"}] }));
+                            fieldUpdateObject.openingHours='#dfd';
+                            //highlightChangedFields(fieldUpdateObject,hpMode);
 
-                        bannServ.add247.checked = true;
-                        bannServ.addParking.actionOn(actions);  // add parking service
-                        bannServ.addWheelchair.actionOn(actions);  // add parking service
-                        bannButt.restAreaSpec.active = false;  // reset the display flag
+                            bannServ.add247.checked = true;
+                            bannServ.addParking.actionOn(actions);  // add parking service
+                            bannServ.addWheelchair.actionOn(actions);  // add parking service
+                            bannButt.restAreaSpec.active = false;  // reset the display flag
 
-                        executeMultiAction(actions);
+                            executeMultiAction(actions);
 
-                        _disableHighlightTest = true;
-                        harmonizePlaceGo(item,'harmonize');
-                        _disableHighlightTest = false;
-                        applyHighlightsTest(item);
-                    },
-                    WLactive: true, WLmessage: '', WLtitle: 'Whitelist place',
+                            _disableHighlightTest = true;
+                            harmonizePlaceGo(item,'harmonize');
+                            _disableHighlightTest = false;
+                            applyHighlightsTest(item);
+                        }
+                    }],
+                    WLactive: true, WLmessage: '', WLtitle: 'Whitelist place', WLkey: 'restAreaSpec',
                     WLaction: function() {
-                        wlKeyName = 'restAreaSpec';
-                        whitelistAction(itemID, wlKeyName);
+                        whitelistAction(itemID, this.WLkey);
                     }
                 },
 
                 gasMismatch: {  // if the gas brand and name don't match
-                    active: false, severity: 3, message: "Gas name and brand don't match.  Move brand to name?", value: "Yes", title: 'Change the primary name to the brand and make the current name the alt-name.',
-                    action: function() {
-                        newAliases = insertAtIX(newAliases, newName, 0);
-                        for (var naix=0; naix<newAliases.length; naix++) {
-                            newAliases[naix] = toTitleCase(newAliases[naix]);
+                    active: false, severity: 3, message: "Gas name and brand don't match.  Move brand to name?",
+                    buttons: [{
+                        text: 'Yes',
+                        title: 'Change the primary name to the brand and make the current name the alt-name.',
+                        action: function() {
+                            newAliases = insertAtIX(newAliases, newName, 0);
+                            for (var naix=0; naix<newAliases.length; naix++) {
+                                newAliases[naix] = toTitleCase(newAliases[naix]);
+                            }
+                            newName = item.attributes.brand;
+                            newAliases = removeSFAliases(newName, newAliases);
+                            W.model.actionManager.add(new UpdateObject(item, { name: newName, aliases: newAliases }));
+                            fieldUpdateObject.name='#dfd';
+                            fieldUpdateObject.aliases='#dfd';
+                            highlightChangedFields(fieldUpdateObject,hpMode);
+                            bannButt.gasMismatch.active = false;  // reset the display flag
                         }
-                        newName = item.attributes.brand;
-                        newAliases = removeSFAliases(newName, newAliases);
-                        W.model.actionManager.add(new UpdateObject(item, { name: newName, aliases: newAliases }));
-                        fieldUpdateObject.name='#dfd';
-                        fieldUpdateObject.aliases='#dfd';
-                        highlightChangedFields(fieldUpdateObject,hpMode);
-                        bannButt.gasMismatch.active = false;  // reset the display flag
-                    },
-                    WLactive: true, WLmessage: '', WLtitle: 'Whitelist gas brand mismatch',
+                    }],
+                    WLactive: true, WLmessage: '', WLtitle: 'Whitelist gas brand mismatch', WLkey: 'gasMismatch',
                     WLaction: function() {
-                        wlKeyName = 'gasMismatch';
-                        whitelistAction(itemID, wlKeyName);
+                        whitelistAction(itemID, this.WLkey);
                     }
                 },
 
@@ -1861,176 +1842,204 @@
                 },
 
                 gasMkPrim: {  // no WL
-                    active: false, severity: 3,  message: "Gas Station is not the primary category", value: "Fix", title: 'Make the Gas Station category the primary category.',
-                    action: function() {
-                        newCategories = insertAtIX(newCategories,"GAS_STATION",0);  // Insert/move Gas category in the first position
-                        var actions = [];
-                        actions.push(new UpdateObject(item, { categories: newCategories }));
-                        fieldUpdateObject.categories='#dfd';
-                        bannButt.gasMkPrim.active = false;  // reset the display flag
-                        executeMultiAction(actions);
-                        harmonizePlaceGo(item,'harmonize');
-                    }
+                    active: false, severity: 3,  message: "Gas Station is not the primary category",
+                    buttons: [{
+                        text: 'Fix',
+                        title: 'Make the Gas Station category the primary category.',
+                        action: function() {
+                            newCategories = insertAtIX(newCategories,"GAS_STATION",0);  // Insert/move Gas category in the first position
+                            var actions = [];
+                            actions.push(new UpdateObject(item, { categories: newCategories }));
+                            fieldUpdateObject.categories='#dfd';
+                            bannButt.gasMkPrim.active = false;  // reset the display flag
+                            executeMultiAction(actions);
+                            harmonizePlaceGo(item,'harmonize');
+                        }
+                    }]
                 },
 
                 hotelMkPrim: {
-                    active: false, severity: 3, message: "Hotel category is not first", value: "Fix", title: 'Make the Hotel category the primary category.',
-                    action: function() {
-                        newCategories = insertAtIX(newCategories,"HOTEL",0);  // Insert/move Hotel category in the first position
-                        var actions = [];
-                        actions.push(new UpdateObject(item, { categories: newCategories }));
-                        fieldUpdateObject.categories='#dfd';
-                        bannButt.hotelMkPrim.active = false;  // reset the display flag
-                        executeMultiAction(actions);
-                        harmonizePlaceGo(item,'harmonize');
-                    },
-                    WLactive: true, WLmessage: '', WLtitle: 'Whitelist hotel as secondary category',
+                    active: false, severity: 3, message: "Hotel category is not first",
+                    buttons: [{
+                        text: 'Fix',
+                        title: 'Make the Hotel category the primary category.',
+                        action: function() {
+                            newCategories = insertAtIX(newCategories,"HOTEL",0);  // Insert/move Hotel category in the first position
+                            var actions = [];
+                            actions.push(new UpdateObject(item, { categories: newCategories }));
+                            fieldUpdateObject.categories='#dfd';
+                            bannButt.hotelMkPrim.active = false;  // reset the display flag
+                            executeMultiAction(actions);
+                            harmonizePlaceGo(item,'harmonize');
+                        }
+                    }],
+                    WLactive: true, WLmessage: '', WLtitle: 'Whitelist hotel as secondary category', WLkey: 'hotelMkPrim',
                     WLaction: function() {
-                        wlKeyName = 'hotelMkPrim';
-                        whitelistAction(itemID, wlKeyName);
+                        whitelistAction(itemID, this.WLkey);
                     }
                 },
 
                 changeHMC2Office: {
-                    active: false, severity: 3, message: "This doesn't look like a hospital or urgent care location.", value: "Change to Offices", title: 'Change to Office Category',
-                    action: function() {
-                        newCategories[newCategories.indexOf('HOSPITAL_MEDICAL_CARE')] = "OFFICES";
-                        //phlogdev(newCategories);
-                        var actions = [];
-                        actions.push(new UpdateObject(item, { categories: newCategories }));
-                        fieldUpdateObject.categories='#dfd';
-                        bannButt.changeHMC2Office.active = false;  // reset the display flag
-                        executeMultiAction(actions);
-                        harmonizePlaceGo(item,'harmonize');  // Rerun the script to update fields and lock
-                    },
-                    WLactive: true, WLmessage: '', WLtitle: 'Whitelist Hospital category',
+                    active: false, severity: 3, message: "This doesn't look like a hospital or urgent care location.",
+                    buttons: [{
+                        text: 'Change to Offices',
+                        title: 'Change to Office Category',
+                        action: function() {
+                            newCategories[newCategories.indexOf('HOSPITAL_MEDICAL_CARE')] = "OFFICES";
+                            var actions = [];
+                            actions.push(new UpdateObject(item, { categories: newCategories }));
+                            fieldUpdateObject.categories='#dfd';
+                            bannButt.changeHMC2Office.active = false;  // reset the display flag
+                            executeMultiAction(actions);
+                            harmonizePlaceGo(item,'harmonize');  // Rerun the script to update fields and lock
+                        }
+                    }],
+                    WLactive: true, WLmessage: '', WLtitle: 'Whitelist Hospital category', WLkey: 'changeHMC2Office',
                     WLaction: function() {
-                        wlKeyName = 'changeHMC2Office';
-                        whitelistAction(itemID, wlKeyName);
+                        whitelistAction(itemID, this.WLkey);
                     }
                 },
 
                 changeHMC2PetVet: {
-                    active: false, severity: 3, message: "This looks like it should be a Pet/Veterinarian category. Change?", value: "Yes", title: 'Change to Pet/Veterinarian Category',
-                    action: function() {
-                        newCategories[newCategories.indexOf('HOSPITAL_MEDICAL_CARE')] = "PET_STORE_VETERINARIAN_SERVICES";
-                        var actions = [];
-                        actions.push(new UpdateObject(item, { categories: newCategories }));
-                        fieldUpdateObject.categories='#dfd';
-                        bannButt.changeHMC2PetVet.active = false;  // reset the display flag
-                        executeMultiAction(actions);
-                        harmonizePlaceGo(item,'harmonize');  // Rerun the script to update fields and lock
-                    },
-                    WLactive: true, WLmessage: '', WLtitle: 'Whitelist PetVet category',
+                    active: false, severity: 3, message: "This looks like it should be a Pet/Veterinarian category. Change?",
+                    buttons: [{
+                        text: 'Yes',
+                        title: 'Change to Pet/Veterinarian Category',
+                        action: function() {
+                            newCategories[newCategories.indexOf('HOSPITAL_MEDICAL_CARE')] = "PET_STORE_VETERINARIAN_SERVICES";
+                            var actions = [];
+                            actions.push(new UpdateObject(item, { categories: newCategories }));
+                            fieldUpdateObject.categories='#dfd';
+                            bannButt.changeHMC2PetVet.active = false;  // reset the display flag
+                            executeMultiAction(actions);
+                            harmonizePlaceGo(item,'harmonize');  // Rerun the script to update fields and lock
+                        }
+                    }],
+                    WLactive: true, WLmessage: '', WLtitle: 'Whitelist PetVet category', WLkey: 'changeHMC2PetVet',
                     WLaction: function() {
-                        wlKeyName = 'changeHMC2PetVet';
-                        whitelistAction(itemID, wlKeyName);
+                        whitelistAction(itemID, this.WLkey);
                     }
                 },
 
                 changeSchool2Offices: {
-                    active: false, severity: 3, message: "This doesn't look like it should be School category.", value: "Change to Office", title: 'Change to Offices Category',
-                    action: function() {
-                        newCategories[newCategories.indexOf('SCHOOL')] = "OFFICES";
-                        var actions = [];
-                        actions.push(new UpdateObject(item, { categories: newCategories }));
-                        fieldUpdateObject.categories='#dfd';
-                        bannButt.changeSchool2Offices.active = false;  // reset the display flag
-                        executeMultiAction(actions);
-                        harmonizePlaceGo(item,'harmonize');  // Rerun the script to update fields and lock
-                    },
-                    WLactive: true, WLmessage: '', WLtitle: 'Whitelist School category',
+                    active: false, severity: 3, message: "This doesn't look like it should be School category.",
+                    buttons: [{
+                        text: 'Change to Office',
+                        title: 'Change to Offices Category',
+                        action: function() {
+                            newCategories[newCategories.indexOf('SCHOOL')] = "OFFICES";
+                            var actions = [];
+                            actions.push(new UpdateObject(item, { categories: newCategories }));
+                            fieldUpdateObject.categories='#dfd';
+                            bannButt.changeSchool2Offices.active = false;  // reset the display flag
+                            executeMultiAction(actions);
+                            harmonizePlaceGo(item,'harmonize');  // Rerun the script to update fields and lock
+                        }
+                    }],
+                    WLactive: true, WLmessage: '', WLtitle: 'Whitelist School category', WLkey: 'changeSchool2Offices',
                     WLaction: function() {
-                        wlKeyName = 'changeSchool2Offices';
-                        whitelistAction(itemID, wlKeyName);
+                        whitelistAction(itemID, this.WLkey);
                     }
                 },
 
                 pointNotArea: {  // Area 2 Point button
-                    active: false, severity: 3, message: "This category should be a point place.", value: "Change to point", title: 'Change to point place',
-                    action: function() {
-                        // If a stop point is set, use it for the point, else use Centroid
-                        var newGeometry;
-                        if (item.attributes.entryExitPoints.length > 0) {
-                            newGeometry = item.attributes.entryExitPoints[0].point;
-                        } else {
-                            newGeometry = item.geometry.getCentroid();
+                    active: false, severity: 3, message: "This category should be a point place.",
+                    buttons: [{
+                        text: 'Change to point',
+                        title: 'Change to point place',
+                        action: function() {
+                            // If a stop point is set, use it for the point, else use Centroid
+                            var newGeometry;
+                            if (item.attributes.entryExitPoints.length > 0) {
+                                newGeometry = item.attributes.entryExitPoints[0].point;
+                            } else {
+                                newGeometry = item.geometry.getCentroid();
+                            }
+                            updateFeatureGeometry (item, newGeometry);
+                            bannButt.pointNotArea.active = false;
                         }
-                        updateFeatureGeometry (item, newGeometry);
-                        bannButt.pointNotArea.active = false;
-                    },
-                    WLactive: true, WLmessage: '', WLtitle: 'Whitelist point (not area)',
+                    }],
+                    WLactive: true, WLmessage: '', WLtitle: 'Whitelist point (not area)', WLkey: 'pointNotArea',
                     WLaction: function() {
-                        wlKeyName = 'pointNotArea';
-                        whitelistAction(itemID, wlKeyName);
+                        whitelistAction(itemID, this.WLkey);
                     }
                 },
 
                 areaNotPoint: {  // Point 2 Area button
-                    active: false, severity: 3, message: "This category should be an area place.", value: "Change to area", title: 'Change to Area',
-                    action: function() {
-                        // If a stop point is set, use it for the point, else use Centroid
-                        updateFeatureGeometry (item, item.getPolygonGeometry());
-                        bannButt.areaNotPoint.active = false;
-                    },
-                    WLactive: true, WLmessage: '', WLtitle: 'Whitelist area (not point)',
+                    active: false, severity: 3, message: "This category should be an area place.",
+                    buttons: [{
+                        text: 'Change to area',
+                        title: 'Change to Area',
+                        action: function() {
+                            // If a stop point is set, use it for the point, else use Centroid
+                            updateFeatureGeometry (item, item.getPolygonGeometry());
+                            bannButt.areaNotPoint.active = false;
+                        }
+                    }],
+                    WLactive: true, WLmessage: '', WLtitle: 'Whitelist area (not point)', WLkey: 'areaNotPoint',
                     WLaction: function() {
-                        wlKeyName = 'areaNotPoint';
-                        whitelistAction(itemID, wlKeyName);
+                        whitelistAction(itemID, this.WLkey);
                     }
                 },
 
                 hnMissing: {
-                    active: false, severity: 3, message: '<span class="wmeph-label">No HN</span> <input type="text" id="WMEPH-HNAdd'+devVersStr+'" autocomplete="off" class="wmeph-input-box">',
-                    value: "Add", title: 'Add HN to place',
+                    active: false, severity: 3, message: 'No HN',
+                    input: '<input type="text" id="WMEPH-HNAdd'+devVersStr+'" autocomplete="off" class="wmeph-input-box">',
                     badInput: false,
-                    action: function() {
-                        var newHN = $('#WMEPH-HNAdd'+devVersStr).val();
-                        newHN = newHN.replace(/ +/g, '');
-                        phlogdev(newHN);
-                        var hnTemp = newHN.replace(/[^\d]/g, '');
-                        var hnTempDash = newHN.replace(/[^\d-]/g, '');
-                        if (hnTemp > 0 && hnTemp < 1000000) {
-                            W.model.actionManager.add(new UpdateObject(item, { houseNumber: hnTempDash }));
-                            fieldUpdateObject.address='#dfd';
-                            bannButt.hnMissing.active = false;
-                            this.badInput = false;
-                        } else {
-                            this.badInput = true;
-                        }
+                    buttons: [{
+                        text: "Add",
+                        title: 'Add HN to place',
+                        action: function() {
+                            var newHN = $('#WMEPH-HNAdd'+devVersStr).val();
+                            newHN = newHN.replace(/ +/g, '');
+                            phlogdev(newHN);
+                            var hnTemp = newHN.replace(/[^\d]/g, '');
+                            var hnTempDash = newHN.replace(/[^\d-]/g, '');
+                            if (hnTemp > 0 && hnTemp < 1000000) {
+                                W.model.actionManager.add(new UpdateObject(item, { houseNumber: hnTempDash }));
+                                fieldUpdateObject.address='#dfd';
+                                bannButt.hnMissing.active = false;
+                                this.badInput = false;
+                            } else {
+                                this.badInput = true;
+                            }
 
-                    },
-                    WLactive: true, WLmessage: '', WLtitle: 'Whitelist empty HN',
+                        }
+                    }],
+                    WLactive: true, WLmessage: '', WLtitle: 'Whitelist empty HN', WLkey: 'HNWL',
                     WLaction: function() {
-                        wlKeyName = 'HNWL';
-                        whitelistAction(itemID, wlKeyName);
+                        whitelistAction(itemID, this.WLkey);
                     }
                 },
 
                 hnNonStandard: {
                     active: false, severity: 3, message: 'House number is non-standard.',
-                    WLactive: true, WLmessage: '', WLtitle: 'Whitelist non-standard HN',
+                    WLactive: true, WLmessage: '', WLtitle: 'Whitelist non-standard HN', WLkey: 'hnNonStandard',
                     WLaction: function() {
-                        wlKeyName = 'hnNonStandard';
-                        whitelistAction(itemID, wlKeyName);
+                        whitelistAction(itemID, this.WLkey);
                     }
                 },
 
                 HNRange: {
                     active: false, severity: 2, message: 'House number seems out of range for the street name. Verify.', value: '',
-                    WLactive: true, WLmessage: '', WLtitle: 'Whitelist HN range',
+                    WLactive: true, WLmessage: '', WLtitle: 'Whitelist HN range', WLkey: 'HNRange',
                     WLaction: function() {
-                        wlKeyName = 'HNRange';
-                        whitelistAction(itemID, wlKeyName);
+                        whitelistAction(itemID, this.WLkey);
                     }
                 },
 
                 streetMissing: {  // no WL
-                    active: false, severity: 3, message: '<span class="wmeph-label">No street</span><span><div class="ui-widget" style="display:inline;"><input id="WMEPH_missingStreet" class="wmeph-input-box"></div><input class="btn btn-default btn-xs wmeph-btn disabled" id="WMEPH_addStreetBtn" title="Add street to place" type="button" value="Add" disabled>'
+                    active: false, severity: 3, message: 'No street',
+                    input: '<div class="ui-widget" style="display:inline-block;"><input id="WMEPH_missingStreet" class="wmeph-input-box"></div>',
+                    buttons: [{
+                        text: 'Add',
+                        title: 'Add street to place',
+                        disabled: true
+                    }]
                 },
 
                 cityMissing: {  // no WL
-                    active: false, severity: 3, message: 'City missing'
+                    active: false, severity: 3, message: 'No city'
                 },
 
                 bankType1: {   // no WL
@@ -2038,53 +2047,65 @@
                 },
 
                 bankBranch: {  // no WL
-                    active: false, severity: 1, message: "Is this a bank branch office? ", value: "Yes", title: "Is this a bank branch?",
-                    action: function() {
-                        newCategories = ["BANK_FINANCIAL","ATM"];  // Change to bank and atm cats
-                        newName = newName.replace(/[\- (]*ATM[\- )]*/g, ' ').replace(/^ /g,'').replace(/ $/g,'');     // strip ATM from name if present
-                        W.model.actionManager.add(new UpdateObject(item, { name: newName, categories: newCategories }));
-                        fieldUpdateObject.name='#dfd';
-                        fieldUpdateObject.categories='#dfd';
-                        highlightChangedFields(fieldUpdateObject,hpMode);
-                        bannButt.bankCorporate.active = false;   // reset the bank Branch display flag
-                        bannButt.bankBranch.active = false;   // reset the bank Branch display flag
-                        bannButt.standaloneATM.active = false;   // reset the standalone ATM display flag
-                        bannButt.bankType1.active = false;  // remove bank type warning
-                    }
+                    active: false, severity: 1, message: 'Is this a bank branch office?',
+                    buttons: [{
+                        text: 'Yes',
+                        title: 'Is this a bank branch?',
+                        action: function() {
+                            newCategories = ['BANK_FINANCIAL','ATM'];  // Change to bank and atm cats
+                            newName = newName.replace(/[\- (]*ATM[\- )]*/g, ' ').replace(/^ /g,'').replace(/ $/g,'');     // strip ATM from name if present
+                            W.model.actionManager.add(new UpdateObject(item, { name: newName, categories: newCategories }));
+                            fieldUpdateObject.name='#dfd';
+                            fieldUpdateObject.categories='#dfd';
+                            highlightChangedFields(fieldUpdateObject,hpMode);
+                            bannButt.bankCorporate.active = false;   // reset the bank Branch display flag
+                            bannButt.bankBranch.active = false;   // reset the bank Branch display flag
+                            bannButt.standaloneATM.active = false;   // reset the standalone ATM display flag
+                            bannButt.bankType1.active = false;  // remove bank type warning
+                        }
+                    }]
                 },
 
                 standaloneATM: { // no WL
-                    active: false, severity: 2, message: "Or is this a standalone ATM? ", value: "Yes", title: "Is this a standalone ATM with no bank branch?",
-                    action: function() {
-                        if (newName.indexOf("ATM") === -1) {
-                            newName = newName + ' ATM';
+                    active: false, severity: 2, message: 'Or is this a standalone ATM?',
+                    buttons: [{
+                        text: 'Yes',
+                        title: 'Is this a standalone ATM with no bank branch?',
+                        action: function() {
+                            if (newName.indexOf('ATM') === -1) {
+                                newName = newName + ' ATM';
+                            }
+                            newCategories = ['ATM'];  // Change to ATM only
+                            W.model.actionManager.add(new UpdateObject(item, { name: newName, categories: newCategories }));
+                            fieldUpdateObject.name='#dfd';
+                            fieldUpdateObject.categories='#dfd';
+                            highlightChangedFields(fieldUpdateObject,hpMode);
+                            bannButt.bankCorporate.active = false;   // reset the bank Branch display flag
+                            bannButt.bankBranch.active = false;   // reset the bank Branch display flag
+                            bannButt.standaloneATM.active = false;   // reset the standalone ATM display flag
+                            bannButt.bankType1.active = false;  // remove bank type warning
                         }
-                        newCategories = ["ATM"];  // Change to ATM only
-                        W.model.actionManager.add(new UpdateObject(item, { name: newName, categories: newCategories }));
-                        fieldUpdateObject.name='#dfd';
-                        fieldUpdateObject.categories='#dfd';
-                        highlightChangedFields(fieldUpdateObject,hpMode);
-                        bannButt.bankCorporate.active = false;   // reset the bank Branch display flag
-                        bannButt.bankBranch.active = false;   // reset the bank Branch display flag
-                        bannButt.standaloneATM.active = false;   // reset the standalone ATM display flag
-                        bannButt.bankType1.active = false;  // remove bank type warning
-                    }
+                    }]
                 },
 
                 bankCorporate: {  // no WL
-                    active: false, severity: 1, message: "Or is this the bank's corporate offices?", value: "Yes", title: "Is this the bank's corporate offices?",
-                    action: function() {
-                        newCategories = ["OFFICES"];  // Change to offices category
-                        newName = newName.replace(/[\- (]*atm[\- )]*/ig, ' ').replace(/^ /g,'').replace(/ $/g,'').replace(/ {2,}/g,' ');     // strip ATM from name if present
-                        W.model.actionManager.add(new UpdateObject(item, { name: newName + ' - Corporate Offices', categories: newCategories }));
-                        fieldUpdateObject.name='#dfd';
-                        fieldUpdateObject.categories='#dfd';
-                        highlightChangedFields(fieldUpdateObject,hpMode);
-                        bannButt.bankCorporate.active = false;   // reset the bank Branch display flag
-                        bannButt.bankBranch.active = false;   // reset the bank Branch display flag
-                        bannButt.standaloneATM.active = false;   // reset the standalone ATM display flag
-                        bannButt.bankType1.active = false;  // remove bank type warning
-                    }
+                    active: false, severity: 1, message: "Or is this the bank's corporate offices?",
+                    buttons: [{
+                        text: "Yes",
+                        title: "Is this the bank's corporate offices?",
+                        action: function() {
+                            newCategories = ["OFFICES"];  // Change to offices category
+                            newName = newName.replace(/[\- (]*atm[\- )]*/ig, ' ').replace(/^ /g,'').replace(/ $/g,'').replace(/ {2,}/g,' ');     // strip ATM from name if present
+                            W.model.actionManager.add(new UpdateObject(item, { name: newName + ' - Corporate Offices', categories: newCategories }));
+                            fieldUpdateObject.name='#dfd';
+                            fieldUpdateObject.categories='#dfd';
+                            highlightChangedFields(fieldUpdateObject,hpMode);
+                            bannButt.bankCorporate.active = false;   // reset the bank Branch display flag
+                            bannButt.bankBranch.active = false;   // reset the bank Branch display flag
+                            bannButt.standaloneATM.active = false;   // reset the standalone ATM display flag
+                            bannButt.bankType1.active = false;  // remove bank type warning
+                        }
+                    }]
                 },
 
                 catPostOffice: {  // no WL
@@ -2101,10 +2122,9 @@
 
                 parentCategory: {
                     active: false, severity: 2, message: 'This parent category is usually not mapped in this region.',
-                    WLactive: true, WLmessage: '', WLtitle: 'Whitelist parent Category',
+                    WLactive: true, WLmessage: '', WLtitle: 'Whitelist parent Category', WLkey: 'parentCategory',
                     WLaction: function() {
-                        wlKeyName = 'parentCategory';
-                        whitelistAction(itemID, wlKeyName);
+                        whitelistAction(itemID, this.WLkey);
                     }
                 },
 
@@ -2118,19 +2138,17 @@
 
                 suspectDesc: {  // no WL
                     active: false, severity: 2, message: 'Description field might contain copyrighted info.',
-                    WLactive: true, WLmessage: '', WLtitle: 'Whitelist description',
+                    WLactive: true, WLmessage: '', WLtitle: 'Whitelist description', WLkey: 'suspectDesc',
                     WLaction: function() {
-                        wlKeyName = 'suspectDesc';
-                        whitelistAction(itemID, wlKeyName);
+                        whitelistAction(itemID, this.WLkey);
                     }
                 },
 
                 resiTypeName: {
                     active: false, severity: 2, message: 'The place name suggests a residential place or personalized place of work.  Please verify.',
-                    WLactive: true, WLmessage: '', WLtitle: 'Whitelist Residential-type name',
+                    WLactive: true, WLmessage: '', WLtitle: 'Whitelist Residential-type name', WLkey: 'resiTypeName',
                     WLaction: function() {
-                        wlKeyName = 'resiTypeName';
-                        whitelistAction(itemID, wlKeyName);
+                        whitelistAction(itemID, this.WLkey);
                     }
                 },
 
@@ -2144,81 +2162,86 @@
 
                 areaNotPointMid: {
                     active: false, severity: 2, message: 'This category is usually an area place, but can be a point in some cases. Verify if point is appropriate.',
-                    WLactive: true, WLmessage: '', WLtitle: 'Whitelist area (not point)',
+                    WLactive: true, WLmessage: '', WLtitle: 'Whitelist area (not point)', WLkey: 'areaNotPoint',
                     WLaction: function() {
-                        wlKeyName = 'areaNotPoint';
-                        whitelistAction(itemID, wlKeyName);
+                        whitelistAction(itemID, this.WLkey);
                     }
                 },
 
                 pointNotAreaMid: {
                     active: false, severity: 2, message: 'This category is usually a point place, but can be a area in some cases. Verify if area is appropriate.',
-                    WLactive: true, WLmessage: '', WLtitle: 'Whitelist point (not area)',
+                    WLactive: true, WLmessage: '', WLtitle: 'Whitelist point (not area)', WLkey: 'pointNotArea',
                     WLaction: function() {
-                        wlKeyName = 'pointNotArea';
-                        whitelistAction(itemID, wlKeyName);
+                        whitelistAction(itemID, this.WLkey);
+                    }
+                },
+
+                plaNameMissing: {
+                    active: false, severity: 1, message: 'Name is missing.',
+                    WLactive: true, WLmessage: '', WLtitle: 'Whitelist missing name', WLkey: 'plaNameMissing',
+                    WLaction: function() {
+                        whitelistAction(itemID, this.WLkey);
                     }
                 },
 
                 longURL: {
-                    active: false, severity: 1, message: 'Existing URL doesn\'t match the suggested PNH URL. Use the Place Website button below to verify. If existing URL is invalid:', value: "Use PNH URL", title: "Change URL to the PNH standard",
-                    action: function() {
-                        if (tempPNHURL !== '') {
-                            W.model.actionManager.add(new UpdateObject(item, { url: tempPNHURL }));
-                            fieldUpdateObject.url='#dfd';
-                            highlightChangedFields(fieldUpdateObject,hpMode);
-                            bannButt.longURL.active = false;
-                            updateURL = true;
-                        } else {
-                            if (confirm('WMEPH: URL Matching Error!\nClick OK to report this error') ) {  // if the category doesn't translate, then pop an alert that will make a forum post to the thread
-                                forumMsgInputs = {
-                                    subject: 'WMEPH URL comparison Error report',
-                                    message: 'Error report: URL comparison failed for "' + item.attributes.name + '"\nPermalink: ' + placePL
-                                };
-                                WMEPH_errorReport(forumMsgInputs);
+                    active: false, severity: 1, message: 'Existing URL doesn\'t match the suggested PNH URL. Use the Place Website button below to verify. If existing URL is invalid:',
+                    buttons: [{
+                        text: "Use PNH URL",
+                        title: "Change URL to the PNH standard",
+                        action: function() {
+                            if (tempPNHURL !== '') {
+                                W.model.actionManager.add(new UpdateObject(item, { url: tempPNHURL }));
+                                fieldUpdateObject.url='#dfd';
+                                highlightChangedFields(fieldUpdateObject,hpMode);
+                                bannButt.longURL.active = false;
+                                updateURL = true;
+                            } else {
+                                if (confirm('WMEPH: URL Matching Error!\nClick OK to report this error') ) {  // if the category doesn't translate, then pop an alert that will make a forum post to the thread
+                                    forumMsgInputs = {
+                                        subject: 'WMEPH URL comparison Error report',
+                                        message: 'Error report: URL comparison failed for "' + item.attributes.name + '"\nPermalink: ' + placePL
+                                    };
+                                    WMEPH_errorReport(forumMsgInputs);
+                                }
                             }
                         }
-                    },
-                    WLactive: true, WLmessage: '', WLtitle: 'Whitelist existing URL',
+                    }],
+                    WLactive: true, WLmessage: '', WLtitle: 'Whitelist existing URL', WLkey: 'longURL',
                     WLaction: function() {
-                        wlKeyName = 'longURL';
-                        whitelistAction(itemID, wlKeyName);
+                        whitelistAction(itemID, this.WLkey);
                     }
                 },
 
                 gasNoBrand: {
                     active: false, severity: 1, message: 'Verify that gas station has no brand.',
-                    WLactive: true, WLmessage: '', WLtitle: 'Whitelist no gas brand',
+                    WLactive: true, WLmessage: '', WLtitle: 'Whitelist no gas brand', WLkey: 'gasNoBrand',
                     WLaction: function() {
-                        wlKeyName = 'gasNoBrand';
-                        whitelistAction(itemID, wlKeyName);
+                        whitelistAction(itemID, this.WLkey);
                     }
                 },
 
                 subFuel: {
                     active: false, severity: 1, message: 'Make sure this place is for the gas station itself and not the main store building.  Otherwise undo and check the categories.',
-                    WLactive: true, WLmessage: '', WLtitle: 'Whitelist no gas brand',
+                    WLactive: true, WLmessage: '', WLtitle: 'Whitelist no gas brand', WLkey: 'subFuel',
                     WLaction: function() {
-                        wlKeyName = 'subFuel';
-                        whitelistAction(itemID, wlKeyName);
+                        whitelistAction(itemID, this.WLkey);
                     }
                 },
 
                 areaNotPointLow: {
                     active: false, severity: 1, message: 'This category is usually an area place, but can be a point in some cases. Verify if point is appropriate.',
-                    WLactive: true, WLmessage: '', WLtitle: 'Whitelist area (not point)',
+                    WLactive: true, WLmessage: '', WLtitle: 'Whitelist area (not point)', WLkey: 'areaNotPoint',
                     WLaction: function() {
-                        wlKeyName = 'areaNotPoint';
-                        whitelistAction(itemID, wlKeyName);
+                        whitelistAction(itemID, this.WLkey);
                     }
                 },
 
                 pointNotAreaLow: {
                     active: false, severity: 1, message: 'This category is usually a point place, but can be a area in some cases. Verify if area is appropriate.',
-                    WLactive: true, WLmessage: '', WLtitle: 'Whitelist point (not area)',
+                    WLactive: true, WLmessage: '', WLtitle: 'Whitelist point (not area)', WLkey: 'pointNotArea',
                     WLaction: function() {
-                        wlKeyName = 'pointNotArea';
-                        whitelistAction(itemID, wlKeyName);
+                        whitelistAction(itemID, this.WLkey);
                     }
                 },
 
@@ -2228,19 +2251,17 @@
 
                 catHotel: {
                     active: false, severity: 1, message: 'Check hotel website for any name localization (e.g. Hilton - Tampa Airport)',
-                    WLactive: true, WLmessage: '', WLtitle: 'Whitelist hotel localization',
+                    WLactive: true, WLmessage: '', WLtitle: 'Whitelist hotel localization', WLkey: 'hotelLocWL',
                     WLaction: function() {
-                        wlKeyName = 'hotelLocWL';
-                        whitelistAction(itemID, wlKeyName);
+                        whitelistAction(itemID, this.WLkey);
                     }
                 },
 
                 localizedName: {
                     active: false, severity: 1, message: 'Place needs localization information',
-                    WLactive: true, WLmessage: '', WLtitle: 'Whitelist localization',
+                    WLactive: true, WLmessage: '', WLtitle: 'Whitelist localization', WLkey: 'localizedName',
                     WLaction: function() {
-                        wlKeyName = 'localizedName';
-                        whitelistAction(itemID, wlKeyName);
+                        whitelistAction(itemID, this.WLkey);
                     }
                 },
 
@@ -2257,137 +2278,149 @@
                 },
 
                 extProviderMissing: {
-                    active:false, severity:3, message:'Missing External Provider ',
-                    WLactive:true, WLmessage:'', WLtitle:'Whitelist missing external provider',
+                    active: false, severity: 3, message: 'No external provider ',
+                    WLactive: true, WLmessage: '', WLtitle: 'Whitelist missing external provider', WLkey: 'extProviderMissing',
                     WLaction: function() {
-                        wlKeyName = 'extProviderMissing';
-                        whitelistAction(itemID, wlKeyName);
+                        whitelistAction(itemID, this.WLkey);
                     }
                 },
 
                 urlMissing: {
-                    active: false, severity: 1, message: '<span class="wmeph-label">No URL</span><input type="text" id="WMEPH-UrlAdd'+devVersStr+'" autocomplete="off" class="wmeph-input-box">',
-                    value: "Add", title: 'Add URL to place',
+                    active: false, severity: 1, message: 'No URL',
+                    input: '<input type="text" id="WMEPH-UrlAdd'+devVersStr+'" autocomplete="off" class="wmeph-input-box">',
                     badInput: false,
-                    action: function() {
-                        var newUrlValue = $('#WMEPH-UrlAdd'+devVersStr).val();
-                        var newUrl = normalizeURL(newUrlValue, true, false);
-                        if (newUrl === 'badURL') {
-                            this.badInput = true;
-                        } else {
-                            phlogdev(newUrl);
-                            W.model.actionManager.add(new UpdateObject(item, { url: newUrl }));
-                            fieldUpdateObject.url='#dfd';
-                            bannButt.urlMissing.active = false;
-                            bannButt.PlaceWebsite.active = true;
-                            this.badInput = false;
+                    buttons: [{
+                        text: "Add",
+                        title: 'Add URL to place',
+                        action: function() {
+                            var newUrlValue = $('#WMEPH-UrlAdd'+devVersStr).val();
+                            var newUrl = normalizeURL(newUrlValue, true, false);
+                            if (newUrl === 'badURL') {
+                                this.badInput = true;
+                            } else {
+                                phlogdev(newUrl);
+                                W.model.actionManager.add(new UpdateObject(item, { url: newUrl }));
+                                fieldUpdateObject.url='#dfd';
+                                bannButt.urlMissing.active = false;
+                                bannButt.PlaceWebsite.active = true;
+                                this.badInput = false;
+                            }
                         }
-                    },
-                    WLactive: true, WLmessage: '', WLtitle: 'Whitelist empty URL',
+                    }],
+                    WLactive: true, WLmessage: '', WLtitle: 'Whitelist empty URL', WLkey: 'urlWL',
                     WLaction: function() {
-                        wlKeyName = 'urlWL';
-                        whitelistAction(itemID, wlKeyName);
+                        whitelistAction(itemID, this.WLkey);
                     }
                 },
 
                 phoneMissing: {
-                    active: false, severity: 1, message: '<span class="wmeph-label">No Ph#</span><input type="text" id="WMEPH-PhoneAdd'+devVersStr+'" autocomplete="off" class="wmeph-input-box">',
-                    value: "Add", title: 'Add phone to place',
+                    active: false, severity: 1, message: 'No Ph#',
+                    input: '<input type="text" id="WMEPH-PhoneAdd'+devVersStr+'" autocomplete="off" class="wmeph-input-box">',
                     badInput: false,
-                    action: function() {
-                        var newPhoneVal = $('#WMEPH-PhoneAdd'+devVersStr).val();
-                        var newPhone = normalizePhone(newPhoneVal, outputFormat, 'inputted');
-                        if (newPhone === 'badPhone') {
-                            this.badInput = true;
-                        } else {
-                            this.badInput = false;
-                            phlogdev(newPhone);
-                            if (myCountry2L === "US" || myCountry2L === "CA") {
-                                if (newPhone !== null && newPhone.match(/[2-9]\d{2}/) !== null) {
-                                    var areaCode = newPhone.match(/[2-9]\d{2}/)[0];
-                                    if ( areaCodeList.indexOf(areaCode) === -1 ) {
-                                        bannButt.badAreaCode.active = true;
-                                        if (currentWL.aCodeWL) {
-                                            bannButt.badAreaCode.WLactive = false;
+                    buttons: [{
+                        text: "Add",
+                        title: 'Add phone to place',
+                        action: function() {
+                            var newPhoneVal = $('#WMEPH-PhoneAdd'+devVersStr).val();
+                            var newPhone = normalizePhone(newPhoneVal, outputFormat, 'inputted');
+                            if (newPhone === 'badPhone') {
+                                this.badInput = true;
+                            } else {
+                                this.badInput = false;
+                                phlogdev(newPhone);
+                                if (myCountry2L === "US" || myCountry2L === "CA") {
+                                    if (newPhone !== null && newPhone.match(/[2-9]\d{2}/) !== null) {
+                                        var areaCode = newPhone.match(/[2-9]\d{2}/)[0];
+                                        if ( areaCodeList.indexOf(areaCode) === -1 ) {
+                                            bannButt.badAreaCode.active = true;
+                                            if (currentWL.aCodeWL) {
+                                                bannButt.badAreaCode.WLactive = false;
+                                            }
                                         }
                                     }
                                 }
+                                W.model.actionManager.add(new UpdateObject(item, { phone: newPhone }));
+                                fieldUpdateObject.phone='#dfd';
+                                bannButt.phoneMissing.active = false;
                             }
-                            W.model.actionManager.add(new UpdateObject(item, { phone: newPhone }));
-                            fieldUpdateObject.phone='#dfd';
-                            bannButt.phoneMissing.active = false;
                         }
-
-                    },
-                    WLactive: true, WLmessage: '', WLtitle: 'Whitelist empty phone',
+                    }],
+                    WLactive: true, WLmessage: '', WLtitle: 'Whitelist empty phone', WLkey: 'phoneWL',
                     WLaction: function() {
-                        wlKeyName = 'phoneWL';
-                        whitelistAction(itemID, wlKeyName);
+                        whitelistAction(itemID, this.WLkey);
                     }
                 },
 
                 badAreaCode: {
                     active: false, severity: 1, message: '<span class="wmeph-label">Area Code mismatch</span>',
-                    WLactive: true, WLmessage: '', WLtitle: 'Whitelist the area code',
+                    WLactive: true, WLmessage: '', WLtitle: 'Whitelist the area code', WLkey: 'aCodeWL',
                     WLaction: function() {
-                        wlKeyName = 'aCodeWL';
-                        whitelistAction(itemID, wlKeyName);
+                        whitelistAction(itemID, this.WLkey);
                     }
                 },
 
                 noHours: {
-                    active: false, severity: 1, message: '<span class="wmeph-label">No hours</span><input type="text" value="Paste Hours Here" id="WMEPH-HoursPaste'+devVersStr+'" autocomplete="off" class="wmeph-input-box"><br>',
-                    value: "Add", title: 'Add pasted hours to existing',
-                    action: function() {
-                        var pasteHours = $('#WMEPH-HoursPaste'+devVersStr).val();
-                        phlogdev(pasteHours);
-                        $('.nav-tabs a[href="#landmark-edit-more-info"]').tab('show');
-                        pasteHours = pasteHours + ',' + getOpeningHours(item).join(',');
-                        var hoursObjectArray = parseHours(pasteHours);
-                        if (hoursObjectArray !== false) {
-                            phlogdev(hoursObjectArray);
-                            W.model.actionManager.add(new UpdateObject(item, { openingHours: hoursObjectArray }));
-                            fieldUpdateObject.openingHours='#dfd';
-                            highlightChangedFields(fieldUpdateObject,hpMode);
-                            bannButt.noHours.value = 'Add';
-                            bannButt.noHours.severity = 0;
-                            bannButt.noHours.WLactive = false;
-                            bannButt.noHours.message = '<span class="wmeph-label">Hours</span><input type="text" value="Paste Hours Here" id="WMEPH-HoursPaste'+devVersStr+'" class="wmeph-input-box">';
-                        } else {
-                            phlog('Can\'t parse those hours');
-                            bannButt.noHours.severity = 1;
-                            bannButt.noHours.WLactive = true;
-                            bannButt.noHours.message = '<span class="wmeph-label">Hours</span><input type="text" value="Can\'t parse, try again" id="WMEPH-HoursPaste'+devVersStr+'" class="wmeph-input-box">';
-                        }
-                    },
-                    value2: "Replace all hours", title2: 'Replace existing hours with pasted hours',
-                    action2: function() {
-                        var pasteHours = $('#WMEPH-HoursPaste'+devVersStr).val();
-                        phlogdev(pasteHours);
-                        $('.nav-tabs a[href="#landmark-edit-more-info"]').tab('show');
-                        var hoursObjectArray = parseHours(pasteHours);
-                        if (hoursObjectArray !== false) {
-                            phlogdev(hoursObjectArray);
-                            item.attributes.openingHours.push.apply(item.attributes.openingHours, hoursObjectArray);
-                            W.model.actionManager.add(new UpdateObject(item, { openingHours: hoursObjectArray }));
-                            fieldUpdateObject.openingHours='#dfd';
-                            highlightChangedFields(fieldUpdateObject,hpMode);
-                            bannButt.noHours.value2 = 'Replace hours';
-                            bannButt.noHours.severity = 0;
-                            bannButt.noHours.WLactive = false;
-                            bannButt.noHours.message = '<span class="wmeph-label">Hours</span><input type="text" value="Paste Hours Here" id="WMEPH-HoursPaste'+devVersStr+'" class="wmeph-input-box">';
-                        } else {
-                            phlog('Can\'t parse those hours');
-                            bannButt.noHours.severity = 1;
-                            bannButt.noHours.WLactive = true;
-                            bannButt.noHours.message = 'Hours: <input type="text" value="Can\'t parse, try again" id="WMEPH-HoursPaste'+devVersStr+'" class="wmeph-input-box">';
-                        }
+                    active: false, severity: 1, message: 'No hours',
+                    input: '<input type="textarea" value="Paste Hours Here" id="WMEPH-HoursPaste'+devVersStr+'" autocomplete="off" class="wmeph-input-box">',
+                    buttons: [
+                        {
+                            text: '<span class="fa fa-plus"></span>',
+                            title: 'Add pasted hours to existing',
+                            action: function() {
+                                var pasteHours = $('#WMEPH-HoursPaste'+devVersStr).val();
+                                phlogdev(pasteHours);
+                                $('.nav-tabs a[href="#landmark-edit-more-info"]').tab('show');
+                                pasteHours = pasteHours + ',' + getOpeningHours(item).join(',');
+                                var hoursObjectArray = parseHours(pasteHours);
+                                if (hoursObjectArray !== false) {
+                                    phlogdev(hoursObjectArray);
+                                    W.model.actionManager.add(new UpdateObject(item, { openingHours: hoursObjectArray }));
+                                    fieldUpdateObject.openingHours='#dfd';
+                                    highlightChangedFields(fieldUpdateObject,hpMode);
+                                    bannButt.noHours.severity = 0;
+                                    bannButt.noHours.WLactive = false;
+                                    bannButt.noHours.message = 'Hours';
+                                    bannButt.noHours.input = '<input type="text" value="Paste Hours Here" id="WMEPH-HoursPaste'+devVersStr+'" class="wmeph-input-box">';
+                                } else {
+                                    phlog('Can\'t parse those hours');
+                                    bannButt.noHours.severity = 1;
+                                    bannButt.noHours.WLactive = true;
+                                    bannButt.noHours.input = '<input type="text" value="Can\'t parse, try again" id="WMEPH-HoursPaste'+devVersStr+'" class="wmeph-input-box">';
+                                }
+                            }
+                        },
+                        {
+                            text: '<span class="fa fa-refresh"></span>',
+                            title: 'Replace existing hours with pasted hours',
+                            id: 'WMEPH_noHours_replace',
+                            action: function() {
+                                var pasteHours = $('#WMEPH-HoursPaste'+devVersStr).val();
+                                phlogdev(pasteHours);
+                                $('.nav-tabs a[href="#landmark-edit-more-info"]').tab('show');
+                                var hoursObjectArray = parseHours(pasteHours);
+                                if (hoursObjectArray !== false) {
+                                    phlogdev(hoursObjectArray);
+                                    item.attributes.openingHours.push.apply(item.attributes.openingHours, hoursObjectArray);
+                                    W.model.actionManager.add(new UpdateObject(item, { openingHours: hoursObjectArray }));
+                                    fieldUpdateObject.openingHours='#dfd';
+                                    highlightChangedFields(fieldUpdateObject,hpMode);
+                                    bannButt.noHours.severity = 0;
+                                    bannButt.noHours.WLactive = false;
+                                    bannButt.noHours.message = 'Hours';
+                                    bannButt.noHours.input = '<input type="text" value="Paste Hours Here" id="WMEPH-HoursPaste'+devVersStr+'" class="wmeph-input-box">';
+                                } else {
+                                    phlog('Can\'t parse those hours');
+                                    bannButt.noHours.severity = 1;
+                                    bannButt.noHours.WLactive = true;
+                                    bannButt.noHours.input = '<input type="text" value="Can\'t parse, try again" id="WMEPH-HoursPaste'+devVersStr+'" class="wmeph-input-box">';
+                                }
 
-                    },
-                    WLactive: true, WLmessage: '', WLtitle: 'Whitelist no Hours',
+                            }
+                        }
+                    ],
+                    WLactive: true, WLmessage: '', WLtitle: 'Whitelist no Hours', WLkey: 'noHours',
                     WLaction: function() {
-                        wlKeyName = 'noHours';
-                        whitelistAction(itemID, wlKeyName);
+                        whitelistAction(itemID, this.WLkey);
                     }
                 },
 
@@ -2404,138 +2437,178 @@
                 },
 
                 lockRPP: {    // no WL
-                    active: false, severity: 0, message: 'Lock this residential point?', value: "Lock", title: 'Lock the residential point',
-                    action: function() {
-                        var RPPlevelToLock = $("#RPPLockLevel :selected").val() || defaultLock + 1;
-                        phlogdev('RPPlevelToLock: '+ RPPlevelToLock);
+                    active: false, severity: 0, message: 'Lock this residential point?',
+                    buttons: [{
+                        text: "Lock",
+                        title: 'Lock the residential point',
+                        action: function() {
+                            var RPPlevelToLock = $("#RPPLockLevel :selected").val() || defaultLock + 1;
+                            phlogdev('RPPlevelToLock: '+ RPPlevelToLock);
 
-                        RPPlevelToLock = RPPlevelToLock -1 ;
-                        W.model.actionManager.add(new UpdateObject(item, { lockRank: RPPlevelToLock }));
-                        // no field highlight here
-                        bannButt.lockRPP.message = 'Current lock: '+ (parseInt(item.attributes.lockRank)+1) +'. '+RPPLockString+' ?';
-                    }
+                            RPPlevelToLock = RPPlevelToLock -1 ;
+                            W.model.actionManager.add(new UpdateObject(item, { lockRank: RPPlevelToLock }));
+                            // no field highlight here
+                            bannButt.lockRPP.message = 'Current lock: '+ (parseInt(item.attributes.lockRank)+1) +'. '+RPPLockString+' ?';
+                        }
+                    }]
                 },
 
                 addAlias: {    // no WL
-                    active: false, severity: 0, message: "Is " + optionalAlias + " at this location?", value: "Yes", title: 'Add ' + optionalAlias,
-                    action: function() {
-                        newAliases = insertAtIX(newAliases,optionalAlias,0);
-                        if (specCases.indexOf('altName2Desc') > -1 &&  item.attributes.description.toUpperCase().indexOf(optionalAlias.toUpperCase()) === -1 ) {
-                            newDescripion = optionalAlias + '\n' + newDescripion;
-                            W.model.actionManager.add(new UpdateObject(item, { description: newDescripion }));
-                            fieldUpdateObject.description='#dfd';
+                    active: false, severity: 0, message: "Is " + optionalAlias + " at this location?",
+                    buttons: [{
+                        text: "Yes",
+                        title: 'Add ' + optionalAlias,
+                        action: function() {
+                            newAliases = insertAtIX(newAliases,optionalAlias,0);
+                            if (specCases.indexOf('altName2Desc') > -1 &&  item.attributes.description.toUpperCase().indexOf(optionalAlias.toUpperCase()) === -1 ) {
+                                newDescripion = optionalAlias + '\n' + newDescripion;
+                                W.model.actionManager.add(new UpdateObject(item, { description: newDescripion }));
+                                fieldUpdateObject.description='#dfd';
+                                highlightChangedFields(fieldUpdateObject,hpMode);
+                            }
+                            newAliases = removeSFAliases(newName, newAliases);
+                            W.model.actionManager.add(new UpdateObject(item, { aliases: newAliases }));
+                            fieldUpdateObject.aliases='#dfd';
                             highlightChangedFields(fieldUpdateObject,hpMode);
+                            bannButt.addAlias.active = false;  // reset the display flag
                         }
-                        newAliases = removeSFAliases(newName, newAliases);
-                        W.model.actionManager.add(new UpdateObject(item, { aliases: newAliases }));
-                        fieldUpdateObject.aliases='#dfd';
-                        highlightChangedFields(fieldUpdateObject,hpMode);
-                        bannButt.addAlias.active = false;  // reset the display flag
-                    }
+                    }]
                 },
 
                 addCat2: {   // no WL
-                    active: false, severity: 0, message: "Is there a " + newCategories[0] + " at this location?", value: "Yes", title: 'Add ' + newCategories[0],
-                    action: function() {
-                        newCategories.push.apply(newCategories,altCategories);
-                        W.model.actionManager.add(new UpdateObject(item, { categories: newCategories }));
-                        fieldUpdateObject.categories='#dfd';
-                        highlightChangedFields(fieldUpdateObject,hpMode);
-                        bannButt.addCat2.active = false;  // reset the display flag
-                    }
+                    active: false, severity: 0, message: "Is there a " + newCategories[0] + " at this location?",
+                    buttons: [{
+                        text: "Yes",
+                        title: 'Add ' + newCategories[0],
+                        action: function() {
+                            newCategories.push.apply(newCategories,altCategories);
+                            W.model.actionManager.add(new UpdateObject(item, { categories: newCategories }));
+                            fieldUpdateObject.categories='#dfd';
+                            highlightChangedFields(fieldUpdateObject,hpMode);
+                            bannButt.addCat2.active = false;  // reset the display flag
+                        }
+                    }]
                 },
 
                 addPharm: {   // no WL
-                    active: false, severity: 0, message: "Is there a Pharmacy at this location?", value: "Yes", title: 'Add Pharmacy category',
-                    action: function() {
-                        newCategories = insertAtIX(newCategories, 'PHARMACY', 1);
-                        W.model.actionManager.add(new UpdateObject(item, { categories: newCategories }));
-                        fieldUpdateObject.categories='#dfd';
-                        highlightChangedFields(fieldUpdateObject,hpMode);
-                        bannButt.addPharm.active = false;  // reset the display flag
-                    }
+                    active: false, severity: 0, message: "Is there a Pharmacy at this location?",
+                    buttons: [{
+                        text: "Yes",
+                        title: 'Add Pharmacy category',
+                        action: function() {
+                            newCategories = insertAtIX(newCategories, 'PHARMACY', 1);
+                            W.model.actionManager.add(new UpdateObject(item, { categories: newCategories }));
+                            fieldUpdateObject.categories='#dfd';
+                            highlightChangedFields(fieldUpdateObject,hpMode);
+                            bannButt.addPharm.active = false;  // reset the display flag
+                        }
+                    }]
                 },
 
                 addSuper: {   // no WL
-                    active: false, severity: 0, message: "Does this location have a supermarket?", value: "Yes", title: 'Add Supermarket category',
-                    action: function() {
-                        newCategories = insertAtIX(newCategories, 'SUPERMARKET_GROCERY', 1);
-                        W.model.actionManager.add(new UpdateObject(item, { categories: newCategories }));
-                        fieldUpdateObject.categories='#dfd';
-                        highlightChangedFields(fieldUpdateObject,hpMode);
-                        bannButt.addSuper.active = false;  // reset the display flag
-                    }
+                    active: false, severity: 0, message: "Does this location have a supermarket?",
+                    buttons: [{
+                        text: "Yes",
+                        title: 'Add Supermarket category',
+                        action: function() {
+                            newCategories = insertAtIX(newCategories, 'SUPERMARKET_GROCERY', 1);
+                            W.model.actionManager.add(new UpdateObject(item, { categories: newCategories }));
+                            fieldUpdateObject.categories='#dfd';
+                            highlightChangedFields(fieldUpdateObject,hpMode);
+                            bannButt.addSuper.active = false;  // reset the display flag
+                        }
+                    }]
                 },
 
                 appendAMPM: {   // no WL
-                    active: false, severity: 0, message: "Is there an ampm at this location?", id: "appendAMPM", value: "Yes", title: 'Add ampm to the place',
-                    action: function() {
-                        newCategories = insertAtIX(newCategories, 'CONVENIENCE_STORE', 1);
-                        newName = 'ARCO ampm';
-                        newURL = 'ampm.com';
-                        W.model.actionManager.add(new UpdateObject(item, { name: newName, url: newURL, categories: newCategories }));
-                        fieldUpdateObject.name='#dfd';
-                        fieldUpdateObject.url='#dfd';
-                        fieldUpdateObject.categories='#dfd';
-                        highlightChangedFields(fieldUpdateObject,hpMode);
-                        bannButt.appendAMPM.active = false;  // reset the display flag
-                        bannButt.addConvStore.active = false;  // also reset the addConvStore display flag
-                    }
+                    active: false, severity: 0, message: "Is there an ampm at this location?", id: "appendAMPM",
+                    buttons: [{
+                        text: "Yes",
+                        title: 'Add ampm to the place',
+                        action: function() {
+                            newCategories = insertAtIX(newCategories, 'CONVENIENCE_STORE', 1);
+                            newName = 'ARCO ampm';
+                            newURL = 'ampm.com';
+                            W.model.actionManager.add(new UpdateObject(item, { name: newName, url: newURL, categories: newCategories }));
+                            fieldUpdateObject.name='#dfd';
+                            fieldUpdateObject.url='#dfd';
+                            fieldUpdateObject.categories='#dfd';
+                            highlightChangedFields(fieldUpdateObject,hpMode);
+                            bannButt.appendAMPM.active = false;  // reset the display flag
+                            bannButt.addConvStore.active = false;  // also reset the addConvStore display flag
+                        }
+                    }]
                 },
 
                 addATM: {    // no WL
-                    active: false, severity: 0, message: "ATM at location? ", value: "Yes", title: "Add the ATM category to this place",
-                    action: function() {
-                        newCategories = insertAtIX(newCategories,"ATM",1);  // Insert ATM category in the second position
-                        W.model.actionManager.add(new UpdateObject(item, { categories: newCategories }));
-                        fieldUpdateObject.categories='#dfd';
-                        highlightChangedFields(fieldUpdateObject,hpMode);
-                        bannButt.addATM.active = false;   // reset the display flag
-                    }
+                    active: false, severity: 0, message: "ATM at location? ",
+                    buttons: [{
+                        text: "Yes",
+                        title: "Add the ATM category to this place",
+                        action: function() {
+                            newCategories = insertAtIX(newCategories,"ATM",1);  // Insert ATM category in the second position
+                            W.model.actionManager.add(new UpdateObject(item, { categories: newCategories }));
+                            fieldUpdateObject.categories='#dfd';
+                            highlightChangedFields(fieldUpdateObject,hpMode);
+                            bannButt.addATM.active = false;   // reset the display flag
+                        }
+                    }]
                 },
 
                 addConvStore: {  // no WL
-                    active: false, severity: 0, message: "Add convenience store category? ", value: "Yes", title: "Add the Convenience Store category to this place",
-                    action: function() {
-                        newCategories = insertAtIX(newCategories,"CONVENIENCE_STORE",1);  // Insert C.S. category in the second position
-                        W.model.actionManager.add(new UpdateObject(item, { categories: newCategories }));
-                        fieldUpdateObject.categories='#dfd';
-                        highlightChangedFields(fieldUpdateObject,hpMode);
-                        bannButt.addConvStore.active = false;   // reset the display flag
-                    }
+                    active: false, severity: 0, message: "Add convenience store category? ",
+                    buttons: [{
+                        text: "Yes",
+                        title: "Add the Convenience Store category to this place",
+                        action: function() {
+                            newCategories = insertAtIX(newCategories,"CONVENIENCE_STORE",1);  // Insert C.S. category in the second position
+                            W.model.actionManager.add(new UpdateObject(item, { categories: newCategories }));
+                            fieldUpdateObject.categories='#dfd';
+                            highlightChangedFields(fieldUpdateObject,hpMode);
+                            bannButt.addConvStore.active = false;   // reset the display flag
+                        }
+                    }]
                 },
 
                 isitUSPS: {  // no WL
-                    active: false, severity: 0, message: "Is this a USPS location? ", value: "Yes", title: "Is this a USPS location?",
-                    action: function() {
-                        bannServ.addAC.actionOn();
-                        bannServ.addCreditCards.actionOn();
-                        bannServ.addParking.actionOn();
-                        bannServ.addDeliveries.actionOn();
-                        bannServ.addWheelchair.actionOn();
-                        W.model.actionManager.add(new UpdateObject(item, { url: "usps.com" }));
-                        fieldUpdateObject.url='#dfd';
-                        highlightChangedFields(fieldUpdateObject,hpMode);
-                        if (myPlace.psRegion === 'SER') {
-                            W.model.actionManager.add(new UpdateObject(item, { aliases: ["United States Postal Service"] }));
-                            fieldUpdateObject.aliases='#dfd';
+                    active: false, severity: 0, message: "Is this a USPS location? ",
+                    buttons: [{
+                        text: "Yes",
+                        title: "Is this a USPS location?",
+                        action: function() {
+                            bannServ.addAC.actionOn();
+                            bannServ.addCreditCards.actionOn();
+                            bannServ.addParking.actionOn();
+                            bannServ.addDeliveries.actionOn();
+                            bannServ.addWheelchair.actionOn();
+                            W.model.actionManager.add(new UpdateObject(item, { url: "usps.com" }));
+                            fieldUpdateObject.url='#dfd';
                             highlightChangedFields(fieldUpdateObject,hpMode);
+                            if (myPlace.psRegion === 'SER') {
+                                W.model.actionManager.add(new UpdateObject(item, { aliases: ["United States Postal Service"] }));
+                                fieldUpdateObject.aliases='#dfd';
+                                highlightChangedFields(fieldUpdateObject,hpMode);
+                            }
+                            bannButt.isitUSPS.active = false;
                         }
-                        bannButt.isitUSPS.active = false;
-                    }
+                    }]
                 },
 
                 STC: {    // no WL
-                    active: false, severity: 0, message: "Force Title Case: ", value: "Yes", title: "Force Title Case to InterNal CaPs",
-                    action: function() {
-                        newName = toTitleCaseStrong(item.attributes.name);  // Get the Strong Title Case name
-                        if (newName !== item.attributes.name) {  // if they are not equal
-                            W.model.actionManager.add(new UpdateObject(item, { name: newName }));
-                            fieldUpdateObject.name='#dfd';
-                            highlightChangedFields(fieldUpdateObject,hpMode);
+                    active: false, severity: 0, message: "Force Title Case: ",
+                    buttons: [{
+                        text: "Yes",
+                        title: "Force Title Case to InterNal CaPs",
+                        action: function() {
+                            newName = toTitleCaseStrong(item.attributes.name);  // Get the Strong Title Case name
+                            if (newName !== item.attributes.name) {  // if they are not equal
+                                W.model.actionManager.add(new UpdateObject(item, { name: newName }));
+                                fieldUpdateObject.name='#dfd';
+                                highlightChangedFields(fieldUpdateObject,hpMode);
+                            }
+                            bannButt.STC.active = false;  // reset the display flag
                         }
-                        bannButt.STC.active = false;  // reset the display flag
-                    }
+                    }]
                 },
 
                 sfAliases: {    // no WL
@@ -2547,93 +2620,131 @@
                 },
 
                 placeLocked: {    // no WL
-                    active: false, severity: 0, message: '<span class="fa fa-lock"></span> Place locked'
+                    active: false, severity: 0, message: 'Place locked  <span class="fa fa-lock"></span>'
                 },
 
                 PlaceWebsite: {    // no WL
-                    active: false, severity: 0, message: "", value: "Place Website", title: "Direct link to place website", fullWidthButton: true,
-                    action: function() {
-                        var openPlaceWebsiteURL, linkProceed = true;
-                        if (updateURL) {
-                            if (/^https?:\/\//.test(newURL)) {
-                                openPlaceWebsiteURL = newURL;
+                    active: false, severity: -1, message: "",
+                    buttons: [{
+                        text: "Place Website",
+                        title: "Direct link to place website", fullWidthButton: true,
+                        action: function() {
+                            var openPlaceWebsiteURL, linkProceed = true;
+                            if (updateURL) {
+                                if (/^https?:\/\//.test(newURL)) {
+                                    openPlaceWebsiteURL = newURL;
+                                } else {
+                                    openPlaceWebsiteURL = 'http://' + newURL;
+                                }
+                                // replace WME url with storefinder URLs if they are in the PNH data
+                                if (customStoreFinder) {
+                                    openPlaceWebsiteURL = customStoreFinderURL;
+                                } else if (customStoreFinderLocal) {
+                                    openPlaceWebsiteURL = customStoreFinderLocalURL;
+                                }
+                                // If the user has 'never' opened a localized store finder URL, then warn them (just once)
+                                if (localStorage.getItem(SFURLWarning) === '0' && customStoreFinderLocal) {
+                                    linkProceed = false;
+                                    if (confirm('***Localized store finder sites often show multiple nearby results. Please make sure you pick the right location.\nClick OK to agree and continue.') ) {  // if the category doesn't translate, then pop an alert that will make a forum post to the thread
+                                        localStorage.setItem(SFURLWarning, '1');  // prevent future warnings
+                                        linkProceed = true;
+                                    }
+                                }
                             } else {
-                                openPlaceWebsiteURL = 'http://' + newURL;
-                            }
-                            // replace WME url with storefinder URLs if they are in the PNH data
-                            if (customStoreFinder) {
-                                openPlaceWebsiteURL = customStoreFinderURL;
-                            } else if (customStoreFinderLocal) {
-                                openPlaceWebsiteURL = customStoreFinderLocalURL;
-                            }
-                            // If the user has 'never' opened a localized store finder URL, then warn them (just once)
-                            if (localStorage.getItem(SFURLWarning) === '0' && customStoreFinderLocal) {
-                                linkProceed = false;
-                                if (confirm('***Localized store finder sites often show multiple nearby results. Please make sure you pick the right location.\nClick OK to agree and continue.') ) {  // if the category doesn't translate, then pop an alert that will make a forum post to the thread
-                                    localStorage.setItem(SFURLWarning, '1');  // prevent future warnings
-                                    linkProceed = true;
+                                if (/^https?:\/\//.test(item.attributes.url)) {
+                                    openPlaceWebsiteURL = item.attributes.url;
+                                } else {
+                                    openPlaceWebsiteURL = 'http://' + item.attributes.url;
                                 }
                             }
-                        } else {
-                            if (/^https?:\/\//.test(item.attributes.url)) {
-                                openPlaceWebsiteURL = item.attributes.url;
-                            } else {
-                                openPlaceWebsiteURL = 'http://' + item.attributes.url;
+                            // open the link depending on new window setting
+                            if (linkProceed) {
+                                if ( $("#WMEPH-WebSearchNewTab" + devVersStr).prop('checked') ) {
+                                    openWindow(openPlaceWebsiteURL);
+                                } else {
+                                    window.open(openPlaceWebsiteURL, searchResultsWindowName, searchResultsWindowSpecs);
+                                }
                             }
                         }
-                        // open the link depending on new window setting
-                        if (linkProceed) {
-                            if ( $("#WMEPH-WebSearchNewTab" + devVersStr).prop('checked') ) {
-                                openWindow(openPlaceWebsiteURL);
-                            } else {
-                                window.open(openPlaceWebsiteURL, searchResultsWindowName, searchResultsWindowSpecs);
-                            }
-                        }
-                    }
+                    }]
                 },
 
                 webSearch: {  // no WL
-                    active: false, severity: 0, message: "", value: "Web Search", title: "Search the web for this place.  Do not copy info from 3rd party sources!", fullWidthButton: true,
-                    action: function() {
-                        if (localStorage.getItem(GLinkWarning) !== '1') {
-                            if (confirm('***Please DO NOT copy info from Google or third party sources.*** This link is to help you find the business webpage.\nClick OK to agree and continue.') ) {  // if the category doesn't translate, then pop an alert that will make a forum post to the thread
-                                localStorage.setItem(GLinkWarning, '1');
+                    active: false, severity: -1, message: "",
+                    buttons: [{
+                        text: 'Web Search <span class="fa fa-search"></span>',
+                        title: "Search the web for this place.  Do not copy info from 3rd party sources!",
+                        fullWidthButton: true,
+                        action: function() {
+                            if (localStorage.getItem(GLinkWarning) !== '1') {
+                                if (confirm('***Please DO NOT copy info from Google or third party sources.*** This link is to help you find the business webpage.\nClick OK to agree and continue.') ) {  // if the category doesn't translate, then pop an alert that will make a forum post to the thread
+                                    localStorage.setItem(GLinkWarning, '1');
+                                }
+                            }
+                            if (localStorage.getItem(GLinkWarning) === '1') {
+                                if ( $("#WMEPH-WebSearchNewTab" + devVersStr).prop('checked') ) {
+                                    openWindow(buildGLink(newName,addr,item.attributes.houseNumber));
+                                } else {
+                                    window.open(buildGLink(newName,addr,item.attributes.houseNumber), searchResultsWindowName, searchResultsWindowSpecs);
+                                }
                             }
                         }
-                        if (localStorage.getItem(GLinkWarning) === '1') {
-                            if ( $("#WMEPH-WebSearchNewTab" + devVersStr).prop('checked') ) {
-                                openWindow(buildGLink(newName,addr,item.attributes.houseNumber));
-                            } else {
-                                window.open(buildGLink(newName,addr,item.attributes.houseNumber), searchResultsWindowName, searchResultsWindowSpecs);
-                            }
-                        }
-                    }
+                    }]
                 },
 
                 NewPlaceSubmit: {    // no WL
-                    active: false, severity: 0, message: "No PNH match. If it's a chain: ", fullWidthButton: true, value: "Submit new chain data", title: "Submit info for a new chain through the linked form",
-                    action: function() {
-                        window.open(newPlaceURL);
-                    }
+                    active: false, severity: -1, id: 'wmeph-no-pnh-row', message: "No PNH match. If it's a chain: ",
+                    buttons: [{
+                        text: "Submit new chain data",
+                        title: "Submit info for a new chain through the linked form",
+                        fullWidthButton: true,
+                        action: function() {
+                            window.open(newPlaceURL);
+                        }
+                    }]
                 },
 
                 ApprovalSubmit: {  // no WL
-                    active: false, severity: 0, message: "PNH data exists but is not approved for this region: ", value: "Request approval", title: "Request region/country approval of this place",
-                    action: function() {
-                        if ( PMUserList.hasOwnProperty(myPlace.psRegion) && PMUserList[myPlace.psRegion].approvalActive ) {
-                            var forumPMInputs = {
-                                subject: 'PNH approval for "' + PNHNameTemp + '"',
-                                message: 'Please approve "' + PNHNameTemp + '" for the ' + myPlace.psRegion + ' region.  Thanks\n \nPNH order number: ' + PNHOrderNum + '\n \nExample Permalink: ' + placePL + '\n \nPNH Link: ' + USAPNHMasURL,
-                                preview: 'Preview', attach_sig: 'on'
-                            };
-                            forumPMInputs['address_list[u]['+PMUserList[myPlace.psRegion].modID+']'] = 'to';  // Sends a PM to the regional mod instead of the submission form
-                            WMEPH_newForumPost('https://www.waze.com/forum/ucp.php?i=pm&mode=compose', forumPMInputs);
-                        } else {
-                            window.open(approveRegionURL);
+                    active: false, severity: -1, message: "PNH data exists but is not approved for this region: ", verticalLayout: true,
+                    buttons: [{
+                        text: "Request approval",
+                        title: "Request region/country approval of this place",
+                        action: function() {
+                            if ( PMUserList.hasOwnProperty(myPlace.psRegion) && PMUserList[myPlace.psRegion].approvalActive ) {
+                                var forumPMInputs = {
+                                    subject: 'PNH approval for "' + PNHNameTemp + '"',
+                                    message: ['Please approve "' + PNHNameTemp + '" for the ' + myPlace.psRegion + ' region.  Thanks',
+                                              ' ',
+                                              'PNH order number: ' + PNHOrderNum,
+                                              ' ',
+                                              'Example Permalink: ' + placePL,
+                                              ' ',
+                                              'PNH Link: ' + USAPNHMasURL].join('\n'),
+                                    preview: 'Preview', attach_sig: 'on'
+                                };
+                                forumPMInputs['address_list[u]['+PMUserList[myPlace.psRegion].modID+']'] = 'to';  // Sends a PM to the regional mod instead of the submission form
+                                WMEPH_newForumPost('https://www.waze.com/forum/ucp.php?i=pm&mode=compose', forumPMInputs);
+                            } else {
+                                window.open(approveRegionURL);
+                            }
                         }
-                    }
+                    }]
                 }
             };  // END bannButt definitions
+
+            // if($('#my_table').length === 0) {
+            //     var t = $('<table id="my_table">')
+            //     Object.keys(bannButt).forEach(function(key) {
+            //         var tr = $('<tr>').appendTo(t)
+            //         var f = bannButt[key];
+            //         tr.append($('<td>').text(key));
+            //         tr.append($('<td>').text(f.message ? f.message : ''));
+            //         tr.append($('<td>').text(f.severity));
+            //         tr.append($('<td>').text(f.WLaction ? 'Y' : ''));
+            //     });
+            //     $('#user-box').append(t);
+            // }
+
 
             // NOTE: Wait... Why?
             bannButtHL = bannButt;
@@ -2681,6 +2792,11 @@
                 }
             };  // END bannButt2 definitions
 
+            var wlKeys = [];
+            Object.keys(bannButt).forEach(function(bannerKey) {
+                var banner = bannButt[bannerKey];
+                if (banner.WLkey) wlKeys.push(banner.WLkey);
+            });
             //function addUpdateAction(updateObj, actions) {
 
             //function setServiceChecked(servBtn, checked, actions) {
@@ -2964,28 +3080,24 @@
             }
 
             // Whitelist breakout if place exists on the Whitelist and the option is enabled
-            itemID = item.attributes.id;
             var WLMatch = false;
-            if ( venueWhitelist.hasOwnProperty(itemID) ) {
-                if ( hpMode.harmFlag || ( hpMode.hlFlag && !$("#WMEPH-DisableWLHL" + devVersStr).prop('checked')  ) ) {
-                    WLMatch = true;
-                    // Enable the clear WL button if any property is true
-                    for (var WLKey in venueWhitelist[itemID]) {  // loop thru the venue WL keys
-                        if ( venueWhitelist[itemID].hasOwnProperty(WLKey) && (venueWhitelist[itemID][WLKey].active || false) ) {
-                            bannButt2.clearWL.active = true;
-                            currentWL[WLKey] = venueWhitelist[itemID][WLKey];  // update the currentWL settings
-                        }
-                    }
-                    if (venueWhitelist[itemID].hasOwnProperty('dupeWL') && venueWhitelist[itemID].dupeWL.length > 0) {
+            if ( hpMode.harmFlag || ( hpMode.hlFlag && !$("#WMEPH-DisableWLHL" + devVersStr).prop('checked')  ) ) {
+                WLMatch = true;
+                // Enable the clear WL button if any property is true
+                Object.keys(currentWL).forEach(function(WLKey) {  // loop thru the venue WL keys
+                    if ( wlKeys.indexOf(WLKey) > -1) {
                         bannButt2.clearWL.active = true;
-                        currentWL.dupeWL = venueWhitelist[itemID].dupeWL;
+                        //currentWL[WLKey] = venueWhitelist[itemID][WLKey];  // update the currentWL settings
                     }
-                    // Update address and GPS info for the place
-                    venueWhitelist[itemID].city = addr.city.attributes.name;  // Store city for the venue
-                    venueWhitelist[itemID].state = addr.state.name;  // Store state for the venue
-                    venueWhitelist[itemID].country = addr.country.name;  // Store country for the venue
-                    venueWhitelist[itemID].gps = itemGPS;  // Store GPS coords for the venue
+                });
+                if (currentWL.dupeWL && currentWL.dupeWL.length > 0) {
+                    bannButt2.clearWL.active = true;
                 }
+                // Update address and GPS info for the place
+                currentWL.city = addr.city.attributes.name;  // Store city for the venue
+                currentWL.state = addr.state.name;  // Store state for the venue
+                currentWL.country = addr.country.name;  // Store country for the venue
+                currentWL.gps = itemGPS;  // Store GPS coords for the venue
             }
 
             // Country restrictions
@@ -3748,8 +3860,9 @@
                 // NOTE: We are inside harmonizePlaceGo()
                 // NOTE: This code checks the servKeys and such to enable services.
                 // Rewrite
+                var catName;
                 for (var i = 0, len = newCategories.length; i < len; i++) {
-                    var catName = newCategories[i];
+                    catName = newCategories[i];
                     if (NA_CAT_DATA.hasOwnProperty(catName)) {
                         for (var service in WME_SERVICE_MAP) {
                             var act = WME_SERVICE_MAP[service].action;
@@ -3797,7 +3910,7 @@
                 // NOTE: Since we have to keep looping through categories, maybe see about combining actions inside of the same loops.
                 // NOTE: If it gets too complicated, the code should probably be segregated into other functions and then called within the same loop.
                 for (var i = 0, len = newCategories.length; i < len; i++) {
-                    var catName = newCategories[i];
+                    catName = newCategories[i];
                     if (NA_CAT_DATA.hasOwnProperty(catName)) {
                         var myCat       = NA_CAT_DATA[catName];
                         var pvaPoint    = myCat.pcPoint,
@@ -3943,10 +4056,10 @@
                         }
                     }
                     bannButt.noHours.active = true;
-                    bannButt.noHours.value = 'Add';
+                    //bannButt.noHours.value = 'Add';
                     bannButt.noHours.severity = 0;
                     bannButt.noHours.WLactive = false;
-                    bannButt.noHours.message = '<span class="wmeph-label">Hours</span><input type="text" value="Paste Hours Here" id="WMEPH-HoursPaste'+devVersStr+'" class="wmeph-input-box">';
+                    bannButt.noHours.message = 'Hours';
                 }
                 if ( !checkHours(item.attributes.openingHours) ) {
                     //phlogdev('Overlapping hours');
@@ -4511,19 +4624,16 @@
                         }
                         for (var ijx=1; ijx<duplicateName.length+1; ijx++) {
                             bannDupl[dupeIDList[ijx]] = {
-                                active: true, severity: 2, message: "&nbsp-- " + duplicateName[ijx-1],
+                                active: true, severity: 2, message: duplicateName[ijx-1],
                                 WLactive: false, WLvalue: wlButtText, WLtitle: 'Whitelist Duplicate',
                                 WLaction: function(dID) {
                                     wlKeyName = 'dupeWL';
-                                    if (!venueWhitelist.hasOwnProperty(itemID)) {  // If venue is NOT on WL, then add it.
-                                        venueWhitelist[itemID] = { dupeWL: [] };
+                                    if (!currentWL.hasOwnProperty(wlKeyName)) {  // If dupeWL key is not in venue WL, then initialize it.
+                                        currentWL[wlKeyName] = [];
                                     }
-                                    if (!venueWhitelist[itemID].hasOwnProperty(wlKeyName)) {  // If dupeWL key is not in venue WL, then initialize it.
-                                        venueWhitelist[itemID][wlKeyName] = [];
-                                    }
-                                    venueWhitelist[itemID].dupeWL.push(dID);  // WL the id for the duplicate venue
+                                    currentWL.dupeWL.push(dID);  // WL the id for the duplicate venue
                                     //debug('4159 // About to call uniq() once inside of harmonizePlaceGo()');
-                                    venueWhitelist[itemID].dupeWL = uniq(venueWhitelist[itemID].dupeWL);
+                                    currentWL.dupeWL = uniq(venueWhitelist[itemID].dupeWL);
                                     // Make an entry for the opposite item
                                     if (!venueWhitelist.hasOwnProperty(dID)) {  // If venue is NOT on WL, then add it.
                                         venueWhitelist[dID] = { dupeWL: [] };
@@ -4541,7 +4651,7 @@
                                     harmonizePlaceGo(item,'harmonize');
                                 }
                             };
-                            if ( venueWhitelist.hasOwnProperty(itemID) && venueWhitelist[itemID].hasOwnProperty('dupeWL') && venueWhitelist[itemID].dupeWL.indexOf(dupeIDList[ijx]) > -1 ) {  // if the dupe is on the whitelist then remove it from the banner
+                            if ( currentWL.hasOwnProperty('dupeWL') && venueWhitelist[itemID].dupeWL.indexOf(dupeIDList[ijx]) > -1 ) {  // if the dupe is on the whitelist then remove it from the banner
                                 bannDupl[dupeIDList[ijx]].active = false;
                             } else {  // Otherwise, activate the WL button
                                 bannDupl[dupeIDList[ijx]].WLactive = true;
@@ -4716,7 +4826,7 @@
                         break;
                     }
                 }
-                for (var pfix=0; pfix<panelFieldsList.length; pfix++) {
+                for (pfix=0; pfix<panelFieldsList.length; pfix++) {
                     var pfa = panelFieldsList[pfix].innerHTML;
                     if (pfa.indexOf('landmark-edit-general') > -1) {
                         panelFields.navTabGeneral = pfix;
@@ -4744,57 +4854,111 @@
             var sidebarMessage = [], sidebarTools = [];  // Initialize message array
             var sidebarSeverities = [];
             var tempKey, strButt1, dupesFound = false;
-            severityButt = 0;
-
-            // Setup duplicates banners
-            strButt1 = 'Possible duplicates: ';
-            for ( tempKey in bannDupl ) {
-                if (bannDupl.hasOwnProperty(tempKey) && bannDupl[tempKey].hasOwnProperty('active') && bannDupl[tempKey].active) {
-                    dupesFound = true;
-                    strButt1 += '<br>' + bannDupl[tempKey].message;
-                    if (bannDupl[tempKey].hasOwnProperty('action')) {
-                        // Nothing happening here yet.
-                    }
-                    if (bannDupl[tempKey].hasOwnProperty('WLactive') && bannDupl[tempKey].WLactive && bannDupl[tempKey].hasOwnProperty('WLaction') ) {  // If there's a WL option, enable it
-                        severityButt = Math.max(bannDupl[tempKey].severity, severityButt);
-                        strButt1 += ' <input class="btn btn-success btn-xs wmeph-btn" id="WMEPH_WL' + tempKey + '" title="' + bannDupl[tempKey].WLtitle + '" type="button" value="' + bannDupl[tempKey].WLvalue + '">';
-                    }
-                }
-            }
-            if (dupesFound) {  // if at least 1 dupe
-                sidebarMessage.push(strButt1);
-            }
+            var maxSeverity = 0;
 
             // Build banners above the Services
+            var $bannerDiv = $('#WMEPH_banner');
+            if ($bannerDiv.length === 0 ) {
+                $bannerDiv = $('<div id="WMEPH_banner">').prependTo(".contents");
+            } else {
+                $bannerDiv.empty();
+            }
+
+            // Setup duplicates banners
+            var keys = Object.keys(bannDupl);
+            if (keys.length > 0) {
+                var $dupeHeaderDiv = $('<div>').append($('<div>').html('<span class="fa fa-exclamation-circle"></span> Possible duplicates:')).addClass('banner-dupe').appendTo($bannerDiv);
+                keys.forEach(function(tempKey){
+                    var dupeRow = bannDupl[tempKey];
+                    if (dupeRow.active) {
+                        maxSeverity = Math.max(dupeRow.severity, maxSeverity);
+                        $('<div>').append($('<div>').html('&nbsp;&nbsp;-- ' + dupeRow.message)).addClass('banner-row-severity-' + dupeRow.severity).addClass('banner-dupe').appendTo($bannerDiv);
+                        // if (bannDupl[tempKey].hasOwnProperty('WLactive') && bannDupl[tempKey].WLactive && bannDupl[tempKey].hasOwnProperty('WLaction') ) {  // If there's a WL option, enable it
+                        //     maxSeverity = Math.max(bannDupl[tempKey].severity, maxSeverity);
+                        //     strButt1 += ' <input class="btn btn-success btn-xs wmeph-btn" id="WMEPH_WL' + tempKey + '" title="' + bannDupl[tempKey].WLtitle + '" type="button" value="' + bannDupl[tempKey].WLvalue + '">';
+                        // }
+                    }
+                });
+                $dupeHeaderDiv.addClass('banner-row-severity-' + maxSeverity);
+            }
+
             for ( tempKey in bannButt ) {
-                if ( bannButt.hasOwnProperty(tempKey) && bannButt[tempKey].hasOwnProperty('active') && bannButt[tempKey].active ) {  //  If the particular message is active
-                    strButt1 = bannButt[tempKey].message;
-                    if (bannButt[tempKey].badInput) {
-                        strButt1 = strButt1.replace(/#DDF/i,'pink');
+                var bannerRowInfo = bannButt[tempKey];
+                if ( bannerRowInfo && bannerRowInfo.active ) {  //  If the particular message is active
+                    var $rowDiv = $('<div class="banner-row">').addClass('banner-row-severity-' + bannerRowInfo.severity).appendTo($bannerDiv);
+                    if (bannerRowInfo.verticalLayout) $rowDiv.css('flex-direction', 'column');
+                    if (bannerRowInfo.id) $rowDiv.attr('id', bannerRowInfo.id);
+                    if (bannerRowInfo.message) {
+                        var bullet;
+                        switch (bannerRowInfo.severity) {
+                            case -1:
+                                bullet = 'fa-info-circle';
+                                break;
+                            case 0:
+                                bullet = 'fa-check-circle';
+                                break;
+                            case 1:
+                                bullet = 'fa-question-circle';
+                                break;
+                            case 2:
+                                bullet = 'fa-exclamation-circle';
+                                break;
+                            case 3:
+                                bullet = 'fa-times-circle';
+                                break;
+                            default:
+                                bullet = '';
+                        }
+                        var $msgDiv = $('<div class="banner-row-message">').html('<span class="fa ' + bullet + '"></span> ' + bannerRowInfo.message).appendTo($rowDiv);
                     }
-                    if (bannButt[tempKey].hasOwnProperty('action')) {
-                        strButt1 += ' <input class="btn btn-default btn-xs wmeph-btn' + (bannButt[tempKey].fullWidthButton ? ' fullWidth' : '') + '" id="WMEPH_' + tempKey + '" title="' + bannButt[tempKey].title + '" type="button" value="' + bannButt[tempKey].value + '"></input>';
-                        if (tempKey === 'noHours') {
-                            strButt1 += ' <input class="btn btn-default btn-xs wmeph-btn" id="WMEPH_' + tempKey + 'A2" title="' + bannButt[tempKey].title2 + '" type="button" value="' + bannButt[tempKey].value2 + '"></input>';
+                    //if (bannerRow.badInput) {
+                    //    strButt1 = strButt1.replace(/#DDF/i,'pink');
+                    //}
+                    if (bannerRowInfo.input) {
+                        var $inputDiv = $('<div class="banner-row-input">').appendTo($rowDiv);
+                        $(bannerRowInfo.input).appendTo($inputDiv);
+                    }
+                    if (bannerRowInfo.buttons && bannerRowInfo.buttons.length > 0 || (bannerRowInfo.WLactive && !currentWL[tempKey])) {
+                        var $btnDiv = $('<div class="banner-row-buttons">').appendTo($rowDiv);
+                        var $btn;
+                        if (bannerRowInfo.buttons) {
+                            bannerRowInfo.buttons.forEach(function(btnInfo) {
+                                $btn = $('<button>', {
+                                    id: (btnInfo.id ? btnInfo.id : tempKey),
+                                    class: "btn btn-default btn-xs wmeph-btn",
+                                    title: btnInfo.title,
+                                }).html(btnInfo.text === 'Add' ? '<span class="fa fa-check"></span>' : btnInfo.text)
+                                    .click(function() {
+                                    btnInfo.action();
+                                    assembleBanner();
+                                }).appendTo($btnDiv);
+                            });
+                        }
+
+                        if (bannerRowInfo.WLaction && bannerRowInfo.WLactive && !currentWL[tempKey]) {  // If there's a WL option, enable it
+                            $btn = $('<button>', {
+                                id: ('WMEPH_WL' + tempKey),
+                                class: "btn btn-success btn-xs wmeph-btn wmeph-btn-wl",
+                                title: bannerRowInfo.WLtitle,
+                            }).data('wl-key',bannerRowInfo.WLkey).data('banner-key',tempKey).html('WL')
+                                .click(function(e) {
+                                var bannerKey = $(this).data('banner-key');
+                                var wlKey = $(this).data('wl-key');
+                                var bannerRowInfo = bannButt[bannerKey];
+                                bannerRowInfo.WLaction();
+                                currentWL[wlKey] = true;
+                                harmonizePlaceGo(item, 'harmonize');
+                            }).appendTo($btnDiv);
                         }
                     }
-                    if ( bannButt[tempKey].hasOwnProperty('WLactive') ) {
-                        if ( bannButt[tempKey].WLactive && bannButt[tempKey].hasOwnProperty('WLaction') ) {  // If there's a WL option, enable it
-                            severityButt = Math.max(bannButt[tempKey].severity, severityButt);
-                            strButt1 += bannButt[tempKey].WLmessage + ' <input class="btn btn-success btn-xs wmeph-btn" id="WMEPH_WL' + tempKey + '" title="' + bannButt[tempKey].WLtitle + '" type="button" value="WL">';
-                            //strButt1 += bannButt[tempKey].WLmessage + ' <input class="fa fa-check-square" id="WMEPH_WL' + tempKey + '" title="' + bannButt[tempKey].WLtitle + '" type="button" style="color:green;" >';
-                            //strButt1 += bannButt[tempKey].WLmessage + ' <button class="btn btn-default btn-xs wmephwl-btn" id="WMEPH_WL' + tempKey + '" title="' + bannButt[tempKey].WLtitle + '" type="button" ><i class="fa fa-check-square" style="color:green;></i></button>';
-                        }
-                    } else {
-                        severityButt = Math.max(bannButt[tempKey].severity, severityButt);
-                    }
-                    sidebarSeverities.push(bannButt[tempKey].severity);
-                    sidebarMessage.push(strButt1);
+                    maxSeverity = Math.max(bannerRowInfo.severity, maxSeverity);
                 }
             }
+            $bannerDiv.removeClass();
+            $bannerDiv.addClass("banner-severity-" + maxSeverity);
             if ( $("#WMEPH-ColorHighlighting" + devVersStr).prop('checked') ) {
                 item = W.selectionManager.selectedItems[0].model;
-                item.attributes.wmephSeverity = severityButt;
+                item.attributes.wmephSeverity = maxSeverity;
             }
 
             // setup Add Service Buttons for suggested services
@@ -4826,34 +4990,35 @@
                         strButt1 += ' <input class="btn btn-info btn-xs wmeph-btn" id="WMEPH_' + tempKey + '" title="' + bannButt2[tempKey].title + '" type="button" value="' + bannButt2[tempKey].value + '">';
                     }
                     sidebarTools.push(strButt1);
-                    severityButt = Math.max(bannButt2[tempKey].severity, severityButt);
+                    maxSeverity = Math.max(bannButt2[tempKey].severity, maxSeverity);
                 }
             }
 
             // Post the banners to the sidebar
             displayTools( sidebarTools.join("<li>") );
-            displayBanners(sidebarMessage, severityButt, sidebarSeverities );
+            $('#select2-drop').hide();
 
             // Set up Duplicate onclicks
             if ( dupesFound ) {
                 setupButtons(bannDupl);
             }
             // Setup bannButt onclicks
-            setupButtons(bannButt);
+            //setupButtons(bannButt);
             // Setup bannServ onclicks
-            setupButtons(bannServ);
+            //setupButtons(bannServ);
             // Setup bannButt2 onclicks
             setupButtons(bannButt2);
 
-            if (bannButt.noHours.active) {
-                var button = document.getElementById('WMEPH_noHoursA2');
-                if (button !== null) {
-                    button.onclick = function() {
-                        bannButt.noHours.action2();
-                        assembleBanner();
-                    };
-                }
-            }
+            // if (bannButt.noHours.active) {
+            //     var button = document.getElementById('WMEPH_noHoursA2');
+            //     if (button !== null) {
+            //         button.onclick = function() {
+            //             bannButt.noHours.action2();
+            //             assembleBanner();
+            //         };
+            //     }
+            // }
+
 
             // Street entry textbox stuff
             var streetNames = [];
