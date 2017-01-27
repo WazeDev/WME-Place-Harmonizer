@@ -3064,7 +3064,6 @@
                                     lockOK = false;
                                 }
                             } else {
-
                                 bannButt.cityMissing.active = true;
                                 lockOK = false;
                             }
@@ -4484,8 +4483,19 @@
             }
 
             //waze_maint_bot check
-            if (!item.attributes.residential && item.attributes.updatedBy && W.model.users.get(item.attributes.updatedBy) &&
-                W.model.users.get(item.attributes.updatedBy).userName && W.model.users.get(item.attributes.updatedBy).userName.match(/^waze-maint-bot|waze3rdparty|WazeParking1|admin|avsus/i) !== null) {
+            var updatedById = item.attributes.updatedBy ? item.attributes.updatedBy : item.attributes.createdBy;
+            var updatedBy = W.model.users.get(updatedById);
+            var updatedByName = updatedBy ? updatedBy.userName : null;
+            var botNamesAndIDs = [
+                '^waze-maint', '^105774162$',
+                '^waze3rdparty$', '^361008095$',
+                '^WazeParking1$', '^338475699$',
+                '^admin$', '^-1$',
+                '^avsus$', '^107668852$'
+            ];
+            var re = new RegExp(botNamesAndIDs.join('|'),'i');
+
+            if (!item.attributes.residential && updatedById && (re.test(updatedById.toString()) || (updatedByName && re.test(updatedByName))))  {
                 bannButt.wazeBot.active = true;
             }
 
@@ -7244,7 +7254,7 @@
                 }
                 // if a match was found:
                 if ( PNHStringMatch ) {  // Compare WME place name to PNH search name list
-                    console.log('Matched PNH Order No.: '+currMatchData[ph_order_ix]);
+                    phlogdev('Matched PNH Order No.: '+currMatchData[ph_order_ix]);
 
                     PNHPriCat = catTranslate(currMatchData[ph_category1_ix]);
                     PNHForceCat = currMatchData[ph_forcecat_ix];
