@@ -19,6 +19,7 @@
 // @include     https://*.waze.com/*editor/*
 // @exclude     https://*.waze.com/user/*
 // @grant       none
+// @licence     GNU GPL v3
 // @require     https://greasyfork.org/scripts/24851-wazewrap/code/WazeWrap.js
 // ==/UserScript==
 
