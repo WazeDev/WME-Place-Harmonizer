@@ -13,7 +13,7 @@
 // ==UserScript==
 // @name        WME Place Harmonizer Beta
 // @namespace   https://github.com/WazeUSA/WME-Place-Harmonizer/raw/master/WME-Place-Harmonizer.user.js
-// @version     1.1.86
+// @version     1.1.87
 // @description Harmonizes, formats, and locks a selected place
 // @author      WMEPH development group
 // @include     /^https:\/\/(www|beta)\.waze\.com\/(?!user\/)(.{2,6}\/)?editor\/.*$/
@@ -262,6 +262,9 @@
     function runPH() {
         // Script update info
         var WMEPHWhatsNewList = [  // New in this version
+            '1.1.87: Removed "No HN" flag until street is set.',
+            '1.1.87: Added an "Edit address" button to quickly jump to the city field in the address editor.',
+            '1.1.87: Fixed bug that allowed empty URL\'s.',
             '1.1.86: Remove "No Street" flag when city doesn\'t exist.',
             '1.1.85: Remove bullets from banner to improve layout a bit until a new design is completed.',
             '1.1.84: Fix to ignore title casing inside parens at end of PLA names.',
@@ -829,7 +832,7 @@
 
         // Normalize url
         function normalizeURL(s, lc, skipBannerActivate) {
-            if (!s && !skipBannerActivate) {  // Notify that url is missing and provide web search to find website and gather data (provided for all editors)
+            if ((!s || s.trim().length === 0) && !skipBannerActivate) {  // Notify that url is missing and provide web search to find website and gather data (provided for all editors)
                 bannButt.urlMissing.active = true;
                 if (currentWL.urlWL) {
                     bannButt.urlMissing.WLactive = false;
@@ -863,6 +866,7 @@
             m = s.match(/^(.*)\/$/i);  // remove final slash
             if (m) { s = m[1]; }
 
+            if (!s || s.trim().length === 0) s = 'badURL';
             return s;
         }  // END normalizeURL function
 
@@ -1260,7 +1264,11 @@
                 },
 
                 cityMissing: {  // no WL
-                    active: false, severity: 3, message: 'City missing.'
+                    active: false, severity: 3, message: 'City missing.', value: 'Edit address', title: "Edit address to add city.",
+                    action: function() {
+                        $('.waze-icon-edit').trigger('click');
+                        $('.city-name').focus();
+                    }
                 },
 
                 bankType1: {   // no WL
@@ -1502,7 +1510,7 @@
                     action: function() {
                         var newUrlValue = $('#WMEPH-UrlAdd'+devVersStr).val();
                         var newUrl = normalizeURL(newUrlValue, true, false);
-                        if (newUrl === 'badURL') {
+                        if ((!newUrl || newUrl.trim().length === 0) || newUrl === 'badURL') {
                             this.badInput = true;
                         } else {
                             phlogdev(newUrl);
@@ -3388,7 +3396,7 @@
             }
 
             // House number check
-            if (!item.attributes.houseNumber || item.attributes.houseNumber.replace(/\D/g,'').length === 0 ) {
+            if (item.attributes.streetID && (!item.attributes.houseNumber || item.attributes.houseNumber.replace(/\D/g,'').length === 0) ) {
                 if ( 'BRIDGE|ISLAND|FOREST_GROVE|SEA_LAKE_POOL|RIVER_STREAM|CANAL|DAM|TUNNEL'.split('|').indexOf(item.attributes.categories[0]) === -1 ) {
                     if (state2L === 'PR') {
                         bannButt.hnMissing.active = true;
