@@ -39,6 +39,16 @@
 
     // New in this version
     var WHATS_NEW_LIST = [
+        '1.1.90: Fixed bug in data compression algorithm.',
+        '1.1.89: Style tweaks.',
+        '1.1.88: Uncheck "No City" when clicking "Edit address" button (wouldn\'t jump to the field.',
+        '1.1.87: Removed "No HN" flag until street is set.',
+        '1.1.87: Added an "Edit address" button to quickly jump to the city field in the address editor.',
+        '1.1.87: Fixed bug that allowed empty URL\'s.',
+        '1.1.86: Remove "No Street" flag when city doesn\'t exist.',
+        '1.1.85: Remove bullets from banner to improve layout a bit until a new design is completed.',
+        '1.1.84: Fix to ignore title casing inside parens at end of PLA names.',
+        '1.1.83: Improved check for automated (bot) account edits.',        
         '1.1.82: Added option to disable check for missing external provider on parking lots.',
         '1.1.81: Fix for incorrect capitalization when "mc" is in the middle of a word.',
         '1.1.80: Fix to allow entering phone #s longer than 10 digits, e.g. 800-THE-CRAVE',
@@ -155,6 +165,7 @@
         gFormState = "";
     var currentWL = {};
     var _popupWindow;
+    var usrRank;
 
 
     /////////////////////////////////////
@@ -797,6 +808,7 @@
             USER_NAME = W.loginManager.user.userName;
             USER_RANK = W.loginManager.user.normalizedLevel;
             //debug('REGION_DATA = ' + JSON.stringify(REGION_DATA));
+            usrRank = W.loginManager.user.rank + 1;
             dataReadyCounter = 0;
             runPH();  //  start the main code
         } else {
@@ -1524,8 +1536,10 @@
                 return txt;
             });
 
+            return str + parensPart;
+        }
         // Change place.name to title case
-       function toTitleCaseStrong(str, ignoreParensAtEnd) {
+        function toTitleCaseStrong(str, ignoreParensAtEnd) {
             if (!str) {
                 return str;
             }
@@ -2037,18 +2051,31 @@
                 },
 
                 streetMissing: {  // no WL
-                    active: false, severity: 3, message: 'No street:<div class="ui-widget" style="display:inline;"><input id="WMEPH_missingStreet" style="color:#000;background-color:#FDD;width:140px;margin-right:3px;"></div><input class="btn btn-default btn-xs wmeph-btn disabled" id="WMEPH_addStreetBtn" title="Add street to place" type="button" value="Add" disabled>'
+                    active: false, severity: 3, message: 'No street',
+                    input: '<div class="ui-widget"><input id="WMEPH_missingStreet" class="ui-autocomplete-input"></div>',
+                    buttons: [{
+                        text: 'Add',
+                        id: "WMEPH_addStreetBtn",
+                        title: "Add street to place",
+                        action: function() {
+                            addStreetToVenue();
+                        }
+                    }]
                 },
 
                 cityMissing: {  // no WL
-                    active: false, severity: 3, message: 'No city', value: 'Edit address', title: "Edit address to add city.",
-                    action: function() {
-                        $('.waze-icon-edit').trigger('click');
-                        if ($('.empty-city').prop('checked')) {
-                            $('.empty-city').trigger('click');
+                    active: false, severity: 3, message: 'No city',
+                    buttons: [{
+                        text: 'Edit address',
+                        title: "Edit address to add city.",
+                        action: function() {
+                            $('.waze-icon-edit').trigger('click');
+                            if ($('.empty-city').prop('checked')) {
+                                $('.empty-city').trigger('click');
+                            }
+                            $('.city-name').focus();
                         }
-                        $('.city-name').focus();
-                    }
+                    }]
                 },
 
                 bankType1: {   // no WL
@@ -3216,7 +3243,7 @@
                         bannButt.extProviderMissing.WLactive = !currentWL.extProviderMissing;
                     }
                 }
-            }
+
                 // Place Harmonization
                 var PNHMatchData;
                 if (hpMode.harmFlag) {
@@ -5067,28 +5094,12 @@
             function onStreetChanged(e, ui) {
                 checkStreet(null);
             }
-            $('#WMEPH_addStreetBtn').on('click', addStreetToVenue);
-            function addStreetToVenue() {
-                var stName = $('#WMEPH_missingStreet').val();
-                var street = W.model.streets.getByAttributes({name:stName})[0];
-                var addr = item.getAddress().attributes;
-                var newAddr = {
-                    country: addr.country,
-                    state: addr.state,
-                    city: addr.city,
-                    street: street
-                };
-                updateAddress(item, newAddr);
-                console.log('ADDED', W.model.streets.getByAttributes({name:$('#WMEPH_missingStreet').val()})[0]);
-                bannButt.streetMissing.active = false;
-                assembleBanner();
-            }
+
             function checkStreet(name) {
                 name = (name || $("#WMEPH_missingStreet").val()).toUpperCase();
                 var ix = streetNamesCap.indexOf(name);
                 var enable = false;
                 if (ix > -1) {
-                    color = 'lightgreen';
                     $("#WMEPH_missingStreet").val(streetNames[ix]);
                     enable = true;
                     $('#WMEPH_addStreetBtn').prop("disabled", false).removeClass('disabled');
@@ -6392,6 +6403,22 @@
             }
             return inferredAddress;
         }  // END inferAddress function
+
+        
+        function addStreetToVenue(streetName) {
+            var stName = $('#WMEPH_missingStreet').val();
+            var street = W.model.streets.getByAttributes({name:stName})[0];
+            var addr = item.getAddress().attributes;
+            var newAddr = {
+                country: addr.country,
+                state: addr.state,
+                city: addr.city,
+                street: street
+            };
+            updateAddress(item, newAddr);
+            bannButt.streetMissing.active = false;
+            assembleBanner();
+        }
 
         /**
          * Updates the address for a place.
