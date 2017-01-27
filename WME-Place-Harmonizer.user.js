@@ -13,7 +13,7 @@
 // ==UserScript==
 // @name        WME Place Harmonizer Beta
 // @namespace   https://github.com/WazeUSA/WME-Place-Harmonizer/raw/master/WME-Place-Harmonizer.user.js
-// @version     1.1.88
+// @version     1.1.89
 // @description Harmonizes, formats, and locks a selected place
 // @author      WMEPH development group
 // @include     /^https:\/\/(www|beta)\.waze\.com\/(?!user\/)(.{2,6}\/)?editor\/.*$/
@@ -27,8 +27,11 @@
 (function () {
     var jqUI_CssSrc = GM_getResourceText("jqUI_CSS");
     GM_addStyle(jqUI_CssSrc);
+    GM_addStyle('.wmeph-btn, .wmephwl-btn {height:18px;}');
+    GM_addStyle('#WMEPH_banner input[type=text], #WMEPH_banner .ui-autocomplete-input {font-size: 13px !important; height:22px !important; font-family: "Open Sans", Alef, helvetica, sans-serif !important;}');
+    GM_addStyle('#WMEPH_banner li {padding-bottom: 3px !important;');
     // Was testing this, but I don't think the following line does anything. (mapomatic)
-    GM_addStyle('  <style> .ui-autocomplete {max-height: 100px;overflow-y: auto;overflow-x: hidden;}  * html .ui-autocomplete {height: 100px;}</style>');
+    GM_addStyle('.ui-autocomplete {max-height: 300px;overflow-y: auto;overflow-x: hidden;}  * html .ui-autocomplete {height: 100px;}');
     var WMEPHversion = GM_info.script.version.toString(); // pull version from header
     var WMEPHversionMeta = WMEPHversion.match(/(\d+\.\d+)/i)[1];  // get the X.X version
     var majorNewFeature = false;  // set to true to make an alert pop up after script update with new feature
@@ -262,6 +265,7 @@
     function runPH() {
         // Script update info
         var WMEPHWhatsNewList = [  // New in this version
+            '1.1.89: Style tweaks.',
             '1.1.88: Uncheck "No City" when clicking "Edit address" button (wouldn\'t jump to the field.',
             '1.1.87: Removed "No HN" flag until street is set.',
             '1.1.87: Added an "Edit address" button to quickly jump to the city field in the address editor.',
@@ -1261,7 +1265,7 @@
                 },
 
                 streetMissing: {  // no WL
-                    active: false, severity: 3, message: 'No street:<div class="ui-widget" style="display:inline;"><input id="WMEPH_missingStreet" style="font-size:0.85em;color:#000;background-color:#FDD;width:170px;margin-right:3px;"></div><input class="btn btn-default btn-xs wmeph-btn disabled" id="WMEPH_addStreetBtn" title="Add street to place" type="button" value="Add" disabled>'
+                    active: false, severity: 3, message: 'No street:<div class="ui-widget" style="display:inline;"><input id="WMEPH_missingStreet" style="color:#000;background-color:#FDD;width:140px;margin-right:3px;"></div><input class="btn btn-default btn-xs wmeph-btn disabled" id="WMEPH_addStreetBtn" title="Add street to place" type="button" value="Add" disabled>'
                 },
 
                 cityMissing: {  // no WL
@@ -4333,7 +4337,7 @@
         // Setup div for banner messages and color
         function displayBanners(sbm,sev) {
             if ($('#WMEPH_banner').length === 0 ) {
-                $('<ul id="WMEPH_banner">').css({"width": "100%", "background-color": "#fff", "color": "white", "font-size": "15px", "font-weight": "bold", "padding": "3px", "margin-left": "auto", "margin-right": "auto"}).prependTo(".contents");
+                $('<ul id="WMEPH_banner">').css({"width": "100%", "background-color": "#fff", "color": "white", "font-size": "14px", "padding": "3px", "margin-left": "auto", "margin-right": "auto"}).prependTo(".contents");
             } else {
                 $('#WMEPH_banner').empty();
             }
