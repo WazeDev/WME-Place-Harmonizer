@@ -394,7 +394,7 @@
     // NOTE: Haven't refactored this yet.
     // Normalize url
     function normalizeURL(s, lc, skipBannerActivate) {
-        if (!s && !skipBannerActivate) {  // Notify that url is missing and provide web search to find website and gather data (provided for all editors)
+        if ((!s || s.trim().length === 0) && !skipBannerActivate) {  // Notify that url is missing and provide web search to find website and gather data (provided for all editors)
             bannButt.urlMissing.active = true;
             if (currentWL.urlWL) {
                 bannButt.urlMissing.WLactive = false;
@@ -429,6 +429,7 @@
         m = s.match(/^(.*)\/$/i);  // remove final slash
         if (m) { s = m[1]; }
 
+        if (!s || s.trim().length === 0) s = 'badURL';
         return s;
     }  // END normalizeURL function
 
@@ -1472,10 +1473,18 @@
         var capWords = "3M|AAA|AMC|AOL|AT&T|ATM|BBC|BLT|BMV|BMW|BP|CBS|CCS|CGI|CISCO|CJ|CNN|CVS|DHL|DKNY|DMV|DSW|EMS|ER|ESPN|FCU|FCUK|FDNY|GNC|H&M|HP|HSBC|IBM|IHOP|IKEA|IRS|JBL|JCPenney|KFC|LLC|MBNA|MCA|MCI|NBC|NYPD|PDQ|PNC|TCBY|TNT|TV|UPS|USA|USPS|VW|XYZ|ZZZ".split('|');
         var specWords = "d'Bronx|iFix".split('|');
 
-        function toTitleCase(str) {
-            //debug('-- toTitleCase(str) called --');
+        function toTitleCase(str, ignoreParensAtEnd) {
             if (!str) {
                 return str;
+            }
+            str = str.trim();
+            var parensPart = '';
+            if (ignoreParensAtEnd) {
+                var m = str.match(/.*(\(.*\))$/);
+                if (m) {
+                    parensPart = m[1];
+                    str = str.slice(0,str.length - parensPart.length);
+                }
             }
             var allCaps = (str === str.toUpperCase());
             // Cap first letter of each word
@@ -1514,21 +1523,20 @@
                 }
                 return txt;
             });
-            // Fix 1st, 2nd, 3rd, 4th, etc. to lowercase
-            str = str.replace(/\b(\d*1)st\b/gi, '$1st');
-            str = str.replace(/\b(\d*2)nd\b/gi, '$1nd');
-            str = str.replace(/\b(\d*3)rd\b/gi, '$1rd');
-            str = str.replace(/\b(\d+)th\b/gi, '$1th');
-            // Cap first letter of entire name
-            str = str.charAt(0).toUpperCase() + str.substr(1);
-            return str;
-        }
 
         // Change place.name to title case
-        function toTitleCaseStrong(str) {
-            //debug('-- toTitleCaseStrong(str) called --');
+       function toTitleCaseStrong(str, ignoreParensAtEnd) {
             if (!str) {
                 return str;
+            }
+            str = str.trim();
+            var parensPart = '';
+            if (ignoreParensAtEnd) {
+                var m = str.match(/.*(\(.*\))$/);
+                if (m) {
+                    parensPart = m[1];
+                    str = str.slice(0,str.length - parensPart.length);
+                }
             }
             var allCaps = (str === str.toUpperCase());
             // Cap first letter of each word
@@ -1564,7 +1572,7 @@
             str = str.replace(/\b(\d+)th\b/gi, '$1th');
             // Cap first letter of entire name
             str = str.charAt(0).toUpperCase() + str.substr(1);
-            return str;
+            return str + parensPart;
         }
 
         // normalize phone
@@ -2029,17 +2037,18 @@
                 },
 
                 streetMissing: {  // no WL
-                    active: false, severity: 3, message: 'No street',
-                    input: '<div class="ui-widget" style="display:inline-block;"><input id="WMEPH_missingStreet" class="wmeph-input-box"></div>',
-                    buttons: [{
-                        text: 'Add',
-                        title: 'Add street to place',
-                        disabled: true
-                    }]
+                    active: false, severity: 3, message: 'No street:<div class="ui-widget" style="display:inline;"><input id="WMEPH_missingStreet" style="color:#000;background-color:#FDD;width:140px;margin-right:3px;"></div><input class="btn btn-default btn-xs wmeph-btn disabled" id="WMEPH_addStreetBtn" title="Add street to place" type="button" value="Add" disabled>'
                 },
 
                 cityMissing: {  // no WL
-                    active: false, severity: 3, message: 'No city'
+                    active: false, severity: 3, message: 'No city', value: 'Edit address', title: "Edit address to add city.",
+                    action: function() {
+                        $('.waze-icon-edit').trigger('click');
+                        if ($('.empty-city').prop('checked')) {
+                            $('.empty-city').trigger('click');
+                        }
+                        $('.city-name').focus();
+                    }
                 },
 
                 bankType1: {   // no WL
@@ -2295,7 +2304,7 @@
                         action: function() {
                             var newUrlValue = $('#WMEPH-UrlAdd'+devVersStr).val();
                             var newUrl = normalizeURL(newUrlValue, true, false);
-                            if (newUrl === 'badURL') {
+                            if ((!newUrl || newUrl.trim().length === 0) || newUrl === 'badURL') {
                                 this.badInput = true;
                             } else {
                                 phlogdev(newUrl);
@@ -2600,7 +2609,7 @@
                         text: "Yes",
                         title: "Force Title Case to InterNal CaPs",
                         action: function() {
-                            newName = toTitleCaseStrong(item.attributes.name);  // Get the Strong Title Case name
+                            newName = toTitleCaseStrong(item.attributes.name, isPLA(item));  // Get the Strong Title Case name
                             if (newName !== item.attributes.name) {  // if they are not equal
                                 W.model.actionManager.add(new UpdateObject(item, { name: newName }));
                                 fieldUpdateObject.name='#dfd';
@@ -3010,12 +3019,12 @@
             var categories = item.attributes.categories;
             newCategories = categories.slice(0);
             newName = item.attributes.name;
-            newName = toTitleCase(newName);
+            newName = toTitleCase(newName, isPLA(item));
             // var nameShort = newName.replace(/[^A-Za-z]/g, '');  // strip non-letters for PNH name searching
             // var nameNumShort = newName.replace(/[^A-Za-z0-9]/g, ''); // strip non-letters/non-numbers for PNH name searching
             newAliases = item.attributes.aliases.slice(0);
             for (var naix=0; naix<newAliases.length; naix++) {
-                newAliases[naix] = toTitleCase(newAliases[naix]);
+                newAliases[naix] = toTitleCase(newAliases[naix], isPLA(item));
             }
             var brand = item.attributes.brand;
             var newDescripion = item.attributes.description;
@@ -3055,7 +3064,7 @@
                                     lockOK = false;
                                 }
                             } else {
-                                bannButt.streetMissing.active = true;
+
                                 bannButt.cityMissing.active = true;
                                 lockOK = false;
                             }
@@ -3198,7 +3207,7 @@
                     bannButt.pointNotArea.active = true;
                 }
             } else if (isPLA(item) || (newName && newName.trim().length > 0)) {  // for non-residential places
-                if (USER_RANK >= 3 && !(isPLA(item) && $('#WMEPH-DisablePLAExtProviderCheck' + devVersStr).prop('checked'))) {
+                if (usrRank >= 3 && !(isPLA(item) && $('#WMEPH-DisablePLAExtProviderCheck' + devVersStr).prop('checked'))) {
                     var provIDs = item.attributes.externalProviderIDs;
                     if (!provIDs || provIDs.length === 0) {
                         if ($('#WMEPH-ExtProviderSeverity' + devVersStr).prop('checked')) {
@@ -3208,7 +3217,7 @@
                         bannButt.extProviderMissing.WLactive = !currentWL.extProviderMissing;
                     }
                 }
-
+            }
                 // Place Harmonization
                 var PNHMatchData;
                 if (hpMode.harmFlag) {
@@ -3648,8 +3657,6 @@
                     if (specCases.indexOf('lockAt5') > -1 ) {
                         PNHLockLevel = 4;
                     }
-
-
                 } else {  // if no PNH match found
                     if (PNHMatchData[0] === "ApprovalNeeded") {
                         //PNHNameTemp = PNHMatchData[1].join(', ');
@@ -3661,7 +3668,7 @@
                     }
 
                     // Strong title case option for non-PNH places
-                    if (newName !== toTitleCaseStrong(newName)) {
+                    if (newName !== toTitleCaseStrong(newName, isPLA(item))) {
                         bannButt.STC.active = true;
                     }
 
@@ -3736,7 +3743,7 @@
                 // Update aliases
                 newAliases = removeSFAliases(newName, newAliases);
                 for (naix=0; naix<newAliases.length; naix++) {
-                    newAliases[naix] = toTitleCase(newAliases[naix]);
+                    newAliases[naix] = toTitleCase(newAliases[naix], isPLA(item));
                 }
                 if (hpMode.harmFlag && newAliases !== item.attributes.aliases && newAliases.length !== item.attributes.aliases.length) {
                     phlogdev("Alt Names updated");
@@ -4192,7 +4199,7 @@
             }
 
             // House number check
-            if (!item.attributes.houseNumber || item.attributes.houseNumber.replace(/\D/g,'').length === 0 ) {
+            if (item.attributes.streetID && (!item.attributes.houseNumber || item.attributes.houseNumber.replace(/\D/g,'').length === 0) ) {
                 if ( 'BRIDGE|ISLAND|FOREST_GROVE|SEA_LAKE_POOL|RIVER_STREAM|CANAL|DAM|TUNNEL'.split('|').indexOf(item.attributes.categories[0]) === -1 ) {
                     if (myState2L === 'RQ') {
                         bannButt.hnMissing.active = true;
@@ -4246,15 +4253,15 @@
                 }
             }
 
-            if ((!addr.street || addr.street.isEmpty) && 'BRIDGE|ISLAND|FOREST_GROVE|SEA_LAKE_POOL|RIVER_STREAM|CANAL|DAM|TUNNEL'.split('|').indexOf(item.attributes.categories[0]) === -1 ) {
-                bannButt.streetMissing.active = true;
-                lockOK = false;
-            }
             if ((!addr.city || addr.city.attributes.isEmpty) && 'BRIDGE|ISLAND|FOREST_GROVE|SEA_LAKE_POOL|RIVER_STREAM|CANAL|DAM|TUNNEL'.split('|').indexOf(item.attributes.categories[0]) === -1 ) {
                 bannButt.cityMissing.active = true;
                 if (item.attributes.residential && hpMode.hlFlag) {
                     bannButt.cityMissing.severity = 1;
                 }
+                lockOK = false;
+            }
+            if (addr.city && (!addr.street || addr.street.isEmpty) && 'BRIDGE|ISLAND|FOREST_GROVE|SEA_LAKE_POOL|RIVER_STREAM|CANAL|DAM|TUNNEL'.split('|').indexOf(item.attributes.categories[0]) === -1 ) {
+                bannButt.streetMissing.active = true;
                 lockOK = false;
             }
 
