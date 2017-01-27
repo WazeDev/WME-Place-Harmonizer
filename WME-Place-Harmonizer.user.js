@@ -13,7 +13,7 @@
 // ==UserScript==
 // @name        WME Place Harmonizer Beta
 // @namespace   https://github.com/WazeUSA/WME-Place-Harmonizer/raw/master/WME-Place-Harmonizer.user.js
-// @version     1.1.87
+// @version     1.1.88
 // @description Harmonizes, formats, and locks a selected place
 // @author      WMEPH development group
 // @include     /^https:\/\/(www|beta)\.waze\.com\/(?!user\/)(.{2,6}\/)?editor\/.*$/
@@ -262,6 +262,7 @@
     function runPH() {
         // Script update info
         var WMEPHWhatsNewList = [  // New in this version
+            '1.1.88: Uncheck "No City" when clicking "Edit address" button (wouldn\'t jump to the field.',
             '1.1.87: Removed "No HN" flag until street is set.',
             '1.1.87: Added an "Edit address" button to quickly jump to the city field in the address editor.',
             '1.1.87: Fixed bug that allowed empty URL\'s.',
@@ -1267,6 +1268,9 @@
                     active: false, severity: 3, message: 'City missing.', value: 'Edit address', title: "Edit address to add city.",
                     action: function() {
                         $('.waze-icon-edit').trigger('click');
+                        if ($('.empty-city').prop('checked')) {
+                            $('.empty-city').trigger('click');
+                        }
                         $('.city-name').focus();
                     }
                 },
