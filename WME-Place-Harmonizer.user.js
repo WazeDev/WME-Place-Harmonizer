@@ -13,7 +13,7 @@
 // ==UserScript==
 // @name        WME Place Harmonizer Beta
 // @namespace   https://github.com/WazeUSA/WME-Place-Harmonizer/raw/master/WME-Place-Harmonizer.user.js
-// @version     1.1.90
+// @version     1.1.91
 // @description Harmonizes, formats, and locks a selected place
 // @author      WMEPH development group
 // @include     /^https:\/\/(www|beta)\.waze\.com\/(?!user\/)(.{2,6}\/)?editor\/.*$/
@@ -266,6 +266,7 @@
     function runPH() {
         // Script update info
         var WMEPHWhatsNewList = [  // New in this version
+            '1.1.91: Fixed bug that triggered when all categories were removed.',
             '1.1.90: Fixed bug in data compression algorithm.',
             '1.1.89: Style tweaks.',
             '1.1.88: Uncheck "No City" when clicking "Edit address" button (wouldn\'t jump to the field.',
@@ -2425,7 +2426,6 @@
                     }
                 } else if (hpMode.hlFlag) {
                     PNHMatchData = ['Highlight'];
-                    //PNHMatchData = harmoList(newName,state2L,region,countryCode,newCategories);  // check against the PNH list
                 }
                 PNHNameRegMatch = false;
                 if (PNHMatchData[0] !== "NoMatch" && PNHMatchData[0] !== "ApprovalNeeded" && PNHMatchData[0] !== "Highlight" ) { // *** Replace place data with PNH data
@@ -3081,26 +3081,28 @@
                 }
 
                 var CH_DATA_Temp;
-                for (var iii=0; iii<CH_NAMES.length; iii++) {
-                    if (newCategories.indexOf(CH_NAMES[iii]) > -1 ) {
-                        CH_DATA_Temp = CH_DATA[iii].split("|");
-                        for (var psix=0; psix<servHeaders.length; psix++) {
-                            if ( !bannServ[servKeys[psix]].pnhOverride ) {
-                                if (CH_DATA_Temp[servHeaders[psix]] === '1') {  // These are automatically added to all countries/regions (if auto setting is on)
-                                    bannServ[servKeys[psix]].active = true;
-                                    if ( hpMode.harmFlag && $("#WMEPH-EnableServices" + devVersStr).prop('checked')  ) {
-                                        // Automatically enable new services
-                                        bannServ[servKeys[psix]].actionOn(actions);
-                                    }
-                                } else if (CH_DATA_Temp[servHeaders[psix]] === '2') {  // these are never automatically added but shown
-                                    bannServ[servKeys[psix]].active = true;
-                                } else if (CH_DATA_Temp[servHeaders[psix]] !== '') {  // check for state/region auto add
-                                    bannServ[servKeys[psix]].active = true;
-                                    if ( hpMode.harmFlag && $("#WMEPH-EnableServices" + devVersStr).prop('checked')) {
-                                        var servAutoRegion = CH_DATA_Temp[servHeaders[psix]].replace(/,[^A-za-z0-9]*/g, ",").split(",");
-                                        // if the sheet data matches the state, region, or username then auto add
-                                        if ( servAutoRegion.indexOf(state2L) > -1 || servAutoRegion.indexOf(region) > -1 || servAutoRegion.indexOf(thisUser.userName) > -1 ) {
+                if (newCategories.length > 0) {
+                    for (var iii=0; iii<CH_NAMES.length; iii++) {
+                        if (newCategories.indexOf(CH_NAMES[iii]) > -1 ) {
+                            CH_DATA_Temp = CH_DATA[iii].split("|");
+                            for (var psix=0; psix<servHeaders.length; psix++) {
+                                if ( !bannServ[servKeys[psix]].pnhOverride ) {
+                                    if (CH_DATA_Temp[servHeaders[psix]] === '1') {  // These are automatically added to all countries/regions (if auto setting is on)
+                                        bannServ[servKeys[psix]].active = true;
+                                        if ( hpMode.harmFlag && $("#WMEPH-EnableServices" + devVersStr).prop('checked')  ) {
+                                            // Automatically enable new services
                                             bannServ[servKeys[psix]].actionOn(actions);
+                                        }
+                                    } else if (CH_DATA_Temp[servHeaders[psix]] === '2') {  // these are never automatically added but shown
+                                        bannServ[servKeys[psix]].active = true;
+                                    } else if (CH_DATA_Temp[servHeaders[psix]] !== '') {  // check for state/region auto add
+                                        bannServ[servKeys[psix]].active = true;
+                                        if ( hpMode.harmFlag && $("#WMEPH-EnableServices" + devVersStr).prop('checked')) {
+                                            var servAutoRegion = CH_DATA_Temp[servHeaders[psix]].replace(/,[^A-za-z0-9]*/g, ",").split(",");
+                                            // if the sheet data matches the state, region, or username then auto add
+                                            if ( servAutoRegion.indexOf(state2L) > -1 || servAutoRegion.indexOf(region) > -1 || servAutoRegion.indexOf(thisUser.userName) > -1 ) {
+                                                bannServ[servKeys[psix]].actionOn(actions);
+                                            }
                                         }
                                     }
                                 }
@@ -3200,48 +3202,49 @@
                 }
 
                 // display any messaged regarding the category
-                pc_message = CH_DATA_Temp[CH_DATA_headers.indexOf('pc_message')];
-                if (pc_message && pc_message !== '0' && pc_message !== '') {
-                    bannButt.pnhCatMess.active = true;
-                    bannButt.pnhCatMess.message = pc_message;
-                }
-                // Unmapped categories
-                pc_rare     = CH_DATA_Temp[CH_DATA_headers.indexOf('pc_rare')].replace(/,[^A-Za-z0-9}]+/g, ",").split(',');
-                if (pc_rare.indexOf(state2L) > -1 || pc_rare.indexOf(region) > -1 || pc_rare.indexOf(countryCode) > -1) {
-                    bannButt.unmappedRegion.active = true;
-                    if (currentWL.unmappedRegion) {
-                        bannButt.unmappedRegion.WLactive = false;
-                    } else {
-                        lockOK = false;
+                if (newCategories.length > 0) {
+                    pc_message = CH_DATA_Temp[CH_DATA_headers.indexOf('pc_message')];
+                    if (pc_message && pc_message !== '0' && pc_message !== '') {
+                        bannButt.pnhCatMess.active = true;
+                        bannButt.pnhCatMess.message = pc_message;
                     }
-                }
-                // Parent Category
-                pc_parent     = CH_DATA_Temp[CH_DATA_headers.indexOf('pc_parent')].replace(/,[^A-Za-z0-9}]+/g, ",").split(',');
-                if (pc_parent.indexOf(state2L) > -1 || pc_parent.indexOf(region) > -1 || pc_parent.indexOf(countryCode) > -1) {
-                    bannButt.parentCategory.active = true;
-                    if (currentWL.parentCategory) {
-                        bannButt.parentCategory.WLactive = false;
+                    // Unmapped categories
+                    pc_rare     = CH_DATA_Temp[CH_DATA_headers.indexOf('pc_rare')].replace(/,[^A-Za-z0-9}]+/g, ",").split(',');
+                    if (pc_rare.indexOf(state2L) > -1 || pc_rare.indexOf(region) > -1 || pc_rare.indexOf(countryCode) > -1) {
+                        bannButt.unmappedRegion.active = true;
+                        if (currentWL.unmappedRegion) {
+                            bannButt.unmappedRegion.WLactive = false;
+                        } else {
+                            lockOK = false;
+                        }
                     }
-                }
-                // Set lock level
-                for (var lockix=1; lockix<6; lockix++) {
-                    pc_lockTemp = CH_DATA_Temp[CH_DATA_headers.indexOf('pc_lock'+lockix)].replace(/,[^A-Za-z0-9}]+/g, ",").split(',');
-                    if (pc_lockTemp.indexOf(state2L) > -1 || pc_lockTemp.indexOf(region) > -1 || pc_lockTemp.indexOf(countryCode) > -1) {
-                        defaultLockLevel = lockix - 1;  // Offset by 1 since lock ranks start at 0
-                        break;
+                    // Parent Category
+                    pc_parent     = CH_DATA_Temp[CH_DATA_headers.indexOf('pc_parent')].replace(/,[^A-Za-z0-9}]+/g, ",").split(',');
+                    if (pc_parent.indexOf(state2L) > -1 || pc_parent.indexOf(region) > -1 || pc_parent.indexOf(countryCode) > -1) {
+                        bannButt.parentCategory.active = true;
+                        if (currentWL.parentCategory) {
+                            bannButt.parentCategory.WLactive = false;
+                        }
                     }
-                }
+                    // Set lock level
+                    for (var lockix=1; lockix<6; lockix++) {
+                        pc_lockTemp = CH_DATA_Temp[CH_DATA_headers.indexOf('pc_lock'+lockix)].replace(/,[^A-Za-z0-9}]+/g, ",").split(',');
+                        if (pc_lockTemp.indexOf(state2L) > -1 || pc_lockTemp.indexOf(region) > -1 || pc_lockTemp.indexOf(countryCode) > -1) {
+                            defaultLockLevel = lockix - 1;  // Offset by 1 since lock ranks start at 0
+                            break;
+                        }
+                    }
 
 
-                var anpNone = collegeAbbreviations.split('|'), anpNoneRE;
-                for (var cii=0; cii<anpNone.length; cii++) {
-                    anpNoneRE = new RegExp('\\b'+anpNone[cii]+'\\b', 'g');
-                    if ( newName.match( anpNoneRE) !== null ) {
-                        bannButt.areaNotPointLow.severity = 0;
-                        bannButt.areaNotPointLow.WLactive = false;
+                    var anpNone = collegeAbbreviations.split('|'), anpNoneRE;
+                    for (var cii=0; cii<anpNone.length; cii++) {
+                        anpNoneRE = new RegExp('\\b'+anpNone[cii]+'\\b', 'g');
+                        if ( newName.match( anpNoneRE) !== null ) {
+                            bannButt.areaNotPointLow.severity = 0;
+                            bannButt.areaNotPointLow.WLactive = false;
+                        }
                     }
                 }
-
 
 
                 // Check for missing hours field
