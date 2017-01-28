@@ -28,11 +28,14 @@
 (function () {
     var jqUI_CssSrc = GM_getResourceText("jqUI_CSS");
     GM_addStyle(jqUI_CssSrc);
-    GM_addStyle('.wmeph-btn, .wmephwl-btn {height:18px;}');
-    GM_addStyle('#WMEPH_banner input[type=text], #WMEPH_banner .ui-autocomplete-input {font-size: 13px !important; height:22px !important; font-family: "Open Sans", Alef, helvetica, sans-serif !important;}');
-    GM_addStyle('#WMEPH_banner li {padding-bottom: 3px !important;');
-    // Was testing this, but I don't think the following line does anything. (mapomatic)
-    GM_addStyle('.ui-autocomplete {max-height: 300px;overflow-y: auto;overflow-x: hidden;}  * html .ui-autocomplete {height: 100px;}');
+    GM_addStyle([
+        '.wmeph-btn, .wmephwl-btn {height:18px;}',
+        '#WMEPH_banner { font-weight: 600;}',
+        '#WMEPH_banner input[type=text], #WMEPH_banner .ui-autocomplete-input { font-size: 13px !important; height:22px !important; font-family: "Open Sans", Alef, helvetica, sans-serif !important; }',
+        '#WMEPH_banner div { padding-bottom: 6px !important; }',
+        '#WMEPH_tools div { padding-bottom: 3px !important; }',
+        '.ui-autocomplete { max-height: 300px;overflow-y: auto;overflow-x: hidden;} '
+    ].join('\n'));
     var WMEPHversion = GM_info.script.version.toString(); // pull version from header
     var WMEPHversionMeta = WMEPHversion.match(/(\d+\.\d+)/i)[1];  // get the X.X version
     var majorNewFeature = false;  // set to true to make an alert pop up after script update with new feature
@@ -266,6 +269,8 @@
     function runPH() {
         // Script update info
         var WMEPHWhatsNewList = [  // New in this version
+            '1.1.92: Minor styling tweaks.',
+            '1.1.92: Fixed bug that would prevent "Edit address" button from working if General tab is not active.',
             '1.1.91: Fixed bug that triggered when all categories were removed.',
             '1.1.90: Fixed bug in data compression algorithm.',
             '1.1.89: Style tweaks.',
@@ -1268,12 +1273,13 @@
                 },
 
                 streetMissing: {  // no WL
-                    active: false, severity: 3, message: 'No street:<div class="ui-widget" style="display:inline;"><input id="WMEPH_missingStreet" style="color:#000;background-color:#FDD;width:140px;margin-right:3px;"></div><input class="btn btn-default btn-xs wmeph-btn disabled" id="WMEPH_addStreetBtn" title="Add street to place" type="button" value="Add" disabled>'
+                    active: false, severity: 3, message: 'No street: <div class="ui-widget" style="display:inline;"><input id="WMEPH_missingStreet" style="color:#000;background-color:#FDD;width:140px;margin-right:3px;"></div><input class="btn btn-default btn-xs wmeph-btn disabled" id="WMEPH_addStreetBtn" title="Add street to place" type="button" value="Add" disabled>'
                 },
 
                 cityMissing: {  // no WL
                     active: false, severity: 3, message: 'City missing.', value: 'Edit address', title: "Edit address to add city.",
                     action: function() {
+                        $('.nav-tabs a[href="#landmark-edit-general"]').trigger('click');
                         $('.waze-icon-edit').trigger('click');
                         if ($('.empty-city').prop('checked')) {
                             $('.empty-city').trigger('click');
@@ -4165,13 +4171,13 @@
             }
 
             // Add banner indicating that it's the beta version
-            if (isDevVersion) {
-                sidebarTools.push('WMEPH Beta');
-            }
+            // if (isDevVersion) {
+            //     sidebarTools.push('WMEPH Beta');
+            // }
 
             // Post the banners to the sidebar
-            displayTools( sidebarTools.join("<li>") );
-            displayBanners(sidebarMessage.join("<li>"), severityButt );
+            displayTools( sidebarTools.join("<div></div>") );
+            displayBanners(sidebarMessage.join("<div></div>"), severityButt );
 
             // Set up Duplicate onclicks
             if ( dupesFound ) {
@@ -4342,7 +4348,7 @@
         // Setup div for banner messages and color
         function displayBanners(sbm,sev) {
             if ($('#WMEPH_banner').length === 0 ) {
-                $('<ul id="WMEPH_banner">').css({"width": "100%", "background-color": "#fff", "color": "white", "font-size": "14px", "padding": "3px", "margin-left": "auto", "margin-right": "auto"}).prependTo(".contents");
+                $('<div id="WMEPH_banner">').css({"width": "100%", "background-color": "#fff", "color": "white", "font-size": "14px", "padding": "3px", "margin-left": "auto", "margin-right": "auto"}).prependTo(".contents");
             } else {
                 $('#WMEPH_banner').empty();
             }
@@ -4361,7 +4367,7 @@
                     bgColor = "rgb(36, 172, 36)";  // green
             }
             $('#WMEPH_banner').css({"background-color": bgColor});
-            sbm = '<li>' + sbm + '</span></li>';
+            sbm = '<div>' + sbm + '</div>';
             $("#WMEPH_banner").append(sbm);
             $('#select2-drop').css({display:'none'});
         }  // END displayBanners funtion
@@ -4373,7 +4379,7 @@
             } else {
                 $('#WMEPH_tools').empty();
             }
-            sbm = '<li><span style="position:relative;left:-10px;">' + sbm+ '</span></li>';
+            sbm = '<div><span style="position:relative;">' + sbm+ '</span></div>';
             $("#WMEPH_tools").append(sbm);
             $('#select2-drop').css({display:'none'});
         }  // END displayBanners funtion
@@ -4422,124 +4428,129 @@
             if (isDevVersion) { betaDelay = 300; }
             setTimeout(function() {
                 if ($('#WMEPH_runButton').length === 0 ) {
-                    $('<div id="WMEPH_runButton">').css({"padding-bottom": "6px", "padding-top": "3px", "width": "290", "background-color": "#FFF", "color": "black", "font-size": "15px", "font-weight": "bold", "margin-left": "auto", "margin-right": "auto"}).prependTo(".contents");
+                    $('<div id="WMEPH_runButton">').css({"padding-bottom": "6px", "padding-top": "3px", "width": "290", "background-color": "#FFF", "color": "black", "font-size": "15px", "font-weight": "bold", "margin-left": "auto;", "margin-right": "auto"}).prependTo(".contents");
                 }
                 var strButt1, btn;
                 item = W.selectionManager.selectedItems[0].model;
-                var openPlaceWebsiteURL = item.attributes.url;
-
-                if (openPlaceWebsiteURL !== null && openPlaceWebsiteURL.replace(/[^A-Za-z0-9]/g,'').length > 2 && (thisUser.userName === 't0cableguy' || thisUser.userName === 't0cableguy') ) {
-                    if ($('#WMEPHurl').length === 0 ) {
-                        strButt1 = '<br><input class="btn btn-success btn-xs" id="WMEPHurl" title="Open place URL" type="button" value="Open URL">';
+                if (item) {
+                    var openPlaceWebsiteURL = item.attributes.url;
+                    if (openPlaceWebsiteURL && openPlaceWebsiteURL.replace(/[^A-Za-z0-9]/g,'').length > 2 && (thisUser.userName === 't0cableguy' || thisUser.userName === 'MapOMatic') ) {
+                        if ($('#WMEPHurl').length === 0 ) {
+                            strButt1 = '<input class="btn btn-success btn-xs" id="WMEPHurl" title="Open place URL" type="button" value="Open URL" style="margin-left:3px;">';
+                            $("#WMEPH_runButton").append(strButt1);
+                        }
+                        btn = document.getElementById("WMEPHurl");
+                        if (btn !== null) {
+                            btn.onclick = function() {
+                                var item = W.selectionManager.selectedItems[0];
+                                if (item && item.model && item.model.attributes) {
+                                    openPlaceWebsiteURL = item.model.attributes.url;
+                                    if (openPlaceWebsiteURL.match(/^http/i) === null) {
+                                        openPlaceWebsiteURL = 'http:\/\/'+openPlaceWebsiteURL;
+                                    }
+                                    if ( $("#WMEPH-WebSearchNewTab" + devVersStr).prop('checked') ) {
+                                        window.open(openPlaceWebsiteURL);
+                                    } else {
+                                        window.open(openPlaceWebsiteURL, searchResultsWindowName, searchResultsWindowSpecs);
+                                    }
+                                }
+                            };
+                        } else {
+                            setTimeout(bootstrapRunButton,100);
+                        }
+                    }
+                    if ($('#clonePlace').length === 0 ) {
+                        strButt1 = '<div style="margin-bottom: 3px;"></div><input class="btn btn-warning btn-xs wmeph-btn" id="clonePlace" title="Copy place info" type="button" value="Copy">'+
+                            ' <input class="btn btn-warning btn-xs wmeph-btn" id="pasteClone" title="Apply the Place info. (Ctrl-Alt-O)" type="button" value="Paste (for checked boxes):"><br>';
+                        $("#WMEPH_runButton").append(strButt1);
+                        createCloneCheckbox('WMEPH_runButton', 'WMEPH_CPhn', 'HN');
+                        createCloneCheckbox('WMEPH_runButton', 'WMEPH_CPstr', 'Str');
+                        createCloneCheckbox('WMEPH_runButton', 'WMEPH_CPcity', 'City');
+                        createCloneCheckbox('WMEPH_runButton', 'WMEPH_CPurl', 'URL');
+                        createCloneCheckbox('WMEPH_runButton', 'WMEPH_CPph', 'Ph');
+                        $("#WMEPH_runButton").append('<br>');
+                        createCloneCheckbox('WMEPH_runButton', 'WMEPH_CPdesc', 'Desc');
+                        createCloneCheckbox('WMEPH_runButton', 'WMEPH_CPserv', 'Serv');
+                        createCloneCheckbox('WMEPH_runButton', 'WMEPH_CPhrs', 'Hrs');
+                        strButt1 = '<input class="btn btn-info btn-xs wmeph-btn" id="checkAllClone" title="Check all" type="button" value="All">'+
+                            ' <input class="btn btn-info btn-xs wmeph-btn" id="checkAddrClone" title="Check Address" type="button" value="Addr">'+
+                            ' <input class="btn btn-info btn-xs wmeph-btn" id="checkNoneClone" title="Check none" type="button" value="None"><br>';
                         $("#WMEPH_runButton").append(strButt1);
                     }
-                    btn = document.getElementById("WMEPHurl");
+                    btn = document.getElementById("clonePlace");
                     if (btn !== null) {
                         btn.onclick = function() {
-                            if (openPlaceWebsiteURL.match(/^http/i) === null) {
-                                openPlaceWebsiteURL = 'http:\/\/'+openPlaceWebsiteURL;
+                            item = W.selectionManager.selectedItems[0].model;
+                            cloneMaster = {};
+                            cloneMaster.addr = item.getAddress();
+                            if ( cloneMaster.addr.hasOwnProperty('attributes') ) {
+                                cloneMaster.addr = cloneMaster.addr.attributes;
                             }
-                            if ( $("#WMEPH-WebSearchNewTab" + devVersStr).prop('checked') ) {
-                                window.open(openPlaceWebsiteURL);
-                            } else {
-                                window.open(openPlaceWebsiteURL, searchResultsWindowName, searchResultsWindowSpecs);
-                            }
+                            cloneMaster.houseNumber = item.attributes.houseNumber;
+                            cloneMaster.url = item.attributes.url;
+                            cloneMaster.phone = item.attributes.phone;
+                            cloneMaster.description = item.attributes.description;
+                            cloneMaster.services = item.attributes.services;
+                            cloneMaster.openingHours = item.attributes.openingHours;
+                            phlogdev('Place Cloned');
+                        };
+                    } else {
+                        setTimeout(bootstrapRunButton,100);
+                        return;
+                    }
+                    btn = document.getElementById("pasteClone");
+                    if (btn !== null) {
+                        btn.onclick = function() {
+                            clonePlace();
                         };
                     } else {
                         setTimeout(bootstrapRunButton,100);
                     }
-                }
-                if ($('#clonePlace').length === 0 ) {
-                    strButt1 = '<div style="margin-bottom: 3px;"></div><input class="btn btn-warning btn-xs wmeph-btn" id="clonePlace" title="Copy place info" type="button" value="Copy">'+
-                        ' <input class="btn btn-warning btn-xs wmeph-btn" id="pasteClone" title="Apply the Place info. (Ctrl-Alt-O)" type="button" value="Paste (for checked boxes):"><br>';
-                    $("#WMEPH_runButton").append(strButt1);
-                    createCloneCheckbox('WMEPH_runButton', 'WMEPH_CPhn', 'HN');
-                    createCloneCheckbox('WMEPH_runButton', 'WMEPH_CPstr', 'Str');
-                    createCloneCheckbox('WMEPH_runButton', 'WMEPH_CPcity', 'City');
-                    createCloneCheckbox('WMEPH_runButton', 'WMEPH_CPurl', 'URL');
-                    createCloneCheckbox('WMEPH_runButton', 'WMEPH_CPph', 'Ph');
-                    $("#WMEPH_runButton").append('<br>');
-                    createCloneCheckbox('WMEPH_runButton', 'WMEPH_CPdesc', 'Desc');
-                    createCloneCheckbox('WMEPH_runButton', 'WMEPH_CPserv', 'Serv');
-                    createCloneCheckbox('WMEPH_runButton', 'WMEPH_CPhrs', 'Hrs');
-                    strButt1 = '<input class="btn btn-info btn-xs wmeph-btn" id="checkAllClone" title="Check all" type="button" value="All">'+
-                        ' <input class="btn btn-info btn-xs wmeph-btn" id="checkAddrClone" title="Check Address" type="button" value="Addr">'+
-                        ' <input class="btn btn-info btn-xs wmeph-btn" id="checkNoneClone" title="Check none" type="button" value="None"><br>';
-                    $("#WMEPH_runButton").append(strButt1);
-                }
-                btn = document.getElementById("clonePlace");
-                if (btn !== null) {
-                    btn.onclick = function() {
-                        item = W.selectionManager.selectedItems[0].model;
-                        cloneMaster = {};
-                        cloneMaster.addr = item.getAddress();
-                        if ( cloneMaster.addr.hasOwnProperty('attributes') ) {
-                            cloneMaster.addr = cloneMaster.addr.attributes;
-                        }
-                        cloneMaster.houseNumber = item.attributes.houseNumber;
-                        cloneMaster.url = item.attributes.url;
-                        cloneMaster.phone = item.attributes.phone;
-                        cloneMaster.description = item.attributes.description;
-                        cloneMaster.services = item.attributes.services;
-                        cloneMaster.openingHours = item.attributes.openingHours;
-                        phlogdev('Place Cloned');
-                    };
-                } else {
-                    setTimeout(bootstrapRunButton,100);
-                    return;
-                }
-                btn = document.getElementById("pasteClone");
-                if (btn !== null) {
-                    btn.onclick = function() {
-                        clonePlace();
-                    };
-                } else {
-                    setTimeout(bootstrapRunButton,100);
-                }
-                btn = document.getElementById("checkAllClone");
-                if (btn !== null) {
-                    btn.onclick = function() {
-                        if ( !$("#WMEPH_CPhn").prop('checked') ) { $("#WMEPH_CPhn").trigger('click'); }
-                        if ( !$("#WMEPH_CPstr").prop('checked') ) { $("#WMEPH_CPstr").trigger('click'); }
-                        if ( !$("#WMEPH_CPcity").prop('checked') ) { $("#WMEPH_CPcity").trigger('click'); }
-                        if ( !$("#WMEPH_CPurl").prop('checked') ) { $("#WMEPH_CPurl").trigger('click'); }
-                        if ( !$("#WMEPH_CPph").prop('checked') ) { $("#WMEPH_CPph").trigger('click'); }
-                        if ( !$("#WMEPH_CPserv").prop('checked') ) { $("#WMEPH_CPserv").trigger('click'); }
-                        if ( !$("#WMEPH_CPdesc").prop('checked') ) { $("#WMEPH_CPdesc").trigger('click'); }
-                        if ( !$("#WMEPH_CPhrs").prop('checked') ) { $("#WMEPH_CPhrs").trigger('click'); }
-                    };
-                } else {
-                    setTimeout(bootstrapRunButton,100);
-                }
-                btn = document.getElementById("checkAddrClone");
-                if (btn !== null) {
-                    btn.onclick = function() {
-                        if ( !$("#WMEPH_CPhn").prop('checked') ) { $("#WMEPH_CPhn").trigger('click'); }
-                        if ( !$("#WMEPH_CPstr").prop('checked') ) { $("#WMEPH_CPstr").trigger('click'); }
-                        if ( !$("#WMEPH_CPcity").prop('checked') ) { $("#WMEPH_CPcity").trigger('click'); }
-                        if ( $("#WMEPH_CPurl").prop('checked') ) { $("#WMEPH_CPurl").trigger('click'); }
-                        if ( $("#WMEPH_CPph").prop('checked') ) { $("#WMEPH_CPph").trigger('click'); }
-                        if ( $("#WMEPH_CPserv").prop('checked') ) { $("#WMEPH_CPserv").trigger('click'); }
-                        if ( $("#WMEPH_CPdesc").prop('checked') ) { $("#WMEPH_CPdesc").trigger('click'); }
-                        if ( $("#WMEPH_CPhrs").prop('checked') ) { $("#WMEPH_CPhrs").trigger('click'); }
-                    };
-                } else {
-                    setTimeout(bootstrapRunButton,100);
-                }
-                btn = document.getElementById("checkNoneClone");
-                if (btn !== null) {
-                    btn.onclick = function() {
-                        if ( $("#WMEPH_CPhn").prop('checked') ) { $("#WMEPH_CPhn").trigger('click'); }
-                        if ( $("#WMEPH_CPstr").prop('checked') ) { $("#WMEPH_CPstr").trigger('click'); }
-                        if ( $("#WMEPH_CPcity").prop('checked') ) { $("#WMEPH_CPcity").trigger('click'); }
-                        if ( $("#WMEPH_CPurl").prop('checked') ) { $("#WMEPH_CPurl").trigger('click'); }
-                        if ( $("#WMEPH_CPph").prop('checked') ) { $("#WMEPH_CPph").trigger('click'); }
-                        if ( $("#WMEPH_CPserv").prop('checked') ) { $("#WMEPH_CPserv").trigger('click'); }
-                        if ( $("#WMEPH_CPdesc").prop('checked') ) { $("#WMEPH_CPdesc").trigger('click'); }
-                        if ( $("#WMEPH_CPhrs").prop('checked') ) { $("#WMEPH_CPhrs").trigger('click'); }
-                    };
-                } else {
-                    setTimeout(bootstrapRunButton,100);
+                    btn = document.getElementById("checkAllClone");
+                    if (btn !== null) {
+                        btn.onclick = function() {
+                            if ( !$("#WMEPH_CPhn").prop('checked') ) { $("#WMEPH_CPhn").trigger('click'); }
+                            if ( !$("#WMEPH_CPstr").prop('checked') ) { $("#WMEPH_CPstr").trigger('click'); }
+                            if ( !$("#WMEPH_CPcity").prop('checked') ) { $("#WMEPH_CPcity").trigger('click'); }
+                            if ( !$("#WMEPH_CPurl").prop('checked') ) { $("#WMEPH_CPurl").trigger('click'); }
+                            if ( !$("#WMEPH_CPph").prop('checked') ) { $("#WMEPH_CPph").trigger('click'); }
+                            if ( !$("#WMEPH_CPserv").prop('checked') ) { $("#WMEPH_CPserv").trigger('click'); }
+                            if ( !$("#WMEPH_CPdesc").prop('checked') ) { $("#WMEPH_CPdesc").trigger('click'); }
+                            if ( !$("#WMEPH_CPhrs").prop('checked') ) { $("#WMEPH_CPhrs").trigger('click'); }
+                        };
+                    } else {
+                        setTimeout(bootstrapRunButton,100);
+                    }
+                    btn = document.getElementById("checkAddrClone");
+                    if (btn !== null) {
+                        btn.onclick = function() {
+                            if ( !$("#WMEPH_CPhn").prop('checked') ) { $("#WMEPH_CPhn").trigger('click'); }
+                            if ( !$("#WMEPH_CPstr").prop('checked') ) { $("#WMEPH_CPstr").trigger('click'); }
+                            if ( !$("#WMEPH_CPcity").prop('checked') ) { $("#WMEPH_CPcity").trigger('click'); }
+                            if ( $("#WMEPH_CPurl").prop('checked') ) { $("#WMEPH_CPurl").trigger('click'); }
+                            if ( $("#WMEPH_CPph").prop('checked') ) { $("#WMEPH_CPph").trigger('click'); }
+                            if ( $("#WMEPH_CPserv").prop('checked') ) { $("#WMEPH_CPserv").trigger('click'); }
+                            if ( $("#WMEPH_CPdesc").prop('checked') ) { $("#WMEPH_CPdesc").trigger('click'); }
+                            if ( $("#WMEPH_CPhrs").prop('checked') ) { $("#WMEPH_CPhrs").trigger('click'); }
+                        };
+                    } else {
+                        setTimeout(bootstrapRunButton,100);
+                    }
+                    btn = document.getElementById("checkNoneClone");
+                    if (btn !== null) {
+                        btn.onclick = function() {
+                            if ( $("#WMEPH_CPhn").prop('checked') ) { $("#WMEPH_CPhn").trigger('click'); }
+                            if ( $("#WMEPH_CPstr").prop('checked') ) { $("#WMEPH_CPstr").trigger('click'); }
+                            if ( $("#WMEPH_CPcity").prop('checked') ) { $("#WMEPH_CPcity").trigger('click'); }
+                            if ( $("#WMEPH_CPurl").prop('checked') ) { $("#WMEPH_CPurl").trigger('click'); }
+                            if ( $("#WMEPH_CPph").prop('checked') ) { $("#WMEPH_CPph").trigger('click'); }
+                            if ( $("#WMEPH_CPserv").prop('checked') ) { $("#WMEPH_CPserv").trigger('click'); }
+                            if ( $("#WMEPH_CPdesc").prop('checked') ) { $("#WMEPH_CPdesc").trigger('click'); }
+                            if ( $("#WMEPH_CPhrs").prop('checked') ) { $("#WMEPH_CPhrs").trigger('click'); }
+                        };
+                    } else {
+                        setTimeout(bootstrapRunButton,100);
+                    }
                 }
             }, betaDelay);
         }  // END displayCloneButton funtion
