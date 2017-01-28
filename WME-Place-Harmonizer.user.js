@@ -269,6 +269,7 @@
     function runPH() {
         // Script update info
         var WMEPHWhatsNewList = [  // New in this version
+            '1.1.93: Fixed bug with area vs point warning.',
             '1.1.92: Minor styling tweaks.',
             '1.1.92: Fixed bug that would prevent "Edit address" button from working if General tab is not active.',
             '1.1.91: Fixed bug that triggered when all categories were removed.',
@@ -3200,7 +3201,7 @@
                             lockOK = false;
                         }
                     } else if (maxAreaSeverity === 1) {
-                        bannButt.areaNotPointLow.active = true;
+                        bannButt.pointNotAreaLow.active = true;
                         if (currentWL.pointNotArea) {
                             bannButt.pointNotAreaLow.WLactive = false;
                         }
