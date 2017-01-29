@@ -269,6 +269,8 @@
     function runPH() {
         // Script update info
         var WMEPHWhatsNewList = [  // New in this version
+            '1.1.95: Fixed bug with area vs point warning not locking even after WL.',
+            '1.1.95: Locking a place that has an area vs point warning will effectively WL it for everyone.',
             '1.1.94: Fixed bug that was preventing all categories from being checked for lock level, messages, etc.',
             '1.1.93: Fixed bug with area vs point warning.',
             '1.1.92: Minor styling tweaks.',
@@ -3206,43 +3208,49 @@
                 if (isPoint) {
                     if (maxPointSeverity === 3) {
                         bannButt.areaNotPoint.active = true;
-                        if (currentWL.areaNotPoint) {
+                        if (currentWL.areaNotPoint || item.attributes.lockRank >= defaultLockLevel) {
                             bannButt.areaNotPoint.WLactive = false;
+                            bannButt.areaNotPoint.severity = 0;
                         } else {
                             lockOK = false;
                         }
                     } else if (maxPointSeverity === 2) {
                         bannButt.areaNotPointMid.active = true;
-                        if (currentWL.areaNotPoint) {
+                        if (currentWL.areaNotPoint || item.attributes.lockRank >= defaultLockLevel) {
                             bannButt.areaNotPointMid.WLactive = false;
+                            bannButt.areaNotPointMid.severity = 0;
                         } else {
                             lockOK = false;
                         }
                     } else if (maxPointSeverity === 1) {
                         bannButt.areaNotPointLow.active = true;
-                        if (currentWL.areaNotPoint) {
+                        if (currentWL.areaNotPoint || item.attributes.lockRank >= defaultLockLevel) {
                             bannButt.areaNotPointLow.WLactive = false;
+                            bannButt.areaNotPointLow.severity = 0;
                         }
                     }
                 } else {
                     if (maxAreaSeverity === 3) {
                         bannButt.pointNotArea.active = true;
-                        if (currentWL.pointNotArea) {
+                        if (currentWL.pointNotArea || item.attributes.lockRank >= defaultLockLevel) {
                             bannButt.pointNotArea.WLactive = false;
+                            bannButt.pointNotArea.severity = 0;
                         } else {
                             lockOK = false;
                         }
                     } else if (maxAreaSeverity === 2) {
                         bannButt.pointNotAreaMid.active = true;
-                        if (currentWL.pointNotArea) {
+                        if (currentWL.pointNotArea || item.attributes.lockRank >= defaultLockLevel) {
                             bannButt.pointNotAreaMid.WLactive = false;
+                            bannButt.pointNotAreaMid.severity = 0;
                         } else {
                             lockOK = false;
                         }
                     } else if (maxAreaSeverity === 1) {
                         bannButt.pointNotAreaLow.active = true;
-                        if (currentWL.pointNotArea) {
+                        if (currentWL.pointNotArea || item.attributes.lockRank >= defaultLockLevel) {
                             bannButt.pointNotAreaLow.WLactive = false;
+                            bannButt.pointNotAreaLow.severity = 0;
                         }
                     }
                 }
