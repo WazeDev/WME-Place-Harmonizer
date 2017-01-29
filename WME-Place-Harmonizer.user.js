@@ -269,6 +269,7 @@
     function runPH() {
         // Script update info
         var WMEPHWhatsNewList = [  // New in this version
+            '1.1.94: Fixed bug that was preventing all categories from being checked for lock level, messages, etc.',
             '1.1.93: Fixed bug with area vs point warning.',
             '1.1.92: Minor styling tweaks.',
             '1.1.92: Fixed bug that would prevent "Edit address" button from working if General tab is not active.',
@@ -3134,6 +3135,7 @@
                 var isArea = item.is2D();
                 var maxPointSeverity = 0;
                 var maxAreaSeverity = 3;
+                var highestCategoryLock = -1;
 
                 for(var ixPlaceCat=0; ixPlaceCat<newCategories.length; ixPlaceCat++) {
                     var category = newCategories[ixPlaceCat];
@@ -3161,7 +3163,44 @@
                         } else if (isArea) {
                             maxAreaSeverity = Math.min(areaSeverity, maxAreaSeverity);
                         }
+
+                        // display any messaged regarding the category
+                        pc_message = CH_DATA_Temp[CH_DATA_headers.indexOf('pc_message')];
+                        if (pc_message && pc_message !== '0' && pc_message !== '') {
+                            bannButt.pnhCatMess.active = true;
+                            bannButt.pnhCatMess.message = pc_message;
+                        }
+                        // Unmapped categories
+                        pc_rare     = CH_DATA_Temp[CH_DATA_headers.indexOf('pc_rare')].replace(/,[^A-Za-z0-9}]+/g, ",").split(',');
+                        if (pc_rare.indexOf(state2L) > -1 || pc_rare.indexOf(region) > -1 || pc_rare.indexOf(countryCode) > -1) {
+                            bannButt.unmappedRegion.active = true;
+                            if (currentWL.unmappedRegion) {
+                                bannButt.unmappedRegion.WLactive = false;
+                            } else {
+                                lockOK = false;
+                            }
+                        }
+                        // Parent Category
+                        pc_parent     = CH_DATA_Temp[CH_DATA_headers.indexOf('pc_parent')].replace(/,[^A-Za-z0-9}]+/g, ",").split(',');
+                        if (pc_parent.indexOf(state2L) > -1 || pc_parent.indexOf(region) > -1 || pc_parent.indexOf(countryCode) > -1) {
+                            bannButt.parentCategory.active = true;
+                            if (currentWL.parentCategory) {
+                                bannButt.parentCategory.WLactive = false;
+                            }
+                        }
+                        // Set lock level
+                        for (var lockix=1; lockix<6; lockix++) {
+                            pc_lockTemp = CH_DATA_Temp[CH_DATA_headers.indexOf('pc_lock'+lockix)].replace(/,[^A-Za-z0-9}]+/g, ",").split(',');
+
+                            if (lockix - 1 > highestCategoryLock && (pc_lockTemp.indexOf(state2L) > -1 || pc_lockTemp.indexOf(region) > -1 || pc_lockTemp.indexOf(countryCode) > -1)) {
+                                highestCategoryLock = lockix - 1;  // Offset by 1 since lock ranks start at 0
+                            }
+                        }
                     }
+                }
+
+                if (highestCategoryLock > -1) {
+                    defaultLockLevel = highestCategoryLock;
                 }
 
                 if (isPoint) {
@@ -3208,51 +3247,14 @@
                     }
                 }
 
-                // display any messaged regarding the category
-                if (newCategories.length > 0) {
-                    pc_message = CH_DATA_Temp[CH_DATA_headers.indexOf('pc_message')];
-                    if (pc_message && pc_message !== '0' && pc_message !== '') {
-                        bannButt.pnhCatMess.active = true;
-                        bannButt.pnhCatMess.message = pc_message;
-                    }
-                    // Unmapped categories
-                    pc_rare     = CH_DATA_Temp[CH_DATA_headers.indexOf('pc_rare')].replace(/,[^A-Za-z0-9}]+/g, ",").split(',');
-                    if (pc_rare.indexOf(state2L) > -1 || pc_rare.indexOf(region) > -1 || pc_rare.indexOf(countryCode) > -1) {
-                        bannButt.unmappedRegion.active = true;
-                        if (currentWL.unmappedRegion) {
-                            bannButt.unmappedRegion.WLactive = false;
-                        } else {
-                            lockOK = false;
-                        }
-                    }
-                    // Parent Category
-                    pc_parent     = CH_DATA_Temp[CH_DATA_headers.indexOf('pc_parent')].replace(/,[^A-Za-z0-9}]+/g, ",").split(',');
-                    if (pc_parent.indexOf(state2L) > -1 || pc_parent.indexOf(region) > -1 || pc_parent.indexOf(countryCode) > -1) {
-                        bannButt.parentCategory.active = true;
-                        if (currentWL.parentCategory) {
-                            bannButt.parentCategory.WLactive = false;
-                        }
-                    }
-                    // Set lock level
-                    for (var lockix=1; lockix<6; lockix++) {
-                        pc_lockTemp = CH_DATA_Temp[CH_DATA_headers.indexOf('pc_lock'+lockix)].replace(/,[^A-Za-z0-9}]+/g, ",").split(',');
-                        if (pc_lockTemp.indexOf(state2L) > -1 || pc_lockTemp.indexOf(region) > -1 || pc_lockTemp.indexOf(countryCode) > -1) {
-                            defaultLockLevel = lockix - 1;  // Offset by 1 since lock ranks start at 0
-                            break;
-                        }
-                    }
-
-
-                    var anpNone = collegeAbbreviations.split('|'), anpNoneRE;
-                    for (var cii=0; cii<anpNone.length; cii++) {
-                        anpNoneRE = new RegExp('\\b'+anpNone[cii]+'\\b', 'g');
-                        if ( newName.match( anpNoneRE) !== null ) {
-                            bannButt.areaNotPointLow.severity = 0;
-                            bannButt.areaNotPointLow.WLactive = false;
-                        }
+                var anpNone = collegeAbbreviations.split('|'), anpNoneRE;
+                for (var cii=0; cii<anpNone.length; cii++) {
+                    anpNoneRE = new RegExp('\\b'+anpNone[cii]+'\\b', 'g');
+                    if ( newName.match( anpNoneRE) !== null ) {
+                        bannButt.areaNotPointLow.severity = 0;
+                        bannButt.areaNotPointLow.WLactive = false;
                     }
                 }
-
 
                 // Check for missing hours field
                 if (item.attributes.openingHours.length === 0) {  // if no hours...
@@ -7485,4 +7487,3 @@
     }
 
 })();
-
