@@ -250,6 +250,7 @@
     function runPH() {
         // Script update info
         var WMEPHWhatsNewList = [  // New in this version
+            '1.1.67: Change "Not a hospital" description.',
             '1.1.66: Relocate sheet for non hospital list.',
             '1.1.65: Fix for bug that caused hang in v1.1.64.',
             '1.1.64: Added URL entry box when missing.',
@@ -1089,7 +1090,7 @@
                 },
 
                 changeHMC2Office: {
-                    active: false, severity: 3, message: "This doesn't look like a hospital or urgent care location.", value: "Change to Offices", title: 'Change to Office Category',
+                    active: false, severity: 3, message: "Keywords suggest this location may not be a hospital or urgent care location.", value: "Change to Offices", title: 'Change to Office Category',
                     action: function() {
                         newCategories[newCategories.indexOf('HOSPITAL_MEDICAL_CARE')] = "OFFICES";
                         //phlogdev(newCategories);
