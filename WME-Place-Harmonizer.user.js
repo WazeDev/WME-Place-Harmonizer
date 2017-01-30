@@ -269,6 +269,7 @@
     function runPH() {
         // Script update info
         var WMEPHWhatsNewList = [  // New in this version
+            '1.1.95: Change "not a hospital" note.',
             '1.1.95: Fixed bug with area vs point warning not locking even after WL.',
             '1.1.95: Locking a place that has an area vs point warning will effectively WL it for everyone.',
             '1.1.94: Fixed bug that was preventing all categories from being checked for lock level, messages, etc.',
@@ -1143,7 +1144,7 @@
                 },
 
                 changeHMC2Office: {
-                    active: false, severity: 3, message: "This doesn't look like a hospital or urgent care location.", value: "Change to Offices", title: 'Change to Office Category',
+                    active: false, severity: 3, message: "Keywords suggest this location may not be a hospital or urgent care location.", value: "Change to Offices", title: 'Change to Office Category',
                     action: function() {
                         newCategories[newCategories.indexOf('HOSPITAL_MEDICAL_CARE')] = "OFFICES";
                         //phlogdev(newCategories);
