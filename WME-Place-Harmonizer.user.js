@@ -250,6 +250,7 @@
     function runPH() {
         // Script update info
         var WMEPHWhatsNewList = [  // New in this version
+            '1.1.67: Change "Not a hospital" description.',
             '1.1.66: Relocate sheet for non hospital list.',
             '1.1.65: Fix for bug that caused hang in v1.1.64.',
             '1.1.64: Added URL entry box when missing.',
