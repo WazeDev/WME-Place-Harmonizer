@@ -1089,7 +1089,7 @@
                 },
 
                 changeHMC2Office: {
-                    active: false, severity: 3, message: "This doesn't look like a hospital or urgent care location.", value: "Change to Offices", title: 'Change to Office Category',
+                    active: false, severity: 3, message: "Keywords suggest this location may not be a hospital or urgent care location.", value: "Change to Offices", title: 'Change to Office Category',
                     action: function() {
                         newCategories[newCategories.indexOf('HOSPITAL_MEDICAL_CARE')] = "OFFICES";
                         //phlogdev(newCategories);
