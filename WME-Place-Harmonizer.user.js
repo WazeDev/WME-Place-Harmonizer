@@ -13,7 +13,7 @@
 // ==UserScript==
 // @name        WME Place Harmonizer Beta
 // @namespace   https://github.com/WazeUSA/WME-Place-Harmonizer/raw/master/WME-Place-Harmonizer.user.js
-// @version     1.1.95-GM
+// @version     1.1.96-GM
 // @description Harmonizes, formats, and locks a selected place
 // @author      WMEPH development group
 // @include     /^https:\/\/(www|beta)\.waze\.com\/(?!user\/)(.{2,6}\/)?editor\/.*$/
@@ -2228,6 +2228,11 @@ body .ui-tooltip {
     function runPH() {
         // Script update info
         var WMEPHWhatsNewList = [  // New in this version
+            '1.1.96: Changed "City Missing." to "No city" to be consistent with other flag messages.',
+            '1.1.96: Hospital / gas station and PLA "special" highlights only display if no lock (L1).',
+            '1.1.96: Add "Change to Offices" button under hospital/medical care note.',
+            '1.1.96: Changed to "No external provider link(s)".',
+            '1.1.95: Change "not a hospital" note.',
             '1.1.95: Fixed bug with area vs point warning not locking even after WL.',
             '1.1.95: Locking a place that has an area vs point warning will effectively WL it for everyone.',
             '1.1.94: Fixed bug that was preventing all categories from being checked for lock level, messages, etc.',
@@ -2897,7 +2902,7 @@ body .ui-tooltip {
             }
 
             // If it's an unlocked parking lot, return with severity 4.
-            if (hpMode.hlFlag && isPLA(item) && item.attributes.lockRank < 2) {
+            if (hpMode.hlFlag && isPLA(item) && item.attributes.lockRank === 0) {
                 return 4;
             }
 
@@ -3102,7 +3107,7 @@ body .ui-tooltip {
                 },
 
                 changeHMC2Office: {
-                    active: false, severity: 3, message: "This doesn't look like a hospital or urgent care location.", value: "Change to Offices", title: 'Change to Office Category',
+                    active: false, severity: 3, message: "Keywords suggest this location may not be a hospital or urgent care location.", value: "Change to Offices", title: 'Change to Office Category',
                     action: function() {
                         newCategories[newCategories.indexOf('HOSPITAL_MEDICAL_CARE')] = "OFFICES";
                         //phlogdev(newCategories);
@@ -3240,7 +3245,7 @@ body .ui-tooltip {
                 },
 
                 cityMissing: {  // no WL
-                    active: false, severity: 3, message: 'City missing.', value: 'Edit address', title: "Edit address to add city.",
+                    active: false, severity: 3, message: 'No city ', value: 'Edit address', title: "Edit address to add city.",
                     action: function() {
                         $('.nav-tabs a[href="#landmark-edit-general"]').trigger('click');
                         $('.waze-icon-edit').trigger('click');
@@ -3470,12 +3475,17 @@ body .ui-tooltip {
                     active: false, severity: 0, message: 'WMEPH: placeholder (please report this error if you see this message)'
                 },
 
+                changeHMC2OfficeButton: {
+                    active: false, severity: 0, message: '', value: 'Change to Offices',
+                    action: function() { bannButt.changeHMC2Office.action(); }
+                },
+
                 specCaseMessageLow: {  // no WL
                     active: false, severity: 0, message: 'WMEPH: placeholder (please report this error if you see this message)'
                 },
 
                 extProviderMissing: {
-                    active:false, severity:3, message:'Missing External Provider ',
+                    active:false, severity:3, message:'No external provider link(s) ',
                     WLactive:true, WLmessage:'', WLtitle:'Whitelist missing external provider',
                     WLaction: function() {
                         wlKeyName = 'extProviderMissing';
@@ -4533,7 +4543,6 @@ body .ui-tooltip {
                             if ( specCases[scix].match(/keepName/g) !== null ) {
                                 updatePNHName = false;
                             }
-
                         }
                     }
 
@@ -5496,10 +5505,14 @@ body .ui-tooltip {
                                 } else {
                                     lockOK = false;
                                 }
+                                hpmMatch = true;
                                 bannButt.pnhCatMess.active = false;
                                 break;
                             }
                         }
+                    }
+                    if (!hpmMatch) {
+                        bannButt.changeHMC2OfficeButton.active = true;
                     }
                 }
             }  // END HOSPITAL/Name check
@@ -5778,7 +5791,7 @@ body .ui-tooltip {
                 //phlogdev('calculated in harmGo: ' +severityButt + '; ' + item.attributes.name);
 
                 // Special case flags
-                if (  item.attributes.lockRank < levelToLock && (item.attributes.categories.indexOf("HOSPITAL_MEDICAL_CARE") > -1 || item.attributes.categories.indexOf("GAS_STATION") > -1) ) {
+                if (  item.attributes.lockRank === 0 && (item.attributes.categories.indexOf("HOSPITAL_MEDICAL_CARE") > -1 || item.attributes.categories.indexOf("GAS_STATION") > -1) ) {
                     severityButt = 5;
                 }
 
@@ -7730,8 +7743,8 @@ body .ui-tooltip {
             createSettingsCheckbox("sidepanel-harmonizer" + devVersStr, "WMEPH-HidePlacesWiki" + devVersStr,"Hide 'Places Wiki' button in results banner");
             createSettingsCheckbox("sidepanel-harmonizer" + devVersStr, "WMEPH-ExcludePLADupes" + devVersStr,"Exclude parking lots when searching for duplicate places.");
             if (devUser || betaUser || usrRank >= 2) {
-                createSettingsCheckbox("sidepanel-harmonizer" + devVersStr, "WMEPH-DisablePLAExtProviderCheck" + devVersStr,'Disable check for "Missing External Provider" on Parking Lot Areas');
-                createSettingsCheckbox("sidepanel-harmonizer" + devVersStr, "WMEPH-ExtProviderSeverity" + devVersStr,'Treat "Missing External Provider" as non-critical (blue)');
+                createSettingsCheckbox("sidepanel-harmonizer" + devVersStr, "WMEPH-DisablePLAExtProviderCheck" + devVersStr,'Disable check for "No external provider link(s)" on Parking Lot Areas');
+                createSettingsCheckbox("sidepanel-harmonizer" + devVersStr, "WMEPH-ExtProviderSeverity" + devVersStr,'Treat "No external provider link(s)" as non-critical (blue)');
                 createSettingsCheckbox("sidepanel-harmonizer" + devVersStr, "WMEPH-EnableServices" + devVersStr,"Enable automatic addition of common services");
                 createSettingsCheckbox("sidepanel-harmonizer" + devVersStr, "WMEPH-ConvenienceStoreToGasStations" + devVersStr,'Automatically add "Convenience Store" category to gas stations');
                 createSettingsCheckbox("sidepanel-harmonizer" + devVersStr, "WMEPH-AddAddresses" + devVersStr,"Add detected address fields to places with no address");
