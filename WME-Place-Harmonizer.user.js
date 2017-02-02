@@ -13,7 +13,7 @@
 // ==UserScript==
 // @name        WME Place Harmonizer Beta
 // @namespace   https://github.com/WazeUSA/WME-Place-Harmonizer/raw/master/WME-Place-Harmonizer.user.js
-// @version     1.1.90-Refactor2017
+// @version     1.1.96-Refactor2017
 // @description Harmonizes, formats, and locks a selected place
 // @author      WMEPH development group
 // @include     /^https:\/\/(www|beta)\.waze\.com\/(?!user\/)(.{2,6}\/)?editor\/.*$/
@@ -1691,7 +1691,7 @@
             }
 
             // If it's an unlocked parking lot, return with severity 4.
-            if (hpMode.hlFlag && isPLA(item) && item.attributes.lockRank < 2) {
+            if (hpMode.hlFlag && isPLA(item) && item.attributes.lockRank === 2) {
                 return 4;
             }
 
@@ -1900,9 +1900,19 @@
                         whitelistAction(itemID, this.WLkey);
                     }
                 },
+                pnhCatMess: {  // no WL
+                    active: false, severity: -1, message: 'WMEPH: placeholder (please report this error if you see this message)'
+                },
 
+                changeHMC2OfficeButton: {
+                    active: false, severity: -1, message: '',
+                    buttons: [{
+                        text: 'Change to Offices',
+                        action: function() { bannButt.changeHMC2Office.buttons[0].action(); }
+                    }]
+                },
                 changeHMC2Office: {
-                    active: false, severity: 3, message: "This doesn't look like a hospital or urgent care location.",
+                    active: false, severity: 3, message: "Keywords suggest this location may not be a hospital or urgent care location.",
                     buttons: [{
                         text: 'Change to Offices',
                         title: 'Change to Office Category',
@@ -2069,6 +2079,7 @@
                         text: 'Edit address',
                         title: "Edit address to add city.",
                         action: function() {
+                            $('.nav-tabs a[href="#landmark-edit-general"]').trigger('click');
                             $('.waze-icon-edit').trigger('click');
                             if ($('.empty-city').prop('checked')) {
                                 $('.empty-city').trigger('click');
@@ -2305,16 +2316,12 @@
                     active: false, severity: 1, message: 'WMEPH: placeholder (please report this error if you see this message)'
                 },
 
-                pnhCatMess: {  // no WL
-                    active: false, severity: 0, message: 'WMEPH: placeholder (please report this error if you see this message)'
-                },
-
                 specCaseMessageLow: {  // no WL
                     active: false, severity: 0, message: 'WMEPH: placeholder (please report this error if you see this message)'
                 },
 
                 extProviderMissing: {
-                    active: false, severity: 3, message: 'No external provider ',
+                    active: false, severity: 3, message: 'No external provider link(s)',
                     WLactive: true, WLmessage: '', WLtitle: 'Whitelist missing external provider', WLkey: 'extProviderMissing',
                     WLaction: function() {
                         whitelistAction(itemID, this.WLkey);
@@ -3938,6 +3945,7 @@
                 var isArea = item.is2D();
                 var maxPointSeverity = 0;
                 var maxAreaSeverity = 3;
+                var highestCategoryLock = -1;
 
                 // Area vs. Place checking, Category locking, and category-based messaging
                 // NOTE: Since we have to keep looping through categories, maybe see about combining actions inside of the same loops.
@@ -3972,87 +3980,94 @@
                         } else if (isArea) {
                             maxAreaSeverity = Math.min(areaSeverity, maxAreaSeverity);
                         }
+
+                        // Display any messages regarding the category
+                        if (pcMessage && pcMessage !== '0' && pcMessage !== '') {
+                            bannButt.pnhCatMess.active = true;
+                            bannButt.pnhCatMess.message = pcMessage;
+                        }
+
+                        // Unmapped categories
+                        if (isMemberOfRegion(myState, pcRare) || isMemberOfRegion(myCountry, pcRare)) {
+                            bannButt.unmappedRegion.active = true;
+                            if (currentWL.unmappedRegion) {
+                                bannButt.unmappedRegion.WLactive = false;
+                            } else {
+                                lockOK = false;
+                            }
+                        }
+
+                        // Parent Category
+                        if (isMemberOfRegion(myState, pcParent) || isMemberOfRegion(myCountry, pcParent)) {
+                            bannButt.parentCategory.active = true;
+                            if (currentWL.parentCategory) {
+                                bannButt.parentCategory.WLactive = false;
+                            }
+                        }
+
+                        // Set lock level
+                        for (var i = 1; i < 6; i++) {
+                            pcLockTemp = myCat['pcLock'+i];
+                            if (i - 1 > highestCategoryLock && (isMemberOfRegion(myState, pcLockTemp) || isMemberOfRegion(myCountry, pcLockTemp))) {
+                                highestCategoryLock = i - 1;
+                            }
+                        }
                     }
+                }
+
+                if (highestCategoryLock > -1) {
+                    defaultLock = highestCategoryLock;
                 }
 
                 if (isPoint) {
                     if (maxPointSeverity === 3) {
                         bannButt.areaNotPoint.active = true;
-                        if (currentWL.areaNotPoint) {
+                        if (currentWL.areaNotPoint || item.attributes.lockRank >= defaultLock) {
                             bannButt.areaNotPoint.WLactive = false;
+                            bannButt.areaNotPoint.severity = 0;
                         } else {
                             lockOK = false;
                         }
                     } else if (maxPointSeverity === 2) {
                         bannButt.areaNotPointMid.active = true;
-                        if (currentWL.areaNotPoint) {
+                        if (currentWL.areaNotPoint || item.attributes.lockRank >= defaultLock) {
                             bannButt.areaNotPointMid.WLactive = false;
+                            bannButt.areaNotPointMid.severity = 0;
                         } else {
                             lockOK = false;
                         }
                     } else if (maxPointSeverity === 1) {
                         bannButt.areaNotPointLow.active = true;
-                        if (currentWL.areaNotPoint) {
+                        if (currentWL.areaNotPoint || item.attributes.lockRank >= defaultLock) {
                             bannButt.areaNotPointLow.WLactive = false;
+                            bannButt.areaNotPointLow.severity = 0;
                         }
                     }
                 } else {
                     if (maxAreaSeverity === 3) {
                         bannButt.pointNotArea.active = true;
-                        if (currentWL.pointNotArea) {
+                        if (currentWL.pointNotArea || item.attributes.lockRank >= defaultLock) {
                             bannButt.pointNotArea.WLactive = false;
+                            bannButt.pointNotArea.severity = 0;
                         } else {
                             lockOK = false;
                         }
                     } else if (maxAreaSeverity === 2) {
                         bannButt.pointNotAreaMid.active = true;
-                        if (currentWL.pointNotArea) {
+                        if (currentWL.pointNotArea || item.attributes.lockRank >= defaultLock) {
                             bannButt.pointNotAreaMid.WLactive = false;
+                            bannButt.pointNotAreaMid.severity = 0;
                         } else {
                             lockOK = false;
                         }
                     } else if (maxAreaSeverity === 1) {
-                        bannButt.areaNotPointLow.active = true;
-                        if (currentWL.pointNotArea) {
+                        bannButt.pointNotAreaLow.active = true;
+                        if (currentWL.pointNotArea || item.attributes.lockRank >= defaultLock) {
                             bannButt.pointNotAreaLow.WLactive = false;
+                            bannButt.pointNotAreaLow.severity = 0;
                         }
                     }
                 }
-
-
-                // Display any messages regarding the category
-                if (pcMessage && pcMessage !== '0' && pcMessage !== '') {
-                    bannButt.pnhCatMess.active = true;
-                    bannButt.pnhCatMess.message = pcMessage;
-                }
-
-                // Unmapped categories
-                if (isMemberOfRegion(myState, pcRare) || isMemberOfRegion(myCountry, pcRare)) {
-                    bannButt.unmappedRegion.active = true;
-                    if (currentWL.unmappedRegion) {
-                        bannButt.unmappedRegion.WLactive = false;
-                    } else {
-                        lockOK = false;
-                    }
-                }
-
-                // Parent Category
-                if (isMemberOfRegion(myState, pcParent) || isMemberOfRegion(myCountry, pcParent)) {
-                    bannButt.parentCategory.active = true;
-                    if (currentWL.parentCategory) {
-                        bannButt.parentCategory.WLactive = false;
-                    }
-                }
-
-                // Set lock level
-                for (var i = 1; i < 6; i++) {
-                    pcLockTemp = myCat['pcLock'+i];
-                    if (isMemberOfRegion(myState, pcLockTemp) || isMemberOfRegion(myCountry, pcLockTemp)) {
-                        defaultLock = i - 1;  // Offset by 1 since lock ranks start at 0
-                        break;
-                    }
-                }
-
 
                 var anpNone = collegeAbbreviations.split('|'), anpNoneRE;
                 for (var cii=0; cii<anpNone.length; cii++) {
@@ -4062,7 +4077,6 @@
                         bannButt.areaNotPointLow.WLactive = false;
                     }
                 }
-
 
 
                 // Check for missing hours field
@@ -4336,10 +4350,14 @@
                                 } else {
                                     lockOK = false;
                                 }
+                                hpmMatch = true;
                                 bannButt.pnhCatMess.active = false;
                                 break;
                             }
                         }
+                    }
+                    if (!hpmMatch) {
+                        bannButt.changeHMC2OfficeButton.active = true;
                     }
                 }
             }  // END HOSPITAL/Name check
@@ -4618,7 +4636,7 @@
                 //phlogdev('calculated in harmGo: ' +severityButt + '; ' + item.attributes.name);
 
                 // Special case flags
-                if (  item.attributes.lockRank < levelToLock && (item.attributes.categories.indexOf("HOSPITAL_MEDICAL_CARE") > -1 || item.attributes.categories.indexOf("GAS_STATION") > -1) ) {
+                if (  item.attributes.lockRank === 0 && (item.attributes.categories.indexOf("HOSPITAL_MEDICAL_CARE") > -1 || item.attributes.categories.indexOf("GAS_STATION") > -1) ) {
                     severityButt = 5;
                 }
 
@@ -4970,7 +4988,7 @@
                                 $btn = $('<button>', {
                                     id: (btnInfo.id ? btnInfo.id : tempKey),
                                     class: "btn btn-default btn-xs wmeph-btn",
-                                    title: btnInfo.title,
+                                    title: btnInfo.title
                                 }).html(btnInfo.text === 'Add' ? '<span class="fa fa-check"></span>' : btnInfo.text)
                                     .click(function() {
                                     btnInfo.action();
@@ -4983,7 +5001,7 @@
                             $btn = $('<button>', {
                                 id: ('WMEPH_WL' + tempKey),
                                 class: "btn btn-success btn-xs wmeph-btn wmeph-btn-wl",
-                                title: bannerRowInfo.WLtitle,
+                                title: bannerRowInfo.WLtitle
                             }).data('wl-key',bannerRowInfo.WLkey).data('banner-key',tempKey).html('WL')
                                 .click(function(e) {
                                 var bannerKey = $(this).data('banner-key');
@@ -5246,120 +5264,126 @@
                 }
                 var strButt1, btn;
                 item = W.selectionManager.selectedItems[0].model;
-                var openPlaceWebsiteURL = item.attributes.url;
+                if (item) {
+                    var openPlaceWebsiteURL = item.attributes.url;
 
-                if (openPlaceWebsiteURL !== null && openPlaceWebsiteURL.replace(/[^A-Za-z0-9]/g,'').length > 2 && (USER_NAME === 't0cableguy' || USER_NAME === 't0cableguy') ) {
-                    if ($('#WMEPH_urlButton').length === 0 ) {
-                        strButt1 = '<br><input class="btn btn-success btn-xs" id="WMEPH_urlButton" title="Open place URL" type="button" value="Open URL">';
+                    if (openPlaceWebsiteURL !== null && openPlaceWebsiteURL.replace(/[^A-Za-z0-9]/g,'').length > 2 && (USER_NAME === 't0cableguy' || USER_NAME === 't0cableguy') ) {
+                        if ($('#WMEPH_urlButton').length === 0 ) {
+                            strButt1 = '<br><input class="btn btn-success btn-xs" id="WMEPH_urlButton" title="Open place URL" type="button" value="Open URL">';
+                            $("#WMEPH_runButton").append(strButt1);
+                        }
+                        btn = document.getElementById("WMEPH_urlButton");
+                        if (btn !== null) {
+                            btn.onclick = function() {
+                                var item = W.selectionManager.selectedItems[0];
+                                if (item && item.model && item.model.attributes) {
+                                    openPlaceWebsiteURL = item.model.attributes.url;
+                                    if (openPlaceWebsiteURL.match(/^http/i) === null) {
+                                        openPlaceWebsiteURL = 'http:\/\/'+openPlaceWebsiteURL;
+                                    }
+                                    if ( $("#WMEPH-WebSearchNewTab" + devVersStr).prop('checked') ) {
+                                        openWindow(openPlaceWebsiteURL);
+                                    } else {
+                                        window.open(openPlaceWebsiteURL, searchResultsWindowName, searchResultsWindowSpecs);
+                                    }
+                                }
+                            };
+                        } else {
+                            setTimeout(bootstrapRunButton,100);
+                        }
+                    }
+                    if ($('#clonePlace').length === 0 ) {
+                        strButt1 = '<div style="margin-bottom: 3px;"></div><input class="btn btn-warning btn-xs wmeph-btn" id="clonePlace" title="Copy place info" type="button" value="Copy">'+
+                            ' <input class="btn btn-warning btn-xs wmeph-btn" id="pasteClone" title="Apply the Place info. (Ctrl-Alt-O)" type="button" value="Paste (for checked boxes):"><br>';
+                        $("#WMEPH_runButton").append(strButt1);
+                        createCloneCheckbox('WMEPH_runButton', 'WMEPH_CPhn', 'HN');
+                        createCloneCheckbox('WMEPH_runButton', 'WMEPH_CPstr', 'Str');
+                        createCloneCheckbox('WMEPH_runButton', 'WMEPH_CPcity', 'City');
+                        createCloneCheckbox('WMEPH_runButton', 'WMEPH_CPurl', 'URL');
+                        createCloneCheckbox('WMEPH_runButton', 'WMEPH_CPph', 'Ph');
+                        $("#WMEPH_runButton").append('<br>');
+                        createCloneCheckbox('WMEPH_runButton', 'WMEPH_CPdesc', 'Desc');
+                        createCloneCheckbox('WMEPH_runButton', 'WMEPH_CPserv', 'Serv');
+                        createCloneCheckbox('WMEPH_runButton', 'WMEPH_CPhrs', 'Hrs');
+                        strButt1 = '<input class="btn btn-info btn-xs wmeph-btn" id="checkAllClone" title="Check all" type="button" value="All">'+
+                            ' <input class="btn btn-info btn-xs wmeph-btn" id="checkAddrClone" title="Check Address" type="button" value="Addr">'+
+                            ' <input class="btn btn-info btn-xs wmeph-btn" id="checkNoneClone" title="Check none" type="button" value="None"><br>';
                         $("#WMEPH_runButton").append(strButt1);
                     }
-                    btn = document.getElementById("WMEPH_urlButton");
+                    btn = document.getElementById("clonePlace");
                     if (btn !== null) {
                         btn.onclick = function() {
-                            if (openPlaceWebsiteURL.match(/^http/i) === null) {
-                                openPlaceWebsiteURL = 'http:\/\/'+openPlaceWebsiteURL;
+                            item = W.selectionManager.selectedItems[0].model;
+                            cloneMaster = {};
+                            cloneMaster.addr = item.getAddress();
+                            if ( cloneMaster.addr.hasOwnProperty('attributes') ) {
+                                cloneMaster.addr = cloneMaster.addr.attributes;
                             }
-                            if ( $("#WMEPH-WebSearchNewTab" + devVersStr).prop('checked') ) {
-                                openWindow(openPlaceWebsiteURL);
-                            } else {
-                                window.open(openPlaceWebsiteURL, searchResultsWindowName, searchResultsWindowSpecs);
-                            }
+                            cloneMaster.houseNumber = item.attributes.houseNumber;
+                            cloneMaster.url = item.attributes.url;
+                            cloneMaster.phone = item.attributes.phone;
+                            cloneMaster.description = item.attributes.description;
+                            cloneMaster.services = item.attributes.services;
+                            cloneMaster.openingHours = item.attributes.openingHours;
+                            phlogdev('Place Cloned');
+                        };
+                    } else {
+                        setTimeout(bootstrapRunButton,100);
+                        return;
+                    }
+                    btn = document.getElementById("pasteClone");
+                    if (btn !== null) {
+                        btn.onclick = function() {
+                            clonePlace();
                         };
                     } else {
                         setTimeout(bootstrapRunButton,100);
                     }
-                }
-                if ($('#clonePlace').length === 0 ) {
-                    strButt1 = '<div style="margin-bottom: 3px;"></div><input class="btn btn-warning btn-xs wmeph-btn" id="clonePlace" title="Copy place info" type="button" value="Copy">'+
-                        ' <input class="btn btn-warning btn-xs wmeph-btn" id="pasteClone" title="Apply the Place info. (Ctrl-Alt-O)" type="button" value="Paste (for checked boxes):"><br>';
-                    $("#WMEPH_runButton").append(strButt1);
-                    createCloneCheckbox('WMEPH_runButton', 'WMEPH_CPhn', 'HN');
-                    createCloneCheckbox('WMEPH_runButton', 'WMEPH_CPstr', 'Str');
-                    createCloneCheckbox('WMEPH_runButton', 'WMEPH_CPcity', 'City');
-                    createCloneCheckbox('WMEPH_runButton', 'WMEPH_CPurl', 'URL');
-                    createCloneCheckbox('WMEPH_runButton', 'WMEPH_CPph', 'Ph');
-                    $("#WMEPH_runButton").append('<br>');
-                    createCloneCheckbox('WMEPH_runButton', 'WMEPH_CPdesc', 'Desc');
-                    createCloneCheckbox('WMEPH_runButton', 'WMEPH_CPserv', 'Serv');
-                    createCloneCheckbox('WMEPH_runButton', 'WMEPH_CPhrs', 'Hrs');
-                    strButt1 = '<input class="btn btn-info btn-xs wmeph-btn" id="checkAllClone" title="Check all" type="button" value="All">'+
-                        ' <input class="btn btn-info btn-xs wmeph-btn" id="checkAddrClone" title="Check Address" type="button" value="Addr">'+
-                        ' <input class="btn btn-info btn-xs wmeph-btn" id="checkNoneClone" title="Check none" type="button" value="None"><br>';
-                    $("#WMEPH_runButton").append(strButt1);
-                }
-                btn = document.getElementById("clonePlace");
-                if (btn !== null) {
-                    btn.onclick = function() {
-                        item = W.selectionManager.selectedItems[0].model;
-                        cloneMaster = {};
-                        cloneMaster.addr = item.getAddress();
-                        if ( cloneMaster.addr.hasOwnProperty('attributes') ) {
-                            cloneMaster.addr = cloneMaster.addr.attributes;
-                        }
-                        cloneMaster.houseNumber = item.attributes.houseNumber;
-                        cloneMaster.url = item.attributes.url;
-                        cloneMaster.phone = item.attributes.phone;
-                        cloneMaster.description = item.attributes.description;
-                        cloneMaster.services = item.attributes.services;
-                        cloneMaster.openingHours = item.attributes.openingHours;
-                        phlogdev('Place Cloned');
-                    };
-                } else {
-                    setTimeout(bootstrapRunButton,100);
-                    return;
-                }
-                btn = document.getElementById("pasteClone");
-                if (btn !== null) {
-                    btn.onclick = function() {
-                        clonePlace();
-                    };
-                } else {
-                    setTimeout(bootstrapRunButton,100);
-                }
-                btn = document.getElementById("checkAllClone");
-                if (btn !== null) {
-                    btn.onclick = function() {
-                        if ( !$("#WMEPH_CPhn").prop('checked') ) { $("#WMEPH_CPhn").trigger('click'); }
-                        if ( !$("#WMEPH_CPstr").prop('checked') ) { $("#WMEPH_CPstr").trigger('click'); }
-                        if ( !$("#WMEPH_CPcity").prop('checked') ) { $("#WMEPH_CPcity").trigger('click'); }
-                        if ( !$("#WMEPH_CPurl").prop('checked') ) { $("#WMEPH_CPurl").trigger('click'); }
-                        if ( !$("#WMEPH_CPph").prop('checked') ) { $("#WMEPH_CPph").trigger('click'); }
-                        if ( !$("#WMEPH_CPserv").prop('checked') ) { $("#WMEPH_CPserv").trigger('click'); }
-                        if ( !$("#WMEPH_CPdesc").prop('checked') ) { $("#WMEPH_CPdesc").trigger('click'); }
-                        if ( !$("#WMEPH_CPhrs").prop('checked') ) { $("#WMEPH_CPhrs").trigger('click'); }
-                    };
-                } else {
-                    setTimeout(bootstrapRunButton,100);
-                }
-                btn = document.getElementById("checkAddrClone");
-                if (btn !== null) {
-                    btn.onclick = function() {
-                        if ( !$("#WMEPH_CPhn").prop('checked') ) { $("#WMEPH_CPhn").trigger('click'); }
-                        if ( !$("#WMEPH_CPstr").prop('checked') ) { $("#WMEPH_CPstr").trigger('click'); }
-                        if ( !$("#WMEPH_CPcity").prop('checked') ) { $("#WMEPH_CPcity").trigger('click'); }
-                        if ( $("#WMEPH_CPurl").prop('checked') ) { $("#WMEPH_CPurl").trigger('click'); }
-                        if ( $("#WMEPH_CPph").prop('checked') ) { $("#WMEPH_CPph").trigger('click'); }
-                        if ( $("#WMEPH_CPserv").prop('checked') ) { $("#WMEPH_CPserv").trigger('click'); }
-                        if ( $("#WMEPH_CPdesc").prop('checked') ) { $("#WMEPH_CPdesc").trigger('click'); }
-                        if ( $("#WMEPH_CPhrs").prop('checked') ) { $("#WMEPH_CPhrs").trigger('click'); }
-                    };
-                } else {
-                    setTimeout(bootstrapRunButton,100);
-                }
-                btn = document.getElementById("checkNoneClone");
-                if (btn !== null) {
-                    btn.onclick = function() {
-                        if ( $("#WMEPH_CPhn").prop('checked') ) { $("#WMEPH_CPhn").trigger('click'); }
-                        if ( $("#WMEPH_CPstr").prop('checked') ) { $("#WMEPH_CPstr").trigger('click'); }
-                        if ( $("#WMEPH_CPcity").prop('checked') ) { $("#WMEPH_CPcity").trigger('click'); }
-                        if ( $("#WMEPH_CPurl").prop('checked') ) { $("#WMEPH_CPurl").trigger('click'); }
-                        if ( $("#WMEPH_CPph").prop('checked') ) { $("#WMEPH_CPph").trigger('click'); }
-                        if ( $("#WMEPH_CPserv").prop('checked') ) { $("#WMEPH_CPserv").trigger('click'); }
-                        if ( $("#WMEPH_CPdesc").prop('checked') ) { $("#WMEPH_CPdesc").trigger('click'); }
-                        if ( $("#WMEPH_CPhrs").prop('checked') ) { $("#WMEPH_CPhrs").trigger('click'); }
-                    };
-                } else {
-                    setTimeout(bootstrapRunButton,100);
+                    btn = document.getElementById("checkAllClone");
+                    if (btn !== null) {
+                        btn.onclick = function() {
+                            if ( !$("#WMEPH_CPhn").prop('checked') ) { $("#WMEPH_CPhn").trigger('click'); }
+                            if ( !$("#WMEPH_CPstr").prop('checked') ) { $("#WMEPH_CPstr").trigger('click'); }
+                            if ( !$("#WMEPH_CPcity").prop('checked') ) { $("#WMEPH_CPcity").trigger('click'); }
+                            if ( !$("#WMEPH_CPurl").prop('checked') ) { $("#WMEPH_CPurl").trigger('click'); }
+                            if ( !$("#WMEPH_CPph").prop('checked') ) { $("#WMEPH_CPph").trigger('click'); }
+                            if ( !$("#WMEPH_CPserv").prop('checked') ) { $("#WMEPH_CPserv").trigger('click'); }
+                            if ( !$("#WMEPH_CPdesc").prop('checked') ) { $("#WMEPH_CPdesc").trigger('click'); }
+                            if ( !$("#WMEPH_CPhrs").prop('checked') ) { $("#WMEPH_CPhrs").trigger('click'); }
+                        };
+                    } else {
+                        setTimeout(bootstrapRunButton,100);
+                    }
+                    btn = document.getElementById("checkAddrClone");
+                    if (btn !== null) {
+                        btn.onclick = function() {
+                            if ( !$("#WMEPH_CPhn").prop('checked') ) { $("#WMEPH_CPhn").trigger('click'); }
+                            if ( !$("#WMEPH_CPstr").prop('checked') ) { $("#WMEPH_CPstr").trigger('click'); }
+                            if ( !$("#WMEPH_CPcity").prop('checked') ) { $("#WMEPH_CPcity").trigger('click'); }
+                            if ( $("#WMEPH_CPurl").prop('checked') ) { $("#WMEPH_CPurl").trigger('click'); }
+                            if ( $("#WMEPH_CPph").prop('checked') ) { $("#WMEPH_CPph").trigger('click'); }
+                            if ( $("#WMEPH_CPserv").prop('checked') ) { $("#WMEPH_CPserv").trigger('click'); }
+                            if ( $("#WMEPH_CPdesc").prop('checked') ) { $("#WMEPH_CPdesc").trigger('click'); }
+                            if ( $("#WMEPH_CPhrs").prop('checked') ) { $("#WMEPH_CPhrs").trigger('click'); }
+                        };
+                    } else {
+                        setTimeout(bootstrapRunButton,100);
+                    }
+                    btn = document.getElementById("checkNoneClone");
+                    if (btn !== null) {
+                        btn.onclick = function() {
+                            if ( $("#WMEPH_CPhn").prop('checked') ) { $("#WMEPH_CPhn").trigger('click'); }
+                            if ( $("#WMEPH_CPstr").prop('checked') ) { $("#WMEPH_CPstr").trigger('click'); }
+                            if ( $("#WMEPH_CPcity").prop('checked') ) { $("#WMEPH_CPcity").trigger('click'); }
+                            if ( $("#WMEPH_CPurl").prop('checked') ) { $("#WMEPH_CPurl").trigger('click'); }
+                            if ( $("#WMEPH_CPph").prop('checked') ) { $("#WMEPH_CPph").trigger('click'); }
+                            if ( $("#WMEPH_CPserv").prop('checked') ) { $("#WMEPH_CPserv").trigger('click'); }
+                            if ( $("#WMEPH_CPdesc").prop('checked') ) { $("#WMEPH_CPdesc").trigger('click'); }
+                            if ( $("#WMEPH_CPhrs").prop('checked') ) { $("#WMEPH_CPhrs").trigger('click'); }
+                        };
+                    } else {
+                        setTimeout(bootstrapRunButton,100);
+                    }
                 }
             }, betaDelay);
         }  // END displayCloneButton funtion
@@ -6404,7 +6428,7 @@
             return inferredAddress;
         }  // END inferAddress function
 
-        
+
         function addStreetToVenue(streetName) {
             var stName = $('#WMEPH_missingStreet').val();
             var street = W.model.streets.getByAttributes({name:stName})[0];
@@ -6601,8 +6625,8 @@
             createSettingsCheckbox("sidepanel-harmonizer" + devVersStr, "WMEPH-HidePlacesWiki" + devVersStr,"Hide 'Places Wiki' button in results banner");
             createSettingsCheckbox("sidepanel-harmonizer" + devVersStr, "WMEPH-ExcludePLADupes" + devVersStr,"Exclude parking lots when searching for duplicate places.");
             if (IS_DEV_USER || IS_BETA_USER || USER_RANK >= 2) {
-                createSettingsCheckbox("sidepanel-harmonizer" + devVersStr, "WMEPH-DisablePLAExtProviderCheck" + devVersStr,'Disable check for "Missing External Provider" on Parking Lot Areas');
-                createSettingsCheckbox("sidepanel-harmonizer" + devVersStr, "WMEPH-ExtProviderSeverity" + devVersStr,'Treat "Missing External Provider" as non-critical (blue)');
+                createSettingsCheckbox("sidepanel-harmonizer" + devVersStr, "WMEPH-DisablePLAExtProviderCheck" + devVersStr,'Disable check for "No external provider link(s)" on Parking Lot Areas');
+                createSettingsCheckbox("sidepanel-harmonizer" + devVersStr, "WMEPH-ExtProviderSeverity" + devVersStr,'Treat "No external provider link(s)" as non-critical (blue)');
                 createSettingsCheckbox("sidepanel-harmonizer" + devVersStr, "WMEPH-EnableServices" + devVersStr,"Enable automatic addition of common services");
                 createSettingsCheckbox("sidepanel-harmonizer" + devVersStr, "WMEPH-ConvenienceStoreToGasStations" + devVersStr,'Automatically add "Convenience Store" category to gas stations');
                 createSettingsCheckbox("sidepanel-harmonizer" + devVersStr, "WMEPH-AddAddresses" + devVersStr,"Add detected address fields to places with no address");
