@@ -39,6 +39,7 @@
 
     // New in this version
     var WHATS_NEW_LIST = [
+        '1.1.91 - 1.1.96: placeholder for these version updates',
         '1.1.90: Fixed bug in data compression algorithm.',
         '1.1.89: Style tweaks.',
         '1.1.88: Uncheck "No City" when clicking "Edit address" button (wouldn\'t jump to the field.',
@@ -1911,6 +1912,7 @@
                         action: function() { bannButt.changeHMC2Office.buttons[0].action(); }
                     }]
                 },
+
                 changeHMC2Office: {
                     active: false, severity: 3, message: "Keywords suggest this location may not be a hospital or urgent care location.",
                     buttons: [{
