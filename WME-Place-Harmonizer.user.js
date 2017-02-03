@@ -269,6 +269,7 @@
     function runPH() {
         // Script update info
         var WMEPHWhatsNewList = [  // New in this version
+            '1.1.97: Added regex place name matching for increased flexibility.',
             '1.1.96: Changed "City Missing." to "No city" to be consistent with other flag messages.',
             '1.1.96: Hospital / gas station and PLA "special" highlights only display if no lock (L1).',
             '1.1.96: Add "Change to Offices" button under hospital/medical care note.',
@@ -2442,7 +2443,7 @@
                     if (item.attributes.categories[0] === 'PARKING_LOT') {
                         PNHMatchData = ['NoMatch'];
                     } else {
-                        PNHMatchData = harmoList(newName,state2L,region,countryCode,newCategories);  // check against the PNH list
+                        PNHMatchData = harmoList(newName,state2L,region,countryCode,newCategories,item);  // check against the PNH list
                     }
                 } else if (hpMode.hlFlag) {
                     PNHMatchData = ['Highlight'];
@@ -6396,7 +6397,7 @@
         }
 
         // Function that checks current place against the Harmonization Data.  Returns place data or "NoMatch"
-        function harmoList(itemName,state2L,region3L,country,itemCats) {
+        function harmoList(itemName,state2L,region3L,country,itemCats,item) {
             var PNH_DATA_headers;
             var ixendPNH_NAMES;
             if (country === 'USA') {
@@ -6456,9 +6457,17 @@
                     PNHMatchData = CAN_PNH_DATA[phnum];
                 }
                 currMatchData = PNHMatchData.split("|");  // Split the PNH place data into string array
+
                 // Name Matching
                 specCases = currMatchData[ph_speccase_ix];
-                if (specCases.indexOf('strMatchAny') > -1 || currMatchData[ph_category1_ix] === 'Hotel') {  // Match any part of WME name with either the PNH name or any spaced names
+                if (specCases.indexOf('regexNameMatch') > -1) {
+                    // Check for regex name matching instead of "standard" name matching.
+                    var match = specCases.match(/regexNameMatch<>(.+?)<>/i);
+                    if (match !== null) {
+                        var re = new RegExp(match[1].replace(/\\/,'\\'),'i');
+                        PNHStringMatch = re.test(item.attributes.name);
+                    }
+                } else if (specCases.indexOf('strMatchAny') > -1 || currMatchData[ph_category1_ix] === 'Hotel') {  // Match any part of WME name with either the PNH name or any spaced names
                     allowMultiMatch = true;
                     var spaceMatchList = [];
                     spaceMatchList.push( currMatchData[ph_name_ix].toUpperCase().replace(/ AND /g, ' ').replace(/^THE /g, '').replace(/[^A-Z0-9 ]/g, ' ').replace(/ {2,}/g, ' ') );
