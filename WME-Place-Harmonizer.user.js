@@ -13,7 +13,7 @@
 // ==UserScript==
 // @name        WME Place Harmonizer
 // @namespace   https://github.com/WazeUSA/WME-Place-Harmonizer/raw/master/WME-Place-Harmonizer.user.js
-// @version     1.2.0
+// @version     1.2.1
 // @description Harmonizes, formats, and locks a selected place
 // @author      WMEPH development group
 // @include     /^https:\/\/(www|beta)\.waze\.com\/(?!user\/)(.{2,6}\/)?editor\/.*$/
@@ -269,6 +269,8 @@
     function runPH() {
         // Script update info
         var WMEPHWhatsNewList = [  // New in this version
+            '1.2.1: Removed R2+ restriction for using this script.',
+            '1.2.0: Production release.',
             '1.1.97: Added regex place name matching for increased flexibility.',
             '1.1.96: Changed "City Missing." to "No city" to be consistent with other flag messages.',
             '1.1.96: Hospital / gas station and PLA "special" highlights only display if no lock (L1).',
@@ -308,6 +310,7 @@
             '1.1.68: Added "Missing External Provider" and option to treat as non-critical.'
         ];
         var WMEPHWhatsNewMetaList = [  // New in this major version
+            'WMEPH is now available for R1 editors to use!',
             'Yellow "caution" map highlights.',
             'Missing external provider (Google linked place) is flagged if R3+.',
             'Optional setting to treat missing external provider link as a blue flag instead of red.',
@@ -883,11 +886,6 @@
 
         // Only run the harmonization if a venue is selected
         function harmonizePlace() {
-            // Script is only for R2+ editors
-            if (!betaUser && usrRank < 2) {
-                alert("Script is currently available for editors of Rank 2 and up.");
-                return;
-            }
             // Beta version for approved users only
             if (isDevVersion && !betaUser) {
                 alert("Please sign up to beta-test this script version.\nSend a PM or Slack-DM to t0cableguy or Tonestertm, or post in the WMEPH forum thread. Thanks.");
