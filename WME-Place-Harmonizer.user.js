@@ -13,7 +13,7 @@
 // ==UserScript==
 // @name        WME Place Harmonizer Beta
 // @namespace   https://github.com/WazeUSA/WME-Place-Harmonizer/raw/master/WME-Place-Harmonizer.user.js
-// @version     1.1.96-Refactor2017
+// @version     1.2.1-Refactor2017
 // @description Harmonizes, formats, and locks a selected place
 // @author      WMEPH development group
 // @include     /^https:\/\/(www|beta)\.waze\.com\/(?!user\/)(.{2,6}\/)?editor\/.*$/
@@ -39,7 +39,21 @@
 
     // New in this version
     var WHATS_NEW_LIST = [
-        '1.1.91 - 1.1.96: placeholder for these version updates',
+        '1.2.1: Removed R2+ restriction for using this script.',
+        '1.2.0: Production release.',
+        '1.1.97: Added regex place name matching for increased flexibility.',
+        '1.1.96: Changed "City Missing." to "No city" to be consistent with other flag messages.',
+        '1.1.96: Hospital / gas station and PLA "special" highlights only display if no lock (L1).',
+        '1.1.96: Add "Change to Offices" button under hospital/medical care note.',
+        '1.1.96: Changed to "No external provider link(s)".',
+        '1.1.95: Change "not a hospital" note.',
+        '1.1.95: Fixed bug with area vs point warning not locking even after WL.',
+        '1.1.95: Locking a place that has an area vs point warning will effectively WL it for everyone.',
+        '1.1.94: Fixed bug that was preventing all categories from being checked for lock level, messages, etc.',
+        '1.1.93: Fixed bug with area vs point warning.',
+        '1.1.92: Minor styling tweaks.',
+        '1.1.92: Fixed bug that would prevent "Edit address" button from working if General tab is not active.',
+        '1.1.91: Fixed bug that triggered when all categories were removed.',
         '1.1.90: Fixed bug in data compression algorithm.',
         '1.1.89: Style tweaks.',
         '1.1.88: Uncheck "No City" when clicking "Edit address" button (wouldn\'t jump to the field.',
@@ -97,7 +111,7 @@
     // Was testing this, but I don't think the following line does anything. (mapomatic)
     //GM_addStyle('  <style> .ui-autocomplete {max-height: 100px;overflow-y: auto;overflow-x: hidden;}  * html .ui-autocomplete {height: 100px;}</style>');
     // Important Links
-    var WMEPH_FORUM_URL     = 'https://www.waze.com/forum/posting.php?mode=reply&f=819&t=164962',   // WMEPH Forum thread URL
+    var WMEPH_FORUM_URL     = 'https://www.waze.com/forum/posting.php?mode=reply&f=819&t=215657',   // WMEPH Forum thread URL
         USA_PNH_MASTER_URL  = 'https://docs.google.com/spreadsheets/d/1-f-JTWY5UnBx-rFTa4qhyGMYdHBZWNirUTOgn222zMY/edit#gid=0',  // Master USA PNH link
         PLACES_WIKI_URL     = 'https://wiki.waze.com/wiki/Places',                                  // WME Places wiki
         RESTAREA_WIKI_URL   = 'https://wiki.waze.com/wiki/Rest_areas#Adding_a_Place';               // WME Places wiki
@@ -1639,11 +1653,6 @@
         // Only run the harmonization if a venue is selected
         function harmonizePlace() {
             //debug('-- harmonizePlace() called --');
-            // Script is only for R2+ editors
-            if (!IS_BETA_USER && USER_RANK < 2) {
-                alert("Script is currently available for editors of Rank 2 and up.");
-                return;
-            }
             // Beta version for approved users only
             if (IS_DEV_VERSION && !IS_BETA_USER) {
                 alert("Please sign up to beta-test this script version.\nSend a PM or Slack-DM to t0cableguy or Tonestertm, or post in the WMEPH forum thread. Thanks.");
@@ -3259,7 +3268,7 @@
                     if (item.attributes.categories[0] === 'PARKING_LOT') {
                         PNHMatchData = ['NoMatch'];
                     } else {
-                        PNHMatchData = harmoList(newName,myState2L,myPlace.psRegion,myCountry2L,newCategories);  // check against the PNH list
+                        PNHMatchData = harmoList(newName,myState2L,myPlace.psRegion,myCountry2L,newCategories,item);  // check against the PNH list
                     }
                 } else if (hpMode.hlFlag) {
                     PNHMatchData = ['Highlight'];
@@ -7213,7 +7222,7 @@
         }
 
         // Function that checks current place against the Harmonization Data.  Returns place data or "NoMatch"
-        function harmoList(itemName,state2L,region3L,country,itemCats) {
+        function harmoList(itemName,state2L,region3L,country,itemCats,item) {
             //debug('-- harmoList(itemName,state2L,region3L,country,itemCats) called --');
             var PNH_DATA_headers;
             var ixendPNH_NAMES;
@@ -7274,9 +7283,17 @@
                     PNHMatchData = CAN_PNH_DATA[phnum];
                 }
                 currMatchData = PNHMatchData.split("|");  // Split the PNH place data into string array
+                
                 // Name Matching
                 specCases = currMatchData[ph_speccase_ix];
-                if (specCases.indexOf('strMatchAny') > -1 || currMatchData[ph_category1_ix] === 'Hotel') {  // Match any part of WME name with either the PNH name or any spaced names
+               if (specCases.indexOf('regexNameMatch') > -1) {
+                    // Check for regex name matching instead of "standard" name matching.
+                    var match = specCases.match(/regexNameMatch<>(.+?)<>/i);
+                    if (match !== null) {
+                        var re = new RegExp(match[1].replace(/\\/,'\\'),'i');
+                        PNHStringMatch = re.test(item.attributes.name);
+                    }
+                } else if (specCases.indexOf('strMatchAny') > -1 || currMatchData[ph_category1_ix] === 'Hotel') {  // Match any part of WME name with either the PNH name or any spaced names
                     allowMultiMatch = true;
                     var spaceMatchList = [];
                     spaceMatchList.push( currMatchData[ph_name_ix].toUpperCase().replace(/ AND /g, ' ').replace(/^THE /g, '').replace(/[^A-Z0-9 ]/g, ' ').replace(/ {2,}/g, ' ') );
