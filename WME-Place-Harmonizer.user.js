@@ -13,7 +13,7 @@
 // ==UserScript==
 // @name        WME Place Harmonizer Beta
 // @namespace   https://github.com/WazeUSA/WME-Place-Harmonizer/raw/master/WME-Place-Harmonizer.user.js
-// @version     1.1.97
+// @version     1.2.0
 // @description Harmonizes, formats, and locks a selected place
 // @author      WMEPH development group
 // @include     /^https:\/\/(www|beta)\.waze\.com\/(?!user\/)(.{2,6}\/)?editor\/.*$/
@@ -305,27 +305,15 @@
             '1.1.71: Added "avsus" to list of staff accounts.',
             '1.1.70: Fix for adding 24/7 service from PNH spreadsheet.',
             '1.1.69: Added input box to enter missing street.',
-            '1.1.68: Added "Missing External Provider" and option to treat as non-critical.',
-            '1.1.67: Fixed optional 2nd categories.',
-            '1.1.66: Fixed highlighting for unlocked hospitals and gas stations (purple / dashed).',
-            '1.1.65: Fix for bug that caused hang in v1.1.64.',
-            '1.1.64: Added URL entry box when missing.',
-            '1.1.64: Missing gas station name automatically set to brand name.',
-            '1.1.64: Minor UI adjustments to fit some messages on one line.',
-            '1.1.63: Added option to exclude PLAs when searching for duplicate places, and vice versa.',
-            '1.1.62: FIXED - Whitelisted flags not saved for new (unsaved) places.',
-            '1.1.61: Fixed issues with Rest Areas.',
-            '1.1.60: Fix to get place category "special messages" to display.',
-            '1.1.59: Fix for erroneous "stacked place" warning on area places.',
-            '1.1.58: Fix for multi-edits when runnning harmonizer in some cases.',
-            '1.1.57: Fix for Store Locator button not showing up on first run, and unpredictable Service button behavior.',
-            '1.1.56: Fix for needing to run twice when useless alt names are removed.',
-            '1.1.55: Added Waze3rdParty and renamed "edited by waze maint bot" to "account administered by waze staff',
-            '1.1.53: Fixed bug where blank space was being inserted in front of hotel brandParent name',
-            '1.1.52: Fixed bug reporting PMs.'
+            '1.1.68: Added "Missing External Provider" and option to treat as non-critical.'
         ];
         var WMEPHWhatsNewMetaList = [  // New in this major version
-            '1.1: Built-in place highlighter shows which places on the map need work'
+            'Yellow "caution" map highlights.',
+            'Missing external provider (Google linked place) is flagged if R3+.',
+            'Optional setting to treat missing external provider link as a blue flag instead of red.',
+            'Improvements to hospital, gas station, and PLA highlighting.',
+            'Layout and data entry improvements.',
+            'A boatload of bug fixes.'
         ];
         var newSep = '\n - ', listSep = '<li>';  // joiners for script and html messages
         var WMEPHWhatsNew = WMEPHWhatsNewList.join(newSep);
@@ -441,7 +429,7 @@
             saveWL_LS(true);
         }
 
-        var WMEPHurl = 'https://www.waze.com/forum/posting.php?mode=reply&f=819&t=164962';  // WMEPH Forum thread URL
+        var WMEPHurl = 'https://www.waze.com/forum/posting.php?mode=reply&f=819&t=215657';  // WMEPH Forum thread URL
         var USAPNHMasURL = 'https://docs.google.com/spreadsheets/d/1-f-JTWY5UnBx-rFTa4qhyGMYdHBZWNirUTOgn222zMY/edit#gid=0';  // Master USA PNH link
         var placesWikiURL = 'https://wiki.waze.com/wiki/Places';  // WME Places wiki
         var restAreaWikiURL = 'https://wiki.waze.com/wiki/Rest_areas#Adding_a_Place';  // WME Places wiki
