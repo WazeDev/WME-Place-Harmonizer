@@ -19,7 +19,7 @@
 // @include     /^https:\/\/(www|beta)\.waze\.com\/(?!user\/)(.{2,6}\/)?editor\/.*$/
 // @require     https://ajax.googleapis.com/ajax/libs/jquery/2.2.4/jquery.min.js
 // @require     https://raw.githubusercontent.com/WazeUSA/WME-Place-Harmonizer/Beta/jquery-ui-1.11.4.custom.min.js
-// @resource    WMEPH_CSS   https://raw.githubusercontent.com/RavenDT/WME-Place-Harmonizer/Refactor2017/WME-Place-Harmonizer.user.css
+// @resource    WMEPH_CSS   https://raw.githubusercontent.com/WazeUSA/WME-Place-Harmonizer/Refactor2017/WME-Place-Harmonizer.user.css
 // @resource    JQ_UI_CSS   https://ajax.googleapis.com/ajax/libs/jqueryui/1.11.4/themes/smoothness/jquery-ui.css
 // @grant       GM_addStyle
 // @grant       GM_getResourceText
