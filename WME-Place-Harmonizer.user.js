@@ -106,7 +106,7 @@
         SCRIPT_NAME = GM_info.script.name.toString(),
         IS_DEV_VERSION = (SCRIPT_NAME.match(/Beta/i) !== null);             // Enables dev messages and unique DOM options if the script is called "... Beta"
     // CSS Stuff
-    var WMEPH_CSS = GM_getResourceText("WMEPH_CSS"); GM_addStyle(WMEPH_CSS);
+    var WMEPH_CSS = GM_getResourceText("WMEPH_CSS"); //GM_addStyle(WMEPH_CSS);
     var JQ_UI_CSS = GM_getResourceText("JQ_UI_CSS"); GM_addStyle(JQ_UI_CSS);
     // Was testing this, but I don't think the following line does anything. (mapomatic)
     //GM_addStyle('  <style> .ui-autocomplete {max-height: 100px;overflow-y: auto;overflow-x: hidden;}  * html .ui-autocomplete {height: 100px;}</style>');
@@ -180,7 +180,6 @@
         gFormState = "";
     var currentWL = {};
     var _popupWindow;
-    var usrRank;
 
 
     /////////////////////////////////////
@@ -823,7 +822,6 @@
             USER_NAME = W.loginManager.user.userName;
             USER_RANK = W.loginManager.user.normalizedLevel;
             //debug('REGION_DATA = ' + JSON.stringify(REGION_DATA));
-            usrRank = W.loginManager.user.rank + 1;
             dataReadyCounter = 0;
             runPH();  //  start the main code
         } else {
@@ -3251,7 +3249,7 @@
                     bannButt.pointNotArea.active = true;
                 }
             } else if (isPLA(item) || (newName && newName.trim().length > 0)) {  // for non-residential places
-                if (usrRank >= 3 && !(isPLA(item) && $('#WMEPH-DisablePLAExtProviderCheck' + devVersStr).prop('checked'))) {
+                if (USER_RANK >= 3 && !(isPLA(item) && $('#WMEPH-DisablePLAExtProviderCheck' + devVersStr).prop('checked'))) {
                     var provIDs = item.attributes.externalProviderIDs;
                     if (!provIDs || provIDs.length === 0) {
                         if ($('#WMEPH-ExtProviderSeverity' + devVersStr).prop('checked')) {
