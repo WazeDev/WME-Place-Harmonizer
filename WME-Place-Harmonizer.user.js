@@ -107,7 +107,7 @@
         SCRIPT_NAME = GM_info.script.name.toString(),
         IS_DEV_VERSION = (SCRIPT_NAME.match(/Beta/i) !== null);             // Enables dev messages and unique DOM options if the script is called "... Beta"
     // CSS Stuff
-    var WMEPH_CSS = GM_getResourceText("WMEPH_CSS"); //GM_addStyle(WMEPH_CSS);
+    var WMEPH_CSS = GM_getResourceText("WMEPH_CSS"); GM_addStyle(WMEPH_CSS);
     var JQ_UI_CSS = GM_getResourceText("JQ_UI_CSS"); GM_addStyle(JQ_UI_CSS);
     // Was testing this, but I don't think the following line does anything. (mapomatic)
     //GM_addStyle('  <style> .ui-autocomplete {max-height: 100px;overflow-y: auto;overflow-x: hidden;}  * html .ui-autocomplete {height: 100px;}</style>');
@@ -169,6 +169,7 @@
     var W;
 	  var require;
 	  var OpenLayers;
+	  var console;
 
     ///////////////
     // Variables //
@@ -500,7 +501,6 @@
             $.ajax({
                 type: 'GET',
                 url: 'https://raw.githubusercontent.com/WMEPH-Harmony/WMEPH-Test/master/WMEPH-Data.json',
-                jsonp: 'callback',
                 dataType: 'json',
                 success: function(response) {
                     NEW_SHEET_DATA = response;
@@ -522,9 +522,9 @@
             // Pull name-category lists
             $.ajax({
                 type: 'GET',
-                url: 'https://spreadsheets.google.com/feeds/list/1pDmenZA-3FOTvhlCq9yz1dnemTmS9l_njZQbu_jLVMI/op17piq/public/values',
-                jsonp: 'callback', data: { alt: 'json-in-script' }, dataType: 'jsonp',
+                url: 'https://spreadsheets.google.com/feeds/list/1pDmenZA-3FOTvhlCq9yz1dnemTmS9l_njZQbu_jLVMI/op17piq/public/basic?alt=json',
                 success: function(response) {
+                                        debugger;
                     NON_HOSPITAL_PART_MATCH = response.feed.entry[0].gsx$hmchp.$t;
                     NON_HOSPITAL_FULL_MATCH = response.feed.entry[0].gsx$hmchf.$t;
                     ANIMAL_PART_MATCH = response.feed.entry[0].gsx$hmcap.$t;
@@ -543,8 +543,7 @@
             // Pull dev and beta UserList Data
             $.ajax({
                 type: 'GET',
-                url: 'https://spreadsheets.google.com/feeds/list/1L82mM8Xg-MvKqK3WOfsMhFEGmVM46lA8BVcx8qwgmA8/ofblgob/public/values',
-                jsonp: 'callback', data: { alt: 'json-in-script' }, dataType: 'jsonp',
+                url: 'https://spreadsheets.google.com/feeds/list/1L82mM8Xg-MvKqK3WOfsMhFEGmVM46lA8BVcx8qwgmA8/ofblgob/public/basic?alt=json',
                 success: function(response) {
                     var WMEPHuserList = response.feed.entry[0].gsx$phuserlist.$t;
                     WMEPHuserList = WMEPHuserList.split("|");
@@ -563,8 +562,7 @@
             // Pull Category Data
             $.ajax({
                 type: 'GET',
-                url: 'https://spreadsheets.google.com/feeds/list/1-f-JTWY5UnBx-rFTa4qhyGMYdHBZWNirUTOgn222zMY/ov3dubz/public/values',
-                jsonp: 'callback', data: { alt: 'json-in-script' }, dataType: 'jsonp',
+                url: 'https://spreadsheets.google.com/feeds/list/1-f-JTWY5UnBx-rFTa4qhyGMYdHBZWNirUTOgn222zMY/ov3dubz/public/basic?alt=json',
                 success: function(response) {
                     // NOTE: Don't worry, this horrendous code will go away after cutover to new sheets.
                     NA_CAT_DATA = {};
@@ -702,12 +700,11 @@
         // Pull USA PNH Data
         $.ajax({
             type: 'GET',
-            url: 'https://spreadsheets.google.com/feeds/list/1-f-JTWY5UnBx-rFTa4qhyGMYdHBZWNirUTOgn222zMY/o6q7kx/public/values',
-            jsonp: 'callback', data: { alt: 'json-in-script' }, dataType: 'jsonp',
+            url: 'https://spreadsheets.google.com/feeds/list/1-f-JTWY5UnBx-rFTa4qhyGMYdHBZWNirUTOgn222zMY/o6q7kx/public/basic?alt=json',
             success: function(response) {
                 USA_PNH_DATA = [];
                 for (var i = 0; i < response.feed.entry.length; i++) {
-                    USA_PNH_DATA.push(response.feed.entry[i].gsx$pnhdata.$t);
+                    USA_PNH_DATA.push(response.feed.entry[i].title.$t);
                 }
             }
         });
@@ -716,8 +713,7 @@
         // Pull State-based Data (includes CAN for now)
         $.ajax({
             type: 'GET',
-            url: 'https://spreadsheets.google.com/feeds/list/1-f-JTWY5UnBx-rFTa4qhyGMYdHBZWNirUTOgn222zMY/os2g2ln/public/values',
-            jsonp: 'callback', data: { alt: 'json-in-script' }, dataType: 'jsonp',
+            url: 'https://spreadsheets.google.com/feeds/list/1-f-JTWY5UnBx-rFTa4qhyGMYdHBZWNirUTOgn222zMY/os2g2ln/public/basic?alt=json',
             success: function(response) {
                 USA_STATE_DATA = {};
                 for (var i = 1, len = response.feed.entry.length; i < len; i++) {
@@ -740,12 +736,13 @@
         // Pull CAN PNH Data
         $.ajax({
             type: 'GET',
-            url: 'https://spreadsheets.google.com/feeds/list/1TIxQZVLUbAJ8iH6LPTkJsvqFb_DstrHpKsJbv1W1FZs/o4ghhas/public/values',
-            jsonp: 'callback', data: { alt: 'json-in-script' }, dataType: 'jsonp',
+            url: 'https://spreadsheets.google.com/feeds/list/1TIxQZVLUbAJ8iH6LPTkJsvqFb_DstrHpKsJbv1W1FZs/o4ghhas/public/basic?alt=json',
+            dataType: 'json',
             success: function(response) {
+                debugger;
                 CAN_PNH_DATA = [];
                 for (var i = 0; i < response.feed.entry.length; i++) {
-                    CAN_PNH_DATA.push(response.feed.entry[i].gsx$pnhdata.$t);
+                    CAN_PNH_DATA.push(response.feed.entry[i].title.$t);
                 }
             }
         });
@@ -760,10 +757,11 @@
     // after the AJAX calls.  Continues to run until data is loaded or timeout is reached.
     function placeHarmonizer_bootstrap() {
         // If using FF / GM, use unsafeWindow references to globals.
-			  W = W || unsafeWindow.W;
-			  require = require || unsafeWindow.require;
-			  OpenLayers = OpenLayers || unsafeWindow.OpenLayers;
-			
+			  W = window.W || unsafeWindow.W;
+			  require = window.require || unsafeWindow.require;
+			  OpenLayers = window.OpenLayers || unsafeWindow.OpenLayers;
+			  console = window.console || unsafeWindow.console;
+
 			  UpdateObject = require("Waze/Action/UpdateObject");
 
         if ("undefined" !== typeof W.loginManager && "undefined" !== typeof W.map) {
