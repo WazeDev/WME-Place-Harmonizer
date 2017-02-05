@@ -11,7 +11,7 @@
 /* global Node */
 
 // ==UserScript==
-// @name        WME Place Harmonizer Beta
+// @name        WME Place Harmonizer Beta (refactor)
 // @namespace   https://github.com/WazeUSA/WME-Place-Harmonizer/raw/master/WME-Place-Harmonizer.user.js
 // @version     1.2.1-Refactor2017
 // @description Harmonizes, formats, and locks a selected place
@@ -63,7 +63,7 @@
         '1.1.86: Remove "No Street" flag when city doesn\'t exist.',
         '1.1.85: Remove bullets from banner to improve layout a bit until a new design is completed.',
         '1.1.84: Fix to ignore title casing inside parens at end of PLA names.',
-        '1.1.83: Improved check for automated (bot) account edits.',        
+        '1.1.83: Improved check for automated (bot) account edits.',
         '1.1.82: Added option to disable check for missing external provider on parking lots.',
         '1.1.81: Fix for incorrect capitalization when "mc" is in the middle of a word.',
         '1.1.80: Fix to allow entering phone #s longer than 10 digits, e.g. 800-THE-CRAVE',
