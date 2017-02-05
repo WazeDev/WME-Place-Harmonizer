@@ -17,6 +17,7 @@
 // @description Harmonizes, formats, and locks a selected place
 // @author      WMEPH development group
 // @include     /^https:\/\/(www|beta)\.waze\.com\/(?!user\/)(.{2,6}\/)?editor\/.*$/
+// @require     https://ajax.googleapis.com/ajax/libs/jquery/2.2.4/jquery.min.js
 // @require     https://raw.githubusercontent.com/WazeUSA/WME-Place-Harmonizer/Beta/jquery-ui-1.11.4.custom.min.js
 // @resource    WMEPH_CSS   https://raw.githubusercontent.com/RavenDT/WME-Place-Harmonizer/Refactor2017/WME-Place-Harmonizer.user.css
 // @resource    JQ_UI_CSS   https://ajax.googleapis.com/ajax/libs/jqueryui/1.11.4/themes/smoothness/jquery-ui.css
@@ -135,9 +136,8 @@
                            "TAKE_AWAY","WHEELCHAIR_ACCESSIBLE" ];
     var TOLL_FREE       = [ "800","822","833","844","855","866","877","888" ];
 
-
     // NOTE: These will probably get their own section.
-    var UpdateObject = require("Waze/Action/UpdateObject");
+    var UpdateObject;
 
     //////////////////////////////////
     // Delayed-assignment Constants //
@@ -165,7 +165,10 @@
     var USER_LANG = 'en';  // This will probably become a delayed constant once we add support for other languages.
     // Duplicates
     var WMEPH_NAME_LAYER;
-
+    // unsafeWindow globals
+    var W;
+	  var require;
+	  var OpenLayers;
 
     ///////////////
     // Variables //
@@ -756,6 +759,13 @@
     // First function of script.  Checks to see if external data is loaded and ready
     // after the AJAX calls.  Continues to run until data is loaded or timeout is reached.
     function placeHarmonizer_bootstrap() {
+        // If using FF / GM, use unsafeWindow references to globals.
+			  W = W || unsafeWindow.W;
+			  require = require || unsafeWindow.require;
+			  OpenLayers = OpenLayers || unsafeWindow.OpenLayers;
+			
+			  UpdateObject = require("Waze/Action/UpdateObject");
+
         if ("undefined" !== typeof W.loginManager && "undefined" !== typeof W.map) {
             createDuplicatePlaceLayer();
             dataReadyCounter = 0;
