@@ -15,7 +15,7 @@
 // @namespace   https://github.com/WazeUSA/WME-Place-Harmonizer/raw/master/WME-Place-Harmonizer.user.js
 // @version     1.2.1-Refactor2017
 // @description Harmonizes, formats, and locks a selected place
-// @author      WMEPH development group
+// @author      WMEPH Development Group
 // @include     /^https:\/\/(www|beta)\.waze\.com\/(?!user\/)(.{2,6}\/)?editor\/.*$/
 // @require     https://raw.githubusercontent.com/WazeUSA/WME-Place-Harmonizer/Beta/jquery-ui-1.11.4.custom.min.js
 // @resource    WMEPH_CSS   https://raw.githubusercontent.com/RavenDT/WME-Place-Harmonizer/Refactor2017/WME-Place-Harmonizer.user.css
@@ -97,7 +97,13 @@
         '1.1.52: Fixed bug reporting PMs.'
     ];
     var WHATS_NEW_META_LIST = [  // New in this major version
-        '1.1: Built-in place highlighter shows which places on the map need work'
+        'WMEPH is now available for R1 editors to use!',
+        'Yellow "caution" map highlights.',
+        'Missing external provider (Google linked place) is flagged if R3+.',
+        'Optional setting to treat missing external provider link as a blue flag instead of red.',
+        'Improvements to hospital, gas station, and PLA highlighting.',
+        'Layout and data entry improvements.',
+        'A boatload of bug fixes.'
     ];
     // Script Name, Version, Meta info
     var WMEPH_VERSION_LONG = GM_info.script.version.toString(),             // Pull version from header
@@ -116,23 +122,23 @@
         PLACES_WIKI_URL     = 'https://wiki.waze.com/wiki/Places',                                  // WME Places wiki
         RESTAREA_WIKI_URL   = 'https://wiki.waze.com/wiki/Rest_areas#Adding_a_Place';               // WME Places wiki
     // Cutover to new google sheets
-    var USE_NEW_GOOGLE_SHEETS = true;
+    var USE_NEW_GOOGLE_SHEETS = false;
     var WME_SERVICE_MAP = { "psValet"       : { "action":"addValet",        "name":"VALLET_SERVICE"        },
-                           "psDriveThru"   : { "action":"addDriveThru",    "name":"DRIVETHROUGH"          },
-                           "psWiFi"        : { "action":"addWiFi",         "name":"WI_FI"                 },
-                           "psRestrooms"   : { "action":"addRestrooms",    "name":"RESTROOMS"             },
-                           "psCreditCards" : { "action":"addCreditCards",  "name":"CREDIT_CARDS"          },
-                           "psReservations": { "action":"addReservations", "name":"RESERVATIONS"          },
-                           "psOutside"     : { "action":"addOutside",      "name":"OUTSIDE_SEATING"       },
-                           "psAirCond"     : { "action":"addAC",           "name":"AIR_CONDITIONING"      },
-                           "psParking"     : { "action":"addParking",      "name":"PARKING_FOR_CUSTOMERS" },
-                           "psDelivery"    : { "action":"addDeliveries",   "name":"DELIVERIES"            },
-                           "psTakeAway"    : { "action":"addTakeAway",     "name":"TAKE_AWAY"             },
-                           "psWheelchair"  : { "action":"addWheelchair",   "name":"WHEELCHAIR_ACCESSIBLE" } };
+                            "psDriveThru"   : { "action":"addDriveThru",    "name":"DRIVETHROUGH"          },
+                            "psWiFi"        : { "action":"addWiFi",         "name":"WI_FI"                 },
+                            "psRestrooms"   : { "action":"addRestrooms",    "name":"RESTROOMS"             },
+                            "psCreditCards" : { "action":"addCreditCards",  "name":"CREDIT_CARDS"          },
+                            "psReservations": { "action":"addReservations", "name":"RESERVATIONS"          },
+                            "psOutside"     : { "action":"addOutside",      "name":"OUTSIDE_SEATING"       },
+                            "psAirCond"     : { "action":"addAC",           "name":"AIR_CONDITIONING"      },
+                            "psParking"     : { "action":"addParking",      "name":"PARKING_FOR_CUSTOMERS" },
+                            "psDelivery"    : { "action":"addDeliveries",   "name":"DELIVERIES"            },
+                            "psTakeAway"    : { "action":"addTakeAway",     "name":"TAKE_AWAY"             },
+                            "psWheelchair"  : { "action":"addWheelchair",   "name":"WHEELCHAIR_ACCESSIBLE" } };
     var WME_SERVICES    = [ "VALLET_SERVICE","DRIVETHROUGH","WI_FI","RESTROOMS",
-                           "CREDIT_CARDS","RESERVATIONS","OUTSIDE_SEATING",
-                           "AIR_CONDITIONING","PARKING_FOR_CUSTOMERS","DELIVERIES",
-                           "TAKE_AWAY","WHEELCHAIR_ACCESSIBLE" ];
+                            "CREDIT_CARDS","RESERVATIONS","OUTSIDE_SEATING",
+                            "AIR_CONDITIONING","PARKING_FOR_CUSTOMERS","DELIVERIES",
+                            "TAKE_AWAY","WHEELCHAIR_ACCESSIBLE" ];
     var TOLL_FREE       = [ "800","822","833","844","855","866","877","888" ];
 
 
@@ -510,9 +516,11 @@
                     SCHOOL_PART_MATCH       = NEW_SHEET_DATA.schp;
                     SCHOOL_FULL_MATCH       = NEW_SHEET_DATA.schf;
                     NA_CAT_DATA             = NEW_SHEET_DATA.catList;
+                    /* Commented out while working on parsing data from old sheets into new format.
                     REGION_DATA.states      = NEW_SHEET_DATA.states;
                     REGION_DATA.countries   = NEW_SHEET_DATA.countries;
                     REGION_DATA.regions     = NEW_SHEET_DATA.regions;
+                    */
                 }
             });
         } else {
@@ -524,16 +532,16 @@
                 success: function(response) {
                     NON_HOSPITAL_PART_MATCH = response.feed.entry[0].gsx$hmchp.$t;
                     NON_HOSPITAL_FULL_MATCH = response.feed.entry[0].gsx$hmchf.$t;
-                    ANIMAL_PART_MATCH = response.feed.entry[0].gsx$hmcap.$t;
-                    ANIMAL_FULL_MATCH = response.feed.entry[0].gsx$hmcaf.$t;
-                    SCHOOL_PART_MATCH = response.feed.entry[0].gsx$schp.$t;
-                    SCHOOL_FULL_MATCH = response.feed.entry[0].gsx$schf.$t;
+                    ANIMAL_PART_MATCH       = response.feed.entry[0].gsx$hmcap.$t;
+                    ANIMAL_FULL_MATCH       = response.feed.entry[0].gsx$hmcaf.$t;
+                    SCHOOL_PART_MATCH       = response.feed.entry[0].gsx$schp.$t;
+                    SCHOOL_FULL_MATCH       = response.feed.entry[0].gsx$schf.$t;
                     NON_HOSPITAL_PART_MATCH = NON_HOSPITAL_PART_MATCH.toLowerCase().replace(/ \|/g,'|').replace(/\| /g,'|').split("|");
                     NON_HOSPITAL_FULL_MATCH = NON_HOSPITAL_FULL_MATCH.toLowerCase().replace(/ \|/g,'|').replace(/\| /g,'|').split("|");
-                    ANIMAL_PART_MATCH = ANIMAL_PART_MATCH.toLowerCase().replace(/ \|/g,'|').replace(/\| /g,'|').split("|");
-                    ANIMAL_FULL_MATCH = ANIMAL_FULL_MATCH.toLowerCase().replace(/ \|/g,'|').replace(/\| /g,'|').split("|");
-                    SCHOOL_PART_MATCH = SCHOOL_PART_MATCH.toLowerCase().replace(/ \|/g,'|').replace(/\| /g,'|').split("|");
-                    SCHOOL_FULL_MATCH = SCHOOL_FULL_MATCH.toLowerCase().replace(/ \|/g,'|').replace(/\| /g,'|').split("|");
+                    ANIMAL_PART_MATCH       = ANIMAL_PART_MATCH.toLowerCase().replace(/ \|/g,'|').replace(/\| /g,'|').split("|");
+                    ANIMAL_FULL_MATCH       = ANIMAL_FULL_MATCH.toLowerCase().replace(/ \|/g,'|').replace(/\| /g,'|').split("|");
+                    SCHOOL_PART_MATCH       = SCHOOL_PART_MATCH.toLowerCase().replace(/ \|/g,'|').replace(/\| /g,'|').split("|");
+                    SCHOOL_FULL_MATCH       = SCHOOL_FULL_MATCH.toLowerCase().replace(/ \|/g,'|').replace(/\| /g,'|').split("|");
                 }
             });
 
@@ -568,130 +576,68 @@
                     var services = {};
                     for (var i = 3, len = response.feed.entry.length; i < len; i++) {
                         var arr = response.feed.entry[i].gsx$pcdata.$t.split("|");
-                        var key                 = arr[0],
-                            pcPoint             = arr[2],
-                            pcArea              = arr[3],
-                            pcRegPoint          = convertRegionsToBits(arr[4]),
-                            pcRegArea           = convertRegionsToBits(arr[5]),
-                            pcLock1             = convertRegionsToBits(arr[6]),
-                            pcLock2             = convertRegionsToBits(arr[7]),
-                            pcLock3             = convertRegionsToBits(arr[8]),
-                            pcLock4             = convertRegionsToBits(arr[9]),
-                            pcLock5             = convertRegionsToBits(arr[10]),
-                            pcRare              = convertRegionsToBits(arr[11]),
-                            pcParent            = convertRegionsToBits(arr[12]),
-                            pcMessage           = arr[13],
-                            psValet_temp        = arr[14],
-                            psDriveThru_temp    = arr[15],
-                            psWiFi_temp         = arr[16],
-                            psRestrooms_temp    = arr[17],
-                            psCreditCards_temp  = arr[18],
-                            psReservations_temp = arr[19],
-                            psOutside_temp      = arr[20],
-                            psAirCond_temp      = arr[21],
-                            psParking_temp      = arr[22],
-                            psDelivery_temp     = arr[23],
-                            psTakeAway_temp     = arr[24],
-                            psWheelchair_temp   = arr[25];
-                        var psValet                 = "",
-                            psDriveThru             = "",
-                            psWiFi                  = "",
-                            psRestrooms             = "",
-                            psCreditCards           = "",
-                            psReservations          = "",
-                            psOutside               = "",
-                            psAirCond               = "",
-                            psParking               = "",
-                            psDelivery              = "",
-                            psTakeAway              = "",
-                            psWheelchair            = "";
-                        if (psValet_temp.match(/\d/) || psValet_temp === "") {
-                            psValet = psValet_temp;
-                        } else {
-                            psValet = convertRegionsToBits(psValet_temp);
-                        }
-                        if (psDriveThru_temp.match(/\d/) || psDriveThru_temp === "") {
-                            psDriveThru = psDriveThru_temp;
-                        } else {
-                            psDriveThru = convertRegionsToBits(psDriveThru_temp);
-                        }
-                        if (psWiFi_temp.match(/\d/) || psWiFi_temp === "") {
-                            psWiFi = psWiFi_temp;
-                        } else {
-                            psWiFi = convertRegionsToBits(psWiFi_temp);
-                        }
-                        if (psRestrooms_temp.match(/\d/) || psRestrooms_temp === "") {
-                            psRestrooms = psRestrooms_temp;
-                        } else {
-                            psRestrooms = convertRegionsToBits(psRestrooms_temp);
-                        }
-                        if (psCreditCards_temp.match(/\d/) || psCreditCards_temp === "") {
-                            psCreditCards = psCreditCards_temp;
-                        } else {
-                            psCreditCards = convertRegionsToBits(psCreditCards_temp);
-                        }
-                        if (psReservations_temp.match(/\d/) || psReservations_temp === "") {
-                            psReservations = psReservations_temp;
-                        } else {
-                            psReservations = convertRegionsToBits(psReservations_temp);
-                        }
-                        if (psOutside_temp.match(/\d/) || psOutside_temp === "") {
-                            psOutside = psOutside_temp;
-                        } else {
-                            psOutside = convertRegionsToBits(psOutside_temp);
-                        }
-                        if (psAirCond_temp.match(/\d/) || psAirCond_temp === "") {
-                            psAirCond = psAirCond_temp;
-                        } else {
-                            psAirCond = convertRegionsToBits(psAirCond_temp);
-                        }
-                        if (psParking_temp.match(/\d/) || psParking_temp === "") {
-                            psParking = psParking_temp;
-                        } else {
-                            psParking = convertRegionsToBits(psParking_temp);
-                        }
-                        if (psDelivery_temp.match(/\d/) || psDelivery_temp === "") {
-                            psDelivery = psDelivery_temp;
-                        } else {
-                            psDelivery = convertRegionsToBits(psDelivery_temp);
-                        }
-                        if (psTakeAway_temp.match(/\d/) || psTakeAway_temp === "") {
-                            psTakeAway = psTakeAway_temp;
-                        } else {
-                            psTakeAway = convertRegionsToBits(psTakeAway_temp);
-                        }
-                        if (psWheelchair_temp.match(/\d/) || psWheelchair_temp === "") {
-                            psWheelchair = psWheelchair_temp;
-                        } else {
-                            psWheelchair = convertRegionsToBits(psWheelchair_temp);
-                        }
-
-                        services            = { "psValet"           :   psValet,
-                                               "psDriveThru"       :   psDriveThru,
-                                               "psWiFi"            :   psWiFi,
-                                               "psRestrooms"       :   psRestrooms,
-                                               "psCreditCards"     :   psCreditCards,
-                                               "psReservations"    :   psReservations,
-                                               "psOutside"         :   psOutside,
-                                               "psAirCond"         :   psAirCond,
-                                               "psParking"         :   psParking,
-                                               "psDelivery"        :   psDelivery,
-                                               "psTakeAway"        :   psTakeAway,
-                                               "psWheelchair"      :   psWheelchair };
-                        NA_CAT_DATA[key]    = { "pcPoint"           :   pcPoint,
-                                               "pcArea"            :   pcArea,
-                                               "pcRegPoint"        :   pcRegPoint,
-                                               "pcRegArea"         :   pcRegArea,
-                                               "pcLock1"           :   pcLock1,
-                                               "pcLock2"           :   pcLock2,
-                                               "pcLock3"           :   pcLock3,
-                                               "pcLock4"           :   pcLock4,
-                                               "pcLock5"           :   pcLock5,
-                                               "pcRare"            :   pcRare,
-                                               "pcParent"          :   pcParent,
-                                               "pcMessage"         :   pcMessage,
-                                               "services"          :   services };
+                        var key = arr[0];
+                        services            = { "psValet"           :   arr[14],
+                                                "psDriveThru"       :   arr[15],
+                                                "psWiFi"            :   arr[16],
+                                                "psRestrooms"       :   arr[17],
+                                                "psCreditCards"     :   arr[18],
+                                                "psReservations"    :   arr[19],
+                                                "psOutside"         :   arr[20],
+                                                "psAirCond"         :   arr[21],
+                                                "psParking"         :   arr[22],
+                                                "psDelivery"        :   arr[23],
+                                                "psTakeAway"        :   arr[24],
+                                                "psWheelchair"      :   arr[25] };
+                        NA_CAT_DATA[key]    = { "pcPoint"           :   arr[2],
+                                                "pcArea"            :   arr[3],
+                                                "pcRegPoint"        :   arr[4].replace(/[^A-Z]+/g,",").split(/,/),
+                                                "pcRegArea"         :   arr[5].replace(/[^A-Z]+/g,",").split(/,/),
+                                                "pcLock1"           :   arr[6].replace(/[^A-Z]+/g,",").split(/,/),
+                                                "pcLock2"           :   arr[7].replace(/[^A-Z]+/g,",").split(/,/),
+                                                "pcLock3"           :   arr[8].replace(/[^A-Z]+/g,",").split(/,/),
+                                                "pcLock4"           :   arr[9].replace(/[^A-Z]+/g,",").split(/,/),
+                                                "pcLock5"           :   arr[10].replace(/[^A-Z]+/g,",").split(/,/),
+                                                "pcRare"            :   arr[11].replace(/[^A-Z]+/g,",").split(/,/),
+                                                "pcParent"          :   arr[12].replace(/[^A-Z]+/g,",").split(/,/),
+                                                "pcMessage"         :   arr[13],
+                                                "services"          :   services };
                     }
+                }
+            });
+
+            // Pull State-based Data (includes CAN for now)
+            $.ajax({
+                type: 'GET',
+                url: 'https://spreadsheets.google.com/feeds/list/1-f-JTWY5UnBx-rFTa4qhyGMYdHBZWNirUTOgn222zMY/os2g2ln/public/values',
+                jsonp: 'callback', data: { alt: 'json-in-script' }, dataType: 'jsonp',
+                success: function(response) {
+                    var states = {},
+                        countries = {},
+                        regions = {};
+
+                    for (var i = 1, len = response.feed.entry.length; i < len; i++) {
+                        var arr = response.feed.entry[i].gsx$psdata.$t.split("|");
+                        var key = arr[0];
+                        states[key] = { "psAbbrev"      : arr[1],
+                                        "psRegion"      : arr[2],
+                                        "psGoogleForm"  : arr[3],
+                                        "psDefaultLock" : arr[4],
+                                        "psRequirePhone": arr[5],
+                                        "psRequireUrl"  : arr[6],
+                                        "psPhoneFormat" : "",
+                                        "psAreaCode"    : (arr[7].replace(/\D+/g,",")).split(/,/) };
+                        if (key.match(/(?:Alberta|British Columbia|Manitoba|New Brunswick|Newfoundland And Labrador|Northwest Territories|Nova Scotia|Nunavut|Ontario|Prince Edward Island|Quebec|Saskatchewan|Yukon)/)) {
+                            states[key].psRegion = "CAN";
+                        }
+                    }
+                    // Just copy/pasted from the New JSON.  So sue me.
+                    countries = {"American Samoa":{psAbbrev:"AQ",psRegion:"ATR",psGoogleForm:"",psDefaultLock:"2",psRequirePhone:"",psRequireUrl:"",psPhoneFormat:"",psAreaCode:"684"},Canada:{psAbbrev:"CA",psRegion:"CAN",psGoogleForm:"",psDefaultLock:"",psRequirePhone:"",psRequireUrl:"",psPhoneFormat:1,psAreaCode:""},"Northern Mariana Islands":{psAbbrev:"CQ",psRegion:"ATR",psGoogleForm:"",psDefaultLock:"2",psRequirePhone:"",psRequireUrl:"",psPhoneFormat:"",psAreaCode:"670"},Guam:{psAbbrev:"GQ",psRegion:"ATR",psGoogleForm:"",psDefaultLock:"2",psRequirePhone:"",psRequireUrl:"",psPhoneFormat:"",psAreaCode:"671"},"Marshal Islands":{psAbbrev:"MH",psRegion:"ATR",psGoogleForm:"",psDefaultLock:"",psRequirePhone:"",psRequireUrl:"",psPhoneFormat:"",psAreaCode:""},"Puerto Rico":{psAbbrev:"RQ",psRegion:"ATR",psGoogleForm:"",psDefaultLock:"2",psRequirePhone:"",psRequireUrl:"",psPhoneFormat:"",psAreaCode:"787,939"},"United States":{psAbbrev:"US",psRegion:"USA",psGoogleForm:"",psDefaultLock:"",psRequirePhone:"",psRequireUrl:"",psPhoneFormat:0,psAreaCode:""},"Virgin Islands (U.S.)":{psAbbrev:"VQ",psRegion:"ATR",psGoogleForm:"",psDefaultLock:"2",psRequirePhone:"",psRequireUrl:"",psPhoneFormat:"",psAreaCode:"340"}};
+                    regions = {ATR:{psName:"Territories",psRegion:"USA",psGoogleForm:"",psDefaultLock:"",psRequirePhone:"",psRequireUrl:"",psPhoneFormat:"",psAreaCode:""},GLR:{psName:"Great Lakes",psRegion:"USA",psGoogleForm:"",psDefaultLock:"",psRequirePhone:"",psRequireUrl:"",psPhoneFormat:"",psAreaCode:""},MAR:{psName:"Mid-Atlantic",psRegion:"USA",psGoogleForm:"",psDefaultLock:"",psRequirePhone:"",psRequireUrl:"",psPhoneFormat:"",psAreaCode:""},NER:{psName:"New England",psRegion:"USA",psGoogleForm:"",psDefaultLock:"",psRequirePhone:"",psRequireUrl:"",psPhoneFormat:"",psAreaCode:""},NOR:{psName:"Northeast",psRegion:"USA",psGoogleForm:"",psDefaultLock:"",psRequirePhone:"",psRequireUrl:"",psPhoneFormat:"",psAreaCode:""},NWR:{psName:"Northwest",psRegion:"USA",psGoogleForm:"",psDefaultLock:"",psRequirePhone:"",psRequireUrl:"",psPhoneFormat:"",psAreaCode:""},PLN:{psName:"Plains",psRegion:"USA",psGoogleForm:"",psDefaultLock:"",psRequirePhone:"",psRequireUrl:"",psPhoneFormat:"",psAreaCode:""},SAT:{psName:"South Atlantic",psRegion:"USA",psGoogleForm:"",psDefaultLock:"",psRequirePhone:"",psRequireUrl:"",psPhoneFormat:"",psAreaCode:""},SCR:{psName:"South Central",psRegion:"USA",psGoogleForm:"",psDefaultLock:"",psRequirePhone:"",psRequireUrl:"",psPhoneFormat:"",psAreaCode:""},SER:{psName:"Southeast",psRegion:"USA",psGoogleForm:"",psDefaultLock:"",psRequirePhone:"",psRequireUrl:"",psPhoneFormat:"",psAreaCode:""},SWR:{psName:"Southwest",psRegion:"USA",psGoogleForm:"",psDefaultLock:"",psRequirePhone:"",psRequireUrl:"",psPhoneFormat:"",psAreaCode:""},HI:{psName:"Hawaii",psRegion:"USA",psGoogleForm:"",psDefaultLock:"",psRequirePhone:"",psRequireUrl:"",psPhoneFormat:"",psAreaCode:""},TX:{psName:"Texas",psRegion:"USA",psGoogleForm:"",psDefaultLock:"",psRequirePhone:"",psRequireUrl:"",psPhoneFormat:"",psAreaCode:""},CAN:{psName:"Canada",psRegion:"CAN",psGoogleForm:"",psDefaultLock:"",psRequirePhone:"",psRequireUrl:"",psPhoneFormat:"1",psAreaCode:""},USA:{psName:"United States",psRegion:"USA",psGoogleForm:"",psDefaultLock:"",psRequirePhone:"",psRequireUrl:"",psPhoneFormat:"0",psAreaCode:""}};
+
+                    REGION_DATA = { "states"    : states,
+                                    "countries" : countries,
+                                    "regions"   : regions };
                 }
             });
         }
@@ -708,31 +654,6 @@
                 }
             }
         });
-
-        /* DO NOT DELETE THIS YET!
-        // Pull State-based Data (includes CAN for now)
-        $.ajax({
-            type: 'GET',
-            url: 'https://spreadsheets.google.com/feeds/list/1-f-JTWY5UnBx-rFTa4qhyGMYdHBZWNirUTOgn222zMY/os2g2ln/public/values',
-            jsonp: 'callback', data: { alt: 'json-in-script' }, dataType: 'jsonp',
-            success: function(response) {
-                USA_STATE_DATA = {};
-                for (var i = 1, len = response.feed.entry.length; i < len; i++) {
-                    var arr = response.feed.entry[i].gsx$psdata.$t.split("|");
-                    var key = arr[0];
-                    USA_STATE_DATA[key] = { "psState2L"     : arr[1],
-                                            "psRegion"      : arr[2],
-                                            "psGoogleForm"  : arr[3],
-                                            "psDefaultLock" : arr[4],
-                                            "psRequirePhone": arr[5],
-                                            "psRequireUrl"  : arr[6],
-                                            "psAreaCode"    : (arr[7].replace(/[, ]+/g,",")).split(/,/),
-                                            "psIsRegion"    : false };
-                    //popUp(JSON.stringify(USA_STATE_DATA, null, 2));
-                }
-            }
-        });
-        */
 
         // Pull CAN PNH Data
         $.ajax({
@@ -969,24 +890,24 @@
         if(rlayers.length === 0) {
             var lname = "WMEPH Duplicate Names";
             var style = new OpenLayers.Style({  label : "${labelText}",
-                                              labelOutlineColor: '#333',
-                                              labelOutlineWidth: 3,
-                                              labelAlign: '${labelAlign}',
-                                              fontColor: "${fontColor}",
-                                              fontOpacity: 1.0,
-                                              fontSize: "20px",
-                                              labelYOffset: -30,
-                                              labelXOffset: 0,
-                                              fontWeight: "bold",
-                                              fill: false,
-                                              strokeColor: "${strokeColor}",
-                                              strokeWidth: 10,
-                                              pointRadius: "${pointRadius}"
-                                             });
+                                                labelOutlineColor: '#333',
+                                                labelOutlineWidth: 3,
+                                                labelAlign: '${labelAlign}',
+                                                fontColor: "${fontColor}",
+                                                fontOpacity: 1.0,
+                                                fontSize: "20px",
+                                                labelYOffset: -30,
+                                                labelXOffset: 0,
+                                                fontWeight: "bold",
+                                                fill: false,
+                                                strokeColor: "${strokeColor}",
+                                                strokeWidth: 10,
+                                                pointRadius: "${pointRadius}"
+                                            });
             nameLayer = new OpenLayers.Layer.Vector(lname, {    displayInLayerSwitcher: false,
-                                                            uniqueName: "__DuplicatePlaceNames",
-                                                            styleMap: new OpenLayers.StyleMap(style)
-                                                           });
+                                                                uniqueName: "__DuplicatePlaceNames",
+                                                                styleMap: new OpenLayers.StyleMap(style)
+                                                            });
             nameLayer.setVisibility(false);
             W.map.addLayer(nameLayer);
             WMEPH_NAME_LAYER = nameLayer;
@@ -1140,7 +1061,7 @@
             }
         }
         var t1 = performance.now();  // log search time
-        phlog("Built search list of " + PNH_DATA.length + " PNH places in " + (t1 - t0) + " milliseconds.");
+        phlog("Built search list of " + PNH_DATA.length + " PNH places in " + (t1 - t0).toFixed(3) + " milliseconds.");
         return PNH_NAMES;
     }  // END makeNameCheckList
 
@@ -1446,7 +1367,7 @@
             }
             layer.redraw();
             var t1 = performance.now();  // log search time
-            phlogdev("Ran highlighter in " + (t1 - t0) + " milliseconds.");
+            phlogdev("Ran highlighter in " + (t1 - t0).toFixed(3) + " milliseconds.");
 
         }
 
@@ -6209,7 +6130,7 @@
             }
             if (IS_DEV_USER) {
                 t1 = performance.now();  // log search time
-                //phlogdev("Ran dupe search on " + numVenues + " nearby venues in " + (t1 - t0) + " milliseconds.");
+                //phlogdev("Ran dupe search on " + numVenues + " nearby venues in " + (t1 - t0).toFixed(3) + " milliseconds.");
             }
             if (recenterOption && dupeNames.length>0 && outOfExtent) {  // then rebuild the extent to include the duplicate
                 var padMult = 1.0;
@@ -7344,7 +7265,7 @@
                             $("#WMEPH-RegionOverride" + devVersStr).prop('checked')) {  // OR if region override is selected (dev setting
                             if (IS_DEV_USER) {
                                 t1 = performance.now();  // log search time
-                                //phlogdev("Found place in " + (t1 - t0) + " milliseconds.");
+                                //phlogdev("Found place in " + (t1 - t0).toFixed(3) + " milliseconds.");
                             }
                             matchPNHRegionData.push(PNHMatchData);
                             bannButt.placeMatched.active = true;
@@ -7371,7 +7292,7 @@
                 //phlogdev("PNH data exists but not approved for this area.");
                 if (IS_DEV_USER) {
                     t1 = performance.now();  // log search time
-                    //phlogdev("Searched all PNH entries in " + (t1 - t0) + " milliseconds.");
+                    //phlogdev("Searched all PNH entries in " + (t1 - t0).toFixed(3) + " milliseconds.");
                 }
                 return ["ApprovalNeeded", PNHNameTemp, PNHOrderNum];
             } else {  // if no match was found, suggest adding the place to the sheet if it's a chain
@@ -7379,7 +7300,7 @@
                 //phlogdev("Place not found in the " + country + " PNH list.");
                 if (IS_DEV_USER) {
                     t1 = performance.now();  // log search time
-                    //phlogdev("Searched all PNH entries in " + (t1 - t0) + " milliseconds.");
+                    //phlogdev("Searched all PNH entries in " + (t1 - t0).toFixed(3) + " milliseconds.");
                 }
                 return ["NoMatch"];
             }
