@@ -1344,7 +1344,7 @@
                     // Highlighting logic would go here
                     // Severity can be: 0, 'lock', 1, 2, 3, 4, or 'high'. Set to
                     // anything else to use default WME style.
-                    if ( $("#WMEPH-ColorHighlighting" + devVersStr).prop('checked') && !($("#WMEPH-DisableRankHL" + devVersStr).prop('checked') && venue.attributes.lockRank > (USER_RANK - 1))) {
+                    if ( $("#WMEPH-ColorHighlighting").prop('checked') && !($("#WMEPH-DisableRankHL").prop('checked') && venue.attributes.lockRank > (USER_RANK - 1))) {
                         try {
                             venue.attributes.wmephSeverity = harmonizePlaceGo(venue,'highlight');
                         } catch (err) {
@@ -1377,7 +1377,7 @@
         // Set up CH loop
         function bootstrapWMEPH_CH() {
             //debug('-- bootstrapWMEPH_CH() called --');
-            if ( $("#WMEPH-ColorHighlighting" + devVersStr).prop('checked') ) {
+            if ( $("#WMEPH-ColorHighlighting").prop('checked') ) {
                 // Turn off place highlighting in WMECH if it's on.
                 if ( $("#_cbHighlightPlaces").prop('checked') ) {
                     $("#_cbHighlightPlaces").trigger('click');
@@ -1946,13 +1946,13 @@
 
                 hnMissing: {
                     active: false, severity: 3, message: 'No HN',
-                    input: '<input type="text" id="WMEPH-HNAdd'+devVersStr+'" autocomplete="off" class="wmeph-input-box">',
+                    input: '<input type="text" id="WMEPH-HNAdd" autocomplete="off" class="wmeph-input-box">',
                     badInput: false,
                     buttons: [{
                         text: "Add",
                         title: 'Add HN to place',
                         action: function() {
-                            var newHN = $('#WMEPH-HNAdd'+devVersStr).val();
+                            var newHN = $('#WMEPH-HNAdd').val();
                             newHN = newHN.replace(/ +/g, '');
                             phlogdev(newHN);
                             var hnTemp = newHN.replace(/[^\d]/g, '');
@@ -2260,13 +2260,13 @@
 
                 urlMissing: {
                     active: false, severity: 1, message: 'No URL',
-                    input: '<input type="text" id="WMEPH-UrlAdd'+devVersStr+'" autocomplete="off" class="wmeph-input-box">',
+                    input: '<input type="text" id="WMEPH-UrlAdd" autocomplete="off" class="wmeph-input-box">',
                     badInput: false,
                     buttons: [{
                         text: "Add",
                         title: 'Add URL to place',
                         action: function() {
-                            var newUrlValue = $('#WMEPH-UrlAdd'+devVersStr).val();
+                            var newUrlValue = $('#WMEPH-UrlAdd').val();
                             var newUrl = normalizeURL(newUrlValue, true, false);
                             if ((!newUrl || newUrl.trim().length === 0) || newUrl === 'badURL') {
                                 this.badInput = true;
@@ -2288,13 +2288,13 @@
 
                 phoneMissing: {
                     active: false, severity: 1, message: 'No Ph#',
-                    input: '<input type="text" id="WMEPH-PhoneAdd'+devVersStr+'" autocomplete="off" class="wmeph-input-box">',
+                    input: '<input type="text" id="WMEPH-PhoneAdd" autocomplete="off" class="wmeph-input-box">',
                     badInput: false,
                     buttons: [{
                         text: "Add",
                         title: 'Add phone to place',
                         action: function() {
-                            var newPhoneVal = $('#WMEPH-PhoneAdd'+devVersStr).val();
+                            var newPhoneVal = $('#WMEPH-PhoneAdd').val();
                             var newPhone = normalizePhone(newPhoneVal, outputFormat, 'inputted');
                             if (newPhone === 'badPhone') {
                                 this.badInput = true;
@@ -2334,13 +2334,13 @@
 
                 noHours: {
                     active: false, severity: 1, message: 'No hours',
-                    input: '<input type="textarea" value="Paste Hours Here" id="WMEPH-HoursPaste'+devVersStr+'" autocomplete="off" class="wmeph-input-box">',
+                    input: '<input type="textarea" value="Paste Hours Here" id="WMEPH-HoursPaste" autocomplete="off" class="wmeph-input-box">',
                     buttons: [
                         {
                             text: '<span class="fa fa-plus"></span>',
                             title: 'Add pasted hours to existing',
                             action: function() {
-                                var pasteHours = $('#WMEPH-HoursPaste'+devVersStr).val();
+                                var pasteHours = $('#WMEPH-HoursPaste').val();
                                 phlogdev(pasteHours);
                                 $('.nav-tabs a[href="#landmark-edit-more-info"]').tab('show');
                                 pasteHours = pasteHours + ',' + getOpeningHours(item).join(',');
@@ -2353,12 +2353,12 @@
                                     bannButt.noHours.severity = 0;
                                     bannButt.noHours.WLactive = false;
                                     bannButt.noHours.message = 'Hours';
-                                    bannButt.noHours.input = '<input type="text" value="Paste Hours Here" id="WMEPH-HoursPaste'+devVersStr+'" class="wmeph-input-box">';
+                                    bannButt.noHours.input = '<input type="text" value="Paste Hours Here" id="WMEPH-HoursPaste" class="wmeph-input-box">';
                                 } else {
                                     phlog('Can\'t parse those hours');
                                     bannButt.noHours.severity = 1;
                                     bannButt.noHours.WLactive = true;
-                                    bannButt.noHours.input = '<input type="text" value="Can\'t parse, try again" id="WMEPH-HoursPaste'+devVersStr+'" class="wmeph-input-box">';
+                                    bannButt.noHours.input = '<input type="text" value="Can\'t parse, try again" id="WMEPH-HoursPaste" class="wmeph-input-box">';
                                 }
                             }
                         },
@@ -2367,7 +2367,7 @@
                             title: 'Replace existing hours with pasted hours',
                             id: 'WMEPH_noHours_replace',
                             action: function() {
-                                var pasteHours = $('#WMEPH-HoursPaste'+devVersStr).val();
+                                var pasteHours = $('#WMEPH-HoursPaste').val();
                                 phlogdev(pasteHours);
                                 $('.nav-tabs a[href="#landmark-edit-more-info"]').tab('show');
                                 var hoursObjectArray = parseHours(pasteHours);
@@ -2380,12 +2380,12 @@
                                     bannButt.noHours.severity = 0;
                                     bannButt.noHours.WLactive = false;
                                     bannButt.noHours.message = 'Hours';
-                                    bannButt.noHours.input = '<input type="text" value="Paste Hours Here" id="WMEPH-HoursPaste'+devVersStr+'" class="wmeph-input-box">';
+                                    bannButt.noHours.input = '<input type="text" value="Paste Hours Here" id="WMEPH-HoursPaste" class="wmeph-input-box">';
                                 } else {
                                     phlog('Can\'t parse those hours');
                                     bannButt.noHours.severity = 1;
                                     bannButt.noHours.WLactive = true;
-                                    bannButt.noHours.input = '<input type="text" value="Can\'t parse, try again" id="WMEPH-HoursPaste'+devVersStr+'" class="wmeph-input-box">';
+                                    bannButt.noHours.input = '<input type="text" value="Can\'t parse, try again" id="WMEPH-HoursPaste" class="wmeph-input-box">';
                                 }
 
                             }
@@ -2632,7 +2632,7 @@
                             }
                             // open the link depending on new window setting
                             if (linkProceed) {
-                                if ( $("#WMEPH-WebSearchNewTab" + devVersStr).prop('checked') ) {
+                                if ( $("#WMEPH-WebSearchNewTab").prop('checked') ) {
                                     openWindow(openPlaceWebsiteURL);
                                 } else {
                                     window.open(openPlaceWebsiteURL, searchResultsWindowName, searchResultsWindowSpecs);
@@ -2655,7 +2655,7 @@
                                 }
                             }
                             if (localStorage.getItem(GLinkWarning) === '1') {
-                                if ( $("#WMEPH-WebSearchNewTab" + devVersStr).prop('checked') ) {
+                                if ( $("#WMEPH-WebSearchNewTab").prop('checked') ) {
                                     openWindow(buildGLink(newName,addr,item.attributes.houseNumber));
                                 } else {
                                     window.open(buildGLink(newName,addr,item.attributes.houseNumber), searchResultsWindowName, searchResultsWindowSpecs);
@@ -2965,7 +2965,7 @@
                     bannButt2.whatsNew.active = true;
                 }
                 //Setting switch for the Places Wiki button
-                if ( $("#WMEPH-HidePlacesWiki" + devVersStr).prop('checked') ) {
+                if ( $("#WMEPH-HidePlacesWiki").prop('checked') ) {
                     bannButt2.placesWiki.active = false;
                 }
                 // provide Google search link to places
@@ -3008,7 +3008,7 @@
             if (!addr.state || !addr.country) {
                 if (hpMode.harmFlag) {
                     if (W.map.getZoom() < 4 ) {
-                        if ( $("#WMEPH-EnableIAZoom" + devVersStr).prop('checked') ) {
+                        if ( $("#WMEPH-EnableIAZoom").prop('checked') ) {
                             W.map.moveTo(W.selectionManager.selectedItems[0].model.geometry.getCentroid().toLonLat(), 5);
                             return;
                         } else {
@@ -3020,7 +3020,7 @@
 
                         if (inferredAddress && inferredAddress.state && inferredAddress.country ) {
                             addr = inferredAddress;
-                            if ( $("#WMEPH-AddAddresses" + devVersStr).prop('checked') ) {  // update the item's address if option is enabled
+                            if ( $("#WMEPH-AddAddresses").prop('checked') ) {  // update the item's address if option is enabled
                                 updateAddress(item, addr, actions);
                                 fieldUpdateObject.address='#dfd';
                                 if (item.attributes.houseNumber && item.attributes.houseNumber.replace(/[^0-9A-Za-z]/g,'').length > 0 ) {
@@ -3053,7 +3053,7 @@
 
             // Whitelist breakout if place exists on the Whitelist and the option is enabled
             var WLMatch = false;
-            if ( hpMode.harmFlag || ( hpMode.hlFlag && !$("#WMEPH-DisableWLHL" + devVersStr).prop('checked')  ) ) {
+            if ( hpMode.harmFlag || ( hpMode.hlFlag && !$("#WMEPH-DisableWLHL").prop('checked')  ) ) {
                 WLMatch = true;
                 // Enable the clear WL button if any property is true
                 Object.keys(currentWL).forEach(function(WLKey) {  // loop thru the venue WL keys
@@ -3133,7 +3133,7 @@
             // Clear attributes from residential places
             if (item.attributes.residential) {
                 if (hpMode.harmFlag) {
-                    if ( !$("#WMEPH-AutoLockRPPs" + devVersStr).prop('checked') ) {
+                    if ( !$("#WMEPH-AutoLockRPPs").prop('checked') ) {
                         lockOK = false;
                     }
                     if (item.attributes.name !== '') {  // Set the residential place name to the address (to clear any personal info)
@@ -3170,10 +3170,10 @@
                     bannButt.pointNotArea.active = true;
                 }
             } else if (isPLA(item) || (newName && newName.trim().length > 0)) {  // for non-residential places
-                if (USER_RANK >= 3 && !(isPLA(item) && $('#WMEPH-DisablePLAExtProviderCheck' + devVersStr).prop('checked'))) {
+                if (USER_RANK >= 3 && !(isPLA(item) && $('#WMEPH-DisablePLAExtProviderCheck').prop('checked'))) {
                     var provIDs = item.attributes.externalProviderIDs;
                     if (!provIDs || provIDs.length === 0) {
-                        if ($('#WMEPH-ExtProviderSeverity' + devVersStr).prop('checked')) {
+                        if ($('#WMEPH-ExtProviderSeverity').prop('checked')) {
                             bannButt.extProviderMissing.severity = 1;
                         }
                         bannButt.extProviderMissing.active = !currentWL.extProviderMissing;
@@ -3738,7 +3738,7 @@
                     }
                     // Add convenience store category to station
                     if (newCategories.indexOf("CONVENIENCE_STORE") === -1 && !bannButt.subFuel.active) {
-                        if ( hpMode.harmFlag && $("#WMEPH-ConvenienceStoreToGasStations" + devVersStr).prop('checked') ) {  // Automatic if user has the setting checked
+                        if ( hpMode.harmFlag && $("#WMEPH-ConvenienceStoreToGasStations").prop('checked') ) {  // Automatic if user has the setting checked
                             newCategories = insertAtIX(newCategories, "CONVENIENCE_STORE", 1);  // insert the C.S. category
                             actions.push(new UpdateObject(item, { categories: newCategories }));
                             fieldUpdateObject.categories='#dfd';
@@ -3840,7 +3840,7 @@
                                 var flag = NA_CAT_DATA[catName].services[service];
                                 if (flag === 1) {
                                     bannServ[act].active = true;
-                                    if (hpMode.harmFlag && $("#WMEPH-EnableServices" + devVersStr).prop('checked')) {
+                                    if (hpMode.harmFlag && $("#WMEPH-EnableServices").prop('checked')) {
                                         // Automatically enable new services
                                         bannServ[act].actionOn(actions);
                                     }
@@ -3848,7 +3848,7 @@
                                     bannServ[act].active = true;
                                 } else if (typeof(flag) === "object") {  // Check for state/region auto add
                                     bannServ[act].active = true;
-                                    if ( hpMode.harmFlag && $("#WMEPH-EnableServices" + devVersStr).prop('checked')) {
+                                    if ( hpMode.harmFlag && $("#WMEPH-EnableServices").prop('checked')) {
                                         // If the sheet data matches the state or region, then auto add
                                         if (isMemberOfRegion(myState, flag) || isMemberOfRegion(myCountry, flag)) {
                                             bannServ[act].actionOn(actions);
@@ -4022,7 +4022,7 @@
                             bannButt.noHours.WLactive = false;
                         }
                     }
-                    if (hpMode.hlFlag && $("#WMEPH-DisableHoursHL" + devVersStr).prop('checked')) {
+                    if (hpMode.hlFlag && $("#WMEPH-DisableHoursHL").prop('checked')) {
                         bannButt.noHours.severity = 0;
                     }
                 } else {
@@ -4590,7 +4590,7 @@
             dupeHNRangeList = [];
             bannDupl = {};
             if (newName.replace(/[^A-Za-z0-9]/g,'').length > 0 && !item.attributes.residential) {
-                if ( $("#WMEPH-DisableDFZoom" + devVersStr).prop('checked') ) {  // don't zoom and pan for results outside of FOV
+                if ( $("#WMEPH-DisableDFZoom").prop('checked') ) {  // don't zoom and pan for results outside of FOV
                     duplicateName = findNearbyDuplicate(newName, newAliases, item, false);
                 } else {
                     duplicateName = findNearbyDuplicate(newName, newAliases, item, true);
@@ -4948,7 +4948,7 @@
             }
             $bannerDiv.removeClass();
             $bannerDiv.addClass("banner-severity-" + maxSeverity);
-            if ( $("#WMEPH-ColorHighlighting" + devVersStr).prop('checked') ) {
+            if ( $("#WMEPH-ColorHighlighting").prop('checked') ) {
                 item = W.selectionManager.selectedItems[0].model;
                 item.attributes.wmephSeverity = maxSeverity;
             }
@@ -5066,33 +5066,33 @@
             });
 
             // If pressing enter in the HN entry box, add the HN
-            $("#WMEPH-HNAdd"+devVersStr).keyup(function(event){
-                if( event.keyCode === 13 && $('#WMEPH-HNAdd'+devVersStr).val() !== '' ){
+            $("#WMEPH-HNAdd").keyup(function(event){
+                if( event.keyCode === 13 && $('#WMEPH-HNAdd').val() !== '' ){
                     $("#WMEPH_hnMissing").click();
                 }
             });
 
             // If pressing enter in the phone entry box, add the phone
-            $("#WMEPH-PhoneAdd"+devVersStr).keyup(function(event){
-                if( event.keyCode === 13 && $('#WMEPH-PhoneAdd'+devVersStr).val() !== '' ){
+            $("#WMEPH-PhoneAdd").keyup(function(event){
+                if( event.keyCode === 13 && $('#WMEPH-PhoneAdd').val() !== '' ){
                     $("#WMEPH_phoneMissing").click();
                 }
             });
 
             // If pressing enter in the URL entry box, add the URL
-            $("#WMEPH-UrlAdd"+devVersStr).keyup(function(event){
-                if( event.keyCode === 13 && $('#WMEPH-UrlAdd'+devVersStr).val() !== '' ){
+            $("#WMEPH-UrlAdd").keyup(function(event){
+                if( event.keyCode === 13 && $('#WMEPH-UrlAdd').val() !== '' ){
                     $("#WMEPH_urlMissing").click();
                 }
             });
 
             // If pressing enter in the hours entry box, parse the entry
-            $("#WMEPH-HoursPaste"+devVersStr).keyup(function(event){
-                if( event.keyCode === 13 && $('#WMEPH-HoursPaste'+devVersStr).val() !== '' ){
+            $("#WMEPH-HoursPaste").keyup(function(event){
+                if( event.keyCode === 13 && $('#WMEPH-HoursPaste').val() !== '' ){
                     $("#WMEPH_noHours").click();
                 }
             });
-            $("#WMEPH-HoursPaste"+devVersStr).click(function(){
+            $("#WMEPH-HoursPaste").click(function(){
                 if (this.value === 'Paste Hours Here' || this.value === 'Can\'t parse, try again') {
                     this.value = '';
                 }
@@ -5162,11 +5162,11 @@
                 if ($('#WMEPH_runButton').length === 0 ) {
                     $('<div id="WMEPH_runButton">').prependTo(".contents");
                 }
-                if ($('#runWMEPH'+devVersStr).length === 0 ) {
-                    var strButt1 = '<input class="btn btn-primary" id="runWMEPH'+devVersStr+'" title="Run WMEPH'+devVersStrSpace+' on Place" style="" type="button" value="Run WMEPH'+devVersStrSpace+'">';
+                if ($('#runWMEPH').length === 0 ) {
+                    var strButt1 = '<input class="btn btn-primary" id="runWMEPH" title="Run WMEPH'+devVersStrSpace+' on Place" style="" type="button" value="Run WMEPH'+devVersStrSpace+'">';
                     $("#WMEPH_runButton").append(strButt1);
                 }
-                var btn = document.getElementById("runWMEPH"+devVersStr);
+                var btn = document.getElementById("runWMEPH");
                 if (btn !== null) {
                     btn.onclick = function() {
                         harmonizePlace();
@@ -5211,7 +5211,7 @@
                                     if (openPlaceWebsiteURL.match(/^http/i) === null) {
                                         openPlaceWebsiteURL = 'http:\/\/'+openPlaceWebsiteURL;
                                     }
-                                    if ( $("#WMEPH-WebSearchNewTab" + devVersStr).prop('checked') ) {
+                                    if ( $("#WMEPH-WebSearchNewTab").prop('checked') ) {
                                         openWindow(openPlaceWebsiteURL);
                                     } else {
                                         window.open(openPlaceWebsiteURL, searchResultsWindowName, searchResultsWindowSpecs);
@@ -5953,7 +5953,7 @@
                     nameMatch = false;
                     altNameMatch = -1;
                     testVenueAtt = venueList[venix].attributes;
-                    var excludePLADupes = $('#WMEPH-ExcludePLADupes' + devVersStr).prop('checked');
+                    var excludePLADupes = $('#WMEPH-ExcludePLADupes').prop('checked');
                     if (!excludePLADupes || isPLA(item) === isPLA(venueList[venix])) {
 
                         var pt2ptDistance =  item.geometry.getCentroid().distanceTo(venueList[venix].geometry.getCentroid());
@@ -6151,7 +6151,7 @@
                 if (newItem.type === "venue") {
                     displayRunButton();
                     getPanelFields();
-                    if ( $("#WMEPH-EnableCloneMode" + devVersStr).prop('checked') ) {
+                    if ( $("#WMEPH-EnableCloneMode").prop('checked') ) {
                         displayCloneButton();
                     }
                     if (localStorage.getItem("WMEPH-AutoRunOnSelect" + devVersStr) === '1') {
@@ -6523,24 +6523,24 @@
         function add_PlaceHarmonizationSettingsTab() {
             //debug('-- add_PlaceHarmonizationSettingsTab() called --');
             //Create Settings Tab
-            var phTabHtml = '<li><a href="#sidepanel-ph' + devVersStr + '" data-toggle="tab" id="PlaceHarmonization' + devVersStr + '">WMEPH' + devVersStrSpace + '</a></li>';
+            var phTabHtml = '<li><a href="#sidepanel-ph" data-toggle="tab" id="PlaceHarmonization">WMEPH' + devVersStrSpace + '</a></li>';
             $("#user-tabs ul.nav-tabs:first").append(phTabHtml);
 
             //Create Settings Tab Content
-            var phContentHtml = '<div class="tab-pane" id="sidepanel-ph' + devVersStr + '"><div id="PlaceHarmonizer' + devVersStr + '">WMEPH' +
+            var phContentHtml = '<div class="tab-pane" id="sidepanel-ph"><div id="PlaceHarmonizer">WMEPH' +
                 devVersStrSpace + ' v. ' + WMEPH_VERSION_LONG + '</div></div>';
             $("#user-info div.tab-content:first").append(phContentHtml);
 
             var c = '<div id="wmephtab" class="active" style="padding-top: 5px;">' +
-                '<ul class="nav nav-tabs"><li class="active"><a data-toggle="tab" href="#sidepanel-harmonizer' + devVersStr + '">Harmonize</a></li>' +
-                '<li><a data-toggle="tab" href="#sidepanel-highlighter' + devVersStr + '">HL \/ Scan</a></li>' +
-                '<li><a data-toggle="tab" href="#sidepanel-wltools' + devVersStr + '">WL Tools</a></li></ul>' +
-                '<div class="tab-content"><div class="tab-pane active" id="sidepanel-harmonizer' + devVersStr + '"></div>' +
-                '<div class="tab-pane" id="sidepanel-highlighter' + devVersStr + '"></div>' +
-                '<div class="tab-pane" id="sidepanel-wltools' + devVersStr + '"></div></div></div>';
+                '<ul class="nav nav-tabs"><li class="active"><a data-toggle="tab" href="#sidepanel-harmonizer">Harmonize</a></li>' +
+                '<li><a data-toggle="tab" href="#sidepanel-highlighter">HL \/ Scan</a></li>' +
+                '<li><a data-toggle="tab" href="#sidepanel-wltools">WL Tools</a></li></ul>' +
+                '<div class="tab-content"><div class="tab-pane active" id="sidepanel-harmonizer"></div>' +
+                '<div class="tab-pane" id="sidepanel-highlighter"></div>' +
+                '<div class="tab-pane" id="sidepanel-wltools"></div></div></div>';
 
             //add the sub tabs to the scripts main tab
-            $("#sidepanel-ph"+devVersStr).append(c);
+            $("#sidepanel-ph").append(c);
 
             // Enable certain settings by default if not set by the user:
             if (localStorage.getItem('WMEPH-ColorHighlighting'+devVersStr) === null) {
@@ -6548,24 +6548,24 @@
             }
 
             //Create Settings Checkboxes and Load Data
-            //example condition:  if ( $("#WMEPH-DisableDFZoom" + devVersStr).prop('checked') ) { }
-            createSettingsCheckbox("sidepanel-harmonizer" + devVersStr, "WMEPH-WebSearchNewTab" + devVersStr,"Open URL & Search Results in new tab instead of new window");
-            createSettingsCheckbox("sidepanel-harmonizer" + devVersStr, "WMEPH-DisableDFZoom" + devVersStr,"Disable zoom & center for duplicates");
-            createSettingsCheckbox("sidepanel-harmonizer" + devVersStr, "WMEPH-EnableIAZoom" + devVersStr,"Enable zoom & center for places with no address");
-            createSettingsCheckbox("sidepanel-harmonizer" + devVersStr, "WMEPH-HidePlacesWiki" + devVersStr,"Hide 'Places Wiki' button in results banner");
-            createSettingsCheckbox("sidepanel-harmonizer" + devVersStr, "WMEPH-ExcludePLADupes" + devVersStr,"Exclude parking lots when searching for duplicate places.");
+            //example condition:  if ( $("#WMEPH-DisableDFZoom").prop('checked') ) { }
+            createSettingsCheckbox("sidepanel-harmonizer", "WMEPH-WebSearchNewTab","Open URL & Search Results in new tab instead of new window");
+            createSettingsCheckbox("sidepanel-harmonizer", "WMEPH-DisableDFZoom","Disable zoom & center for duplicates");
+            createSettingsCheckbox("sidepanel-harmonizer", "WMEPH-EnableIAZoom","Enable zoom & center for places with no address");
+            createSettingsCheckbox("sidepanel-harmonizer", "WMEPH-HidePlacesWiki","Hide 'Places Wiki' button in results banner");
+            createSettingsCheckbox("sidepanel-harmonizer", "WMEPH-ExcludePLADupes","Exclude parking lots when searching for duplicate places.");
             if (IS_DEV_USER || IS_BETA_USER || USER_RANK >= 2) {
-                createSettingsCheckbox("sidepanel-harmonizer" + devVersStr, "WMEPH-DisablePLAExtProviderCheck" + devVersStr,'Disable check for "No external provider link(s)" on Parking Lot Areas');
-                createSettingsCheckbox("sidepanel-harmonizer" + devVersStr, "WMEPH-ExtProviderSeverity" + devVersStr,'Treat "No external provider link(s)" as non-critical (blue)');
-                createSettingsCheckbox("sidepanel-harmonizer" + devVersStr, "WMEPH-EnableServices" + devVersStr,"Enable automatic addition of common services");
-                createSettingsCheckbox("sidepanel-harmonizer" + devVersStr, "WMEPH-ConvenienceStoreToGasStations" + devVersStr,'Automatically add "Convenience Store" category to gas stations');
-                createSettingsCheckbox("sidepanel-harmonizer" + devVersStr, "WMEPH-AddAddresses" + devVersStr,"Add detected address fields to places with no address");
-                createSettingsCheckbox("sidepanel-harmonizer" + devVersStr, "WMEPH-EnableCloneMode" + devVersStr,"Enable place cloning tools");
-                createSettingsCheckbox("sidepanel-harmonizer" + devVersStr, "WMEPH-AutoLockRPPs" + devVersStr,"Lock residential place points to region default");
-                createSettingsCheckbox("sidepanel-harmonizer" + devVersStr, "WMEPH-AutoRunOnSelect" + devVersStr,'Automatically run the script when selecting a place');
+                createSettingsCheckbox("sidepanel-harmonizer", "WMEPH-DisablePLAExtProviderCheck",'Disable check for "No external provider link(s)" on Parking Lot Areas');
+                createSettingsCheckbox("sidepanel-harmonizer", "WMEPH-ExtProviderSeverity",'Treat "No external provider link(s)" as non-critical (blue)');
+                createSettingsCheckbox("sidepanel-harmonizer", "WMEPH-EnableServices","Enable automatic addition of common services");
+                createSettingsCheckbox("sidepanel-harmonizer", "WMEPH-ConvenienceStoreToGasStations",'Automatically add "Convenience Store" category to gas stations');
+                createSettingsCheckbox("sidepanel-harmonizer", "WMEPH-AddAddresses","Add detected address fields to places with no address");
+                createSettingsCheckbox("sidepanel-harmonizer", "WMEPH-EnableCloneMode","Enable place cloning tools");
+                createSettingsCheckbox("sidepanel-harmonizer", "WMEPH-AutoLockRPPs","Lock residential place points to region default");
+                createSettingsCheckbox("sidepanel-harmonizer", "WMEPH-AutoRunOnSelect",'Automatically run the script when selecting a place');
             }
 
-            ["#WMEPH-ExtProviderSeverity" + devVersStr, "#WMEPH-DisablePLAExtProviderCheck" + devVersStr].map(function(id) {
+            ["#WMEPH-ExtProviderSeverity", "#WMEPH-DisablePLAExtProviderCheck"].map(function(id) {
                 $(id).on('click', function() {
                     // Force highlight refresh on all venues.
                     applyHighlightsTest(W.model.venues.getObjectArray());
@@ -6574,26 +6574,26 @@
 
             // Highlighter settings
             var phDevContentHtml = '<p>Highlighter Settings:</p>';
-            $("#sidepanel-highlighter" + devVersStr).append(phDevContentHtml);
-            createSettingsCheckbox("sidepanel-highlighter" + devVersStr, "WMEPH-ColorHighlighting" + devVersStr,"Enable color highlighting of map to indicate places needing work");
-            createSettingsCheckbox("sidepanel-highlighter" + devVersStr, "WMEPH-DisableHoursHL" + devVersStr,"Disable highlighting for missing hours");
-            createSettingsCheckbox("sidepanel-highlighter" + devVersStr, "WMEPH-DisableRankHL" + devVersStr,"Disable highlighting for places locked above your rank");
-            createSettingsCheckbox("sidepanel-highlighter" + devVersStr, "WMEPH-DisableWLHL" + devVersStr,"Disable Whitelist highlighting (shows all missing info regardless of WL)");
+            $("#sidepanel-highlighter").append(phDevContentHtml);
+            createSettingsCheckbox("sidepanel-highlighter", "WMEPH-ColorHighlighting","Enable color highlighting of map to indicate places needing work");
+            createSettingsCheckbox("sidepanel-highlighter", "WMEPH-DisableHoursHL","Disable highlighting for missing hours");
+            createSettingsCheckbox("sidepanel-highlighter", "WMEPH-DisableRankHL","Disable highlighting for places locked above your rank");
+            createSettingsCheckbox("sidepanel-highlighter", "WMEPH-DisableWLHL","Disable Whitelist highlighting (shows all missing info regardless of WL)");
             if (IS_DEV_USER || IS_BETA_USER || USER_RANK >= 3) {
-                //createSettingsCheckbox("sidepanel-highlighter" + devVersStr, "WMEPH-UnlockedRPPs" + devVersStr,"Highlight unlocked residential place points");
+                //createSettingsCheckbox("sidepanel-highlighter", "WMEPH-UnlockedRPPs","Highlight unlocked residential place points");
             }
             var phHRContentHtml = '<hr align="center" width="90%">';
-            $("#sidepanel-highlighter" + devVersStr).append(phHRContentHtml);
+            $("#sidepanel-highlighter").append(phHRContentHtml);
             phHRContentHtml = '<p>Scanner Settings (coming soon)</p>';
-            $("#sidepanel-highlighter" + devVersStr).append(phHRContentHtml);
+            $("#sidepanel-highlighter").append(phHRContentHtml);
 
             // Scanner settings
-            //createSettingsCheckbox("sidepanel-highlighter" + devVersStr, "WMEPH-PlaceScanner" + devVersStr,"Placeholder, under development!");
+            //createSettingsCheckbox("sidepanel-highlighter", "WMEPH-PlaceScanner","Placeholder, under development!");
 
             // Whitelist settings
 
             phHRContentHtml = '<hr align="center" width="90%">';
-            $("#sidepanel-harmonizer" + devVersStr).append(phHRContentHtml);
+            $("#sidepanel-harmonizer").append(phHRContentHtml);
 
             // User pref for KB Shortcut:
             // Set defaults
@@ -6612,20 +6612,18 @@
             }
 
             // Add Letter input box
-            var phKBContentHtml = $('<div id="PlaceHarmonizerKB' + devVersStr +
-                                    '"><div id="PlaceHarmonizerKBWarn' + devVersStr + '"></div>Shortcut Letter (a-Z): <input type="text" maxlength="1" id="WMEPH-KeyboardShortcut'+devVersStr+
-                                    '" style="width: 30px;padding-left:8px"><div id="PlaceHarmonizerKBCurrent' + devVersStr + '"></div></div>');
-            $("#sidepanel-harmonizer" + devVersStr).append(phKBContentHtml);
-            createSettingsCheckbox("PlaceHarmonizerKB" + devVersStr, "WMEPH-KBSModifierKey" + devVersStr, "Use Ctrl instead of Alt"); // Add Alt-->Ctrl checkbox
+            var phKBContentHtml = $('<div id="PlaceHarmonizerKB"><div id="PlaceHarmonizerKBWarn"></div>Shortcut Letter (a-Z): <input type="text" maxlength="1" id="WMEPH-KeyboardShortcut" style="width: 30px;padding-left:8px"><div id="PlaceHarmonizerKBCurrent"></div></div>');
+            $("#sidepanel-harmonizer").append(phKBContentHtml);
+            createSettingsCheckbox("PlaceHarmonizerKB", "WMEPH-KBSModifierKey", "Use Ctrl instead of Alt"); // Add Alt-->Ctrl checkbox
             if ( localStorage.getItem('WMEPH-KBSModifierKey'+devVersStr) === '1' ) {  // Change modifier key code if checked
                 modifKey = 'Ctrl+';
             }
-            $('#WMEPH-KeyboardShortcut'+devVersStr).val(localStorage.getItem('WMEPH-KeyboardShortcut'+devVersStr));  // Load letter key value from local storage
-            if ($('#WMEPH-KeyboardShortcut'+devVersStr).val().match(/^[a-z]{1}$/i) === null) {
-                $('#WMEPH-KeyboardShortcut'+devVersStr).val(defaultKBShortcut);
-                $(localStorage.setItem('WMEPH-KeyboardShortcut'+devVersStr, $('#WMEPH-KeyboardShortcut'+devVersStr).val()));
+            $('#WMEPH-KeyboardShortcut').val(localStorage.getItem('WMEPH-KeyboardShortcut'+devVersStr));  // Load letter key value from local storage
+            if ($('#WMEPH-KeyboardShortcut').val().match(/^[a-z]{1}$/i) === null) {
+                $('#WMEPH-KeyboardShortcut').val(defaultKBShortcut);
+                $(localStorage.setItem('WMEPH-KeyboardShortcut'+devVersStr, $('#WMEPH-KeyboardShortcut').val()));
             }
-            shortcutParse = parseKBSShift($('#WMEPH-KeyboardShortcut'+devVersStr).val());
+            shortcutParse = parseKBSShift($('#WMEPH-KeyboardShortcut').val());
             // Check for KBS conflict on Beta script load
             /* NOTE: We are probably going to remove this because we are removing side-by-side support for Prod and Beta
             if (IS_DEV_VERSION) {
@@ -6634,77 +6632,77 @@
                 } else {
                     shortcut.add(modifKey + shortcutParse, function() { harmonizePlace(); });
                     phKBContentHtml = $('<span style="font-weight:bold">Current shortcut: '+modifKey+shortcutParse+'</span>');
-                    $("#PlaceHarmonizerKBCurrent" + devVersStr).append(phKBContentHtml);
+                    $("#PlaceHarmonizerKBCurrent").append(phKBContentHtml);
                 }
             } else {  // Prod version always loads
                 shortcut.add(modifKey + shortcutParse, function() { harmonizePlace(); });
                 phKBContentHtml = $('<span style="font-weight:bold">Current shortcut: '+modifKey+shortcutParse+'</span>');
-                $("#PlaceHarmonizerKBCurrent" + devVersStr).append(phKBContentHtml);
+                $("#PlaceHarmonizerKBCurrent").append(phKBContentHtml);
             }
             */
 
             // Modifier on-click changes
             var modifKeyNew;
-            $("#WMEPH-KBSModifierKey" + devVersStr).click(function() {
-                $("#PlaceHarmonizerKBWarn" + devVersStr).empty();  // remove any warning
-                if ($("#WMEPH-KBSModifierKey" + devVersStr).prop('checked')) {
+            $("#WMEPH-KBSModifierKey").click(function() {
+                $("#PlaceHarmonizerKBWarn").empty();  // remove any warning
+                if ($("#WMEPH-KBSModifierKey").prop('checked')) {
                     modifKeyNew = 'Ctrl+';
                 } else {
                     modifKeyNew = 'Alt+';
                 }
-                shortcutParse = parseKBSShift($('#WMEPH-KeyboardShortcut'+devVersStr).val());
+                shortcutParse = parseKBSShift($('#WMEPH-KeyboardShortcut').val());
 
                 if (checkWMEPH_KBSconflict(shortcutParse)) {
-                    $("#WMEPH-KBSModifierKey" + devVersStr).trigger('click');
+                    $("#WMEPH-KBSModifierKey").trigger('click');
                     phKBContentHtml = '<p style="color:red">Shortcut conflict with other WMEPH version<p>';
-                    $("#PlaceHarmonizerKBWarn" + devVersStr).append(phKBContentHtml);
+                    $("#PlaceHarmonizerKBWarn").append(phKBContentHtml);
                 } else {
                     shortcut.remove(modifKey + shortcutParse);
                     modifKey = modifKeyNew;
                     shortcut.add(modifKey + shortcutParse, function() { harmonizePlace(); });
                 }
 
-                $("#PlaceHarmonizerKBCurrent" + devVersStr).empty();
+                $("#PlaceHarmonizerKBCurrent").empty();
                 phKBContentHtml = $('<span style="font-weight:bold">Current shortcut: '+modifKey+shortcutParse+'</span>');
-                $("#PlaceHarmonizerKBCurrent" + devVersStr).append(phKBContentHtml);
+                $("#PlaceHarmonizerKBCurrent").append(phKBContentHtml);
             });
 
             // Upon change of the KB letter:
             var shortcutParseNew;
-            $("#WMEPH-KeyboardShortcut"+devVersStr).change(function() {
-                if ($('#WMEPH-KeyboardShortcut'+devVersStr).val().match(/^[a-z]{1}$/i) !== null) {  // If a single letter...
-                    $("#PlaceHarmonizerKBWarn" + devVersStr).empty();  // remove old warning
+            $("#WMEPH-KeyboardShortcut").change(function() {
+                if ($('#WMEPH-KeyboardShortcut').val().match(/^[a-z]{1}$/i) !== null) {  // If a single letter...
+                    $("#PlaceHarmonizerKBWarn").empty();  // remove old warning
                     // remove previous
                     shortcutParse = parseKBSShift(localStorage.getItem('WMEPH-KeyboardShortcut'+devVersStr));
-                    shortcutParseNew = parseKBSShift($('#WMEPH-KeyboardShortcut'+devVersStr).val());
+                    shortcutParseNew = parseKBSShift($('#WMEPH-KeyboardShortcut').val());
 
                     if (checkWMEPH_KBSconflict(shortcutParseNew)) {
-                        $('#WMEPH-KeyboardShortcut'+devVersStr).val(localStorage.getItem('WMEPH-KeyboardShortcut'+devVersStr));
-                        //$("#PlaceHarmonizerKBWarn" + devVersStr).empty();
+                        $('#WMEPH-KeyboardShortcut').val(localStorage.getItem('WMEPH-KeyboardShortcut'+devVersStr));
+                        //$("#PlaceHarmonizerKBWarn").empty();
                         phKBContentHtml = '<p style="color:red">Shortcut conflict with other WMEPH version<p>';
-                        $("#PlaceHarmonizerKBWarn" + devVersStr).append(phKBContentHtml);
+                        $("#PlaceHarmonizerKBWarn").append(phKBContentHtml);
                     } else {
                         shortcut.remove(modifKey + shortcutParse);
                         shortcutParse = shortcutParseNew;
                         shortcut.add(modifKey + shortcutParse, function() { harmonizePlace(); });
-                        $(localStorage.setItem('WMEPH-KeyboardShortcut'+devVersStr, $('#WMEPH-KeyboardShortcut'+devVersStr).val()) );
+                        $(localStorage.setItem('WMEPH-KeyboardShortcut'+devVersStr, $('#WMEPH-KeyboardShortcut').val()) );
                     }
-                    $("#PlaceHarmonizerKBCurrent" + devVersStr).empty();
+                    $("#PlaceHarmonizerKBCurrent").empty();
                     phKBContentHtml = $('<span style="font-weight:bold">Current shortcut: '+modifKey+shortcutParse+'</span>');
-                    $("#PlaceHarmonizerKBCurrent" + devVersStr).append(phKBContentHtml);
+                    $("#PlaceHarmonizerKBCurrent").append(phKBContentHtml);
                 } else {  // if not a letter then reset and flag
-                    $('#WMEPH-KeyboardShortcut'+devVersStr).val(localStorage.getItem('WMEPH-KeyboardShortcut'+devVersStr));
-                    $("#PlaceHarmonizerKBWarn" + devVersStr).empty();
+                    $('#WMEPH-KeyboardShortcut').val(localStorage.getItem('WMEPH-KeyboardShortcut'+devVersStr));
+                    $("#PlaceHarmonizerKBWarn").empty();
                     phKBContentHtml = '<p style="color:red">Only letters are allowed<p>';
-                    $("#PlaceHarmonizerKBWarn" + devVersStr).append(phKBContentHtml);
+                    $("#PlaceHarmonizerKBWarn").append(phKBContentHtml);
                 }
             });
 
 
             if (IS_DEV_USER) {  // Override script regionality (devs only)
                 phDevContentHtml = '<hr align="center" width="90%"><p>Dev Only Settings:</p>';
-                $("#sidepanel-harmonizer" + devVersStr).append(phDevContentHtml);
-                createSettingsCheckbox("sidepanel-harmonizer" + devVersStr, "WMEPH-RegionOverride" + devVersStr,"Disable Region Specificity");
+                $("#sidepanel-harmonizer").append(phDevContentHtml);
+                createSettingsCheckbox("sidepanel-harmonizer", "WMEPH-RegionOverride","Disable Region Specificity");
 
             }
 
@@ -6712,61 +6710,60 @@
             if (localStorage.getItem('WMEPH_WLAddCount') === null) {
                 localStorage.setItem('WMEPH_WLAddCount', 2);  // Counter to remind of WL backups
             }
-            var phWLContentHtml = $('<div id="PlaceHarmonizerWLTools' + devVersStr + '">Whitelist string: <input onClick="this.select();" type="text" id="WMEPH-WLInput'+devVersStr+
-                                    '" style="width: 200px;padding-left:1px"><br>'+
-                                    '<input class="btn btn-success btn-xs" id="WMEPH-WLMerge'+ devVersStr +'" title="Merge the string into your existing Whitelist" type="button" value="Merge">'+
-                                    '<br><input class="btn btn-success btn-xs" id="WMEPH-WLPull'+ devVersStr +'" title="Pull your existing Whitelist for backup or sharing" type="button" value="Pull">'+
-                                    '<br><input class="btn btn-success btn-xs" id="WMEPH-WLShare'+ devVersStr +'" title="Share your Whitelist to a public Google sheet" type="button" value="Share your WL">'+
-                                    '<br><input class="btn btn-info btn-xs" id="WMEPH-WLStats'+ devVersStr +'" title="Display WL stats" type="button" value="Stats">'+
-                                    '<br><input class="btn btn-danger btn-xs" id="WMEPH-WLStateFilter'+ devVersStr +'" title="Remove all WL items for a state" type="button" value="Remove data for 1 State">'+
-                                    '</div><div id="PlaceHarmonizerWLToolsMsg' + devVersStr + '"></div>');
-            $("#sidepanel-wltools" + devVersStr).append(phWLContentHtml);
+            var phWLContentHtml = $('<div id="PlaceHarmonizerWLTools' + '">Whitelist string: <input onClick="this.select();" type="text" id="WMEPH-WLInput" style="width: 200px;padding-left:1px"><br>'+
+                                    '<input class="btn btn-success btn-xs" id="WMEPH-WLMerge" title="Merge the string into your existing Whitelist" type="button" value="Merge">'+
+                                    '<br><input class="btn btn-success btn-xs" id="WMEPH-WLPull" title="Pull your existing Whitelist for backup or sharing" type="button" value="Pull">'+
+                                    '<br><input class="btn btn-success btn-xs" id="WMEPH-WLShare" title="Share your Whitelist to a public Google sheet" type="button" value="Share your WL">'+
+                                    '<br><input class="btn btn-info btn-xs" id="WMEPH-WLStats" title="Display WL stats" type="button" value="Stats">'+
+                                    '<br><input class="btn btn-danger btn-xs" id="WMEPH-WLStateFilter" title="Remove all WL items for a state" type="button" value="Remove data for 1 State">'+
+                                    '</div><div id="PlaceHarmonizerWLToolsMsg"></div>');
+            $("#sidepanel-wltools").append(phWLContentHtml);
 
-            $("#WMEPH-WLMerge" + devVersStr).click(function() {
-                $("#PlaceHarmonizerWLToolsMsg" + devVersStr).empty();
-                if ($('#WMEPH-WLInput'+devVersStr).val() === 'resetWhitelist') {
+            $("#WMEPH-WLMerge").click(function() {
+                $("#PlaceHarmonizerWLToolsMsg").empty();
+                if ($('#WMEPH-WLInput').val() === 'resetWhitelist') {
                     if (confirm('***Do you want to reset all Whitelist data?\nClick OK to erase.') ) {  // if the category doesn't translate, then pop an alert that will make a forum post to the thread
                         venueWhitelist = { '1.1.1': { Placeholder: {  } } }; // Populate with a dummy place
                         saveWL_LS(true);
                     }
                 } else {  // try to merge uncompressed WL data
-                    WLSToMerge = validateWLS($('#WMEPH-WLInput'+devVersStr).val());
+                    WLSToMerge = validateWLS($('#WMEPH-WLInput').val());
                     if (WLSToMerge) {
                         phlog('Whitelists merged!');
                         venueWhitelist = mergeWL(venueWhitelist,WLSToMerge);
                         saveWL_LS(true);
                         phWLContentHtml = '<p style="color:green">Whitelist data merged<p>';
-                        $("#PlaceHarmonizerWLToolsMsg" + devVersStr).append(phWLContentHtml);
+                        $("#PlaceHarmonizerWLToolsMsg").append(phWLContentHtml);
                         $('#WMEPH-WLInputBeta').val('');
                     } else {  // try compressed WL
-                        WLSToMerge = validateWLS( LZString.decompressFromUTF16($('#WMEPH-WLInput'+devVersStr).val()) );
+                        WLSToMerge = validateWLS( LZString.decompressFromUTF16($('#WMEPH-WLInput').val()) );
                         if (WLSToMerge) {
                             phlog('Whitelists merged!');
                             venueWhitelist = mergeWL(venueWhitelist,WLSToMerge);
                             saveWL_LS(true);
                             phWLContentHtml = '<p style="color:green">Whitelist data merged<p>';
-                            $("#PlaceHarmonizerWLToolsMsg" + devVersStr).append(phWLContentHtml);
+                            $("#PlaceHarmonizerWLToolsMsg").append(phWLContentHtml);
                             $('#WMEPH-WLInputBeta').val('');
                         } else {
                             phWLContentHtml = '<p style="color:red">Invalid Whitelist data<p>';
-                            $("#PlaceHarmonizerWLToolsMsg" + devVersStr).append(phWLContentHtml);
+                            $("#PlaceHarmonizerWLToolsMsg").append(phWLContentHtml);
                         }
                     }
                 }
             });
 
             // Pull the data to the text field
-            $("#WMEPH-WLPull" + devVersStr).click(function() {
-                $("#PlaceHarmonizerWLToolsMsg" + devVersStr).empty();
-                $('#WMEPH-WLInput'+devVersStr).val( LZString.decompressFromUTF16(localStorage.getItem(WLlocalStoreNameCompressed)) );
+            $("#WMEPH-WLPull").click(function() {
+                $("#PlaceHarmonizerWLToolsMsg").empty();
+                $('#WMEPH-WLInput').val( LZString.decompressFromUTF16(localStorage.getItem(WLlocalStoreNameCompressed)) );
                 phWLContentHtml = '<p style="color:green">To backup the data, copy & paste the text in the box to a safe location.<p>';
-                $("#PlaceHarmonizerWLToolsMsg" + devVersStr).append(phWLContentHtml);
+                $("#PlaceHarmonizerWLToolsMsg").append(phWLContentHtml);
                 localStorage.setItem('WMEPH_WLAddCount', 1);
             });
 
             // WL Stats
-            $("#WMEPH-WLStats" + devVersStr).click(function() {
-                $("#PlaceHarmonizerWLToolsMsg" + devVersStr).empty();
+            $("#WMEPH-WLStats").click(function() {
+                $("#PlaceHarmonizerWLToolsMsg").empty();
                 $('#WMEPH-WLInputBeta').val('');
                 var currWLData;
                 currWLData = JSON.parse( LZString.decompressFromUTF16( localStorage.getItem(WLlocalStoreNameCompressed) ) );
@@ -6817,17 +6814,17 @@
                 }
 
                 phWLContentHtml = '<p style="color:black">Number of WL places: '+ itemCount +'</p><p>States:'+ stateString +'</p><p>Countries:'+ countryString + '<p>';
-                $("#PlaceHarmonizerWLToolsMsg" + devVersStr).append(phWLContentHtml);
+                $("#PlaceHarmonizerWLToolsMsg").append(phWLContentHtml);
                 //localStorage.setItem('WMEPH_WLAddCount', 1);
             });
 
             // WL State Filter
-            $("#WMEPH-WLStateFilter" + devVersStr).click(function() {
-                $("#PlaceHarmonizerWLToolsMsg" + devVersStr).empty();
-                stateToRemove = $('#WMEPH-WLInput'+devVersStr).val();
+            $("#WMEPH-WLStateFilter").click(function() {
+                $("#PlaceHarmonizerWLToolsMsg").empty();
+                stateToRemove = $('#WMEPH-WLInput').val();
                 if ( stateToRemove.length < 2 ) {
                     phWLContentHtml = '<p style="color:red">Invalid state<p>';
-                    $("#PlaceHarmonizerWLToolsMsg" + devVersStr).append(phWLContentHtml);
+                    $("#PlaceHarmonizerWLToolsMsg").append(phWLContentHtml);
                 } else {
                     var currWLData, venueToRemove = [];
                     currWLData = JSON.parse( LZString.decompressFromUTF16( localStorage.getItem(WLlocalStoreNameCompressed) ) );
@@ -6856,27 +6853,27 @@
                                 }
                                 saveWL_LS(true);
                                 phWLContentHtml = '<p style="color:green">'+venueToRemove.length+' items removed from WL<p>';
-                                $("#PlaceHarmonizerWLToolsMsg" + devVersStr).append(phWLContentHtml);
+                                $("#PlaceHarmonizerWLToolsMsg").append(phWLContentHtml);
                                 $('#WMEPH-WLInputBeta').val('');
                             } else {
                                 phWLContentHtml = '<p style="color:blue">No changes made<p>';
-                                $("#PlaceHarmonizerWLToolsMsg" + devVersStr).append(phWLContentHtml);
+                                $("#PlaceHarmonizerWLToolsMsg").append(phWLContentHtml);
                             }
                         } else {
                             phWLContentHtml = '<p style="color:red">Please backup your WL using the Pull button before removing state data<p>';
-                            $("#PlaceHarmonizerWLToolsMsg" + devVersStr).append(phWLContentHtml);
+                            $("#PlaceHarmonizerWLToolsMsg").append(phWLContentHtml);
                             //phlogdev('Please backup your WL using the Pull button before removing state data');
                         }
                     } else {
                         phWLContentHtml = '<p style="color:red">No data for that state. Use the state name exactly as listed in the Stats<p>';
-                        $("#PlaceHarmonizerWLToolsMsg" + devVersStr).append(phWLContentHtml);
+                        $("#PlaceHarmonizerWLToolsMsg").append(phWLContentHtml);
                         //phlogdev('No data for that state. Use the state name exactly as listed in the Stats');
                     }
                 }
             });
 
             // Share the data to a Google Form post
-            $("#WMEPH-WLShare" + devVersStr).click(function() {
+            $("#WMEPH-WLShare").click(function() {
                 var submitWLURL = 'https://docs.google.com/forms/d/1k_5RyOq81Fv4IRHzltC34kW3IUbXnQqDVMogwJKFNbE/viewform?entry.1173700072='+USER_NAME;
                 window.open(submitWLURL);
             });
@@ -6887,7 +6884,7 @@
                 PLACES_WIKI_URL + '" target="_blank" title="'+placesWikiStr+'">'+placesWikiStr+'</a><p><a href="' +
                 WMEPH_FORUM_URL + '" target="_blank" title="'+feedbackString+'">'+feedbackString+'</a></p><hr align="center" width="95%">Major features for v. ' +
                 WMEPH_VERSION_MAJOR+':<ul><li>'+WMEPHWhatsNewMetaHList+'</ul>Recent updates:<ul><li>'+WMEPHWhatsNewHList+'</ul>';
-            $("#sidepanel-harmonizer" + devVersStr).append(phContentHtml2);
+            $("#sidepanel-harmonizer").append(phContentHtml2);
 
             W.map.events.register("mousemove", W.map, function (e) {
                 WMEPHmousePosition = W.map.getLonLatFromPixel( W.map.events.getMousePosition(e) );
@@ -6905,19 +6902,19 @@
             }
 
             // Color highlighting
-            $("#WMEPH-ColorHighlighting" + devVersStr).click( function() {
+            $("#WMEPH-ColorHighlighting").click( function() {
                 bootstrapWMEPH_CH();
             });
-            $("#WMEPH-DisableHoursHL" + devVersStr).click( function() {
+            $("#WMEPH-DisableHoursHL").click( function() {
                 bootstrapWMEPH_CH();
             });
-            $("#WMEPH-DisableRankHL" + devVersStr).click( function() {
+            $("#WMEPH-DisableRankHL").click( function() {
                 bootstrapWMEPH_CH();
             });
-            $("#WMEPH-DisableWLHL" + devVersStr).click( function() {
+            $("#WMEPH-DisableWLHL").click( function() {
                 bootstrapWMEPH_CH();
             });
-            if ( $("#WMEPH-ColorHighlighting" + devVersStr).prop('checked') ) {
+            if ( $("#WMEPH-ColorHighlighting").prop('checked') ) {
                 phlog('Starting Highlighter');
                 bootstrapWMEPH_CH();
             }
@@ -6925,13 +6922,13 @@
 
             // Add Color Highlighting shortcut
             shortcut.add("Control+Alt+h", function() {
-                $("#WMEPH-ColorHighlighting" + devVersStr).trigger('click');
+                $("#WMEPH-ColorHighlighting").trigger('click');
             });
 
             // Add Autorun shortcut
             if (USER_NAME === 'bmtg') {
                 shortcut.add("Control+Alt+u", function() {
-                    $("#WMEPH-AutoRunOnSelect" + devVersStr).trigger('click');
+                    $("#WMEPH-AutoRunOnSelect").trigger('click');
                 });
             }
 
@@ -7262,7 +7259,7 @@
                         approvedRegions = currMatchData[ph_region_ix].replace(/ /g, '').toUpperCase().split(",");  // remove spaces, upper case the approved regions, and split by commas
                         if (approvedRegions.indexOf(state2L) > -1 || approvedRegions.indexOf(region3L) > -1 ||  // if the WME-selected item matches the state, region
                             approvedRegions.indexOf(country) > -1 ||  //  OR if the country code is in the data then it is approved for all regions therein
-                            $("#WMEPH-RegionOverride" + devVersStr).prop('checked')) {  // OR if region override is selected (dev setting
+                            $("#WMEPH-RegionOverride").prop('checked')) {  // OR if region override is selected (dev setting
                             if (IS_DEV_USER) {
                                 t1 = performance.now();  // log search time
                                 //phlogdev("Found place in " + (t1 - t0).toFixed(3) + " milliseconds.");
