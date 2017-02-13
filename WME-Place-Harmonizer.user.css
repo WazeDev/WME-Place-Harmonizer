@@ -1,17 +1,17 @@
 /***************/
-/* TOOLS STUFF */
+/* Tools Stuff */
 /***************/
 #WMEPH_tools { width: 100%; background-color: #fff; color: black; font-size: 1em; font-weight: 600; padding: 1px; margin-left: auto; margin-right: auto; }
 #WMEPH_tools > ul { list-style: none; margin-left: -38px; }
 #WMEPH_tools > ul > li { padding: 3px 0px; margin: 0px }
 
 /****************/
-/* BANNER STUFF */
+/* Banner Stuff */
 /****************/
 /* #edit-panel > .contents {padding:10px } */
 #WMEPH_banner { box-shadow: 4px 4px 6px #bbb; border-radius: 6px;  display: -webkit-flex; display: flex; /* box-shadow:3px 3px 4px gray; */ flex-direction: column; width: 100%; color: white; font-size: 1em; padding: 6px 0px; margin-left: auto; margin-right: auto; margin-bottom: 10px; }
-#WMEPH_banner > div { border-top: 1px solid #ccc; border-right: 1px solid #ccc;border-left: 1px solid #ccc; background-color: #f6f6f6;  padding: 2px 5px 2px 5px; 
-	-ms-box-orient: horizontal;
+#WMEPH_banner > div { border-top: 1px solid #ccc; border-right: 1px solid #ccc;border-left: 1px solid #ccc; background-color: #f6f6f6;  padding: 2px 5px 2px 5px;
+    -ms-box-orient: horizontal;
     display: -webkit-box;
     display: -moz-box;
     display: -ms-flexbox;
@@ -51,7 +51,7 @@
 
 
 /****************/
-/* BUTTON STUFF */
+/* Button Stuff */
 /****************/
 .wmeph-btn, .wmeph-btn.disabled { font-weight: 900 !important; min-width: 20px; height: 18px; padding: 1px 3px; border-radius: 4px; vertical-align:bottom; margin-bottom:1px }
 .wmeph-btn { margin-left: 4px; }
@@ -63,12 +63,12 @@
 .wmeph-btn.wmeph-btn-wl { padding: 0px 1px }
 
 /***************/
-/* LABEL STUFF */
+/* Label Stuff */
 /***************/
 
 
 /***************/
-/* INPUT STUFF */
+/* Input Stuff */
 /***************/
 #WMEPH_banner .ui-widget {display:inline;}
 .banner-row-message + .banner-row-input { padding-left: 4px; }
@@ -81,7 +81,7 @@
 
 
 /*******************/
-/* SERVICE BUTTONS */
+/* Service Buttons */
 /*******************/
 .wmeph-btn-service {height:12px !important; border: 0; background-size: contain; display: inline-block; width: 20px; }
 .wmeph-btn-service-disabled {height:17px !important; -webkit-filter: opacity(.25); filter: opacity(.25); }

@@ -112,7 +112,7 @@
         SCRIPT_NAME = GM_info.script.name.toString(),
         IS_DEV_VERSION = (SCRIPT_NAME.match(/Beta/i) !== null);             // Enables dev messages and unique DOM options if the script is called "... Beta"
     // CSS Stuff
-    var WMEPH_CSS = GM_getResourceText("WMEPH_CSS"); //GM_addStyle(WMEPH_CSS);
+    var WMEPH_CSS = GM_getResourceText("WMEPH_CSS"); GM_addStyle(WMEPH_CSS);
     var JQ_UI_CSS = GM_getResourceText("JQ_UI_CSS"); GM_addStyle(JQ_UI_CSS);
     // Was testing this, but I don't think the following line does anything. (mapomatic)
     //GM_addStyle('  <style> .ui-autocomplete {max-height: 100px;overflow-y: auto;overflow-x: hidden;}  * html .ui-autocomplete {height: 100px;}</style>');
@@ -618,18 +618,18 @@
                     for (var i = 3, len = response.feed.entry.length; i < len; i++) {
                         var arr = response.feed.entry[i].gsx$pcdata.$t.split("|");
                         var key = arr[0];
-                        services            = { "psValet"           :   arr[14],
-                                                "psDriveThru"       :   arr[15],
-                                                "psWiFi"            :   arr[16],
-                                                "psRestrooms"       :   arr[17],
-                                                "psCreditCards"     :   arr[18],
-                                                "psReservations"    :   arr[19],
-                                                "psOutside"         :   arr[20],
-                                                "psAirCond"         :   arr[21],
-                                                "psParking"         :   arr[22],
-                                                "psDelivery"        :   arr[23],
-                                                "psTakeAway"        :   arr[24],
-                                                "psWheelchair"      :   arr[25] };
+                        services            = { "psValet"           :   parseInt(arr[14]) || "",
+                                                "psDriveThru"       :   parseInt(arr[15]) || "",
+                                                "psWiFi"            :   parseInt(arr[16]) || "",
+                                                "psRestrooms"       :   parseInt(arr[17]) || "",
+                                                "psCreditCards"     :   parseInt(arr[18]) || "",
+                                                "psReservations"    :   parseInt(arr[19]) || "",
+                                                "psOutside"         :   parseInt(arr[20]) || "",
+                                                "psAirCond"         :   parseInt(arr[21]) || "",
+                                                "psParking"         :   parseInt(arr[22]) || "",
+                                                "psDelivery"        :   parseInt(arr[23]) || "",
+                                                "psTakeAway"        :   parseInt(arr[24]) || "",
+                                                "psWheelchair"      :   parseInt(arr[25]) || "" };
                         NA_CAT_DATA[key]    = { "pcPoint"           :   arr[2],
                                                 "pcArea"            :   arr[3],
                                                 "pcRegPoint"        :   arr[4].replace(/[^A-Z]+/g,",").split(/,/),
@@ -644,6 +644,7 @@
                                                 "pcMessage"         :   arr[13],
                                                 "services"          :   services };
                     }
+                    popUp(JSON.stringify(NA_CAT_DATA, null, 2));
                 }
             });
 
@@ -3664,9 +3665,7 @@
                     if (PNHMatchData[0] === "ApprovalNeeded") {
                         //PNHNameTemp = PNHMatchData[1].join(', ');
                         PNHNameTemp = PNHMatchData[1][0];  // Just do the first match
-                        PNHNameTempWeb = PNHNameTemp.replace(/\&/g, "%26");
-                        PNHNameTempWeb = PNHNameTemp.replace(/\#/g, "%23");
-                        PNHNameTempWeb = PNHNameTempWeb.replace(/\//g, "%2F");
+                        PNHNameTempWeb = encodeURIComponent(PNHNameTemp);
                         PNHOrderNum = PNHMatchData[2].join(',');
                     }
 
@@ -3794,7 +3793,7 @@
                 var newPlaceAddon = '';
                 var approvalAddon = '';
                 var approvalMessage = 'Submitted via WMEPH. PNH order number ' + PNHOrderNum;
-                var tempSubmitName = newName.replace(/\&/g,'%26').replace(/\//g, "%2F").replace(/\#/g, "%23");
+                var tempSubmitName = encodeURIComponent(newName);
                 if (hpMode.harmFlag) {
                     switch (myPlace.psRegion) {
                         case "NWR": regionFormURL = 'https://docs.google.com/forms/d/1hv5hXBlGr1pTMmo4n3frUx1DovUODbZodfDBwwTc7HE/viewform';
