@@ -13,7 +13,7 @@
 // ==UserScript==
 // @name        WME Place Harmonizer Beta
 // @namespace   https://github.com/WazeUSA/WME-Place-Harmonizer/raw/master/WME-Place-Harmonizer.user.js
-// @version     1.2.1
+// @version     1.2.2
 // @description Harmonizes, formats, and locks a selected place
 // @author      WMEPH development group
 // @include     /^https:\/\/(www|beta)\.waze\.com\/(?!user\/)(.{2,6}\/)?editor\/.*$/
@@ -269,6 +269,7 @@
     function runPH() {
         // Script update info
         var WMEPHWhatsNewList = [  // New in this version
+            '1.2.2: FIXED - Whitelisting missing HN doesn\'t allow auto-lock.',
             '1.2.1: Removed R2+ restriction for using this script.',
             '1.2.0: Production release.',
             '1.1.97: Added regex place name matching for increased flexibility.',
@@ -3430,6 +3431,7 @@
                     } else {
                         bannButt.hnMissing.active = true;
                         if (currentWL.HNWL) {
+                            bannButt.severity = 0;
                             bannButt.hnMissing.WLactive = false;
                         } else {
                             lockOK = false;
