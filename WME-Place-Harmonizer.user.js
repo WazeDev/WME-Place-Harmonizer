@@ -13,7 +13,7 @@
 // ==UserScript==
 // @name        WME Place Harmonizer Beta
 // @namespace   https://github.com/WazeUSA/WME-Place-Harmonizer/raw/master/WME-Place-Harmonizer.user.js
-// @version     1.2.3
+// @version     1.2.4
 // @description Harmonizes, formats, and locks a selected place
 // @author      WMEPH development group
 // @include     /^https:\/\/(www|beta)\.waze\.com\/(?!user\/)(.{2,6}\/)?editor\/.*$/
@@ -33,7 +33,8 @@
         '#WMEPH_banner { font-weight: 600;}',
         '#WMEPH_banner input[type=text], #WMEPH_banner .ui-autocomplete-input { font-size: 13px !important; height:22px !important; font-family: "Open Sans", Alef, helvetica, sans-serif !important; }',
         '#WMEPH_banner div { padding-bottom: 6px !important; }',
-        '#WMEPH_tools div { padding-bottom: 3px !important; }',
+        '#WMEPH_banner div:last-child { padding-bottom: 3px !important; }',
+        '#WMEPH_tools div { padding-bottom: 2px !important; }',
         '.ui-autocomplete { max-height: 300px;overflow-y: auto;overflow-x: hidden;} '
     ].join('\n'));
     var WMEPHversion = GM_info.script.version.toString(); // pull version from header
@@ -269,6 +270,9 @@
     function runPH() {
         // Script update info
         var WMEPHWhatsNewList = [  // New in this version
+            '1.2.4: Moved "Place Website" button next to "Run WMEPH" button, so it is always accessible.',
+            '1.2.4: Web Search and Place Locator buttons are now side-by-side.',
+            '1.2.3: Fixed bug from last release.',
             '1.2.2: FIXED - Whitelisting missing HN doesn\'t allow auto-lock.',
             '1.2.1: Removed R2+ restriction for using this script.',
             '1.2.0: Production release.',
@@ -1536,7 +1540,7 @@
                             W.model.actionManager.add(new UpdateObject(item, { url: newUrl }));
                             fieldUpdateObject.url='#dfd';
                             bannButt.urlMissing.active = false;
-                            bannButt.PlaceWebsite.active = true;
+                            showOpenPlaceWebsiteButton();
                             this.badInput = false;
                         }
                     },
@@ -1807,16 +1811,30 @@
                     active: false, severity: 0, message: 'Place locked.'
                 },
 
+                webSearch: {  // no WL
+                    active: false, severity: 0, message: "", value: "Web Search", title: "Search the web for this place.  Do not copy info from 3rd party sources!",
+                    action: function() {
+                        if (localStorage.getItem(GLinkWarning) !== '1') {
+                            if (confirm('***Please DO NOT copy info from Google or third party sources.*** This link is to help you find the business webpage.\nClick OK to agree and continue.') ) {  // if the category doesn't translate, then pop an alert that will make a forum post to the thread
+                                localStorage.setItem(GLinkWarning, '1');
+                            }
+                        }
+                        if (localStorage.getItem(GLinkWarning) === '1') {
+                            if ( $("#WMEPH-WebSearchNewTab" + devVersStr).prop('checked') ) {
+                                window.open(buildGLink(newName,addr,item.attributes.houseNumber));
+                            } else {
+                                window.open(buildGLink(newName,addr,item.attributes.houseNumber), searchResultsWindowName, searchResultsWindowSpecs);
+                            }
+                        }
+                    }
+                },
+
+                // NOTE: This is now only used to display the store locator button.  It can be updated to remove/change anything that doesn't serve that purpose.
                 PlaceWebsite: {    // no WL
                     active: false, severity: 0, message: "", value: "Place Website", title: "Direct link to place website",
                     action: function() {
                         var openPlaceWebsiteURL, linkProceed = true;
                         if (updateURL) {
-                            if (/^https?:\/\//.test(newURL)) {
-                                openPlaceWebsiteURL = newURL;
-                            } else {
-                                openPlaceWebsiteURL = 'http://' + newURL;
-                            }
                             // replace WME url with storefinder URLs if they are in the PNH data
                             if (customStoreFinder) {
                                 openPlaceWebsiteURL = customStoreFinderURL;
@@ -1844,24 +1862,6 @@
                                 window.open(openPlaceWebsiteURL);
                             } else {
                                 window.open(openPlaceWebsiteURL, searchResultsWindowName, searchResultsWindowSpecs);
-                            }
-                        }
-                    }
-                },
-
-                webSearch: {  // no WL
-                    active: false, severity: 0, message: "", value: "Web Search", title: "Search the web for this place.  Do not copy info from 3rd party sources!",
-                    action: function() {
-                        if (localStorage.getItem(GLinkWarning) !== '1') {
-                            if (confirm('***Please DO NOT copy info from Google or third party sources.*** This link is to help you find the business webpage.\nClick OK to agree and continue.') ) {  // if the category doesn't translate, then pop an alert that will make a forum post to the thread
-                                localStorage.setItem(GLinkWarning, '1');
-                            }
-                        }
-                        if (localStorage.getItem(GLinkWarning) === '1') {
-                            if ( $("#WMEPH-WebSearchNewTab" + devVersStr).prop('checked') ) {
-                                window.open(buildGLink(newName,addr,item.attributes.houseNumber));
-                            } else {
-                                window.open(buildGLink(newName,addr,item.attributes.houseNumber), searchResultsWindowName, searchResultsWindowSpecs);
                             }
                         }
                     }
@@ -2560,7 +2560,7 @@
                                     if (currentWL.localizedName) {
                                         bannButt.localizedName.WLactive = false;
                                     }
-                                    bannButt.PlaceWebsite.value = 'Place Website';
+                                    //bannButt.PlaceWebsite.value = 'Place Website';
                                     if (ph_displaynote_ix > -1 && PNHMatchData[ph_displaynote_ix] !== '0' && PNHMatchData[ph_displaynote_ix] !== '') {
                                         bannButt.localizedName.message = PNHMatchData[ph_displaynote_ix];
                                     }
@@ -2611,6 +2611,7 @@
                         if ( ph_sfurllocal_ix > -1 && PNHMatchData[ph_sfurllocal_ix] !== "" && PNHMatchData[ph_sfurllocal_ix] !== "0" ) {
                             if ( !bannButt.localizedName.active ) {
                                 bannButt.PlaceWebsite.value = "Store Locator (L)";
+                                bannButt.PlaceWebsite.active = true;
                             }
                             var tempLocalURL = PNHMatchData[ph_sfurllocal_ix].replace(/ /g,'').split("<>");
                             var searchStreet = "", searchCity = "", searchState = "";
@@ -2674,6 +2675,7 @@
                         } else if (PNHMatchData[ph_sfurl_ix] !== "" && PNHMatchData[ph_sfurl_ix] !== "0") {
                             if ( !bannButt.localizedName.active ) {
                                 bannButt.PlaceWebsite.value = "Store Locator";
+                                bannButt.PlaceWebsite.active = true;
                             }
                             customStoreFinderURL = PNHMatchData[ph_sfurl_ix];
                             if ( customStoreFinderURL.indexOf('http') !== 0 ) {
@@ -3326,7 +3328,7 @@
                             if (currentWL.longURL) {
                                 bannButt.longURL.WLactive = false;
                             }
-                            bannButt.PlaceWebsite.value = "Place Website";
+                            //bannButt.PlaceWebsite.value = "Place Website";
                             if (hpMode.harmFlag && updateURL && itemURL !== item.attributes.url) {  // Update the URL
                                 phlogdev("URL formatted");
                                 actions.push(new UpdateObject(item, { url: itemURL }));
@@ -3949,9 +3951,9 @@
             }
 
             // Turn on website linking button if there is a url
-            if (newURL !== null && newURL !== "") {
-                bannButt.PlaceWebsite.active = true;
-            }
+            //if (newURL !== null && newURL !== "") {
+            //bannButt.PlaceWebsite.active = true;
+            //}
 
             // Highlight the changes made
             highlightChangedFields(fieldUpdateObject,hpMode);
@@ -4120,6 +4122,7 @@
             }
 
             // Build banners above the Services
+            var $webDiv;
             for ( tempKey in bannButt ) {
                 if ( bannButt.hasOwnProperty(tempKey) && bannButt[tempKey].hasOwnProperty('active') && bannButt[tempKey].active ) {  //  If the particular message is active
                     strButt1 = bannButt[tempKey].message;
@@ -4142,8 +4145,18 @@
                     } else {
                         severityButt = Math.max(bannButt[tempKey].severity, severityButt);
                     }
-                    sidebarMessage.push(strButt1);
+                    if (tempKey.toUpperCase() === 'PLACEWEBSITE' || tempKey.toUpperCase() === 'WEBSEARCH') {
+                        if (!$webDiv) {
+                            $webDiv = $('<div>').attr({id:'wmeph-web-buttons'});
+                        }
+                        $webDiv.append(strButt1);
+                    } else {
+                        sidebarMessage.push(strButt1);
+                    }
                 }
+            }
+            if ($webDiv) {
+                sidebarMessage.push($webDiv[0].outerHTML);
             }
             if ( $("#WMEPH-ColorHighlighting" + devVersStr).prop('checked') ) {
                 item = W.selectionManager.selectedItems[0].model;
@@ -4189,8 +4202,8 @@
             // }
 
             // Post the banners to the sidebar
-            displayTools( sidebarTools.join("<div></div>") );
-            displayBanners(sidebarMessage.join("<div></div>"), severityButt );
+            displayTools( sidebarTools.join("</div><div>") );
+            displayBanners(sidebarMessage.join("</div><div>"), severityButt );
 
             // Set up Duplicate onclicks
             if ( dupesFound ) {
@@ -4435,23 +4448,14 @@
             }, betaDelay);
         }  // END displayRunButton funtion
 
-        // WMEPH Clone Tool
-        function displayCloneButton() {
-            var betaDelay = 80;
-            if (isDevVersion) { betaDelay = 300; }
-            setTimeout(function() {
-                if ($('#WMEPH_runButton').length === 0 ) {
-                    $('<div id="WMEPH_runButton">').css({"padding-bottom": "6px", "padding-top": "3px", "width": "290", "background-color": "#FFF", "color": "black", "font-size": "15px", "font-weight": "bold", "margin-left": "auto;", "margin-right": "auto"}).prependTo(".contents");
-                }
-                var strButt1, btn;
-                item = W.selectionManager.selectedItems[0].model;
-                if (item) {
-                    var openPlaceWebsiteURL = item.attributes.url;
-                    if (openPlaceWebsiteURL && openPlaceWebsiteURL.replace(/[^A-Za-z0-9]/g,'').length > 2 && (thisUser.userName === 't0cableguy' || thisUser.userName === 'MapOMatic') ) {
-                        if ($('#WMEPHurl').length === 0 ) {
-                            strButt1 = '<input class="btn btn-success btn-xs" id="WMEPHurl" title="Open place URL" type="button" value="Open URL" style="margin-left:3px;">';
-                            $("#WMEPH_runButton").append(strButt1);
-                        }
+        // Displays the Open Place Website button.
+        function showOpenPlaceWebsiteButton() {
+            if (item) {
+                var openPlaceWebsiteURL = item.attributes.url;
+                if (openPlaceWebsiteURL && openPlaceWebsiteURL.replace(/[^A-Za-z0-9]/g,'').length > 2) {
+                    if ($('#WMEPHurl').length === 0  ) {
+                        strButt1 = '<input class="btn btn-success btn-xs" id="WMEPHurl" title="Open place URL" type="button" value="Open Website" style="margin-left:3px;">';
+                        $("#runWMEPH" + devVersStr).after(strButt1);
                         btn = document.getElementById("WMEPHurl");
                         if (btn !== null) {
                             btn.onclick = function() {
@@ -4472,6 +4476,22 @@
                             setTimeout(bootstrapRunButton,100);
                         }
                     }
+                }
+            }
+        }
+
+        // WMEPH Clone Tool
+        function displayCloneButton() {
+            var betaDelay = 80;
+            if (isDevVersion) { betaDelay = 300; }
+            setTimeout(function() {
+                if ($('#WMEPH_runButton').length === 0 ) {
+                    $('<div id="WMEPH_runButton">').css({"padding-bottom": "6px", "padding-top": "3px", "width": "290", "background-color": "#FFF", "color": "black", "font-size": "15px", "font-weight": "bold", "margin-left": "auto;", "margin-right": "auto"}).prependTo(".contents");
+                }
+                var strButt1, btn;
+                item = W.selectionManager.selectedItems[0].model;
+                if (item) {
+                    showOpenPlaceWebsiteButton();
                     if ($('#clonePlace').length === 0 ) {
                         strButt1 = '<div style="margin-bottom: 3px;"></div><input class="btn btn-warning btn-xs wmeph-btn" id="clonePlace" title="Copy place info" type="button" value="Copy">'+
                             ' <input class="btn btn-warning btn-xs wmeph-btn" id="pasteClone" title="Apply the Place info. (Ctrl-Alt-O)" type="button" value="Paste (for checked boxes):"><br>';
@@ -4577,13 +4597,12 @@
                 if (W.selectionManager.selectedItems.length === 1) {
                     if (W.selectionManager.selectedItems[0].model.type === "venue") {
                         displayRunButton();
+                        showOpenPlaceWebsiteButton();
                         getPanelFields();
                         if (localStorage.getItem("WMEPH-EnableCloneMode" + devVersStr) === '1') {
                             displayCloneButton();
                         }
                     }
-
-
                 } else {
                     setTimeout(bootstrapRunButton,1000);
                 }
