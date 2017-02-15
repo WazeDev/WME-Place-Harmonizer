@@ -580,11 +580,11 @@
                     SCHOOL_PART_MATCH       = NEW_SHEET_DATA.schp;
                     SCHOOL_FULL_MATCH       = NEW_SHEET_DATA.schf;
                     NA_CAT_DATA             = NEW_SHEET_DATA.catList;
-                    /* Commented out while working on parsing data from old sheets into new format.
+                    //* Commented out while working on parsing data from old sheets into new format.
                     REGION_DATA.states      = NEW_SHEET_DATA.states;
                     REGION_DATA.countries   = NEW_SHEET_DATA.countries;
                     REGION_DATA.regions     = NEW_SHEET_DATA.regions;
-                    */
+                    //*/
                 }
             });
         } else {
@@ -1162,7 +1162,7 @@
     var searchResultsWindowName = '"WMEPH Search Results"';
     var WMEPHmousePosition;
     var cloneMaster = null;
-    var bannButt, bannButt2, bannServ, bannDupl;  // Banner Buttons objects
+    var bannButt2, bannDupl;  // Banner Buttons objects
     var RPPLockString = 'Lock?';
 
 
@@ -1702,7 +1702,7 @@
                     action: function() {
                         var forumMsgInputs = {
                             subject: 'WMEPH Bug report: Scrpt Error',
-                            message: 'Script version: ' + WMEPH_VERSION_LONG + devVersStr + '\nPermalink: ' + harmony.permalink + '\nPlace name: ' + item.attributes.name + '\nCountry: ' + item.attributes.getAddress().country.name + '\n--------\nDescribe the error:  \n '
+                            message: 'Script version: ' + WMEPH_VERSION_LONG + devVersStr + '\nPermalink: ' + harmony.permalink + '\nPlace name: ' + item.attributes.name + '\nCountry: ' + item.getAddress().country.name + '\n--------\nDescribe the error:  \n '
                         };
                         WMEPH_errorReport(forumMsgInputs);
                     }
@@ -1894,7 +1894,7 @@
             // If no gas station name, replace with brand name
             if (hpMode.harmFlag && item.attributes.categories[0] === 'GAS_STATION' && (!harmony.newName || harmony.newName.trim().length === 0) && item.attributes.brand) {
                 harmony.newName = item.attributes.brand;
-                actions.push(new UpdateObject(item, {name: harmony.newName }));
+                harmony.actions.push(new UpdateObject(item, {name: harmony.newName }));
                 harmony.updatedFields.name = true;
             }
 
@@ -1906,31 +1906,31 @@
                     }
                     if (item.attributes.name !== '') {  // Set the residential place name to the address (to clear any personal info)
                         phlogdev("Residential Name reset");
-                        actions.push(new UpdateObject(item, {name: ''}));
+                        harmony.actions.push(new UpdateObject(item, {name: ''}));
                         // no field HL
                     }
                     harmony.newCategories = ["RESIDENCE_HOME"];
                     // newDescripion = null;
                     if (item.attributes.description !== null && item.attributes.description !== "") {  // remove any description
                         phlogdev("Residential description cleared");
-                        actions.push(new UpdateObject(item, {description: null}));
+                        harmony.actions.push(new UpdateObject(item, {description: null}));
                         // no field HL
                     }
                     // newPhone = null;
                     if (item.attributes.phone !== null && item.attributes.phone !== "") {  // remove any phone info
                         phlogdev("Residential Phone cleared");
-                        actions.push(new UpdateObject(item, {phone: null}));
+                        harmony.actions.push(new UpdateObject(item, {phone: null}));
                         // no field HL
                     }
                     // newURL = null;
                     if (item.attributes.url !== null && item.attributes.url !== "") {  // remove any url
                         phlogdev("Residential URL cleared");
-                        actions.push(new UpdateObject(item, {url: null}));
+                        harmony.actions.push(new UpdateObject(item, {url: null}));
                         // no field HL
                     }
                     if (item.attributes.services.length > 0) {
                         phlogdev("Residential services cleared");
-                        actions.push(new UpdateObject(item, {services: [] }));
+                        harmony.actions.push(new UpdateObject(item, {services: [] }));
                         // no field HL
                     }
                 }
@@ -2049,12 +2049,12 @@
                                 harmony.flags[scFlag].active = false;
                             } else if ( specCases[scix].match(/^psOn_/g) !== null ) {
                                 scFlag = specCases[scix].match(/^psOn_(.+)/i)[1];
-                                bannServ.cases[scFlag].actionOn(actions);
-                                bannServ.cases[scFlag].pnhOverride = true;
+                                harmony.services[scFlag].actionOn(actions);
+                                harmony.services[scFlag].pnhOverride = true;
                             } else if ( specCases[scix].match(/^psOff_/g) !== null ) {
                                 scFlag = specCases[scix].match(/^psOff_(.+)/i)[1];
-                                bannServ.cases[scFlag].actionOff(actions);
-                                bannServ.cases[scFlag].pnhOverride = true;
+                                harmony.services[scFlag].actionOff(actions);
+                                harmony.services[scFlag].pnhOverride = true;
                             }
                             // parseout localURL data if exists (meaning place can have a URL distinct from the chain URL
                             if ( specCases[scix].match(/^localURL_/g) !== null ) {
@@ -2071,7 +2071,7 @@
                             if ( ["GAS_STATION"].indexOf(priPNHPlaceCat) > -1 && specCases[scix].match(/^forceBrand<>(.+)/i) !== null ) {
                                 var forceBrand = specCases[scix].match(/^forceBrand<>(.+)/i)[1];
                                 if (item.attributes.brand !== forceBrand) {
-                                    actions.push(new UpdateObject(item, { brand: forceBrand }));
+                                    harmony.actions.push(new UpdateObject(item, { brand: forceBrand }));
                                     harmony.updatedFields.brand = true;
                                     phlogdev('Gas brand updated from PNH');
                                 }
@@ -2356,13 +2356,13 @@
                     if ( !matchSets( uniq(item.attributes.categories),uniq(harmony.newCategories) ) ) {
                         if ( specCases.indexOf('optionCat2') === -1 && specCases.indexOf('buttOn_addCat2') === -1 ) {
                             phlogdev("Categories updated" + " with " + harmony.newCategories);
-                            actions.push(new UpdateObject(item, { categories: harmony.newCategories }));
+                            harmony.actions.push(new UpdateObject(item, { categories: harmony.newCategories }));
                             //W.model.actionManager.add(new UpdateObject(item, { categories: harmony.newCategories }));
                             harmony.updatedFields.categories = true;
                         } else {  // if second cat is optional
                             phlogdev("Primary category updated with " + priPNHPlaceCat);
                             harmony.newCategories = insertAtIX(harmony.newCategories, priPNHPlaceCat, 0);
-                            actions.push(new UpdateObject(item, { categories: harmony.newCategories }));
+                            harmony.actions.push(new UpdateObject(item, { categories: harmony.newCategories }));
                             harmony.updatedFields.categories = true;
                         }
                         // Enable optional 2nd category button
@@ -2380,7 +2380,7 @@
                         }
                         phlogdev("Description updated");
                         newDescripion = newDescripion + '\n' + item.attributes.description;
-                        actions.push(new UpdateObject(item, { description: newDescripion }));
+                        harmony.actions.push(new UpdateObject(item, { description: newDescripion }));
                         harmony.updatedFields.description = true;
                     }
 
@@ -2453,7 +2453,7 @@
                 // Update name:
                 if (hpMode.harmFlag && harmony.newName !== item.attributes.name) {
                     phlogdev("Name updated");
-                    actions.push(new UpdateObject(item, { name: harmony.newName }));
+                    harmony.actions.push(new UpdateObject(item, { name: harmony.newName }));
                     //actions.push(new UpdateObject(item, { name: newName }));
                     harmony.updatedFields.name = true;
                 }
@@ -2465,7 +2465,7 @@
                 }
                 if (hpMode.harmFlag && harmony.newAliases !== item.attributes.aliases && harmony.newAliases.length !== item.attributes.aliases.length) {
                     phlogdev("Alt Names updated");
-                    actions.push(new UpdateObject(item, { aliases: harmony.newAliases }));
+                    harmony.actions.push(new UpdateObject(item, { aliases: harmony.newAliases }));
                     harmony.updatedFields.aliases = true;
                 }
 
@@ -2495,7 +2495,7 @@
                     if (harmony.newCategories.indexOf("CONVENIENCE_STORE") === -1 && !harmony.flags.subFuel.active) {
                         if ( hpMode.harmFlag && isChecked("WMEPH-ConvenienceStoreToGasStations") ) {  // Automatic if user has the setting checked
                             harmony.newCategories = insertAtIX(harmony.newCategories, "CONVENIENCE_STORE", 1);  // insert the C.S. category
-                            actions.push(new UpdateObject(item, { categories: harmony.newCategories }));
+                            harmony.actions.push(new UpdateObject(item, { categories: harmony.newCategories }));
                             harmony.updatedFields.categories = true;
                             phlogdev('Conv. store category added');
                         } else {  // If not checked, then it will be a banner button
@@ -2591,22 +2591,22 @@
                     if (NA_CAT_DATA.hasOwnProperty(catName)) {
                         for (var service in WME_SERVICE_MAP) {
                             var act = WME_SERVICE_MAP[service].action;
-                            if (!bannServ[act].pnhOverride) {
+                            if (!harmony.services[act].pnhOverride) {
                                 var flag = NA_CAT_DATA[catName].services[service];
                                 if (flag === 1) {
-                                    bannServ[act].active = true;
+                                    harmony.services[act].active = true;
                                     if (hpMode.harmFlag && isChecked("WMEPH-EnableServices")) {
                                         // Automatically enable new services
-                                        bannServ[act].actionOn(actions);
+                                        harmony.services[act].actionOn(actions);
                                     }
                                 } else if (flag === 2) {  // these are never automatically added but shown
-                                    bannServ[act].active = true;
+                                    harmony.services[act].active = true;
                                 } else if (typeof(flag) === "object") {  // Check for state/region auto add
-                                    bannServ[act].active = true;
+                                    harmony.services[act].active = true;
                                     if ( hpMode.harmFlag && isChecked("WMEPH-EnableServices")) {
                                         // If the sheet data matches the state or region, then auto add
                                         if (isMemberOfRegion(myState, flag) || isMemberOfRegion(myCountry, flag)) {
-                                            bannServ[act].actionOn(actions);
+                                            harmony.services[act].actionOn(actions);
                                         }
                                     }
                                 }
@@ -2621,7 +2621,7 @@
                 if ( hpMode.harmFlag && harmony.newCategories.indexOf('FOOD_AND_DRINK') > -1 ) {
                     if (harmony.newCategories.indexOf('RESTAURANT') > -1 || harmony.newCategories.indexOf('FAST_FOOD') > -1 ) {
                         harmony.newCategories.splice(harmony.newCategories.indexOf('FOOD_AND_DRINK'),1);  // remove Food/Drink Cat
-                        actions.push(new UpdateObject(item, { categories: harmony.newCategories }));
+                        harmony.actions.push(new UpdateObject(item, { categories: harmony.newCategories }));
                         harmony.updatedFields.categories = true;
                     }
                 }
@@ -2805,16 +2805,16 @@
                             phlogdev('Correcting M-S entry...');
                             tempHours.push({days: [0], fromHour: tempHours[ohix].fromHour, toHour: tempHours[ohix].toHour});
                             tempHours[ohix].days = [1];
-                            actions.push(new UpdateObject(item, { openingHours: tempHours }));
+                            harmony.actions.push(new UpdateObject(item, { openingHours: tempHours }));
                         }
                     }
                 }
 
                 // Highlight 24/7 button if hours are set that way, and add button for all places
                 if ( item.attributes.openingHours.length === 1 && item.attributes.openingHours[0].days.length === 7 && item.attributes.openingHours[0].fromHour === '00:00' && item.attributes.openingHours[0].toHour ==='00:00' ) {
-                    bannServ.add247.checked = true;
+                    harmony.services.add247.checked = true;
                 }
-                bannServ.add247.active = true;
+                harmony.services.add247.active = true;
 
                 // URL updating
                 var updateURL = true;
@@ -2832,7 +2832,7 @@
                             harmony.flags.PlaceWebsite.value = "Place Website";
                             if (hpMode.harmFlag && updateURL && itemURL !== item.attributes.url) {  // Update the URL
                                 phlogdev("URL formatted");
-                                actions.push(new UpdateObject(item, { url: itemURL }));
+                                harmony.actions.push(new UpdateObject(item, { url: itemURL }));
                                 harmony.updatedFields.url = true;
                             }
                             updateURL = false;
@@ -2841,7 +2841,7 @@
                     }
                     if (hpMode.harmFlag && updateURL && newURL !== item.attributes.url) {  // Update the URL
                         phlogdev("URL updated");
-                        actions.push(new UpdateObject(item, { url: newURL }));
+                        harmony.actions.push(new UpdateObject(item, { url: newURL }));
                         harmony.updatedFields.url = true;
                     }
                 }
@@ -2875,7 +2875,7 @@
                 }
                 if (hpMode.harmFlag && newPhone !== item.attributes.phone) {
                     phlogdev("Phone updated");
-                    actions.push(new UpdateObject(item, {phone: newPhone}));
+                    harmony.actions.push(new UpdateObject(item, {phone: newPhone}));
                     harmony.updatedFields.phone = true;
                 }
 
@@ -2889,7 +2889,7 @@
                             customStoreFinderURL = "https://tools.usps.com/go/POLocatorAction.action";
                             customStoreFinder = true;
                             if (hpMode.harmFlag && myPlace.psRegion === 'SER' && item.attributes.aliases.indexOf("United States Postal Service") === -1) {
-                                actions.push(new UpdateObject(item, { aliases: ["United States Postal Service"], url: 'www.usps.com' }));
+                                harmony.actions.push(new UpdateObject(item, { aliases: ["United States Postal Service"], url: 'www.usps.com' }));
                                 harmony.updatedFields.aliases = true;
                                 harmony.updatedFields.url = true;
                                 phlogdev('USPS alt name added');
@@ -2966,7 +2966,7 @@
                 if ( updateHNflag ) {
                     harmony.flags.hnDashRemoved.active = true;
                     if (hpMode.harmFlag) {
-                        actions.push(new UpdateObject(item, { houseNumber: hnTemp }));
+                        harmony.actions.push(new UpdateObject(item, { houseNumber: hnTemp }));
                         harmony.updatedFields.address = true;
                     } else if (hpMode.hlFlag) {
                         if (item.attributes.residential) {
@@ -3122,7 +3122,7 @@
                         harmony.newName = harmony.newName.replace(/Mile/i, 'mile');
                         if (hpMode.harmFlag) {
                             if (harmony.newName !== item.attributes.name) {
-                                actions.push(new UpdateObject(item, { name: harmony.newName }));
+                                harmony.actions.push(new UpdateObject(item, { name: harmony.newName }));
                                 harmony.updatedFields.name = true;
                                 phlogdev('Lower case "mile"');
                             } else {
@@ -3197,7 +3197,7 @@
                 if ( item.attributes.lockRank < levelToLock) {
                     if (hpMode.harmFlag) {
                         phlogdev("Venue locked!");
-                        actions.push(new UpdateObject(item, { lockRank: levelToLock }));
+                        harmony.actions.push(new UpdateObject(item, { lockRank: levelToLock }));
                         harmony.updatedFields.lockRank = true;
                     } else if (hpMode.hlFlag) {
                         hlLockFlag = true;
@@ -3444,7 +3444,7 @@
 
             if (hpMode.harmFlag) {
                 // Update icons to reflect current WME place services
-                harmony.updateServicesChecks(item, bannServ);
+                harmony.updateServicesChecks();
             }
 
             // Turn on website linking button if there is a url
@@ -3456,7 +3456,7 @@
             harmony.highlightChangedFields();
 
             // Assemble the banners
-            assembleBanner();  // Make Messaging banners
+            assembleBanner(item);  // Make Messaging banners
 
         }  // END harmonizePlaceGo function
 
@@ -3466,7 +3466,7 @@
 
 
         // Set up banner messages
-        function assembleBanner() {
+        function assembleBanner(item) {
             //debug('-- assembleBanner() called --');
             phlogdev('Building banners');
             // push together messages from active banner messages
@@ -3502,8 +3502,8 @@
                 $dupeHeaderDiv.addClass('banner-row-severity-' + maxSeverity);
             }
 
-            for ( tempKey in harmony.flags ) {
-                var bannerRowInfo = harmony.flags[tempKey];
+            for ( tempKey in item.attributes.harmony.flags ) {
+                var bannerRowInfo = item.attributes.harmony.flags[tempKey];
                 if ( bannerRowInfo && bannerRowInfo.active ) {  //  If the particular message is active
                     var $rowDiv = $('<div class="banner-row">').addClass('banner-row-severity-' + bannerRowInfo.severity).appendTo($bannerDiv);
                     if (bannerRowInfo.verticalLayout) $rowDiv.css('flex-direction', 'column');
@@ -3551,7 +3551,7 @@
                                 }).html(btnInfo.text === 'Add' ? '<span class="fa fa-check"></span>' : btnInfo.text)
                                     .click(function() {
                                     btnInfo.action();
-                                    assembleBanner();
+                                    assembleBanner(item);
                                 }).appendTo($btnDiv);
                             });
                         }
@@ -3584,18 +3584,18 @@
 
             // setup Add Service Buttons for suggested services
             var sidebarServButts = '', servButtHeight = '27', greyOption;
-            for ( tempKey in bannServ ) {
-                if ( bannServ.hasOwnProperty(tempKey) && bannServ[tempKey].hasOwnProperty('active') && bannServ[tempKey].active ) {  //  If the particular service is active
-                    if ( bannServ[tempKey].checked ) {
+            for ( tempKey in item.attributes.harmony.services ) {
+                if ( item.attributes.harmony.services.hasOwnProperty(tempKey) && item.attributes.harmony.services[tempKey].hasOwnProperty('active') && item.attributes.harmony.services[tempKey].active ) {  //  If the particular service is active
+                    if ( item.attributes.harmony.services[tempKey].checked ) {
                         greyOption = '';
                     } else {
                         greyOption = '-webkit-filter: opacity(.25);filter: opacity(.25);';
                         //greyOption = '-webkit-filter: brightness(3); filter: brightness(3);';
                     }
-                    //strButt1 = '&nbsp<input class="servButton" id="WMEPH_' + tempKey + '" title="' + bannServ[tempKey].title + '" type="image" style="height:' + servButtHeight +
-                    //    'px;background:none;border-color: none;border-style: none;" src="https://openmerchantaccount.com/img2/' + bannServ[tempKey].icon + greyOption + '.png">';
-                    strButt1 = '&nbsp<input class="'+bannServ[tempKey].icon+'" id="WMEPH_' + tempKey + '" type="button" title="' + bannServ[tempKey].title +
-                        '" style="border:0;background-size: contain; height:' + servButtHeight + 'px;width: '+Math.ceil(servButtHeight*bannServ[tempKey].w2hratio).toString()+'px;'+greyOption+'">';
+                    //strButt1 = '&nbsp<input class="servButton" id="WMEPH_' + tempKey + '" title="' + item.attributes.harmony.services[tempKey].title + '" type="image" style="height:' + servButtHeight +
+                    //    'px;background:none;border-color: none;border-style: none;" src="https://openmerchantaccount.com/img2/' + item.attributes.harmony.services[tempKey].icon + greyOption + '.png">';
+                    strButt1 = '&nbsp<input class="'+item.attributes.harmony.services[tempKey].icon+'" id="WMEPH_' + tempKey + '" type="button" title="' + item.attributes.harmony.services[tempKey].title +
+                        '" style="border:0;background-size: contain; height:' + servButtHeight + 'px;width: '+Math.ceil(servButtHeight*item.attributes.harmony.services[tempKey].w2hratio).toString()+'px;'+greyOption+'">';
                     sidebarServButts += strButt1;
                 }
             }
@@ -3625,8 +3625,8 @@
             }
             // Setup harmony.flags onclicks
             //setupButtons(harmony.flags);
-            // Setup bannServ onclicks
-            //setupButtons(bannServ);
+            // Setup harmony.services onclicks
+            //setupButtons(harmony.services);
             // Setup bannButt2 onclicks
             setupButtons(bannButt2);
 
@@ -3756,7 +3756,7 @@
             if (button !== null) {
                 button.onclick = function() {
                     b[bKey].action();
-                    assembleBanner();
+                    assembleBanner(item);
                 };
             }
             return button;
@@ -3773,7 +3773,7 @@
                     }
                     b[bKey].WLactive = false;
                     b[bKey].severity = 0;
-                    assembleBanner();
+                    assembleBanner(item);
                 };
             }
             return button;
@@ -4955,7 +4955,7 @@
             };
             updateAddress(item, newAddr);
             harmony.flags.streetMissing.active = false;
-            assembleBanner();
+            assembleBanner(item);
         }
 
         /**
@@ -5597,7 +5597,7 @@
 
         //function getServicesChecks() {
 
-        //function updateServicesChecks(bannServ) {
+        //function updateServicesChecks(harmony.services) {
 
         //function getItemPL() {
 
@@ -5791,7 +5791,7 @@
                                 //phlogdev("Found place in " + (t1 - t0).toFixed(3) + " milliseconds.");
                             }
                             matchPNHRegionData.push(PNHMatchData);
-                            harmony.flags.placeMatched.active = true;
+                            item.attributes.harmony.flags.placeMatched.active = true;
                             if (!allowMultiMatch) {
                                 return matchPNHRegionData;  // Return the PNH data string array to the main script
                             }
@@ -5808,10 +5808,10 @@
             }  // END loop through PNH places
 
             // If NO (name & region) match was found:
-            if (harmony.flags.placeMatched.active) {
+            if (item.attributes.harmony.flags.placeMatched.active) {
                 return matchPNHRegionData;
             } else if (PNHNameMatch) {  // if a name match was found but not for region, prod the user to get it approved
-                harmony.flags.ApprovalSubmit.active = true;
+                item.attributes.harmony.flags.ApprovalSubmit.active = true;
                 //phlogdev("PNH data exists but not approved for this area.");
                 if (IS_DEV_USER) {
                     t1 = performance.now();  // log search time
@@ -5819,7 +5819,7 @@
                 }
                 return ["ApprovalNeeded", PNHNameTemp, PNHOrderNum];
             } else {  // if no match was found, suggest adding the place to the sheet if it's a chain
-                harmony.flags.NewPlaceSubmit.active = true;
+                item.attributes.harmony.flags.NewPlaceSubmit.active = true;
                 //phlogdev("Place not found in the " + country + " PNH list.");
                 if (IS_DEV_USER) {
                     t1 = performance.now();  // log search time
