@@ -1727,7 +1727,7 @@
 
             if (hpMode.harmFlag) {
                 // Update icons to reflect current WME place services
-                harmony.updateServicesChecks();
+                harmony.updateServiceChecks();
 
                 // Turn on New Features Button if not looked at yet
                 if (localStorage.getItem('WMEPH-featuresExamined'+devVersStr) === '0') {
@@ -3446,7 +3446,7 @@
 
             if (hpMode.harmFlag) {
                 // Update icons to reflect current WME place services
-                harmony.updateServicesChecks();
+                harmony.updateServiceChecks();
             }
 
             // Turn on website linking button if there is a url
@@ -5599,7 +5599,7 @@
 
         //function getServicesChecks() {
 
-        //function updateServicesChecks(harmony.services) {
+        //function updateServiceChecks(harmony.services) {
 
         //function getItemPL() {
 
@@ -6781,7 +6781,7 @@
 
         // NOTE: Something about this doesn't seem right...
         // Updates all of the icons to match the place's checkboxes.
-        this.updateServicesChecks = function() {
+        this.updateServiceChecks = function() {
             var servArrayCheck = this.getServicesChecks(), wsix=0;
             for (var keys in this.services) {
                 if (this.services.hasOwnProperty(keys)) {
@@ -6848,8 +6848,11 @@
             }
             for (var k in this.updatedFields.services) {
                 if (this.updatedFields.services[k]) {
-                    $("#service-checkbox-" + k).parent().css(_css);
-                    tab2HL = true;
+                    var $scb = $("#service-checkbox-" + k);
+                    if ($scb.length > 0) {
+                        $scb.parent().css(_css);
+                        tab2HL = true;
+                    }
                 }
             }
 
