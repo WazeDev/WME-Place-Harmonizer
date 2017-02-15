@@ -13,7 +13,7 @@
 // ==UserScript==
 // @name        WME Place Harmonizer
 // @namespace   https://github.com/WazeUSA/WME-Place-Harmonizer/raw/master/WME-Place-Harmonizer.user.js
-// @version     1.2.1
+// @version     1.2.2
 // @description Harmonizes, formats, and locks a selected place
 // @author      WMEPH development group
 // @include     /^https:\/\/(www|beta)\.waze\.com\/(?!user\/)(.{2,6}\/)?editor\/.*$/
@@ -38,7 +38,7 @@
     ].join('\n'));
     var WMEPHversion = GM_info.script.version.toString(); // pull version from header
     var WMEPHversionMeta = WMEPHversion.match(/(\d+\.\d+)/i)[1];  // get the X.X version
-    var majorNewFeature = true;  // set to true to make an alert pop up after script update with new feature
+    var majorNewFeature = false;  // set to true to make an alert pop up after script update with new feature
     var scriptName = GM_info.script.name.toString();
     var isDevVersion = (scriptName.match(/Beta/i) !== null);  //  enables dev messages and unique DOM options if the script is called "... Beta"
     var USA_PNH_DATA, USA_PNH_NAMES = [], USA_CH_DATA, USA_STATE_DATA, USA_CH_NAMES = [];  // Storage for PNH and Category data
@@ -269,6 +269,7 @@
     function runPH() {
         // Script update info
         var WMEPHWhatsNewList = [  // New in this version
+            '1.2.2: FIXED - Whitelisting missing HN doesn\'t allow auto-lock.',
             '1.2.1: Removed R2+ restriction for using this script.',
             '1.2.0: Production release.',
             '1.1.97: Added regex place name matching for increased flexibility.',
@@ -3430,6 +3431,7 @@
                     } else {
                         bannButt.hnMissing.active = true;
                         if (currentWL.HNWL) {
+                            bannButt.severity = 0;
                             bannButt.hnMissing.WLactive = false;
                         } else {
                             lockOK = false;
