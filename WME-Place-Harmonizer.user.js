@@ -13,7 +13,7 @@
 // ==UserScript==
 // @name        WME Place Harmonizer (GM)
 // @namespace   https://github.com/WazeUSA/WME-Place-Harmonizer/raw/master/WME-Place-Harmonizer.user.js
-// @version     1.2.2
+// @version     1.2.3
 // @description Harmonizes, formats, and locks a selected place
 // @author      WMEPH development group
 // @include     /^https:\/\/(www|beta)\.waze\.com\/(?!user\/)(.{2,6}\/)?editor\/.*$/
@@ -5390,7 +5390,7 @@ body .ui-tooltip {
                     } else {
                         bannButt.hnMissing.active = true;
                         if (currentWL.HNWL) {
-                            bannButt.severity = 0;
+                            bannButt.hnMissing.severity = 0;
                             bannButt.hnMissing.WLactive = false;
                         } else {
                             lockOK = false;
