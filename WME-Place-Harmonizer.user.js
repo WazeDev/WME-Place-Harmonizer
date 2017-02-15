@@ -3431,7 +3431,7 @@
                     } else {
                         bannButt.hnMissing.active = true;
                         if (currentWL.HNWL) {
-                            bannButt.severity = 0;
+                            bannButt.hnMissing.severity = 0;
                             bannButt.hnMissing.WLactive = false;
                         } else {
                             lockOK = false;
