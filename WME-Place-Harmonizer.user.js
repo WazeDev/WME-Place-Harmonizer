@@ -30,6 +30,7 @@
 
 (function () {
     "use strict";
+
     ////////////////////////////////
     ////////////////////////////////
     //// Global WMEPH variables ////
@@ -125,7 +126,7 @@
         PLACES_WIKI_URL     = 'https://wiki.waze.com/wiki/Places',                                  // WME Places wiki
         RESTAREA_WIKI_URL   = 'https://wiki.waze.com/wiki/Rest_areas#Adding_a_Place';               // WME Places wiki
     // Cutover to new google sheets
-    var USE_NEW_GOOGLE_SHEETS = false;
+    var USE_NEW_GOOGLE_SHEETS = true;
     var WME_SERVICE_MAP = { "psValet"       : { "action":"addValet",        "name":"VALLET_SERVICE"        },
                             "psDriveThru"   : { "action":"addDriveThru",    "name":"DRIVETHROUGH"          },
                             "psWiFi"        : { "action":"addWiFi",         "name":"WI_FI"                 },
@@ -210,6 +211,7 @@
     /////////////////////
 
     var dataReadyCounter = 0;
+    var panelFields = {};       // Fields in the Item Edit Sidebar
     var myState,
         myState2L,
         myCountry,
@@ -228,6 +230,13 @@
     ///////////////////////////////
     // Generic utility functions //
     ///////////////////////////////
+
+    function _injectElement(o, type) {
+        if (!type) { type = "script"; }
+        var $ele = $("<" + type + ">");
+        $ele.append(document.createTextNode(o));
+        ($("body") || $("head") || $("html")).append($ele);
+    }
 
     // NOTE: My own debugging console.log function. (So I know to take these out later)
     function debug(m) {
@@ -929,20 +938,52 @@
         return checked;
     }
 
-    // Function to remove unnecessary aliases
-    function removeSFAliases(nName, nAliases, bannButt) {
-        var newAliasesUpdate = [];
-        nName = nName.toUpperCase().replace(/'/g,'').replace(/-/g,' ').replace(/\/ /g,' ').replace(/ \//g,' ').replace(/ {2,}/g,' ');
-        for (var naix=0; naix<nAliases.length; naix++) {
-            if ( !nName.startsWith( nAliases[naix].toUpperCase().replace(/'/g,'').replace(/-/g,' ').replace(/\/ /g,' ').replace(/ \//g,' ').replace(/ {2,}/g,' ') ) ) {
-                newAliasesUpdate.push(nAliases[naix]);
-            } else {
-                //phlogdev('Unnecessary alias removed: ' + nAliases[naix]);
-                bannButt.cases.sfAliases.active = true;
+/*
+    // Find field divs
+    function getPanelFields() {
+        //debug('-- getPanelFields() called --');
+        var panelFieldsList = $('.form-control'), pfa;
+        for (var pfix=0; pfix<panelFieldsList.length; pfix++) {
+            pfa = panelFieldsList[pfix].name;
+            if (pfa === 'name') {
+                panelFields.name = pfix;
+            }
+            if (pfa === 'lockRank') {
+                panelFields.lockRank = pfix;
+            }
+            if (pfa === 'description') {
+                panelFields.description = pfix;
+            }
+            if (pfa === 'url') {
+                panelFields.url = pfix;
+            }
+            if (pfa === 'phone') {
+                panelFields.phone = pfix;
+            }
+            if (pfa === 'brand') {
+                panelFields.brand = pfix;
             }
         }
-        return newAliasesUpdate;
+        var placeNavTabs = $('.nav');
+        for (pfix=0; pfix<placeNavTabs.length; pfix++) {
+            pfa = placeNavTabs[pfix].innerHTML;
+            if (pfa.indexOf('landmark-edit') > -1) {
+                panelFieldsList = placeNavTabs[pfix].children;
+                panelFields.navTabsIX = pfix;
+                break;
+            }
+        }
+        for (pfix=0; pfix<panelFieldsList.length; pfix++) {
+            pfa = panelFieldsList[pfix].innerHTML;
+            if (pfa.indexOf('landmark-edit-general') > -1) {
+                panelFields.navTabGeneral = pfix;
+            }
+            if (pfa.indexOf('landmark-edit-more') > -1) {
+                panelFields.navTabMore = pfix;
+            }
+        }
     }
+*/
 
 
     //////////////////////////////
@@ -1123,7 +1164,6 @@
     var cloneMaster = null;
     var bannButt, bannButt2, bannServ, bannDupl;  // Banner Buttons objects
     var RPPLockString = 'Lock?';
-    var panelFields = {};  // the fields for the sidebar
 
 
     /* ****** Pull PNH and Userlist data ****** */
@@ -1133,6 +1173,7 @@
     // This function will need to be split up because it is way too big.
     function runPH() {
         debug('- runPH() called -');
+        //_injectElement(Harmony, "script");
         var newSep = '\n - ', listSep = '<li>';  // joiners for script and html messages
         var WMEPHWhatsNew = WHATS_NEW_LIST.join(newSep);
         var WMEPHWhatsNewMeta = WHATS_NEW_META_LIST.join(newSep);
@@ -1574,21 +1615,27 @@
         // Main script
         function harmonizePlaceGo(item, useFlag, actions) {
             debug('-- harmonizePlaceGo() called --');
-            //debug('  item = ' + JSON.stringify(item, censor(item), 2));
             debug('  useFlag = ' + JSON.stringify(useFlag, null, 2));
             debug('  actions = ' + JSON.stringify(actions, null, 2));
-
+            var harmony;
             var i, len;
-            debug("  item.harmony = " + JSON.stringify(item.harmony, censor(item.harmony), 2));
-            if (item.harmony === "undefined") {
-                item.harmony = new Harmony(item);
-            }
-            debug("  Now, item.harmony = " + JSON.stringify(item.harmony, censor(item.harmony), 2));
-            if (item.harmony.CLASS_NAME !== "WMEPH.Harmony") {
-                throw "There's an imposter!";
+            //debug('About to check if item.attributes.harmony is defined.');
+            if (typeof(item.attributes.harmony) !== "undefined") {
+                //debug('About to check item.attributes.harmony.CLASS_NAME');
+                if (item.attributes.harmony.CLASS_NAME === "WMEPH.Harmony") {
+                    harmony = item.attributes.harmony;
+                } else {
+                    throw "There's an imposter!";
+                }
+            } else {
+                //debug("harmony wasn't found.  Creating new window.Harmony object.");
+                harmony = new Harmony(item);
             }
 
-            actions = actions || []; // Used for collecting all actions to be applied to the model.
+            //debug("item.attributes.harmony.CLASS_NAME = " + item.attributes.harmony.CLASS_NAME);
+
+
+            //actions = actions || []; // Used for collecting all actions to be applied to the model.
             //var itemID = item.attributes.id;
             var hpMode = {
                 harmFlag: false,
@@ -1618,13 +1665,9 @@
             var customStoreFinderLocal = false;  // switch indicating place-specific custom store finder url with localization option (GPS/addr)
             var customStoreFinderURL = "";  // switch indicating place-specific custom store finder url
             var customStoreFinderLocalURL = "";  // switch indicating place-specific custom store finder url with localization option (GPS/addr)
-            /*var fieldUpdateObject = {name: false, aliases: false, categories: false, brand: false, description: false, lockRank: false, address: false, url: false, phone: false, openingHours: false,
-                                     services: { VALLET_SERVICE: false, DRIVETHROUGH: false, WI_FI: false, RESTROOMS: false, CREDIT_CARDS: false, RESERVATIONS: false,
-                                                OUTSIDE_SEATING: false, AIR_CONDITIONING: false, PARKING_FOR_CUSTOMERS: false, DELIVERIES: false, TAKE_AWAY: false, WHEELCHAIR_ACCESSIBLE: false }
-                                    };   -- MOVED INSIDE WMEPH_Banner class */
-            // Whitelist: reset flags
 
-            currentWL = venueWhitelist[item.harmony.id];
+            // Whitelist: reset flags
+            currentWL = venueWhitelist[harmony.id];
             if (!currentWL) {
                 currentWL = {};
             }
@@ -1648,7 +1691,7 @@
                     active: false, severity: 0, message: "", value: "Clear Place whitelist", title: "Clear all Whitelisted fields for this place",
                     action: function() {
                         if (confirm('Are you sure you want to clear all whitelisted fields for this place?') ) {  // misclick check
-                            delete venueWhitelist[item.harmony.id];
+                            delete venueWhitelist[harmony.id];
                             saveWL_LS(true);
                             harmonizePlaceGo(item,'harmonize');  // rerun the script to check all flags again
                         }
@@ -1659,7 +1702,7 @@
                     action: function() {
                         var forumMsgInputs = {
                             subject: 'WMEPH Bug report: Scrpt Error',
-                            message: 'Script version: ' + WMEPH_VERSION_LONG + devVersStr + '\nPermalink: ' + item.harmony.permalink + '\nPlace name: ' + item.attributes.name + '\nCountry: ' + addr.country.name + '\n--------\nDescribe the error:  \n '
+                            message: 'Script version: ' + WMEPH_VERSION_LONG + devVersStr + '\nPermalink: ' + harmony.permalink + '\nPlace name: ' + item.attributes.name + '\nCountry: ' + item.attributes.getAddress().country.name + '\n--------\nDescribe the error:  \n '
                         };
                         WMEPH_errorReport(forumMsgInputs);
                     }
@@ -1675,15 +1718,15 @@
             };  // END bannButt2 definitions
 
             var wlKeys = [];
-            Object.keys(item.harmony.flags).forEach(function(bannerKey) {
-                var banner = item.harmony.flags[bannerKey];
+            Object.keys(harmony.flags).forEach(function(bannerKey) {
+                var banner = harmony.flags[bannerKey];
                 if (banner.WLkey) wlKeys.push(banner.WLkey);
             });
 
 
             if (hpMode.harmFlag) {
                 // Update icons to reflect current WME place services
-                item.harmony.updateServicesChecks();
+                harmony.updateServicesChecks();
 
                 // Turn on New Features Button if not looked at yet
                 if (localStorage.getItem('WMEPH-featuresExamined'+devVersStr) === '0') {
@@ -1695,7 +1738,7 @@
                 }
                 // provide Google search link to places
                 if (IS_DEV_USER || IS_BETA_USER || USER_RANK > 1) {  // enable the link for all places, for R2+ and betas
-                    item.harmony.flags.webSearch.active = true;
+                    harmony.flags.webSearch.active = true;
                 }
                 // reset PNH lock level
                 PNHLockLevel = -1;
@@ -1706,14 +1749,14 @@
             var itemGPS = OpenLayers.Layer.SphericalMercator.inverseMercator(item.attributes.geometry.getCentroid().x,item.attributes.geometry.getCentroid().y);
             var lockOK = true;  // if nothing goes wrong, then place will be locked
             var categories = item.attributes.categories;
-            item.harmony.newCategories = categories.slice(0);
-            item.harmony.newName = item.attributes.name;
-            item.harmony.newName = toTitleCase(item.harmony.newName, isPLA(item));
+            harmony.newCategories = categories.slice(0);
+            harmony.newName = item.attributes.name;
+            harmony.newName = toTitleCase(harmony.newName, isPLA(item));
             // var nameShort = newName.replace(/[^A-Za-z]/g, '');  // strip non-letters for PNH name searching
             // var nameNumShort = newName.replace(/[^A-Za-z0-9]/g, ''); // strip non-letters/non-numbers for PNH name searching
-            item.harmony.newAliases = item.attributes.aliases.slice(0);
-            for (var naix=0; naix<item.harmony.newAliases.length; naix++) {
-                item.harmony.newAliases[naix] = toTitleCase(item.harmony.newAliases[naix], isPLA(item));
+            harmony.newAliases = item.attributes.aliases.slice(0);
+            for (var naix=0; naix<harmony.newAliases.length; naix++) {
+                harmony.newAliases[naix] = toTitleCase(harmony.newAliases[naix], isPLA(item));
             }
             //var brand = item.attributes.brand;
             var newDescripion = item.attributes.description;
@@ -1747,13 +1790,13 @@
                             addr = inferredAddress;
                             if ( isChecked("WMEPH-AddAddresses") ) {  // update the item's address if option is enabled
                                 updateAddress(item, addr, actions);
-                                item.harmony.fieldUpdateObject.address='#dfd';
+                                harmony.updatedFields.address = true;
                                 if (item.attributes.houseNumber && item.attributes.houseNumber.replace(/[^0-9A-Za-z]/g,'').length > 0 ) {
-                                    item.harmony.flags.fullAddressInference.active = true;
+                                    harmony.flags.fullAddressInference.active = true;
                                     lockOK = false;
                                 }
                             } else {
-                                item.harmony.flags.cityMissing.active = true;
+                                harmony.flags.cityMissing.active = true;
                                 lockOK = false;
                             }
                         } else {  //  if the inference doesn't work...
@@ -1849,10 +1892,10 @@
 
 
             // If no gas station name, replace with brand name
-            if (hpMode.harmFlag && item.attributes.categories[0] === 'GAS_STATION' && (!item.harmony.newName || item.harmony.newName.trim().length === 0) && item.attributes.brand) {
-                item.harmony.newName = item.attributes.brand;
-                actions.push(new UpdateObject(item, {name: item.harmony.newName }));
-                item.harmony.fieldUpdateObject.name = '#dfd';
+            if (hpMode.harmFlag && item.attributes.categories[0] === 'GAS_STATION' && (!harmony.newName || harmony.newName.trim().length === 0) && item.attributes.brand) {
+                harmony.newName = item.attributes.brand;
+                actions.push(new UpdateObject(item, {name: harmony.newName }));
+                harmony.updatedFields.name = true;
             }
 
             // Clear attributes from residential places
@@ -1866,7 +1909,7 @@
                         actions.push(new UpdateObject(item, {name: ''}));
                         // no field HL
                     }
-                    item.harmony.newCategories = ["RESIDENCE_HOME"];
+                    harmony.newCategories = ["RESIDENCE_HOME"];
                     // newDescripion = null;
                     if (item.attributes.description !== null && item.attributes.description !== "") {  // remove any description
                         phlogdev("Residential description cleared");
@@ -1892,17 +1935,17 @@
                     }
                 }
                 if (item.is2D()) {
-                    item.harmony.flags.pointNotArea.active = true;
+                    harmony.flags.pointNotArea.active = true;
                 }
-            } else if (isPLA(item) || (item.harmony.newName && item.harmony.newName.trim().length > 0)) {  // for non-residential places
+            } else if (isPLA(item) || (harmony.newName && harmony.newName.trim().length > 0)) {  // for non-residential places
                 if (USER_RANK >= 3 && !(isPLA(item) && isChecked('WMEPH-DisablePLAExtProviderCheck'))) {
                     var provIDs = item.attributes.externalProviderIDs;
                     if (!provIDs || provIDs.length === 0) {
                         if (isChecked('WMEPH-ExtProviderSeverity')) {
-                            item.harmony.flags.extProviderMissing.severity = 1;
+                            harmony.flags.extProviderMissing.severity = 1;
                         }
-                        item.harmony.flags.extProviderMissing.active = !currentWL.extProviderMissing;
-                        item.harmony.flags.extProviderMissing.WLactive = !currentWL.extProviderMissing;
+                        harmony.flags.extProviderMissing.active = !currentWL.extProviderMissing;
+                        harmony.flags.extProviderMissing.WLactive = !currentWL.extProviderMissing;
                     }
                 }
 
@@ -1912,7 +1955,7 @@
                     if (item.attributes.categories[0] === 'PARKING_LOT') {
                         PNHMatchData = ['NoMatch'];
                     } else {
-                        PNHMatchData = harmoList(item.harmony.newName,myState2L,myPlace.psRegion,myCountry2L,item.harmony.newCategories,item);  // check against the PNH list
+                        PNHMatchData = harmoList(harmony.newName,myState2L,myPlace.psRegion,myCountry2L,harmony.newCategories,item);  // check against the PNH list
                     }
                 } else if (hpMode.hlFlag) {
                     PNHMatchData = ['Highlight'];
@@ -1977,7 +2020,7 @@
                         if (confirm('WMEPH: Multiple matches found!\nDouble check the script changes.\nClick OK to report this situation.') ) {
                             forumMsgInputs = {
                                 subject: 'Order Nos. "' + orderList.join(', ') + '" WMEPH Multiple match report',
-                                message: 'Error report: PNH Order Nos. "' + orderList.join(', ') + '" are ambiguous multiple matches.\n \nExample Permalink: ' + item.harmony.permalink + ''
+                                message: 'Error report: PNH Order Nos. "' + orderList.join(', ') + '" are ambiguous multiple matches.\n \nExample Permalink: ' + harmony.permalink + ''
                             };
                             WMEPH_errorReport(forumMsgInputs);
                         }
@@ -1994,16 +2037,16 @@
                             // find any button/message flags in the special case (format: buttOn_xyzXyz, etc.)
                             if ( specCases[scix].match(/^buttOn_/g) !== null ) {
                                 scFlag = specCases[scix].match(/^buttOn_(.+)/i)[1];
-                                item.harmony.flags[scFlag].active = true;
+                                harmony.flags[scFlag].active = true;
                             } else if ( specCases[scix].match(/^buttOff_/g) !== null ) {
                                 scFlag = specCases[scix].match(/^buttOff_(.+)/i)[1];
-                                item.harmony.flags[scFlag].active = false;
+                                harmony.flags[scFlag].active = false;
                             } else if ( specCases[scix].match(/^messOn_/g) !== null ) {
                                 scFlag = specCases[scix].match(/^messOn_(.+)/i)[1];
-                                item.harmony.flags[scFlag].active = true;
+                                harmony.flags[scFlag].active = true;
                             } else if ( specCases[scix].match(/^messOff_/g) !== null ) {
                                 scFlag = specCases[scix].match(/^messOff_(.+)/i)[1];
-                                item.harmony.flags[scFlag].active = false;
+                                harmony.flags[scFlag].active = false;
                             } else if ( specCases[scix].match(/^psOn_/g) !== null ) {
                                 scFlag = specCases[scix].match(/^psOn_(.+)/i)[1];
                                 bannServ.cases[scFlag].actionOn(actions);
@@ -2019,9 +2062,9 @@
                             }
                             // parse out optional alt-name
                             if ( specCases[scix].match(/^optionAltName<>(.+)/g) !== null ) {
-                                item.harmony.optAlias = specCases[scix].match(/^optionAltName<>(.+)/i)[1];
-                                if (item.harmony.newAliases.indexOf(item.harmony.optAlias) === -1) {
-                                    item.harmony.flags.addAlias.active = true;
+                                harmony.optAlias = specCases[scix].match(/^optionAltName<>(.+)/i)[1];
+                                if (harmony.newAliases.indexOf(harmony.optAlias) === -1) {
+                                    harmony.flags.addAlias.active = true;
                                 }
                             }
                             // Gas Station forceBranding
@@ -2029,7 +2072,7 @@
                                 var forceBrand = specCases[scix].match(/^forceBrand<>(.+)/i)[1];
                                 if (item.attributes.brand !== forceBrand) {
                                     actions.push(new UpdateObject(item, { brand: forceBrand }));
-                                    item.harmony.fieldUpdateObject.brand='#dfd';
+                                    harmony.updatedFields.brand = true;
                                     phlogdev('Gas brand updated from PNH');
                                 }
                             }
@@ -2038,14 +2081,14 @@
                                 updatePNHName = false;
                                 var baseName = specCases[scix].match(/^checkLocalization<>(.+)/i)[1];
                                 var baseNameRE = new RegExp(baseName, 'g');
-                                if ( item.harmony.newName.match(baseNameRE) === null ) {
-                                    item.harmony.flags.localizedName.active = true;
+                                if ( harmony.newName.match(baseNameRE) === null ) {
+                                    harmony.flags.localizedName.active = true;
                                     if (currentWL.localizedName) {
-                                        item.harmony.flags.localizedName.WLactive = false;
+                                        harmony.flags.localizedName.WLactive = false;
                                     }
-                                    item.harmony.flags.PlaceWebsite.value = 'Place Website';
+                                    harmony.flags.PlaceWebsite.value = 'Place Website';
                                     if (ph_displaynote_ix > -1 && PNHMatchData[ph_displaynote_ix] !== '0' && PNHMatchData[ph_displaynote_ix] !== '') {
-                                        item.harmony.flags.localizedName.message = PNHMatchData[ph_displaynote_ix];
+                                        harmony.flags.localizedName.message = PNHMatchData[ph_displaynote_ix];
                                     }
                                 }
                                 showDispNote = false;
@@ -2060,10 +2103,10 @@
                     }
 
                     // If it's a place that also sells fuel, enable the button
-                    if ( PNHMatchData[ph_speccase_ix] === 'subFuel' && item.harmony.newName.toUpperCase().indexOf('GAS') === -1 && item.harmony.newName.toUpperCase().indexOf('FUEL') === -1 ) {
-                        item.harmony.flags.subFuel.active = true;
+                    if ( PNHMatchData[ph_speccase_ix] === 'subFuel' && harmony.newName.toUpperCase().indexOf('GAS') === -1 && harmony.newName.toUpperCase().indexOf('FUEL') === -1 ) {
+                        harmony.flags.subFuel.active = true;
                         if (currentWL.subFuel) {
-                            item.harmony.flags.subFuel.WLactive = false;
+                            harmony.flags.subFuel.WLactive = false;
                         }
                     }
 
@@ -2071,30 +2114,30 @@
                     if (showDispNote && ph_displaynote_ix > -1 && PNHMatchData[ph_displaynote_ix] !== '0' && PNHMatchData[ph_displaynote_ix] !== '' ) {
                         if ( containsAny(specCases,['pharmhours']) ) {
                             if ( item.attributes.description.toUpperCase().indexOf('PHARMACY') === -1 || ( item.attributes.description.toUpperCase().indexOf('HOURS') === -1 && item.attributes.description.toUpperCase().indexOf('HRS') === -1 ) ) {
-                                item.harmony.flags.specCaseMessage.active = true;
-                                item.harmony.flags.specCaseMessage.message = PNHMatchData[ph_displaynote_ix];
+                                harmony.flags.specCaseMessage.active = true;
+                                harmony.flags.specCaseMessage.message = PNHMatchData[ph_displaynote_ix];
                             }
                         } else if ( containsAny(specCases,['drivethruhours']) ) {
                             if ( item.attributes.description.toUpperCase().indexOf('DRIVE') === -1 || ( item.attributes.description.toUpperCase().indexOf('HOURS') === -1 && item.attributes.description.toUpperCase().indexOf('HRS') === -1 ) ) {
                                 if ( isChecked("service-checkbox-DRIVETHROUGH") ) {
-                                    item.harmony.flags.specCaseMessage.active = true;
-                                    item.harmony.flags.specCaseMessage.message = PNHMatchData[ph_displaynote_ix];
+                                    harmony.flags.specCaseMessage.active = true;
+                                    harmony.flags.specCaseMessage.message = PNHMatchData[ph_displaynote_ix];
                                 } else {
-                                    item.harmony.flags.specCaseMessageLow.active = true;
-                                    item.harmony.flags.specCaseMessageLow.message = PNHMatchData[ph_displaynote_ix];
+                                    harmony.flags.specCaseMessageLow.active = true;
+                                    harmony.flags.specCaseMessageLow.message = PNHMatchData[ph_displaynote_ix];
                                 }
                             }
                         } else {
-                            item.harmony.flags.specCaseMessageLow.active = true;
-                            item.harmony.flags.specCaseMessageLow.message = PNHMatchData[ph_displaynote_ix];
+                            harmony.flags.specCaseMessageLow.active = true;
+                            harmony.flags.specCaseMessageLow.message = PNHMatchData[ph_displaynote_ix];
                         }
                     }
 
                     // Localized Storefinder code:
                     if (ph_sfurl_ix > -1) {  // if the sfurl column exists...
                         if ( ph_sfurllocal_ix > -1 && PNHMatchData[ph_sfurllocal_ix] !== "" && PNHMatchData[ph_sfurllocal_ix] !== "0" ) {
-                            if ( !item.harmony.flags.localizedName.active ) {
-                                item.harmony.flags.PlaceWebsite.value = "Store Locator (L)";
+                            if ( !harmony.flags.localizedName.active ) {
+                                harmony.flags.PlaceWebsite.value = "Store Locator (L)";
                             }
                             var tempLocalURL = PNHMatchData[ph_sfurllocal_ix].replace(/ /g,'').split("<>");
                             var searchStreet = "", searchCity = "", searchState = "";
@@ -2156,8 +2199,8 @@
                             }
                             customStoreFinderLocal = true;
                         } else if (PNHMatchData[ph_sfurl_ix] !== "" && PNHMatchData[ph_sfurl_ix] !== "0") {
-                            if ( !item.harmony.flags.localizedName.active ) {
-                                item.harmony.flags.PlaceWebsite.value = "Store Locator";
+                            if ( !harmony.flags.localizedName.active ) {
+                                harmony.flags.PlaceWebsite.value = "Store Locator";
                             }
                             customStoreFinderURL = PNHMatchData[ph_sfurl_ix];
                             if ( customStoreFinderURL.indexOf('http') !== 0 ) {
@@ -2184,31 +2227,31 @@
 
                     // name parsing with category exceptions
                     if (["HOTEL"].indexOf(priPNHPlaceCat) > -1) {
-                        if (item.harmony.newName.toUpperCase() === PNHMatchData[ph_name_ix].toUpperCase()) {  // If no localization
-                            item.harmony.flags.catHotel.message = 'Check hotel website for any name localization (e.g. '+ PNHMatchData[ph_name_ix] +' - Tampa Airport).';
-                            item.harmony.flags.catHotel.active = true;
-                            item.harmony.newName = PNHMatchData[ph_name_ix];
+                        if (harmony.newName.toUpperCase() === PNHMatchData[ph_name_ix].toUpperCase()) {  // If no localization
+                            harmony.flags.catHotel.message = 'Check hotel website for any name localization (e.g. '+ PNHMatchData[ph_name_ix] +' - Tampa Airport).';
+                            harmony.flags.catHotel.active = true;
+                            harmony.newName = PNHMatchData[ph_name_ix];
                         } else {
                             // Replace PNH part of name with PNH name
-                            var splix = item.harmony.newName.toUpperCase().replace(/[-\/]/g,' ').indexOf(PNHMatchData[ph_name_ix].toUpperCase().replace(/[-\/]/g,' ') );
+                            var splix = harmony.newName.toUpperCase().replace(/[-\/]/g,' ').indexOf(PNHMatchData[ph_name_ix].toUpperCase().replace(/[-\/]/g,' ') );
                             if (splix>-1) {
-                                var frontText = item.harmony.newName.slice(0,splix);
-                                var backText = item.harmony.newName.slice(splix+PNHMatchData[ph_name_ix].length);
-                                item.harmony.newName = PNHMatchData[ph_name_ix];
-                                if (frontText.length > 0) { item.harmony.newName = frontText + ' ' + item.harmony.newName; }
-                                if (backText.length > 0) { item.harmony.newName = item.harmony.newName + ' ' + backText; }
-                                item.harmony.newName = item.harmony.newName.replace(/ {2,}/g,' ');
+                                var frontText = harmony.newName.slice(0,splix);
+                                var backText = harmony.newName.slice(splix+PNHMatchData[ph_name_ix].length);
+                                harmony.newName = PNHMatchData[ph_name_ix];
+                                if (frontText.length > 0) { harmony.newName = frontText + ' ' + harmony.newName; }
+                                if (backText.length > 0) { harmony.newName = harmony.newName + ' ' + backText; }
+                                harmony.newName = harmony.newName.replace(/ {2,}/g,' ');
                             } else {
-                                item.harmony.newName = PNHMatchData[ph_name_ix];
+                                harmony.newName = PNHMatchData[ph_name_ix];
                             }
                         }
                         if ( altCategories !== "0" && altCategories !== "" ) {  // if PNH alts exist
-                            insertAtIX(item.harmony.newCategories, altCategories, 1);  //  then insert the alts into the existing category array after the GS category
+                            insertAtIX(harmony.newCategories, altCategories, 1);  //  then insert the alts into the existing category array after the GS category
                         }
-                        if ( item.harmony.newCategories.indexOf('HOTEL') !== 0 ) {  // If no GS category in the primary, flag it
-                            item.harmony.flags.hotelMkPrim.active = true;
+                        if ( harmony.newCategories.indexOf('HOTEL') !== 0 ) {  // If no GS category in the primary, flag it
+                            harmony.flags.hotelMkPrim.active = true;
                             if (currentWL.hotelMkPrim) {
-                                item.harmony.flags.hotelMkPrim.WLactive = false;
+                                harmony.flags.hotelMkPrim.WLactive = false;
                             } else {
                                 lockOK = false;
                             }
@@ -2219,58 +2262,58 @@
                         ixATM = item.attributes.categories.indexOf("ATM");
                         ixOffices = item.attributes.categories.indexOf("OFFICES");
                         // if the name contains ATM in it
-                        if ( item.harmony.newName.match(/\batm\b/ig) !== null ) {
+                        if ( harmony.newName.match(/\batm\b/ig) !== null ) {
                             if ( ixOffices === 0 ) {
-                                item.harmony.flags.bankType1.active = true;
-                                item.harmony.flags.bankBranch.active = true;
-                                item.harmony.flags.standaloneATM.active = true;
-                                item.harmony.flags.bankCorporate.active = true;
+                                harmony.flags.bankType1.active = true;
+                                harmony.flags.bankBranch.active = true;
+                                harmony.flags.standaloneATM.active = true;
+                                harmony.flags.bankCorporate.active = true;
                             } else if ( ixBank === -1 && ixATM === -1 ) {
-                                item.harmony.flags.bankBranch.active = true;
-                                item.harmony.flags.standaloneATM.active = true;
+                                harmony.flags.bankBranch.active = true;
+                                harmony.flags.standaloneATM.active = true;
                             } else if ( ixATM === 0 && ixBank > 0 ) {
-                                item.harmony.flags.bankBranch.active = true;
+                                harmony.flags.bankBranch.active = true;
                             } else if ( ixBank > -1 ) {
-                                item.harmony.flags.bankBranch.active = true;
-                                item.harmony.flags.standaloneATM.active = true;
+                                harmony.flags.bankBranch.active = true;
+                                harmony.flags.standaloneATM.active = true;
                             }
-                            item.harmony.newName = PNHMatchData[ph_name_ix] + ' ATM';
-                            item.harmony.newCategories = insertAtIX(item.harmony.newCategories, 'ATM', 0);
+                            harmony.newName = PNHMatchData[ph_name_ix] + ' ATM';
+                            harmony.newCategories = insertAtIX(harmony.newCategories, 'ATM', 0);
                             // Net result: If the place has ATM cat only and ATM in the name, then it will be green and renamed Bank Name ATM
                         } else if (ixBank > -1  || ixATM > -1) {  // if no ATM in name but with a banking category:
                             if ( ixOffices === 0 ) {
-                                item.harmony.flags.bankBranch.active = true;
+                                harmony.flags.bankBranch.active = true;
                             } else if ( ixBank > -1  && ixATM === -1 ) {
-                                item.harmony.flags.addATM.active = true;
+                                harmony.flags.addATM.active = true;
                             } else if ( ixATM === 0 && ixBank === -1 ) {
-                                item.harmony.flags.bankBranch.active = true;
-                                item.harmony.flags.standaloneATM.active = true;
+                                harmony.flags.bankBranch.active = true;
+                                harmony.flags.standaloneATM.active = true;
                             } else if ( ixBank > 0 && ixATM > 0 ) {
-                                item.harmony.flags.bankBranch.active = true;
-                                item.harmony.flags.standaloneATM.active = true;
+                                harmony.flags.bankBranch.active = true;
+                                harmony.flags.standaloneATM.active = true;
                             }
-                            item.harmony.newName = PNHMatchData[ph_name_ix];
+                            harmony.newName = PNHMatchData[ph_name_ix];
                             // Net result: If the place has Bank category first, then it will be green with PNH name replaced
                         } else {  // for PNH match with neither bank type category, make it a bank
-                            item.harmony.newCategories = insertAtIX(item.harmony.newCategories, 'BANK_FINANCIAL', 1);
-                            item.harmony.flags.standaloneATM.active = true;
-                            item.harmony.flags.bankCorporate.active = true;
+                            harmony.newCategories = insertAtIX(harmony.newCategories, 'BANK_FINANCIAL', 1);
+                            harmony.flags.standaloneATM.active = true;
+                            harmony.flags.bankCorporate.active = true;
                         }// END PNH bank treatment
                     } else if ( ["GAS_STATION"].indexOf(priPNHPlaceCat) > -1 ) {  // for PNH gas stations, don't replace existing sub-categories
                         if ( altCategories !== "0" && altCategories !== "" ) {  // if PNH alts exist
-                            insertAtIX(item.harmony.newCategories, altCategories, 1);  //  then insert the alts into the existing category array after the GS category
+                            insertAtIX(harmony.newCategories, altCategories, 1);  //  then insert the alts into the existing category array after the GS category
                         }
-                        if ( item.harmony.newCategories.indexOf('GAS_STATION') !== 0 ) {  // If no GS category in the primary, flag it
-                            item.harmony.flags.gasMkPrim.active = true;
+                        if ( harmony.newCategories.indexOf('GAS_STATION') !== 0 ) {  // If no GS category in the primary, flag it
+                            harmony.flags.gasMkPrim.active = true;
                             lockOK = false;
                         } else {
-                            item.harmony.newName = PNHMatchData[ph_name_ix];
+                            harmony.newName = PNHMatchData[ph_name_ix];
                         }
                     } else if (updatePNHName) {  // if not a special category then update the name
-                        item.harmony.newName = PNHMatchData[ph_name_ix];
-                        item.harmony.newCategories = insertAtIX(item.harmony.newCategories, priPNHPlaceCat,0);
+                        harmony.newName = PNHMatchData[ph_name_ix];
+                        harmony.newCategories = insertAtIX(harmony.newCategories, priPNHPlaceCat,0);
                         if (altCategories !== "0" && altCategories !== "") {
-                            item.harmony.newCategories = insertAtIX(item.harmony.newCategories,altCategories,1);
+                            harmony.newCategories = insertAtIX(harmony.newCategories,altCategories,1);
                         }
                     }
 
@@ -2282,17 +2325,17 @@
                         if (newURL !== null || newURL !== '') {
                             localURLcheckRE = new RegExp(localURLcheck, "i");
                             if ( newURL.match(localURLcheckRE) !== null ) {
-                                newURL = item.harmony.normalizeUrl(newURL,false);
+                                newURL = harmony.normalizeUrl(newURL);
                             } else {
-                                newURL = item.harmony.normalizeUrl(PNHMatchData[ph_url_ix],false);
-                                item.harmony.flags.localURL.active = true;
+                                newURL = harmony.normalizeUrl(PNHMatchData[ph_url_ix]);
+                                harmony.flags.localURL.active = true;
                             }
                         } else {
-                            newURL = item.harmony.normalizeUrl(PNHMatchData[ph_url_ix],false);
-                            item.harmony.flags.localURL.active = true;
+                            newURL = harmony.normalizeUrl(PNHMatchData[ph_url_ix]);
+                            harmony.flags.localURL.active = true;
                         }
                     } else {
-                        newURL = item.harmony.normalizeUrl(PNHMatchData[ph_url_ix],false);
+                        newURL = harmony.normalizeUrl(PNHMatchData[ph_url_ix]);
                     }
                     // Parse PNH Aliases
                     newAliasesTemp = PNHMatchData[ph_aliases_ix].match(/([^\(]*)/i)[0];
@@ -2300,32 +2343,32 @@
                         newAliasesTemp = newAliasesTemp.replace(/,[^A-za-z0-9]*/g, ",");  // tighten up commas if more than one alias.
                         newAliasesTemp = newAliasesTemp.split(",");  // split by comma
                     }
-                    if ( specCases.indexOf('noUpdateAlias') === -1 && (!containsAll(item.harmony.newAliases,newAliasesTemp) && newAliasesTemp !== "0" && newAliasesTemp !== "" && specCases.indexOf('optionName2') === -1 ))  {
-                        item.harmony.newAliases = insertAtIX(item.harmony.newAliases,newAliasesTemp,0);
+                    if ( specCases.indexOf('noUpdateAlias') === -1 && (!containsAll(harmony.newAliases,newAliasesTemp) && newAliasesTemp !== "0" && newAliasesTemp !== "" && specCases.indexOf('optionName2') === -1 ))  {
+                        harmony.newAliases = insertAtIX(harmony.newAliases,newAliasesTemp,0);
                     }
                     // Enable optional alt-name button
-                    if (item.harmony.flags.addAlias.active) {
-                        item.harmony.flags.addAlias.message = "Is there a " + item.harmony.optAlias + " at this location?";
-                        item.harmony.flags.addAlias.title = 'Add ' + item.harmony.optAlias;
+                    if (harmony.flags.addAlias.active) {
+                        harmony.flags.addAlias.message = "Is there a " + harmony.optAlias + " at this location?";
+                        harmony.flags.addAlias.title = 'Add ' + harmony.optAlias;
                     }
                     // update categories if different and no Cat2 option
                     //debug('3126 // About to call uniq() twice inside of harmonizePlaceGo()');
-                    if ( !matchSets( uniq(item.attributes.categories),uniq(item.harmony.newCategories) ) ) {
+                    if ( !matchSets( uniq(item.attributes.categories),uniq(harmony.newCategories) ) ) {
                         if ( specCases.indexOf('optionCat2') === -1 && specCases.indexOf('buttOn_addCat2') === -1 ) {
-                            phlogdev("Categories updated" + " with " + item.harmony.newCategories);
-                            actions.push(new UpdateObject(item, { categories: item.harmony.newCategories }));
-                            //W.model.actionManager.add(new UpdateObject(item, { categories: item.harmony.newCategories }));
-                            item.harmony.fieldUpdateObject.categories='#dfd';
+                            phlogdev("Categories updated" + " with " + harmony.newCategories);
+                            actions.push(new UpdateObject(item, { categories: harmony.newCategories }));
+                            //W.model.actionManager.add(new UpdateObject(item, { categories: harmony.newCategories }));
+                            harmony.updatedFields.categories = true;
                         } else {  // if second cat is optional
                             phlogdev("Primary category updated with " + priPNHPlaceCat);
-                            item.harmony.newCategories = insertAtIX(item.harmony.newCategories, priPNHPlaceCat, 0);
-                            actions.push(new UpdateObject(item, { categories: item.harmony.newCategories }));
-                            item.harmony.fieldUpdateObject.categories='#dfd';
+                            harmony.newCategories = insertAtIX(harmony.newCategories, priPNHPlaceCat, 0);
+                            actions.push(new UpdateObject(item, { categories: harmony.newCategories }));
+                            harmony.updatedFields.categories = true;
                         }
                         // Enable optional 2nd category button
-                        if (specCases.indexOf('buttOn_addCat2') > -1 && item.harmony.newCategories.indexOf(catTransWaze2Lang[altCategories[0]]) === -1 ) {
-                            item.harmony.flags.addCat2.message = "Is there a " + catTransWaze2Lang[altCategories[0]] + " at this location?";
-                            item.harmony.flags.addCat2.title = 'Add ' + catTransWaze2Lang[altCategories[0]];
+                        if (specCases.indexOf('buttOn_addCat2') > -1 && harmony.newCategories.indexOf(catTransWaze2Lang[altCategories[0]]) === -1 ) {
+                            harmony.flags.addCat2.message = "Is there a " + catTransWaze2Lang[altCategories[0]] + " at this location?";
+                            harmony.flags.addCat2.title = 'Add ' + catTransWaze2Lang[altCategories[0]];
                         }
                     }
 
@@ -2333,12 +2376,12 @@
                     newDescripion = PNHMatchData[ph_description_ix];
                     if (newDescripion !== null && newDescripion !== "0" && item.attributes.description.toUpperCase().indexOf(newDescripion.toUpperCase()) === -1 ) {
                         if ( item.attributes.description !== "" && item.attributes.description !== null && item.attributes.description !== ' ' ) {
-                            item.harmony.flags.checkDescription.active = true;
+                            harmony.flags.checkDescription.active = true;
                         }
                         phlogdev("Description updated");
                         newDescripion = newDescripion + '\n' + item.attributes.description;
                         actions.push(new UpdateObject(item, { description: newDescripion }));
-                        item.harmony.fieldUpdateObject.description='#dfd';
+                        harmony.updatedFields.description = true;
                     }
 
                     // Special Lock by PNH
@@ -2354,17 +2397,17 @@
                     }
 
                     // Strong title case option for non-PNH places
-                    if (item.harmony.newName !== toTitleCaseStrong(item.harmony.newName, isPLA(item))) {
-                        item.harmony.flags.STC.active = true;
+                    if (harmony.newName !== toTitleCaseStrong(harmony.newName, isPLA(item))) {
+                        harmony.flags.STC.active = true;
                     }
 
-                    newURL = item.harmony.normalizeUrl(newURL,true);  // Normalize url
+                    newURL = harmony.normalizeUrl(newURL);  // Normalize url
 
                     // Generic Hotel Treatment
-                    if ( item.harmony.newCategories.indexOf("HOTEL") > -1  && item.harmony.newName.indexOf(' - ') === -1 && item.harmony.newName.indexOf(': ') === -1) {
-                        item.harmony.flags.catHotel.active = true;
+                    if ( harmony.newCategories.indexOf("HOTEL") > -1  && harmony.newName.indexOf(' - ') === -1 && harmony.newName.indexOf(': ') === -1) {
+                        harmony.flags.catHotel.active = true;
                         if (currentWL.hotelLocWL) {
-                            item.harmony.flags.catHotel.WLactive = false;
+                            harmony.flags.catHotel.WLactive = false;
                         }
                     }
 
@@ -2373,33 +2416,33 @@
                     ixATM = item.attributes.categories.indexOf("ATM");
                     ixOffices = item.attributes.categories.indexOf("OFFICES");
                     // if the name contains ATM in it
-                    if ( item.harmony.newName.match(/\batm\b/ig) !== null ) {
+                    if ( harmony.newName.match(/\batm\b/ig) !== null ) {
                         if ( ixOffices === 0 ) {
-                            item.harmony.flags.bankType1.active = true;
-                            item.harmony.flags.bankBranch.active = true;
-                            item.harmony.flags.standaloneATM.active = true;
-                            item.harmony.flags.bankCorporate.active = true;
+                            harmony.flags.bankType1.active = true;
+                            harmony.flags.bankBranch.active = true;
+                            harmony.flags.standaloneATM.active = true;
+                            harmony.flags.bankCorporate.active = true;
                         } else if ( ixBank === -1 && ixATM === -1 ) {
-                            item.harmony.flags.bankBranch.active = true;
-                            item.harmony.flags.standaloneATM.active = true;
+                            harmony.flags.bankBranch.active = true;
+                            harmony.flags.standaloneATM.active = true;
                         } else if ( ixATM === 0 && ixBank > 0 ) {
-                            item.harmony.flags.bankBranch.active = true;
+                            harmony.flags.bankBranch.active = true;
                         } else if ( ixBank > -1 ) {
-                            item.harmony.flags.bankBranch.active = true;
-                            item.harmony.flags.standaloneATM.active = true;
+                            harmony.flags.bankBranch.active = true;
+                            harmony.flags.standaloneATM.active = true;
                         }
                         // Net result: If the place has ATM cat only and ATM in the name, then it will be green
                     } else if (ixBank > -1  || ixATM > -1) {  // if no ATM in name:
                         if ( ixOffices === 0 ) {
-                            item.harmony.flags.bankBranch.active = true;
+                            harmony.flags.bankBranch.active = true;
                         } else if ( ixBank > -1  && ixATM === -1 ) {
-                            item.harmony.flags.addATM.active = true;
+                            harmony.flags.addATM.active = true;
                         } else if ( ixATM === 0 && ixBank === -1 ) {
-                            item.harmony.flags.bankBranch.active = true;
-                            item.harmony.flags.standaloneATM.active = true;
+                            harmony.flags.bankBranch.active = true;
+                            harmony.flags.standaloneATM.active = true;
                         } else if ( ixBank > 0 && ixATM > 0 ) {
-                            item.harmony.flags.bankBranch.active = true;
-                            item.harmony.flags.standaloneATM.active = true;
+                            harmony.flags.bankBranch.active = true;
+                            harmony.flags.standaloneATM.active = true;
                         }
                         // Net result: If the place has Bank category first, then it will be green
                     } // END generic bank treatment
@@ -2408,55 +2451,55 @@
 
 
                 // Update name:
-                if (hpMode.harmFlag && item.harmony.newName !== item.attributes.name) {
+                if (hpMode.harmFlag && harmony.newName !== item.attributes.name) {
                     phlogdev("Name updated");
-                    actions.push(new UpdateObject(item, { name: item.harmony.newName }));
+                    actions.push(new UpdateObject(item, { name: harmony.newName }));
                     //actions.push(new UpdateObject(item, { name: newName }));
-                    item.harmony.fieldUpdateObject.name='#dfd';
+                    harmony.updatedFields.name = true;
                 }
 
                 // Update aliases
-                item.harmony.newAliases = removeSFAliases(item.harmony.newName, item.harmony.newAliases);
-                for (naix=0; naix<item.harmony.newAliases.length; naix++) {
-                    item.harmony.newAliases[naix] = toTitleCase(item.harmony.newAliases[naix], isPLA(item));
+                harmony.newAliases = harmony.removeSFAliases(harmony.newName, harmony.newAliases);
+                for (naix=0; naix<harmony.newAliases.length; naix++) {
+                    harmony.newAliases[naix] = toTitleCase(harmony.newAliases[naix], isPLA(item));
                 }
-                if (hpMode.harmFlag && item.harmony.newAliases !== item.attributes.aliases && item.harmony.newAliases.length !== item.attributes.aliases.length) {
+                if (hpMode.harmFlag && harmony.newAliases !== item.attributes.aliases && harmony.newAliases.length !== item.attributes.aliases.length) {
                     phlogdev("Alt Names updated");
-                    actions.push(new UpdateObject(item, { aliases: item.harmony.newAliases }));
-                    item.harmony.fieldUpdateObject.aliases='#dfd';
+                    actions.push(new UpdateObject(item, { aliases: harmony.newAliases }));
+                    harmony.updatedFields.aliases = true;
                 }
 
                 // Gas station treatment (applies to all including PNH)
-                if (item.harmony.newCategories[0] === 'GAS_STATION') {
+                if (harmony.newCategories[0] === 'GAS_STATION') {
                     // Brand checking
                     if ( !item.attributes.brand || item.attributes.brand === null || item.attributes.brand === "" ) {
-                        item.harmony.flags.gasNoBrand.active = true;
+                        harmony.flags.gasNoBrand.active = true;
                         if (currentWL.gasNoBrand) {
-                            item.harmony.flags.gasNoBrand.WLactive = false;
+                            harmony.flags.gasNoBrand.WLactive = false;
                         }
                     } else if (item.attributes.brand === 'Unbranded' ) {  //  Unbranded is not used per wiki
-                        item.harmony.flags.gasUnbranded.active = true;
+                        harmony.flags.gasUnbranded.active = true;
                         lockOK = false;
                     } else {
                         var brandNameRegEx = new RegExp('\\b'+item.attributes.brand.toUpperCase().replace(/[ '-]/g,''), "i");
-                        if ( item.harmony.newName.toUpperCase().replace(/[ '-]/g,'').match(brandNameRegEx) === null ) {
-                            item.harmony.flags.gasMismatch.active = true;
+                        if ( harmony.newName.toUpperCase().replace(/[ '-]/g,'').match(brandNameRegEx) === null ) {
+                            harmony.flags.gasMismatch.active = true;
                             if (currentWL.gasMismatch) {
-                                item.harmony.flags.gasMismatch.WLactive = false;
+                                harmony.flags.gasMismatch.WLactive = false;
                             } else {
                                 lockOK = false;
                             }
                         }
                     }
                     // Add convenience store category to station
-                    if (item.harmony.newCategories.indexOf("CONVENIENCE_STORE") === -1 && !item.harmony.flags.subFuel.active) {
+                    if (harmony.newCategories.indexOf("CONVENIENCE_STORE") === -1 && !harmony.flags.subFuel.active) {
                         if ( hpMode.harmFlag && isChecked("WMEPH-ConvenienceStoreToGasStations") ) {  // Automatic if user has the setting checked
-                            item.harmony.newCategories = insertAtIX(item.harmony.newCategories, "CONVENIENCE_STORE", 1);  // insert the C.S. category
-                            actions.push(new UpdateObject(item, { categories: item.harmony.newCategories }));
-                            item.harmony.fieldUpdateObject.categories='#dfd';
+                            harmony.newCategories = insertAtIX(harmony.newCategories, "CONVENIENCE_STORE", 1);  // insert the C.S. category
+                            actions.push(new UpdateObject(item, { categories: harmony.newCategories }));
+                            harmony.updatedFields.categories = true;
                             phlogdev('Conv. store category added');
                         } else {  // If not checked, then it will be a banner button
-                            item.harmony.flags.addConvStore.active = true;
+                            harmony.flags.addConvStore.active = true;
                         }
                     }
                 }  // END Gas Station Checks
@@ -2466,7 +2509,7 @@
                 var newPlaceAddon = '';
                 var approvalAddon = '';
                 var approvalMessage = 'Submitted via WMEPH. PNH order number ' + PNHOrderNum;
-                var tempSubmitName = encodeURIComponent(item.harmony.newName);
+                var tempSubmitName = encodeURIComponent(harmony.newName);
                 if (hpMode.harmFlag) {
                     switch (myPlace.psRegion) {
                         case "NWR": regionFormURL = 'https://docs.google.com/forms/d/1hv5hXBlGr1pTMmo4n3frUx1DovUODbZodfDBwwTc7HE/viewform';
@@ -2531,7 +2574,7 @@
                             break;
                         default: regionFormURL = "";
                     }
-                    item.harmony.newPlaceURL = regionFormURL + newPlaceAddon;
+                    harmony.newPlaceURL = regionFormURL + newPlaceAddon;
                     approveRegionURL = regionFormURL + approvalAddon;
                 }
 
@@ -2543,8 +2586,8 @@
                 // NOTE: This code checks the servKeys and such to enable services.
                 // Rewrite
                 var catName;
-                for (i = 0, len = item.harmony.newCategories.length; i < len; i++) {
-                    catName = item.harmony.newCategories[i];
+                for (i = 0, len = harmony.newCategories.length; i < len; i++) {
+                    catName = harmony.newCategories[i];
                     if (NA_CAT_DATA.hasOwnProperty(catName)) {
                         for (var service in WME_SERVICE_MAP) {
                             var act = WME_SERVICE_MAP[service].action;
@@ -2575,11 +2618,11 @@
                 // PNH specific Services:
 
                 // ### remove unnecessary parent categories (Restaurant doesn't need food and drink)
-                if ( hpMode.harmFlag && item.harmony.newCategories.indexOf('FOOD_AND_DRINK') > -1 ) {
-                    if (item.harmony.newCategories.indexOf('RESTAURANT') > -1 || item.harmony.newCategories.indexOf('FAST_FOOD') > -1 ) {
-                        item.harmony.newCategories.splice(item.harmony.newCategories.indexOf('FOOD_AND_DRINK'),1);  // remove Food/Drink Cat
-                        actions.push(new UpdateObject(item, { categories: item.harmony.newCategories }));
-                        item.harmony.fieldUpdateObject.categories='#dfd';
+                if ( hpMode.harmFlag && harmony.newCategories.indexOf('FOOD_AND_DRINK') > -1 ) {
+                    if (harmony.newCategories.indexOf('RESTAURANT') > -1 || harmony.newCategories.indexOf('FAST_FOOD') > -1 ) {
+                        harmony.newCategories.splice(harmony.newCategories.indexOf('FOOD_AND_DRINK'),1);  // remove Food/Drink Cat
+                        actions.push(new UpdateObject(item, { categories: harmony.newCategories }));
+                        harmony.updatedFields.categories = true;
                     }
                 }
 
@@ -2592,8 +2635,8 @@
                 // Area vs. Place checking, Category locking, and category-based messaging
                 // NOTE: Since we have to keep looping through categories, maybe see about combining actions inside of the same loops.
                 // NOTE: If it gets too complicated, the code should probably be segregated into other functions and then called within the same loop.
-                for (i = 0, len = item.harmony.newCategories.length; i < len; i++) {
-                    catName = item.harmony.newCategories[i];
+                for (i = 0, len = harmony.newCategories.length; i < len; i++) {
+                    catName = harmony.newCategories[i];
                     if (NA_CAT_DATA.hasOwnProperty(catName)) {
                         var myCat       = NA_CAT_DATA[catName];
                         var pvaPoint    = myCat.pcPoint,
@@ -2625,15 +2668,15 @@
 
                         // Display any messages regarding the category
                         if (pcMessage && pcMessage !== '0' && pcMessage !== '') {
-                            item.harmony.flags.pnhCatMess.active = true;
-                            item.harmony.flags.pnhCatMess.message = pcMessage;
+                            harmony.flags.pnhCatMess.active = true;
+                            harmony.flags.pnhCatMess.message = pcMessage;
                         }
 
                         // Unmapped categories
                         if (isMemberOfRegion(myState, pcRare) || isMemberOfRegion(myCountry, pcRare)) {
-                            item.harmony.flags.unmappedRegion.active = true;
+                            harmony.flags.unmappedRegion.active = true;
                             if (currentWL.unmappedRegion) {
-                                item.harmony.flags.unmappedRegion.WLactive = false;
+                                harmony.flags.unmappedRegion.WLactive = false;
                             } else {
                                 lockOK = false;
                             }
@@ -2641,9 +2684,9 @@
 
                         // Parent Category
                         if (isMemberOfRegion(myState, pcParent) || isMemberOfRegion(myCountry, pcParent)) {
-                            item.harmony.flags.parentCategory.active = true;
+                            harmony.flags.parentCategory.active = true;
                             if (currentWL.parentCategory) {
-                                item.harmony.flags.parentCategory.WLactive = false;
+                                harmony.flags.parentCategory.WLactive = false;
                             }
                         }
 
@@ -2663,50 +2706,50 @@
 
                 if (isPoint) {
                     if (maxPointSeverity === 3) {
-                        item.harmony.flags.areaNotPoint.active = true;
+                        harmony.flags.areaNotPoint.active = true;
                         if (currentWL.areaNotPoint || item.attributes.lockRank >= defaultLock) {
-                            item.harmony.flags.areaNotPoint.WLactive = false;
-                            item.harmony.flags.areaNotPoint.severity = 0;
+                            harmony.flags.areaNotPoint.WLactive = false;
+                            harmony.flags.areaNotPoint.severity = 0;
                         } else {
                             lockOK = false;
                         }
                     } else if (maxPointSeverity === 2) {
-                        item.harmony.flags.areaNotPointMid.active = true;
+                        harmony.flags.areaNotPointMid.active = true;
                         if (currentWL.areaNotPoint || item.attributes.lockRank >= defaultLock) {
-                            item.harmony.flags.areaNotPointMid.WLactive = false;
-                            item.harmony.flags.areaNotPointMid.severity = 0;
+                            harmony.flags.areaNotPointMid.WLactive = false;
+                            harmony.flags.areaNotPointMid.severity = 0;
                         } else {
                             lockOK = false;
                         }
                     } else if (maxPointSeverity === 1) {
-                        item.harmony.flags.areaNotPointLow.active = true;
+                        harmony.flags.areaNotPointLow.active = true;
                         if (currentWL.areaNotPoint || item.attributes.lockRank >= defaultLock) {
-                            item.harmony.flags.areaNotPointLow.WLactive = false;
-                            item.harmony.flags.areaNotPointLow.severity = 0;
+                            harmony.flags.areaNotPointLow.WLactive = false;
+                            harmony.flags.areaNotPointLow.severity = 0;
                         }
                     }
                 } else {
                     if (maxAreaSeverity === 3) {
-                        item.harmony.flags.pointNotArea.active = true;
+                        harmony.flags.pointNotArea.active = true;
                         if (currentWL.pointNotArea || item.attributes.lockRank >= defaultLock) {
-                            item.harmony.flags.pointNotArea.WLactive = false;
-                            item.harmony.flags.pointNotArea.severity = 0;
+                            harmony.flags.pointNotArea.WLactive = false;
+                            harmony.flags.pointNotArea.severity = 0;
                         } else {
                             lockOK = false;
                         }
                     } else if (maxAreaSeverity === 2) {
-                        item.harmony.flags.pointNotAreaMid.active = true;
+                        harmony.flags.pointNotAreaMid.active = true;
                         if (currentWL.pointNotArea || item.attributes.lockRank >= defaultLock) {
-                            item.harmony.flags.pointNotAreaMid.WLactive = false;
-                            item.harmony.flags.pointNotAreaMid.severity = 0;
+                            harmony.flags.pointNotAreaMid.WLactive = false;
+                            harmony.flags.pointNotAreaMid.severity = 0;
                         } else {
                             lockOK = false;
                         }
                     } else if (maxAreaSeverity === 1) {
-                        item.harmony.flags.pointNotAreaLow.active = true;
+                        harmony.flags.pointNotAreaLow.active = true;
                         if (currentWL.pointNotArea || item.attributes.lockRank >= defaultLock) {
-                            item.harmony.flags.pointNotAreaLow.WLactive = false;
-                            item.harmony.flags.pointNotAreaLow.severity = 0;
+                            harmony.flags.pointNotAreaLow.WLactive = false;
+                            harmony.flags.pointNotAreaLow.severity = 0;
                         }
                     }
                 }
@@ -2714,46 +2757,46 @@
                 var anpNone = collegeAbbreviations.split('|'), anpNoneRE;
                 for (var cii=0; cii<anpNone.length; cii++) {
                     anpNoneRE = new RegExp('\\b'+anpNone[cii]+'\\b', 'g');
-                    if ( item.harmony.newName.match( anpNoneRE) !== null ) {
-                        item.harmony.flags.areaNotPointLow.severity = 0;
-                        item.harmony.flags.areaNotPointLow.WLactive = false;
+                    if ( harmony.newName.match( anpNoneRE) !== null ) {
+                        harmony.flags.areaNotPointLow.severity = 0;
+                        harmony.flags.areaNotPointLow.WLactive = false;
                     }
                 }
 
 
                 // Check for missing hours field
                 if (item.attributes.openingHours.length === 0) {  // if no hours...
-                    if (!containsAny(item.harmony.newCategories,["STADIUM_ARENA","CEMETERY","MILITARY","TRANSPORTATION","FERRY_PIER","SUBWAY_STATION",
+                    if (!containsAny(harmony.newCategories,["STADIUM_ARENA","CEMETERY","MILITARY","TRANSPORTATION","FERRY_PIER","SUBWAY_STATION",
                                                     "BRIDGE","TUNNEL","JUNCTION_INTERCHANGE","ISLAND","SEA_LAKE_POOL","RIVER_STREAM","FOREST_GROVE","CANAL","SWAMP_MARSH","DAM"]) ) {
-                        item.harmony.flags.noHours.active = true;
+                        harmony.flags.noHours.active = true;
                         if (currentWL.noHours) {
-                            item.harmony.flags.noHours.WLactive = false;
+                            harmony.flags.noHours.WLactive = false;
                         }
-                        if ( containsAny(item.harmony.newCategories,["SCHOOL","CONVENTIONS_EVENT_CENTER","CAMPING_TRAILER_PARK","COTTAGE_CABIN","COLLEGE_UNIVERSITY","GOLF_COURSE","SPORTS_COURT","MOVIE_THEATER","SHOPPING_CENTER","RELIGIOUS_CENTER","PARKING_LOT","PARK","PLAYGROUND","AIRPORT","FIRE_DEPARTMENT","POLICE_STATION","SEAPORT_MARINA_HARBOR","FARM"]) ) {
-                            item.harmony.flags.noHours.severity = 0;
-                            item.harmony.flags.noHours.WLactive = false;
+                        if ( containsAny(harmony.newCategories,["SCHOOL","CONVENTIONS_EVENT_CENTER","CAMPING_TRAILER_PARK","COTTAGE_CABIN","COLLEGE_UNIVERSITY","GOLF_COURSE","SPORTS_COURT","MOVIE_THEATER","SHOPPING_CENTER","RELIGIOUS_CENTER","PARKING_LOT","PARK","PLAYGROUND","AIRPORT","FIRE_DEPARTMENT","POLICE_STATION","SEAPORT_MARINA_HARBOR","FARM"]) ) {
+                            harmony.flags.noHours.severity = 0;
+                            harmony.flags.noHours.WLactive = false;
                         }
                     }
                     if (hpMode.hlFlag && isChecked("WMEPH-DisableHoursHL")) {
-                        item.harmony.flags.noHours.severity = 0;
+                        harmony.flags.noHours.severity = 0;
                     }
                 } else {
                     if (item.attributes.openingHours.length === 1) {  // if one set of hours exist, check for partial 24hrs setting
                         if (item.attributes.openingHours[0].days.length < 7 && item.attributes.openingHours[0].fromHour==='00:00' &&
                             (item.attributes.openingHours[0].toHour==='00:00' || item.attributes.openingHours[0].toHour==='23:59' ) ) {
-                            item.harmony.flags.mismatch247.active = true;
+                            harmony.flags.mismatch247.active = true;
                         }
                     }
-                    item.harmony.flags.noHours.active = true;
-                    //item.harmony.flags.noHours.value = 'Add';
-                    item.harmony.flags.noHours.severity = 0;
-                    item.harmony.flags.noHours.WLactive = false;
-                    item.harmony.flags.noHours.message = 'Hours';
+                    harmony.flags.noHours.active = true;
+                    //harmony.flags.noHours.value = 'Add';
+                    harmony.flags.noHours.severity = 0;
+                    harmony.flags.noHours.WLactive = false;
+                    harmony.flags.noHours.message = 'Hours';
                 }
                 if ( !checkHours(item.attributes.openingHours) ) {
                     //phlogdev('Overlapping hours');
-                    item.harmony.flags.hoursOverlap.active = true;
-                    item.harmony.flags.noHours.active = true;
+                    harmony.flags.hoursOverlap.active = true;
+                    harmony.flags.noHours.active = true;
                 } else {
                     var tempHours = item.attributes.openingHours.slice(0);
                     for ( var ohix=0; ohix<item.attributes.openingHours.length; ohix++ ) {
@@ -2777,20 +2820,20 @@
                 var updateURL = true;
                 if (newURL !== item.attributes.url && newURL !== "" && newURL !== "0") {
                     if ( PNHNameRegMatch && item.attributes.url !== null && item.attributes.url !== '' ) {  // for cases where there is an existing URL in the WME place, and there is a PNH url on queue:
-                        var newURLTemp = item.harmony.normalizeUrl(newURL,true);  // normalize
-                        var itemURL = item.harmony.normalizeUrl(item.attributes.url,true);
+                        var newURLTemp = harmony.normalizeUrl(newURL);  // normalize
+                        var itemURL = harmony.normalizeUrl(item.attributes.url);
                         newURLTemp = newURLTemp.replace(/^www\.(.*)$/i,'$1');  // strip www
                         var itemURLTemp = itemURL.replace(/^www\.(.*)$/i,'$1');  // strip www
                         if ( newURLTemp !== itemURLTemp ) { // if formatted URLs don't match, then alert the editor to check the existing URL
-                            item.harmony.flags.longURL.active = true;
+                            harmony.flags.longURL.active = true;
                             if (currentWL.longURL) {
-                                item.harmony.flags.longURL.WLactive = false;
+                                harmony.flags.longURL.WLactive = false;
                             }
-                            item.harmony.flags.PlaceWebsite.value = "Place Website";
+                            harmony.flags.PlaceWebsite.value = "Place Website";
                             if (hpMode.harmFlag && updateURL && itemURL !== item.attributes.url) {  // Update the URL
                                 phlogdev("URL formatted");
                                 actions.push(new UpdateObject(item, { url: itemURL }));
-                                item.harmony.fieldUpdateObject.url='#dfd';
+                                harmony.updatedFields.url = true;
                             }
                             updateURL = false;
                             tempPNHURL = newURL;
@@ -2799,7 +2842,7 @@
                     if (hpMode.harmFlag && updateURL && newURL !== item.attributes.url) {  // Update the URL
                         phlogdev("URL updated");
                         actions.push(new UpdateObject(item, { url: newURL }));
-                        item.harmony.fieldUpdateObject.url='#dfd';
+                        harmony.updatedFields.url = true;
                     }
                 }
 
@@ -2816,16 +2859,16 @@
                         outputFormat = "{0}-{1}-{2}";
                 }
 
-                newPhone = item.harmony.normalizePhone(item.attributes.phone, outputFormat, 'existing');
+                newPhone = harmony.normalizePhone(item.attributes.phone, outputFormat, 'existing');
 
                 // Check if valid area code  #LOC# USA and CAN only
                 if (myCountry2L === "US" || myCountry2L === "CA") {
                     if (newPhone !== null && newPhone.match(/[2-9]\d{2}/) !== null) {
                         var areaCode = newPhone.match(/[2-9]\d{2}/)[0];
                         if ( areaCodeList.indexOf(areaCode) === -1 ) {
-                            item.harmony.flags.badAreaCode.active = true;
+                            harmony.flags.badAreaCode.active = true;
                             if (currentWL.aCodeWL) {
-                                item.harmony.flags.badAreaCode.WLactive = false;
+                                harmony.flags.badAreaCode.WLactive = false;
                             }
                         }
                     }
@@ -2833,49 +2876,49 @@
                 if (hpMode.harmFlag && newPhone !== item.attributes.phone) {
                     phlogdev("Phone updated");
                     actions.push(new UpdateObject(item, {phone: newPhone}));
-                    item.harmony.fieldUpdateObject.phone='#dfd';
+                    harmony.updatedFields.phone = true;
                 }
 
                 // Post Office cat check
-                if (item.harmony.newCategories.indexOf("POST_OFFICE") > -1 && myCountry2L === "US" ) {
+                if (harmony.newCategories.indexOf("POST_OFFICE") > -1 && myCountry2L === "US" ) {
                     var USPSStrings = ['USPS','POSTOFFICE','USPOSTALSERVICE','UNITEDSTATESPOSTALSERVICE','USPO','USPOSTOFFICE','UNITEDSTATESPOSTOFFICE','UNITEDSTATESPOSTALOFFICE'];
                     var USPSMatch = false;
                     for (var uspix=0; uspix<USPSStrings.length; uspix++) {
-                        if ( item.harmony.newName.toUpperCase().replace(/[ \/\-\.]/g,'').indexOf(USPSStrings[uspix]) > -1 ) {  // If it already has a USPS type term in the name, don't add the option
+                        if ( harmony.newName.toUpperCase().replace(/[ \/\-\.]/g,'').indexOf(USPSStrings[uspix]) > -1 ) {  // If it already has a USPS type term in the name, don't add the option
                             USPSMatch = true;
                             customStoreFinderURL = "https://tools.usps.com/go/POLocatorAction.action";
                             customStoreFinder = true;
                             if (hpMode.harmFlag && myPlace.psRegion === 'SER' && item.attributes.aliases.indexOf("United States Postal Service") === -1) {
                                 actions.push(new UpdateObject(item, { aliases: ["United States Postal Service"], url: 'www.usps.com' }));
-                                item.harmony.fieldUpdateObject.aliases='#dfd';
-                                item.harmony.fieldUpdateObject.url='#dfd';
+                                harmony.updatedFields.aliases = true;
+                                harmony.updatedFields.url = true;
                                 phlogdev('USPS alt name added');
                             }
-                            if ( item.harmony.newName.indexOf(' - ') === -1 && item.harmony.newName.indexOf(': ') === -1 ) {
-                                item.harmony.flags.formatUSPS.active = true;
+                            if ( harmony.newName.indexOf(' - ') === -1 && harmony.newName.indexOf(': ') === -1 ) {
+                                harmony.flags.formatUSPS.active = true;
                             }
                             break;
                         }
                     }
                     if (!USPSMatch) {
                         lockOK = false;
-                        item.harmony.flags.isitUSPS.active = true;
-                        item.harmony.flags.catPostOffice.active = true;
+                        harmony.flags.isitUSPS.active = true;
+                        harmony.flags.catPostOffice.active = true;
                     }
                 }  // END Post Office category check
 
             }  // END if (!residential && has name)
 
             // Name check
-            if ( !item.attributes.residential && ( !item.harmony.newName || item.harmony.newName.replace(/[^A-Za-z0-9]/g,'').length === 0 )) {
+            if ( !item.attributes.residential && ( !harmony.newName || harmony.newName.replace(/[^A-Za-z0-9]/g,'').length === 0 )) {
                 if (item.attributes.categories[0] === 'PARKING_LOT') {
                     if (currentWL.plaNameMissing) {
-                        item.harmony.flags.plaNameMissing.active = false;
+                        harmony.flags.plaNameMissing.active = false;
                     } else {
-                        item.harmony.flags.plaNameMissing.active = true;
+                        harmony.flags.plaNameMissing.active = true;
                     }
                 } else if ( 'ISLAND|FOREST_GROVE|SEA_LAKE_POOL|RIVER_STREAM|CANAL'.split('|').indexOf(item.attributes.categories[0]) === -1 ) {
-                    item.harmony.flags.nameMissing.active = true;
+                    harmony.flags.nameMissing.active = true;
                     lockOK = false;
                 }
             }
@@ -2884,12 +2927,12 @@
             if (item.attributes.streetID && (!item.attributes.houseNumber || item.attributes.houseNumber.replace(/\D/g,'').length === 0) ) {
                 if ( 'BRIDGE|ISLAND|FOREST_GROVE|SEA_LAKE_POOL|RIVER_STREAM|CANAL|DAM|TUNNEL'.split('|').indexOf(item.attributes.categories[0]) === -1 ) {
                     if (myState2L === 'RQ') {
-                        item.harmony.flags.hnMissing.active = true;
-                        item.harmony.flags.hnMissing.severity = 0;
+                        harmony.flags.hnMissing.active = true;
+                        harmony.flags.hnMissing.severity = 0;
                     } else {
-                        item.harmony.flags.hnMissing.active = true;
+                        harmony.flags.hnMissing.active = true;
                         if (currentWL.HNWL) {
-                            item.harmony.flags.hnMissing.WLactive = false;
+                            harmony.flags.hnMissing.WLactive = false;
                         } else {
                             lockOK = false;
                         }
@@ -2913,117 +2956,117 @@
                 }
 
                 if (!hnOK) {
-                    item.harmony.flags.hnNonStandard.active = true;
+                    harmony.flags.hnNonStandard.active = true;
                     if (currentWL.hnNonStandard) {
-                        item.harmony.flags.hnNonStandard.WLactive = false;
+                        harmony.flags.hnNonStandard.WLactive = false;
                     } else {
                         lockOK = false;
                     }
                 }
                 if ( updateHNflag ) {
-                    item.harmony.flags.hnDashRemoved.active = true;
+                    harmony.flags.hnDashRemoved.active = true;
                     if (hpMode.harmFlag) {
                         actions.push(new UpdateObject(item, { houseNumber: hnTemp }));
-                        item.harmony.fieldUpdateObject.address='#dfd';
+                        harmony.updatedFields.address = true;
                     } else if (hpMode.hlFlag) {
                         if (item.attributes.residential) {
-                            item.harmony.flags.hnDashRemoved.severity = 3;
+                            harmony.flags.hnDashRemoved.severity = 3;
                         } else {
-                            item.harmony.flags.hnDashRemoved.severity = 1;
+                            harmony.flags.hnDashRemoved.severity = 1;
                         }
                     }
                 }
             }
 
             if ((!addr.city || addr.city.attributes.isEmpty) && 'BRIDGE|ISLAND|FOREST_GROVE|SEA_LAKE_POOL|RIVER_STREAM|CANAL|DAM|TUNNEL'.split('|').indexOf(item.attributes.categories[0]) === -1 ) {
-                item.harmony.flags.cityMissing.active = true;
+                harmony.flags.cityMissing.active = true;
                 if (item.attributes.residential && hpMode.hlFlag) {
-                    item.harmony.flags.cityMissing.severity = 1;
+                    harmony.flags.cityMissing.severity = 1;
                 }
                 lockOK = false;
             }
             if (addr.city && (!addr.street || addr.street.isEmpty) && 'BRIDGE|ISLAND|FOREST_GROVE|SEA_LAKE_POOL|RIVER_STREAM|CANAL|DAM|TUNNEL'.split('|').indexOf(item.attributes.categories[0]) === -1 ) {
-                item.harmony.flags.streetMissing.active = true;
+                harmony.flags.streetMissing.active = true;
                 lockOK = false;
             }
 
             // CATEGORY vs. NAME checks
-            var testName = item.harmony.newName.toLowerCase().replace(/[^a-z]/g,' ');
+            var testName = harmony.newName.toLowerCase().replace(/[^a-z]/g,' ');
             var testNameWords = testName.split(' ');
             // Hopsital vs. Name filter
-            if (item.harmony.newCategories.indexOf("HOSPITAL_MEDICAL_CARE") > -1 && NON_HOSPITAL_PART_MATCH.length > 0) {
+            if (harmony.newCategories.indexOf("HOSPITAL_MEDICAL_CARE") > -1 && NON_HOSPITAL_PART_MATCH.length > 0) {
                 var hpmMatch = false;
                 if (containsAny(testNameWords,ANIMAL_FULL_MATCH)) {
-                    item.harmony.flags.changeHMC2PetVet.active = true;
+                    harmony.flags.changeHMC2PetVet.active = true;
                     if (currentWL.changeHMC2PetVet) {
-                        item.harmony.flags.changeHMC2PetVet.WLactive = false;
+                        harmony.flags.changeHMC2PetVet.WLactive = false;
                     } else {
                         lockOK = false;
                     }
-                    item.harmony.flags.pnhCatMess.active = false;
+                    harmony.flags.pnhCatMess.active = false;
                 } else if (containsAny(testNameWords,NON_HOSPITAL_FULL_MATCH)) {
-                    item.harmony.flags.changeHMC2Office.active = true;
+                    harmony.flags.changeHMC2Office.active = true;
                     if (currentWL.changeHMC2Office) {
-                        item.harmony.flags.changeHMC2Office.WLactive = false;
+                        harmony.flags.changeHMC2Office.WLactive = false;
                     } else {
                         lockOK = false;
                     }
-                    item.harmony.flags.pnhCatMess.active = false;
+                    harmony.flags.pnhCatMess.active = false;
                 } else {
                     for (var apmix=0; apmix<ANIMAL_PART_MATCH.length; apmix++) {
                         if (testName.indexOf(ANIMAL_PART_MATCH[apmix]) > -1) {
-                            item.harmony.flags.changeHMC2PetVet.active = true;
+                            harmony.flags.changeHMC2PetVet.active = true;
                             if (currentWL.changeHMC2PetVet) {
-                                item.harmony.flags.changeHMC2PetVet.WLactive = false;
+                                harmony.flags.changeHMC2PetVet.WLactive = false;
                             } else {
                                 lockOK = false;
                             }
                             hpmMatch = true;  // don't run the human check if animal is found.
-                            item.harmony.flags.pnhCatMess.active = false;
+                            harmony.flags.pnhCatMess.active = false;
                             break;
                         }
                     }
                     if (!hpmMatch) {  // don't run the human check if animal is found.
                         for (var hpmix=0; hpmix<NON_HOSPITAL_PART_MATCH.length; hpmix++) {
                             if (testName.indexOf(NON_HOSPITAL_PART_MATCH[hpmix]) > -1) {
-                                item.harmony.flags.changeHMC2Office.active = true;
+                                harmony.flags.changeHMC2Office.active = true;
                                 if (currentWL.changeHMC2Office) {
-                                    item.harmony.flags.changeHMC2Office.WLactive = false;
+                                    harmony.flags.changeHMC2Office.WLactive = false;
                                 } else {
                                     lockOK = false;
                                 }
                                 hpmMatch = true;
-                                item.harmony.flags.pnhCatMess.active = false;
+                                harmony.flags.pnhCatMess.active = false;
                                 break;
                             }
                         }
                     }
                     if (!hpmMatch) {
-                        item.harmony.flags.changeHMC2OfficeButton.active = true;
+                        harmony.flags.changeHMC2OfficeButton.active = true;
                     }
                 }
             }  // END HOSPITAL/Name check
 
             // School vs. Name filter
-            if (item.harmony.newCategories.indexOf("SCHOOL") > -1 && SCHOOL_PART_MATCH.length>0) {
+            if (harmony.newCategories.indexOf("SCHOOL") > -1 && SCHOOL_PART_MATCH.length>0) {
                 if (containsAny(testNameWords,SCHOOL_FULL_MATCH)) {
-                    item.harmony.flags.changeSchool2Offices.active = true;
+                    harmony.flags.changeSchool2Offices.active = true;
                     if (currentWL.changeSchool2Offices) {
-                        item.harmony.flags.changeSchool2Offices.WLactive = false;
+                        harmony.flags.changeSchool2Offices.WLactive = false;
                     } else {
                         lockOK = false;
                     }
-                    item.harmony.flags.pnhCatMess.active = false;
+                    harmony.flags.pnhCatMess.active = false;
                 } else {
                     for (var schix=0; schix<SCHOOL_PART_MATCH.length; schix++) {
                         if (testName.indexOf(SCHOOL_PART_MATCH[schix]) > -1) {
-                            item.harmony.flags.changeSchool2Offices.active = true;
+                            harmony.flags.changeSchool2Offices.active = true;
                             if (currentWL.changeSchool2Offices) {
-                                item.harmony.flags.changeSchool2Offices.WLactive = false;
+                                harmony.flags.changeSchool2Offices.WLactive = false;
                             } else {
                                 lockOK = false;
                             }
-                            item.harmony.flags.pnhCatMess.active = false;
+                            harmony.flags.pnhCatMess.active = false;
                             break;
                         }
                     }
@@ -3032,17 +3075,17 @@
 
             // Some cats don't need PNH messages and url/phone severities
             if ( 'BRIDGE|FOREST_GROVE|DAM|TUNNEL|CEMETERY'.split('|').indexOf(item.attributes.categories[0]) > -1 ) {
-                item.harmony.flags.NewPlaceSubmit.active = false;
-                item.harmony.flags.phoneMissing.severity = 0;
-                item.harmony.flags.phoneMissing.WLactive = false;
-                item.harmony.flags.urlMissing.severity = 0;
-                item.harmony.flags.urlMissing.WLactive = false;
+                harmony.flags.NewPlaceSubmit.active = false;
+                harmony.flags.phoneMissing.severity = 0;
+                harmony.flags.phoneMissing.WLactive = false;
+                harmony.flags.urlMissing.severity = 0;
+                harmony.flags.urlMissing.WLactive = false;
             }
             // Some cats don't need PNH messages and url/phone messages
             if ( 'ISLAND|SEA_LAKE_POOL|RIVER_STREAM|CANAL'.split('|').indexOf(item.attributes.categories[0]) > -1 ) {
-                item.harmony.flags.NewPlaceSubmit.active = false;
-                item.harmony.flags.phoneMissing.active = false;
-                item.harmony.flags.urlMissing.active = false;
+                harmony.flags.NewPlaceSubmit.active = false;
+                harmony.flags.phoneMissing.active = false;
+                harmony.flags.urlMissing.active = false;
             }
 
 
@@ -3056,31 +3099,31 @@
             // ****************************************************************************************************
             var transCatIndex = categories.indexOf('TRANSPORTATION');
             var lookoutCatIndex = categories.indexOf('SCENIC_LOOKOUT_VIEWPOINT');
-            if ( /rest area/i.test(item.harmony.newName) || /rest stop/i.test(item.harmony.newName) || /service plaza/i.test(item.harmony.newName) ||
+            if ( /rest area/i.test(harmony.newName) || /rest stop/i.test(harmony.newName) || /service plaza/i.test(harmony.newName) ||
                 ( transCatIndex > -1 && lookoutCatIndex > -1 ) ) {
                 if ( transCatIndex < 2 && transCatIndex > -1 && lookoutCatIndex < 2 && lookoutCatIndex > -1 ) {
 
                     if ( item.isPoint() ) {  // needs to be area
-                        item.harmony.flags.areaNotPoint.active = true;
+                        harmony.flags.areaNotPoint.active = true;
                     }
-                    item.harmony.flags.pointNotArea.active = false;
-                    item.harmony.flags.unmappedRegion.active = false;
+                    harmony.flags.pointNotArea.active = false;
+                    harmony.flags.unmappedRegion.active = false;
 
                     if ( categories.indexOf('GAS_STATION') > -1 ) {
-                        item.harmony.flags.restAreaGas.active = true;
+                        harmony.flags.restAreaGas.active = true;
                     }
 
-                    if ( item.harmony.newName.match(/^Rest Area.* \- /) === null ) {
-                        item.harmony.flags.restAreaName.active = true;
+                    if ( harmony.newName.match(/^Rest Area.* \- /) === null ) {
+                        harmony.flags.restAreaName.active = true;
                         if (currentWL.restAreaName) {
-                            item.harmony.flags.restAreaName.WLactive = false;
+                            harmony.flags.restAreaName.WLactive = false;
                         }
                     } else {
-                        item.harmony.newName = item.harmony.newName.replace(/Mile/i, 'mile');
+                        harmony.newName = harmony.newName.replace(/Mile/i, 'mile');
                         if (hpMode.harmFlag) {
-                            if (item.harmony.newName !== item.attributes.name) {
-                                actions.push(new UpdateObject(item, { name: item.harmony.newName }));
-                                item.harmony.fieldUpdateObject.name='#dfd';
+                            if (harmony.newName !== item.attributes.name) {
+                                actions.push(new UpdateObject(item, { name: harmony.newName }));
+                                harmony.updatedFields.name = true;
                                 phlogdev('Lower case "mile"');
                             } else {
                                 // The new name matches the original name, so the only change would have been to capitalize "Mile", which
@@ -3090,7 +3133,7 @@
                                     var action = actions[i];
                                     if (action.newAttributes.name) {
                                         actions.splice(i,1);
-                                        item.harmony.fieldUpdateObject.name='';
+                                        harmony.updatedFields.name = false;
                                         break;
                                     }
                                 }
@@ -3103,28 +3146,28 @@
                     bannButt2.placesWiki.active = false;
 
                     // missing address ok
-                    item.harmony.flags.streetMissing.active = false;
-                    item.harmony.flags.cityMissing.active = false;
-                    item.harmony.flags.hnMissing.active = false;
-                    item.harmony.flags.urlMissing.severity = 0;
-                    item.harmony.flags.phoneMissing.severity = 0;
+                    harmony.flags.streetMissing.active = false;
+                    harmony.flags.cityMissing.active = false;
+                    harmony.flags.hnMissing.active = false;
+                    harmony.flags.urlMissing.severity = 0;
+                    harmony.flags.phoneMissing.severity = 0;
                     //assembleBanner();
 
 
                 } else {
-                    item.harmony.flags.restAreaSpec.active = true;
+                    harmony.flags.restAreaSpec.active = true;
                     if (currentWL.restAreaName) {
-                        item.harmony.flags.restAreaSpec.WLactive = false;
+                        harmony.flags.restAreaSpec.WLactive = false;
                     } else {
-                        item.harmony.flags.pointNotArea.active = false;
+                        harmony.flags.pointNotArea.active = false;
                     }
                 }
             }
 
             // update Severity for banner messages
-            for (var bannKey in item.harmony.flags) {
-                if (item.harmony.flags.hasOwnProperty(bannKey) && item.harmony.flags[bannKey].active) {
-                    severityButt = Math.max(item.harmony.flags[bannKey].severity, severityButt);
+            for (var bannKey in harmony.flags) {
+                if (harmony.flags.hasOwnProperty(bannKey) && harmony.flags[bannKey].active) {
+                    severityButt = Math.max(harmony.flags[bannKey].severity, severityButt);
                 }
             }
 
@@ -3141,9 +3184,9 @@
                 levelToLock = defaultLock;
             }
             if (myPlace.psRegion === "SER") {
-                if (item.harmony.newCategories.indexOf("COLLEGE_UNIVERSITY") > -1 && item.harmony.newCategories.indexOf("PARKING_LOT") > -1) {
+                if (harmony.newCategories.indexOf("COLLEGE_UNIVERSITY") > -1 && harmony.newCategories.indexOf("PARKING_LOT") > -1) {
                     levelToLock = lockLevel4;
-                } else if ( item.isPoint() && item.harmony.newCategories.indexOf("COLLEGE_UNIVERSITY") > -1 && item.harmony.newCategories.indexOf("HOSPITAL_MEDICAL_CARE") === -1 ) {
+                } else if ( item.isPoint() && harmony.newCategories.indexOf("COLLEGE_UNIVERSITY") > -1 && harmony.newCategories.indexOf("HOSPITAL_MEDICAL_CARE") === -1 ) {
                     levelToLock = lockLevel4;
                 }
             }
@@ -3155,18 +3198,18 @@
                     if (hpMode.harmFlag) {
                         phlogdev("Venue locked!");
                         actions.push(new UpdateObject(item, { lockRank: levelToLock }));
-                        item.harmony.fieldUpdateObject.lockRank='#dfd';
+                        harmony.updatedFields.lockRank = true;
                     } else if (hpMode.hlFlag) {
                         hlLockFlag = true;
                     }
                 }
-                item.harmony.flags.placeLocked.active = true;
+                harmony.flags.placeLocked.active = true;
             }
 
             //IGN check
             if (!item.attributes.residential && item.attributes.updatedBy && W.model.users.get(item.attributes.updatedBy) &&
                 W.model.users.get(item.attributes.updatedBy).userName && W.model.users.get(item.attributes.updatedBy).userName.match(/^ign_/i) !== null) {
-                item.harmony.flags.ignEdited.active = true;
+                harmony.flags.ignEdited.active = true;
             }
 
             //waze_maint_bot check
@@ -3183,7 +3226,7 @@
             var re = new RegExp(botNamesAndIDs.join('|'),'i');
 
             if (!item.attributes.residential && updatedById && (re.test(updatedById.toString()) || (updatedByName && re.test(updatedByName))))  {
-                item.harmony.flags.wazeBot.active = true;
+                harmony.flags.wazeBot.active = true;
             }
 
             // RPP Locking option for R3+
@@ -3202,38 +3245,38 @@
                         }
                     }
                     RPPLockString += '</select>';
-                    item.harmony.flags.lockRPP.message = 'Current lock: '+ (parseInt(item.attributes.lockRank)+1) +'. '+RPPLockString+' ?';
-                    item.harmony.flags.lockRPP.active = true;
+                    harmony.flags.lockRPP.message = 'Current lock: '+ (parseInt(item.attributes.lockRank)+1) +'. '+RPPLockString+' ?';
+                    harmony.flags.lockRPP.active = true;
                 }
             }
 
             // Turn off unnecessary buttons
             if (item.attributes.categories.indexOf('PHARMACY') > -1) {
-                item.harmony.flags.addPharm.active = false;
+                harmony.flags.addPharm.active = false;
             }
             if (item.attributes.categories.indexOf('SUPERMARKET_GROCERY') > -1) {
-                item.harmony.flags.addSuper.active = false;
+                harmony.flags.addSuper.active = false;
             }
 
             // Final alerts for non-severe locations
             if ( !item.attributes.residential && severityButt < 3) {
-                var nameShortSpace = item.harmony.newName.toUpperCase().replace(/[^A-Z \']/g, '');
+                var nameShortSpace = harmony.newName.toUpperCase().replace(/[^A-Z \']/g, '');
                 if ( nameShortSpace.indexOf("'S HOUSE") > -1 || nameShortSpace.indexOf("'S HOME") > -1 || nameShortSpace.indexOf("'S WORK") > -1) {
-                    if ( !containsAny(item.harmony.newCategories,['RESTAURANT','DESSERT','BAR']) && !PNHNameRegMatch ) {
-                        item.harmony.flags.resiTypeNameSoft.active = true;
+                    if ( !containsAny(harmony.newCategories,['RESTAURANT','DESSERT','BAR']) && !PNHNameRegMatch ) {
+                        harmony.flags.resiTypeNameSoft.active = true;
                     }
                 }
                 if ( ["HOME","MY HOME","HOUSE","MY HOUSE","PARENTS HOUSE","CASA","MI CASA","WORK","MY WORK","MY OFFICE","MOMS HOUSE","DADS HOUSE","MOM","DAD"].indexOf( nameShortSpace ) > -1 ) {
-                    item.harmony.flags.resiTypeName.active = true;
+                    harmony.flags.resiTypeName.active = true;
                     if (currentWL.resiTypeName) {
-                        item.harmony.flags.resiTypeName.WLactive = false;
+                        harmony.flags.resiTypeName.WLactive = false;
                     }
-                    item.harmony.flags.resiTypeNameSoft.active = false;
+                    harmony.flags.resiTypeNameSoft.active = false;
                 }
                 if ( item.attributes.description.toLowerCase().indexOf('google') > -1 || item.attributes.description.toLowerCase().indexOf('yelp') > -1 ) {
-                    item.harmony.flags.suspectDesc.active = true;
+                    harmony.flags.suspectDesc.active = true;
                     if (currentWL.suspectDesc) {
-                        item.harmony.flags.suspectDesc.WLactive = false;
+                        harmony.flags.suspectDesc.WLactive = false;
                     }
                 }
 
@@ -3255,21 +3298,21 @@
             if (hpMode.hlFlag) {
                 // get severities from the banners
                 severityButt = 0;
-                for ( var tempKey in item.harmony.flags ) {
-                    if ( item.harmony.flags.hasOwnProperty(tempKey) && item.harmony.flags[tempKey].hasOwnProperty('active') && item.harmony.flags[tempKey].active ) {  //  If the particular message is active
-                        if ( item.harmony.flags[tempKey].hasOwnProperty('WLactive') ) {
-                            if ( item.harmony.flags[tempKey].WLactive ) {  // If there's a WL option, enable it
-                                severityButt = Math.max(item.harmony.flags[tempKey].severity, severityButt);
-                                //                                if ( item.harmony.flags[tempKey].severity > 0) {
+                for ( var tempKey in harmony.flags ) {
+                    if ( harmony.flags.hasOwnProperty(tempKey) && harmony.flags[tempKey].hasOwnProperty('active') && harmony.flags[tempKey].active ) {  //  If the particular message is active
+                        if ( harmony.flags[tempKey].hasOwnProperty('WLactive') ) {
+                            if ( harmony.flags[tempKey].WLactive ) {  // If there's a WL option, enable it
+                                severityButt = Math.max(harmony.flags[tempKey].severity, severityButt);
+                                //                                if ( harmony.flags[tempKey].severity > 0) {
                                 //                                    phlogdev('Issue with '+item.attributes.name+': '+tempKey);
-                                //                                    phlogdev('Severity: '+item.harmony.flags[tempKey].severity);
+                                //                                    phlogdev('Severity: '+harmony.flags[tempKey].severity);
                                 //                                }
                             }
                         } else {
-                            severityButt = Math.max(item.harmony.flags[tempKey].severity, severityButt);
-                            //                            if ( item.harmony.flags[tempKey].severity > 0) {
+                            severityButt = Math.max(harmony.flags[tempKey].severity, severityButt);
+                            //                            if ( harmony.flags[tempKey].severity > 0) {
                             //                                phlogdev('Issue with '+item.attributes.name+': '+tempKey);
-                            //                                phlogdev('Severity: '+item.harmony.flags[tempKey].severity);
+                            //                                phlogdev('Severity: '+harmony.flags[tempKey].severity);
                             //                            }
                         }
                     }
@@ -3301,14 +3344,14 @@
             var dupeBannMess = '', dupesFound = false;
             dupeHNRangeList = [];
             bannDupl = {};
-            if (item.harmony.newName.replace(/[^A-Za-z0-9]/g,'').length > 0 && !item.attributes.residential) {
+            if (harmony.newName.replace(/[^A-Za-z0-9]/g,'').length > 0 && !item.attributes.residential) {
                 if ( isChecked("WMEPH-DisableDFZoom") ) {  // don't zoom and pan for results outside of FOV
-                    duplicateName = findNearbyDuplicate(item.harmony.newName, item.harmony.newAliases, item, false);
+                    duplicateName = findNearbyDuplicate(harmony.newName, harmony.newAliases, item, false);
                 } else {
-                    duplicateName = findNearbyDuplicate(item.harmony.newName, item.harmony.newAliases, item, true);
+                    duplicateName = findNearbyDuplicate(harmony.newName, harmony.newAliases, item, true);
                 }
                 if (duplicateName[1]) {
-                    item.harmony.flags.overlapping.active = true;
+                    harmony.flags.overlapping.active = true;
                 }
                 duplicateName = duplicateName[0];
                 if (duplicateName.length > 0) {
@@ -3316,7 +3359,7 @@
                         if (confirm('WMEPH: Dupefinder Error!\nClick OK to report this') ) {  // if the category doesn't translate, then pop an alert that will make a forum post to the thread
                             forumMsgInputs = {
                                 subject: 'WMEPH Bug report DupeID',
-                                message: 'Script version: ' + WMEPH_VERSION_LONG + devVersStr + '\nPermalink: ' + item.harmony.permalink + '\nPlace name: ' + item.attributes.name + '\nCountry: ' + addr.country.name + '\n--------\nDescribe the error:\nDupeID mismatch with dupeName list'
+                                message: 'Script version: ' + WMEPH_VERSION_LONG + devVersStr + '\nPermalink: ' + harmony.permalink + '\nPlace name: ' + item.attributes.name + '\nCountry: ' + addr.country.name + '\n--------\nDescribe the error:\nDupeID mismatch with dupeName list'
                             };
                             WMEPH_errorReport(forumMsgInputs);
                         }
@@ -3337,7 +3380,7 @@
                                     }
                                     currentWL.dupeWL.push(dID);  // WL the id for the duplicate venue
                                     //debug('4159 // About to call uniq() once inside of harmonizePlaceGo()');
-                                    currentWL.dupeWL = uniq(venueWhitelist[item.harmony.id].dupeWL);
+                                    currentWL.dupeWL = uniq(venueWhitelist[harmony.id].dupeWL);
                                     // Make an entry for the opposite item
                                     if (!venueWhitelist.hasOwnProperty(dID)) {  // If venue is NOT on WL, then add it.
                                         venueWhitelist[dID] = { dupeWL: [] };
@@ -3345,7 +3388,7 @@
                                     if (!venueWhitelist[dID].hasOwnProperty(wlKeyName)) {  // If dupeWL key is not in venue WL, then initialize it.
                                         venueWhitelist[dID][wlKeyName] = [];
                                     }
-                                    venueWhitelist[dID].dupeWL.push(item.harmony.id);  // WL the id for the duplicate venue
+                                    venueWhitelist[dID].dupeWL.push(harmony.id);  // WL the id for the duplicate venue
                                     //debug('4169 // About to call uniq() once inside of harmonizePlaceGo()');
                                     venueWhitelist[dID].dupeWL = uniq(venueWhitelist[dID].dupeWL);
                                     saveWL_LS(true);  // Save the WL to local storage
@@ -3355,7 +3398,7 @@
                                     harmonizePlaceGo(item,'harmonize');
                                 }
                             };
-                            if ( currentWL.hasOwnProperty('dupeWL') && venueWhitelist[item.harmony.id].dupeWL.indexOf(dupeIDList[ijx]) > -1 ) {  // if the dupe is on the whitelist then remove it from the banner
+                            if ( currentWL.hasOwnProperty('dupeWL') && venueWhitelist[harmony.id].dupeWL.indexOf(dupeIDList[ijx]) > -1 ) {  // if the dupe is on the whitelist then remove it from the banner
                                 bannDupl[dupeIDList[ijx]].active = false;
                             } else {  // Otherwise, activate the WL button
                                 bannDupl[dupeIDList[ijx]].WLactive = true;
@@ -3382,12 +3425,12 @@
                 // Examine either the median or the 8th index if length is >16
                 var arrayHNRatioCheckIX = Math.min(Math.round(arrayHNRatio.length/2), 8);
                 if (arrayHNRatio[arrayHNRatioCheckIX] > 1.4) {
-                    item.harmony.flags.HNRange.active = true;
+                    harmony.flags.HNRange.active = true;
                     if (currentWL.HNRange) {
-                        item.harmony.flags.HNRange.WLactive = false;
+                        harmony.flags.HNRange.WLactive = false;
                     }
                     if (arrayHNRatio[arrayHNRatioCheckIX] > 5) {
-                        item.harmony.flags.HNRange.severity = 3;
+                        harmony.flags.HNRange.severity = 3;
                     }
                     // show stats if HN out of range
                     phlogdev('HNs: ' + dupeHNRangeListSorted);
@@ -3397,20 +3440,20 @@
                 }
             }
 
-            item.harmony.executeMultiAction(actions);
+            harmony.executeMultiAction(actions);
 
             if (hpMode.harmFlag) {
                 // Update icons to reflect current WME place services
-                item.harmony.updateServicesChecks(item, bannServ);
+                harmony.updateServicesChecks(item, bannServ);
             }
 
             // Turn on website linking button if there is a url
             if (newURL !== null && newURL !== "") {
-                item.harmony.flags.PlaceWebsite.active = true;
+                harmony.flags.PlaceWebsite.active = true;
             }
 
             // Highlight the changes made
-            highlightChangedFields(item.harmony.fieldUpdateObject);
+            harmony.highlightChangedFields();
 
             // Assemble the banners
             assembleBanner();  // Make Messaging banners
@@ -3419,134 +3462,7 @@
 
         // **** vvv Function definitions vvv ****
 
-        // highlight changed fields
-        function highlightChangedFields(fieldUpdateObject) {
-            debug('-- highlightChangedFields(fieldUpdateObject) called --');
 
-            //var panelFields = {};
-            getPanelFields();
-            var tab1HL = false;
-            var tab2HL = false;
-            //phlogdev(fieldUpdateObject);
-            if (fieldUpdateObject.name) {
-                $('.form-control')[panelFields.name].style="background-color:"+fieldUpdateObject.name;
-                tab1HL = true;
-            }
-            if (fieldUpdateObject.aliases) {
-                var field = $('.alias-name')[0];
-                if (field) field.style="background-color:"+fieldUpdateObject.aliases;
-                tab1HL = true;
-            }
-            if (fieldUpdateObject.categories) {
-                $('.select2-choices')[0].style="background-color:"+fieldUpdateObject.categories;
-                tab1HL = true;
-            }
-            if (fieldUpdateObject.brand) {
-                $('.form-control')[panelFields.brand].style="background-color:"+fieldUpdateObject.brand;
-                tab1HL = true;
-            }
-            if (fieldUpdateObject.description) {
-                $('.form-control')[panelFields.description].style="background-color:"+fieldUpdateObject.description;
-                tab1HL = true;
-            }
-            if (fieldUpdateObject.lockRank) {
-                $('.form-control')[panelFields.lockRank].style="background-color:"+fieldUpdateObject.lockRank;
-                tab1HL = true;
-            }
-            if (fieldUpdateObject.address) {
-                $('.address-edit')[0].style='background-color:'+fieldUpdateObject.address;
-                tab1HL = true;
-            }
-
-            if (fieldUpdateObject.url) {
-                $('.form-control')[panelFields.url].style="background-color:"+fieldUpdateObject.url;
-                tab2HL = true;
-            }
-            if (fieldUpdateObject.phone) {
-                $('.form-control')[panelFields.phone].style="background-color:"+fieldUpdateObject.phone;
-                tab2HL = true;
-            }
-            if (fieldUpdateObject.openingHours) {
-                $('.opening-hours')[0].style="background-color:#dfd";
-                tab2HL = true;
-            }
-            if (fieldUpdateObject.services.VALLET_SERVICE) {
-                $('.service-checkbox')[0].style="background-color:#dfd";
-                tab2HL = true;
-            }
-            if (fieldUpdateObject.services.DRIVETHROUGH) {
-                $('.service-checkbox')[1].style="background-color:#dfd";
-                tab2HL = true;
-            }
-            if (fieldUpdateObject.services.WI_FI) {
-                $('.service-checkbox')[2].style="background-color:#dfd";
-                tab2HL = true;
-            }
-            if (fieldUpdateObject.services.RESTROOMS) {
-                $('.service-checkbox')[3].style="background-color:#dfd";
-                tab2HL = true;
-            }
-            if (fieldUpdateObject.services.CREDIT_CARDS) {
-                $('.service-checkbox')[4].style="background-color:#dfd";
-                tab2HL = true;
-            }
-            if (fieldUpdateObject.services.RESERVATIONS) {
-                $('.service-checkbox')[5].style="background-color:#dfd";
-                tab2HL = true;
-            }
-            if (fieldUpdateObject.services.OUTSIDE_SEATING) {
-                $('.service-checkbox')[6].style="background-color:#dfd";
-                tab2HL = true;
-            }
-            if (fieldUpdateObject.services.AIR_CONDITIONING) {
-                $('.service-checkbox')[7].style="background-color:#dfd";
-                tab2HL = true;
-            }
-            if (fieldUpdateObject.services.PARKING_FOR_CUSTOMERS) {
-                $('.service-checkbox')[8].style="background-color:#dfd";
-                tab2HL = true;
-            }
-            if (fieldUpdateObject.services.DELIVERIES) {
-                $('.service-checkbox')[9].style="background-color:#dfd";
-                tab2HL = true;
-            }
-            if (fieldUpdateObject.services.TAKE_AWAY) {
-                $('.service-checkbox')[10].style="background-color:#dfd";
-                tab2HL = true;
-            }
-            if (fieldUpdateObject.services.WHEELCHAIR_ACCESSIBLE) {
-                $('.service-checkbox')[11].style="background-color:#dfd";
-                tab2HL = true;
-            }
-
-            var placeNavTabs = $('.nav');
-            var panelFieldsList;
-            var pfix, pfa;
-            for (pfix=0; pfix<placeNavTabs.length; pfix++) {
-                pfa = placeNavTabs[pfix].innerHTML;
-                if (pfa.indexOf('landmark-edit') > -1) {
-                    panelFieldsList = placeNavTabs[pfix].children;
-                    panelFields.navTabsIX = pfix;
-                    break;
-                }
-            }
-            for (pfix=0; pfix<panelFieldsList.length; pfix++) {
-                pfa = panelFieldsList[pfix].innerHTML;
-                if (pfa.indexOf('landmark-edit-general') > -1) {
-                    panelFields.navTabGeneral = pfix;
-                }
-                if (pfa.indexOf('landmark-edit-more') > -1) {
-                    panelFields.navTabMore = pfix;
-                }
-            }
-
-            if (tab1HL) {
-                $('.nav')[panelFields.navTabsIX].children[panelFields.navTabGeneral].children[0].style='background-color:#dfd';
-            }
-            if (tab2HL) {
-                $('.nav')[panelFields.navTabsIX].children[panelFields.navTabMore].children[0].style='background-color:#dfd';
-            }
-        }
 
 
         // Set up banner messages
@@ -3586,8 +3502,8 @@
                 $dupeHeaderDiv.addClass('banner-row-severity-' + maxSeverity);
             }
 
-            for ( tempKey in item.harmony.flags ) {
-                var bannerRowInfo = item.harmony.flags[tempKey];
+            for ( tempKey in harmony.flags ) {
+                var bannerRowInfo = harmony.flags[tempKey];
                 if ( bannerRowInfo && bannerRowInfo.active ) {  //  If the particular message is active
                     var $rowDiv = $('<div class="banner-row">').addClass('banner-row-severity-' + bannerRowInfo.severity).appendTo($bannerDiv);
                     if (bannerRowInfo.verticalLayout) $rowDiv.css('flex-direction', 'column');
@@ -3649,7 +3565,7 @@
                                 .click(function(e) {
                                 var bannerKey = $(this).data('banner-key');
                                 var wlKey = $(this).data('wl-key');
-                                var bannerRowInfo = item.harmony.flags[bannerKey];
+                                var bannerRowInfo = harmony.flags[bannerKey];
                                 bannerRowInfo.WLaction();
                                 currentWL[wlKey] = true;
                                 harmonizePlaceGo(item, 'harmonize');
@@ -3707,18 +3623,18 @@
             if ( dupesFound ) {
                 setupButtons(bannDupl);
             }
-            // Setup item.harmony.flags onclicks
-            //setupButtons(item.harmony.flags);
+            // Setup harmony.flags onclicks
+            //setupButtons(harmony.flags);
             // Setup bannServ onclicks
             //setupButtons(bannServ);
             // Setup bannButt2 onclicks
             setupButtons(bannButt2);
 
-            // if (item.harmony.flags.noHours.active) {
+            // if (harmony.flags.noHours.active) {
             //     var button = document.getElementById('WMEPH_noHoursA2');
             //     if (button !== null) {
             //         button.onclick = function() {
-            //             item.harmony.flags.noHours.action2();
+            //             harmony.flags.noHours.action2();
             //             assembleBanner();
             //         };
             //     }
@@ -4041,7 +3957,7 @@
                 if (W.selectionManager.selectedItems.length === 1) {
                     if (W.selectionManager.selectedItems[0].model.type === "venue") {
                         displayRunButton();
-                        getPanelFields();
+                        //getPanelFields();
                         if (localStorage.getItem("WMEPH-EnableCloneMode" + devVersStr) === '1') {
                             displayCloneButton();
                         }
@@ -4054,52 +3970,7 @@
             }
         }
 
-        // Find field divs
-        function getPanelFields() {
-            //debug('-- getPanelFields() called --');
-            var panelFieldsList = $('.form-control'), pfa;
-            for (var pfix=0; pfix<panelFieldsList.length; pfix++) {
-                pfa = panelFieldsList[pfix].name;
-                if (pfa === 'name') {
-                    panelFields.name = pfix;
-                }
-                if (pfa === 'lockRank') {
-                    panelFields.lockRank = pfix;
-                }
-                if (pfa === 'description') {
-                    panelFields.description = pfix;
-                }
-                if (pfa === 'url') {
-                    panelFields.url = pfix;
-                }
-                if (pfa === 'phone') {
-                    panelFields.phone = pfix;
-                }
-                if (pfa === 'brand') {
-                    panelFields.brand = pfix;
-                }
-            }
-            var placeNavTabs = $('.nav');
-            for (pfix=0; pfix<placeNavTabs.length; pfix++) {
-                pfa = placeNavTabs[pfix].innerHTML;
-                if (pfa.indexOf('landmark-edit') > -1) {
-                    panelFieldsList = placeNavTabs[pfix].children;
-                    panelFields.navTabsIX = pfix;
-                    break;
-                }
-            }
-            for (pfix=0; pfix<panelFieldsList.length; pfix++) {
-                pfa = panelFieldsList[pfix].innerHTML;
-                if (pfa.indexOf('landmark-edit-general') > -1) {
-                    panelFields.navTabGeneral = pfix;
-                }
-                if (pfa.indexOf('landmark-edit-more') > -1) {
-                    panelFields.navTabMore = pfix;
-                }
-            }
 
-
-        }
 
         // Catch PLs and reloads that have a place selected already and limit attempts to about 10 seconds
         numAttempts = 0;
@@ -4863,7 +4734,7 @@
                 var newItem = W.selectionManager.selectedItems[0].model;
                 if (newItem.type === "venue") {
                     displayRunButton();
-                    getPanelFields();
+                    //getPanelFields();
                     if ( isChecked("WMEPH-EnableCloneMode") ) {
                         displayCloneButton();
                     }
@@ -5083,7 +4954,7 @@
                 street: street
             };
             updateAddress(item, newAddr);
-            item.harmony.flags.streetMissing.active = false;
+            harmony.flags.streetMissing.active = false;
             assembleBanner();
         }
 
@@ -5920,7 +5791,7 @@
                                 //phlogdev("Found place in " + (t1 - t0).toFixed(3) + " milliseconds.");
                             }
                             matchPNHRegionData.push(PNHMatchData);
-                            item.harmony.flags.placeMatched.active = true;
+                            harmony.flags.placeMatched.active = true;
                             if (!allowMultiMatch) {
                                 return matchPNHRegionData;  // Return the PNH data string array to the main script
                             }
@@ -5937,10 +5808,10 @@
             }  // END loop through PNH places
 
             // If NO (name & region) match was found:
-            if (item.harmony.flags.placeMatched.active) {
+            if (harmony.flags.placeMatched.active) {
                 return matchPNHRegionData;
             } else if (PNHNameMatch) {  // if a name match was found but not for region, prod the user to get it approved
-                item.harmony.flags.ApprovalSubmit.active = true;
+                harmony.flags.ApprovalSubmit.active = true;
                 //phlogdev("PNH data exists but not approved for this area.");
                 if (IS_DEV_USER) {
                     t1 = performance.now();  // log search time
@@ -5948,7 +5819,7 @@
                 }
                 return ["ApprovalNeeded", PNHNameTemp, PNHOrderNum];
             } else {  // if no match was found, suggest adding the place to the sheet if it's a chain
-                item.harmony.flags.NewPlaceSubmit.active = true;
+                harmony.flags.NewPlaceSubmit.active = true;
                 //phlogdev("Place not found in the " + country + " PNH list.");
                 if (IS_DEV_USER) {
                     t1 = performance.now();  // log search time
@@ -6176,6 +6047,7 @@
     var _googleLinkHash = {};
     function modifyGoogleLinks() {
         //debug('- modifyGoogleLinks() called -');
+        var events;
         // MutationObserver will be notified when Google place ID divs are added, then update them to be hyperlinks.
         var observer = new MutationObserver(function(mutations) {
             mutations.forEach(function(mutation) {
@@ -6713,1328 +6585,1405 @@
 
     // BEHOLD! The Harmony class!
     function Harmony(item) {
-        //debug('Creating a new Harmony object!');
-        //debug('item.CLASS_NAME === ' + item.CLASS_NAME);
+        //console.log('Creating a new Harmony object!');
+        if (!item) {
+            throw new TypeError("Harmony.constructor requires more than 0 arguments");
+        }
         if (item.CLASS_NAME !== "Waze.Feature.Vector.Landmark") {
-            throw "Invalid object passed to Harmony constructor!";
+            var _type = item.CLASS_NAME || typeof(item);
+            _type.replace(/(?:^|\s|\.)[A-Za-z]/g, function(m) { return m.toUpperCase(); });
+            throw new TypeError('Wrong type for parameter "item" of Harmony.constructor: Expected Waze.Feature.Vector.Landmark, but got ' + _type);
         }
 
         ///////////////////////
         // Harmony Variables //
         ///////////////////////
-        
+
         // Verified variables
         var _this = this;
         this.item = item;
         this.CLASS_NAME = "WMEPH.Harmony";
+        item.attributes.harmony = this;
         this.id = this.item.attributes.id;
         this.permalink = $("a.permalink").attr("href").replace(/&(?:layers|(?:mapUpdateRequest|mapProblem|update_requests|problems|venue)Filter)=[^&]+/g,"");
         this.actions = [];
 
-//        // Unverified variables
-//        this.newName = "";
-//        this.optAlias = "";
-//        this.newAliases = [];
-//        this.newCategories = [];
-//        this.newPlaceURL = "";
-//        this.fieldUpdateObject = {  name: false, aliases: false, categories: false, brand: false, description: false, lockRank: false, address: false, url: false, phone: false, openingHours: false,
-//                                    services: { VALLET_SERVICE: false, DRIVETHROUGH: false, WI_FI: false, RESTROOMS: false, CREDIT_CARDS: false, RESERVATIONS: false,
-//                                                OUTSIDE_SEATING: false, AIR_CONDITIONING: false, PARKING_FOR_CUSTOMERS: false, DELIVERIES: false, TAKE_AWAY: false, WHEELCHAIR_ACCESSIBLE: false } };
-//
-//        /////////////////////
-//        // Harmony Methods //
-//        /////////////////////
-//
-//        // NOTE: I'm not sure why if(actions) push, else .add(action);
-//        function addUpdateAction(updateObj) {
-//            var act = new UpdateObject(this.item, updateObj);
-//            if (this.actions) {
-//                this.actions.push(act);
-//            } else {
-//                W.model.actionManager.add(act);
-//            }
-//        }
-//
-//        // Add array of actions to a MultiAction to be executed at once (counts as one edit for redo/undo purposes)
-//        function executeMultiAction() {
-//            if(this.actions.length > 0) {
-//                var acts = new MultiAction();
-//                acts.setModel(W.model);
-//                this.actions.forEach(function(act) {
-//                    acts.doSubAction(act);
-//                });
-//                W.model.actionManager.add(acts);
-//            }
-//        }
-//
-//        // Normalize url
-//        function normalizeUrl() {
-//            var str = this.item.attributes.url;
-//            if (!str || str.trim().length === 0) {
-//                return false;
-//            }
-//
-// /*
-//            if ((!s || s.trim().length === 0) && !skipBannerActivate) {  // Notify that url is missing and provide web search to find website and gather data (provided for all editors)
-//                bannButt.cases.urlMissing.active = true;
-//                if (currentWL.urlWL) {
-//                    bannButt.cases.urlMissing.WLactive = false;
-//                    bannButt.cases.urlMissing.severity = 0;
-//                }
-//                bannButt.cases.webSearch.active = true;  // Activate websearch button
-//                return s;
-//            }
-//*/
-//
-//            str = str.replace(/ \(.*/g, "");  // remove anything with parentheses after it
-//            str = str.replace(/ /g, "");  // remove any spaces
-//            str = str.replace(/^http:\/\//, "");  // remove http://
-//            str = str.replace(/^(?:https?:\/\/)?[^\/]+/i, function(txt) { return txt.toLowerCase(); });
-//            str = str.replace(/\/(?:(?:pages\/)?(?:welcome|default)\.aspx|index\.(?:html?|php))$/i, ""); // Remove unneeded terms
-//            str = str.replace(/\/$/i, "");  // remove final slash
-//
-//            if (!str || str.trim().length === 0) {
-//                return false;
-//            }
-//
-//            this.item.attributes.url = str;
-//            return true;
-//        }
-//
-//        // NOTE: Not refactored yet.
-//        // Normalize phone number
-//        function normalizePhone(s, outputFormat, returnType) {
-//            if ( !s && returnType === 'existing' ) {
-//                this.flags.phoneMissing.active = true;
-//                if (currentWL.phoneWL) {
-//                    this.flags.phoneMissing.WLactive = false;
-//                }
-//                return s;
-//            }
-//            s = s.replace(/(\d{3}.*)(?:extension|ext|xt|x).*/i, '$1');
-//            var s1 = s.replace(/\D/g, '');  // remove non-number characters
-//            var m = s1.match(/^1?([2-9]\d{2})([2-9]\d{2})(\d{4})$/);  // Ignore leading 1, and also don't allow area code or exchange to start with 0 or 1 (***USA/CAN specific)
-//            if (!m) {  // then try alphanumeric matching
-//                if (s) { s = s.toUpperCase(); }
-//                s1 = s.replace(/[^0-9A-Z]/g, '').replace(/^\D*(\d)/,'$1').replace(/^1?([2-9][0-9]{2}[0-9A-Z]{7,10})/g,'$1');
-//                s1 = replaceLetters(s1);
-//                m = s1.match(/^([2-9]\d{2})([2-9]\d{2})(\d{4})(?:.{0,3})$/);  // Ignore leading 1, and also don't allow area code or exchange to start with 0 or 1 (***USA/CAN specific)
-//                if (!m) {
-//                    if ( returnType === 'inputted' ) {
-//                        return 'badPhone';
-//                    } else {
-//                        this.flags.phoneInvalid.active = true;
-//                        return s;
-//                    }
-//                } else {
-//                    return String.plFormat(outputFormat, m[1], m[2], m[3]);
-//                }
-//            } else {
-//                return String.plFormat(outputFormat, m[1], m[2], m[3]);
-//            }
-//        }
-//
-//        // NOTE: Not refactored yet.
-//        // Get services checkbox status
-//        function getServicesChecks() {
-//            //debug('-- getServicesChecks() called --');
-//            var servArrayCheck = [];
-//            for (var wsix=0; wsix<WME_SERVICES.length; wsix++) {
-//                if (isChecked("service-checkbox-" + WME_SERVICES[wsix])) {
-//                    servArrayCheck[wsix] = true;
-//                } else {
-//                    servArrayCheck[wsix] = false;
-//                }
-//            }
-//            return servArrayCheck;
-//        }
-//
-//        // Sets the given service as checked.
-//        function setServiceChecked(servBtn, checked) {
-//            var servID = WME_SERVICES[servBtn.servIDIndex];
-//            var checkboxChecked = isChecked("service-checkbox-"+servID);
-//            var toggle = typeof checked === 'undefined';
-//            var noAdd = false;
-//            checked = (toggle) ? !servBtn.checked : checked;
-//            if (checkboxChecked === servBtn.checked && checkboxChecked !== checked) {
-//                servBtn.checked = checked;
-//                var services;
-//                if (this.actions) {
-//                    for (var i = 0, len = this.actions.length; i < len; i++) {
-//                        var existingAction = this.actions[i];
-//                        if (existingAction.newAttributes && existingAction.newAttributes.services) {
-//                            services = existingAction.newAttributes.services;
-//                        }
-//                    }
-//                }
-//                if (!services) {
-//                    services = this.item.attributes.services.slice(0);
-//                } else {
-//                    noAdd = services.indexOf(servID) > -1;
-//                }
-//                if (checked) {
-//                    services.push(servID);
-//                } else {
-//                    var index = services.indexOf(servID);
-//                    if (index > -1) {
-//                        services.splice(index, 1);
-//                    }
-//                }
-//                if (!noAdd) {
-//                    //item.harmony.addUpdateAction({services:services}, actions);
-//                    this.addUpdateAction({services:services});
-//                    this.fieldUpdateObject.services[servID] = '#dfd';
-//                }
-//            }
-//            this.updateServiceChecks();
-//            if (!toggle) servBtn.active = checked;
-//        }
-//
-//        // NOTE: Something about this doesn't seem right...
-//        // Updates all of the icons to match the place's checkboxes.
-//        function updateServicesChecks() {
-//            var servArrayCheck = getServicesChecks(), wsix=0;
-//            for (var keys in this.services) {
-//                if (this.services.hasOwnProperty(keys)) {
-//                    this.services[keys].checked = servArrayCheck[wsix];  // reset all icons to match any checked changes
-//                    this.services[keys].active = this.services[keys].active || servArrayCheck[wsix];  // display any manually checked non-active icons
-//                    wsix++;
-//                }
-//            }
-//            // Highlight 24/7 button if hours are set that way, and add button for all places
-//            if ( this.item.attributes.openingHours.length === 1 && this.item.attributes.openingHours[0].days.length === 7 && this.item.attributes.openingHours[0].fromHour === '00:00' && this.item.attributes.openingHours[0].toHour ==='00:00' ) {
-//                this.services.add247.checked = true;
-//            }
-//            this.services.add247.active = true;
-//        }
-//
-//
-//        ///////////////////////
-//        // Harmony Use-cases //   Formerly bannButt
-//        ///////////////////////
-//        this.flags = {
-//            // Simple flags that are NOT whitelistable.
-//            hnDashRemoved:          { active: false, severity: 0, message: "Dash removed from house number; verify." },
-//            fullAddressInference:   { active: false, severity: 3, message: 'Missing address was inferred from nearby segments. Verify the address and run script again.' },
-//            nameMissing:            { active: false, severity: 3, message: 'Name is missing.' },
-//            hoursOverlap:           { active: false, severity: 3, message: 'Overlapping hours of operation. Place might not save.' },
-//            restAreaGas:            { active: false, severity: 3, message: 'Gas stations at Rest Areas should be separate area places.' },
-//            gasUnbranded:           { active: false, severity: 3, message: '"Unbranded" should not be used for the station brand. Change to correct brand or use the blank entry at the top of the brand list.' },
-//            pnhCatMess:             { active: false, severity: -1, message: 'WMEPH: placeholder (please report this error if you see this message)' },
-//            bankType1:              { active: false, severity: 3, message: 'Clarify the type of bank: the name has ATM but the primary category is Offices' },
-//            checkDescription:       { active: false, severity: 2, message: 'Description field already contained info; PNH description was added in front of existing. Check for inconsistency or duplicate info.' },
-//            overlapping:            { active: false, severity: 2, message: 'Place points are stacked up.' },
-//            catPostOffice:          { active: false, severity: 2, message: 'If this is not a USPS post office, change the category, as "Post Office" is only used for USPS locations.' },
-//            ignEdited:              { active: false, severity: 2, message: 'Last edited by an IGN editor' },
-//            wazeBot:                { active: false, severity: 2, message: 'Edited last by an automated process. Please verify information is correct.' },
-//            mismatch247:            { active: false, severity: 2, message: 'Hours of operation listed as open 24hrs but not for all 7 days.' },
-//            phoneInvalid:           { active: false, severity: 2, message: 'Phone invalid.' },
-//
-//            // Simple flags that ARE whitelistable.
-//            parentCategory:         { active: false, severity: 2, message: 'This parent category is usually not mapped in this region.',
-//                WLactive: true, WLmessage: '', WLtitle: 'Whitelist parent Category', WLkey: 'parentCategory',
-//                WLaction: function() { whitelistAction(_this.id, this.WLkey); }
-//            },
-//            suspectDesc:            { active: false, severity: 2, message: 'Description field might contain copyrighted info.', 
-//                WLactive: true, WLmessage: '', WLtitle: 'Whitelist description', WLkey: 'suspectDesc',
-//                WLaction: function() { whitelistAction(_this.id, this.WLkey); }
-//            },
-//            resiTypeName:           { active: false, severity: 2, message: 'The place name suggests a residential place or personalized place of work.  Please verify.',
-//                WLactive: true, WLmessage: '', WLtitle: 'Whitelist Residential-type name', WLkey: 'resiTypeName',
-//                WLaction: function() { whitelistAction(_this.id, this.WLkey); }
-//            },
-//            areaNotPointMid:        { active: false, severity: 2, message: 'This category is usually an area place, but can be a point in some cases. Verify if point is appropriate.',
-//                WLactive: true, WLmessage: '', WLtitle: 'Whitelist area (not point)', WLkey: 'areaNotPoint',
-//                WLaction: function() { whitelistAction(_this.id, this.WLkey); }
-//            },
-//            pointNotAreaMid:        { active: false, severity: 2, message: 'This category is usually a point place, but can be a area in some cases. Verify if area is appropriate.',
-//                WLactive: true, WLmessage: '', WLtitle: 'Whitelist point (not area)', WLkey: 'pointNotArea',
-//                WLaction: function() { whitelistAction(_this.id, this.WLkey); }
-//            },
-//            plaNameMissing:         { active: false, severity: 1, message: 'Name is missing.',
-//                WLactive: true, WLmessage: '', WLtitle: 'Whitelist missing name', WLkey: 'plaNameMissing',
-//                WLaction: function() { whitelistAction(_this.id, this.WLkey); }
-//            },
-//            unmappedRegion:         { active: false, severity: 3, message: 'This category is usually not mapped in this region.',
-//                WLactive: true, WLmessage: '', WLtitle: 'Whitelist unmapped category', WLkey: 'unmappedRegion',
-//                WLaction: function() { whitelistAction(_this.id, this.WLkey); }
-//            },
-//            restAreaName:           { active: false, severity: 3, message: 'Rest area name is out of spec. Use the Rest Area wiki button below to view formats.',
-//                WLactive: true, WLmessage: '', WLtitle: 'Whitelist rest area name', WLkey: 'restAreaName',
-//                WLaction: function() { whitelistAction(_this.id, this.WLkey); }
-//            },
-//            hnNonStandard:          { active: false, severity: 3, message: 'House number is non-standard.',
-//                WLactive: true, WLmessage: '', WLtitle: 'Whitelist non-standard HN', WLkey: 'hnNonStandard',
-//                WLaction: function() { whitelistAction(_this.id, this.WLkey); }
-//            },
-//            HNRange:                { active: false, severity: 2, message: 'House number seems out of range for the street name. Verify.', value: '',
-//                WLactive: true, WLmessage: '', WLtitle: 'Whitelist HN range', WLkey: 'HNRange',
-//                WLaction: function() { whitelistAction(_this.id, this.WLkey); }
-//            },
-//
-//            // Complex flags
-//            restAreaSpec: {  // if it appears to be a rest area
-//                active: false, severity: 3, message: "Is this a rest area?",
-//                buttons: [{
-//                    text: 'Yes',
-//                    title: 'Update with proper categories and services.',
-//                    action: function() {
-//                        var actions = [];
-//                        // update categories according to spec
-//                        _this.newCategories = insertAtIX(_this.newCategories,"TRANSPORTATION",0);  // Insert/move TRANSPORTATION category in the first position
-//                        _this.newCategories = insertAtIX(_this.newCategories,"SCENIC_LOOKOUT_VIEWPOINT",1);  // Insert/move SCENIC_LOOKOUT_VIEWPOINT category in the 2nd position
-//
-//                        actions.push(new UpdateObject(this.item, { categories: _this.newCategories }));
-//                        _this.fieldUpdateObject.categories='#dfd';
-//                        // make it 24/7
-//                        actions.push(new UpdateObject(this.item, { openingHours: [{days: [1,2,3,4,5,6,0], fromHour: "00:00", toHour: "00:00"}] }));
-//                        _this.fieldUpdateObject.openingHours='#dfd';
-//                        //highlightChangedFields(fieldUpdateObject,hpMode);
-//
-//                        _this.services.add247.checked = true;
-//                        _this.services.addParking.actionOn(actions);  // add parking service
-//                        _this.services.addWheelchair.actionOn(actions);  // add parking service
-//                        _this.flags.restAreaSpec.active = false;  // reset the display flag
-//
-//                        executeMultiAction(actions);
-//
-//                        _disableHighlightTest = true;
-//                        harmonizePlaceGo(this.item,'harmonize');
-//                        _disableHighlightTest = false;
-//                        applyHighlightsTest(this.item);
-//                    }
-//                }],
-//                WLactive: true, WLmessage: '', WLtitle: 'Whitelist place', WLkey: 'restAreaSpec',
-//                WLaction: function() {
-//                    whitelistAction(_this.id, this.WLkey);
-//                }
-//            },
-//
-//            gasMismatch: {  // if the gas brand and name don't match
-//                active: false, severity: 3, message: "Gas name and brand don't match.  Move brand to name?",
-//                buttons: [{
-//                    text: 'Yes',
-//                    title: 'Change the primary name to the brand and make the current name the alt-name.',
-//                    action: function() {
-//                        _this.newAliases = insertAtIX(_this.newAliases, _this.newName, 0);
-//                        for (var naix=0; naix<_this.newAliases.length; naix++) {
-//                            _this.newAliases[naix] = toTitleCase(_this.newAliases[naix]);
-//                        }
-//                        _this.newName = this.item.attributes.brand;
-//                        _this.newAliases = removeSFAliases(_this.newName, _this.newAliases);
-//                        W.model.actionManager.add(new UpdateObject(this.item, { name: _this.newName, aliases: _this.newAliases }));
-//                        _this.fieldUpdateObject.name='#dfd';
-//                        _this.fieldUpdateObject.aliases='#dfd';
-//                        highlightChangedFields(_this.fieldUpdateObject);
-//                        _this.flags.gasMismatch.active = false;  // reset the display flag
-//                    }
-//                }],
-//                WLactive: true, WLmessage: '', WLtitle: 'Whitelist gas brand mismatch', WLkey: 'gasMismatch',
-//                WLaction: function() {
-//                    whitelistAction(_this.id, this.WLkey);
-//                }
-//            },
-//
-//
-//            gasMkPrim: {  // no WL
-//                active: false, severity: 3,  message: "Gas Station is not the primary category",
-//                buttons: [{
-//                    text: 'Fix',
-//                    title: 'Make the Gas Station category the primary category.',
-//                    action: function() {
-//                        _this.newCategories = insertAtIX(_this.newCategories,"GAS_STATION",0);  // Insert/move Gas category in the first position
-//                        var actions = [];
-//                        actions.push(new UpdateObject(this.item, { categories: _this.newCategories }));
-//                        _this.fieldUpdateObject.categories='#dfd';
-//                        _this.flags.gasMkPrim.active = false;  // reset the display flag
-//                        executeMultiAction(actions);
-//                        harmonizePlaceGo(this.item,'harmonize');
-//                    }
-//                }]
-//            },
-//
-//            hotelMkPrim: {
-//                active: false, severity: 3, message: "Hotel category is not first",
-//                buttons: [{
-//                    text: 'Fix',
-//                    title: 'Make the Hotel category the primary category.',
-//                    action: function() {
-//                        _this.newCategories = insertAtIX(_this.newCategories,"HOTEL",0);  // Insert/move Hotel category in the first position
-//                        var actions = [];
-//                        actions.push(new UpdateObject(this.item, { categories: _this.newCategories }));
-//                        _this.fieldUpdateObject.categories='#dfd';
-//                        _this.flags.hotelMkPrim.active = false;  // reset the display flag
-//                        executeMultiAction(actions);
-//                        harmonizePlaceGo(this.item,'harmonize');
-//                    }
-//                }],
-//                WLactive: true, WLmessage: '', WLtitle: 'Whitelist hotel as secondary category', WLkey: 'hotelMkPrim',
-//                WLaction: function() {
-//                    whitelistAction(_this.id, this.WLkey);
-//                }
-//            },
-//            changeHMC2OfficeButton: {
-//                active: false, severity: -1, message: '',
-//                buttons: [{
-//                    text: 'Change to Offices',
-//                    action: function() { _this.flags.changeHMC2Office.buttons[0].action(); }
-//                }]
-//            },
-//
-//            changeHMC2Office: {
-//                active: false, severity: 3, message: "Keywords suggest this location may not be a hospital or urgent care location.",
-//                buttons: [{
-//                    text: 'Change to Offices',
-//                    title: 'Change to Office Category',
-//                    action: function() {
-//                        _this.newCategories[_this.newCategories.indexOf('HOSPITAL_MEDICAL_CARE')] = "OFFICES";
-//                        var actions = [];
-//                        actions.push(new UpdateObject(this.item, { categories: _this.newCategories }));
-//                        _this.fieldUpdateObject.categories='#dfd';
-//                        _this.flags.changeHMC2Office.active = false;  // reset the display flag
-//                        executeMultiAction(actions);
-//                        harmonizePlaceGo(this.item,'harmonize');  // Rerun the script to update fields and lock
-//                    }
-//                }],
-//                WLactive: true, WLmessage: '', WLtitle: 'Whitelist Hospital category', WLkey: 'changeHMC2Office',
-//                WLaction: function() {
-//                    whitelistAction(_this.id, this.WLkey);
-//                }
-//            },
-//
-//            changeHMC2PetVet: {
-//                active: false, severity: 3, message: "This looks like it should be a Pet/Veterinarian category. Change?",
-//                buttons: [{
-//                    text: 'Yes',
-//                    title: 'Change to Pet/Veterinarian Category',
-//                    action: function() {
-//                        _this.newCategories[_this.newCategories.indexOf('HOSPITAL_MEDICAL_CARE')] = "PET_STORE_VETERINARIAN_SERVICES";
-//                        var actions = [];
-//                        actions.push(new UpdateObject(this.item, { categories: _this.newCategories }));
-//                        _this.fieldUpdateObject.categories='#dfd';
-//                        this.cases.changeHMC2PetVet.active = false;  // reset the display flag
-//                        executeMultiAction(actions);
-//                        harmonizePlaceGo(this.item,'harmonize');  // Rerun the script to update fields and lock
-//                    }
-//                }],
-//                WLactive: true, WLmessage: '', WLtitle: 'Whitelist PetVet category', WLkey: 'changeHMC2PetVet',
-//                WLaction: function() {
-//                    whitelistAction(_this.id, this.WLkey);
-//                }
-//            },
-//
-//            changeSchool2Offices: {
-//                active: false, severity: 3, message: "This doesn't look like it should be School category.",
-//                buttons: [{
-//                    text: 'Change to Office',
-//                    title: 'Change to Offices Category',
-//                    action: function() {
-//                        _this.newCategories[_this.newCategories.indexOf('SCHOOL')] = "OFFICES";
-//                        var actions = [];
-//                        actions.push(new UpdateObject(this.item, { categories: _this.newCategories }));
-//                        _this.fieldUpdateObject.categories='#dfd';
-//                        this.cases.changeSchool2Offices.active = false;  // reset the display flag
-//                        executeMultiAction(actions);
-//                        harmonizePlaceGo(this.item,'harmonize');  // Rerun the script to update fields and lock
-//                    }
-//                }],
-//                WLactive: true, WLmessage: '', WLtitle: 'Whitelist School category', WLkey: 'changeSchool2Offices',
-//                WLaction: function() {
-//                    whitelistAction(_this.id, this.WLkey);
-//                }
-//            },
-//
-//            pointNotArea: {  // Area 2 Point button
-//                active: false, severity: 3, message: "This category should be a point place.",
-//                buttons: [{
-//                    text: 'Change to point',
-//                    title: 'Change to point place',
-//                    action: function() {
-//                        // If a stop point is set, use it for the point, else use Centroid
-//                        var newGeometry;
-//                        if (this.item.attributes.entryExitPoints.length > 0) {
-//                            newGeometry = this.item.attributes.entryExitPoints[0].point;
-//                        } else {
-//                            newGeometry = this.item.geometry.getCentroid();
-//                        }
-//                        updateFeatureGeometry(this.item, newGeometry);
-//                        this.cases.pointNotArea.active = false;
-//                    }
-//                }],
-//                WLactive: true, WLmessage: '', WLtitle: 'Whitelist point (not area)', WLkey: 'pointNotArea',
-//                WLaction: function() {
-//                    whitelistAction(_this.id, this.WLkey);
-//                }
-//            },
-//
-//            areaNotPoint: {  // Point 2 Area button
-//                active: false, severity: 3, message: "This category should be an area place.",
-//                buttons: [{
-//                    text: 'Change to area',
-//                    title: 'Change to Area',
-//                    action: function() {
-//                        // If a stop point is set, use it for the point, else use Centroid
-//                        updateFeatureGeometry(this.item, this.item.getPolygonGeometry());
-//                        this.cases.areaNotPoint.active = false;
-//                    }
-//                }],
-//                WLactive: true, WLmessage: '', WLtitle: 'Whitelist area (not point)', WLkey: 'areaNotPoint',
-//                WLaction: function() {
-//                    whitelistAction(_this.id, this.WLkey);
-//                }
-//            },
-//
-//            hnMissing: {
-//                active: false, severity: 3, message: 'No HN',
-//                input: '<input type="text" id="WMEPH-HNAdd" autocomplete="off" class="wmeph-input-box">',
-//                badInput: false,
-//                buttons: [{
-//                    text: "Add",
-//                    title: 'Add HN to place',
-//                    action: function() {
-//                        var newHN = $('#WMEPH-HNAdd').val();
-//                        newHN = newHN.replace(/ +/g, '');
-//                        phlogdev(newHN);
-//                        var hnTemp = newHN.replace(/[^\d]/g, '');
-//                        var hnTempDash = newHN.replace(/[^\d-]/g, '');
-//                        if (hnTemp > 0 && hnTemp < 1000000) {
-//                            W.model.actionManager.add(new UpdateObject(this.item, { houseNumber: hnTempDash }));
-//                            _this.fieldUpdateObject.address='#dfd';
-//                            this.cases.hnMissing.active = false;
-//                            this.badInput = false;
-//                        } else {
-//                            this.badInput = true;
-//                        }
-//
-//                    }
-//                }],
-//                WLactive: true, WLmessage: '', WLtitle: 'Whitelist empty HN', WLkey: 'HNWL',
-//                WLaction: function() {
-//                    whitelistAction(_this.id, this.WLkey);
-//                }
-//            },
-//
-//            streetMissing: {  // no WL
-//                active: false, severity: 3, message: 'No street',
-//                input: '<div class="ui-widget"><input id="WMEPH_missingStreet" class="ui-autocomplete-input"></div>',
-//                buttons: [{
-//                    text: 'Add',
-//                    id: "WMEPH_addStreetBtn",
-//                    title: "Add street to place",
-//                    action: function() {
-//                        addStreetToVenue();
-//                    }
-//                }]
-//            },
-//
-//            cityMissing: {  // no WL
-//                active: false, severity: 3, message: 'No city',
-//                buttons: [{
-//                    text: 'Edit address',
-//                    title: "Edit address to add city.",
-//                    action: function() {
-//                        $('.nav-tabs a[href="#landmark-edit-general"]').trigger('click');
-//                        $('.waze-icon-edit').trigger('click');
-//                        if (isChecked('.empty-city')) {
-//                            $('.empty-city').trigger('click');
-//                        }
-//                        $('.city-name').focus();
-//                    }
-//                }]
-//            },
-//
-//            bankBranch: {  // no WL
-//                active: false, severity: 1, message: 'Is this a bank branch office?',
-//                buttons: [{
-//                    text: 'Yes',
-//                    title: 'Is this a bank branch?',
-//                    action: function() {
-//                        _this.newCategories = ['BANK_FINANCIAL','ATM'];  // Change to bank and atm cats
-//                        _this.newName = _this.newName.replace(/[\- (]*ATM[\- )]*/g, ' ').replace(/^ /g,'').replace(/ $/g,'');     // strip ATM from name if present
-//                        W.model.actionManager.add(new UpdateObject(this.item, { name: _this.newName, categories: _this.newCategories }));
-//                        _this.fieldUpdateObject.name='#dfd';
-//                        _this.fieldUpdateObject.categories='#dfd';
-//                        highlightChangedFields(_this.fieldUpdateObject);
-//                        this.cases.bankCorporate.active = false;   // reset the bank Branch display flag
-//                        this.cases.bankBranch.active = false;   // reset the bank Branch display flag
-//                        this.cases.standaloneATM.active = false;   // reset the standalone ATM display flag
-//                        this.cases.bankType1.active = false;  // remove bank type warning
-//                    }
-//                }]
-//            },
-//
-//            standaloneATM: { // no WL
-//                active: false, severity: 2, message: 'Or is this a standalone ATM?',
-//                buttons: [{
-//                    text: 'Yes',
-//                    title: 'Is this a standalone ATM with no bank branch?',
-//                    action: function() {
-//                        if (_this.newName.indexOf('ATM') === -1) {
-//                            _this.newName = _this.newName + ' ATM';
-//                        }
-//                        _this.newCategories = ['ATM'];  // Change to ATM only
-//                        W.model.actionManager.add(new UpdateObject(this.item, { name: _this.newName, categories: _this.newCategories }));
-//                        _this.fieldUpdateObject.name='#dfd';
-//                        _this.fieldUpdateObject.categories='#dfd';
-//                        highlightChangedFields(_this.fieldUpdateObject);
-//                        this.cases.bankCorporate.active = false;   // reset the bank Branch display flag
-//                        this.cases.bankBranch.active = false;   // reset the bank Branch display flag
-//                        this.cases.standaloneATM.active = false;   // reset the standalone ATM display flag
-//                        this.cases.bankType1.active = false;  // remove bank type warning
-//                    }
-//                }]
-//            },
-//
-//            bankCorporate: {  // no WL
-//                active: false, severity: 1, message: "Or is this the bank's corporate offices?",
-//                buttons: [{
-//                    text: "Yes",
-//                    title: "Is this the bank's corporate offices?",
-//                    action: function() {
-//                        _this.newCategories = ["OFFICES"];  // Change to offices category
-//                        _this.newName = _this.newName.replace(/[\- (]*atm[\- )]*/ig, ' ').replace(/^ /g,'').replace(/ $/g,'').replace(/ {2,}/g,' ');     // strip ATM from name if present
-//                        W.model.actionManager.add(new UpdateObject(this.item, { name: _this.newName + ' - Corporate Offices', categories: _this.newCategories }));
-//                        _this.fieldUpdateObject.name='#dfd';
-//                        _this.fieldUpdateObject.categories='#dfd';
-//                        highlightChangedFields(_this.fieldUpdateObject);
-//                        this.cases.bankCorporate.active = false;   // reset the bank Branch display flag
-//                        this.cases.bankBranch.active = false;   // reset the bank Branch display flag
-//                        this.cases.standaloneATM.active = false;   // reset the standalone ATM display flag
-//                        this.cases.bankType1.active = false;  // remove bank type warning
-//                    }
-//                }]
-//            },
-//
-//            longURL: {
-//                active: false, severity: 1, message: 'Existing URL doesn\'t match the suggested PNH URL. Use the Place Website button below to verify. If existing URL is invalid:',
-//                buttons: [{
-//                    text: "Use PNH URL",
-//                    title: "Change URL to the PNH standard",
-//                    action: function() {
-//                        if (tempPNHURL !== '') {
-//                            W.model.actionManager.add(new UpdateObject(this.item, { url: tempPNHURL }));
-//                            _this.fieldUpdateObject.url='#dfd';
-//                            highlightChangedFields(_this.fieldUpdateObject);
-//                            this.cases.longURL.active = false;
-//                            updateURL = true;
-//                        } else {
-//                            if (confirm('WMEPH: URL Matching Error!\nClick OK to report this error') ) {  // if the category doesn't translate, then pop an alert that will make a forum post to the thread
-//                                forumMsgInputs = {
-//                                    subject: 'WMEPH URL comparison Error report',
-//                                    message: 'Error report: URL comparison failed for "' + this.item.attributes.name + '"\nPermalink: ' + item.harmony.permalink
-//                                };
-//                                WMEPH_errorReport(forumMsgInputs);
-//                            }
-//                        }
-//                    }
-//                }],
-//                WLactive: true, WLmessage: '', WLtitle: 'Whitelist existing URL', WLkey: 'longURL',
-//                WLaction: function() {
-//                    whitelistAction(_this.id, this.WLkey);
-//                }
-//            },
-//
-//            gasNoBrand: {
-//                active: false, severity: 1, message: 'Verify that gas station has no brand.',
-//                WLactive: true, WLmessage: '', WLtitle: 'Whitelist no gas brand', WLkey: 'gasNoBrand',
-//                WLaction: function() {
-//                    whitelistAction(_this.id, this.WLkey);
-//                }
-//            },
-//
-//            subFuel: {
-//                active: false, severity: 1, message: 'Make sure this place is for the gas station itself and not the main store building.  Otherwise undo and check the categories.',
-//                WLactive: true, WLmessage: '', WLtitle: 'Whitelist no gas brand', WLkey: 'subFuel',
-//                WLaction: function() {
-//                    whitelistAction(_this.id, this.WLkey);
-//                }
-//            },
-//
-//            areaNotPointLow: {
-//                active: false, severity: 1, message: 'This category is usually an area place, but can be a point in some cases. Verify if point is appropriate.',
-//                WLactive: true, WLmessage: '', WLtitle: 'Whitelist area (not point)', WLkey: 'areaNotPoint',
-//                WLaction: function() {
-//                    whitelistAction(_this.id, this.WLkey);
-//                }
-//            },
-//
-//            pointNotAreaLow: {
-//                active: false, severity: 1, message: 'This category is usually a point place, but can be a area in some cases. Verify if area is appropriate.',
-//                WLactive: true, WLmessage: '', WLtitle: 'Whitelist point (not area)', WLkey: 'pointNotArea',
-//                WLaction: function() {
-//                    whitelistAction(_this.id, this.WLkey);
-//                }
-//            },
-//
-//            formatUSPS: {  // ### needs WL or not?
-//                active: false, severity: 1, message: 'Localize the post office according to this region\'s standards for USPS locations (e.g., "USPS - Tampa")'
-//            },
-//
-//            catHotel: {
-//                active: false, severity: 1, message: 'Check hotel website for any name localization (e.g. Hilton - Tampa Airport)',
-//                WLactive: true, WLmessage: '', WLtitle: 'Whitelist hotel localization', WLkey: 'hotelLocWL',
-//                WLaction: function() {
-//                    whitelistAction(_this.id, this.WLkey);
-//                }
-//            },
-//
-//            localizedName: {
-//                active: false, severity: 1, message: 'Place needs localization information',
-//                WLactive: true, WLmessage: '', WLtitle: 'Whitelist localization', WLkey: 'localizedName',
-//                WLaction: function() {
-//                    whitelistAction(_this.id, this.WLkey);
-//                }
-//            },
-//
-//            specCaseMessage: {  // no WL
-//                active: false, severity: 1, message: 'WMEPH: placeholder (please report this error if you see this message)'
-//            },
-//
-//            specCaseMessageLow: {  // no WL
-//                active: false, severity: 0, message: 'WMEPH: placeholder (please report this error if you see this message)'
-//            },
-//
-//            extProviderMissing: {
-//                active: false, severity: 3, message: 'No external provider link(s)',
-//                WLactive: true, WLmessage: '', WLtitle: 'Whitelist missing external provider', WLkey: 'extProviderMissing',
-//                WLaction: function() {
-//                    whitelistAction(_this.id, this.WLkey);
-//                }
-//            },
-//
-//            urlMissing: {
-//                active: false, severity: 1, message: 'No URL',
-//                input: '<input type="text" id="WMEPH-UrlAdd" autocomplete="off" class="wmeph-input-box">',
-//                badInput: false,
-//                buttons: [{
-//                    text: "Add",
-//                    title: 'Add URL to place',
-//                    action: function() {
-//                        var newUrlValue = $('#WMEPH-UrlAdd').val();
-//                        var newUrl = this.normalizeURL(newUrlValue, true);
-//                        if ((!newUrl || newUrl.trim().length === 0) || newUrl === 'badURL') {
-//                            this.badInput = true;
-//                        } else {
-//                            phlogdev(newUrl);
-//                            W.model.actionManager.add(new UpdateObject(this.item, { url: newUrl }));
-//                            _this.fieldUpdateObject.url='#dfd';
-//                            this.cases.urlMissing.active = false;
-//                            this.cases.PlaceWebsite.active = true;
-//                            this.badInput = false;
-//                        }
-//                    }
-//                }],
-//                WLactive: true, WLmessage: '', WLtitle: 'Whitelist empty URL', WLkey: 'urlWL',
-//                WLaction: function() {
-//                    whitelistAction(_this.id, this.WLkey);
-//                }
-//            },
-//
-//            phoneMissing: {
-//                active: false, severity: 1, message: 'No Ph#',
-//                input: '<input type="text" id="WMEPH-PhoneAdd" autocomplete="off" class="wmeph-input-box">',
-//                badInput: false,
-//                buttons: [{
-//                    text: "Add",
-//                    title: 'Add phone to place',
-//                    action: function() {
-//                        var newPhoneVal = $('#WMEPH-PhoneAdd').val();
-//                        var newPhone = normalizePhone(newPhoneVal, outputFormat, 'inputted');
-//                        if (newPhone === 'badPhone') {
-//                            this.badInput = true;
-//                        } else {
-//                            this.badInput = false;
-//                            phlogdev(newPhone);
-//                            if (myCountry2L === "US" || myCountry2L === "CA") {
-//                                if (newPhone !== null && newPhone.match(/[2-9]\d{2}/) !== null) {
-//                                    var areaCode = newPhone.match(/[2-9]\d{2}/)[0];
-//                                    if ( areaCodeList.indexOf(areaCode) === -1 ) {
-//                                        this.cases.badAreaCode.active = true;
-//                                        if (currentWL.aCodeWL) {
-//                                            this.cases.badAreaCode.WLactive = false;
-//                                        }
-//                                    }
-//                                }
-//                            }
-//                            W.model.actionManager.add(new UpdateObject(this.item, { phone: newPhone }));
-//                            _this.fieldUpdateObject.phone='#dfd';
-//                            this.cases.phoneMissing.active = false;
-//                        }
-//                    }
-//                }],
-//                WLactive: true, WLmessage: '', WLtitle: 'Whitelist empty phone', WLkey: 'phoneWL',
-//                WLaction: function() {
-//                    whitelistAction(_this.id, this.WLkey);
-//                }
-//            },
-//
-//            badAreaCode: {
-//                active: false, severity: 1, message: '<span class="wmeph-label">Area Code mismatch</span>',
-//                WLactive: true, WLmessage: '', WLtitle: 'Whitelist the area code', WLkey: 'aCodeWL',
-//                WLaction: function() {
-//                    whitelistAction(_this.id, this.WLkey);
-//                }
-//            },
-//
-//            noHours: {
-//                active: false, severity: 1, message: 'No hours',
-//                input: '<input type="textarea" value="Paste Hours Here" id="WMEPH-HoursPaste" autocomplete="off" class="wmeph-input-box">',
-//                buttons: [
-//                    {
-//                        text: '<span class="fa fa-plus"></span>',
-//                        title: 'Add pasted hours to existing',
-//                        action: function() {
-//                            var pasteHours = $('#WMEPH-HoursPaste').val();
-//                            phlogdev(pasteHours);
-//                            $('.nav-tabs a[href="#landmark-edit-more-info"]').tab('show');
-//                            pasteHours = pasteHours + ',' + getOpeningHours(this.item).join(',');
-//                            var hoursObjectArray = parseHours(pasteHours);
-//                            if (hoursObjectArray !== false) {
-//                                phlogdev(hoursObjectArray);
-//                                W.model.actionManager.add(new UpdateObject(this.item, { openingHours: hoursObjectArray }));
-//                                _this.fieldUpdateObject.openingHours='#dfd';
-//                                highlightChangedFields(_this.fieldUpdateObject);
-//                                this.cases.noHours.severity = 0;
-//                                this.cases.noHours.WLactive = false;
-//                                this.cases.noHours.message = 'Hours';
-//                                this.cases.noHours.input = '<input type="text" value="Paste Hours Here" id="WMEPH-HoursPaste" class="wmeph-input-box">';
-//                            } else {
-//                                phlog('Can\'t parse those hours');
-//                                this.cases.noHours.severity = 1;
-//                                this.cases.noHours.WLactive = true;
-//                                this.cases.noHours.input = '<input type="text" value="Can\'t parse, try again" id="WMEPH-HoursPaste" class="wmeph-input-box">';
-//                            }
-//                        }
-//                    },
-//                    {
-//                        text: '<span class="fa fa-refresh"></span>',
-//                        title: 'Replace existing hours with pasted hours',
-//                        id: 'WMEPH_noHours_replace',
-//                        action: function() {
-//                            var pasteHours = $('#WMEPH-HoursPaste').val();
-//                            phlogdev(pasteHours);
-//                            $('.nav-tabs a[href="#landmark-edit-more-info"]').tab('show');
-//                            var hoursObjectArray = parseHours(pasteHours);
-//                            if (hoursObjectArray !== false) {
-//                                phlogdev(hoursObjectArray);
-//                                this.item.attributes.openingHours.push.apply(this.item.attributes.openingHours, hoursObjectArray);
-//                                W.model.actionManager.add(new UpdateObject(this.item, { openingHours: hoursObjectArray }));
-//                                _this.fieldUpdateObject.openingHours='#dfd';
-//                                highlightChangedFields(_this.fieldUpdateObject);
-//                                this.cases.noHours.severity = 0;
-//                                this.cases.noHours.WLactive = false;
-//                                this.cases.noHours.message = 'Hours';
-//                                this.cases.noHours.input = '<input type="text" value="Paste Hours Here" id="WMEPH-HoursPaste" class="wmeph-input-box">';
-//                            } else {
-//                                phlog('Can\'t parse those hours');
-//                                this.cases.noHours.severity = 1;
-//                                this.cases.noHours.WLactive = true;
-//                                this.cases.noHours.input = '<input type="text" value="Can\'t parse, try again" id="WMEPH-HoursPaste" class="wmeph-input-box">';
-//                            }
-//
-//                        }
-//                    }
-//                ],
-//                WLactive: true, WLmessage: '', WLtitle: 'Whitelist no Hours', WLkey: 'noHours',
-//                WLaction: function() {
-//                    whitelistAction(_this.id, this.WLkey);
-//                }
-//            },
-//
-//            resiTypeNameSoft: {  // no WL
-//                active: false, severity: 0, message: 'The place name suggests a residential place or personalized place of work.  Please verify.'
-//            },
-//
-//            localURL: {  // no WL
-//                active: false, severity: 0, message: 'Some locations for this business have localized URLs, while others use the primary corporate site. Check if a local URL applies to this location.'
-//            },
-//
-//            babiesRUs: {  // no WL
-//                active: false, severity: 0, message: 'If there is a Toys R Us at this location, make it the primary name and Babies R Us the alt name and rerun the script.'
-//            },
-//
-//            lockRPP: {    // no WL
-//                active: false, severity: 0, message: 'Lock this residential point?',
-//                buttons: [{
-//                    text: "Lock",
-//                    title: 'Lock the residential point',
-//                    action: function() {
-//                        var RPPlevelToLock = $("#RPPLockLevel :selected").val() || defaultLock + 1;
-//                        phlogdev('RPPlevelToLock: '+ RPPlevelToLock);
-//
-//                        RPPlevelToLock = RPPlevelToLock -1 ;
-//                        W.model.actionManager.add(new UpdateObject(this.item, { lockRank: RPPlevelToLock }));
-//                        // no field highlight here
-//                        this.cases.lockRPP.message = 'Current lock: '+ (parseInt(this.item.attributes.lockRank)+1) +'. '+RPPLockString+' ?';
-//                    }
-//                }]
-//            },
-//
-//            addAlias: {    // no WL
-//                active: false, severity: 0, message: "Is " + _this.optAlias + " at this location?",
-//                buttons: [{
-//                    text: "Yes",
-//                    title: 'Add ' + _this.optAlias,
-//                    action: function() {
-//                        _this.newAliases = insertAtIX(_this.newAliases,_this.optAlias,0);
-//                        if (specCases.indexOf('altName2Desc') > -1 &&  this.item.attributes.description.toUpperCase().indexOf(_this.optAlias.toUpperCase()) === -1 ) {
-//                            newDescripion = _this.optAlias + '\n' + newDescripion;
-//                            W.model.actionManager.add(new UpdateObject(this.item, { description: newDescripion }));
-//                            _this.fieldUpdateObject.description='#dfd';
-//                            highlightChangedFields(_this.fieldUpdateObject);
-//                        }
-//                        _this.newAliases = removeSFAliases(_this.newName, _this.newAliases);
-//                        W.model.actionManager.add(new UpdateObject(this.item, { aliases: _this.newAliases }));
-//                        _this.fieldUpdateObject.aliases='#dfd';
-//                        highlightChangedFields(_this.fieldUpdateObject);
-//                        this.cases.addAlias.active = false;  // reset the display flag
-//                    }
-//                }]
-//            },
-//
-//            addCat2: {   // no WL
-//                active: false, severity: 0, message: "Is there a " + _this.newCategories[0] + " at this location?",
-//                buttons: [{
-//                    text: "Yes",
-//                    title: 'Add ' + _this.newCategories[0],
-//                    action: function() {
-//                        _this.newCategories.push.apply(_this.newCategories,altCategories);
-//                        W.model.actionManager.add(new UpdateObject(this.item, { categories: _this.newCategories }));
-//                        _this.fieldUpdateObject.categories='#dfd';
-//                        highlightChangedFields(_this.fieldUpdateObject);
-//                        this.cases.addCat2.active = false;  // reset the display flag
-//                    }
-//                }]
-//            },
-//
-//            addPharm: {   // no WL
-//                active: false, severity: 0, message: "Is there a Pharmacy at this location?",
-//                buttons: [{
-//                    text: "Yes",
-//                    title: 'Add Pharmacy category',
-//                    action: function() {
-//                        _this.newCategories = insertAtIX(_this.newCategories, 'PHARMACY', 1);
-//                        W.model.actionManager.add(new UpdateObject(this.item, { categories: _this.newCategories }));
-//                        _this.fieldUpdateObject.categories='#dfd';
-//                        highlightChangedFields(_this.fieldUpdateObject);
-//                        this.cases.addPharm.active = false;  // reset the display flag
-//                    }
-//                }]
-//            },
-//
-//            addSuper: {   // no WL
-//                active: false, severity: 0, message: "Does this location have a supermarket?",
-//                buttons: [{
-//                    text: "Yes",
-//                    title: 'Add Supermarket category',
-//                    action: function() {
-//                        _this.newCategories = insertAtIX(_this.newCategories, 'SUPERMARKET_GROCERY', 1);
-//                        W.model.actionManager.add(new UpdateObject(this.item, { categories: _this.newCategories }));
-//                        _this.fieldUpdateObject.categories='#dfd';
-//                        highlightChangedFields(_this.fieldUpdateObject);
-//                        this.cases.addSuper.active = false;  // reset the display flag
-//                    }
-//                }]
-//            },
-//
-//            appendAMPM: {   // no WL
-//                active: false, severity: 0, message: "Is there an ampm at this location?", id: "appendAMPM",
-//                buttons: [{
-//                    text: "Yes",
-//                    title: 'Add ampm to the place',
-//                    action: function() {
-//                        _this.newCategories = insertAtIX(_this.newCategories, 'CONVENIENCE_STORE', 1);
-//                        _this.newName = 'ARCO ampm';
-//                        newURL = 'ampm.com';
-//                        W.model.actionManager.add(new UpdateObject(this.item, { name: _this.newName, url: newURL, categories: _this.newCategories }));
-//                        _this.fieldUpdateObject.name='#dfd';
-//                        _this.fieldUpdateObject.url='#dfd';
-//                        _this.fieldUpdateObject.categories='#dfd';
-//                        highlightChangedFields(_this.fieldUpdateObject);
-//                        this.cases.appendAMPM.active = false;  // reset the display flag
-//                        this.cases.addConvStore.active = false;  // also reset the addConvStore display flag
-//                    }
-//                }]
-//            },
-//
-//            addATM: {    // no WL
-//                active: false, severity: 0, message: "ATM at location? ",
-//                buttons: [{
-//                    text: "Yes",
-//                    title: "Add the ATM category to this place",
-//                    action: function() {
-//                        _this.newCategories = insertAtIX(_this.newCategories,"ATM",1);  // Insert ATM category in the second position
-//                        W.model.actionManager.add(new UpdateObject(this.item, { categories: _this.newCategories }));
-//                        _this.fieldUpdateObject.categories='#dfd';
-//                        highlightChangedFields(_this.fieldUpdateObject);
-//                        this.cases.addATM.active = false;   // reset the display flag
-//                    }
-//                }]
-//            },
-//
-//            addConvStore: {  // no WL
-//                active: false, severity: 0, message: "Add convenience store category? ",
-//                buttons: [{
-//                    text: "Yes",
-//                    title: "Add the Convenience Store category to this place",
-//                    action: function() {
-//                        _this.newCategories = insertAtIX(_this.newCategories,"CONVENIENCE_STORE",1);  // Insert C.S. category in the second position
-//                        W.model.actionManager.add(new UpdateObject(this.item, { categories: _this.newCategories }));
-//                        _this.fieldUpdateObject.categories='#dfd';
-//                        highlightChangedFields(_this.fieldUpdateObject);
-//                        this.cases.addConvStore.active = false;   // reset the display flag
-//                    }
-//                }]
-//            },
-//
-//            isitUSPS: {  // no WL
-//                active: false, severity: 0, message: "Is this a USPS location? ",
-//                buttons: [{
-//                    text: "Yes",
-//                    title: "Is this a USPS location?",
-//                    action: function() {
-//                        _this.services.addAC.actionOn();
-//                        _this.services.addCreditCards.actionOn();
-//                        _this.services.addParking.actionOn();
-//                        _this.services.addDeliveries.actionOn();
-//                        _this.services.addWheelchair.actionOn();
-//                        W.model.actionManager.add(new UpdateObject(this.item, { url: "usps.com" }));
-//                        _this.fieldUpdateObject.url='#dfd';
-//                        highlightChangedFields(_this.fieldUpdateObject);
-//                        if (myPlace.psRegion === 'SER') {
-//                            W.model.actionManager.add(new UpdateObject(this.item, { aliases: ["United States Postal Service"] }));
-//                            _this.fieldUpdateObject.aliases='#dfd';
-//                            highlightChangedFields(_this.fieldUpdateObject);
-//                        }
-//                        this.cases.isitUSPS.active = false;
-//                    }
-//                }]
-//            },
-//
-//            STC: {    // no WL
-//                active: false, severity: 0, message: "Force Title Case: ",
-//                buttons: [{
-//                    text: "Yes",
-//                    title: "Force Title Case to InterNal CaPs",
-//                    action: function() {
-//                        _this.newName = toTitleCaseStrong(this.item.attributes.name, isPLA(this.item));  // Get the Strong Title Case name
-//                        if (_this.newName !== this.item.attributes.name) {  // if they are not equal
-//                            W.model.actionManager.add(new UpdateObject(this.item, { name: _this.newName }));
-//                            _this.fieldUpdateObject.name='#dfd';
-//                            highlightChangedFields(_this.fieldUpdateObject);
-//                        }
-//                        this.cases.STC.active = false;  // reset the display flag
-//                    }
-//                }]
-//            },
-//
-//            sfAliases: {
-//                active: false, severity: 0, message: 'Unnecessary aliases were removed.'
-//            },
-//
-//            placeMatched: {
-//                active: false, severity: 0, message: 'Place matched from PNH data.'
-//            },
-//
-//            placeLocked: {
-//                active: false, severity: 0, message: 'Place locked  <span class="fa fa-lock"></span>'
-//            },
-//
-//            PlaceWebsite: {
-//                active: false, severity: -1, message: "",
-//                buttons: [{
-//                    text: "Place Website",
-//                    title: "Direct link to place website", fullWidthButton: true,
-//                    action: function() {
-//                        var openPlaceWebsiteURL, linkProceed = true;
-//                        if (updateURL) {
-//                            if (/^https?:\/\//.test(newURL)) {
-//                                openPlaceWebsiteURL = newURL;
-//                            } else {
-//                                openPlaceWebsiteURL = 'http://' + newURL;
-//                            }
-//                            // replace WME url with storefinder URLs if they are in the PNH data
-//                            if (customStoreFinder) {
-//                                openPlaceWebsiteURL = customStoreFinderURL;
-//                            } else if (customStoreFinderLocal) {
-//                                openPlaceWebsiteURL = customStoreFinderLocalURL;
-//                            }
-//                            // If the user has 'never' opened a localized store finder URL, then warn them (just once)
-//                            if (localStorage.getItem(SFURLWarning) === '0' && customStoreFinderLocal) {
-//                                linkProceed = false;
-//                                if (confirm('***Localized store finder sites often show multiple nearby results. Please make sure you pick the right location.\nClick OK to agree and continue.') ) {  // if the category doesn't translate, then pop an alert that will make a forum post to the thread
-//                                    localStorage.setItem(SFURLWarning, '1');  // prevent future warnings
-//                                    linkProceed = true;
-//                                }
-//                            }
-//                        } else {
-//                            if (/^https?:\/\//.test(this.item.attributes.url)) {
-//                                openPlaceWebsiteURL = this.item.attributes.url;
-//                            } else {
-//                                openPlaceWebsiteURL = 'http://' + this.item.attributes.url;
-//                            }
-//                        }
-//                        // open the link depending on new window setting
-//                        if (linkProceed) {
-//                            if ( isChecked("WMEPH-WebSearchNewTab") ) {
-//                                openWindow(openPlaceWebsiteURL);
-//                            } else {
-//                                window.open(openPlaceWebsiteURL, searchResultsWindowName, searchResultsWindowSpecs);
-//                            }
-//                        }
-//                    }
-//                }]
-//            },
-//
-//            webSearch: {
-//                active: false, severity: -1, message: "",
-//                buttons: [{
-//                    text: 'Web Search <span class="fa fa-search"></span>',
-//                    title: "Search the web for this place.  Do not copy info from 3rd party sources!",
-//                    fullWidthButton: true,
-//                    action: function() {
-//                        if (localStorage.getItem(GLinkWarning) !== '1') {
-//                            if (confirm('***Please DO NOT copy info from Google or third party sources.*** This link is to help you find the business webpage.\nClick OK to agree and continue.') ) {  // if the category doesn't translate, then pop an alert that will make a forum post to the thread
-//                                localStorage.setItem(GLinkWarning, '1');
-//                            }
-//                        }
-//                        if (localStorage.getItem(GLinkWarning) === '1') {
-//                            if ( isChecked("WMEPH-WebSearchNewTab") ) {
-//                                openWindow(buildGLink(_this.newName,addr,this.item.attributes.houseNumber));
-//                            } else {
-//                                window.open(buildGLink(_this.newName,addr,this.item.attributes.houseNumber), searchResultsWindowName, searchResultsWindowSpecs);
-//                            }
-//                        }
-//                    }
-//                }]
-//            },
-//
-//            NewPlaceSubmit: {
-//                active: false, severity: -1, id: 'wmeph-no-pnh-row', message: "No PNH match. If it's a chain: ",
-//                buttons: [{
-//                    text: "Submit new chain data",
-//                    title: "Submit info for a new chain through the linked form",
-//                    fullWidthButton: true,
-//                    action: function() {
-//                        window.open(_this.newPlaceURL);
-//                    }
-//                }]
-//            },
-//
-//            ApprovalSubmit: {
-//                active: false, severity: -1, message: "PNH data exists but is not approved for this region: ", verticalLayout: true,
-//                buttons: [{
-//                    text: "Request approval",
-//                    title: "Request region/country approval of this place",
-//                    action: function() {
-//                        if ( PMUserList.hasOwnProperty(myPlace.psRegion) && PMUserList[myPlace.psRegion].approvalActive ) {
-//                            var forumPMInputs = {
-//                                subject: 'PNH approval for "' + PNHNameTemp + '"',
-//                                message: ['Please approve "' + PNHNameTemp + '" for the ' + myPlace.psRegion + ' region.  Thanks',
-//                                          ' ',
-//                                          'PNH order number: ' + PNHOrderNum,
-//                                          ' ',
-//                                          'Example Permalink: ' + _this.permalink,
-//                                          ' ',
-//                                          'PNH Link: ' + USAPNHMasURL].join('\n'),
-//                                preview: 'Preview', attach_sig: 'on'
-//                            };
-//                            forumPMInputs['address_list[u]['+PMUserList[myPlace.psRegion].modID+']'] = 'to';  // Sends a PM to the regional mod instead of the submission form
-//                            WMEPH_newForumPost('https://www.waze.com/forum/ucp.php?i=pm&mode=compose', forumPMInputs);
-//                        } else {
-//                            window.open(approveRegionURL);
-//                        }
-//                    }
-//                }]
-//            }
-//        };  // END bannButt definitions
-//
-//        
-//        //////////////////////
-//        // Harmony Services //   Formerly bannServ
-//        //////////////////////
-//
-//        // active: false until activated in the script
-//        // checked: whether the service is already set on the place. Determines grey vs white icon color
-//        // icon: button icon name
-//        // value: button text  (Not used for Icons, keep as backup
-//        // title: tooltip text
-//        // action: The action that happens if the button is pressed
-//
-//        this.services = {
-//            addValet: {  // append optional Alias to the name
-//                active: false, checked: false, icon: "serv-valet", w2hratio: 50/50, value: "Valet", title: 'Valet', servIDIndex: 0,
-//                action: function(actions, checked) {
-//                    _this.setServiceChecked(this, checked);
-//                },
-//                pnhOverride: false,
-//                actionOn: function(actions) {
-//                    this.action(actions, true);
-//                },
-//                actionOff: function(actions) {
-//                    this.action(actions, false);
-//                }
-//            },
-//            addDriveThru: {  // append optional Alias to the name
-//                active: false, checked: false, icon: "serv-drivethru", w2hratio: 78/50, value: "DriveThru", title: 'Drive-Thru', servIDIndex: 1,
-//                action: function(actions, checked) {
-//                    _this.setServiceChecked(this, checked);
-//                },
-//                pnhOverride: false,
-//                actionOn: function(actions) {
-//                    this.action(actions, true);
-//                },
-//                actionOff: function(actions) {
-//                    this.action(actions, false);
-//                }
-//            },
-//            addWiFi: {  // append optional Alias to the name
-//                active: false, checked: false, icon: "serv-wifi", w2hratio: 67/50, value: "WiFi", title: 'WiFi', servIDIndex: 2,
-//                action: function(actions, checked) {
-//                    console.log('AddWifi: this = ' + JSON.stringify(this));
-//                    _this.setServiceChecked(this, checked);
-//                },
-//                pnhOverride: false,
-//                actionOn: function(actions) {
-//                    this.action(actions, true);
-//                },
-//                actionOff: function(actions) {
-//                    this.action(actions, false);
-//                }
-//            },
-//            addRestrooms: {  // append optional Alias to the name
-//                active: false, checked: false, icon: "serv-restrooms", w2hratio: 49/50, value: "Restroom", title: 'Restrooms', servIDIndex: 3,
-//                action: function(actions, checked) {
-//                    _this.setServiceChecked(this, checked);
-//                },
-//                pnhOverride: false,
-//                actionOn: function(actions) {
-//                    this.action(actions, true);
-//                },
-//                actionOff: function(actions) {
-//                    this.action(actions, false);
-//                }
-//            },
-//            addCreditCards: {  // append optional Alias to the name
-//                active: false, checked: false, icon: "serv-credit", w2hratio: 73/50, value: "CC", title: 'Credit Cards', servIDIndex: 4,
-//                action: function(actions, checked) {
-//                    _this.setServiceChecked(this, checked);
-//                },
-//                pnhOverride: false,
-//                actionOn: function(actions) {
-//                    this.action(actions, true);
-//                },
-//                actionOff: function(actions) {
-//                    this.action(actions, false);
-//                }
-//            },
-//            addReservations: {  // append optional Alias to the name
-//                active: false, checked: false, icon: "serv-reservations", w2hratio: 55/50, value: "Reserve", title: 'Reservations', servIDIndex: 5,
-//                action: function(actions, checked) {
-//                    _this.setServiceChecked(this, checked);
-//                },
-//                pnhOverride: false,
-//                actionOn: function(actions) {
-//                    this.action(actions, true);
-//                },
-//                actionOff: function(actions) {
-//                    this.action(actions, false);
-//                }
-//            },
-//            addOutside: {  // append optional Alias to the name
-//                active: false, checked: false, icon: "serv-outdoor", w2hratio: 73/50, value: "OusideSeat", title: 'Outside Seating', servIDIndex: 6,
-//                action: function(actions, checked) {
-//                    _this.setServiceChecked(this, checked);
-//                },
-//                pnhOverride: false,
-//                actionOn: function(actions) {
-//                    this.action(actions, true);
-//                },
-//                actionOff: function(actions) {
-//                    this.action(actions, false);
-//                }
-//            },
-//            addAC: {  // append optional Alias to the name
-//                active: false, checked: false, icon: "serv-ac", w2hratio: 50/50, value: "AC", title: 'AC', servIDIndex: 7,
-//                action: function(actions, checked) {
-//                    _this.setServiceChecked(this, checked);
-//                },
-//                pnhOverride: false,
-//                actionOn: function(actions) {
-//                    this.action(actions, true);
-//                },
-//                actionOff: function(actions) {
-//                    this.action(actions, false);
-//                }
-//            },
-//            addParking: {  // append optional Alias to the name
-//                active: false, checked: false, icon: "serv-parking", w2hratio: 46/50, value: "Parking", title: 'Parking', servIDIndex: 8,
-//                action: function(actions, checked) {
-//                    _this.setServiceChecked(this, checked);
-//                },
-//                pnhOverride: false,
-//                actionOn: function(actions) {
-//                    this.action(actions, true);
-//                },
-//                actionOff: function(actions) {
-//                    this.action(actions, false);
-//                }
-//            },
-//            addDeliveries: {  // append optional Alias to the name
-//                active: false, checked: false, icon: "serv-deliveries", w2hratio: 86/50, value: "Delivery", title: 'Deliveries', servIDIndex: 9,
-//                action: function(actions, checked) {
-//                    _this.setServiceChecked(this, checked);
-//                },
-//                pnhOverride: false,
-//                actionOn: function(actions) {
-//                    this.action(actions, true);
-//                },
-//                actionOff: function(actions) {
-//                    this.action(actions, false);
-//                }
-//            },
-//            addTakeAway: {  // append optional Alias to the name
-//                active: false, checked: false, icon: "serv-takeaway", w2hratio: 34/50, value: "TakeOut", title: 'Take Out', servIDIndex: 10,
-//                action: function(actions, checked) {
-//                    _this.setServiceChecked(this, checked);
-//                },
-//                pnhOverride: false,
-//                actionOn: function(actions) {
-//                    this.action(actions, true);
-//                },
-//                actionOff: function(actions) {
-//                    this.action(actions, false);
-//                }
-//            },
-//            addWheelchair: {  // add service
-//                active: false, checked: false, icon: "serv-wheelchair", w2hratio: 50/50, value: "WhCh", title: 'Wheelchair Accessible', servIDIndex: 11,
-//                action: function(actions, checked) {
-//                    _this.setServiceChecked(this, checked);
-//                },
-//                pnhOverride: false,
-//                actionOn: function(actions) {
-//                    this.action(actions, true);
-//                },
-//                actionOff: function(actions) {
-//                    this.action(actions, false);
-//                }
-//            },
-//            add247: {  // add 24/7 hours
-//                active: false, checked: false, icon: "serv-247", w2hratio: 73/50, value: "247", title: 'Hours: Open 24\/7',
-//                action: function(actions) {
-//                    if (!_this.services.add247.checked) {
-//                        addUpdateAction(item, { openingHours: [{days: [1,2,3,4,5,6,0], fromHour: "00:00", toHour: "00:00"}] }, actions);
-//                        _this.fieldUpdateObject.openingHours='#dfd';
-//                        highlightChangedFields(bannButt.fieldUpdateObject);
-//                        _this.services.add247.checked = true;
-//                        item.harmony.flags.noHours.active = false;
-//                    }
-//                },
-//                actionOn: function(actions) {
-//                    this.action(actions);
-//                }
-//            }
-//        };  // END bannServ definitions
+        // Unverified variables
+        this.newName = "";
+        this.optAlias = "";
+        this.newAliases = [];
+        this.newCategories = [];
+        this.newURL = "";
+        this.newPlaceURL = "";
+        this.updatedFields = {  name: false, aliases: false, categories: false, brand: false, description: false, lockRank: false, address: false, url: false, phone: false, openingHours: false,
+                                services: { VALLET_SERVICE: false, DRIVETHROUGH: false, WI_FI: false, RESTROOMS: false, CREDIT_CARDS: false, RESERVATIONS: false,
+                                            OUTSIDE_SEATING: false, AIR_CONDITIONING: false, PARKING_FOR_CUSTOMERS: false, DELIVERIES: false, TAKE_AWAY: false, WHEELCHAIR_ACCESSIBLE: false } };
+
+        /////////////////////
+        // Harmony Methods //
+        /////////////////////
+
+        // NOTE: I'm not sure why if(actions) push, else .add(action);
+        this.addUpdateAction = function(updateObj) {
+            var act = new UpdateObject(this.item, updateObj);
+            if (this.actions) {
+                this.actions.push(act);
+            } else {
+                W.model.actionManager.add(act);
+            }
+        };
+
+        // Add array of actions to a MultiAction to be executed at once (counts as one edit for redo/undo purposes)
+        this.executeMultiAction = function() {
+            if(this.actions.length > 0) {
+                var acts = new MultiAction();
+                acts.setModel(W.model);
+                this.actions.forEach(function(act) {
+                    acts.doSubAction(act);
+                });
+                W.model.actionManager.add(acts);
+            }
+        };
+
+        // Normalize url
+        this.normalizeUrl = function(s) {
+            if (!s || s.trim().length === 0) {  // Notify that url is missing and provide web search to find website and gather data (provided for all editors)
+                this.flags.urlMissing.active = true;
+                if (currentWL.urlWL) {
+                    this.flags.urlMissing.WLactive = false;
+                    this.flags.urlMissing.severity = 0;
+                }
+                this.flags.webSearch.active = true;  // Activate websearch button
+                return s;
+            }
+
+            s = s.replace(/ \(.*/g, "");  // remove anything with parentheses after it
+            s = s.replace(/ /g, "");  // remove any spaces
+            s = s.replace(/^http:\/\//, "");  // remove http://
+            s = s.replace(/^(?:https?:\/\/)?[^\/]+/i, function(t) { return t.toLowerCase(); });
+            s = s.replace(/\/(?:(?:pages\/)?(?:welcome|default)\.aspx|index\.(?:html?|php))$/i, ""); // Remove unneeded terms
+            s = s.replace(/\/$/i, "");  // remove final slash
+
+            if (!s || s.trim().length === 0) {
+                return 'badURL';
+            }
+
+            //this.item.attributes.url = str;
+            return s;
+        };
+
+        // NOTE: Not refactored yet.
+        // Normalize phone number
+        this.normalizePhone = function(s, outputFormat, returnType) {
+            if ( !s && returnType === 'existing' ) {
+                this.flags.phoneMissing.active = true;
+                if (currentWL.phoneWL) {
+                    this.flags.phoneMissing.WLactive = false;
+                }
+                return s;
+            }
+            s = s.replace(/(\d{3}.*)(?:extension|ext|xt|x).*/i, '$1');
+            var s1 = s.replace(/\D/g, '');  // remove non-number characters
+            var m = s1.match(/^1?([2-9]\d{2})([2-9]\d{2})(\d{4})$/);  // Ignore leading 1, and also don't allow area code or exchange to start with 0 or 1 (***USA/CAN specific)
+            if (!m) {  // then try alphanumeric matching
+                if (s) { s = s.toUpperCase(); }
+                s1 = s.replace(/[^0-9A-Z]/g, '').replace(/^\D*(\d)/,'$1').replace(/^1?([2-9][0-9]{2}[0-9A-Z]{7,10})/g,'$1');
+                s1 = replaceLetters(s1);
+                m = s1.match(/^([2-9]\d{2})([2-9]\d{2})(\d{4})(?:.{0,3})$/);  // Ignore leading 1, and also don't allow area code or exchange to start with 0 or 1 (***USA/CAN specific)
+                if (!m) {
+                    if ( returnType === 'inputted' ) {
+                        return 'badPhone';
+                    } else {
+                        this.flags.phoneInvalid.active = true;
+                        return s;
+                    }
+                } else {
+                    return String.plFormat(outputFormat, m[1], m[2], m[3]);
+                }
+            } else {
+                return String.plFormat(outputFormat, m[1], m[2], m[3]);
+            }
+        };
+
+        // NOTE: Not refactored yet.
+        // Function to remove unnecessary aliases
+        this.removeSFAliases = function(nName, nAliases) {
+            var newAliasesUpdate = [];
+            nName = nName.toUpperCase().replace(/'/g,'').replace(/-/g,' ').replace(/\/ /g,' ').replace(/ \//g,' ').replace(/ {2,}/g,' ');
+            for (var naix=0; naix<nAliases.length; naix++) {
+                if ( !nName.startsWith( nAliases[naix].toUpperCase().replace(/'/g,'').replace(/-/g,' ').replace(/\/ /g,' ').replace(/ \//g,' ').replace(/ {2,}/g,' ') ) ) {
+                    newAliasesUpdate.push(nAliases[naix]);
+                } else {
+                    //phlogdev('Unnecessary alias removed: ' + nAliases[naix]);
+                    this.flags.sfAliases.active = true;
+                }
+            }
+            return newAliasesUpdate;
+        };
+
+
+        // NOTE: Not refactored yet.
+        // Get services checkbox status
+        this.getServicesChecks = function() {
+            var servArrayCheck = [];
+            for (var wsix=0; wsix<WME_SERVICES.length; wsix++) {
+                if (isChecked("service-checkbox-" + WME_SERVICES[wsix])) {
+                    servArrayCheck[wsix] = true;
+                } else {
+                    servArrayCheck[wsix] = false;
+                }
+            }
+            return servArrayCheck;
+        };
+
+        // Sets the given service as checked.
+        this.setServiceChecked = function(servBtn, checked) {
+            var servID = WME_SERVICES[servBtn.servIDIndex];
+            var checkboxChecked = isChecked("service-checkbox-"+servID);
+            var toggle = typeof checked === 'undefined';
+            var noAdd = false;
+            checked = (toggle) ? !servBtn.checked : checked;
+            if (checkboxChecked === servBtn.checked && checkboxChecked !== checked) {
+                servBtn.checked = checked;
+                var services;
+                if (this.actions) {
+                    for (var i = 0, len = this.actions.length; i < len; i++) {
+                        var existingAction = this.actions[i];
+                        if (existingAction.newAttributes && existingAction.newAttributes.services) {
+                            services = existingAction.newAttributes.services;
+                        }
+                    }
+                }
+                if (!services) {
+                    services = this.item.attributes.services.slice(0);
+                } else {
+                    noAdd = services.indexOf(servID) > -1;
+                }
+                if (checked) {
+                    services.push(servID);
+                } else {
+                    var index = services.indexOf(servID);
+                    if (index > -1) {
+                        services.splice(index, 1);
+                    }
+                }
+                if (!noAdd) {
+                    //harmony.addUpdateAction({services:services}, actions);
+                    this.addUpdateAction({"services":services});
+                    this.updatedFields.services[servID] = true;
+                }
+            }
+            this.updateServiceChecks();
+            if (!toggle) servBtn.active = checked;
+        };
+
+        // NOTE: Something about this doesn't seem right...
+        // Updates all of the icons to match the place's checkboxes.
+        this.updateServicesChecks = function() {
+            var servArrayCheck = this.getServicesChecks(), wsix=0;
+            for (var keys in this.services) {
+                if (this.services.hasOwnProperty(keys)) {
+                    this.services[keys].checked = servArrayCheck[wsix];  // reset all icons to match any checked changes
+                    this.services[keys].active = this.services[keys].active || servArrayCheck[wsix];  // display any manually checked non-active icons
+                    wsix++;
+                }
+            }
+            // Highlight 24/7 button if hours are set that way, and add button for all places
+            if ( this.item.attributes.openingHours.length === 1 && this.item.attributes.openingHours[0].days.length === 7 && this.item.attributes.openingHours[0].fromHour === '00:00' && this.item.attributes.openingHours[0].toHour ==='00:00' ) {
+                this.services.add247.checked = true;
+            }
+            this.services.add247.active = true;
+        };
+
+        // highlight changed fields
+        this.highlightChangedFields = function() {
+            //debug('-- highlightChangedFields() called --');
+            var _css = { "background-color":"#cec" };
+            var tab1HL = false;
+            var tab2HL = false;
+            if (this.updatedFields.name) {
+                $(".form-control[name=name]").css(_css);
+                tab1HL = true;
+            }
+            if (this.updatedFields.aliases) {
+                var $field = $(".alias-name.form-control")[0];
+                if ($field) {
+                    $field.css({_css});
+                    tab1HL = true;
+                }
+            }
+            if (this.updatedFields.categories) {
+                $(".select2-choices").css(_css);
+                tab1HL = true;
+            }
+            if (this.updatedFields.brand) {
+                $(".form-control[name=brand]").css(_css);
+                tab1HL = true;
+            }
+            if (this.updatedFields.description) {
+                $(".form-control[name=description]").css(_css);
+                tab1HL = true;
+            }
+            if (this.updatedFields.lockRank) {
+                $(".form-control[name=lockRank]").css(_css);
+                tab1HL = true;
+            }
+            if (this.updatedFields.address) {
+                $('.full-address')[0].css(_css);
+                tab1HL = true;
+            }
+            if (this.updatedFields.url) {
+                $(".form-control[name=url]").css(_css);
+                tab2HL = true;
+            }
+            if (this.updatedFields.phone) {
+                $(".form-control[name=phone]").css(_css);
+                tab2HL = true;
+            }
+            if (this.updatedFields.openingHours) {
+                $(".opening-hours").css(_css);
+                tab2HL = true;
+            }
+            for (var k in this.updatedFields.services) {
+                if (this.updatedFields.services[k]) {
+                    $("#service-checkbox-" + k).parent().css(_css);
+                    tab2HL = true;
+                }
+            }
+
+            if (tab1HL) {
+                $("a[href='#landmark-edit-general']").css(_css);
+            }
+            if (tab2HL) {
+                $("a[href='#landmark-edit-more-info']").css(_css);
+            }
+        }
+
+
+        ///////////////////////
+        // Harmony Use-cases //   Formerly bannButt
+        ///////////////////////
+        this.flags = {
+            // Simple flags that are NOT whitelistable.
+            hnDashRemoved:          { active: false, severity: 0, message: "Dash removed from house number; verify." },
+            fullAddressInference:   { active: false, severity: 3, message: 'Missing address was inferred from nearby segments. Verify the address and run script again.' },
+            nameMissing:            { active: false, severity: 3, message: 'Name is missing.' },
+            hoursOverlap:           { active: false, severity: 3, message: 'Overlapping hours of operation. Place might not save.' },
+            restAreaGas:            { active: false, severity: 3, message: 'Gas stations at Rest Areas should be separate area places.' },
+            gasUnbranded:           { active: false, severity: 3, message: '"Unbranded" should not be used for the station brand. Change to correct brand or use the blank entry at the top of the brand list.' },
+            pnhCatMess:             { active: false, severity: -1, message: 'WMEPH: placeholder (please report this error if you see this message)' },
+            bankType1:              { active: false, severity: 3, message: 'Clarify the type of bank: the name has ATM but the primary category is Offices' },
+            checkDescription:       { active: false, severity: 2, message: 'Description field already contained info; PNH description was added in front of existing. Check for inconsistency or duplicate info.' },
+            overlapping:            { active: false, severity: 2, message: 'Place points are stacked up.' },
+            catPostOffice:          { active: false, severity: 2, message: 'If this is not a USPS post office, change the category, as "Post Office" is only used for USPS locations.' },
+            ignEdited:              { active: false, severity: 2, message: 'Last edited by an IGN editor' },
+            wazeBot:                { active: false, severity: 2, message: 'Edited last by an automated process. Please verify information is correct.' },
+            mismatch247:            { active: false, severity: 2, message: 'Hours of operation listed as open 24hrs but not for all 7 days.' },
+            phoneInvalid:           { active: false, severity: 2, message: 'Phone invalid.' },
+
+            // Simple flags that ARE whitelistable.
+            parentCategory:         { active: false, severity: 2, message: 'This parent category is usually not mapped in this region.',
+                WLactive: true, WLmessage: '', WLtitle: 'Whitelist parent Category', WLkey: 'parentCategory',
+                WLaction: function() { whitelistAction(_this.id, this.WLkey); }
+            },
+            suspectDesc:            { active: false, severity: 2, message: 'Description field might contain copyrighted info.', 
+                WLactive: true, WLmessage: '', WLtitle: 'Whitelist description', WLkey: 'suspectDesc',
+                WLaction: function() { whitelistAction(_this.id, this.WLkey); }
+            },
+            resiTypeName:           { active: false, severity: 2, message: 'The place name suggests a residential place or personalized place of work.  Please verify.',
+                WLactive: true, WLmessage: '', WLtitle: 'Whitelist Residential-type name', WLkey: 'resiTypeName',
+                WLaction: function() { whitelistAction(_this.id, this.WLkey); }
+            },
+            areaNotPointMid:        { active: false, severity: 2, message: 'This category is usually an area place, but can be a point in some cases. Verify if point is appropriate.',
+                WLactive: true, WLmessage: '', WLtitle: 'Whitelist area (not point)', WLkey: 'areaNotPoint',
+                WLaction: function() { whitelistAction(_this.id, this.WLkey); }
+            },
+            pointNotAreaMid:        { active: false, severity: 2, message: 'This category is usually a point place, but can be a area in some cases. Verify if area is appropriate.',
+                WLactive: true, WLmessage: '', WLtitle: 'Whitelist point (not area)', WLkey: 'pointNotArea',
+                WLaction: function() { whitelistAction(_this.id, this.WLkey); }
+            },
+            plaNameMissing:         { active: false, severity: 1, message: 'Name is missing.',
+                WLactive: true, WLmessage: '', WLtitle: 'Whitelist missing name', WLkey: 'plaNameMissing',
+                WLaction: function() { whitelistAction(_this.id, this.WLkey); }
+            },
+            unmappedRegion:         { active: false, severity: 3, message: 'This category is usually not mapped in this region.',
+                WLactive: true, WLmessage: '', WLtitle: 'Whitelist unmapped category', WLkey: 'unmappedRegion',
+                WLaction: function() { whitelistAction(_this.id, this.WLkey); }
+            },
+            restAreaName:           { active: false, severity: 3, message: 'Rest area name is out of spec. Use the Rest Area wiki button below to view formats.',
+                WLactive: true, WLmessage: '', WLtitle: 'Whitelist rest area name', WLkey: 'restAreaName',
+                WLaction: function() { whitelistAction(_this.id, this.WLkey); }
+            },
+            hnNonStandard:          { active: false, severity: 3, message: 'House number is non-standard.',
+                WLactive: true, WLmessage: '', WLtitle: 'Whitelist non-standard HN', WLkey: 'hnNonStandard',
+                WLaction: function() { whitelistAction(_this.id, this.WLkey); }
+            },
+            HNRange:                { active: false, severity: 2, message: 'House number seems out of range for the street name. Verify.', value: '',
+                WLactive: true, WLmessage: '', WLtitle: 'Whitelist HN range', WLkey: 'HNRange',
+                WLaction: function() { whitelistAction(_this.id, this.WLkey); }
+            },
+
+            // Complex flags
+            restAreaSpec: {  // if it appears to be a rest area
+                active: false, severity: 3, message: "Is this a rest area?",
+                buttons: [{
+                    text: 'Yes',
+                    title: 'Update with proper categories and services.',
+                    action: function() {
+                        var actions = [];
+                        // update categories according to spec
+                        _this.newCategories = insertAtIX(_this.newCategories,"TRANSPORTATION",0);  // Insert/move TRANSPORTATION category in the first position
+                        _this.newCategories = insertAtIX(_this.newCategories,"SCENIC_LOOKOUT_VIEWPOINT",1);  // Insert/move SCENIC_LOOKOUT_VIEWPOINT category in the 2nd position
+
+                        actions.push(new UpdateObject(this.item, { categories: _this.newCategories }));
+                        _this.updatedFields.categories = true;
+                        // make it 24/7
+                        actions.push(new UpdateObject(this.item, { openingHours: [{days: [1,2,3,4,5,6,0], fromHour: "00:00", toHour: "00:00"}] }));
+                        _this.updatedFields.openingHours = true;
+                        _this.services.add247.checked = true;
+                        _this.services.addParking.actionOn(actions);  // add parking service
+                        _this.services.addWheelchair.actionOn(actions);  // add parking service
+                        _this.flags.restAreaSpec.active = false;  // reset the display flag
+
+                        harmony.executeMultiAction(actions);
+
+                        _disableHighlightTest = true;
+                        harmonizePlaceGo(this.item,'harmonize');
+                        _disableHighlightTest = false;
+                        applyHighlightsTest(this.item);
+                    }
+                }],
+                WLactive: true, WLmessage: '', WLtitle: 'Whitelist place', WLkey: 'restAreaSpec',
+                WLaction: function() {
+                    whitelistAction(_this.id, this.WLkey);
+                }
+            },
+
+            gasMismatch: {  // if the gas brand and name don't match
+                active: false, severity: 3, message: "Gas name and brand don't match.  Move brand to name?",
+                buttons: [{
+                    text: 'Yes',
+                    title: 'Change the primary name to the brand and make the current name the alt-name.',
+                    action: function() {
+                        _this.newAliases = insertAtIX(_this.newAliases, _this.newName, 0);
+                        for (var naix=0; naix<_this.newAliases.length; naix++) {
+                            _this.newAliases[naix] = toTitleCase(_this.newAliases[naix]);
+                        }
+                        _this.newName = this.item.attributes.brand;
+                        _this.newAliases = _this.removeSFAliases(_this.newName, _this.newAliases);
+                        W.model.actionManager.add(new UpdateObject(this.item, { name: _this.newName, aliases: _this.newAliases }));
+                        _this.updatedFields.name = true;
+                        _this.updatedFields.aliases = true;
+                        _this.highlightChangedFields();
+                        _this.flags.gasMismatch.active = false;  // reset the display flag
+                    }
+                }],
+                WLactive: true, WLmessage: '', WLtitle: 'Whitelist gas brand mismatch', WLkey: 'gasMismatch',
+                WLaction: function() {
+                    whitelistAction(_this.id, this.WLkey);
+                }
+            },
+
+
+            gasMkPrim: {  // no WL
+                active: false, severity: 3,  message: "Gas Station is not the primary category",
+                buttons: [{
+                    text: 'Fix',
+                    title: 'Make the Gas Station category the primary category.',
+                    action: function() {
+                        _this.newCategories = insertAtIX(_this.newCategories,"GAS_STATION",0);  // Insert/move Gas category in the first position
+                        var actions = [];
+                        actions.push(new UpdateObject(this.item, { categories: _this.newCategories }));
+                        _this.updatedFields.categories = true;
+                        _this.flags.gasMkPrim.active = false;  // reset the display flag
+                        executeMultiAction(actions);
+                        harmonizePlaceGo(this.item,'harmonize');
+                    }
+                }]
+            },
+
+            hotelMkPrim: {
+                active: false, severity: 3, message: "Hotel category is not first",
+                buttons: [{
+                    text: 'Fix',
+                    title: 'Make the Hotel category the primary category.',
+                    action: function() {
+                        _this.newCategories = insertAtIX(_this.newCategories,"HOTEL",0);  // Insert/move Hotel category in the first position
+                        var actions = [];
+                        actions.push(new UpdateObject(this.item, { categories: _this.newCategories }));
+                        _this.updatedFields.categories = true;
+                        _this.flags.hotelMkPrim.active = false;  // reset the display flag
+                        executeMultiAction(actions);
+                        harmonizePlaceGo(this.item,'harmonize');
+                    }
+                }],
+                WLactive: true, WLmessage: '', WLtitle: 'Whitelist hotel as secondary category', WLkey: 'hotelMkPrim',
+                WLaction: function() {
+                    whitelistAction(_this.id, this.WLkey);
+                }
+            },
+            changeHMC2OfficeButton: {
+                active: false, severity: -1, message: '',
+                buttons: [{
+                    text: 'Change to Offices',
+                    action: function() { _this.flags.changeHMC2Office.buttons[0].action(); }
+                }]
+            },
+
+            changeHMC2Office: {
+                active: false, severity: 3, message: "Keywords suggest this location may not be a hospital or urgent care location.",
+                buttons: [{
+                    text: 'Change to Offices',
+                    title: 'Change to Office Category',
+                    action: function() {
+                        _this.newCategories[_this.newCategories.indexOf('HOSPITAL_MEDICAL_CARE')] = "OFFICES";
+                        var actions = [];
+                        actions.push(new UpdateObject(this.item, { categories: _this.newCategories }));
+                        _this.updatedFields.categories = true;
+                        _this.flags.changeHMC2Office.active = false;  // reset the display flag
+                        executeMultiAction(actions);
+                        harmonizePlaceGo(this.item,'harmonize');  // Rerun the script to update fields and lock
+                    }
+                }],
+                WLactive: true, WLmessage: '', WLtitle: 'Whitelist Hospital category', WLkey: 'changeHMC2Office',
+                WLaction: function() {
+                    whitelistAction(_this.id, this.WLkey);
+                }
+            },
+
+            changeHMC2PetVet: {
+                active: false, severity: 3, message: "This looks like it should be a Pet/Veterinarian category. Change?",
+                buttons: [{
+                    text: 'Yes',
+                    title: 'Change to Pet/Veterinarian Category',
+                    action: function() {
+                        _this.newCategories[_this.newCategories.indexOf('HOSPITAL_MEDICAL_CARE')] = "PET_STORE_VETERINARIAN_SERVICES";
+                        var actions = [];
+                        actions.push(new UpdateObject(this.item, { categories: _this.newCategories }));
+                        _this.updatedFields.categories = true;
+                        _this.flags.changeHMC2PetVet.active = false;  // reset the display flag
+                        executeMultiAction(actions);
+                        harmonizePlaceGo(this.item,'harmonize');  // Rerun the script to update fields and lock
+                    }
+                }],
+                WLactive: true, WLmessage: '', WLtitle: 'Whitelist PetVet category', WLkey: 'changeHMC2PetVet',
+                WLaction: function() {
+                    whitelistAction(_this.id, this.WLkey);
+                }
+            },
+
+            changeSchool2Offices: {
+                active: false, severity: 3, message: "This doesn't look like it should be School category.",
+                buttons: [{
+                    text: 'Change to Office',
+                    title: 'Change to Offices Category',
+                    action: function() {
+                        _this.newCategories[_this.newCategories.indexOf('SCHOOL')] = "OFFICES";
+                        var actions = [];
+                        actions.push(new UpdateObject(this.item, { categories: _this.newCategories }));
+                        _this.updatedFields.categories = true;
+                        _this.flags.changeSchool2Offices.active = false;  // reset the display flag
+                        executeMultiAction(actions);
+                        harmonizePlaceGo(this.item,'harmonize');  // Rerun the script to update fields and lock
+                    }
+                }],
+                WLactive: true, WLmessage: '', WLtitle: 'Whitelist School category', WLkey: 'changeSchool2Offices',
+                WLaction: function() {
+                    whitelistAction(_this.id, this.WLkey);
+                }
+            },
+
+            pointNotArea: {  // Area 2 Point button
+                active: false, severity: 3, message: "This category should be a point place.",
+                buttons: [{
+                    text: 'Change to point',
+                    title: 'Change to point place',
+                    action: function() {
+                        // If a stop point is set, use it for the point, else use Centroid
+                        var newGeometry;
+                        if (this.item.attributes.entryExitPoints.length > 0) {
+                            newGeometry = this.item.attributes.entryExitPoints[0].point;
+                        } else {
+                            newGeometry = this.item.geometry.getCentroid();
+                        }
+                        updateFeatureGeometry(this.item, newGeometry);
+                        _this.flags.pointNotArea.active = false;
+                    }
+                }],
+                WLactive: true, WLmessage: '', WLtitle: 'Whitelist point (not area)', WLkey: 'pointNotArea',
+                WLaction: function() {
+                    whitelistAction(_this.id, this.WLkey);
+                }
+            },
+
+            areaNotPoint: {  // Point 2 Area button
+                active: false, severity: 3, message: "This category should be an area place.",
+                buttons: [{
+                    text: 'Change to area',
+                    title: 'Change to Area',
+                    action: function() {
+                        // If a stop point is set, use it for the point, else use Centroid
+                        updateFeatureGeometry(this.item, this.item.getPolygonGeometry());
+                        _this.flags.areaNotPoint.active = false;
+                    }
+                }],
+                WLactive: true, WLmessage: '', WLtitle: 'Whitelist area (not point)', WLkey: 'areaNotPoint',
+                WLaction: function() {
+                    whitelistAction(_this.id, this.WLkey);
+                }
+            },
+
+            hnMissing: {
+                active: false, severity: 3, message: 'No HN',
+                input: '<input type="text" id="WMEPH-HNAdd" autocomplete="off" class="wmeph-input-box">',
+                badInput: false,
+                buttons: [{
+                    text: "Add",
+                    title: 'Add HN to place',
+                    action: function() {
+                        var newHN = $('#WMEPH-HNAdd').val();
+                        newHN = newHN.replace(/ +/g, '');
+                        phlogdev(newHN);
+                        var hnTemp = newHN.replace(/[^\d]/g, '');
+                        var hnTempDash = newHN.replace(/[^\d-]/g, '');
+                        if (hnTemp > 0 && hnTemp < 1000000) {
+                            W.model.actionManager.add(new UpdateObject(this.item, { houseNumber: hnTempDash }));
+                            _this.updatedFields.address = true;
+                            _this.flags.hnMissing.active = false;
+                            this.badInput = false;
+                        } else {
+                            this.badInput = true;
+                        }
+
+                    }
+                }],
+                WLactive: true, WLmessage: '', WLtitle: 'Whitelist empty HN', WLkey: 'HNWL',
+                WLaction: function() {
+                    whitelistAction(_this.id, this.WLkey);
+                }
+            },
+
+            streetMissing: {  // no WL
+                active: false, severity: 3, message: 'No street',
+                input: '<div class="ui-widget"><input id="WMEPH_missingStreet" class="ui-autocomplete-input"></div>',
+                buttons: [{
+                    text: 'Add',
+                    id: "WMEPH_addStreetBtn",
+                    title: "Add street to place",
+                    action: function() {
+                        addStreetToVenue();
+                    }
+                }]
+            },
+
+            cityMissing: {  // no WL
+                active: false, severity: 3, message: 'No city',
+                buttons: [{
+                    text: 'Edit address',
+                    title: "Edit address to add city.",
+                    action: function() {
+                        $('.nav-tabs a[href="#landmark-edit-general"]').trigger('click');
+                        $('.waze-icon-edit').trigger('click');
+                        if (isChecked('.empty-city')) {
+                            $('.empty-city').trigger('click');
+                        }
+                        $('.city-name').focus();
+                    }
+                }]
+            },
+
+            bankBranch: {  // no WL
+                active: false, severity: 1, message: 'Is this a bank branch office?',
+                buttons: [{
+                    text: 'Yes',
+                    title: 'Is this a bank branch?',
+                    action: function() {
+                        _this.newCategories = ['BANK_FINANCIAL','ATM'];  // Change to bank and atm cats
+                        _this.newName = _this.newName.replace(/[\- (]*ATM[\- )]*/g, ' ').replace(/^ /g,'').replace(/ $/g,'');     // strip ATM from name if present
+                        W.model.actionManager.add(new UpdateObject(this.item, { name: _this.newName, categories: _this.newCategories }));
+                        _this.updatedFields.name = true;
+                        _this.updatedFields.categories = true;
+                        _this.highlightChangedFields(_this.updatedFields);
+                        _this.flags.bankCorporate.active = false;   // reset the bank Branch display flag
+                        _this.flags.bankBranch.active = false;   // reset the bank Branch display flag
+                        _this.flags.standaloneATM.active = false;   // reset the standalone ATM display flag
+                        _this.flags.bankType1.active = false;  // remove bank type warning
+                    }
+                }]
+            },
+
+            standaloneATM: { // no WL
+                active: false, severity: 2, message: 'Or is this a standalone ATM?',
+                buttons: [{
+                    text: 'Yes',
+                    title: 'Is this a standalone ATM with no bank branch?',
+                    action: function() {
+                        if (_this.newName.indexOf('ATM') === -1) {
+                            _this.newName = _this.newName + ' ATM';
+                        }
+                        _this.newCategories = ['ATM'];  // Change to ATM only
+                        W.model.actionManager.add(new UpdateObject(this.item, { name: _this.newName, categories: _this.newCategories }));
+                        _this.updatedFields.name = true;
+                        _this.updatedFields.categories = true;
+                        _this.highlightChangedFields();
+                        _this.flags.bankCorporate.active = false;   // reset the bank Branch display flag
+                        _this.flags.bankBranch.active = false;   // reset the bank Branch display flag
+                        _this.flags.standaloneATM.active = false;   // reset the standalone ATM display flag
+                        _this.flags.bankType1.active = false;  // remove bank type warning
+                    }
+                }]
+            },
+
+            bankCorporate: {  // no WL
+                active: false, severity: 1, message: "Or is this the bank's corporate offices?",
+                buttons: [{
+                    text: "Yes",
+                    title: "Is this the bank's corporate offices?",
+                    action: function() {
+                        _this.newCategories = ["OFFICES"];  // Change to offices category
+                        _this.newName = _this.newName.replace(/[\- (]*atm[\- )]*/ig, ' ').replace(/^ /g,'').replace(/ $/g,'').replace(/ {2,}/g,' ');     // strip ATM from name if present
+                        W.model.actionManager.add(new UpdateObject(this.item, { name: _this.newName + ' - Corporate Offices', categories: _this.newCategories }));
+                        _this.updatedFields.name = true;
+                        _this.updatedFields.categories = true;
+                        _this.highlightChangedFields();
+                        _this.flags.bankCorporate.active = false;   // reset the bank Branch display flag
+                        _this.flags.bankBranch.active = false;   // reset the bank Branch display flag
+                        _this.flags.standaloneATM.active = false;   // reset the standalone ATM display flag
+                        _this.flags.bankType1.active = false;  // remove bank type warning
+                    }
+                }]
+            },
+
+            longURL: {
+                active: false, severity: 1, message: 'Existing URL doesn\'t match the suggested PNH URL. Use the Place Website button below to verify. If existing URL is invalid:',
+                buttons: [{
+                    text: "Use PNH URL",
+                    title: "Change URL to the PNH standard",
+                    action: function() {
+                        if (tempPNHURL !== '') {
+                            W.model.actionManager.add(new UpdateObject(this.item, { url: tempPNHURL }));
+                            _this.updatedFields.url = true;
+                            _this.highlightChangedFields();
+                            _this.flags.longURL.active = false;
+                            updateURL = true;
+                        } else {
+                            if (confirm('WMEPH: URL Matching Error!\nClick OK to report this error') ) {  // if the category doesn't translate, then pop an alert that will make a forum post to the thread
+                                forumMsgInputs = {
+                                    subject: 'WMEPH URL comparison Error report',
+                                    message: 'Error report: URL comparison failed for "' + this.item.attributes.name + '"\nPermalink: ' + harmony.permalink
+                                };
+                                WMEPH_errorReport(forumMsgInputs);
+                            }
+                        }
+                    }
+                }],
+                WLactive: true, WLmessage: '', WLtitle: 'Whitelist existing URL', WLkey: 'longURL',
+                WLaction: function() {
+                    whitelistAction(_this.id, this.WLkey);
+                }
+            },
+
+            gasNoBrand: {
+                active: false, severity: 1, message: 'Verify that gas station has no brand.',
+                WLactive: true, WLmessage: '', WLtitle: 'Whitelist no gas brand', WLkey: 'gasNoBrand',
+                WLaction: function() {
+                    whitelistAction(_this.id, this.WLkey);
+                }
+            },
+
+            subFuel: {
+                active: false, severity: 1, message: 'Make sure this place is for the gas station itself and not the main store building.  Otherwise undo and check the categories.',
+                WLactive: true, WLmessage: '', WLtitle: 'Whitelist no gas brand', WLkey: 'subFuel',
+                WLaction: function() {
+                    whitelistAction(_this.id, this.WLkey);
+                }
+            },
+
+            areaNotPointLow: {
+                active: false, severity: 1, message: 'This category is usually an area place, but can be a point in some cases. Verify if point is appropriate.',
+                WLactive: true, WLmessage: '', WLtitle: 'Whitelist area (not point)', WLkey: 'areaNotPoint',
+                WLaction: function() {
+                    whitelistAction(_this.id, this.WLkey);
+                }
+            },
+
+            pointNotAreaLow: {
+                active: false, severity: 1, message: 'This category is usually a point place, but can be a area in some cases. Verify if area is appropriate.',
+                WLactive: true, WLmessage: '', WLtitle: 'Whitelist point (not area)', WLkey: 'pointNotArea',
+                WLaction: function() {
+                    whitelistAction(_this.id, this.WLkey);
+                }
+            },
+
+            formatUSPS: {  // ### needs WL or not?
+                active: false, severity: 1, message: 'Localize the post office according to this region\'s standards for USPS locations (e.g., "USPS - Tampa")'
+            },
+
+            catHotel: {
+                active: false, severity: 1, message: 'Check hotel website for any name localization (e.g. Hilton - Tampa Airport)',
+                WLactive: true, WLmessage: '', WLtitle: 'Whitelist hotel localization', WLkey: 'hotelLocWL',
+                WLaction: function() {
+                    whitelistAction(_this.id, this.WLkey);
+                }
+            },
+
+            localizedName: {
+                active: false, severity: 1, message: 'Place needs localization information',
+                WLactive: true, WLmessage: '', WLtitle: 'Whitelist localization', WLkey: 'localizedName',
+                WLaction: function() {
+                    whitelistAction(_this.id, this.WLkey);
+                }
+            },
+
+            specCaseMessage: {  // no WL
+                active: false, severity: 1, message: 'WMEPH: placeholder (please report this error if you see this message)'
+            },
+
+            specCaseMessageLow: {  // no WL
+                active: false, severity: 0, message: 'WMEPH: placeholder (please report this error if you see this message)'
+            },
+
+            extProviderMissing: {
+                active: false, severity: 3, message: 'No external provider link(s)',
+                WLactive: true, WLmessage: '', WLtitle: 'Whitelist missing external provider', WLkey: 'extProviderMissing',
+                WLaction: function() {
+                    whitelistAction(_this.id, this.WLkey);
+                }
+            },
+
+            urlMissing: {
+                active: false, severity: 1, message: 'No URL',
+                input: '<input type="text" id="WMEPH-UrlAdd" autocomplete="off" class="wmeph-input-box">',
+                badInput: false,
+                buttons: [{
+                    text: "Add",
+                    title: 'Add URL to place',
+                    action: function() {
+                        var newUrlValue = $('#WMEPH-UrlAdd').val();
+                        var newUrl = this.normalizeURL(newUrlValue, true);
+                        if ((!newUrl || newUrl.trim().length === 0) || newUrl === 'badURL') {
+                            this.badInput = true;
+                        } else {
+                            phlogdev(newUrl);
+                            W.model.actionManager.add(new UpdateObject(this.item, { url: newUrl }));
+                            _this.updatedFields.url = true;
+                            _this.flags.urlMissing.active = false;
+                            _this.flags.PlaceWebsite.active = true;
+                            this.badInput = false;
+                        }
+                    }
+                }],
+                WLactive: true, WLmessage: '', WLtitle: 'Whitelist empty URL', WLkey: 'urlWL',
+                WLaction: function() {
+                    whitelistAction(_this.id, this.WLkey);
+                }
+            },
+
+            phoneMissing: {
+                active: false, severity: 1, message: 'No Ph#',
+                input: '<input type="text" id="WMEPH-PhoneAdd" autocomplete="off" class="wmeph-input-box">',
+                badInput: false,
+                buttons: [{
+                    text: "Add",
+                    title: 'Add phone to place',
+                    action: function() {
+                        var newPhoneVal = $('#WMEPH-PhoneAdd').val();
+                        var newPhone = normalizePhone(newPhoneVal, outputFormat, 'inputted');
+                        if (newPhone === 'badPhone') {
+                            this.badInput = true;
+                        } else {
+                            this.badInput = false;
+                            phlogdev(newPhone);
+                            if (myCountry2L === "US" || myCountry2L === "CA") {
+                                if (newPhone !== null && newPhone.match(/[2-9]\d{2}/) !== null) {
+                                    var areaCode = newPhone.match(/[2-9]\d{2}/)[0];
+                                    if ( areaCodeList.indexOf(areaCode) === -1 ) {
+                                        _this.flags.badAreaCode.active = true;
+                                        if (currentWL.aCodeWL) {
+                                            _this.flags.badAreaCode.WLactive = false;
+                                        }
+                                    }
+                                }
+                            }
+                            W.model.actionManager.add(new UpdateObject(this.item, { phone: newPhone }));
+                            _this.updatedFields.phone = true;
+                            _this.flags.phoneMissing.active = false;
+                        }
+                    }
+                }],
+                WLactive: true, WLmessage: '', WLtitle: 'Whitelist empty phone', WLkey: 'phoneWL',
+                WLaction: function() {
+                    whitelistAction(_this.id, this.WLkey);
+                }
+            },
+
+            badAreaCode: {
+                active: false, severity: 1, message: '<span class="wmeph-label">Area Code mismatch</span>',
+                WLactive: true, WLmessage: '', WLtitle: 'Whitelist the area code', WLkey: 'aCodeWL',
+                WLaction: function() {
+                    whitelistAction(_this.id, this.WLkey);
+                }
+            },
+
+            noHours: {
+                active: false, severity: 1, message: 'No hours',
+                input: '<input type="textarea" value="Paste Hours Here" id="WMEPH-HoursPaste" autocomplete="off" class="wmeph-input-box">',
+                buttons: [
+                    {
+                        text: '<span class="fa fa-plus"></span>',
+                        title: 'Add pasted hours to existing',
+                        action: function() {
+                            var pasteHours = $('#WMEPH-HoursPaste').val();
+                            phlogdev(pasteHours);
+                            $('.nav-tabs a[href="#landmark-edit-more-info"]').tab('show');
+                            pasteHours = pasteHours + ',' + getOpeningHours(this.item).join(',');
+                            var hoursObjectArray = parseHours(pasteHours);
+                            if (hoursObjectArray !== false) {
+                                phlogdev(hoursObjectArray);
+                                W.model.actionManager.add(new UpdateObject(this.item, { openingHours: hoursObjectArray }));
+                                _this.updatedFields.openingHours = true;
+                                _this.highlightChangedFields();
+                                _this.flags.noHours.severity = 0;
+                                _this.flags.noHours.WLactive = false;
+                                _this.flags.noHours.message = 'Hours';
+                                _this.flags.noHours.input = '<input type="text" value="Paste Hours Here" id="WMEPH-HoursPaste" class="wmeph-input-box">';
+                            } else {
+                                phlog('Can\'t parse those hours');
+                                _this.flags.noHours.severity = 1;
+                                _this.flags.noHours.WLactive = true;
+                                _this.flags.noHours.input = '<input type="text" value="Can\'t parse, try again" id="WMEPH-HoursPaste" class="wmeph-input-box">';
+                            }
+                        }
+                    },
+                    {
+                        text: '<span class="fa fa-refresh"></span>',
+                        title: 'Replace existing hours with pasted hours',
+                        id: 'WMEPH_noHours_replace',
+                        action: function() {
+                            var pasteHours = $('#WMEPH-HoursPaste').val();
+                            phlogdev(pasteHours);
+                            $('.nav-tabs a[href="#landmark-edit-more-info"]').tab('show');
+                            var hoursObjectArray = parseHours(pasteHours);
+                            if (hoursObjectArray !== false) {
+                                phlogdev(hoursObjectArray);
+                                this.item.attributes.openingHours.push.apply(this.item.attributes.openingHours, hoursObjectArray);
+                                W.model.actionManager.add(new UpdateObject(this.item, { openingHours: hoursObjectArray }));
+                                _this.updatedFields.openingHours = true;
+                                _this.highlightChangedFields();
+                                _this.flags.noHours.severity = 0;
+                                _this.flags.noHours.WLactive = false;
+                                _this.flags.noHours.message = 'Hours';
+                                _this.flags.noHours.input = '<input type="text" value="Paste Hours Here" id="WMEPH-HoursPaste" class="wmeph-input-box">';
+                            } else {
+                                phlog('Can\'t parse those hours');
+                                _this.flags.noHours.severity = 1;
+                                _this.flags.noHours.WLactive = true;
+                                _this.flags.noHours.input = '<input type="text" value="Can\'t parse, try again" id="WMEPH-HoursPaste" class="wmeph-input-box">';
+                            }
+
+                        }
+                    }
+                ],
+                WLactive: true, WLmessage: '', WLtitle: 'Whitelist no Hours', WLkey: 'noHours',
+                WLaction: function() {
+                    whitelistAction(_this.id, this.WLkey);
+                }
+            },
+
+            resiTypeNameSoft: {  // no WL
+                active: false, severity: 0, message: 'The place name suggests a residential place or personalized place of work.  Please verify.'
+            },
+
+            localURL: {  // no WL
+                active: false, severity: 0, message: 'Some locations for this business have localized URLs, while others use the primary corporate site. Check if a local URL applies to this location.'
+            },
+
+            babiesRUs: {  // no WL
+                active: false, severity: 0, message: 'If there is a Toys R Us at this location, make it the primary name and Babies R Us the alt name and rerun the script.'
+            },
+
+            lockRPP: {    // no WL
+                active: false, severity: 0, message: 'Lock this residential point?',
+                buttons: [{
+                    text: "Lock",
+                    title: 'Lock the residential point',
+                    action: function() {
+                        var RPPlevelToLock = $("#RPPLockLevel :selected").val() || defaultLock + 1;
+                        phlogdev('RPPlevelToLock: '+ RPPlevelToLock);
+
+                        RPPlevelToLock = RPPlevelToLock -1 ;
+                        W.model.actionManager.add(new UpdateObject(this.item, { lockRank: RPPlevelToLock }));
+                        // no field highlight here
+                        _this.flags.lockRPP.message = 'Current lock: '+ (parseInt(this.item.attributes.lockRank)+1) +'. '+RPPLockString+' ?';
+                    }
+                }]
+            },
+
+            addAlias: {    // no WL
+                active: false, severity: 0, message: "Is " + _this.optAlias + " at this location?",
+                buttons: [{
+                    text: "Yes",
+                    title: 'Add ' + _this.optAlias,
+                    action: function() {
+                        _this.newAliases = insertAtIX(_this.newAliases,_this.optAlias,0);
+                        if (specCases.indexOf('altName2Desc') > -1 &&  this.item.attributes.description.toUpperCase().indexOf(_this.optAlias.toUpperCase()) === -1 ) {
+                            newDescripion = _this.optAlias + '\n' + newDescripion;
+                            W.model.actionManager.add(new UpdateObject(this.item, { description: newDescripion }));
+                            _this.updatedFields.description = true;
+                            _this.highlightChangedFields();
+                        }
+                        _this.newAliases = _this.removeSFAliases(_this.newName, _this.newAliases);
+                        W.model.actionManager.add(new UpdateObject(this.item, { aliases: _this.newAliases }));
+                        _this.updatedFields.aliases = true;
+                        _this.highlightChangedFields();
+                        _this.flags.addAlias.active = false;  // reset the display flag
+                    }
+                }]
+            },
+
+            addCat2: {   // no WL
+                active: false, severity: 0, message: "Is there a " + _this.newCategories[0] + " at this location?",
+                buttons: [{
+                    text: "Yes",
+                    title: 'Add ' + _this.newCategories[0],
+                    action: function() {
+                        _this.newCategories.push.apply(_this.newCategories,altCategories);
+                        W.model.actionManager.add(new UpdateObject(this.item, { categories: _this.newCategories }));
+                        _this.updatedFields.categories = true;
+                        _this.highlightChangedFields();
+                        _this.flags.addCat2.active = false;  // reset the display flag
+                    }
+                }]
+            },
+
+            addPharm: {   // no WL
+                active: false, severity: 0, message: "Is there a Pharmacy at this location?",
+                buttons: [{
+                    text: "Yes",
+                    title: 'Add Pharmacy category',
+                    action: function() {
+                        _this.newCategories = insertAtIX(_this.newCategories, 'PHARMACY', 1);
+                        W.model.actionManager.add(new UpdateObject(this.item, { categories: _this.newCategories }));
+                        _this.updatedFields.categories = true;
+                        _this.highlightChangedFields();
+                        _this.flags.addPharm.active = false;  // reset the display flag
+                    }
+                }]
+            },
+
+            addSuper: {   // no WL
+                active: false, severity: 0, message: "Does this location have a supermarket?",
+                buttons: [{
+                    text: "Yes",
+                    title: 'Add Supermarket category',
+                    action: function() {
+                        _this.newCategories = insertAtIX(_this.newCategories, 'SUPERMARKET_GROCERY', 1);
+                        W.model.actionManager.add(new UpdateObject(this.item, { categories: _this.newCategories }));
+                        _this.updatedFields.categories = true;
+                        _this.highlightChangedFields();
+                        _this.flags.addSuper.active = false;  // reset the display flag
+                    }
+                }]
+            },
+
+            appendAMPM: {   // no WL
+                active: false, severity: 0, message: "Is there an ampm at this location?", id: "appendAMPM",
+                buttons: [{
+                    text: "Yes",
+                    title: 'Add ampm to the place',
+                    action: function() {
+                        _this.newCategories = insertAtIX(_this.newCategories, 'CONVENIENCE_STORE', 1);
+                        _this.newName = 'ARCO ampm';
+                        newURL = 'ampm.com';
+                        W.model.actionManager.add(new UpdateObject(this.item, { name: _this.newName, url: newURL, categories: _this.newCategories }));
+                        _this.updatedFields.name = true;
+                        _this.updatedFields.url = true;
+                        _this.updatedFields.categories = true;
+                        _this.highlightChangedFields();
+                        _this.flags.appendAMPM.active = false;  // reset the display flag
+                        _this.flags.addConvStore.active = false;  // also reset the addConvStore display flag
+                    }
+                }]
+            },
+
+            addATM: {    // no WL
+                active: false, severity: 0, message: "ATM at location? ",
+                buttons: [{
+                    text: "Yes",
+                    title: "Add the ATM category to this place",
+                    action: function() {
+                        _this.newCategories = insertAtIX(_this.newCategories,"ATM",1);  // Insert ATM category in the second position
+                        W.model.actionManager.add(new UpdateObject(this.item, { categories: _this.newCategories }));
+                        _this.updatedFields.categories = true;
+                        _this.highlightChangedFields();
+                        _this.flags.addATM.active = false;   // reset the display flag
+                    }
+                }]
+            },
+
+            addConvStore: {  // no WL
+                active: false, severity: 0, message: "Add convenience store category? ",
+                buttons: [{
+                    text: "Yes",
+                    title: "Add the Convenience Store category to this place",
+                    action: function() {
+                        _this.newCategories = insertAtIX(_this.newCategories,"CONVENIENCE_STORE",1);  // Insert C.S. category in the second position
+                        W.model.actionManager.add(new UpdateObject(this.item, { categories: _this.newCategories }));
+                        _this.updatedFields.categories = true;
+                        _this.highlightChangedFields();
+                        _this.flags.addConvStore.active = false;   // reset the display flag
+                    }
+                }]
+            },
+
+            isitUSPS: {  // no WL
+                active: false, severity: 0, message: "Is this a USPS location? ",
+                buttons: [{
+                    text: "Yes",
+                    title: "Is this a USPS location?",
+                    action: function() {
+                        _this.services.addAC.actionOn();
+                        _this.services.addCreditCards.actionOn();
+                        _this.services.addParking.actionOn();
+                        _this.services.addDeliveries.actionOn();
+                        _this.services.addWheelchair.actionOn();
+                        W.model.actionManager.add(new UpdateObject(this.item, { url: "usps.com" }));
+                        _this.updatedFields.url = true;
+                        _this.highlightChangedFields();
+                        if (myPlace.psRegion === 'SER') {
+                            W.model.actionManager.add(new UpdateObject(this.item, { aliases: ["United States Postal Service"] }));
+                            _this.updatedFields.aliases = true;
+                            _this.highlightChangedFields();
+                        }
+                        _this.flags.isitUSPS.active = false;
+                    }
+                }]
+            },
+
+            STC: {    // no WL
+                active: false, severity: 0, message: "Force Title Case: ",
+                buttons: [{
+                    text: "Yes",
+                    title: "Force Title Case to InterNal CaPs",
+                    action: function() {
+                        _this.newName = toTitleCaseStrong(this.item.attributes.name, isPLA(this.item));  // Get the Strong Title Case name
+                        if (_this.newName !== this.item.attributes.name) {  // if they are not equal
+                            W.model.actionManager.add(new UpdateObject(this.item, { name: _this.newName }));
+                            _this.updatedFields.name = true;
+                            _this.highlightChangedFields();
+                        }
+                        _this.flags.STC.active = false;  // reset the display flag
+                    }
+                }]
+            },
+
+            sfAliases: {
+                active: false, severity: 0, message: 'Unnecessary aliases were removed.'
+            },
+
+            placeMatched: {
+                active: false, severity: 0, message: 'Place matched from PNH data.'
+            },
+
+            placeLocked: {
+                active: false, severity: 0, message: 'Place locked  <span class="fa fa-lock"></span>'
+            },
+
+            PlaceWebsite: {
+                active: false, severity: -1, message: "",
+                buttons: [{
+                    text: "Place Website",
+                    title: "Direct link to place website", fullWidthButton: true,
+                    action: function() {
+                        var openPlaceWebsiteURL, linkProceed = true;
+                        if (updateURL) {
+                            if (/^https?:\/\//.test(newURL)) {
+                                openPlaceWebsiteURL = newURL;
+                            } else {
+                                openPlaceWebsiteURL = 'http://' + newURL;
+                            }
+                            // replace WME url with storefinder URLs if they are in the PNH data
+                            if (customStoreFinder) {
+                                openPlaceWebsiteURL = customStoreFinderURL;
+                            } else if (customStoreFinderLocal) {
+                                openPlaceWebsiteURL = customStoreFinderLocalURL;
+                            }
+                            // If the user has 'never' opened a localized store finder URL, then warn them (just once)
+                            if (localStorage.getItem(SFURLWarning) === '0' && customStoreFinderLocal) {
+                                linkProceed = false;
+                                if (confirm('***Localized store finder sites often show multiple nearby results. Please make sure you pick the right location.\nClick OK to agree and continue.') ) {  // if the category doesn't translate, then pop an alert that will make a forum post to the thread
+                                    localStorage.setItem(SFURLWarning, '1');  // prevent future warnings
+                                    linkProceed = true;
+                                }
+                            }
+                        } else {
+                            if (/^https?:\/\//.test(this.item.attributes.url)) {
+                                openPlaceWebsiteURL = this.item.attributes.url;
+                            } else {
+                                openPlaceWebsiteURL = 'http://' + this.item.attributes.url;
+                            }
+                        }
+                        // open the link depending on new window setting
+                        if (linkProceed) {
+                            if ( isChecked("WMEPH-WebSearchNewTab") ) {
+                                openWindow(openPlaceWebsiteURL);
+                            } else {
+                                window.open(openPlaceWebsiteURL, searchResultsWindowName, searchResultsWindowSpecs);
+                            }
+                        }
+                    }
+                }]
+            },
+
+            webSearch: {
+                active: false, severity: -1, message: "",
+                buttons: [{
+                    text: 'Web Search <span class="fa fa-search"></span>',
+                    title: "Search the web for this place.  Do not copy info from 3rd party sources!",
+                    fullWidthButton: true,
+                    action: function() {
+                        if (localStorage.getItem(GLinkWarning) !== '1') {
+                            if (confirm('***Please DO NOT copy info from Google or third party sources.*** This link is to help you find the business webpage.\nClick OK to agree and continue.') ) {  // if the category doesn't translate, then pop an alert that will make a forum post to the thread
+                                localStorage.setItem(GLinkWarning, '1');
+                            }
+                        }
+                        if (localStorage.getItem(GLinkWarning) === '1') {
+                            if ( isChecked("WMEPH-WebSearchNewTab") ) {
+                                openWindow(buildGLink(_this.newName,addr,this.item.attributes.houseNumber));
+                            } else {
+                                window.open(buildGLink(_this.newName,addr,this.item.attributes.houseNumber), searchResultsWindowName, searchResultsWindowSpecs);
+                            }
+                        }
+                    }
+                }]
+            },
+
+            NewPlaceSubmit: {
+                active: false, severity: -1, id: 'wmeph-no-pnh-row', message: "No PNH match. If it's a chain: ",
+                buttons: [{
+                    text: "Submit new chain data",
+                    title: "Submit info for a new chain through the linked form",
+                    fullWidthButton: true,
+                    action: function() {
+                        window.open(_this.newPlaceURL);
+                    }
+                }]
+            },
+
+            ApprovalSubmit: {
+                active: false, severity: -1, message: "PNH data exists but is not approved for this region: ", verticalLayout: true,
+                buttons: [{
+                    text: "Request approval",
+                    title: "Request region/country approval of this place",
+                    action: function() {
+                        if ( PMUserList.hasOwnProperty(myPlace.psRegion) && PMUserList[myPlace.psRegion].approvalActive ) {
+                            var forumPMInputs = {
+                                subject: 'PNH approval for "' + PNHNameTemp + '"',
+                                message: ['Please approve "' + PNHNameTemp + '" for the ' + myPlace.psRegion + ' region.  Thanks',
+                                          ' ',
+                                          'PNH order number: ' + PNHOrderNum,
+                                          ' ',
+                                          'Example Permalink: ' + _this.permalink,
+                                          ' ',
+                                          'PNH Link: ' + USAPNHMasURL].join('\n'),
+                                preview: 'Preview', attach_sig: 'on'
+                            };
+                            forumPMInputs['address_list[u]['+PMUserList[myPlace.psRegion].modID+']'] = 'to';  // Sends a PM to the regional mod instead of the submission form
+                            WMEPH_newForumPost('https://www.waze.com/forum/ucp.php?i=pm&mode=compose', forumPMInputs);
+                        } else {
+                            window.open(approveRegionURL);
+                        }
+                    }
+                }]
+            }
+        };  // END bannButt definitions
+
+        
+        //////////////////////
+        // Harmony Services //   Formerly bannServ
+        //////////////////////
+
+        // active: false until activated in the script
+        // checked: whether the service is already set on the place. Determines grey vs white icon color
+        // icon: button icon name
+        // value: button text  (Not used for Icons, keep as backup
+        // title: tooltip text
+        // action: The action that happens if the button is pressed
+
+        this.services = {
+            addValet: {  // append optional Alias to the name
+                active: false, checked: false, icon: "serv-valet", w2hratio: 50/50, value: "Valet", title: 'Valet', servIDIndex: 0,
+                action: function(actions, checked) {
+                    _this.setServiceChecked(this, checked);
+                },
+                pnhOverride: false,
+                actionOn: function(actions) {
+                    this.action(actions, true);
+                },
+                actionOff: function(actions) {
+                    this.action(actions, false);
+                }
+            },
+            addDriveThru: {  // append optional Alias to the name
+                active: false, checked: false, icon: "serv-drivethru", w2hratio: 78/50, value: "DriveThru", title: 'Drive-Thru', servIDIndex: 1,
+                action: function(actions, checked) {
+                    _this.setServiceChecked(this, checked);
+                },
+                pnhOverride: false,
+                actionOn: function(actions) {
+                    this.action(actions, true);
+                },
+                actionOff: function(actions) {
+                    this.action(actions, false);
+                }
+            },
+            addWiFi: {  // append optional Alias to the name
+                active: false, checked: false, icon: "serv-wifi", w2hratio: 67/50, value: "WiFi", title: 'WiFi', servIDIndex: 2,
+                action: function(actions, checked) {
+                    console.log('AddWifi: this = ' + JSON.stringify(this));
+                    _this.setServiceChecked(this, checked);
+                },
+                pnhOverride: false,
+                actionOn: function(actions) {
+                    this.action(actions, true);
+                },
+                actionOff: function(actions) {
+                    this.action(actions, false);
+                }
+            },
+            addRestrooms: {  // append optional Alias to the name
+                active: false, checked: false, icon: "serv-restrooms", w2hratio: 49/50, value: "Restroom", title: 'Restrooms', servIDIndex: 3,
+                action: function(actions, checked) {
+                    _this.setServiceChecked(this, checked);
+                },
+                pnhOverride: false,
+                actionOn: function(actions) {
+                    this.action(actions, true);
+                },
+                actionOff: function(actions) {
+                    this.action(actions, false);
+                }
+            },
+            addCreditCards: {  // append optional Alias to the name
+                active: false, checked: false, icon: "serv-credit", w2hratio: 73/50, value: "CC", title: 'Credit Cards', servIDIndex: 4,
+                action: function(actions, checked) {
+                    _this.setServiceChecked(this, checked);
+                },
+                pnhOverride: false,
+                actionOn: function(actions) {
+                    this.action(actions, true);
+                },
+                actionOff: function(actions) {
+                    this.action(actions, false);
+                }
+            },
+            addReservations: {  // append optional Alias to the name
+                active: false, checked: false, icon: "serv-reservations", w2hratio: 55/50, value: "Reserve", title: 'Reservations', servIDIndex: 5,
+                action: function(actions, checked) {
+                    _this.setServiceChecked(this, checked);
+                },
+                pnhOverride: false,
+                actionOn: function(actions) {
+                    this.action(actions, true);
+                },
+                actionOff: function(actions) {
+                    this.action(actions, false);
+                }
+            },
+            addOutside: {  // append optional Alias to the name
+                active: false, checked: false, icon: "serv-outdoor", w2hratio: 73/50, value: "OusideSeat", title: 'Outside Seating', servIDIndex: 6,
+                action: function(actions, checked) {
+                    _this.setServiceChecked(this, checked);
+                },
+                pnhOverride: false,
+                actionOn: function(actions) {
+                    this.action(actions, true);
+                },
+                actionOff: function(actions) {
+                    this.action(actions, false);
+                }
+            },
+            addAC: {  // append optional Alias to the name
+                active: false, checked: false, icon: "serv-ac", w2hratio: 50/50, value: "AC", title: 'AC', servIDIndex: 7,
+                action: function(actions, checked) {
+                    _this.setServiceChecked(this, checked);
+                },
+                pnhOverride: false,
+                actionOn: function(actions) {
+                    this.action(actions, true);
+                },
+                actionOff: function(actions) {
+                    this.action(actions, false);
+                }
+            },
+            addParking: {  // append optional Alias to the name
+                active: false, checked: false, icon: "serv-parking", w2hratio: 46/50, value: "Parking", title: 'Parking', servIDIndex: 8,
+                action: function(actions, checked) {
+                    _this.setServiceChecked(this, checked);
+                },
+                pnhOverride: false,
+                actionOn: function(actions) {
+                    this.action(actions, true);
+                },
+                actionOff: function(actions) {
+                    this.action(actions, false);
+                }
+            },
+            addDeliveries: {  // append optional Alias to the name
+                active: false, checked: false, icon: "serv-deliveries", w2hratio: 86/50, value: "Delivery", title: 'Deliveries', servIDIndex: 9,
+                action: function(actions, checked) {
+                    _this.setServiceChecked(this, checked);
+                },
+                pnhOverride: false,
+                actionOn: function(actions) {
+                    this.action(actions, true);
+                },
+                actionOff: function(actions) {
+                    this.action(actions, false);
+                }
+            },
+            addTakeAway: {  // append optional Alias to the name
+                active: false, checked: false, icon: "serv-takeaway", w2hratio: 34/50, value: "TakeOut", title: 'Take Out', servIDIndex: 10,
+                action: function(actions, checked) {
+                    _this.setServiceChecked(this, checked);
+                },
+                pnhOverride: false,
+                actionOn: function(actions) {
+                    this.action(actions, true);
+                },
+                actionOff: function(actions) {
+                    this.action(actions, false);
+                }
+            },
+            addWheelchair: {  // add service
+                active: false, checked: false, icon: "serv-wheelchair", w2hratio: 50/50, value: "WhCh", title: 'Wheelchair Accessible', servIDIndex: 11,
+                action: function(actions, checked) {
+                    _this.setServiceChecked(this, checked);
+                },
+                pnhOverride: false,
+                actionOn: function(actions) {
+                    this.action(actions, true);
+                },
+                actionOff: function(actions) {
+                    this.action(actions, false);
+                }
+            },
+            add247: {  // add 24/7 hours
+                active: false, checked: false, icon: "serv-247", w2hratio: 73/50, value: "247", title: 'Hours: Open 24\/7',
+                action: function(actions) {
+                    if (!_this.services.add247.checked) {
+                        addUpdateAction(item, { openingHours: [{days: [1,2,3,4,5,6,0], fromHour: "00:00", toHour: "00:00"}] }, actions);
+                        _this.updatedFields.openingHours = true;
+                        _this.highlightChangedFields();
+                        _this.services.add247.checked = true;
+                        _this.flags.noHours.active = false;
+                    }
+                },
+                actionOn: function(actions) {
+                    this.action(actions);
+                }
+            }
+        };  // END bannServ definitions
 
     }
 
