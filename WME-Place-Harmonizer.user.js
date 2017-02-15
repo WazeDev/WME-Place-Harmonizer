@@ -2933,7 +2933,7 @@
                     } else {
                         harmony.flags.hnMissing.active = true;
                         if (currentWL.HNWL) {
-                            bannButt.severity = 0;
+                            harmony.flags.hnMissing.severity = 0;
                             harmony.flags.hnMissing.WLactive = false;
                         } else {
                             lockOK = false;
