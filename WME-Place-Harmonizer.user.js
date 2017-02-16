@@ -42,65 +42,79 @@
     ///////////////
 
     // New in this version
-    var WHATS_NEW_LIST = [
-        '1.2.2: Fixed - Whitelisting a HN didn\'t allow auto-locking.',
-        '1.2.1: Removed R2+ restriction for using this script.',
-        '1.2.0: Production release.',
-        '1.1.97: Added regex place name matching for increased flexibility.',
-        '1.1.96: Changed "City Missing." to "No city" to be consistent with other flag messages.',
-        '1.1.96: Hospital / gas station and PLA "special" highlights only display if no lock (L1).',
-        '1.1.96: Add "Change to Offices" button under hospital/medical care note.',
-        '1.1.96: Changed to "No external provider link(s)".',
-        '1.1.95: Change "not a hospital" note.',
-        '1.1.95: Fixed bug with area vs point warning not locking even after WL.',
-        '1.1.95: Locking a place that has an area vs point warning will effectively WL it for everyone.',
-        '1.1.94: Fixed bug that was preventing all categories from being checked for lock level, messages, etc.',
-        '1.1.93: Fixed bug with area vs point warning.',
-        '1.1.92: Minor styling tweaks.',
-        '1.1.92: Fixed bug that would prevent "Edit address" button from working if General tab is not active.',
-        '1.1.91: Fixed bug that triggered when all categories were removed.',
-        '1.1.90: Fixed bug in data compression algorithm.',
-        '1.1.89: Style tweaks.',
-        '1.1.88: Uncheck "No City" when clicking "Edit address" button (wouldn\'t jump to the field.',
-        '1.1.87: Removed "No HN" flag until street is set.',
-        '1.1.87: Added an "Edit address" button to quickly jump to the city field in the address editor.',
-        '1.1.87: Fixed bug that allowed empty URL\'s.',
-        '1.1.86: Remove "No Street" flag when city doesn\'t exist.',
-        '1.1.85: Remove bullets from banner to improve layout a bit until a new design is completed.',
-        '1.1.84: Fix to ignore title casing inside parens at end of PLA names.',
-        '1.1.83: Improved check for automated (bot) account edits.',
-        '1.1.82: Added option to disable check for missing external provider on parking lots.',
-        '1.1.81: Fix for incorrect capitalization when "mc" is in the middle of a word.',
-        '1.1.80: Fix to allow entering phone #s longer than 10 digits, e.g. 800-THE-CRAVE',
-        '1.1.79: Fixed area / point warning when multiple categories are present.',
-        '1.1.78: Added yellow "caution" highlights.  Were previously red.',
-        '1.1.77: Unlocked PLAs are highlighted with a bold red dotted outline',
-        '1.1.75: Fix for Google hyperlinks not showing up after first click on place.',
-        '1.1.74: Keep hours input visible at all times.',
-        '1.1.73: Place Website button added when URL is added.',
-        '1.1.72: Fixed lock issue with Missing External Provider flag.',
-        '1.1.71: Added "avsus" to list of staff accounts.',
-        '1.1.70: Fix for adding 24/7 service from PNH spreadsheet.',
-        '1.1.69: Added input box to enter missing street.',
-        '1.1.68: Added "Missing External Provider" and option to treat as non-critical.',
-        '1.1.67: Fixed optional 2nd categories.',
-        '1.1.66: Fixed highlighting for unlocked hospitals and gas stations (purple / dashed).',
-        '1.1.65: Fix for bug that caused hang in v1.1.64.',
-        '1.1.64: Added URL entry box when missing.',
-        '1.1.64: Missing gas station name automatically set to brand name.',
-        '1.1.64: Minor UI adjustments to fit some messages on one line.',
-        '1.1.63: Added option to exclude PLAs when searching for duplicate places, and vice versa.',
-        '1.1.62: FIXED - Whitelisted flags not saved for new (unsaved) places.',
-        '1.1.61: Fixed issues with Rest Areas.',
-        '1.1.60: Fix to get place category "special messages" to display.',
-        '1.1.59: Fix for erroneous "stacked place" warning on area places.',
-        '1.1.58: Fix for multi-edits when runnning harmonizer in some cases.',
-        '1.1.57: Fix for Store Locator button not showing up on first run, and unpredictable Service button behavior.',
-        '1.1.56: Fix for needing to run twice when useless alt names are removed.',
-        '1.1.55: Added Waze3rdParty and renamed "edited by waze maint bot" to "account administered by waze staff',
-        '1.1.53: Fixed bug where blank space was being inserted in front of hotel brandParent name',
-        '1.1.52: Fixed bug reporting PMs.'
-    ];
+    var WHATS_NEW_LIST = {
+        "1.2":  {
+            "1.2.2" : [ "Fixed - Whitelisting a HN didn't allow auto-locking." ],
+            "1.2.1" : [ "Removed R2+ restriction for using this script." ],
+            "1.2.0" : [ "Production release." ],
+        },
+        "1.1":  {
+            "1.1.97": [ "Added regex place name matching for increased flexibility." ],
+            "1.1.96": [ 
+                "Changed \"City Missing.\" to \"No city\" to be consistent with other flag messages.",
+                "Hospital / gas station and PLA \"special\" highlights only display if no lock (L1).",
+                "Add \"Change to Offices\" button under hospital/medical care note.",
+                "Changed to \"No external provider link(s)\"."
+            ],
+            "1.1.95": [
+                "Change \"not a hospital\" note.",
+                "Fixed bug with area vs point warning not locking even after WL.",
+                "Locking a place that has an area vs point warning will effectively WL it for everyone."
+            ],
+            "1.1.94": [ "Fixed bug that was preventing all categories from being checked for lock level, messages, etc." ],
+            "1.1.93": [ "Fixed bug with area vs point warning." ],
+            "1.1.92": [
+                "Minor styling tweaks.",
+                "Fixed bug that would prevent \"Edit address\" button from working if General tab is not active."
+            ],
+            "1.1.91": [ "Fixed bug that triggered when all categories were removed." ],
+            "1.1.90": [ "Fixed bug in data compression algorithm." ],
+            "1.1.89": [ "Style tweaks." ],
+            "1.1.88": [ "Uncheck \"No City\" when clicking \"Edit address\" button (wouldn't jump to the field." ],
+            "1.1.87": [
+                "Removed \"No HN\" flag until street is set.",
+                "Added an \"Edit address\" button to quickly jump to the city field in the address editor.",
+                "Fixed bug that allowed empty URL's."
+            ],
+            "1.1.86": [ "Remove \"No Street\" flag when city doesn't exist." ],
+            "1.1.85": [ "Remove bullets from banner to improve layout a bit until a new design is completed." ],
+            "1.1.84": [ "Fix to ignore title casing inside parens at end of PLA names." ],
+            "1.1.83": [ "Improved check for automated (bot) account edits." ],
+            "1.1.82": [ "Added option to disable check for missing external provider on parking lots." ],
+            "1.1.81": [ "Fix for incorrect capitalization when \"mc\" is in the middle of a word." ],
+            "1.1.80": [ "Fix to allow entering phone #s longer than 10 digits, e.g. 800-THE-CRAVE" ],
+            "1.1.79": [ "Fixed area / point warning when multiple categories are present." ],
+            "1.1.78": [ "Added yellow \"caution\" highlights.  Were previously red." ],
+            "1.1.77": [ "Unlocked PLAs are highlighted with a bold red dotted outline" ],
+            "1.1.75": [ "Fix for Google hyperlinks not showing up after first click on place." ],
+            "1.1.74": [ "Keep hours input visible at all times." ],
+            "1.1.73": [ "Place Website button added when URL is added." ],
+            "1.1.72": [ "Fixed lock issue with Missing External Provider flag." ],
+            "1.1.71": [ "Added \"avsus\" to list of staff accounts." ],
+            "1.1.70": [ "Fix for adding 24/7 service from PNH spreadsheet." ],
+            "1.1.69": [ "Added input box to enter missing street." ],
+            "1.1.68": [ "Added \"Missing External Provider\" and option to treat as non-critical." ],
+            "1.1.67": [ "Fixed optional 2nd categories." ],
+            "1.1.66": [ "Fixed highlighting for unlocked hospitals and gas stations (purple / dashed)." ],
+            "1.1.65": [ "Fix for bug that caused hang in v1.1.64." ],
+            "1.1.64": [
+                "Added URL entry box when missing.",
+                "Missing gas station name automatically set to brand name.",
+                "Minor UI adjustments to fit some messages on one line."
+            ],
+            "1.1.63": [ "Added option to exclude PLAs when searching for duplicate places, and vice versa." ],
+            "1.1.62": [ "FIXED - Whitelisted flags not saved for new (unsaved) places." ],
+            "1.1.61": [ "Fixed issues with Rest Areas." ],
+            "1.1.60": [ "Fix to get place category \"special messages\" to display." ],
+            "1.1.59": [ "Fix for erroneous \"stacked place\" warning on area places." ],
+            "1.1.58": [ "Fix for multi-edits when runnning harmonizer in some cases." ],
+            "1.1.57": [ "Fix for Store Locator button not showing up on first run, and unpredictable Service button behavior." ],
+            "1.1.56": [ "Fix for needing to run twice when useless alt names are removed." ],
+            "1.1.55": [ "Added Waze3rdParty and renamed \"edited by waze maint bot\" to \"account administered by waze staff\"." ],
+            "1.1.53": [ "Fixed bug where blank space was being inserted in front of hotel brandParent name" ],
+            "1.1.52": [ "Fixed bug reporting PMs." ],
+        }
+    };
     var WHATS_NEW_META_LIST = [  // New in this major version
         'WMEPH is now available for R1 editors to use!',
         'Yellow "caution" map highlights.',
@@ -113,7 +127,7 @@
     // Script Name, Version, Meta info
     var WMEPH_VERSION_LONG = GM_info.script.version.toString(),             // Pull version from header
         WMEPH_VERSION_MAJOR = WMEPH_VERSION_LONG.match(/(\d+\.\d+)/i)[1],   // Get the X.X version number
-        NEW_MAJOR_FEATURE = false,                                          // Set to true to make an alert pop up after script update with new feature
+        NEW_MAJOR_FEATURE = true,                                          // Set to true to make an alert pop up after script update with new feature
         SCRIPT_NAME = GM_info.script.name.toString(),
         IS_DEV_VERSION = (SCRIPT_NAME.match(/Beta/i) !== null);             // Enables dev messages and unique DOM options if the script is called "... Beta"
     // CSS Stuff
@@ -1175,12 +1189,15 @@
     function runPH() {
         debug('- runPH() called -');
         //_injectElement(Harmony, "script");
-        var newSep = '\n - ', listSep = '<li>';  // joiners for script and html messages
-        var WMEPHWhatsNew = WHATS_NEW_LIST.join(newSep);
+        var WHATS_NEW_LIST_TEXT = "WME Place Harmonizer (v" + WMEPH_VERSION_LONG + ")\n\nUpdates:\n";
+        WHATS_NEW_LIST_TEXT += JSON.stringify(WHATS_NEW_LIST, null, 2).replace(/[\[\{]/g,"").replace(/[ ]+[\]\}],?\n/g,"").replace(/\}$/,"\n").replace(/"([^\n]+)":/g,"$1").replace(/"([^\n]+)",?/g,"- $1").replace(/\\"/g,'"');
+        var WHATS_NEW_LIST_HTML = JSON.stringify(WHATS_NEW_LIST).replace(/[\{\[]/g,"<ul>").replace(/[\}\]],?/g,"</ul>").replace(/"([^<]+)"(:)?[ ,]?/g,"<li>$1$2</li>").replace(/\\"/g,'"');
+        var newSep = '\n - ', listSep = '</li><li>';  // joiners for script and html messages
+        //var WMEPHWhatsNew = WHATS_NEW_LIST.join(newSep);
         var WMEPHWhatsNewMeta = WHATS_NEW_META_LIST.join(newSep);
-        var WMEPHWhatsNewHList = WHATS_NEW_LIST.join(listSep);
+        //var WMEPHWhatsNewHList = WHATS_NEW_LIST.join(listSep);
         var WMEPHWhatsNewMetaHList = WHATS_NEW_META_LIST.join(listSep);
-        WMEPHWhatsNew = 'WMEPH v. ' + WMEPH_VERSION_LONG + '\nUpdates:' + newSep + WMEPHWhatsNew;
+        //WMEPHWhatsNew = 'WMEPH v. ' + WMEPH_VERSION_LONG + '\nUpdates:' + newSep + WMEPHWhatsNew;
         WMEPHWhatsNewMeta = 'WMEPH v. ' + WMEPH_VERSION_MAJOR + '\nMajor features:' + newSep + WMEPHWhatsNewMeta;
         if ( localStorage.getItem('WMEPH-featuresExamined'+devVersStr) === null ) {
             localStorage.setItem('WMEPH-featuresExamined'+devVersStr, '0');  // Storage for whether the User has pressed the button to look at updates
@@ -1226,7 +1243,7 @@
             localStorage.setItem('WMEPH-featuresExamined'+devVersStr, '1');  // disable the button
         } else if (localStorage.getItem('WMEPH_VERSION_LONG'+devVersStr) !== WMEPH_VERSION_LONG) {  // If MINOR version....
             if (NEW_MAJOR_FEATURE) {  //  with major feature update, then alert
-                alert(WMEPHWhatsNew);
+                alert(WHATS_NEW_LIST_TEXT);
                 localStorage.setItem('WMEPH-featuresExamined'+devVersStr, '1');  // disable the button
             } else {  //  if not major feature update, then keep the button
                 localStorage.setItem('WMEPH-featuresExamined'+devVersStr, '0');
@@ -5433,9 +5450,16 @@
             var placesWikiStr = 'Open the WME Places Wiki page';
             var phContentHtml2 = '<hr align="center" width="95%"><p><a href="' +
                 PLACES_WIKI_URL + '" target="_blank" title="'+placesWikiStr+'">'+placesWikiStr+'</a><p><a href="' +
-                WMEPH_FORUM_URL + '" target="_blank" title="'+feedbackString+'">'+feedbackString+'</a></p><hr align="center" width="95%">Major features for v. ' +
-                WMEPH_VERSION_MAJOR+':<ul><li>'+WMEPHWhatsNewMetaHList+'</ul>Recent updates:<ul><li>'+WMEPHWhatsNewHList+'</ul>';
+                WMEPH_FORUM_URL + '" target="_blank" title="'+feedbackString+'">'+feedbackString+'</a></p><hr align="center" width="95%"><div id="WMEPH_New_Features">Major features for v' +
+                WMEPH_VERSION_MAJOR+':<ul><li>'+WMEPHWhatsNewMetaHList+'</li></ul><div id="WMEPH_Change_Log">Recent updates:'+WHATS_NEW_LIST_HTML+'</div>';
             $("#sidepanel-harmonizer").append(phContentHtml2);
+            // Making the list expandable/collapsable
+            $("#WMEPH_Change_Log > ul li").removeClass();
+            $("#WMEPH_Change_Log > ul li:not(li:after(ul)").addClass(".expanded");
+            $("#WMEPH_Change_Log > ul li").click(function(){
+                $(this).next("ul").slideToggle(200);
+                $(this).toggleClass("collapsed expanded");
+            });
 
             W.map.events.register("mousemove", W.map, function (e) {
                 WMEPHmousePosition = W.map.getLonLatFromPixel( W.map.events.getMousePosition(e) );
