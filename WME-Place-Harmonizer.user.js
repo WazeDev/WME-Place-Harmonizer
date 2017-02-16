@@ -1614,10 +1614,8 @@
         }
 
         // Main script
-        function harmonizePlaceGo(item, useFlag, actions) {
-            debug('-- harmonizePlaceGo() called --');
-            debug('  useFlag = ' + JSON.stringify(useFlag, null, 2));
-            debug('  actions = ' + JSON.stringify(actions, null, 2));
+        function harmonizePlaceGo(item, useFlag) {
+            debug('-- harmonizePlaceGo(item, "'+useFlag+'") called --');
             var harmony;
             var i, len;
             //debug('About to check if item.attributes.harmony is defined.');
@@ -1790,7 +1788,7 @@
                         if (inferredAddress && inferredAddress.state && inferredAddress.country ) {
                             addr = inferredAddress;
                             if ( isChecked("WMEPH-AddAddresses") ) {  // update the item's address if option is enabled
-                                updateAddress(item, addr, actions);
+                                updateAddress(item, addr, harmony.actions);
                                 harmony.updatedFields.address = true;
                                 if (item.attributes.houseNumber && item.attributes.houseNumber.replace(/[^0-9A-Za-z]/g,'').length > 0 ) {
                                     harmony.flags.fullAddressInference.active = true;
@@ -2050,11 +2048,11 @@
                                 harmony.flags[scFlag].active = false;
                             } else if ( specCases[scix].match(/^psOn_/g) !== null ) {
                                 scFlag = specCases[scix].match(/^psOn_(.+)/i)[1];
-                                harmony.services[scFlag].actionOn(actions);
+                                harmony.services[scFlag].actionOn();
                                 harmony.services[scFlag].pnhOverride = true;
                             } else if ( specCases[scix].match(/^psOff_/g) !== null ) {
                                 scFlag = specCases[scix].match(/^psOff_(.+)/i)[1];
-                                harmony.services[scFlag].actionOff(actions);
+                                harmony.services[scFlag].actionOff();
                                 harmony.services[scFlag].pnhOverride = true;
                             }
                             // parseout localURL data if exists (meaning place can have a URL distinct from the chain URL
@@ -2598,7 +2596,7 @@
                                     harmony.services[act].active = true;
                                     if (hpMode.harmFlag && isChecked("WMEPH-EnableServices")) {
                                         // Automatically enable new services
-                                        harmony.services[act].actionOn(actions);
+                                        harmony.services[act].actionOn();
                                     }
                                 } else if (flag === 2) {  // these are never automatically added but shown
                                     harmony.services[act].active = true;
@@ -2607,7 +2605,7 @@
                                     if ( hpMode.harmFlag && isChecked("WMEPH-EnableServices")) {
                                         // If the sheet data matches the state or region, then auto add
                                         if (isMemberOfRegion(myState, flag) || isMemberOfRegion(myCountry, flag)) {
-                                            harmony.services[act].actionOn(actions);
+                                            harmony.services[act].actionOn();
                                         }
                                     }
                                 }
@@ -3131,10 +3129,10 @@
                                 // The new name matches the original name, so the only change would have been to capitalize "Mile", which
                                 // we don't want. So remove any previous name-change action.  Note: this feels like a hack and is probably
                                 // a fragile workaround.  The name shouldn't be capitalized in the first place, unless necessary.
-                                for (i = 0; i < actions.length; i++) {
-                                    var action = actions[i];
+                                for (i = 0; i < harmony.actions.length; i++) {
+                                    var action = harmony.actions[i];
                                     if (action.newAttributes.name) {
-                                        actions.splice(i,1);
+                                        harmony.actions.splice(i,1);
                                         harmony.updatedFields.name = false;
                                         break;
                                     }
@@ -3442,7 +3440,7 @@
                 }
             }
 
-            harmony.executeMultiAction(actions);
+            harmony.executeMultiAction();
 
             if (hpMode.harmFlag) {
                 // Update icons to reflect current WME place services
@@ -3567,7 +3565,7 @@
                                 .click(function(e) {
                                 var bannerKey = $(this).data('banner-key');
                                 var wlKey = $(this).data('wl-key');
-                                var bannerRowInfo = harmony.flags[bannerKey];
+                                var bannerRowInfo = item.attributes.harmony.flags[bannerKey];
                                 bannerRowInfo.WLaction();
                                 currentWL[wlKey] = true;
                                 harmonizePlaceGo(item, 'harmonize');
@@ -3587,12 +3585,11 @@
             // setup Add Service Buttons for suggested services
             var sidebarServButts = '', servButtHeight = '27', greyOption;
             for ( tempKey in item.attributes.harmony.services ) {
-                if ( item.attributes.harmony.services.hasOwnProperty(tempKey) && item.attributes.harmony.services[tempKey].hasOwnProperty('active') && item.attributes.harmony.services[tempKey].active ) {  //  If the particular service is active
+                if ( item.attributes.harmony.services[tempKey].hasOwnProperty("active") && item.attributes.harmony.services[tempKey].active ) {  //  If the particular service is active
                     if ( item.attributes.harmony.services[tempKey].checked ) {
                         greyOption = '';
                     } else {
                         greyOption = '-webkit-filter: opacity(.25);filter: opacity(.25);';
-                        //greyOption = '-webkit-filter: brightness(3); filter: brightness(3);';
                     }
                     //strButt1 = '&nbsp<input class="servButton" id="WMEPH_' + tempKey + '" title="' + item.attributes.harmony.services[tempKey].title + '" type="image" style="height:' + servButtHeight +
                     //    'px;background:none;border-color: none;border-style: none;" src="https://openmerchantaccount.com/img2/' + item.attributes.harmony.services[tempKey].icon + greyOption + '.png">';
@@ -3626,9 +3623,9 @@
                 setupButtons(bannDupl);
             }
             // Setup harmony.flags onclicks
-            //setupButtons(harmony.flags);
+            setupButtons(item.attributes.harmony.flags);
             // Setup harmony.services onclicks
-            //setupButtons(harmony.services);
+            setupButtons(item.attributes.harmony.services);
             // Setup bannButt2 onclicks
             setupButtons(bannButt2);
 
@@ -3691,7 +3688,7 @@
             $("#WMEPH_missingStreet").keyup(function(event){
                 if( event.keyCode === 13 && $('#WMEPH_missingStreet').val() !== '' ){
                     if(checkStreet(null)) {
-                        addStreetToVenue();
+                        addStreetToVenue(item);
                     }
                 }
             });
@@ -4945,7 +4942,7 @@
         }  // END inferAddress function
 
 
-        function addStreetToVenue(streetName) {
+        function addStreetToVenue(item) {
             var stName = $('#WMEPH_missingStreet').val();
             var street = W.model.streets.getByAttributes({name:stName})[0];
             var addr = item.getAddress().attributes;
@@ -4956,7 +4953,7 @@
                 street: street
             };
             updateAddress(item, newAddr);
-            harmony.flags.streetMissing.active = false;
+            item.attributes.harmony.flags.streetMissing.active = false;
             assembleBanner(item);
         }
 
@@ -4968,6 +4965,10 @@
          * objects.
          */
         function updateAddress(feature, address, actions) {
+            console.log("updateAddress(feature, address, actions) was called");
+            console.log("feature.CLASS_NAME = " + feature.CLASS_NAME);
+            console.log("address = " + JSON.stringify(address));
+            console.log("actions = " + JSON.stringify(actions));
             var newAttributes,
                 UpdateFeatureAddress = require('Waze/Action/UpdateFeatureAddress');
             feature = feature || item;
@@ -6739,44 +6740,55 @@
         };
 
         // Sets the given service as checked.
-        this.setServiceChecked = function(servBtn, checked) {
-            var servID = WME_SERVICES[servBtn.servIDIndex];
-            var checkboxChecked = isChecked("service-checkbox-"+servID);
-            var toggle = typeof checked === 'undefined';
+        this.setServiceChecked = function(servObj, checked) {
+//            console.log("setServiceChecked(servObj, checked) was called");
+//            console.log("Existing actions: "+JSON.stringify(this.actions, censor(this.actions), 2));
+//            console.log("servObj.name = " + servObj.name);
+//            console.log("servObj.id = " + servObj.id);
+//            console.log("checked = " + checked);
+            var checkboxChecked = isChecked("service-checkbox-"+servObj.id);
+//            console.log("checkboxChecked = " + checkboxChecked);
+            var toggle = typeof checked === "undefined";
             var noAdd = false;
-            checked = (toggle) ? !servBtn.checked : checked;
-            if (checkboxChecked === servBtn.checked && checkboxChecked !== checked) {
-                servBtn.checked = checked;
-                var services;
+            checked = (toggle) ? !servObj.checked : checked;
+//            console.log("checked is now = " + checked);
+            if (checkboxChecked === servObj.checked && checkboxChecked !== checked) {
+                servObj.checked = checked;
+                var _services;
                 if (this.actions) {
                     for (var i = 0, len = this.actions.length; i < len; i++) {
                         var existingAction = this.actions[i];
+console.log("Line 6762: this.item.attributes.hasOwnProperty('services') === " + JSON.stringify(this.item.attributes.hasOwnProperty('services')));
                         if (existingAction.newAttributes && existingAction.newAttributes.services) {
-                            services = existingAction.newAttributes.services;
+console.log("Line 6764: existingAction.newAttributes.hasOwnProperty('services') === " + JSON.stringify(existingAction.newAttributes.hasOwnProperty('services')));
+                            _services = existingAction.newAttributes.services;
                         }
                     }
                 }
-                if (!services) {
-                    services = this.item.attributes.services.slice(0);
+                if (!_services) {
+console.log("Line 6770: this.item.attributes.hasOwnProperty('services') === " + JSON.stringify(this.item.attributes.hasOwnProperty('services')));
+                    _services = this.item.attribues.services.slice(0); // Why is this causing an error?  this.item.attributes is NOT undefined!
                 } else {
-                    noAdd = services.indexOf(servID) > -1;
+                    noAdd = _services.indexOf(servObj.id) > -1;
                 }
                 if (checked) {
-                    services.push(servID);
+                    _services.push(servObj.id);
                 } else {
-                    var index = services.indexOf(servID);
+                    var index = _services.indexOf(servObj.id);
                     if (index > -1) {
-                        services.splice(index, 1);
+                        _services.splice(index, 1);
                     }
                 }
                 if (!noAdd) {
-                    //harmony.addUpdateAction({services:services}, actions);
-                    this.addUpdateAction({"services":services});
-                    this.updatedFields.services[servID] = true;
+//                    console.log("About to call addUpdateAction(), passing for _services: " + JSON.stringify(_services));
+                    this.addUpdateAction({"services":_services});
+console.log("Line 6786: this.updatedFields.hasOwnProperty('services') === " + JSON.stringify(this.updatedFields.hasOwnProperty('services')));
+                    this.updatedFields.services[servObj.id] = true;
                 }
             }
             this.updateServiceChecks();
-            if (!toggle) servBtn.active = checked;
+console.log("Line 6791: this.hasOwnProperty('services') === " + JSON.stringify(this.hasOwnProperty('services')));
+            if (!toggle) this.services[servObj.name].active = checked;
         };
 
         // NOTE: Something about this doesn't seem right...
@@ -6808,9 +6820,9 @@
                 tab1HL = true;
             }
             if (this.updatedFields.aliases) {
-                var $field = $(".alias-name.form-control")[0];
-                if ($field) {
-                    $field.css({_css});
+                var field = $(".alias-name.form-control")[0];
+                if (field) {
+                    $(field).css(_css);
                     tab1HL = true;
                 }
             }
@@ -6862,7 +6874,7 @@
             if (tab2HL) {
                 $("a[href='#landmark-edit-more-info']").css(_css);
             }
-        }
+        };
 
 
         ///////////////////////
@@ -6935,22 +6947,22 @@
                     text: 'Yes',
                     title: 'Update with proper categories and services.',
                     action: function() {
-                        var actions = [];
+                        //var actions = [];
                         // update categories according to spec
                         _this.newCategories = insertAtIX(_this.newCategories,"TRANSPORTATION",0);  // Insert/move TRANSPORTATION category in the first position
                         _this.newCategories = insertAtIX(_this.newCategories,"SCENIC_LOOKOUT_VIEWPOINT",1);  // Insert/move SCENIC_LOOKOUT_VIEWPOINT category in the 2nd position
 
-                        actions.push(new UpdateObject(this.item, { categories: _this.newCategories }));
+                        _this.actions.push(new UpdateObject(this.item, { categories: _this.newCategories }));
                         _this.updatedFields.categories = true;
                         // make it 24/7
-                        actions.push(new UpdateObject(this.item, { openingHours: [{days: [1,2,3,4,5,6,0], fromHour: "00:00", toHour: "00:00"}] }));
+                        _this.actions.push(new UpdateObject(this.item, { openingHours: [{days: [1,2,3,4,5,6,0], fromHour: "00:00", toHour: "00:00"}] }));
                         _this.updatedFields.openingHours = true;
                         _this.services.add247.checked = true;
-                        _this.services.addParking.actionOn(actions);  // add parking service
-                        _this.services.addWheelchair.actionOn(actions);  // add parking service
+                        _this.services.addParking.actionOn(_this.actions);  // add parking service
+                        _this.services.addWheelchair.actionOn(_this.actions);  // add parking service
                         _this.flags.restAreaSpec.active = false;  // reset the display flag
 
-                        harmony.executeMultiAction(actions);
+                        _this.executeMultiAction();
 
                         _disableHighlightTest = true;
                         harmonizePlaceGo(this.item,'harmonize');
@@ -6976,7 +6988,8 @@
                         }
                         _this.newName = this.item.attributes.brand;
                         _this.newAliases = _this.removeSFAliases(_this.newName, _this.newAliases);
-                        W.model.actionManager.add(new UpdateObject(this.item, { name: _this.newName, aliases: _this.newAliases }));
+                        //W.model.actionManager.add(new UpdateObject(_this.item, { name: _this.newName, aliases: _this.newAliases }));
+                        _this.actions.push(new UpdateObject(_this.item, { name: _this.newName, aliases: _this.newAliases }));
                         _this.updatedFields.name = true;
                         _this.updatedFields.aliases = true;
                         _this.highlightChangedFields();
@@ -6997,11 +7010,11 @@
                     title: 'Make the Gas Station category the primary category.',
                     action: function() {
                         _this.newCategories = insertAtIX(_this.newCategories,"GAS_STATION",0);  // Insert/move Gas category in the first position
-                        var actions = [];
-                        actions.push(new UpdateObject(this.item, { categories: _this.newCategories }));
+                        //var actions = [];
+                        _this.actions.push(new UpdateObject(_this.item, { categories: _this.newCategories }));
                         _this.updatedFields.categories = true;
                         _this.flags.gasMkPrim.active = false;  // reset the display flag
-                        executeMultiAction(actions);
+                        _this.executeMultiAction();
                         harmonizePlaceGo(this.item,'harmonize');
                     }
                 }]
@@ -7014,11 +7027,11 @@
                     title: 'Make the Hotel category the primary category.',
                     action: function() {
                         _this.newCategories = insertAtIX(_this.newCategories,"HOTEL",0);  // Insert/move Hotel category in the first position
-                        var actions = [];
-                        actions.push(new UpdateObject(this.item, { categories: _this.newCategories }));
+                        //var actions = [];
+                        _this.actions.push(new UpdateObject(_this.item, { categories: _this.newCategories }));
                         _this.updatedFields.categories = true;
                         _this.flags.hotelMkPrim.active = false;  // reset the display flag
-                        executeMultiAction(actions);
+                        _this.executeMultiAction();
                         harmonizePlaceGo(this.item,'harmonize');
                     }
                 }],
@@ -7042,11 +7055,11 @@
                     title: 'Change to Office Category',
                     action: function() {
                         _this.newCategories[_this.newCategories.indexOf('HOSPITAL_MEDICAL_CARE')] = "OFFICES";
-                        var actions = [];
-                        actions.push(new UpdateObject(this.item, { categories: _this.newCategories }));
+                        //var actions = [];
+                        _this.actions.push(new UpdateObject(this.item, { categories: _this.newCategories }));
                         _this.updatedFields.categories = true;
                         _this.flags.changeHMC2Office.active = false;  // reset the display flag
-                        executeMultiAction(actions);
+                        _this.executeMultiAction();
                         harmonizePlaceGo(this.item,'harmonize');  // Rerun the script to update fields and lock
                     }
                 }],
@@ -7063,11 +7076,11 @@
                     title: 'Change to Pet/Veterinarian Category',
                     action: function() {
                         _this.newCategories[_this.newCategories.indexOf('HOSPITAL_MEDICAL_CARE')] = "PET_STORE_VETERINARIAN_SERVICES";
-                        var actions = [];
-                        actions.push(new UpdateObject(this.item, { categories: _this.newCategories }));
+                        //var actions = [];
+                        _this.actions.push(new UpdateObject(this.item, { categories: _this.newCategories }));
                         _this.updatedFields.categories = true;
                         _this.flags.changeHMC2PetVet.active = false;  // reset the display flag
-                        executeMultiAction(actions);
+                        _this.executeMultiAction();
                         harmonizePlaceGo(this.item,'harmonize');  // Rerun the script to update fields and lock
                     }
                 }],
@@ -7084,11 +7097,11 @@
                     title: 'Change to Offices Category',
                     action: function() {
                         _this.newCategories[_this.newCategories.indexOf('SCHOOL')] = "OFFICES";
-                        var actions = [];
-                        actions.push(new UpdateObject(this.item, { categories: _this.newCategories }));
+                        //var actions = [];
+                        _this.actions.push(new UpdateObject(this.item, { categories: _this.newCategories }));
                         _this.updatedFields.categories = true;
                         _this.flags.changeSchool2Offices.active = false;  // reset the display flag
-                        executeMultiAction(actions);
+                        _this.executeMultiAction();
                         harmonizePlaceGo(this.item,'harmonize');  // Rerun the script to update fields and lock
                     }
                 }],
@@ -7176,7 +7189,7 @@
                     id: "WMEPH_addStreetBtn",
                     title: "Add street to place",
                     action: function() {
-                        addStreetToVenue();
+                        addStreetToVenue(_this.item);
                     }
                 }]
             },
@@ -7275,7 +7288,7 @@
                             if (confirm('WMEPH: URL Matching Error!\nClick OK to report this error') ) {  // if the category doesn't translate, then pop an alert that will make a forum post to the thread
                                 forumMsgInputs = {
                                     subject: 'WMEPH URL comparison Error report',
-                                    message: 'Error report: URL comparison failed for "' + this.item.attributes.name + '"\nPermalink: ' + harmony.permalink
+                                    message: 'Error report: URL comparison failed for "' + _this.item.attributes.name + '"\nPermalink: ' + _this.permalink
                                 };
                                 WMEPH_errorReport(forumMsgInputs);
                             }
@@ -7754,9 +7767,9 @@
                         }
                         if (localStorage.getItem(GLinkWarning) === '1') {
                             if ( isChecked("WMEPH-WebSearchNewTab") ) {
-                                openWindow(buildGLink(_this.newName,addr,this.item.attributes.houseNumber));
+                                openWindow(buildGLink(_this.newName,_this.item.getAddress().attributes,_this.item.attributes.houseNumber));
                             } else {
-                                window.open(buildGLink(_this.newName,addr,this.item.attributes.houseNumber), searchResultsWindowName, searchResultsWindowSpecs);
+                                window.open(buildGLink(_this.newName,_this.item.getAddress().attributes,_this.item.attributes.houseNumber), searchResultsWindowName, searchResultsWindowSpecs);
                             }
                         }
                     }
@@ -7817,175 +7830,187 @@
 
         this.services = {
             addValet: {  // append optional Alias to the name
-                active: false, checked: false, icon: "serv-valet", w2hratio: 50/50, value: "Valet", title: 'Valet', servIDIndex: 0,
-                action: function(actions, checked) {
+                name: "addValet", id: "VALLET_SERVICE",
+                active: false, checked: false, icon: "serv-valet", w2hratio: 50/50, value: "Valet", title: 'Valet',
+                action: function(checked) {
                     _this.setServiceChecked(this, checked);
                 },
                 pnhOverride: false,
-                actionOn: function(actions) {
-                    this.action(actions, true);
+                actionOn: function() {
+                    this.action(true);
                 },
-                actionOff: function(actions) {
-                    this.action(actions, false);
+                actionOff: function() {
+                    this.action(false);
                 }
             },
             addDriveThru: {  // append optional Alias to the name
-                active: false, checked: false, icon: "serv-drivethru", w2hratio: 78/50, value: "DriveThru", title: 'Drive-Thru', servIDIndex: 1,
-                action: function(actions, checked) {
+                name: "addDriveThru", id: "DRIVETHROUGH",
+                active: false, checked: false, icon: "serv-drivethru", w2hratio: 78/50, value: "DriveThru", title: 'Drive-Thru',
+                action: function(checked) {
                     _this.setServiceChecked(this, checked);
                 },
                 pnhOverride: false,
-                actionOn: function(actions) {
-                    this.action(actions, true);
+                actionOn: function() {
+                    this.action(true);
                 },
-                actionOff: function(actions) {
-                    this.action(actions, false);
+                actionOff: function() {
+                    this.action(false);
                 }
             },
             addWiFi: {  // append optional Alias to the name
-                active: false, checked: false, icon: "serv-wifi", w2hratio: 67/50, value: "WiFi", title: 'WiFi', servIDIndex: 2,
-                action: function(actions, checked) {
-                    console.log('AddWifi: this = ' + JSON.stringify(this));
+                name: "addWiFi", id: "WI_FI",
+                active: false, checked: false, icon: "serv-wifi", w2hratio: 67/50, value: "WiFi", title: 'WiFi',
+                action: function(checked) {
                     _this.setServiceChecked(this, checked);
                 },
                 pnhOverride: false,
-                actionOn: function(actions) {
-                    this.action(actions, true);
+                actionOn: function() {
+                    this.action(true);
                 },
-                actionOff: function(actions) {
-                    this.action(actions, false);
+                actionOff: function() {
+                    this.action(false);
                 }
             },
             addRestrooms: {  // append optional Alias to the name
-                active: false, checked: false, icon: "serv-restrooms", w2hratio: 49/50, value: "Restroom", title: 'Restrooms', servIDIndex: 3,
-                action: function(actions, checked) {
+                name: "addRestrooms", id: "RESTROOMS",
+                active: false, checked: false, icon: "serv-restrooms", w2hratio: 49/50, value: "Restroom", title: 'Restrooms',
+                action: function(checked) {
                     _this.setServiceChecked(this, checked);
                 },
                 pnhOverride: false,
-                actionOn: function(actions) {
-                    this.action(actions, true);
+                actionOn: function() {
+                    this.action(true);
                 },
-                actionOff: function(actions) {
-                    this.action(actions, false);
+                actionOff: function() {
+                    this.action(false);
                 }
             },
             addCreditCards: {  // append optional Alias to the name
-                active: false, checked: false, icon: "serv-credit", w2hratio: 73/50, value: "CC", title: 'Credit Cards', servIDIndex: 4,
-                action: function(actions, checked) {
+                name: "addCreditCards", id: "CREDIT_CARDS",
+                active: false, checked: false, icon: "serv-credit", w2hratio: 73/50, value: "CC", title: 'Credit Cards',
+                action: function(checked) {
                     _this.setServiceChecked(this, checked);
                 },
                 pnhOverride: false,
-                actionOn: function(actions) {
-                    this.action(actions, true);
+                actionOn: function() {
+                    this.action(true);
                 },
-                actionOff: function(actions) {
-                    this.action(actions, false);
+                actionOff: function() {
+                    this.action(false);
                 }
             },
             addReservations: {  // append optional Alias to the name
-                active: false, checked: false, icon: "serv-reservations", w2hratio: 55/50, value: "Reserve", title: 'Reservations', servIDIndex: 5,
-                action: function(actions, checked) {
+                name: "addReservations", id: "RESERVATIONS",
+                active: false, checked: false, icon: "serv-reservations", w2hratio: 55/50, value: "Reserve", title: 'Reservations',
+                action: function(checked) {
                     _this.setServiceChecked(this, checked);
                 },
                 pnhOverride: false,
-                actionOn: function(actions) {
-                    this.action(actions, true);
+                actionOn: function() {
+                    this.action(true);
                 },
-                actionOff: function(actions) {
-                    this.action(actions, false);
+                actionOff: function() {
+                    this.action(false);
                 }
             },
             addOutside: {  // append optional Alias to the name
-                active: false, checked: false, icon: "serv-outdoor", w2hratio: 73/50, value: "OusideSeat", title: 'Outside Seating', servIDIndex: 6,
-                action: function(actions, checked) {
+                name: "addOutside", id: "OUTSIDE_SEATING",
+                active: false, checked: false, icon: "serv-outdoor", w2hratio: 73/50, value: "OusideSeat", title: 'Outside Seating',
+                action: function(checked) {
                     _this.setServiceChecked(this, checked);
                 },
                 pnhOverride: false,
-                actionOn: function(actions) {
-                    this.action(actions, true);
+                actionOn: function() {
+                    this.action(true);
                 },
-                actionOff: function(actions) {
-                    this.action(actions, false);
+                actionOff: function() {
+                    this.action(false);
                 }
             },
             addAC: {  // append optional Alias to the name
-                active: false, checked: false, icon: "serv-ac", w2hratio: 50/50, value: "AC", title: 'AC', servIDIndex: 7,
-                action: function(actions, checked) {
+                name: "addAC", id: "AIR_CONDITIONING",
+                active: false, checked: false, icon: "serv-ac", w2hratio: 50/50, value: "AC", title: 'AC',
+                action: function(checked) {
                     _this.setServiceChecked(this, checked);
                 },
                 pnhOverride: false,
-                actionOn: function(actions) {
-                    this.action(actions, true);
+                actionOn: function() {
+                    this.action(true);
                 },
-                actionOff: function(actions) {
-                    this.action(actions, false);
+                actionOff: function() {
+                    this.action(false);
                 }
             },
             addParking: {  // append optional Alias to the name
-                active: false, checked: false, icon: "serv-parking", w2hratio: 46/50, value: "Parking", title: 'Parking', servIDIndex: 8,
-                action: function(actions, checked) {
+                name: "addParking", id: "PARKING_FOR_CUSTOMERS",
+                active: false, checked: false, icon: "serv-parking", w2hratio: 46/50, value: "Parking", title: 'Parking',
+                action: function(checked) {
                     _this.setServiceChecked(this, checked);
                 },
                 pnhOverride: false,
-                actionOn: function(actions) {
-                    this.action(actions, true);
+                actionOn: function() {
+                    this.action(true);
                 },
-                actionOff: function(actions) {
-                    this.action(actions, false);
+                actionOff: function() {
+                    this.action(false);
                 }
             },
             addDeliveries: {  // append optional Alias to the name
-                active: false, checked: false, icon: "serv-deliveries", w2hratio: 86/50, value: "Delivery", title: 'Deliveries', servIDIndex: 9,
-                action: function(actions, checked) {
+                name: "addDeliveries", id: "DELIVERIES",
+                active: false, checked: false, icon: "serv-deliveries", w2hratio: 86/50, value: "Delivery", title: 'Deliveries',
+                action: function(checked) {
                     _this.setServiceChecked(this, checked);
                 },
                 pnhOverride: false,
-                actionOn: function(actions) {
-                    this.action(actions, true);
+                actionOn: function() {
+                    this.action(true);
                 },
-                actionOff: function(actions) {
-                    this.action(actions, false);
+                actionOff: function() {
+                    this.action(false);
                 }
             },
             addTakeAway: {  // append optional Alias to the name
-                active: false, checked: false, icon: "serv-takeaway", w2hratio: 34/50, value: "TakeOut", title: 'Take Out', servIDIndex: 10,
-                action: function(actions, checked) {
+                name: "addTakeAway", id: "TAKE_AWAY",
+                active: false, checked: false, icon: "serv-takeaway", w2hratio: 34/50, value: "TakeOut", title: 'Take Out',
+                action: function(checked) {
                     _this.setServiceChecked(this, checked);
                 },
                 pnhOverride: false,
-                actionOn: function(actions) {
-                    this.action(actions, true);
+                actionOn: function() {
+                    this.action(true);
                 },
-                actionOff: function(actions) {
-                    this.action(actions, false);
+                actionOff: function() {
+                    this.action(false);
                 }
             },
             addWheelchair: {  // add service
-                active: false, checked: false, icon: "serv-wheelchair", w2hratio: 50/50, value: "WhCh", title: 'Wheelchair Accessible', servIDIndex: 11,
-                action: function(actions, checked) {
+                name: "addWheelchair", id: "WHEELCHAIR_ACCESSIBLE",
+                active: false, checked: false, icon: "serv-wheelchair", w2hratio: 50/50, value: "WhCh", title: 'Wheelchair Accessible',
+                action: function(checked) {
                     _this.setServiceChecked(this, checked);
                 },
                 pnhOverride: false,
-                actionOn: function(actions) {
-                    this.action(actions, true);
+                actionOn: function() {
+                    this.action(true);
                 },
-                actionOff: function(actions) {
-                    this.action(actions, false);
+                actionOff: function() {
+                    this.action(false);
                 }
             },
             add247: {  // add 24/7 hours
+                name: "add247",  // Not needed, but did it for consistency
                 active: false, checked: false, icon: "serv-247", w2hratio: 73/50, value: "247", title: 'Hours: Open 24\/7',
-                action: function(actions) {
+                action: function() {
                     if (!_this.services.add247.checked) {
-                        addUpdateAction(item, { openingHours: [{days: [1,2,3,4,5,6,0], fromHour: "00:00", toHour: "00:00"}] }, actions);
+                        _this.addUpdateAction({ openingHours: [{days: [1,2,3,4,5,6,0], fromHour: "00:00", toHour: "00:00"}] });
                         _this.updatedFields.openingHours = true;
                         _this.highlightChangedFields();
                         _this.services.add247.checked = true;
                         _this.flags.noHours.active = false;
                     }
                 },
-                actionOn: function(actions) {
-                    this.action(actions);
+                actionOn: function() {
+                    this.action();
                 }
             }
         };  // END bannServ definitions

@@ -30,17 +30,17 @@
 #WMEPH_banner > div:last-child {border-bottom: 2px solid black;}
 #WMEPH_banner > div:first-child {border-top: 2px solid black;}
 */
-.banner-severity--1 { background-color: rgb(200, 200, 200) !important; }
-.banner-severity-0 { background-color: #00dd00 !important; }
-.banner-severity-1 { background-color: #0000dd !important; }
-.banner-severity-2 { background-color: #f6f600 !important; }
-.banner-severity-3 { background-color: #dd0000 !important; }
+.banner-severity--1 { background-color: #c8c8c8 !important; }
+.banner-severity-0 { background-color: #009900 !important; }
+.banner-severity-1 { background-color: #000099 !important; }
+.banner-severity-2 { background-color: #b2b200 !important; }
+.banner-severity-3 { background-color: #990000 !important; }
 
-.banner-row-severity--1 { color: rgb(90, 90, 90) !important; background-color: rgb(250, 250, 250) !important; }
-.banner-row-severity-0 { color: rgb(16, 152, 16) !important; background-color: rgb(220, 240, 220) !important; }
-.banner-row-severity-1 { color: rgb(50, 50, 230) !important; background-color: rgb(220, 220, 240) !important; }
+.banner-row-severity--1 { color: #5a5a5a !important; background-color: #fafafa !important; }
+.banner-row-severity-0 { color: #109810 !important; background-color: #dcf0dc !important; }
+.banner-row-severity-1 { color: #3232e6 !important; background-color: #dcdcf0 !important; }
 .banner-row-severity-2 { color: #919100 !important; background-color: #ffffa8 !important; }
-.banner-row-severity-3 { color: rgb(181, 18, 18) !important; background-color: rgb(240, 220, 220) !important; }
+.banner-row-severity-3 { color: #b51212 !important; background-color: #f0dcdc !important; }
 /* NOTE - #WMEPH_runButton is actually a div that contains the run button, copy paste stuff, etc. */
 #WMEPH_runButton { padding-bottom: 6px; padding-top: 3px; width: 290px; background-color: #fff; color: black; font-size: 15px; font-weight: 600; margin-left: auto; margin-right: auto; }
 .banner-row:last-child { padding-bottom:6px !important }
@@ -75,9 +75,9 @@
 .wmeph-input-box, #WMEPH_banner .ui-autocomplete-input { font-size: .9em; height: 20px !important; width: 105px; margin: 0px 0px 0px 0px; padding: 0px 4px; border: 1px solid #ccc; border-radius: 4px; color: black; }
 /*.wmeph-btn-primary { height: 28px !important; padding: 6px 20px !important; }*/
 .wmeph-input-box:focus {    outline: none;
-    border-color: rgb(147, 196, 211);
+    border-color: #93c4d3;
     box-shadow: 0px 0px 6px darkgray ;}
-#WMEPH-HoursPaste, #WMEPH-HoursPasteBeta { width:105; color: rgb(153,153,153)}
+#WMEPH-HoursPaste, #WMEPH-HoursPasteBeta { width:105; color: #999999; }
 
 
 /*******************/
