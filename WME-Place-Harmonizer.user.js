@@ -43,7 +43,7 @@
     ///////////////
 
     // New in this version
-    var WHATS_NEW_LIST = GM_getResourceText("WHATS_NEW");
+    var WHATS_NEW_LIST = JSON.parse(GM_getResourceText("WHATS_NEW"));
     var WHATS_NEW_META_LIST = [  // New in this major version
         'WMEPH is now available for R1 editors to use!',
         'Yellow "caution" map highlights.',
