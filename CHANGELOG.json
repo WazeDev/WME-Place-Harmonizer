@@ -1,0 +1,73 @@
+{
+    "1.2":  {
+        "1.2.2" : [ "Fixed - Whitelisting a HN didn't allow auto-locking." ],
+        "1.2.1" : [ "Removed R2+ restriction for using this script." ],
+        "1.2.0" : [ "Production release." ],
+    },
+    "1.1":  {
+        "1.1.97": [ "Added regex place name matching for increased flexibility." ],
+        "1.1.96": [ 
+            "Changed \"City Missing.\" to \"No city\" to be consistent with other flag messages.",
+            "Hospital / gas station and PLA \"special\" highlights only display if no lock (L1).",
+            "Add \"Change to Offices\" button under hospital/medical care note.",
+            "Changed to \"No external provider link(s)\"."
+        ],
+        "1.1.95": [
+            "Change \"not a hospital\" note.",
+            "Fixed bug with area vs point warning not locking even after WL.",
+            "Locking a place that has an area vs point warning will effectively WL it for everyone."
+        ],
+        "1.1.94": [ "Fixed bug that was preventing all categories from being checked for lock level, messages, etc." ],
+        "1.1.93": [ "Fixed bug with area vs point warning." ],
+        "1.1.92": [
+            "Minor styling tweaks.",
+            "Fixed bug that would prevent \"Edit address\" button from working if General tab is not active."
+        ],
+        "1.1.91": [ "Fixed bug that triggered when all categories were removed." ],
+        "1.1.90": [ "Fixed bug in data compression algorithm." ],
+        "1.1.89": [ "Style tweaks." ],
+        "1.1.88": [ "Uncheck \"No City\" when clicking \"Edit address\" button (wouldn't jump to the field." ],
+        "1.1.87": [
+            "Removed \"No HN\" flag until street is set.",
+            "Added an \"Edit address\" button to quickly jump to the city field in the address editor.",
+            "Fixed bug that allowed empty URL's."
+        ],
+        "1.1.86": [ "Remove \"No Street\" flag when city doesn't exist." ],
+        "1.1.85": [ "Remove bullets from banner to improve layout a bit until a new design is completed." ],
+        "1.1.84": [ "Fix to ignore title casing inside parens at end of PLA names." ],
+        "1.1.83": [ "Improved check for automated (bot) account edits." ],
+        "1.1.82": [ "Added option to disable check for missing external provider on parking lots." ],
+        "1.1.81": [ "Fix for incorrect capitalization when \"mc\" is in the middle of a word." ],
+        "1.1.80": [ "Fix to allow entering phone #s longer than 10 digits, e.g. 800-THE-CRAVE" ],
+        "1.1.79": [ "Fixed area / point warning when multiple categories are present." ],
+        "1.1.78": [ "Added yellow \"caution\" highlights.  Were previously red." ],
+        "1.1.77": [ "Unlocked PLAs are highlighted with a bold red dotted outline" ],
+        "1.1.75": [ "Fix for Google hyperlinks not showing up after first click on place." ],
+        "1.1.74": [ "Keep hours input visible at all times." ],
+        "1.1.73": [ "Place Website button added when URL is added." ],
+        "1.1.72": [ "Fixed lock issue with Missing External Provider flag." ],
+        "1.1.71": [ "Added \"avsus\" to list of staff accounts." ],
+        "1.1.70": [ "Fix for adding 24/7 service from PNH spreadsheet." ],
+        "1.1.69": [ "Added input box to enter missing street." ],
+        "1.1.68": [ "Added \"Missing External Provider\" and option to treat as non-critical." ],
+        "1.1.67": [ "Fixed optional 2nd categories." ],
+        "1.1.66": [ "Fixed highlighting for unlocked hospitals and gas stations (purple / dashed)." ],
+        "1.1.65": [ "Fix for bug that caused hang in v1.1.64." ],
+        "1.1.64": [
+            "Added URL entry box when missing.",
+            "Missing gas station name automatically set to brand name.",
+            "Minor UI adjustments to fit some messages on one line."
+        ],
+        "1.1.63": [ "Added option to exclude PLAs when searching for duplicate places, and vice versa." ],
+        "1.1.62": [ "FIXED - Whitelisted flags not saved for new (unsaved) places." ],
+        "1.1.61": [ "Fixed issues with Rest Areas." ],
+        "1.1.60": [ "Fix to get place category \"special messages\" to display." ],
+        "1.1.59": [ "Fix for erroneous \"stacked place\" warning on area places." ],
+        "1.1.58": [ "Fix for multi-edits when runnning harmonizer in some cases." ],
+        "1.1.57": [ "Fix for Store Locator button not showing up on first run, and unpredictable Service button behavior." ],
+        "1.1.56": [ "Fix for needing to run twice when useless alt names are removed." ],
+        "1.1.55": [ "Added Waze3rdParty and renamed \"edited by waze maint bot\" to \"account administered by waze staff\"." ],
+        "1.1.53": [ "Fixed bug where blank space was being inserted in front of hotel brandParent name" ],
+        "1.1.52": [ "Fixed bug reporting PMs." ],
+    }
+};
