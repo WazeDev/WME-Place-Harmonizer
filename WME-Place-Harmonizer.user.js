@@ -21,7 +21,7 @@
 // @license     GNU GPL v3
 // @include     /^https:\/\/(www|beta)\.waze\.com\/(?!user\/)(.{2,6}\/)?editor\/.*$/
 // @require     https://raw.githubusercontent.com/WazeUSA/WME-Place-Harmonizer/Beta/jquery-ui-1.11.4.custom.min.js
-// @resource    WHATS_NEW   https://raw.githubusercontent.com/WazeUSA/WME-Place-Harmonizer/Refactor2017/CHANGELOG.json
+// @resource    CHANGELOG   https://raw.githubusercontent.com/WazeUSA/WME-Place-Harmonizer/Refactor2017/CHANGELOG.json
 // @resource    WMEPH_CSS   https://raw.githubusercontent.com/WazeUSA/WME-Place-Harmonizer/Refactor2017/WME-Place-Harmonizer.user.css
 // @resource    JQ_UI_CSS   https://ajax.googleapis.com/ajax/libs/jqueryui/1.11.4/themes/smoothness/jquery-ui.css
 // @grant       GM_addStyle
@@ -43,8 +43,9 @@
     ///////////////
 
     // New in this version
-    var WHATS_NEW_LIST = JSON.parse(GM_getResourceText("WHATS_NEW"));
-    var WHATS_NEW_META_LIST = [  // New in this major version
+    var CHANGE_LOG = JSON.parse(GM_getResourceText("CHANGELOG"));
+    var CHANGE_LOG_TEXT;
+    var NEW_FEATURES_LIST = [  // New in this major version
         'WMEPH is now available for R1 editors to use!',
         'Yellow "caution" map highlights.',
         'Missing external provider (Google linked place) is flagged if R3+.',
@@ -53,6 +54,7 @@
         'Layout and data entry improvements.',
         'A boatload of bug fixes.'
     ];
+    var NEW_FEATURES_TEXT = "WMEPH v" + WMEPH_VERSION_MAJOR + "\nMajor features:\n" + NEW_FEATURES_LIST.join("\n");
     // Script Name, Version, Meta info
     var WMEPH_VERSION_LONG = GM_info.script.version.toString(),             // Pull version from header
         WMEPH_VERSION_MAJOR = WMEPH_VERSION_LONG.match(/(\d+\.\d+)/i)[1],   // Get the X.X version number
@@ -95,9 +97,6 @@
     //////////////////////////////////
 
     var NEW_SHEET_DATA;
-    // New Features
-    var WHATS_NEW_LIST_TEXT;
-    var WHATS_NEW_META_LIST;
     // User Lists
     var WMEPH_DEV_LIST,
         WMEPH_BETA_LIST;
@@ -277,12 +276,9 @@
     // Takes a JavaScript object and returns a DOM in jQuery of a structured list to be inserted into the document.
     function buildDOMList(obj) {
         var i, len, $x, $xList;
-        console.log("Building DOM List");
         var $domObj = $("<ul>");
         var proto = Object.prototype.toString.call(obj);
-        console.log("proto === " + proto);
         if (proto === "[object Object]") {
-            console.log("Processing Object");
             for (i in obj) {
                 $xList = buildDOMList(obj[i]);
                 $x = $("<li>"+i+"</li>");
@@ -291,7 +287,6 @@
                 $x.after($xList);
             }
         } else if (proto === "[object Array]") {
-            console.log("Processing Array");
             for (i = 0, len = obj.length; i < len; i++) {
                 if (typeof(obj[i]) === "object") {
                     $xList = buildDOMList(obj[i]);
@@ -302,7 +297,6 @@
                 }
             }
         } else {
-            console.log("Processing data");
             $domObj.append("<li>"+obj+"</li>");
         }
 
@@ -910,7 +904,7 @@
         id = getJQueryId(id, ignoreErrors);
         if ( isChecked(id, ignoreErrors) !== checked ) $(id).trigger('click');
     }
-    
+
     // Returns true if the checkbox with the given id is currently checked.
     function isChecked(id, ignoreErrors) {
         id = getJQueryId(id);
@@ -1127,21 +1121,23 @@
     // Builds stuff for alerts, New Features and Change Log.
     function assembleChangeLog() {
         // Build the text for the "What's New" alert.
+        /* Put this back once we refactor this stuff.  I had to copy this part to the top of runPH().
         var wnlText = "WME Place Harmonizer (v" + WMEPH_VERSION_LONG + ")\n\nUpdates:\n";
-        wnlText += JSON.stringify(wnlText, null, 2).replace(/[\[\{]/g,"").replace(/[ ]+[\]\}],?\n/g,"").replace(/\}$/,"\n").replace(/"([^\n]+)":/g,"$1").replace(/"([^\n]+)",?/g,"- $1").replace(/\\"/g,'"');
+        wnlText += JSON.stringify(WHATS_NEW_LIST, null, 2).replace(/[\[\{]/g,"").replace(/[ ]+[\]\}],?\n/g,"").replace(/\}$/,"\n").replace(/"([^\n]+)":/g,"$1").replace(/"([^\n]+)",?/g,"- $1").replace(/\\"/g,'"');
         WHATS_NEW_LIST_TEXT = wnlText;
+        */
 
         // Build the stuff for the New Features
         var $newFeatures = $("#WMEPH_New_Features");
         var txt1 = "Major features for v" + WMEPH_VERSION_MAJOR + ":";
         $newFeatures.append(document.createTextNode(txt1));
-        $newFeatures.append($("<ul><li>" + WHATS_NEW_META_LIST.join("</li><li>") + "</li></ul>"));
+        $newFeatures.append($("<ul><li>" + NEW_FEATURES_LIST.join("</li><li>") + "</li></ul>"));
 
         // Build the stuff for the Change Log.
         var $changeLog = $("#WMEPH_Change_Log");
-        var txt2 = "Change Log:"
+        var txt2 = "Change Log:";
         $changeLog.append(document.createTextNode(txt2));
-        var $wnlHtml = $("#WMEPH_Change_Log").append(buildDOMList(WHATS_NEW_LIST));
+        $("#WMEPH_Change_Log").append(buildDOMList(CHANGE_LOG));
         // Making the list expandable/collapsable
         $("#WMEPH_Change_Log > ul li + ul").prev("li").removeClass();
         $("#WMEPH_Change_Log > ul li + ul").prev("li").addClass("collapsed");
@@ -1197,6 +1193,10 @@
 
         modifyGoogleLinks();
 
+        var wnlText = "WME Place Harmonizer (v" + WMEPH_VERSION_LONG + ")\n\nUpdates:\n";
+        wnlText += JSON.stringify(CHANGE_LOG, null, 2).replace(/[\[\{]/g,"").replace(/[ ]+[\]\}],?\n/g,"").replace(/\}$/,"\n").replace(/"([^\n]+)":/g,"$1").replace(/"([^\n]+)",?/g,"- $1").replace(/\\"/g,'"');
+        CHANGE_LOG_TEXT = wnlText;
+
         // Whitelist initialization
         if ( validateWLS( LZString.decompressFromUTF16(localStorage.getItem(WLlocalStoreNameCompressed)) ) === false ) {  // If no compressed WL string exists
             if ( validateWLS(localStorage.getItem(WLlocalStoreName)) === false ) {  // If no regular WL exists
@@ -1219,14 +1219,14 @@
 
         // If the editor installs for the 1st time, alert with the new elements
         if ( localStorage.getItem('WMEPH_VERSION_MAJOR'+devVersStr) === null ) {
-            alert(WMEPH_WHATS_NEW_META);
+            alert(NEW_FEATURES_TEXT);
             localStorage.setItem('WMEPH_VERSION_MAJOR'+devVersStr, WMEPH_VERSION_MAJOR);
             localStorage.setItem('WMEPH_VERSION_LONG'+devVersStr, WMEPH_VERSION_LONG);
             localStorage.setItem(GLinkWarning, '0');  // Reset warnings
             localStorage.setItem(SFURLWarning, '0');
             localStorage.setItem('WMEPH-featuresExamined'+devVersStr, '1');  // disable the button
         } else if (localStorage.getItem('WMEPH_VERSION_MAJOR'+devVersStr) !== WMEPH_VERSION_MAJOR) { // If the editor installs a newer MAJOR version, alert with the new elements
-            alert(WMEPH_WHATS_NEW_META);
+            alert(NEW_FEATURES_TEXT);
             localStorage.setItem('WMEPH_VERSION_MAJOR'+devVersStr, WMEPH_VERSION_MAJOR);
             localStorage.setItem('WMEPH_VERSION_LONG'+devVersStr, WMEPH_VERSION_LONG);
             localStorage.setItem(GLinkWarning, '0');  // Reset warnings
@@ -1234,7 +1234,7 @@
             localStorage.setItem('WMEPH-featuresExamined'+devVersStr, '1');  // disable the button
         } else if (localStorage.getItem('WMEPH_VERSION_LONG'+devVersStr) !== WMEPH_VERSION_LONG) {  // If MINOR version....
             if (NEW_MAJOR_FEATURE) {  //  with major feature update, then alert
-                alert(WHATS_NEW_LIST_TEXT);
+                alert(CHANGE_LOG_TEXT);
                 localStorage.setItem('WMEPH-featuresExamined'+devVersStr, '1');  // disable the button
             } else {  //  if not major feature update, then keep the button
                 localStorage.setItem('WMEPH-featuresExamined'+devVersStr, '0');
@@ -1717,7 +1717,7 @@
                 whatsNew: {
                     active: false, severity: 0, message: "", value: "*Recent script updates*", title: "Open a list of recent script updates",
                     action: function() {
-                        alert(WMEPHWhatsNew);
+                        alert(WHATS_NEW_LIST_TEXT);
                         localStorage.setItem('WMEPH-featuresExamined'+devVersStr, '1');
                         bannButt2.whatsNew.active = false;
                     }
@@ -5087,7 +5087,7 @@
 
             //Create Settings Tab Content
             var phContentHtml = '<div class="tab-pane" id="sidepanel-ph"><div id="PlaceHarmonizer">WMEPH' +
-                devVersStrSpace + ' v. ' + WMEPH_VERSION_LONG + '</div></div>';
+                devVersStrSpace + ' v' + WMEPH_VERSION_LONG + '</div></div>';
             $("#user-info div.tab-content:first").append(phContentHtml);
 
             var c = '<div id="wmephtab" class="active" style="padding-top: 5px;">' +
@@ -5737,7 +5737,7 @@
                     PNHMatchData = CAN_PNH_DATA[phnum];
                 }
                 currMatchData = PNHMatchData.split("|");  // Split the PNH place data into string array
-                
+
                 // Name Matching
                 specCases = currMatchData[ph_speccase_ix];
                if (specCases.indexOf('regexNameMatch') > -1) {
@@ -6607,20 +6607,18 @@
             throw new TypeError('Wrong type for parameter "item" of Harmony.constructor: Expected Waze.Feature.Vector.Landmark, but got ' + _type);
         }
 
-        ///////////////////////
-        // Harmony Variables //
-        ///////////////////////
+        //////////////////////////////
+        // Harmony Public Variables //
+        //////////////////////////////
 
-        // Verified variables
-        var _this = this;
+        // Verified
         this.item = item;
         this.CLASS_NAME = "WMEPH.Harmony";
-        item.attributes.harmony = this;
+        this.severity;  // Only use this to get the severity of the place without harmonizing.
+
+        // Unverified
         this.id = this.item.attributes.id;
         this.permalink = $("a.permalink").attr("href").replace(/&(?:layers|(?:mapUpdateRequest|mapProblem|update_requests|problems|venue)Filter)=[^&]+/g,"");
-        this.actions = [];
-
-        // Unverified variables
         this.newName = "";
         this.optAlias = "";
         this.newAliases = [];
@@ -6631,31 +6629,103 @@
                                 services: { VALLET_SERVICE: false, DRIVETHROUGH: false, WI_FI: false, RESTROOMS: false, CREDIT_CARDS: false, RESERVATIONS: false,
                                             OUTSIDE_SEATING: false, AIR_CONDITIONING: false, PARKING_FOR_CUSTOMERS: false, DELIVERIES: false, TAKE_AWAY: false, WHEELCHAIR_ACCESSIBLE: false } };
 
-        /////////////////////
-        // Harmony Methods //
-        /////////////////////
+        ///////////////////////////////
+        // Harmony Private Variables //
+        ///////////////////////////////
 
-        // NOTE: I'm not sure why if(actions) push, else .add(action);
+        // Verified
+        var _this = this;
+        var _actions = [];
+
+        // Unverified
+
+
+        ///////////////////////
+        // Other assignments //
+        ///////////////////////
+
+        // Verified
+        item.attributes.harmony = this;
+
+        // Unverified
+
+
+        ////////////////////////////
+        // Harmony Public Methods //
+        ////////////////////////////
+
+        // Functions that need to be called from the outside but do not need access to private variables.
+        // These are declared after the constructor.
+
+
+        ///////////////////////////////
+        // Harmony Private Functions //
+        ///////////////////////////////
+
+        // Functions required by any Harmony-related functions that are not to be used external to the object.
+        /* Example:
+        function funcName(args) {
+            return something;
+        }
+        */
+
+
+        ////////////////////////////////
+        // Harmony Privileged Methods //
+        ////////////////////////////////
+
+        // Functions that will be called from the outside that need access to private variables/functions.
+        /* Example:
+        this.funcName = function(args) {
+            return something;
+        }
+        */
+
+        // Immediately adds an action to the action manager.
         this.addUpdateAction = function(updateObj) {
             var act = new UpdateObject(this.item, updateObj);
-            if (this.actions) {
-                this.actions.push(act);
-            } else {
-                W.model.actionManager.add(act);
+            W.model.actionManager.add(act);
+        };
+
+        // This function queues an action for a MultiAction.  Use this during harmonization.
+        this.queueUpdateAction = function(updateObj) {
+            var a = _actions.length;
+            var b = _actions.push(updateObj);
+            if (a + 1 !== b) {
+                return false;
             }
+            return true;
         };
 
         // Add array of actions to a MultiAction to be executed at once (counts as one edit for redo/undo purposes)
-        this.executeMultiAction = function() {
-            if(this.actions.length > 0) {
-                var acts = new MultiAction();
-                acts.setModel(W.model);
-                this.actions.forEach(function(act) {
-                    acts.doSubAction(act);
-                });
-                W.model.actionManager.add(acts);
+        this.submitMultiAction = function() {
+            if(_actions.length < 1) {
+                // If there are no actions, then there's nothing to do.
+                return false;
             }
+
+            var a = W.model.actionManager.getActions().length;
+            var ma = new MultiAction();
+            ma.setModel(W.model);
+            _actions.forEach(function(act) {
+                ma.doSubAction(act);
+            });
+            W.model.actionManager.add(ma);
+            var b = W.model.actionManager.getActions().length;
+                if (a + 1 !== b) {
+                    return false;
+                }
+
+            _actions.length = 0;
+            return true;
         };
+
+
+        //////////////////////
+        // Unsorted Methods //
+        //////////////////////
+
+
 
         // Normalize url
         this.normalizeUrl = function(s) {
@@ -7825,7 +7895,7 @@ console.log("Line 6791: this.hasOwnProperty('services') === " + JSON.stringify(t
             }
         };  // END bannButt definitions
 
-        
+
         //////////////////////
         // Harmony Services //   Formerly bannServ
         //////////////////////
@@ -8026,4 +8096,21 @@ console.log("Line 6791: this.hasOwnProperty('services') === " + JSON.stringify(t
 
     }
 
+    ////////////////////////////
+    // Harmony Public Methods //
+    ////////////////////////////
+
+    // Functions that need to be called from the outside but do not need access to private variables.
+    /* Example:
+    Harmony.prototype.funcName = function(args) {
+        return something;
+    }
+    */
+
 })();
+
+
+
+
+
+
