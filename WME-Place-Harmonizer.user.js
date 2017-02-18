@@ -1717,7 +1717,7 @@
                 whatsNew: {
                     active: false, severity: 0, message: "", value: "*Recent script updates*", title: "Open a list of recent script updates",
                     action: function() {
-                        alert(WHATS_NEW_LIST_TEXT);
+                        alert(CHANGE_LOG_TEXT);
                         localStorage.setItem('WMEPH-featuresExamined'+devVersStr, '1');
                         bannButt2.whatsNew.active = false;
                     }
@@ -1901,7 +1901,7 @@
             // If no gas station name, replace with brand name
             if (hpMode.harmFlag && item.attributes.categories[0] === 'GAS_STATION' && (!harmony.newName || harmony.newName.trim().length === 0) && item.attributes.brand) {
                 harmony.newName = item.attributes.brand;
-                harmony.actions.push(new UpdateObject(item, {name: harmony.newName }));
+                harmony.queueUpdateAction({name: harmony.newName });
                 harmony.updatedFields.name = true;
             }
 
@@ -1913,31 +1913,31 @@
                     }
                     if (item.attributes.name !== '') {  // Set the residential place name to the address (to clear any personal info)
                         phlogdev("Residential Name reset");
-                        harmony.actions.push(new UpdateObject(item, {name: ''}));
+                        harmony.queueUpdateAction({name: ''});
                         // no field HL
                     }
                     harmony.newCategories = ["RESIDENCE_HOME"];
                     // newDescripion = null;
                     if (item.attributes.description !== null && item.attributes.description !== "") {  // remove any description
                         phlogdev("Residential description cleared");
-                        harmony.actions.push(new UpdateObject(item, {description: null}));
+                        harmony.queueUpdateAction({description: null});
                         // no field HL
                     }
                     // newPhone = null;
                     if (item.attributes.phone !== null && item.attributes.phone !== "") {  // remove any phone info
                         phlogdev("Residential Phone cleared");
-                        harmony.actions.push(new UpdateObject(item, {phone: null}));
+                        harmony.queueUpdateAction({phone: null});
                         // no field HL
                     }
                     // newURL = null;
                     if (item.attributes.url !== null && item.attributes.url !== "") {  // remove any url
                         phlogdev("Residential URL cleared");
-                        harmony.actions.push(new UpdateObject(item, {url: null}));
+                        harmony.queueUpdateAction({url: null});
                         // no field HL
                     }
                     if (item.attributes.services.length > 0) {
                         phlogdev("Residential services cleared");
-                        harmony.actions.push(new UpdateObject(item, {services: [] }));
+                        harmony.queueUpdateAction({services: [] });
                         // no field HL
                     }
                 }
@@ -2078,7 +2078,7 @@
                             if ( ["GAS_STATION"].indexOf(priPNHPlaceCat) > -1 && specCases[scix].match(/^forceBrand<>(.+)/i) !== null ) {
                                 var forceBrand = specCases[scix].match(/^forceBrand<>(.+)/i)[1];
                                 if (item.attributes.brand !== forceBrand) {
-                                    harmony.actions.push(new UpdateObject(item, { brand: forceBrand }));
+                                    harmony.queueUpdateAction({ brand: forceBrand });
                                     harmony.updatedFields.brand = true;
                                     phlogdev('Gas brand updated from PNH');
                                 }
@@ -2363,13 +2363,13 @@
                     if ( !matchSets( uniq(item.attributes.categories),uniq(harmony.newCategories) ) ) {
                         if ( specCases.indexOf('optionCat2') === -1 && specCases.indexOf('buttOn_addCat2') === -1 ) {
                             phlogdev("Categories updated" + " with " + harmony.newCategories);
-                            harmony.actions.push(new UpdateObject(item, { categories: harmony.newCategories }));
+                            harmony.queueUpdateAction({ categories: harmony.newCategories });
                             //W.model.actionManager.add(new UpdateObject(item, { categories: harmony.newCategories }));
                             harmony.updatedFields.categories = true;
                         } else {  // if second cat is optional
                             phlogdev("Primary category updated with " + priPNHPlaceCat);
                             harmony.newCategories = insertAtIX(harmony.newCategories, priPNHPlaceCat, 0);
-                            harmony.actions.push(new UpdateObject(item, { categories: harmony.newCategories }));
+                            harmony.queueUpdateAction({ categories: harmony.newCategories });
                             harmony.updatedFields.categories = true;
                         }
                         // Enable optional 2nd category button
@@ -2387,7 +2387,7 @@
                         }
                         phlogdev("Description updated");
                         newDescripion = newDescripion + '\n' + item.attributes.description;
-                        harmony.actions.push(new UpdateObject(item, { description: newDescripion }));
+                        harmony.queueUpdateAction({ description: newDescripion });
                         harmony.updatedFields.description = true;
                     }
 
@@ -2460,7 +2460,7 @@
                 // Update name:
                 if (hpMode.harmFlag && harmony.newName !== item.attributes.name) {
                     phlogdev("Name updated");
-                    harmony.actions.push(new UpdateObject(item, { name: harmony.newName }));
+                    harmony.queueUpdateAction({ name: harmony.newName });
                     //actions.push(new UpdateObject(item, { name: newName }));
                     harmony.updatedFields.name = true;
                 }
@@ -2472,7 +2472,7 @@
                 }
                 if (hpMode.harmFlag && harmony.newAliases !== item.attributes.aliases && harmony.newAliases.length !== item.attributes.aliases.length) {
                     phlogdev("Alt Names updated");
-                    harmony.actions.push(new UpdateObject(item, { aliases: harmony.newAliases }));
+                    harmony.queueUpdateAction({ aliases: harmony.newAliases });
                     harmony.updatedFields.aliases = true;
                 }
 
@@ -2502,7 +2502,7 @@
                     if (harmony.newCategories.indexOf("CONVENIENCE_STORE") === -1 && !harmony.flags.subFuel.active) {
                         if ( hpMode.harmFlag && isChecked("WMEPH-ConvenienceStoreToGasStations") ) {  // Automatic if user has the setting checked
                             harmony.newCategories = insertAtIX(harmony.newCategories, "CONVENIENCE_STORE", 1);  // insert the C.S. category
-                            harmony.actions.push(new UpdateObject(item, { categories: harmony.newCategories }));
+                            harmony.queueUpdateAction({ categories: harmony.newCategories });
                             harmony.updatedFields.categories = true;
                             phlogdev('Conv. store category added');
                         } else {  // If not checked, then it will be a banner button
@@ -2628,7 +2628,7 @@
                 if ( hpMode.harmFlag && harmony.newCategories.indexOf('FOOD_AND_DRINK') > -1 ) {
                     if (harmony.newCategories.indexOf('RESTAURANT') > -1 || harmony.newCategories.indexOf('FAST_FOOD') > -1 ) {
                         harmony.newCategories.splice(harmony.newCategories.indexOf('FOOD_AND_DRINK'),1);  // remove Food/Drink Cat
-                        harmony.actions.push(new UpdateObject(item, { categories: harmony.newCategories }));
+                        harmony.queueUpdateAction({ categories: harmony.newCategories });
                         harmony.updatedFields.categories = true;
                     }
                 }
@@ -2812,7 +2812,7 @@
                             phlogdev('Correcting M-S entry...');
                             tempHours.push({days: [0], fromHour: tempHours[ohix].fromHour, toHour: tempHours[ohix].toHour});
                             tempHours[ohix].days = [1];
-                            harmony.actions.push(new UpdateObject(item, { openingHours: tempHours }));
+                            harmony.queueUpdateAction({ openingHours: tempHours });
                         }
                     }
                 }
@@ -2839,7 +2839,7 @@
                             harmony.flags.PlaceWebsite.value = "Place Website";
                             if (hpMode.harmFlag && updateURL && itemURL !== item.attributes.url) {  // Update the URL
                                 phlogdev("URL formatted");
-                                harmony.actions.push(new UpdateObject(item, { url: itemURL }));
+                                harmony.queueUpdateAction({ url: itemURL });
                                 harmony.updatedFields.url = true;
                             }
                             updateURL = false;
@@ -2848,7 +2848,7 @@
                     }
                     if (hpMode.harmFlag && updateURL && newURL !== item.attributes.url) {  // Update the URL
                         phlogdev("URL updated");
-                        harmony.actions.push(new UpdateObject(item, { url: newURL }));
+                        harmony.queueUpdateAction({ url: newURL });
                         harmony.updatedFields.url = true;
                     }
                 }
@@ -2882,7 +2882,7 @@
                 }
                 if (hpMode.harmFlag && newPhone !== item.attributes.phone) {
                     phlogdev("Phone updated");
-                    harmony.actions.push(new UpdateObject(item, {phone: newPhone}));
+                    harmony.queueUpdateAction({phone: newPhone});
                     harmony.updatedFields.phone = true;
                 }
 
@@ -2896,7 +2896,7 @@
                             customStoreFinderURL = "https://tools.usps.com/go/POLocatorAction.action";
                             customStoreFinder = true;
                             if (hpMode.harmFlag && myPlace.psRegion === 'SER' && item.attributes.aliases.indexOf("United States Postal Service") === -1) {
-                                harmony.actions.push(new UpdateObject(item, { aliases: ["United States Postal Service"], url: 'www.usps.com' }));
+                                harmony.queueUpdateAction({ aliases: ["United States Postal Service"], url: 'www.usps.com' });
                                 harmony.updatedFields.aliases = true;
                                 harmony.updatedFields.url = true;
                                 phlogdev('USPS alt name added');
@@ -2974,7 +2974,7 @@
                 if ( updateHNflag ) {
                     harmony.flags.hnDashRemoved.active = true;
                     if (hpMode.harmFlag) {
-                        harmony.actions.push(new UpdateObject(item, { houseNumber: hnTemp }));
+                        harmony.queueUpdateAction({ houseNumber: hnTemp });
                         harmony.updatedFields.address = true;
                     } else if (hpMode.hlFlag) {
                         if (item.attributes.residential) {
@@ -3130,7 +3130,7 @@
                         harmony.newName = harmony.newName.replace(/Mile/i, 'mile');
                         if (hpMode.harmFlag) {
                             if (harmony.newName !== item.attributes.name) {
-                                harmony.actions.push(new UpdateObject(item, { name: harmony.newName }));
+                                harmony.queueUpdateAction({ name: harmony.newName });
                                 harmony.updatedFields.name = true;
                                 phlogdev('Lower case "mile"');
                             } else {
@@ -3205,7 +3205,7 @@
                 if ( item.attributes.lockRank < levelToLock) {
                     if (hpMode.harmFlag) {
                         phlogdev("Venue locked!");
-                        harmony.actions.push(new UpdateObject(item, { lockRank: levelToLock }));
+                        harmony.queueUpdateAction({ lockRank: levelToLock });
                         harmony.updatedFields.lockRank = true;
                     } else if (hpMode.hlFlag) {
                         hlLockFlag = true;
@@ -3448,7 +3448,7 @@
                 }
             }
 
-            harmony.executeMultiAction();
+            harmony.submitMultiAction();
 
             if (hpMode.harmFlag) {
                 // Update icons to reflect current WME place services
@@ -3998,7 +3998,7 @@
         function clonePlace() {
             //debug('-- clonePlace() called --');
             phlog('Cloning info...');
-            var UpdateObject = require("Waze/Action/UpdateObject");
+            //var UpdateObject = require("Waze/Action/UpdateObject");
             if (cloneMaster !== null && cloneMaster.hasOwnProperty('url')) {
                 item = W.selectionManager.selectedItems[0].model;
                 var cloneItems = {};
@@ -4972,7 +4972,7 @@
          * @param actions {Array of actions} Optional. If performing multiple actions at once.
          * objects.
          */
-        function updateAddress(feature, address, actions) {
+        function updateAddress(feature, address) {
             console.log("updateAddress(feature, address, actions) was called");
             console.log("feature.CLASS_NAME = " + feature.CLASS_NAME);
             console.log("address = " + JSON.stringify(address));
@@ -4990,11 +4990,7 @@
                     emptyStreet: address.street.name ? null : true
                 };
                 var action = new UpdateFeatureAddress(feature, newAttributes);
-                if(actions) {
-                    actions.push(action);
-                } else {
-                    W.model.actionManager.add(action);
-                }
+                W.model.actionManager.add(action);
                 phlogdev('Address inferred and updated');
             }
         } // END updateAddress function
@@ -6614,7 +6610,7 @@
         // Verified
         this.item = item;
         this.CLASS_NAME = "WMEPH.Harmony";
-        this.severity;  // Only use this to get the severity of the place without harmonizing.
+        this.severity = 0;  // Only use this to get the severity of the place without harmonizing.
 
         // Unverified
         this.id = this.item.attributes.id;
@@ -6625,9 +6621,32 @@
         this.newCategories = [];
         this.newURL = "";
         this.newPlaceURL = "";
-        this.updatedFields = {  name: false, aliases: false, categories: false, brand: false, description: false, lockRank: false, address: false, url: false, phone: false, openingHours: false,
-                                services: { VALLET_SERVICE: false, DRIVETHROUGH: false, WI_FI: false, RESTROOMS: false, CREDIT_CARDS: false, RESERVATIONS: false,
-                                            OUTSIDE_SEATING: false, AIR_CONDITIONING: false, PARKING_FOR_CUSTOMERS: false, DELIVERIES: false, TAKE_AWAY: false, WHEELCHAIR_ACCESSIBLE: false } };
+        this.updatedFields = {
+            name: false,
+            aliases: false,
+            categories: false,
+            brand: false,
+            description: false,
+            lockRank: false,
+            address: false,
+            url: false,
+            phone: false,
+            openingHours: false,
+            services: {
+                VALLET_SERVICE: false,
+                DRIVETHROUGH: false,
+                WI_FI: false,
+                RESTROOMS: false,
+                CREDIT_CARDS: false,
+                RESERVATIONS: false,
+                OUTSIDE_SEATING: false,
+                AIR_CONDITIONING: false,
+                PARKING_FOR_CUSTOMERS: false,
+                DELIVERIES: false,
+                TAKE_AWAY: false,
+                WHEELCHAIR_ACCESSIBLE: false
+            }
+        };
 
         ///////////////////////////////
         // Harmony Private Variables //
@@ -6706,6 +6725,7 @@
 
             var a = W.model.actionManager.getActions().length;
             var ma = new MultiAction();
+            console.log("submitMultiAction :: W.model.CLASS_NAME === " + W.model.CLASS_NAME);
             ma.setModel(W.model);
             _actions.forEach(function(act) {
                 ma.doSubAction(act);
@@ -7031,17 +7051,17 @@ console.log("Line 6791: this.hasOwnProperty('services') === " + JSON.stringify(t
                         _this.newCategories = insertAtIX(_this.newCategories,"TRANSPORTATION",0);  // Insert/move TRANSPORTATION category in the first position
                         _this.newCategories = insertAtIX(_this.newCategories,"SCENIC_LOOKOUT_VIEWPOINT",1);  // Insert/move SCENIC_LOOKOUT_VIEWPOINT category in the 2nd position
 
-                        _this.actions.push(new UpdateObject(this.item, { categories: _this.newCategories }));
+                        _this.queueUpdateAction({ categories: _this.newCategories });
                         _this.updatedFields.categories = true;
                         // make it 24/7
-                        _this.actions.push(new UpdateObject(this.item, { openingHours: [{days: [1,2,3,4,5,6,0], fromHour: "00:00", toHour: "00:00"}] }));
+                        _this.queueUpdateAction({ openingHours: [{days: [1,2,3,4,5,6,0], fromHour: "00:00", toHour: "00:00"}] });
                         _this.updatedFields.openingHours = true;
                         _this.services.add247.checked = true;
                         _this.services.addParking.actionOn(_this.actions);  // add parking service
                         _this.services.addWheelchair.actionOn(_this.actions);  // add parking service
                         _this.flags.restAreaSpec.active = false;  // reset the display flag
 
-                        _this.executeMultiAction();
+                        _this.submitMultiAction();
 
                         _disableHighlightTest = true;
                         harmonizePlaceGo(this.item,'harmonize');
@@ -7068,7 +7088,7 @@ console.log("Line 6791: this.hasOwnProperty('services') === " + JSON.stringify(t
                         _this.newName = this.item.attributes.brand;
                         _this.newAliases = _this.removeSFAliases(_this.newName, _this.newAliases);
                         //W.model.actionManager.add(new UpdateObject(_this.item, { name: _this.newName, aliases: _this.newAliases }));
-                        _this.actions.push(new UpdateObject(_this.item, { name: _this.newName, aliases: _this.newAliases }));
+                        _this.queueUpdateAction({ name: _this.newName, aliases: _this.newAliases });
                         _this.updatedFields.name = true;
                         _this.updatedFields.aliases = true;
                         _this.highlightChangedFields();
@@ -7090,10 +7110,10 @@ console.log("Line 6791: this.hasOwnProperty('services') === " + JSON.stringify(t
                     action: function() {
                         _this.newCategories = insertAtIX(_this.newCategories,"GAS_STATION",0);  // Insert/move Gas category in the first position
                         //var actions = [];
-                        _this.actions.push(new UpdateObject(_this.item, { categories: _this.newCategories }));
+                        _this.queueUpdateAction({ categories: _this.newCategories });
                         _this.updatedFields.categories = true;
                         _this.flags.gasMkPrim.active = false;  // reset the display flag
-                        _this.executeMultiAction();
+                        _this.submitMultiAction();
                         harmonizePlaceGo(this.item,'harmonize');
                     }
                 }]
@@ -7107,10 +7127,10 @@ console.log("Line 6791: this.hasOwnProperty('services') === " + JSON.stringify(t
                     action: function() {
                         _this.newCategories = insertAtIX(_this.newCategories,"HOTEL",0);  // Insert/move Hotel category in the first position
                         //var actions = [];
-                        _this.actions.push(new UpdateObject(_this.item, { categories: _this.newCategories }));
+                        _this.queueUpdateAction({ categories: _this.newCategories });
                         _this.updatedFields.categories = true;
                         _this.flags.hotelMkPrim.active = false;  // reset the display flag
-                        _this.executeMultiAction();
+                        _this.submitMultiAction();
                         harmonizePlaceGo(this.item,'harmonize');
                     }
                 }],
@@ -7135,10 +7155,10 @@ console.log("Line 6791: this.hasOwnProperty('services') === " + JSON.stringify(t
                     action: function() {
                         _this.newCategories[_this.newCategories.indexOf('HOSPITAL_MEDICAL_CARE')] = "OFFICES";
                         //var actions = [];
-                        _this.actions.push(new UpdateObject(this.item, { categories: _this.newCategories }));
+                        _this.queueUpdateAction({ categories: _this.newCategories });
                         _this.updatedFields.categories = true;
                         _this.flags.changeHMC2Office.active = false;  // reset the display flag
-                        _this.executeMultiAction();
+                        _this.submitMultiAction();
                         harmonizePlaceGo(this.item,'harmonize');  // Rerun the script to update fields and lock
                     }
                 }],
@@ -7156,10 +7176,10 @@ console.log("Line 6791: this.hasOwnProperty('services') === " + JSON.stringify(t
                     action: function() {
                         _this.newCategories[_this.newCategories.indexOf('HOSPITAL_MEDICAL_CARE')] = "PET_STORE_VETERINARIAN_SERVICES";
                         //var actions = [];
-                        _this.actions.push(new UpdateObject(this.item, { categories: _this.newCategories }));
+                        _this.queueUpdateAction({ categories: _this.newCategories });
                         _this.updatedFields.categories = true;
                         _this.flags.changeHMC2PetVet.active = false;  // reset the display flag
-                        _this.executeMultiAction();
+                        _this.submitMultiAction();
                         harmonizePlaceGo(this.item,'harmonize');  // Rerun the script to update fields and lock
                     }
                 }],
@@ -7177,10 +7197,10 @@ console.log("Line 6791: this.hasOwnProperty('services') === " + JSON.stringify(t
                     action: function() {
                         _this.newCategories[_this.newCategories.indexOf('SCHOOL')] = "OFFICES";
                         //var actions = [];
-                        _this.actions.push(new UpdateObject(this.item, { categories: _this.newCategories }));
+                        _this.queueUpdateAction({ categories: _this.newCategories });
                         _this.updatedFields.categories = true;
                         _this.flags.changeSchool2Offices.active = false;  // reset the display flag
-                        _this.executeMultiAction();
+                        _this.submitMultiAction();
                         harmonizePlaceGo(this.item,'harmonize');  // Rerun the script to update fields and lock
                     }
                 }],
@@ -7244,7 +7264,7 @@ console.log("Line 6791: this.hasOwnProperty('services') === " + JSON.stringify(t
                         var hnTemp = newHN.replace(/[^\d]/g, '');
                         var hnTempDash = newHN.replace(/[^\d-]/g, '');
                         if (hnTemp > 0 && hnTemp < 1000000) {
-                            W.model.actionManager.add(new UpdateObject(this.item, { houseNumber: hnTempDash }));
+                            _this.addUpdateAction({ houseNumber: hnTempDash });
                             _this.updatedFields.address = true;
                             _this.flags.hnMissing.active = false;
                             this.badInput = false;
@@ -7297,7 +7317,7 @@ console.log("Line 6791: this.hasOwnProperty('services') === " + JSON.stringify(t
                     action: function() {
                         _this.newCategories = ['BANK_FINANCIAL','ATM'];  // Change to bank and atm cats
                         _this.newName = _this.newName.replace(/[\- (]*ATM[\- )]*/g, ' ').replace(/^ /g,'').replace(/ $/g,'');     // strip ATM from name if present
-                        W.model.actionManager.add(new UpdateObject(this.item, { name: _this.newName, categories: _this.newCategories }));
+                        _this.addUpdateAction({ name: _this.newName, categories: _this.newCategories });
                         _this.updatedFields.name = true;
                         _this.updatedFields.categories = true;
                         _this.highlightChangedFields(_this.updatedFields);
@@ -7319,7 +7339,7 @@ console.log("Line 6791: this.hasOwnProperty('services') === " + JSON.stringify(t
                             _this.newName = _this.newName + ' ATM';
                         }
                         _this.newCategories = ['ATM'];  // Change to ATM only
-                        W.model.actionManager.add(new UpdateObject(this.item, { name: _this.newName, categories: _this.newCategories }));
+                        _this.addUpdateAction({ name: _this.newName, categories: _this.newCategories });
                         _this.updatedFields.name = true;
                         _this.updatedFields.categories = true;
                         _this.highlightChangedFields();
@@ -7339,7 +7359,7 @@ console.log("Line 6791: this.hasOwnProperty('services') === " + JSON.stringify(t
                     action: function() {
                         _this.newCategories = ["OFFICES"];  // Change to offices category
                         _this.newName = _this.newName.replace(/[\- (]*atm[\- )]*/ig, ' ').replace(/^ /g,'').replace(/ $/g,'').replace(/ {2,}/g,' ');     // strip ATM from name if present
-                        W.model.actionManager.add(new UpdateObject(this.item, { name: _this.newName + ' - Corporate Offices', categories: _this.newCategories }));
+                        _this.addUpdateAction({ name: _this.newName + ' - Corporate Offices', categories: _this.newCategories });
                         _this.updatedFields.name = true;
                         _this.updatedFields.categories = true;
                         _this.highlightChangedFields();
@@ -7358,7 +7378,7 @@ console.log("Line 6791: this.hasOwnProperty('services') === " + JSON.stringify(t
                     title: "Change URL to the PNH standard",
                     action: function() {
                         if (tempPNHURL !== '') {
-                            W.model.actionManager.add(new UpdateObject(this.item, { url: tempPNHURL }));
+                            _this.addUpdateAction({ url: tempPNHURL });
                             _this.updatedFields.url = true;
                             _this.highlightChangedFields();
                             _this.flags.longURL.active = false;
@@ -7462,7 +7482,7 @@ console.log("Line 6791: this.hasOwnProperty('services') === " + JSON.stringify(t
                             this.badInput = true;
                         } else {
                             phlogdev(newUrl);
-                            W.model.actionManager.add(new UpdateObject(this.item, { url: newUrl }));
+                            _this.addUpdateAction({ url: newUrl });
                             _this.updatedFields.url = true;
                             _this.flags.urlMissing.active = false;
                             _this.flags.PlaceWebsite.active = true;
@@ -7502,7 +7522,7 @@ console.log("Line 6791: this.hasOwnProperty('services') === " + JSON.stringify(t
                                     }
                                 }
                             }
-                            W.model.actionManager.add(new UpdateObject(this.item, { phone: newPhone }));
+                            _this.addUpdateAction({ phone: newPhone });
                             _this.updatedFields.phone = true;
                             _this.flags.phoneMissing.active = false;
                         }
@@ -7537,7 +7557,7 @@ console.log("Line 6791: this.hasOwnProperty('services') === " + JSON.stringify(t
                             var hoursObjectArray = parseHours(pasteHours);
                             if (hoursObjectArray !== false) {
                                 phlogdev(hoursObjectArray);
-                                W.model.actionManager.add(new UpdateObject(this.item, { openingHours: hoursObjectArray }));
+                                _this.addUpdateAction({ openingHours: hoursObjectArray });
                                 _this.updatedFields.openingHours = true;
                                 _this.highlightChangedFields();
                                 _this.flags.noHours.severity = 0;
@@ -7564,7 +7584,7 @@ console.log("Line 6791: this.hasOwnProperty('services') === " + JSON.stringify(t
                             if (hoursObjectArray !== false) {
                                 phlogdev(hoursObjectArray);
                                 this.item.attributes.openingHours.push.apply(this.item.attributes.openingHours, hoursObjectArray);
-                                W.model.actionManager.add(new UpdateObject(this.item, { openingHours: hoursObjectArray }));
+                                _this.addUpdateAction({ openingHours: hoursObjectArray });
                                 _this.updatedFields.openingHours = true;
                                 _this.highlightChangedFields();
                                 _this.flags.noHours.severity = 0;
@@ -7609,7 +7629,7 @@ console.log("Line 6791: this.hasOwnProperty('services') === " + JSON.stringify(t
                         phlogdev('RPPlevelToLock: '+ RPPlevelToLock);
 
                         RPPlevelToLock = RPPlevelToLock -1 ;
-                        W.model.actionManager.add(new UpdateObject(this.item, { lockRank: RPPlevelToLock }));
+                        _this.addUpdateAction({ lockRank: RPPlevelToLock });
                         // no field highlight here
                         _this.flags.lockRPP.message = 'Current lock: '+ (parseInt(this.item.attributes.lockRank)+1) +'. '+RPPLockString+' ?';
                     }
@@ -7625,12 +7645,12 @@ console.log("Line 6791: this.hasOwnProperty('services') === " + JSON.stringify(t
                         _this.newAliases = insertAtIX(_this.newAliases,_this.optAlias,0);
                         if (specCases.indexOf('altName2Desc') > -1 &&  this.item.attributes.description.toUpperCase().indexOf(_this.optAlias.toUpperCase()) === -1 ) {
                             newDescripion = _this.optAlias + '\n' + newDescripion;
-                            W.model.actionManager.add(new UpdateObject(this.item, { description: newDescripion }));
+                            _this.addUpdateAction({ description: newDescripion });
                             _this.updatedFields.description = true;
                             _this.highlightChangedFields();
                         }
                         _this.newAliases = _this.removeSFAliases(_this.newName, _this.newAliases);
-                        W.model.actionManager.add(new UpdateObject(this.item, { aliases: _this.newAliases }));
+                        _this.addUpdateAction({ aliases: _this.newAliases });
                         _this.updatedFields.aliases = true;
                         _this.highlightChangedFields();
                         _this.flags.addAlias.active = false;  // reset the display flag
@@ -7645,7 +7665,7 @@ console.log("Line 6791: this.hasOwnProperty('services') === " + JSON.stringify(t
                     title: 'Add ' + _this.newCategories[0],
                     action: function() {
                         _this.newCategories.push.apply(_this.newCategories,altCategories);
-                        W.model.actionManager.add(new UpdateObject(this.item, { categories: _this.newCategories }));
+                        _this.addUpdateAction({ categories: _this.newCategories });
                         _this.updatedFields.categories = true;
                         _this.highlightChangedFields();
                         _this.flags.addCat2.active = false;  // reset the display flag
@@ -7660,7 +7680,7 @@ console.log("Line 6791: this.hasOwnProperty('services') === " + JSON.stringify(t
                     title: 'Add Pharmacy category',
                     action: function() {
                         _this.newCategories = insertAtIX(_this.newCategories, 'PHARMACY', 1);
-                        W.model.actionManager.add(new UpdateObject(this.item, { categories: _this.newCategories }));
+                        _this.addUpdateAction({ categories: _this.newCategories });
                         _this.updatedFields.categories = true;
                         _this.highlightChangedFields();
                         _this.flags.addPharm.active = false;  // reset the display flag
@@ -7675,7 +7695,7 @@ console.log("Line 6791: this.hasOwnProperty('services') === " + JSON.stringify(t
                     title: 'Add Supermarket category',
                     action: function() {
                         _this.newCategories = insertAtIX(_this.newCategories, 'SUPERMARKET_GROCERY', 1);
-                        W.model.actionManager.add(new UpdateObject(this.item, { categories: _this.newCategories }));
+                        _this.addUpdateAction({ categories: _this.newCategories });
                         _this.updatedFields.categories = true;
                         _this.highlightChangedFields();
                         _this.flags.addSuper.active = false;  // reset the display flag
@@ -7692,7 +7712,7 @@ console.log("Line 6791: this.hasOwnProperty('services') === " + JSON.stringify(t
                         _this.newCategories = insertAtIX(_this.newCategories, 'CONVENIENCE_STORE', 1);
                         _this.newName = 'ARCO ampm';
                         newURL = 'ampm.com';
-                        W.model.actionManager.add(new UpdateObject(this.item, { name: _this.newName, url: newURL, categories: _this.newCategories }));
+                        _this.addUpdateAction({ name: _this.newName, url: newURL, categories: _this.newCategories });
                         _this.updatedFields.name = true;
                         _this.updatedFields.url = true;
                         _this.updatedFields.categories = true;
@@ -7710,7 +7730,7 @@ console.log("Line 6791: this.hasOwnProperty('services') === " + JSON.stringify(t
                     title: "Add the ATM category to this place",
                     action: function() {
                         _this.newCategories = insertAtIX(_this.newCategories,"ATM",1);  // Insert ATM category in the second position
-                        W.model.actionManager.add(new UpdateObject(this.item, { categories: _this.newCategories }));
+                        _this.addUpdateAction({ categories: _this.newCategories });
                         _this.updatedFields.categories = true;
                         _this.highlightChangedFields();
                         _this.flags.addATM.active = false;   // reset the display flag
@@ -7725,7 +7745,7 @@ console.log("Line 6791: this.hasOwnProperty('services') === " + JSON.stringify(t
                     title: "Add the Convenience Store category to this place",
                     action: function() {
                         _this.newCategories = insertAtIX(_this.newCategories,"CONVENIENCE_STORE",1);  // Insert C.S. category in the second position
-                        W.model.actionManager.add(new UpdateObject(this.item, { categories: _this.newCategories }));
+                        _this.addUpdateAction({ categories: _this.newCategories });
                         _this.updatedFields.categories = true;
                         _this.highlightChangedFields();
                         _this.flags.addConvStore.active = false;   // reset the display flag
@@ -7744,11 +7764,11 @@ console.log("Line 6791: this.hasOwnProperty('services') === " + JSON.stringify(t
                         _this.services.addParking.actionOn();
                         _this.services.addDeliveries.actionOn();
                         _this.services.addWheelchair.actionOn();
-                        W.model.actionManager.add(new UpdateObject(this.item, { url: "usps.com" }));
+                        _this.addUpdateAction({ url: "usps.com" });
                         _this.updatedFields.url = true;
                         _this.highlightChangedFields();
                         if (myPlace.psRegion === 'SER') {
-                            W.model.actionManager.add(new UpdateObject(this.item, { aliases: ["United States Postal Service"] }));
+                            _this.addUpdateAction({ aliases: ["United States Postal Service"] });
                             _this.updatedFields.aliases = true;
                             _this.highlightChangedFields();
                         }
@@ -7765,7 +7785,7 @@ console.log("Line 6791: this.hasOwnProperty('services') === " + JSON.stringify(t
                     action: function() {
                         _this.newName = toTitleCaseStrong(this.item.attributes.name, isPLA(this.item));  // Get the Strong Title Case name
                         if (_this.newName !== this.item.attributes.name) {  // if they are not equal
-                            W.model.actionManager.add(new UpdateObject(this.item, { name: _this.newName }));
+                            _this.addUpdateAction({ name: _this.newName });
                             _this.updatedFields.name = true;
                             _this.highlightChangedFields();
                         }
