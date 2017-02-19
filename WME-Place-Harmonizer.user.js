@@ -85,10 +85,6 @@
                             "psDelivery"    : { "action":"addDeliveries",   "name":"DELIVERIES"            },
                             "psTakeAway"    : { "action":"addTakeAway",     "name":"TAKE_AWAY"             },
                             "psWheelchair"  : { "action":"addWheelchair",   "name":"WHEELCHAIR_ACCESSIBLE" } };
-    var WME_SERVICES    = [ "VALLET_SERVICE","DRIVETHROUGH","WI_FI","RESTROOMS",
-                            "CREDIT_CARDS","RESERVATIONS","OUTSIDE_SEATING",
-                            "AIR_CONDITIONING","PARKING_FOR_CUSTOMERS","DELIVERIES",
-                            "TAKE_AWAY","WHEELCHAIR_ACCESSIBLE" ];
     var TOLL_FREE       = [ "800","822","833","844","855","866","877","888" ];
 
 
@@ -518,6 +514,155 @@
         document.body.removeChild(tmp);
     }
 
+    // This function will build the Banner object in the sidebar.
+    // Why did I rename it "constructBanner"? Because it should only be run once at runtime.
+    // YOBO! You only build once!
+    function constructBanner() {
+        phlogdev('Building banner (ONCE!)');
+        var k;
+
+        // Build the container.
+        var $container = $("#WMEPH_Container");
+        if ($container.length === 0) {
+            $container = $('<div id="WMEPH_Container">').prependTo(".contents");
+        } else {
+            $container.empty();
+        }
+
+        /* Build the banner. */
+        var $banner = $('<div id="WMEPH_BannerBlah">');
+        // Add duplicate header
+        var $dupeTitle = $('<div id="WMEPH_DupeTitle" class="banner-dupe banner-row-severity-2">');
+        $dupeTitle.html('<span class="fa fa-exclamation-circle"></span> Possible duplicates:');
+        var $dupeList = $('<ul id="WMEPH_DupeList" class="banner-dupe banner-row-severity-2">');
+        $banner.append($dupeTitle,$dupeList,$bannerRows);
+
+        // Add banner row container.
+        var $bannerRows = $('<div id="WMEPH_BannerRows">');
+
+        // Append to the container.
+        $banner.append($dupeTitle,$dupeList,$bannerRows);
+        $container.append($banner);
+
+        /* Build the services. */
+        var $services = $('<div id="WMEPH_Services">Add services</div>');
+        var _serviceButtons = {
+            addValet:       { title: "Valet" },
+            addDriveThru:   { title: "Drive-Thru" },
+            addWiFi:        { title: "WiFi" },
+            addRestrooms:   { title: "Restrooms" },
+            addCreditCards: { title: "Credit Cards" },
+            addReservations:{ title: "Reservations" },
+            addOutside:     { title: "Outside Seating" },
+            addAC:          { title: "Air-Conditioning" },
+            addParking:     { title: "Parking" },
+            addDeliveries:  { title: "Deliveries" },
+            addTakeAway:    { title: "Take Out" },
+            addWheelchair:  { title: "Wheelchair Accessible" },
+            add247:         { title: "Hours: Open 24\/7" }
+        };
+        var $serviceButton;
+        for (k in _serviceButtons) {
+            $serviceButton = $('<input type="button">');
+            $serviceButton.attr("id", "WMEPH_" + k);
+            $serviceButton.attr("title", _serviceButtons[k].title);
+            $serviceButton.addClass("wmeph-btn-service wmeph-btn-service-disabled");
+        }
+        $container.append($services);
+
+        /* Build the tools. */
+        var $tools = $('<div id="WMEPH_Tools">');
+        var _toolButtons = {
+            placesWiki: {
+                active: true, value: "Places Wiki", title: "Open the places wiki page",
+                action: function() {
+                    window.open(PLACES_WIKI_URL);
+                }
+            },
+            restAreaWiki: {
+                active: false, value: "Rest Area Wiki", title: "Open the Rest Area wiki page",
+                action: function() {
+                    window.open(RESTAREA_WIKI_URL);
+                }
+            },
+            clearWL: {
+                active: false, value: "Clear Whitelist for Place", title: "Clear all Whitelisted fields for this place",
+                action: function() {
+                    if (confirm('Are you sure you want to clear all whitelisted fields for this place?') ) {  // misclick check
+                        delete venueWhitelist[harmony.id];
+                        saveWL_LS(true);
+                        harmonizePlaceGo(item,'harmonize');  // rerun the script to check all flags again
+                    }
+                }
+            },
+            PlaceErrorForumPost: {
+                active: true, value: "Report Script Error", title: "Report a script error",
+                action: function() {
+                    var forumMsgInputs = {
+                        subject: 'WMEPH Bug report: Scrpt Error',
+                        message: 'Script version: ' + WMEPH_VERSION_LONG + devVersStr + '\nPermalink: ' + harmony.permalink + '\nPlace name: ' + item.attributes.name + '\nCountry: ' + item.getAddress().country.name + '\n--------\nDescribe the error:  \n '
+                    };
+                    WMEPH_errorReport(forumMsgInputs);
+                }
+            },
+            whatsNew: {
+                active: false, value: "Recent Script Updates", title: "Open a list of recent script updates",
+                action: function() {
+                    alert(CHANGE_LOG_TEXT);
+                    localStorage.setItem('WMEPH-featuresExamined'+devVersStr, '1');
+                    //bannButt2.whatsNew.active = false;
+                }
+            }
+        };
+        var $toolButton;
+        for (k in _toolButtons) {
+            $toolButton = $('<input type="button">');
+            $toolButton.attr("id", "WMEPH_" + k);
+            $toolButton.attr("title", _serviceButtons[k].title);
+            $toolButton.addClass("btn btn-info btn-xs wmeph-btn");
+        }
+        $container.append($tools);
+
+        /* Build the run button. */
+        var $runButtonDiv = $('<div id="WMEPH_RunButtonBox">');
+        var $runButton = $('<input type="button">');
+        $runButton.attr("id", "WMEPH_RunButton");
+        var runStr = "Run WMEPH" + ((IS_DEV_VERSION) ? " " + devVersStr : "");
+        $runButton.attr("title", runStr);
+        $runButton.attr("value", runStr + " on selected place");
+        $runButton.addClass("btn btn-primary");
+        $runButton.click(function() { harmonizePlace(); });
+        $container.append($runButtonDiv);
+
+        /* Build the cloning tools. */
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    }
+
+
+    // REVISITING THIS
     // Setup div for banner messages and color
     function displayTools(sbm) {
         //debug('- displayTools(sbm) called -');
@@ -1681,48 +1826,6 @@
 
             //bannButt = {   --- Now, a part of the Harmony class!
 
-            bannButt2 = {
-                placesWiki: {
-                    active: true, severity: 0, message: "", value: "Places wiki", title: "Open the places wiki page",
-                    action: function() {
-                        window.open(PLACES_WIKI_URL);
-                    }
-                },
-                restAreaWiki: {
-                    active: false, severity: 0, message: "", value: "Rest Area wiki", title: "Open the Rest Area wiki page",
-                    action: function() {
-                        window.open(RESTAREA_WIKI_URL);
-                    }
-                },
-                clearWL: {
-                    active: false, severity: 0, message: "", value: "Clear Place whitelist", title: "Clear all Whitelisted fields for this place",
-                    action: function() {
-                        if (confirm('Are you sure you want to clear all whitelisted fields for this place?') ) {  // misclick check
-                            delete venueWhitelist[harmony.id];
-                            saveWL_LS(true);
-                            harmonizePlaceGo(item,'harmonize');  // rerun the script to check all flags again
-                        }
-                    }
-                },  // END placesWiki definition
-                PlaceErrorForumPost: {
-                    active: true, severity: 0, message: "", value: "Report script error", title: "Report a script error",
-                    action: function() {
-                        var forumMsgInputs = {
-                            subject: 'WMEPH Bug report: Scrpt Error',
-                            message: 'Script version: ' + WMEPH_VERSION_LONG + devVersStr + '\nPermalink: ' + harmony.permalink + '\nPlace name: ' + item.attributes.name + '\nCountry: ' + item.getAddress().country.name + '\n--------\nDescribe the error:  \n '
-                        };
-                        WMEPH_errorReport(forumMsgInputs);
-                    }
-                },
-                whatsNew: {
-                    active: false, severity: 0, message: "", value: "*Recent script updates*", title: "Open a list of recent script updates",
-                    action: function() {
-                        alert(CHANGE_LOG_TEXT);
-                        localStorage.setItem('WMEPH-featuresExamined'+devVersStr, '1');
-                        bannButt2.whatsNew.active = false;
-                    }
-                }
-            };  // END bannButt2 definitions
 
             var wlKeys = [];
             Object.keys(harmony.flags).forEach(function(bannerKey) {
@@ -1733,7 +1836,7 @@
 
             if (hpMode.harmFlag) {
                 // Update icons to reflect current WME place services
-                harmony.updateServiceChecks();
+                harmony.updateServicesChecks();
 
                 // Turn on New Features Button if not looked at yet
                 if (localStorage.getItem('WMEPH-featuresExamined'+devVersStr) === '0') {
@@ -2056,12 +2159,12 @@
                                 harmony.flags[scFlag].active = false;
                             } else if ( specCases[scix].match(/^psOn_/g) !== null ) {
                                 scFlag = specCases[scix].match(/^psOn_(.+)/i)[1];
-                                harmony.services[scFlag].actionOn();
                                 harmony.services[scFlag].pnhOverride = true;
+                                harmony.services[scFlag].action(true);
                             } else if ( specCases[scix].match(/^psOff_/g) !== null ) {
                                 scFlag = specCases[scix].match(/^psOff_(.+)/i)[1];
-                                harmony.services[scFlag].actionOff();
                                 harmony.services[scFlag].pnhOverride = true;
+                                harmony.services[scFlag].action(false);
                             }
                             // parseout localURL data if exists (meaning place can have a URL distinct from the chain URL
                             if ( specCases[scix].match(/^localURL_/g) !== null ) {
@@ -2604,7 +2707,7 @@
                                     harmony.services[act].active = true;
                                     if (hpMode.harmFlag && isChecked("WMEPH-EnableServices")) {
                                         // Automatically enable new services
-                                        harmony.services[act].actionOn();
+                                        harmony.services[act].action(true);
                                     }
                                 } else if (flag === 2) {  // these are never automatically added but shown
                                     harmony.services[act].active = true;
@@ -2613,7 +2716,7 @@
                                     if ( hpMode.harmFlag && isChecked("WMEPH-EnableServices")) {
                                         // If the sheet data matches the state or region, then auto add
                                         if (isMemberOfRegion(myState, flag) || isMemberOfRegion(myCountry, flag)) {
-                                            harmony.services[act].actionOn();
+                                            harmony.services[act].action(false);
                                         }
                                     }
                                 }
@@ -3452,7 +3555,7 @@
 
             if (hpMode.harmFlag) {
                 // Update icons to reflect current WME place services
-                harmony.updateServiceChecks();
+                harmony.updateServicesChecks();
             }
 
             // Turn on website linking button if there is a url
@@ -3637,15 +3740,15 @@
             // Setup bannButt2 onclicks
             setupButtons(bannButt2);
 
-            // if (harmony.flags.noHours.active) {
-            //     var button = document.getElementById('WMEPH_noHoursA2');
-            //     if (button !== null) {
-            //         button.onclick = function() {
-            //             harmony.flags.noHours.action2();
-            //             assembleBanner();
-            //         };
-            //     }
-            // }
+            if (harmony.flags.noHours.active) {
+                var button = document.getElementById('WMEPH_noHoursA2');
+                if (button !== null) {
+                    button.onclick = function() {
+                        harmony.flags.noHours.action2();
+                        assembleBanner();
+                    };
+                }
+            }
 
 
             // Street entry textbox stuff
@@ -5603,12 +5706,6 @@
             return vWL_1;
         }
 
-        //function getServicesChecks() {
-
-        //function updateServiceChecks(harmony.services) {
-
-        //function getItemPL() {
-
         // Sets up error reporting
         function WMEPH_errorReport(data) {
             //debug('-- WMEPH_errorReport(data) called --');
@@ -6610,6 +6707,20 @@
         // Verified
         this.item = item;
         this.CLASS_NAME = "WMEPH.Harmony";
+        this.WME_SERVICES = [
+            "VALLET_SERVICE",
+            "DRIVETHROUGH",
+            "WI_FI",
+            "RESTROOMS",
+            "CREDIT_CARDS",
+            "RESERVATIONS",
+            "OUTSIDE_SEATING",
+            "AIR_CONDITIONING",
+            "PARKING_FOR_CUSTOMERS",
+            "DELIVERIES",
+            "TAKE_AWAY",
+            "WHEELCHAIR_ACCESSIBLE"
+        ];
         this.severity = 0;  // Only use this to get the severity of the place without harmonizing.
 
         // Unverified
@@ -6689,27 +6800,14 @@
         */
 
 
-        ////////////////////////////////
-        // Harmony Privileged Methods //
-        ////////////////////////////////
-
-        // Functions that will be called from the outside that need access to private variables/functions.
-        /* Example:
-        this.funcName = function(args) {
-            return something;
-        }
-        */
-
-        // Immediately adds an action to the action manager.
-        this.addUpdateAction = function(updateObj) {
-            var act = new UpdateObject(this.item, updateObj);
-            W.model.actionManager.add(act);
-        };
+        ////////////////////////////////    Functions that will be called from
+        // Harmony Privileged Methods //    the outside that need access to
+        ////////////////////////////////    private variables/functions.
 
         // This function queues an action for a MultiAction.  Use this during harmonization.
         this.queueUpdateAction = function(updateObj) {
             var a = _actions.length;
-            var b = _actions.push(updateObj);
+            var b = _actions.push(new UpdateObject(this.item, updateObj));
             if (a + 1 !== b) {
                 return false;
             }
@@ -6738,6 +6836,147 @@
 
             _actions.length = 0;
             return true;
+        };
+
+        // Sets the given service as checked.
+        this.setServiceChecked = function(servObj, checked) {
+            var toggle = typeof checked === "undefined";
+            checked = (toggle) ? !servObj.checked : checked;
+            var checkboxChecked = isChecked("service-checkbox-" + servObj.id);
+            var exists = false;
+            var changed = false;
+            if (checkboxChecked === servObj.checked && checkboxChecked !== checked) {
+                servObj.checked = checked;
+                // We have to see if there are already existing changes to services in the action manager.
+                // If there are, we need the last copy of the array of enabled services.
+                var amServices;
+                var amActions = W.model.actionManager.getActions();
+                for (var i = 0, len = amActions.length; i < len; i++) {
+                    if (amActions[i].newAttributes && amActions[i].newAttributes.services) {
+                        amServices = amActions[i].newAttributes.services;
+                    }
+                }
+
+                if (!amServices) {
+                    // If there were no updates to our place regarding services, copy the existing item services.
+                    amServices = JSON.parse(JSON.stringify(this.item.attributes.services));
+                }
+
+                var index = amServices.indexOf(servObj.id);
+                exists = index > -1;
+                var a = amServices.length;
+                var b;
+                if (checked && !exists) {
+                    // If we're adding, add the service to the array.
+                    b = amServices.push(servObj.id);
+                    if (a !== b) {
+                        changed = true;
+                    }
+                } else if (!checked && exists) {
+                    // If we're not adding, we're subtracting.
+                    amServices.splice(index, 1);
+                    if (a > amServices.length) {
+                        changed = true;
+                    }
+                }
+                if (changed) {
+                    this.addUpdateAction({ "services": amServices });
+                    this.updatedFields.services[servObj.id] = true;
+                    this.updateServicesChecks();
+                }
+            }
+
+            if (!toggle) this.services[servObj.name].active = checked;
+
+            return changed;
+        };
+
+        // Updates all of the icons to match the place's checkboxes.
+        this.updateServicesChecks = function() {
+            var id;
+            for (var key in this.services) {
+                if(key === "add247") {
+                    // Highlight 24/7 button if hours are set that way, and add button for all places
+                    var oh = this.item.attributes.openingHours;
+                    if (oh.length === 1 && oh[0].days.length === 7 && oh[0].fromHour === "00:00" && oh[0].toHour === "00:00") {
+                        this.services.add247.checked = true;
+                    } else {
+                        this.services.add247.checked = false;
+                    }
+                    this.services.add247.active = true;
+                } else {
+                    id = this.services[key].id;
+                    var checked = isChecked("service-checkbox-" + id);
+                    this.services[key].checked = checked;
+                    this.services[key].active = this.services[key].active || checked;   // Display any service that is checked.
+                }
+            }
+        };
+
+        // This highlights the changed fields as green.
+        this.highlightChangedFields = function() {
+            var _css = { "background-color":"#cec" };
+            var tab1HL = false;
+            var tab2HL = false;
+            if (this.updatedFields.name) {
+                $(".form-control[name=name]").css(_css);
+                tab1HL = true;
+            }
+            if (this.updatedFields.aliases) {
+                var field = $(".alias-name.form-control")[0];
+                if (field) {
+                    $(field).css(_css);
+                    tab1HL = true;
+                }
+            }
+            if (this.updatedFields.categories) {
+                $(".select2-choices").css(_css);
+                tab1HL = true;
+            }
+            if (this.updatedFields.brand) {
+                $(".form-control[name=brand]").css(_css);
+                tab1HL = true;
+            }
+            if (this.updatedFields.description) {
+                $(".form-control[name=description]").css(_css);
+                tab1HL = true;
+            }
+            if (this.updatedFields.lockRank) {
+                $(".form-control[name=lockRank]").css(_css);
+                tab1HL = true;
+            }
+            if (this.updatedFields.address) {
+                $('.full-address')[0].css(_css);
+                tab1HL = true;
+            }
+            if (this.updatedFields.url) {
+                $(".form-control[name=url]").css(_css);
+                tab2HL = true;
+            }
+            if (this.updatedFields.phone) {
+                $(".form-control[name=phone]").css(_css);
+                tab2HL = true;
+            }
+            if (this.updatedFields.openingHours) {
+                $(".opening-hours").css(_css);
+                tab2HL = true;
+            }
+            for (var k in this.updatedFields.services) {
+                if (this.updatedFields.services[k]) {
+                    var $scb = $("#service-checkbox-" + k);
+                    if ($scb.length > 0) {
+                        $scb.parent().css(_css);
+                        tab2HL = true;
+                    }
+                }
+            }
+
+            if (tab1HL) {
+                $("a[href='#landmark-edit-general']").css(_css);
+            }
+            if (tab2HL) {
+                $("a[href='#landmark-edit-more-info']").css(_css);
+            }
         };
 
 
@@ -6824,158 +7063,6 @@
         };
 
 
-        // NOTE: Not refactored yet.
-        // Get services checkbox status
-        this.getServicesChecks = function() {
-            var servArrayCheck = [];
-            for (var wsix=0; wsix<WME_SERVICES.length; wsix++) {
-                if (isChecked("service-checkbox-" + WME_SERVICES[wsix])) {
-                    servArrayCheck[wsix] = true;
-                } else {
-                    servArrayCheck[wsix] = false;
-                }
-            }
-            return servArrayCheck;
-        };
-
-        // Sets the given service as checked.
-        this.setServiceChecked = function(servObj, checked) {
-//            console.log("setServiceChecked(servObj, checked) was called");
-//            console.log("Existing actions: "+JSON.stringify(this.actions, censor(this.actions), 2));
-//            console.log("servObj.name = " + servObj.name);
-//            console.log("servObj.id = " + servObj.id);
-//            console.log("checked = " + checked);
-            var checkboxChecked = isChecked("service-checkbox-"+servObj.id);
-//            console.log("checkboxChecked = " + checkboxChecked);
-            var toggle = typeof checked === "undefined";
-            var noAdd = false;
-            checked = (toggle) ? !servObj.checked : checked;
-//            console.log("checked is now = " + checked);
-            if (checkboxChecked === servObj.checked && checkboxChecked !== checked) {
-                servObj.checked = checked;
-                var _services;
-                if (this.actions) {
-                    for (var i = 0, len = this.actions.length; i < len; i++) {
-                        var existingAction = this.actions[i];
-console.log("Line 6762: this.item.attributes.hasOwnProperty('services') === " + JSON.stringify(this.item.attributes.hasOwnProperty('services')));
-                        if (existingAction.newAttributes && existingAction.newAttributes.services) {
-console.log("Line 6764: existingAction.newAttributes.hasOwnProperty('services') === " + JSON.stringify(existingAction.newAttributes.hasOwnProperty('services')));
-                            _services = existingAction.newAttributes.services;
-                        }
-                    }
-                }
-                if (!_services) {
-console.log("Line 6770: this.item.attributes.hasOwnProperty('services') === " + JSON.stringify(this.item.attributes.hasOwnProperty('services')));
-                    _services = this.item.attribues.services.slice(0); // Why is this causing an error?  this.item.attributes is NOT undefined!
-                } else {
-                    noAdd = _services.indexOf(servObj.id) > -1;
-                }
-                if (checked) {
-                    _services.push(servObj.id);
-                } else {
-                    var index = _services.indexOf(servObj.id);
-                    if (index > -1) {
-                        _services.splice(index, 1);
-                    }
-                }
-                if (!noAdd) {
-//                    console.log("About to call addUpdateAction(), passing for _services: " + JSON.stringify(_services));
-                    this.addUpdateAction({"services":_services});
-console.log("Line 6786: this.updatedFields.hasOwnProperty('services') === " + JSON.stringify(this.updatedFields.hasOwnProperty('services')));
-                    this.updatedFields.services[servObj.id] = true;
-                }
-            }
-            this.updateServiceChecks();
-console.log("Line 6791: this.hasOwnProperty('services') === " + JSON.stringify(this.hasOwnProperty('services')));
-            if (!toggle) this.services[servObj.name].active = checked;
-        };
-
-        // NOTE: Something about this doesn't seem right...
-        // Updates all of the icons to match the place's checkboxes.
-        this.updateServiceChecks = function() {
-            var servArrayCheck = this.getServicesChecks(), wsix=0;
-            for (var keys in this.services) {
-                if (this.services.hasOwnProperty(keys)) {
-                    this.services[keys].checked = servArrayCheck[wsix];  // reset all icons to match any checked changes
-                    this.services[keys].active = this.services[keys].active || servArrayCheck[wsix];  // display any manually checked non-active icons
-                    wsix++;
-                }
-            }
-            // Highlight 24/7 button if hours are set that way, and add button for all places
-            if ( this.item.attributes.openingHours.length === 1 && this.item.attributes.openingHours[0].days.length === 7 && this.item.attributes.openingHours[0].fromHour === '00:00' && this.item.attributes.openingHours[0].toHour ==='00:00' ) {
-                this.services.add247.checked = true;
-            }
-            this.services.add247.active = true;
-        };
-
-        // highlight changed fields
-        this.highlightChangedFields = function() {
-            //debug('-- highlightChangedFields() called --');
-            var _css = { "background-color":"#cec" };
-            var tab1HL = false;
-            var tab2HL = false;
-            if (this.updatedFields.name) {
-                $(".form-control[name=name]").css(_css);
-                tab1HL = true;
-            }
-            if (this.updatedFields.aliases) {
-                var field = $(".alias-name.form-control")[0];
-                if (field) {
-                    $(field).css(_css);
-                    tab1HL = true;
-                }
-            }
-            if (this.updatedFields.categories) {
-                $(".select2-choices").css(_css);
-                tab1HL = true;
-            }
-            if (this.updatedFields.brand) {
-                $(".form-control[name=brand]").css(_css);
-                tab1HL = true;
-            }
-            if (this.updatedFields.description) {
-                $(".form-control[name=description]").css(_css);
-                tab1HL = true;
-            }
-            if (this.updatedFields.lockRank) {
-                $(".form-control[name=lockRank]").css(_css);
-                tab1HL = true;
-            }
-            if (this.updatedFields.address) {
-                $('.full-address')[0].css(_css);
-                tab1HL = true;
-            }
-            if (this.updatedFields.url) {
-                $(".form-control[name=url]").css(_css);
-                tab2HL = true;
-            }
-            if (this.updatedFields.phone) {
-                $(".form-control[name=phone]").css(_css);
-                tab2HL = true;
-            }
-            if (this.updatedFields.openingHours) {
-                $(".opening-hours").css(_css);
-                tab2HL = true;
-            }
-            for (var k in this.updatedFields.services) {
-                if (this.updatedFields.services[k]) {
-                    var $scb = $("#service-checkbox-" + k);
-                    if ($scb.length > 0) {
-                        $scb.parent().css(_css);
-                        tab2HL = true;
-                    }
-                }
-            }
-
-            if (tab1HL) {
-                $("a[href='#landmark-edit-general']").css(_css);
-            }
-            if (tab2HL) {
-                $("a[href='#landmark-edit-more-info']").css(_css);
-            }
-        };
-
-
         ///////////////////////
         // Harmony Use-cases //   Formerly bannButt
         ///////////////////////
@@ -7002,7 +7089,7 @@ console.log("Line 6791: this.hasOwnProperty('services') === " + JSON.stringify(t
                 WLactive: true, WLmessage: '', WLtitle: 'Whitelist parent Category', WLkey: 'parentCategory',
                 WLaction: function() { whitelistAction(_this.id, this.WLkey); }
             },
-            suspectDesc:            { active: false, severity: 2, message: 'Description field might contain copyrighted info.', 
+            suspectDesc:            { active: false, severity: 2, message: 'Description field might contain copyrighted info.',
                 WLactive: true, WLmessage: '', WLtitle: 'Whitelist description', WLkey: 'suspectDesc',
                 WLaction: function() { whitelistAction(_this.id, this.WLkey); }
             },
@@ -7057,8 +7144,8 @@ console.log("Line 6791: this.hasOwnProperty('services') === " + JSON.stringify(t
                         _this.queueUpdateAction({ openingHours: [{days: [1,2,3,4,5,6,0], fromHour: "00:00", toHour: "00:00"}] });
                         _this.updatedFields.openingHours = true;
                         _this.services.add247.checked = true;
-                        _this.services.addParking.actionOn(_this.actions);  // add parking service
-                        _this.services.addWheelchair.actionOn(_this.actions);  // add parking service
+                        _this.services.addParking.action(true);  // add parking service
+                        _this.services.addWheelchair.action(true);  // add parking service
                         _this.flags.restAreaSpec.active = false;  // reset the display flag
 
                         _this.submitMultiAction();
@@ -7759,11 +7846,11 @@ console.log("Line 6791: this.hasOwnProperty('services') === " + JSON.stringify(t
                     text: "Yes",
                     title: "Is this a USPS location?",
                     action: function() {
-                        _this.services.addAC.actionOn();
-                        _this.services.addCreditCards.actionOn();
-                        _this.services.addParking.actionOn();
-                        _this.services.addDeliveries.actionOn();
-                        _this.services.addWheelchair.actionOn();
+                        _this.services.addAC.action(true);
+                        _this.services.addCreditCards.action(true);
+                        _this.services.addParking.action(true);
+                        _this.services.addDeliveries.action(true);
+                        _this.services.addWheelchair.action(true);
                         _this.addUpdateAction({ url: "usps.com" });
                         _this.updatedFields.url = true;
                         _this.highlightChangedFields();
@@ -7930,176 +8017,70 @@ console.log("Line 6791: this.hasOwnProperty('services') === " + JSON.stringify(t
         this.services = {
             addValet: {  // append optional Alias to the name
                 name: "addValet", id: "VALLET_SERVICE",
-                active: false, checked: false, icon: "serv-valet", w2hratio: 50/50, value: "Valet", title: 'Valet',
-                action: function(checked) {
-                    _this.setServiceChecked(this, checked);
-                },
+                active: false, checked: false, w2hratio: 50/50, value: "Valet", title: 'Valet',
                 pnhOverride: false,
-                actionOn: function() {
-                    this.action(true);
-                },
-                actionOff: function() {
-                    this.action(false);
-                }
+                pnhOverride: false, action: function(checked) { _this.setServiceChecked(this, checked); }
             },
             addDriveThru: {  // append optional Alias to the name
                 name: "addDriveThru", id: "DRIVETHROUGH",
-                active: false, checked: false, icon: "serv-drivethru", w2hratio: 78/50, value: "DriveThru", title: 'Drive-Thru',
-                action: function(checked) {
-                    _this.setServiceChecked(this, checked);
-                },
-                pnhOverride: false,
-                actionOn: function() {
-                    this.action(true);
-                },
-                actionOff: function() {
-                    this.action(false);
-                }
+                active: false, checked: false, w2hratio: 78/50, value: "DriveThru", title: 'Drive-Thru',
+                pnhOverride: false, action: function(checked) { _this.setServiceChecked(this, checked); }
             },
             addWiFi: {  // append optional Alias to the name
                 name: "addWiFi", id: "WI_FI",
-                active: false, checked: false, icon: "serv-wifi", w2hratio: 67/50, value: "WiFi", title: 'WiFi',
-                action: function(checked) {
-                    _this.setServiceChecked(this, checked);
-                },
-                pnhOverride: false,
-                actionOn: function() {
-                    this.action(true);
-                },
-                actionOff: function() {
-                    this.action(false);
-                }
+                active: false, checked: false, w2hratio: 67/50, value: "WiFi", title: 'WiFi',
+                pnhOverride: false, action: function(checked) { _this.setServiceChecked(this, checked); }
             },
             addRestrooms: {  // append optional Alias to the name
                 name: "addRestrooms", id: "RESTROOMS",
-                active: false, checked: false, icon: "serv-restrooms", w2hratio: 49/50, value: "Restroom", title: 'Restrooms',
-                action: function(checked) {
-                    _this.setServiceChecked(this, checked);
-                },
-                pnhOverride: false,
-                actionOn: function() {
-                    this.action(true);
-                },
-                actionOff: function() {
-                    this.action(false);
-                }
+                active: false, checked: false, w2hratio: 49/50, value: "Restroom", title: 'Restrooms',
+                pnhOverride: false, action: function(checked) { _this.setServiceChecked(this, checked); }
             },
             addCreditCards: {  // append optional Alias to the name
                 name: "addCreditCards", id: "CREDIT_CARDS",
-                active: false, checked: false, icon: "serv-credit", w2hratio: 73/50, value: "CC", title: 'Credit Cards',
-                action: function(checked) {
-                    _this.setServiceChecked(this, checked);
-                },
-                pnhOverride: false,
-                actionOn: function() {
-                    this.action(true);
-                },
-                actionOff: function() {
-                    this.action(false);
-                }
+                active: false, checked: false, w2hratio: 73/50, value: "CC", title: 'Credit Cards',
+                pnhOverride: false, action: function(checked) { _this.setServiceChecked(this, checked); }
             },
             addReservations: {  // append optional Alias to the name
                 name: "addReservations", id: "RESERVATIONS",
-                active: false, checked: false, icon: "serv-reservations", w2hratio: 55/50, value: "Reserve", title: 'Reservations',
-                action: function(checked) {
-                    _this.setServiceChecked(this, checked);
-                },
-                pnhOverride: false,
-                actionOn: function() {
-                    this.action(true);
-                },
-                actionOff: function() {
-                    this.action(false);
-                }
+                active: false, checked: false, w2hratio: 55/50, value: "Reserve", title: 'Reservations',
+                pnhOverride: false, action: function(checked) { _this.setServiceChecked(this, checked); }
             },
             addOutside: {  // append optional Alias to the name
                 name: "addOutside", id: "OUTSIDE_SEATING",
-                active: false, checked: false, icon: "serv-outdoor", w2hratio: 73/50, value: "OusideSeat", title: 'Outside Seating',
-                action: function(checked) {
-                    _this.setServiceChecked(this, checked);
-                },
-                pnhOverride: false,
-                actionOn: function() {
-                    this.action(true);
-                },
-                actionOff: function() {
-                    this.action(false);
-                }
+                active: false, checked: false, w2hratio: 73/50, value: "OusideSeat", title: 'Outside Seating',
+                pnhOverride: false, action: function(checked) { _this.setServiceChecked(this, checked); }
             },
             addAC: {  // append optional Alias to the name
                 name: "addAC", id: "AIR_CONDITIONING",
-                active: false, checked: false, icon: "serv-ac", w2hratio: 50/50, value: "AC", title: 'AC',
-                action: function(checked) {
-                    _this.setServiceChecked(this, checked);
-                },
-                pnhOverride: false,
-                actionOn: function() {
-                    this.action(true);
-                },
-                actionOff: function() {
-                    this.action(false);
-                }
+                active: false, checked: false, w2hratio: 50/50, value: "AC", title: 'AC',
+                pnhOverride: false, action: function(checked) { _this.setServiceChecked(this, checked); }
             },
             addParking: {  // append optional Alias to the name
                 name: "addParking", id: "PARKING_FOR_CUSTOMERS",
-                active: false, checked: false, icon: "serv-parking", w2hratio: 46/50, value: "Parking", title: 'Parking',
-                action: function(checked) {
-                    _this.setServiceChecked(this, checked);
-                },
-                pnhOverride: false,
-                actionOn: function() {
-                    this.action(true);
-                },
-                actionOff: function() {
-                    this.action(false);
-                }
+                active: false, checked: false, w2hratio: 46/50, value: "Parking", title: 'Parking',
+                pnhOverride: false, action: function(checked) { _this.setServiceChecked(this, checked); }
             },
             addDeliveries: {  // append optional Alias to the name
                 name: "addDeliveries", id: "DELIVERIES",
-                active: false, checked: false, icon: "serv-deliveries", w2hratio: 86/50, value: "Delivery", title: 'Deliveries',
-                action: function(checked) {
-                    _this.setServiceChecked(this, checked);
-                },
-                pnhOverride: false,
-                actionOn: function() {
-                    this.action(true);
-                },
-                actionOff: function() {
-                    this.action(false);
-                }
+                active: false, checked: false, w2hratio: 86/50, value: "Delivery", title: 'Deliveries',
+                pnhOverride: false, action: function(checked) { _this.setServiceChecked(this, checked); }
             },
             addTakeAway: {  // append optional Alias to the name
                 name: "addTakeAway", id: "TAKE_AWAY",
-                active: false, checked: false, icon: "serv-takeaway", w2hratio: 34/50, value: "TakeOut", title: 'Take Out',
-                action: function(checked) {
-                    _this.setServiceChecked(this, checked);
-                },
-                pnhOverride: false,
-                actionOn: function() {
-                    this.action(true);
-                },
-                actionOff: function() {
-                    this.action(false);
-                }
+                active: false, checked: false, w2hratio: 34/50, value: "TakeOut", title: 'Take Out',
+                pnhOverride: false, action: function(checked) { _this.setServiceChecked(this, checked); }
             },
             addWheelchair: {  // add service
                 name: "addWheelchair", id: "WHEELCHAIR_ACCESSIBLE",
-                active: false, checked: false, icon: "serv-wheelchair", w2hratio: 50/50, value: "WhCh", title: 'Wheelchair Accessible',
-                action: function(checked) {
-                    _this.setServiceChecked(this, checked);
-                },
-                pnhOverride: false,
-                actionOn: function() {
-                    this.action(true);
-                },
-                actionOff: function() {
-                    this.action(false);
-                }
+                active: false, checked: false, w2hratio: 50/50, value: "WhCh", title: 'Wheelchair Accessible',
+                pnhOverride: false, action: function(checked) { _this.setServiceChecked(this, checked); }
             },
             add247: {  // add 24/7 hours
                 name: "add247",  // Not needed, but did it for consistency
-                active: false, checked: false, icon: "serv-247", w2hratio: 73/50, value: "247", title: 'Hours: Open 24\/7',
+                active: false, checked: false, w2hratio: 73/50, value: "247", title: 'Hours: Open 24\/7',
                 action: function() {
+                    // This could be moved into setServiceChecked.
                     if (!_this.services.add247.checked) {
                         _this.addUpdateAction({ openingHours: [{days: [1,2,3,4,5,6,0], fromHour: "00:00", toHour: "00:00"}] });
                         _this.updatedFields.openingHours = true;
@@ -8107,13 +8088,9 @@ console.log("Line 6791: this.hasOwnProperty('services') === " + JSON.stringify(t
                         _this.services.add247.checked = true;
                         _this.flags.noHours.active = false;
                     }
-                },
-                actionOn: function() {
-                    this.action();
                 }
             }
-        };  // END bannServ definitions
-
+        };
     }
 
     ////////////////////////////
@@ -8127,7 +8104,32 @@ console.log("Line 6791: this.hasOwnProperty('services') === " + JSON.stringify(t
     }
     */
 
+    // Immediately adds an action to the action manager.
+    Harmony.prototype.addUpdateAction = function(updateObj) {
+        var a = W.model.actionManager.getActions().length;
+        var act = new UpdateObject(this.item, updateObj);
+        W.model.actionManager.add(act);
+        var b = W.model.actionManager.getActions().length;
+        if (a + 1 !== b) {
+            return false;
+        }
+        return true;
+    };
+
 })();
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
