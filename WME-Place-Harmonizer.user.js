@@ -62,7 +62,7 @@
         SCRIPT_NAME = GM_info.script.name.toString(),
         IS_DEV_VERSION = (SCRIPT_NAME.match(/Beta/i) !== null);             // Enables dev messages and unique DOM options if the script is called "... Beta"
     // CSS Stuff
-    var WMEPH_CSS = GM_getResourceText("WMEPH_CSS"); GM_addStyle(WMEPH_CSS);
+//    var WMEPH_CSS = GM_getResourceText("WMEPH_CSS"); GM_addStyle(WMEPH_CSS);
     var JQ_UI_CSS = GM_getResourceText("JQ_UI_CSS"); GM_addStyle(JQ_UI_CSS);
     // Was testing this, but I don't think the following line does anything. (mapomatic)
     //GM_addStyle('  <style> .ui-autocomplete {max-height: 100px;overflow-y: auto;overflow-x: hidden;}  * html .ui-autocomplete {height: 100px;}</style>');
@@ -519,18 +519,22 @@
     // YOBO! You only build once!
     function constructBanner() {
         phlogdev('Building banner (ONCE!)');
+        var $contents = $("#edit-panel");
+        var hidden = !($contents.is(":visible"));
         var k;
 
         // Build the container.
+        //if (hidden) { $contents.show(); }
         var $container = $("#WMEPH_Container");
         if ($container.length === 0) {
-            $container = $('<div id="WMEPH_Container">').prependTo(".contents");
+            $container = $('<div id="WMEPH_Container"></div>');
         } else {
             $container.empty();
         }
+        //if (hidden) { $contents.hide(); }
 
         /* Build the banner. */
-        var $banner = $('<div id="WMEPH_BannerBlah">');
+        var $banner = $('<div id="WMEPH_Banner" class="banner-severity--1">');
         // Add duplicate header
         var $dupeTitle = $('<div id="WMEPH_DupeTitle" class="banner-dupe banner-row-severity-2">');
         $dupeTitle.html('<span class="fa fa-exclamation-circle"></span> Possible duplicates:');
@@ -545,28 +549,29 @@
         $container.append($banner);
 
         /* Build the services. */
-        var $services = $('<div id="WMEPH_Services">Add services</div>');
+        var $services = $('<div id="WMEPH_Services">Add services<br /></div>');
         var _serviceButtons = {
-            addValet:       { title: "Valet" },
-            addDriveThru:   { title: "Drive-Thru" },
-            addWiFi:        { title: "WiFi" },
-            addRestrooms:   { title: "Restrooms" },
-            addCreditCards: { title: "Credit Cards" },
-            addReservations:{ title: "Reservations" },
-            addOutside:     { title: "Outside Seating" },
-            addAC:          { title: "Air-Conditioning" },
-            addParking:     { title: "Parking" },
-            addDeliveries:  { title: "Deliveries" },
-            addTakeAway:    { title: "Take Out" },
-            addWheelchair:  { title: "Wheelchair Accessible" },
-            add247:         { title: "Hours: Open 24\/7" }
+            addValet:           "Valet",
+            addDriveThru:       "Drive-Thru",
+            addWiFi:            "WiFi",
+            addRestrooms:       "Restrooms",
+            addCreditCards:     "Credit Cards",
+            addReservations:    "Reservations",
+            addOutside:         "Outside Seating",
+            addAC:              "Air-Conditioning",
+            addParking:         "Parking",
+            addDeliveries:      "Deliveries",
+            addTakeAway:        "Take Out",
+            addWheelchair:      "Wheelchair Accessible",
+            add247:             "Hours: Open 24\/7"
         };
         var $serviceButton;
         for (k in _serviceButtons) {
             $serviceButton = $('<input type="button">');
             $serviceButton.attr("id", "WMEPH_" + k);
-            $serviceButton.attr("title", _serviceButtons[k].title);
+            $serviceButton.attr("title", _serviceButtons[k]);
             $serviceButton.addClass("wmeph-btn-service wmeph-btn-service-disabled");
+            $services.append($serviceButton);
         }
         $container.append($services);
 
@@ -589,9 +594,9 @@
                 active: false, value: "Clear Whitelist for Place", title: "Clear all Whitelisted fields for this place",
                 action: function() {
                     if (confirm('Are you sure you want to clear all whitelisted fields for this place?') ) {  // misclick check
-                        delete venueWhitelist[harmony.id];
+                        delete venueWhitelist[W.selectionManager.selectedItems[0].model.id];
                         saveWL_LS(true);
-                        harmonizePlaceGo(item,'harmonize');  // rerun the script to check all flags again
+                        harmonizePlaceGo(W.selectionManager.selectedItems[0].model,'harmonize');  // rerun the script to check all flags again
                     }
                 }
             },
@@ -600,7 +605,11 @@
                 action: function() {
                     var forumMsgInputs = {
                         subject: 'WMEPH Bug report: Scrpt Error',
-                        message: 'Script version: ' + WMEPH_VERSION_LONG + devVersStr + '\nPermalink: ' + harmony.permalink + '\nPlace name: ' + item.attributes.name + '\nCountry: ' + item.getAddress().country.name + '\n--------\nDescribe the error:  \n '
+                        message: 'Script version: ' + WMEPH_VERSION_LONG + devVersStr +
+                        '\nPermalink: ' + W.selectionManager.selectedItems[0].model.attributes.harmony.permalink +
+                        '\nPlace name: ' + W.selectionManager.selectedItems[0].model.attributes.name +
+                        '\nCountry: ' + W.selectionManager.selectedItems[0].model.getAddress().country.name +
+                        '\n--------\nDescribe the error:  \n '
                     };
                     WMEPH_errorReport(forumMsgInputs);
                 }
@@ -618,8 +627,10 @@
         for (k in _toolButtons) {
             $toolButton = $('<input type="button">');
             $toolButton.attr("id", "WMEPH_" + k);
-            $toolButton.attr("title", _serviceButtons[k].title);
+            $toolButton.attr("value", _toolButtons[k].value);
+            $toolButton.attr("title", _toolButtons[k].title);
             $toolButton.addClass("btn btn-info btn-xs wmeph-btn");
+            $tools.append($toolButton);
         }
         $container.append($tools);
 
@@ -628,40 +639,167 @@
         var $runButton = $('<input type="button">');
         $runButton.attr("id", "WMEPH_RunButton");
         var runStr = "Run WMEPH" + ((IS_DEV_VERSION) ? " " + devVersStr : "");
-        $runButton.attr("title", runStr);
-        $runButton.attr("value", runStr + " on selected place");
+        $runButton.attr("value", runStr);
+        $runButton.attr("title", runStr + " on selected place");
         $runButton.addClass("btn btn-primary");
         $runButton.click(function() { harmonizePlace(); });
+        $runButtonDiv.append($runButton);
         $container.append($runButtonDiv);
 
         /* Build the cloning tools. */
+        var $cloneTools = $('<div id="WMEPH_CloneTools">');
+        var $cloneCopy = $('<input id="WMEPH_CloneCopyButton" type="button" value="Copy" title="Copy place information">');
+        var $clonePaste = $('<input id="WMEPH_ClonePasteButton" type="button" value="Paste" '+
+            'title="Apply copied place information (Ctrl+Alt+O)">')
+        $cloneTools.append($cloneCopy,$clonePaste);
+        $cloneCopy.addClass("btn btn-warning btn-xs wmeph-btn");
+        $clonePaste.addClass("btn btn-warning btn-xs wmeph-btn");
+        $cloneCopy.click(function() {
+            var item = W.selectionManager.selectedItems[0].model;
+            var cloneSession = sessionStorage;
+            var cloneMaster = {};
+            cloneMaster.addr = item.getAddress();
+            if ( cloneMaster.addr.hasOwnProperty('attributes') ) {
+                cloneMaster.addr = cloneMaster.addr.attributes;
+            }
+            cloneMaster.houseNumber = item.attributes.houseNumber;
+            cloneMaster.url = item.attributes.url;
+            cloneMaster.phone = item.attributes.phone;
+            cloneMaster.description = item.attributes.description;
+            cloneMaster.services = item.attributes.services;
+            cloneMaster.openingHours = item.attributes.openingHours;
+            cloneSession.setItem("WMEPH_CloneMaster", cloneMaster);
+            phlogdev("Place attributes copied.");
+        });
+        $($clonePaste).click(function() {
+            phlog("Pasting place attributes...");
+            var UO = require("Waze/Action/UpdateObject");
+            var cloneSession = sessionStorage;
+            var cloneMaster = cloneSession.getItem("WMEPH_CloneMaster");
+            if (cloneMaster !== null && typeof(cloneMaster) === "object") {
+                var item = W.selectionManager.selectedItems[0].model;
+                var cloneItems = {};
+                var updateItem = false;
+                if (isChecked("WMEPH_CloneHN")) {
+                    cloneItems.houseNumber = cloneMaster.houseNumber;
+                    updateItem = true;
+                }
+                if (isChecked("WMEPH_CloneUrl")) {
+                    cloneItems.url = cloneMaster.url;
+                    updateItem = true;
+                }
+                if (isChecked("WMEPH_ClonePhone")) {
+                    cloneItems.phone = cloneMaster.phone;
+                    updateItem = true;
+                }
+                if (isChecked("WMEPH_CloneDesc")) {
+                    cloneItems.description = cloneMaster.description;
+                    updateItem = true;
+                }
+                if (isChecked("WMEPH_CloneServ")) {
+                    cloneItems.services = cloneMaster.services;
+                    updateItem = true;
+                }
+                if (isChecked("WMEPH_CloneHours")) {
+                    cloneItems.openingHours = cloneMaster.openingHours;
+                    updateItem = true;
+                }
+                if (updateItem) {
+                    W.model.actionManager.add(new UpdateObject(item, cloneItems) );
+                    phlogdev('Item details cloned');
+                }
 
+                var copyStreet = isChecked("WMEPH_CloneStreet");
+                var copyCity = isChecked("WMEPH_CloneCity");
 
+                if (copyStreet || copyCity) {
+                    var originalAddress = item.getAddress();
+                    var itemRepl = {
+                        street: copyStreet ? cloneMaster.addr.street : originalAddress.attributes.street,
+                        city: copyCity ? cloneMaster.addr.city : originalAddress.attributes.city,
+                        state: copyCity ? cloneMaster.addr.state : originalAddress.attributes.state,
+                        country: copyCity ? cloneMaster.addr.country : originalAddress.attributes.country
+                    };
+                    updateAddress(item, itemRepl);
+                    phlogdev("Item address cloned.");
+                }
+            } else {
+                phlog("Please copy a place first.");
+            }
+        });
+        var _cloneCheckboxes = {
+            CloneHN:    "HN",
+            CloneStreet:"Str",
+            CloneCity:  "City",
+            CloneUrl:   "URL",
+            ClonePhone: "Ph",
+            CloneDesc:  "Desc",
+            CloneServ:  "Serv",
+            CloneHours: "Hrs"
+        };
+        var $cloneCheckbox, settingId, storedSetting;
+        for (k in _cloneCheckboxes) {
+            settingId = "WMEPH_" + _cloneCheckboxes[k];
+            $cloneCheckbox = $('<input type="checkbox">');
+            $cloneCheckbox.attr("id", settingId);
+            $cloneCheckbox.click(function() { saveSettingToLocalStorage(settingId); });
+            storedSetting = localStorage.getItem(settingId);
+            if (!storedSetting) {
+                phlogdev(settingId + " not found.");
+            } else if(storedSetting === "1") {
+                // We may have to revisit this.
+                $cloneCheckbox.trigger("click");
+            }
+            $cloneTools.append($cloneCheckbox);
+            $(document.createTextNode(_cloneCheckboxes[k])).insertAfter($cloneCheckbox);
+        }
+        var $quickSelect;
+        ["All","Addr","None"].forEach(function(i){
+            $quickSelect = $('<input type="button" id="WMEPH_CloneQuickSelect'+i+'" value="'+i+'">');
+            $quickSelect.addClass("btn btn-info btn-xs wmeph-btn");
+            $cloneTools.append($quickSelect);
+        });
+        $("#WMEPH_CloneQuickSelectAll").attr("title","Check All");
+        $("#WMEPH_CloneQuickSelectAddr").attr("title","Check Address");
+        $("#WMEPH_CloneQuickSelectNone").attr("title","Check None");
+        $("#WMEPH_CloneQuickSelectAll").click(function() {
+            setCheckedStateByClick("WMEPH_CloneHN", true);
+            setCheckedStateByClick("WMEPH_CloneStreet", true);
+            setCheckedStateByClick("WMEPH_CloneCity", true);
+            setCheckedStateByClick("WMEPH_CloneUrl", true);
+            setCheckedStateByClick("WMEPH_ClonePhone", true);
+            setCheckedStateByClick("WMEPH_CloneServ", true);
+            setCheckedStateByClick("WMEPH_CloneDesc", true);
+            setCheckedStateByClick("WMEPH_CloneHours", true);
+        });
+        $("#WMEPH_CloneQuickSelectAddr").click(function() {
+            setCheckedStateByClick("WMEPH_CloneHN", true);
+            setCheckedStateByClick("WMEPH_CloneStreet", true);
+            setCheckedStateByClick("WMEPH_CloneCity", true);
+            setCheckedStateByClick("WMEPH_CloneUrl", false);
+            setCheckedStateByClick("WMEPH_ClonePhone", false);
+            setCheckedStateByClick("WMEPH_CloneServ", false);
+            setCheckedStateByClick("WMEPH_CloneDesc", false);
+            setCheckedStateByClick("WMEPH_CloneHours", false);
+        });
+        $("#WMEPH_CloneQuickSelectNone").click(function() {
+            setCheckedStateByClick("WMEPH_CloneHN", false);
+            setCheckedStateByClick("WMEPH_CloneStreet", false);
+            setCheckedStateByClick("WMEPH_CloneCity", false);
+            setCheckedStateByClick("WMEPH_CloneUrl", false);
+            setCheckedStateByClick("WMEPH_ClonePhone", false);
+            setCheckedStateByClick("WMEPH_CloneServ", false);
+            setCheckedStateByClick("WMEPH_CloneDesc", false);
+            setCheckedStateByClick("WMEPH_CloneHours", false);
+        });
+        $container.append($cloneTools);
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+        //if (hidden) { $contents.show(); }
+        $container.prependTo($contents);
+        //if (hidden) { $contents.hide(); }
     }
 
-
+/*
     // REVISITING THIS
     // Setup div for banner messages and color
     function displayTools(sbm) {
@@ -678,7 +816,7 @@
         $("#WMEPH_tools > ul").append(sbm);
         $('#select2-drop').hide();
     }
-
+*/
 
     /////////////////////////////
     // Database Load Functions //
@@ -1330,7 +1468,9 @@
     // This function will need to be split up because it is way too big.
     function runPH() {
         debug('- runPH() called -');
-        //_injectElement(Harmony, "script");
+        // TEST HOOKS HERE //
+        constructBanner();
+        // END TEST HOOKS //
         if ( localStorage.getItem('WMEPH-featuresExamined'+devVersStr) === null ) {
             localStorage.setItem('WMEPH-featuresExamined'+devVersStr, '0');  // Storage for whether the User has pressed the button to look at updates
         }
@@ -1826,6 +1966,52 @@
 
             //bannButt = {   --- Now, a part of the Harmony class!
 
+            var bannButt2 = {
+                placesWiki: {
+                    active: true, value: "Places Wiki", title: "Open the places wiki page",
+                    action: function() {
+                        window.open(PLACES_WIKI_URL);
+                    }
+                },
+                restAreaWiki: {
+                    active: false, value: "Rest Area Wiki", title: "Open the Rest Area wiki page",
+                    action: function() {
+                        window.open(RESTAREA_WIKI_URL);
+                    }
+                },
+                clearWL: {
+                    active: false, value: "Clear Whitelist for Place", title: "Clear all Whitelisted fields for this place",
+                    action: function() {
+                        if (confirm('Are you sure you want to clear all whitelisted fields for this place?') ) {  // misclick check
+                            delete venueWhitelist[W.selectionManager.selectedItems[0].model.id];
+                            saveWL_LS(true);
+                            harmonizePlaceGo(W.selectionManager.selectedItems[0].model,'harmonize');  // rerun the script to check all flags again
+                        }
+                    }
+                },
+                PlaceErrorForumPost: {
+                    active: true, value: "Report Script Error", title: "Report a script error",
+                    action: function() {
+                        var forumMsgInputs = {
+                            subject: 'WMEPH Bug report: Scrpt Error',
+                            message: 'Script version: ' + WMEPH_VERSION_LONG + devVersStr +
+                            '\nPermalink: ' + W.selectionManager.selectedItems[0].model.attributes.harmony.permalink +
+                            '\nPlace name: ' + W.selectionManager.selectedItems[0].model.attributes.name +
+                            '\nCountry: ' + W.selectionManager.selectedItems[0].model.getAddress().country.name +
+                            '\n--------\nDescribe the error:  \n '
+                        };
+                        WMEPH_errorReport(forumMsgInputs);
+                    }
+                },
+                whatsNew: {
+                    active: false, value: "Recent Script Updates", title: "Open a list of recent script updates",
+                    action: function() {
+                        alert(CHANGE_LOG_TEXT);
+                        localStorage.setItem('WMEPH-featuresExamined'+devVersStr, '1');
+                        //bannButt2.whatsNew.active = false;
+                    }
+                }
+            };
 
             var wlKeys = [];
             Object.keys(harmony.flags).forEach(function(bannerKey) {
@@ -3740,11 +3926,11 @@
             // Setup bannButt2 onclicks
             setupButtons(bannButt2);
 
-            if (harmony.flags.noHours.active) {
+            if (item.attributes.harmony.flags.noHours.active) {
                 var button = document.getElementById('WMEPH_noHoursA2');
                 if (button !== null) {
                     button.onclick = function() {
-                        harmony.flags.noHours.action2();
+                        item.attributes.harmony.flags.noHours.action2();
                         assembleBanner();
                     };
                 }
@@ -3889,6 +4075,20 @@
             return button;
         }
 
+        function displayTools(sbm) {
+            //debug('- displayTools(sbm) called -');
+            //debug('sbm = ' + JSON.stringify(sbm));
+            if ($("#WMEPH_tools").length === 0 ) {
+                $("#WMEPH_banner").after('<div id="WMEPH_tools">');
+                $("#WMEPH_tools").prepend("<ul>");
+            } else {
+                $("#WMEPH_tools > ul").empty();
+            }
+            //sbm = '<li><span style="position:relative;left:-10px;">' + sbm + '</span></li>';
+            sbm = "<li>" + sbm + "</li>";
+            $("#WMEPH_tools > ul").append(sbm);
+            $('#select2-drop').hide();
+        }
 
 
 
@@ -8018,7 +8218,6 @@
             addValet: {  // append optional Alias to the name
                 name: "addValet", id: "VALLET_SERVICE",
                 active: false, checked: false, w2hratio: 50/50, value: "Valet", title: 'Valet',
-                pnhOverride: false,
                 pnhOverride: false, action: function(checked) { _this.setServiceChecked(this, checked); }
             },
             addDriveThru: {  // append optional Alias to the name
