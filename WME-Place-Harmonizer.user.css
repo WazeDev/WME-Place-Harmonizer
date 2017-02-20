@@ -34,6 +34,8 @@ div#WMEPH_Change_Log ul {
 |* Container Stuff *|
 \*******************/
 /* Eventually, we can put Container, Banner, Services and Tools stuff here. */
+
+/* Container */
 #WMEPH_Container {
     border: 1px solid red;
     padding: 20px;
@@ -41,10 +43,30 @@ div#WMEPH_Change_Log ul {
     margin-bottom: -15px
 }
 
+/* Banner */
 #WMEPH_Banner {
-    border: 1px solid purple;
+    box-shadow: 4px 4px 6px #bbb;
+    border-radius: 6px;
+    display: -webkit-flex;
+    display: flex;
+    flex-direction: column;
+    width: 100%;
+    color: white;
+    font-size: 1em;
+    padding: 6px 0px;
+    margin-left: auto;
+    margin-right: auto;
+    margin-bottom: 6px;
 }
 
+#WMEPH_Banner .banner-dupe {
+    padding-bottom:0px;
+    padding-top:0px;
+    margin-bottom:0px;
+    border-top:none;
+}
+
+/* Services */
 #WMEPH_Services {
     border: 1px solid blue;
     width: 100%;
@@ -71,10 +93,17 @@ div#WMEPH_Change_Log ul {
     filter: opacity(0.25);
 }
 
+/* Tools */
 #WMEPH_Tools {
     border: 1px solid green;
 }
 
+input.wmeph-tool-button {
+    margin-top: 2px;
+    margin-bottom: 2px;
+}
+
+/* Run Button */
 #WMEPH_RunButtonBox {
     border: 1px solid orange;
     padding-bottom: 6px;
@@ -88,10 +117,25 @@ div#WMEPH_Change_Log ul {
 #WMEPH_RunButton {
 }
 
+/* Clone Tools */
 #WMEPH_CloneTools {
     border: 1px solid brown;
-    font-size: 15px;
+    font-size: 14px;
     font-weight: 600;
+}
+
+#WMEPH_CloneTools > * {
+    vertical-align: middle !important;
+}
+
+span.wmeph-clone-checkbox {
+    display: inline-block;
+    margin: 1px 3px;
+}
+
+input.wmeph-clone-checkbox {
+    vertical-align: text-top;
+    margin-right: 2px;
 }
 
 

@@ -520,18 +520,15 @@
     function constructBanner() {
         phlogdev('Building banner (ONCE!)');
         var $contents = $("#edit-panel");
-        var hidden = !($contents.is(":visible"));
         var k;
 
         // Build the container.
-        //if (hidden) { $contents.show(); }
         var $container = $("#WMEPH_Container");
         if ($container.length === 0) {
             $container = $('<div id="WMEPH_Container"></div>');
         } else {
             $container.empty();
         }
-        //if (hidden) { $contents.hide(); }
 
         /* Build the banner. */
         var $banner = $('<div id="WMEPH_Banner" class="banner-severity--1">');
@@ -629,7 +626,7 @@
             $toolButton.attr("id", "WMEPH_" + k);
             $toolButton.attr("value", _toolButtons[k].value);
             $toolButton.attr("title", _toolButtons[k].title);
-            $toolButton.addClass("btn btn-info btn-xs wmeph-btn");
+            $toolButton.addClass("btn btn-info btn-xs wmeph-btn wmeph-tool-button");
             $tools.append($toolButton);
         }
         $container.append($tools);
@@ -650,8 +647,9 @@
         var $cloneTools = $('<div id="WMEPH_CloneTools">');
         var $cloneCopy = $('<input id="WMEPH_CloneCopyButton" type="button" value="Copy" title="Copy place information">');
         var $clonePaste = $('<input id="WMEPH_ClonePasteButton" type="button" value="Paste" '+
-            'title="Apply copied place information (Ctrl+Alt+O)">')
-        $cloneTools.append($cloneCopy,$clonePaste);
+            'title="Apply copied place information (Ctrl+Alt+O)">');
+        $cloneTools.append($cloneCopy);
+        $cloneTools.append($clonePaste);
         $cloneCopy.addClass("btn btn-warning btn-xs wmeph-btn");
         $clonePaste.addClass("btn btn-warning btn-xs wmeph-btn");
         $cloneCopy.click(function() {
@@ -727,6 +725,7 @@
                 phlog("Please copy a place first.");
             }
         });
+        $cloneTools.append("<br>");
         var _cloneCheckboxes = {
             CloneHN:    "HN",
             CloneStreet:"Str",
@@ -737,26 +736,28 @@
             CloneServ:  "Serv",
             CloneHours: "Hrs"
         };
-        var $cloneCheckbox, settingId, storedSetting;
+        var $cloneCheckbox, $span, settingId, storedSetting;
         for (k in _cloneCheckboxes) {
             settingId = "WMEPH_" + _cloneCheckboxes[k];
             $cloneCheckbox = $('<input type="checkbox">');
             $cloneCheckbox.attr("id", settingId);
+            $cloneCheckbox.addClass("wmeph-clone-checkbox");
             $cloneCheckbox.click(function() { saveSettingToLocalStorage(settingId); });
             storedSetting = localStorage.getItem(settingId);
             if (!storedSetting) {
                 phlogdev(settingId + " not found.");
             } else if(storedSetting === "1") {
-                // We may have to revisit this.
+                // NOTE: We may have to revisit this.
                 $cloneCheckbox.trigger("click");
             }
-            $cloneTools.append($cloneCheckbox);
-            $(document.createTextNode(_cloneCheckboxes[k])).insertAfter($cloneCheckbox);
+            $span = $('<span class="wmeph-clone-checkbox">' + _cloneCheckboxes[k] + '</span>');
+            $span.prepend($cloneCheckbox);
+            $cloneTools.append($span);
         }
         var $quickSelect;
         ["All","Addr","None"].forEach(function(i){
             $quickSelect = $('<input type="button" id="WMEPH_CloneQuickSelect'+i+'" value="'+i+'">');
-            $quickSelect.addClass("btn btn-info btn-xs wmeph-btn");
+            $quickSelect.addClass("btn btn-info btn-xs wmeph-btn wmeph-clone-quickselect");
             $cloneTools.append($quickSelect);
         });
         $("#WMEPH_CloneQuickSelectAll").attr("title","Check All");
@@ -794,9 +795,7 @@
         });
         $container.append($cloneTools);
 
-        //if (hidden) { $contents.show(); }
         $container.prependTo($contents);
-        //if (hidden) { $contents.hide(); }
     }
 
 /*
