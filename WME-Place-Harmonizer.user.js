@@ -271,7 +271,7 @@
     function runPH() {
         // Script update info
         var WMEPHWhatsNewList = [  // New in this version
-			'1.2.5: fixed user language to match WME beta and production.',
+            '1.2.5: fixed user language to match WME beta and production. Changed format of PNH Approval PM',
             '1.2.4: Moved "Place Website" button next to "Run WMEPH" button, so it is always accessible.',
             '1.2.4: Web Search and Place Locator buttons are now side-by-side.',
             '1.2.3: Fixed bug from last release.',
