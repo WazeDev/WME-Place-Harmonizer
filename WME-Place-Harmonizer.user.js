@@ -458,7 +458,7 @@
             betaUser = true; // dev users are beta users
         }
         var usrRank = thisUser.normalizedLevel;  // get editor's level (actual level)
-		if(/beta/.test(location.href))userLanguage = "en-US";
+	var if(/beta/.test(location.href))userLanguage = "en-US";
 		else userLanguage = "en";
 
         // lock levels are offset by one
