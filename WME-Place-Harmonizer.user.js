@@ -13,9 +13,10 @@
 // ==UserScript==
 // @name        WME Place Harmonizer Beta
 // @namespace   https://github.com/WazeUSA/WME-Place-Harmonizer/raw/master/WME-Place-Harmonizer.user.js
-// @version     1.2.5
+// @version     1.2.6
 // @description Harmonizes, formats, and locks a selected place
-// @author      WMEPH development group
+// @author      WMEPH Development Group
+// @downloadURL https://raw.githubusercontent.com/WazeUSA/WME-Place-Harmonizer/Beta/WME-Place-Harmonizer.user.js
 // @include     /^https:\/\/(www|beta)\.waze\.com\/(?!user\/)(.{2,6}\/)?editor\/.*$/
 // @require     https://raw.githubusercontent.com/WazeUSA/WME-Place-Harmonizer/Beta/jquery-ui-1.11.4.custom.min.js
 // @resource    jqUI_CSS  https://ajax.googleapis.com/ajax/libs/jqueryui/1.11.4/themes/smoothness/jquery-ui.css
@@ -270,7 +271,8 @@
     function runPH() {
         // Script update info
         var WMEPHWhatsNewList = [  // New in this version
-            '1.2.5: Updated links from old wiki to Wazeopedia. Changed user language to us-EN.',
+            '1.2.6: Updated links from old wiki to Wazeopedia.',
+            '1.2.5: Changed user language to us-EN.',
             '1.2.4: Moved "Place Website" button next to "Run WMEPH" button, so it is always accessible.',
             '1.2.4: Web Search and Place Locator buttons are now side-by-side.',
             '1.2.3: Fixed bug from last release.',
@@ -1882,8 +1884,8 @@
                     action: function() {
                         if ( PMUserList.hasOwnProperty(region) && PMUserList[region].approvalActive ) {
                             var forumPMInputs = {
-                                subject: 'PNH approval for "' + PNHNameTemp + '"',
-                                message: 'Please approve "' + PNHNameTemp + '" for the ' + region + ' region.  Thanks\n \nPNH order number: ' + PNHOrderNum + '\n \nExample Permalink: ' + placePL + '\n \nPNH Link: ' + USAPNHMasURL,
+                                subject: '' + PNHOrderNum + ' PNH approval for "' + PNHNameTemp + '"',
+                                message: 'Please approve "' + PNHNameTemp + '" for the ' + region + ' region.  Thanks\n \nPNH order number: ' + PNHOrderNum + '\n \nPermalink: ' + placePL + '\n \nPNH Link: ' + USAPNHMasURL,
                                 preview: 'Preview', attach_sig: 'on'
                             };
                             forumPMInputs['address_list[u]['+PMUserList[region].modID+']'] = 'to';  // Sends a PM to the regional mod instead of the submission form
