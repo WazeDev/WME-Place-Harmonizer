@@ -13,7 +13,7 @@
 // ==UserScript==
 // @name        WME Place Harmonizer Beta
 // @namespace   https://github.com/WazeUSA/WME-Place-Harmonizer/raw/master/WME-Place-Harmonizer.user.js
-// @version     1.2.7
+// @version     1.2.8
 // @description Harmonizes, formats, and locks a selected place
 // @author      WMEPH Development Group
 // @downloadURL https://raw.githubusercontent.com/WazeUSA/WME-Place-Harmonizer/Beta/WME-Place-Harmonizer.user.js
@@ -271,6 +271,7 @@
     function runPH() {
         // Script update info
         var WMEPHWhatsNewList = [  // New in this version
+            '1.2.8: FIXED - Place Website button was not showing up in certain scenarios.',
             '1.2.7: FIXED - Place Website button was not showing up.',
             '1.2.6: Updated links from old wiki to Wazeopedia.',
             '1.2.5: Changed user language to us-EN.',
@@ -3967,6 +3968,7 @@
             // Assemble the banners
             assembleBanner();  // Make Messaging banners
 
+            showOpenPlaceWebsiteButton();
         }  // END harmonizePlaceGo function
 
         // **** vvv Function definitions vvv ****
@@ -4456,7 +4458,6 @@
 
         // Displays the Open Place Website button.
         function showOpenPlaceWebsiteButton() {
-            debugger;
             if (item) {
                 var openPlaceWebsiteURL = item.attributes.url;
                 if (openPlaceWebsiteURL && openPlaceWebsiteURL.replace(/[^A-Za-z0-9]/g,'').length > 2) {
@@ -4482,6 +4483,10 @@
                         } else {
                             setTimeout(bootstrapRunButton,100);
                         }
+                    }
+                } else {
+                    if ($('#WMEPHurl').length > 0  ) {
+                        $('#WMEPHurl').remove();
                     }
                 }
             }
