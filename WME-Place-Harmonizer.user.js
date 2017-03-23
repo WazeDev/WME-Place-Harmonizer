@@ -13,7 +13,7 @@
 // ==UserScript==
 // @name        WME Place Harmonizer Beta
 // @namespace   https://github.com/WazeUSA/WME-Place-Harmonizer/raw/master/WME-Place-Harmonizer.user.js
-// @version     1.2.6
+// @version     1.2.7
 // @description Harmonizes, formats, and locks a selected place
 // @author      WMEPH Development Group
 // @downloadURL https://raw.githubusercontent.com/WazeUSA/WME-Place-Harmonizer/Beta/WME-Place-Harmonizer.user.js
@@ -271,6 +271,7 @@
     function runPH() {
         // Script update info
         var WMEPHWhatsNewList = [  // New in this version
+            '1.2.7: FIXED - Place Website button was not showing up.',
             '1.2.6: Updated links from old wiki to Wazeopedia.',
             '1.2.5: Changed user language to us-EN.',
             '1.2.4: Moved "Place Website" button next to "Run WMEPH" button, so it is always accessible.',
@@ -4426,8 +4427,7 @@
 
         // Display run button on place sidebar
         function displayRunButton() {
-            var betaDelay = 0;
-            if (isDevVersion) { betaDelay = 30; }
+            var betaDelay = 100;
             setTimeout(function() {
                 if ($('#WMEPH_runButton').length === 0 ) {
                     $('<div id="WMEPH_runButton">').css({"padding-bottom": "6px", "padding-top": "3px", "width": "290", "background-color": "#FFF", "color": "black", "font-size": "15px", "font-weight": "bold", "margin-left": "auto", "margin-right": "auto"}).prependTo(".contents");
@@ -4450,11 +4450,13 @@
                         $('.suggested-categories').remove();
                     }
                 }
+                showOpenPlaceWebsiteButton();
             }, betaDelay);
         }  // END displayRunButton funtion
 
         // Displays the Open Place Website button.
         function showOpenPlaceWebsiteButton() {
+            debugger;
             if (item) {
                 var openPlaceWebsiteURL = item.attributes.url;
                 if (openPlaceWebsiteURL && openPlaceWebsiteURL.replace(/[^A-Za-z0-9]/g,'').length > 2) {
