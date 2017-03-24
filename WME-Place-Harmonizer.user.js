@@ -13,7 +13,7 @@
 // ==UserScript==
 // @name        WME Place Harmonizer - MEDICAL BETA
 // @namespace   https://github.com/WazeUSA/WME-Place-Harmonizer/raw/master/WME-Place-Harmonizer.user.js
-// @version     1.2.9
+// @version     1.2.10
 // @description Harmonizes, formats, and locks a selected place
 // @author      WMEPH Development Group
 // @downloadURL https://raw.githubusercontent.com/WazeUSA/WME-Place-Harmonizer/Beta/WME-Place-Harmonizer.user.js
@@ -264,15 +264,21 @@
     function isPLA(venue) {
         return venue.attributes.categories && venue.attributes.categories[0] === 'PARKING_LOT';
     }
+
+    function isEmergencyRoom(venue) {
+        return /(?:emergency\s+(?:room|department|dept))|\b(?:er|ed)\b/i.test(venue.attributes.name);
+    }
+
     function getPvaSeverity(pvaValue, venue) {
-        var isER = pvaValue === 'hosp' && /(?:emergency\s+(?:room|department|dept))|\b(?:er|ed)\b/i.test(venue.attributes.name);
+        var isER = pvaValue === 'hosp' && isEmergencyRoom(venue);
         return (pvaValue ==='' || pvaValue === '0' || (pvaValue === 'hosp' && !isER)) ? 3 : (pvaValue ==='2') ? 1 : (pvaValue ==='3') ? 2 : 0;
     }
 
     function runPH() {
         // Script update info
         var WMEPHWhatsNewList = [  // New in this version
-            '1.2.9: NEW - support for new WME medical categories.', 
+            '1.2.10: FIXED - Emergency room points being flagged as duplicates of hospital area.',
+            '1.2.9: NEW - support for new WME medical categories.',
             '1.2.8: FIXED - Place Website button was not showing up in certain scenarios.',
             '1.2.7: FIXED - Place Website button was not showing up.',
             '1.2.6: Updated links from old wiki to Wazeopedia.',
@@ -3922,10 +3928,11 @@
             // *** Below here is for harmonization only.  HL ends in previous step.
 
             // Run nearby duplicate place finder function
+
             var dupeBannMess = '', dupesFound = false;
             dupeHNRangeList = [];
             bannDupl = {};
-            if (newName.replace(/[^A-Za-z0-9]/g,'').length > 0 && !item.attributes.residential) {
+            if (newName.replace(/[^A-Za-z0-9]/g,'').length > 0 && !item.attributes.residential && !isEmergencyRoom(item)) {
                 if ( $("#WMEPH-DisableDFZoom" + devVersStr).prop('checked') ) {  // don't zoom and pan for results outside of FOV
                     duplicateName = findNearbyDuplicate(newName, newAliases, item, false);
                 } else {
@@ -5298,7 +5305,8 @@
                     altNameMatch = -1;
                     testVenueAtt = venueList[venix].attributes;
                     var excludePLADupes = $('#WMEPH-ExcludePLADupes' + devVersStr).prop('checked');
-                    if (!excludePLADupes || isPLA(item) === isPLA(venueList[venix])) {
+                    if (/lot/i.test(testVenueAtt.name)) debugger;
+                    if (!(!excludePLADupes && (isPLA(item) || isPLA(venueList[venix]))) && !isEmergencyRoom(venueList[venix])) {
 
                         var pt2ptDistance =  item.geometry.getCentroid().distanceTo(venueList[venix].geometry.getCentroid());
                         if ( item.isPoint() && venueList[venix].isPoint() && pt2ptDistance < 2 && item.attributes.id !== testVenueAtt.id ) {
