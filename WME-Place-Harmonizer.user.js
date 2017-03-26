@@ -13,7 +13,7 @@
 // ==UserScript==
 // @name        WME Place Harmonizer Beta
 // @namespace   https://github.com/WazeUSA/WME-Place-Harmonizer/raw/master/WME-Place-Harmonizer.user.js
-// @version     1.2.12
+// @version     1.2.13
 // @description Harmonizes, formats, and locks a selected place
 // @author      WMEPH Development Group
 // @downloadURL https://raw.githubusercontent.com/WazeUSA/WME-Place-Harmonizer/Beta/WME-Place-Harmonizer.user.js
@@ -277,6 +277,8 @@
     function runPH() {
         // Script update info
         var WMEPHWhatsNewList = [  // New in this version
+            '1.2.13: FIXED - PLAs incorrectly being marked as duplicates when option to exclude is turned on.',
+            '1.2.12: FIXED - WME changed from en-US back to en.',
             '1.2.11: NEW - Change to Doctor / Clinic button displayed for places with Personal Care category.',
             '1.2.10: FIXED - Emergency room points being flagged as duplicates of hospital area.',
             '1.2.9: NEW - support for new WME medical categories.',
@@ -5313,7 +5315,7 @@
                     altNameMatch = -1;
                     testVenueAtt = venueList[venix].attributes;
                     var excludePLADupes = $('#WMEPH-ExcludePLADupes' + devVersStr).prop('checked');
-                    if (!(!excludePLADupes && (isPLA(item) || isPLA(venueList[venix]))) && !isEmergencyRoom(venueList[venix])) {
+                    if ((!excludePLADupes || (excludePLADupes && !(isPLA(item) || isPLA(venueList[venix])))) && !isEmergencyRoom(venueList[venix])) {
 
                         var pt2ptDistance =  item.geometry.getCentroid().distanceTo(venueList[venix].geometry.getCentroid());
                         if ( item.isPoint() && venueList[venix].isPoint() && pt2ptDistance < 2 && item.attributes.id !== testVenueAtt.id ) {
