@@ -472,7 +472,8 @@
         var usrRank = thisUser.normalizedLevel;  // get editor's level (actual level)
 
         // 2017-03-23 (mapomatic) This will need to be updated to just set to 'en-US' when Waze pushes the change to production.
-        var userLanguage = /^beta/i.test(location.host) ? 'en-US' : 'en';
+        // 2017-03-26 (t0cableguy) guess thats a waze never.. back to just en, first item is for WME beta second is for WME production
+        var userLanguage = /^beta/i.test(location.host) ? 'en' : 'en';
 
         // lock levels are offset by one
         var lockLevel1 = 0, lockLevel2 = 1, lockLevel3 = 2, lockLevel4 = 3, lockLevel5 = 4;
