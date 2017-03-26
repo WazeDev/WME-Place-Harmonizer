@@ -13,7 +13,7 @@
 // ==UserScript==
 // @name        WME Place Harmonizer
 // @namespace   https://github.com/WazeUSA/WME-Place-Harmonizer/raw/master/WME-Place-Harmonizer.user.js
-// @version     1.2.5
+// @version     1.2.11
 // @description Harmonizes, formats, and locks a selected place
 // @author      WMEPH Development Group
 // @downloadURL https://raw.githubusercontent.com/WazeUSA/WME-Place-Harmonizer/master/WME-Place-Harmonizer.user.js
@@ -187,7 +187,7 @@
     }, betaDataDelay);
 
     function placeHarmonizer_bootstrap() {
-        if ( "undefined" !== typeof W.loginManager && "undefined" !== typeof W.map) {
+        if ( W && W.loginManager && W.loginManager.isLoggedIn() && W.map) {
             setTimeout(dataReady,200);  //  Run the code to check for data return from the Sheets
             // Create duplicatePlaceName layer
             var rlayers = W.map.getLayersBy("uniqueName","__DuplicatePlaceNames");
@@ -264,14 +264,26 @@
     function isPLA(venue) {
         return venue.attributes.categories && venue.attributes.categories[0] === 'PARKING_LOT';
     }
-    function getPvaSeverity(pvaValue) {
-        return (pvaValue ==='' || pvaValue === '0' || pvaValue === 'hosp') ? 3 : (pvaValue ==='2') ? 1 : (pvaValue ==='3') ? 2 : 0;
+
+    function isEmergencyRoom(venue) {
+        return /(?:emergency\s+(?:room|department|dept))|\b(?:er|ed)\b/i.test(venue.attributes.name);
+    }
+
+    function getPvaSeverity(pvaValue, venue) {
+        var isER = pvaValue === 'hosp' && isEmergencyRoom(venue);
+        return (pvaValue ==='' || pvaValue === '0' || (pvaValue === 'hosp' && !isER)) ? 3 : (pvaValue ==='2') ? 1 : (pvaValue ==='3') ? 2 : 0;
     }
 
     function runPH() {
         // Script update info
         var WMEPHWhatsNewList = [  // New in this version
-            '1.2.5: fixed user language to match WME beta and production. Changed format of PNH Approval PM',
+            '1.2.11: NEW - Change to Doctor / Clinic button displayed for places with Personal Care category.',
+            '1.2.10: FIXED - Emergency room points being flagged as duplicates of hospital area.',
+            '1.2.9: NEW - support for new WME medical categories.',
+            '1.2.8: FIXED - Place Website button was not showing up in certain scenarios.',
+            '1.2.7: FIXED - Place Website button was not showing up.',
+            '1.2.6: Updated links from old wiki to Wazeopedia.',
+            '1.2.5: Changed user language to us-EN.',
             '1.2.4: Moved "Place Website" button next to "Run WMEPH" button, so it is always accessible.',
             '1.2.4: Web Search and Place Locator buttons are now side-by-side.',
             '1.2.3: Fixed bug from last release.',
@@ -441,8 +453,8 @@
 
         var WMEPHurl = 'https://www.waze.com/forum/posting.php?mode=reply&f=819&t=215657';  // WMEPH Forum thread URL
         var USAPNHMasURL = 'https://docs.google.com/spreadsheets/d/1-f-JTWY5UnBx-rFTa4qhyGMYdHBZWNirUTOgn222zMY/edit#gid=0';  // Master USA PNH link
-        var placesWikiURL = 'https://wiki.waze.com/wiki/Places';  // WME Places wiki
-        var restAreaWikiURL = 'https://wiki.waze.com/wiki/Rest_areas#Adding_a_Place';  // WME Places wiki
+        var placesWikiURL = 'https://wazeopedia.waze.com/wiki/USA/Places';  // WME Places wiki
+        var restAreaWikiURL = 'https://wazeopedia.waze.com/wiki/USA/Rest_areas#Adding_a_Place';  // WME Places wiki
         var betaUser, devUser;
         if (WMEPHbetaList.length === 0 || "undefined" === typeof WMEPHbetaList) {
             if (isDevVersion) {
@@ -458,8 +470,9 @@
             betaUser = true; // dev users are beta users
         }
         var usrRank = thisUser.normalizedLevel;  // get editor's level (actual level)
-	if(/beta/.test(location.href))userLanguage = "en-US";
-		else userLanguage = "en";
+
+        // 2017-03-23 (mapomatic) This will need to be updated to just set to 'en-US' when Waze pushes the change to production.
+        var userLanguage = /^beta/i.test(location.host) ? 'en-US' : 'en';
 
         // lock levels are offset by one
         var lockLevel1 = 0, lockLevel2 = 1, lockLevel3 = 2, lockLevel4 = 3, lockLevel5 = 4;
@@ -970,7 +983,8 @@
                 unmappedRegion: false,
                 gasMismatch: false,
                 hotelMkPrim: false,
-                changeHMC2Office: false,
+                changeToOffice: false,
+                changeToDoctorClinic: false,
                 changeHMC2PetVet: false,
                 changeSchool2Offices: false,
                 pointNotArea: false,
@@ -1142,34 +1156,37 @@
                     }
                 },
 
-                changeHMC2Office: {
-                    active: false, severity: 3, message: "Keywords suggest this location may not be a hospital or urgent care location.", value: "Change to Offices", title: 'Change to Office Category',
-                    action: function() {
-                        newCategories[newCategories.indexOf('HOSPITAL_MEDICAL_CARE')] = "OFFICES";
-                        //phlogdev(newCategories);
-                        var actions = [];
-                        actions.push(new UpdateObject(item, { categories: newCategories }));
-                        fieldUpdateObject.categories='#dfd';
-                        bannButt.changeHMC2Office.active = false;  // reset the display flag
-                        executeMultiAction(actions);
-                        harmonizePlaceGo(item,'harmonize');  // Rerun the script to update fields and lock
-                    },
-                    WLactive: true, WLmessage: '', WLtitle: 'Whitelist Hospital category',
-                    WLaction: function() {
-                        wlKeyName = 'changeHMC2Office';
-                        whitelistAction(itemID, wlKeyName);
-                    }
-                },
+                // changeHUC2DoctorClinic: {
+                //     active: false, severity: 3, message: "Keywords suggest this location may not be a hospital or urgent care location.", value: "Change to Doctor / Clinic", title: 'Change to Doctor / Clinic category',
+                //     action: function() {
+                //         var idx = newCategories[newCategories.indexOf('HOSPITAL_MEDICAL_CARE')];
+                //         if (idx === -1) idx = newCategories[newCategories.indexOf('HOSPITAL_URGENT_CARE')];
+                //         if (idx > -1) {
+                //             newCategories[idx] = "DOCTOR_CLINIC";
+                //             //phlogdev(newCategories);
+                //             var actions = [];
+                //             actions.push(new UpdateObject(item, { categories: newCategories }));
+                //             fieldUpdateObject.categories='#dfd';
+                //             bannButt.changeHUC2DoctorClinic.active = false;  // reset the display flag
+                //             executeMultiAction(actions);
+                //         }
+                //         harmonizePlaceGo(item,'harmonize');  // Rerun the script to update fields and lock
+                //     }
+                // },
 
-                changeHMC2PetVet: {
+                changeToPetVet: {
                     active: false, severity: 3, message: "This looks like it should be a Pet/Veterinarian category. Change?", value: "Yes", title: 'Change to Pet/Veterinarian Category',
                     action: function() {
-                        newCategories[newCategories.indexOf('HOSPITAL_MEDICAL_CARE')] = "PET_STORE_VETERINARIAN_SERVICES";
-                        var actions = [];
-                        actions.push(new UpdateObject(item, { categories: newCategories }));
-                        fieldUpdateObject.categories='#dfd';
-                        bannButt.changeHMC2PetVet.active = false;  // reset the display flag
-                        executeMultiAction(actions);
+                        var idx = newCategories[newCategories.indexOf('HOSPITAL_MEDICAL_CARE')];
+                        if (idx === -1) idx = newCategories[newCategories.indexOf('HOSPITAL_URGENT_CARE')];
+                        if (idx > -1) {
+                            newCategories[idx] = "PET_STORE_VETERINARIAN_SERVICES";
+                            var actions = [];
+                            actions.push(new UpdateObject(item, { categories: newCategories }));
+                            fieldUpdateObject.categories='#dfd';
+                            bannButt.changeToPetVet.active = false;  // reset the display flag
+                            executeMultiAction(actions);
+                        }
                         harmonizePlaceGo(item,'harmonize');  // Rerun the script to update fields and lock
                     },
                     WLactive: true, WLmessage: '', WLtitle: 'Whitelist PetVet category',
@@ -1511,11 +1528,52 @@
                     active: false, severity: 0, message: 'WMEPH: placeholder (please report this error if you see this message)'
                 },
 
-                changeHMC2OfficeButton: {
-                    active: false, severity: 0, message: '', value: 'Change to Offices',
-                    action: function() { bannButt.changeHMC2Office.action(); }
+                changeToHospitalUrgentCare: {
+                    active: false, severity: 0, message: "", value: "Change to Hospital / Urgent Care", title: 'Change category to Hospital / Urgent Care',
+                    action: function() {
+                        var idx = newCategories.indexOf('HOSPITAL_MEDICAL_CARE');
+                        if (idx === -1) idx = newCategories.indexOf('DOCTOR_CLINIC');
+                        if (idx > -1) {
+                            newCategories[idx] = "HOSPITAL_URGENT_CARE";
+                            var actions = [];
+                            actions.push(new UpdateObject(item, { categories: newCategories }));
+                            fieldUpdateObject.categories='#dfd';
+                            bannButt.changeToHospitalUrgentCare.active = false;  // reset the display flag
+                            executeMultiAction(actions);
+                        }
+                        harmonizePlaceGo(item,'harmonize');  // Rerun the script to update fields and lock
+                    },
+                    WLactive: false, WLmessage: '', WLtitle: 'Whitelist category',
+                    WLaction: function() {
+                        wlKeyName = 'changetoHospitalUrgentCare';
+                        whitelistAction(itemID, wlKeyName);
+                    }
                 },
 
+                changeToDoctorClinic: {
+                    active: false, severity: 0, message: "", value: "Change to Doctor / Clinic", title: 'Change category to Doctor / Clinic',
+                    action: function() {
+                        var actions = [];
+                        ['HOSPITAL_MEDICAL_CARE', 'HOSPITAL_URGENT_CARE', 'OFFICES', 'PERSONAL_CARE'].forEach(function(cat) {
+                            var idx = newCategories.indexOf(cat);
+                            if (idx > -1) {
+                                newCategories[idx] = "DOCTOR_CLINIC";
+                                actions.push(new UpdateObject(item, { categories: newCategories }));
+                            }
+                        });
+                        if (actions.length > 0) {
+                            bannButt.changeToDoctorClinic.active = false;  // reset the display flag
+                            fieldUpdateObject.categories='#dfd';
+                            executeMultiAction(actions);
+                        }
+                        harmonizePlaceGo(item,'harmonize');  // Rerun the script to update fields and lock
+                    },
+                    WLactive: false, WLmessage: '', WLtitle: 'Whitelist category',
+                    WLaction: function() {
+                        wlKeyName = 'changeToDoctorClinic';
+                        whitelistAction(itemID, wlKeyName);
+                    }
+                },
                 specCaseMessageLow: {  // no WL
                     active: false, severity: 0, message: 'WMEPH: placeholder (please report this error if you see this message)'
                 },
@@ -2252,17 +2310,39 @@
                 } else if (hpMode.hlFlag) {
                     if ( item.attributes.adLocked ) {
                         return 'adLock';
-                    } else if ( item.attributes.categories.indexOf("HOSPITAL_MEDICAL_CARE") > -1 || item.attributes.categories.indexOf("GAS_STATION") > -1 ) {
+                    } else if ( item.attributes.categories.indexOf("HOSPITAL_MEDICAL_CARE") > -1 || item.attributes.categories.indexOf("HOSPITAL_URGENT_CARE") > -1 || item.attributes.categories.indexOf("GAS_STATION") > -1 ) {
                         phlogdev('Unaddressed HMC/GS');
                         return 5;
                     } else {
                         return 3;
                     }
-
                 }
             } else if (hpMode.harmFlag && $('.editing').length === 1 ) {
                 $('.save-button').click();  // apply any address changes
             }
+
+
+            if (item.attributes.categories.indexOf("HOSPITAL_MEDICAL_CARE") > -1) {
+                if (hpMode.hlFlag) {
+                    return 4;
+                } else {
+                    bannButt.changeToHospitalUrgentCare.message = 'There are more precise categories available for this place type.  Please update the category:';
+                    bannButt.changeToHospitalUrgentCare.active = true;
+                    bannButt.changeToHospitalUrgentCare.severity = 3;
+                    delete bannButt.changeToHospitalUrgentCare.WLactive;
+                    bannButt.changeToDoctorClinic.active = true;
+                    bannButt.changeToDoctorClinic.severity = 3;
+                    delete bannButt.changeToDoctorClinic.WLactive;
+                    lockOK = false;
+                }
+            } else if (hpMode.harmFlag && item.attributes.categories.indexOf("DOCTOR_CLINIC") > -1) {
+                bannButt.changeToHospitalUrgentCare.active = true;
+                bannButt.changeToHospitalUrgentCare.severity = 0;
+            } else if (hpMode.harmFlag && item.attributes.categories.indexOf("HOSPITAL_URGENT_CARE") > -1) {
+                //bannButt.changeToDoctorClinic.active = true;
+                //bannButt.changeToDoctorClinic.severity = 0;
+            }
+
 
             // Whitelist breakout if place exists on the Whitelist and the option is enabled
             itemID = item.attributes.id;
@@ -3159,8 +3239,8 @@
                             pvaPoint = '';
                             pvaArea = '1';
                         }
-                        var pointSeverity = getPvaSeverity(pvaPoint);
-                        var areaSeverity = getPvaSeverity(pvaArea);
+                        var pointSeverity = getPvaSeverity(pvaPoint, item);
+                        var areaSeverity = getPvaSeverity(pvaArea, item);
 
                         if (isPoint && pointSeverity > 0) {
                             maxPointSeverity = Math.max(pointSeverity, maxPointSeverity);
@@ -3169,13 +3249,17 @@
                         }
 
                         // display any messaged regarding the category
-                        pc_message = CH_DATA_Temp[CH_DATA_headers.indexOf('pc_message')];
+                        if (newCategories.indexOf('HOSPITAL_MEDICAL_CARE') > -1) {
+                            pc_message = '';
+                        } else {
+                            pc_message = CH_DATA_Temp[CH_DATA_headers.indexOf('pc_message')];
+                        }
                         if (pc_message && pc_message !== '0' && pc_message !== '') {
                             bannButt.pnhCatMess.active = true;
                             bannButt.pnhCatMess.message = pc_message;
                         }
                         // Unmapped categories
-                        pc_rare     = CH_DATA_Temp[CH_DATA_headers.indexOf('pc_rare')].replace(/,[^A-Za-z0-9}]+/g, ",").split(',');
+                        pc_rare = CH_DATA_Temp[CH_DATA_headers.indexOf('pc_rare')].replace(/,[^A-Za-z0-9}]+/g, ",").split(',');
                         if (pc_rare.indexOf(state2L) > -1 || pc_rare.indexOf(region) > -1 || pc_rare.indexOf(countryCode) > -1) {
                             bannButt.unmappedRegion.active = true;
                             if (currentWL.unmappedRegion) {
@@ -3185,7 +3269,7 @@
                             }
                         }
                         // Parent Category
-                        pc_parent     = CH_DATA_Temp[CH_DATA_headers.indexOf('pc_parent')].replace(/,[^A-Za-z0-9}]+/g, ",").split(',');
+                        pc_parent = CH_DATA_Temp[CH_DATA_headers.indexOf('pc_parent')].replace(/,[^A-Za-z0-9}]+/g, ",").split(',');
                         if (pc_parent.indexOf(state2L) > -1 || pc_parent.indexOf(region) > -1 || pc_parent.indexOf(countryCode) > -1) {
                             bannButt.parentCategory.active = true;
                             if (currentWL.parentCategory) {
@@ -3195,7 +3279,6 @@
                         // Set lock level
                         for (var lockix=1; lockix<6; lockix++) {
                             pc_lockTemp = CH_DATA_Temp[CH_DATA_headers.indexOf('pc_lock'+lockix)].replace(/,[^A-Za-z0-9}]+/g, ",").split(',');
-
                             if (lockix - 1 > highestCategoryLock && (pc_lockTemp.indexOf(state2L) > -1 || pc_lockTemp.indexOf(region) > -1 || pc_lockTemp.indexOf(countryCode) > -1)) {
                                 highestCategoryLock = lockix - 1;  // Offset by 1 since lock ranks start at 0
                             }
@@ -3499,20 +3582,20 @@
             var testName = newName.toLowerCase().replace(/[^a-z]/g,' ');
             var testNameWords = testName.split(' ');
             // Hopsital vs. Name filter
-            if (newCategories.indexOf("HOSPITAL_MEDICAL_CARE") > -1 && hospitalPartMatch.length > 0) {
+            if ((newCategories.indexOf('HOSPITAL_URGENT_CARE') > -1 || newCategories.indexOf("HOSPITAL_MEDICAL_CARE") > -1) && hospitalPartMatch.length > 0) {
                 var hpmMatch = false;
                 if (containsAny(testNameWords,animalFullMatch)) {
-                    bannButt.changeHMC2PetVet.active = true;
-                    if (currentWL.changeHMC2PetVet) {
-                        bannButt.changeHMC2PetVet.WLactive = false;
+                    bannButt.changeToPetVet.active = true;
+                    if (currentWL.changeToPetVet) {
+                        bannButt.changeToPetVet.WLactive = false;
                     } else {
                         lockOK = false;
                     }
                     bannButt.pnhCatMess.active = false;
                 } else if (containsAny(testNameWords,hospitalFullMatch)) {
-                    bannButt.changeHMC2Office.active = true;
-                    if (currentWL.changeHMC2Office) {
-                        bannButt.changeHMC2Office.WLactive = false;
+                    bannButt.changeToDoctorClinic.active = true;
+                    if (currentWL.changeToDoctorClinic) {
+                        bannButt.changeToDoctorClinic.WLactive = false;
                     } else {
                         lockOK = false;
                     }
@@ -3520,9 +3603,9 @@
                 } else {
                     for (var apmix=0; apmix<animalPartMatch.length; apmix++) {
                         if (testName.indexOf(animalPartMatch[apmix]) > -1) {
-                            bannButt.changeHMC2PetVet.active = true;
-                            if (currentWL.changeHMC2PetVet) {
-                                bannButt.changeHMC2PetVet.WLactive = false;
+                            bannButt.changeToPetVet.active = true;
+                            if (currentWL.changeToPetVet) {
+                                bannButt.changeToPetVet.WLactive = false;
                             } else {
                                 lockOK = false;
                             }
@@ -3534,9 +3617,8 @@
                     if (!hpmMatch) {  // don't run the human check if animal is found.
                         for (var hpmix=0; hpmix<hospitalPartMatch.length; hpmix++) {
                             if (testName.indexOf(hospitalPartMatch[hpmix]) > -1) {
-                                bannButt.changeHMC2Office.active = true;
-                                if (currentWL.changeHMC2Office) {
-                                    bannButt.changeHMC2Office.WLactive = false;
+                                if (currentWL.changeToDoctorClinic) {
+                                    bannButt.changeToDoctorClinic.WLactive = false;
                                 } else {
                                     lockOK = false;
                                 }
@@ -3547,7 +3629,7 @@
                         }
                     }
                     if (!hpmMatch) {
-                        bannButt.changeHMC2OfficeButton.active = true;
+                        bannButt.changeToDoctorClinic.active = true;
                     }
                 }
             }  // END HOSPITAL/Name check
@@ -3594,6 +3676,13 @@
             }
 
 
+            // Show the Change To Doctor / Clinic button for places with PERSONAL_CARE category
+            if (newCategories.indexOf('PERSONAL_CARE') > -1) {
+                bannButt.changeToDoctorClinic.active = true;
+                bannButt.changeToDoctorClinic.severity = 0;
+                bannButt.changeToDoctorClinic.WLactive = null;
+            }
+            
             // *** Rest Area parsing
             // check rest area name against standard formats or if has the right categories
 
@@ -3691,7 +3780,7 @@
             if (region === "SER") {
                 if (newCategories.indexOf("COLLEGE_UNIVERSITY") > -1 && newCategories.indexOf("PARKING_LOT") > -1) {
                     levelToLock = lockLevel4;
-                } else if ( item.isPoint() && newCategories.indexOf("COLLEGE_UNIVERSITY") > -1 && newCategories.indexOf("HOSPITAL_MEDICAL_CARE") === -1 ) {
+                } else if ( item.isPoint() && newCategories.indexOf("COLLEGE_UNIVERSITY") > -1 && (newCategories.indexOf("HOSPITAL_MEDICAL_CARE") === -1 || newCategories.indexOf("HOSPITAL_URGENT_CARE") === -1) ) {
                     levelToLock = lockLevel4;
                 }
             }
@@ -3826,7 +3915,7 @@
                 //phlogdev('calculated in harmGo: ' +severityButt + '; ' + item.attributes.name);
 
                 // Special case flags
-                if (  item.attributes.lockRank === 0 && (item.attributes.categories.indexOf("HOSPITAL_MEDICAL_CARE") > -1 || item.attributes.categories.indexOf("GAS_STATION") > -1) ) {
+                if (  item.attributes.lockRank === 0 && (item.attributes.categories.indexOf("HOSPITAL_MEDICAL_CARE") > -1 || item.attributes.categories.indexOf("HOSPITAL_URGENT_CARE") > -1 || item.attributes.categories.indexOf("GAS_STATION") > -1) ) {
                     severityButt = 5;
                 }
 
@@ -3846,10 +3935,11 @@
             // *** Below here is for harmonization only.  HL ends in previous step.
 
             // Run nearby duplicate place finder function
+
             var dupeBannMess = '', dupesFound = false;
             dupeHNRangeList = [];
             bannDupl = {};
-            if (newName.replace(/[^A-Za-z0-9]/g,'').length > 0 && !item.attributes.residential) {
+            if (newName.replace(/[^A-Za-z0-9]/g,'').length > 0 && !item.attributes.residential && !isEmergencyRoom(item)) {
                 if ( $("#WMEPH-DisableDFZoom" + devVersStr).prop('checked') ) {  // don't zoom and pan for results outside of FOV
                     duplicateName = findNearbyDuplicate(newName, newAliases, item, false);
                 } else {
@@ -3964,6 +4054,7 @@
             // Assemble the banners
             assembleBanner();  // Make Messaging banners
 
+            showOpenPlaceWebsiteButton();
         }  // END harmonizePlaceGo function
 
         // **** vvv Function definitions vvv ****
@@ -4424,8 +4515,7 @@
 
         // Display run button on place sidebar
         function displayRunButton() {
-            var betaDelay = 0;
-            if (isDevVersion) { betaDelay = 30; }
+            var betaDelay = 100;
             setTimeout(function() {
                 if ($('#WMEPH_runButton').length === 0 ) {
                     $('<div id="WMEPH_runButton">').css({"padding-bottom": "6px", "padding-top": "3px", "width": "290", "background-color": "#FFF", "color": "black", "font-size": "15px", "font-weight": "bold", "margin-left": "auto", "margin-right": "auto"}).prependTo(".contents");
@@ -4448,6 +4538,7 @@
                         $('.suggested-categories').remove();
                     }
                 }
+                showOpenPlaceWebsiteButton();
             }, betaDelay);
         }  // END displayRunButton funtion
 
@@ -4478,6 +4569,10 @@
                         } else {
                             setTimeout(bootstrapRunButton,100);
                         }
+                    }
+                } else {
+                    if ($('#WMEPHurl').length > 0  ) {
+                        $('#WMEPHurl').remove();
                     }
                 }
             }
@@ -5217,7 +5312,7 @@
                     altNameMatch = -1;
                     testVenueAtt = venueList[venix].attributes;
                     var excludePLADupes = $('#WMEPH-ExcludePLADupes' + devVersStr).prop('checked');
-                    if (!excludePLADupes || isPLA(item) === isPLA(venueList[venix])) {
+                    if (!(!excludePLADupes && (isPLA(item) || isPLA(venueList[venix]))) && !isEmergencyRoom(venueList[venix])) {
 
                         var pt2ptDistance =  item.geometry.getCentroid().distanceTo(venueList[venix].geometry.getCentroid());
                         if ( item.isPoint() && venueList[venix].isPoint() && pt2ptDistance < 2 && item.attributes.id !== testVenueAtt.id ) {
@@ -5687,10 +5782,13 @@
                 return "PET_STORE_VETERINARIAN_SERVICES";
             }
             for(var keyCat in catTransWaze2Lang){
-                if ( natCategoriesRepl ===  catTransWaze2Lang[keyCat].toUpperCase().replace(/ AND /g, "").replace(/[^A-Z]/g, "")) {
+                var compare = catTransWaze2Lang[keyCat].toUpperCase().replace(/ AND /g, "").replace(/[^A-Z]/g, "");
+                if (compare === 'OFFICESINCLNONEMERGENCYMEDICAL') compare = 'OFFICES';
+                if ( natCategoriesRepl ===  compare) {
                     return keyCat;
                 }
             }
+
             // if the category doesn't translate, then pop an alert that will make a forum post to the thread
             // Generally this means the category used in the PNH sheet is not close enough to the natural language categories used inside the WME translations
             if (confirm('WMEPH: Category Error!\nClick OK to report this error') ) {
