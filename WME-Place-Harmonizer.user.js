@@ -471,8 +471,9 @@
         }
         var usrRank = thisUser.normalizedLevel;  // get editor's level (actual level)
 
-        // 2017-03-23 (mapomatic) This will need to be updated to just set to 'en-US' when Waze pushes the change to production.
-        var userLanguage = /^beta/i.test(location.host) ? 'en-US' : 'en';
+        // 2017-03-23 (mapomatic) This will need to be updated to just set to 'en-US' when Waze pushes the change to production, 
+        // 2017-03-26 (t0cableguy) so much for that.. another of those waze never's....
+        var userLanguage = /^beta/i.test(location.host) ? 'en' : 'en';
 
         // lock levels are offset by one
         var lockLevel1 = 0, lockLevel2 = 1, lockLevel3 = 2, lockLevel4 = 3, lockLevel5 = 4;
