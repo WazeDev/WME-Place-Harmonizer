@@ -1177,7 +1177,7 @@
                     active: false, severity: 3, message: "This looks like it should be a Pet/Veterinarian category. Change?", value: "Yes", title: 'Change to Pet/Veterinarian Category',
                     action: function() {
                         var idx = newCategories[newCategories.indexOf('HOSPITAL_MEDICAL_CARE')];
-                        if (idx === -1) idx = newCategories[newCategories.indexOf('HOSPITAL_URGENT_CARE')]
+                        if (idx === -1) idx = newCategories[newCategories.indexOf('HOSPITAL_URGENT_CARE')];
                         if (idx > -1) {
                             newCategories[idx] = "PET_STORE_VETERINARIAN_SERVICES";
                             var actions = [];
@@ -1552,7 +1552,6 @@
                 changeToDoctorClinic: {
                     active: false, severity: 0, message: "", value: "Change to Doctor / Clinic", title: 'Change category to Doctor / Clinic',
                     action: function() {
-                        debugger;
                         var actions = [];
                         ['HOSPITAL_MEDICAL_CARE', 'HOSPITAL_URGENT_CARE', 'OFFICES'].forEach(function(cat) {
                             var idx = newCategories.indexOf(cat);
@@ -2326,7 +2325,7 @@
                 if (hpMode.hlFlag) {
                     return 4;
                 } else {
-                    bannButt.changeToHospitalUrgentCare.message = 'The Hospital / Medical Care category is no longer valid.  Please change it.';
+                    bannButt.changeToHospitalUrgentCare.message = 'There are more precise categories available for this place type.  Please update the category:';
                     bannButt.changeToHospitalUrgentCare.active = true;
                     bannButt.changeToHospitalUrgentCare.severity = 3;
                     delete bannButt.changeToHospitalUrgentCare.WLactive;
@@ -5305,7 +5304,6 @@
                     altNameMatch = -1;
                     testVenueAtt = venueList[venix].attributes;
                     var excludePLADupes = $('#WMEPH-ExcludePLADupes' + devVersStr).prop('checked');
-                    if (/lot/i.test(testVenueAtt.name)) debugger;
                     if (!(!excludePLADupes && (isPLA(item) || isPLA(venueList[venix]))) && !isEmergencyRoom(venueList[venix])) {
 
                         var pt2ptDistance =  item.geometry.getCentroid().distanceTo(venueList[venix].geometry.getCentroid());
