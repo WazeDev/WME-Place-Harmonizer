@@ -13,7 +13,7 @@
 // ==UserScript==
 // @name        WME Place Harmonizer Beta
 // @namespace   https://github.com/WazeUSA/WME-Place-Harmonizer/raw/master/WME-Place-Harmonizer.user.js
-// @version     1.2.13
+// @version     1.2.14
 // @description Harmonizes, formats, and locks a selected place
 // @author      WMEPH Development Group
 // @downloadURL https://raw.githubusercontent.com/WazeUSA/WME-Place-Harmonizer/Beta/WME-Place-Harmonizer.user.js
@@ -277,6 +277,7 @@
     function runPH() {
         // Script update info
         var WMEPHWhatsNewList = [  // New in this version
+            '1.2.14: FIXED - Hospitals not displaying the "Keywords suggest this may not be a hospital" warning.',
             '1.2.13: FIXED - PLAs incorrectly being marked as duplicates when option to exclude is turned on.',
             '1.2.12: FIXED - WME changed from en-US back to en.',
             '1.2.11: NEW - Change to Doctor / Clinic button displayed for places with Personal Care category.',
@@ -1158,24 +1159,6 @@
                         whitelistAction(itemID, wlKeyName);
                     }
                 },
-
-                // changeHUC2DoctorClinic: {
-                //     active: false, severity: 3, message: "Keywords suggest this location may not be a hospital or urgent care location.", value: "Change to Doctor / Clinic", title: 'Change to Doctor / Clinic category',
-                //     action: function() {
-                //         var idx = newCategories[newCategories.indexOf('HOSPITAL_MEDICAL_CARE')];
-                //         if (idx === -1) idx = newCategories[newCategories.indexOf('HOSPITAL_URGENT_CARE')];
-                //         if (idx > -1) {
-                //             newCategories[idx] = "DOCTOR_CLINIC";
-                //             //phlogdev(newCategories);
-                //             var actions = [];
-                //             actions.push(new UpdateObject(item, { categories: newCategories }));
-                //             fieldUpdateObject.categories='#dfd';
-                //             bannButt.changeHUC2DoctorClinic.active = false;  // reset the display flag
-                //             executeMultiAction(actions);
-                //         }
-                //         harmonizePlaceGo(item,'harmonize');  // Rerun the script to update fields and lock
-                //     }
-                // },
 
                 changeToPetVet: {
                     active: false, severity: 3, message: "This looks like it should be a Pet/Veterinarian category. Change?", value: "Yes", title: 'Change to Pet/Veterinarian Category',
@@ -3597,10 +3580,14 @@
                     bannButt.pnhCatMess.active = false;
                 } else if (containsAny(testNameWords,hospitalFullMatch)) {
                     bannButt.changeToDoctorClinic.active = true;
+                    bannButt.changeToDoctorClinic.message = "Keywords suggest this location may not be a hospital or urgent care location.";
                     if (currentWL.changeToDoctorClinic) {
                         bannButt.changeToDoctorClinic.WLactive = false;
+                        bannButt.changeToDoctorClinic.severity = 0;
                     } else {
+                        bannButt.changeToDoctorClinic.WLactive = true;
                         lockOK = false;
+                        bannButt.changeToDoctorClinic.severity = 3
                     }
                     bannButt.pnhCatMess.active = false;
                 } else {
