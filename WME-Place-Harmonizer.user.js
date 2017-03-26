@@ -13,7 +13,7 @@
 // ==UserScript==
 // @name        WME Place Harmonizer Beta
 // @namespace   https://github.com/WazeUSA/WME-Place-Harmonizer/raw/master/WME-Place-Harmonizer.user.js
-// @version     1.2.10
+// @version     1.2.11
 // @description Harmonizes, formats, and locks a selected place
 // @author      WMEPH Development Group
 // @downloadURL https://raw.githubusercontent.com/WazeUSA/WME-Place-Harmonizer/Beta/WME-Place-Harmonizer.user.js
@@ -277,6 +277,7 @@
     function runPH() {
         // Script update info
         var WMEPHWhatsNewList = [  // New in this version
+            '1.2.11: NEW - Change to Doctor / Clinic button displayed for places with Personal Care category.',
             '1.2.10: FIXED - Emergency room points being flagged as duplicates of hospital area.',
             '1.2.9: NEW - support for new WME medical categories.',
             '1.2.8: FIXED - Place Website button was not showing up in certain scenarios.',
@@ -1553,7 +1554,7 @@
                     active: false, severity: 0, message: "", value: "Change to Doctor / Clinic", title: 'Change category to Doctor / Clinic',
                     action: function() {
                         var actions = [];
-                        ['HOSPITAL_MEDICAL_CARE', 'HOSPITAL_URGENT_CARE', 'OFFICES'].forEach(function(cat) {
+                        ['HOSPITAL_MEDICAL_CARE', 'HOSPITAL_URGENT_CARE', 'OFFICES', 'PERSONAL_CARE'].forEach(function(cat) {
                             var idx = newCategories.indexOf(cat);
                             if (idx > -1) {
                                 newCategories[idx] = "DOCTOR_CLINIC";
@@ -3675,6 +3676,13 @@
             }
 
 
+            // Show the Change To Doctor / Clinic button for places with PERSONAL_CARE category
+            if (newCategories.indexOf('PERSONAL_CARE') > -1) {
+                bannButt.changeToDoctorClinic.active = true;
+                bannButt.changeToDoctorClinic.severity = 0;
+                bannButt.changeToDoctorClinic.WLactive = null;
+            }
+            
             // *** Rest Area parsing
             // check rest area name against standard formats or if has the right categories
 
