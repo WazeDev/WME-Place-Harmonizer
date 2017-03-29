@@ -13,7 +13,7 @@
 // ==UserScript==
 // @name        WME Place Harmonizer Beta
 // @namespace   https://github.com/WazeUSA/WME-Place-Harmonizer/raw/master/WME-Place-Harmonizer.user.js
-// @version     1.2.16
+// @version     1.2.17
 // @description Harmonizes, formats, and locks a selected place
 // @author      WMEPH Development Group
 // @downloadURL https://raw.githubusercontent.com/WazeUSA/WME-Place-Harmonizer/Beta/WME-Place-Harmonizer.user.js
@@ -277,6 +277,7 @@
     function runPH() {
         // Script update info
         var WMEPHWhatsNewList = [  // New in this version
+            '1.2.17: FIXED - Updated locale (user language).',
             '1.2.16: FIXED - Revised message that was added in last version.',
             '1.2.15: NEW - Added message for "Change to Doctor / Clinic" button on Personal Care places.',
             '1.2.14: FIXED - Hospitals not displaying the "Keywords suggest this may not be a hospital" warning.',
@@ -478,7 +479,7 @@
 
         // 2017-03-23 (mapomatic) This will need to be updated to just set to 'en-US' when Waze pushes the change to production.
         // 2017-03-26 (t0cableguy) guess thats a waze never.. back to just en, first item is for WME beta second is for WME production
-        var userLanguage = /^beta/i.test(location.host) ? 'en' : 'en';
+        var userLanguage = W.location.locale;
 
         // lock levels are offset by one
         var lockLevel1 = 0, lockLevel2 = 1, lockLevel3 = 2, lockLevel4 = 3, lockLevel5 = 4;
