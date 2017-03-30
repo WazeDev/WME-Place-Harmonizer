@@ -13,7 +13,7 @@
 // ==UserScript==
 // @name        WME Place Harmonizer Beta
 // @namespace   https://github.com/WazeUSA/WME-Place-Harmonizer/raw/master/WME-Place-Harmonizer.user.js
-// @version     1.2.17
+// @version     1.2.18
 // @description Harmonizes, formats, and locks a selected place
 // @author      WMEPH Development Group
 // @downloadURL https://raw.githubusercontent.com/WazeUSA/WME-Place-Harmonizer/Beta/WME-Place-Harmonizer.user.js
@@ -45,6 +45,7 @@
     var isDevVersion = (scriptName.match(/Beta/i) !== null);  //  enables dev messages and unique DOM options if the script is called "... Beta"
     var USA_PNH_DATA, USA_PNH_NAMES = [], USA_CH_DATA, USA_STATE_DATA, USA_CH_NAMES = [];  // Storage for PNH and Category data
     var CAN_PNH_DATA, CAN_PNH_NAMES = [];  // var CAN_CH_DATA, CAN_CH_NAMES = [] not used for now
+    var CAT_LOOKUP = {};
     var hospitalPartMatch, hospitalFullMatch, animalPartMatch, animalFullMatch, schoolPartMatch, schoolFullMatch;  // vars for cat-name checking
     var WMEPHdevList, WMEPHbetaList;  // Userlists
     var devVersStr='', devVersStrSpace='', devVersStrDash='';  // strings to differentiate DOM elements between regular and beta script
@@ -277,6 +278,7 @@
     function runPH() {
         // Script update info
         var WMEPHWhatsNewList = [  // New in this version
+            '1.2.18: FIXED - Some categories throw an error when being set from PNH.',
             '1.2.17: FIXED - Updated locale (user language).',
             '1.2.16: FIXED - Revised message that was added in last version.',
             '1.2.15: NEW - Added message for "Change to Doctor / Clinic" button on Personal Care places.',
@@ -5771,24 +5773,29 @@
 
         // WME Category translation from Natural language to object language  (Bank / Financial --> BANK_FINANCIAL)
         function catTranslate(natCategories) {
-            var natCategoriesRepl = natCategories.toUpperCase().replace(/ AND /g, "").replace(/[^A-Z]/g, "");
-            if (natCategoriesRepl.indexOf('PETSTORE') > -1) {
-                return "PET_STORE_VETERINARIAN_SERVICES";
+            var catNameUpper = natCategories.trim().toUpperCase();
+            if (CAT_LOOKUP.hasOwnProperty(catNameUpper)) {
+                return CAT_LOOKUP[catNameUpper];
             }
-            for(var keyCat in catTransWaze2Lang){
-                var compare = catTransWaze2Lang[keyCat].toUpperCase().replace(/ AND /g, "").replace(/[^A-Z]/g, "");
-                if (compare === 'OFFICESINCLNONEMERGENCYMEDICAL') compare = 'OFFICES';
-                if ( natCategoriesRepl ===  compare) {
-                    return keyCat;
-                }
-            }
+
+            // var natCategoriesRepl = natCategories.toUpperCase().replace(/ AND /g, "").replace(/[^A-Z]/g, "");
+            // if (natCategoriesRepl.indexOf('PETSTORE') > -1) {
+            //     return "PET_STORE_VETERINARIAN_SERVICES";
+            // }
+            // for(var keyCat in catTransWaze2Lang){
+            //     var compare = catTransWaze2Lang[keyCat].toUpperCase().replace(/ AND /g, "").replace(/[^A-Z]/g, "");
+            //     if (compare === 'OFFICESINCLNONEMERGENCYMEDICAL') compare = 'OFFICES';
+            //     if ( natCategoriesRepl ===  compare) {
+            //         return keyCat;
+            //     }
+            // }
 
             // if the category doesn't translate, then pop an alert that will make a forum post to the thread
             // Generally this means the category used in the PNH sheet is not close enough to the natural language categories used inside the WME translations
             if (confirm('WMEPH: Category Error!\nClick OK to report this error') ) {
                 forumMsgInputs = {
                     subject: 'WMEPH Bug report: no tns',
-                    message: 'Error report: Category "' + natCategories + '" is not translatable.'
+                    message: 'Error report: Category "' + natCategories + '" was not found in the PNH categories sheet.'
                 };
                 WMEPH_errorReport(forumMsgInputs);
             }
@@ -6798,9 +6805,16 @@
         var CH_CATS = [];
         var CH_DATA_headers = CH_DATA[0].split("|");  // split the data headers out
         var pc_wmecat_ix = CH_DATA_headers.indexOf("pc_wmecat");  // find the indices needed for the function
+        var pc_transcat_ix = CH_DATA_headers.indexOf("pc_transcat");
         var chEntryTemp;
+
         for (var chix=0; chix<CH_DATA.length; chix++) {  // loop through all PNH places
             chEntryTemp = CH_DATA[chix].split("|");  // split the current PNH data line
+            var catID = chEntryTemp[pc_wmecat_ix];
+            var catName = chEntryTemp[pc_transcat_ix];
+            if (catID.trim().length > 0) {
+                CAT_LOOKUP[catName.trim().toUpperCase()] = catID;
+            }
             CH_CATS.push(chEntryTemp[pc_wmecat_ix]);
         }
         return CH_CATS;
