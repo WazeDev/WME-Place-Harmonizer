@@ -16,7 +16,7 @@
 // @version     1.2.18
 // @description Harmonizes, formats, and locks a selected place
 // @author      WMEPH Development Group
-// @downloadURL https://github.com/WazeUSA/WME-Place-Harmonizer/raw/Beta/WME-Place-Harmonizer.user.js
+// @downloadURL https://raw.githubusercontent.com/WazeUSA/WME-Place-Harmonizer/Beta/WME-Place-Harmonizer.user.js
 // @include     /^https:\/\/(www|beta)\.waze\.com\/(?!user\/)(.{2,6}\/)?editor\/.*$/
 // @require     https://raw.githubusercontent.com/WazeUSA/WME-Place-Harmonizer/Beta/jquery-ui-1.11.4.custom.min.js
 // @resource    jqUI_CSS  https://ajax.googleapis.com/ajax/libs/jqueryui/1.11.4/themes/smoothness/jquery-ui.css
