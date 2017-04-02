@@ -13,7 +13,7 @@
 // ==UserScript==
 // @name        WME Place Harmonizer
 // @namespace   https://github.com/WazeUSA/WME-Place-Harmonizer/raw/master/WME-Place-Harmonizer.user.js
-// @version     1.2.20
+// @version     1.2.21
 // @description Harmonizes, formats, and locks a selected place
 // @author      WMEPH Development Group
 // @downloadURL https://github.com/WazeUSA/WME-Place-Harmonizer/raw/master/WME-Place-Harmonizer.user.js
@@ -26,7 +26,7 @@
 // ==/UserScript==
 
 
-(function () {
+function () {
     var jqUI_CssSrc = GM_getResourceText("jqUI_CSS");
     GM_addStyle(jqUI_CssSrc);
     GM_addStyle([
