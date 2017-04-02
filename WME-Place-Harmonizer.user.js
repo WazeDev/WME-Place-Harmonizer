@@ -13,7 +13,7 @@
 // ==UserScript==
 // @name        WME Place Harmonizer
 // @namespace   https://github.com/WazeUSA/WME-Place-Harmonizer/raw/master/WME-Place-Harmonizer.user.js
-// @version     1.2.19
+// @version     1.2.20
 // @description Harmonizes, formats, and locks a selected place
 // @author      WMEPH Development Group
 // @downloadURL https://github.com/WazeUSA/WME-Place-Harmonizer/raw/master/WME-Place-Harmonizer.user.js
@@ -278,6 +278,7 @@
     function runPH() {
         // Script update info
         var WMEPHWhatsNewList = [  // New in this version
+            '1.2.20: Fixed grammatical error "a area"'.
             '1.2.18: FIXED - Some categories throw an error when being set from PNH.',
             '1.2.17: FIXED - Updated locale (user language).',
             '1.2.16: FIXED - Revised message that was added in last version.',
@@ -1419,7 +1420,7 @@
                 },
 
                 pointNotAreaMid: {
-                    active: false, severity: 2, message: 'This category is usually a point place, but can be a area in some cases. Verify if area is appropriate.',
+                    active: false, severity: 2, message: 'This category is usually a point place, but can be an area in some cases. Verify if area is appropriate.',
                     WLactive: true, WLmessage: '', WLtitle: 'Whitelist point (not area)',
                     WLaction: function() {
                         wlKeyName = 'pointNotArea';
@@ -1481,7 +1482,7 @@
                 },
 
                 pointNotAreaLow: {
-                    active: false, severity: 1, message: 'This category is usually a point place, but can be a area in some cases. Verify if area is appropriate.',
+                    active: false, severity: 1, message: 'This category is usually a point place, but can be an area in some cases. Verify if area is appropriate.',
                     WLactive: true, WLmessage: '', WLtitle: 'Whitelist point (not area)',
                     WLaction: function() {
                         wlKeyName = 'pointNotArea';
