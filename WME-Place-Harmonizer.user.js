@@ -13,7 +13,7 @@
 // ==UserScript==
 // @name        WME Place Harmonizer
 // @namespace   https://github.com/WazeUSA/WME-Place-Harmonizer/raw/master/WME-Place-Harmonizer.user.js
-// @version     1.2.22
+// @version     1.2.23
 // @description Harmonizes, formats, and locks a selected place
 // @author      WMEPH Development Group
 // @downloadURL https://github.com/WazeUSA/WME-Place-Harmonizer/raw/master/WME-Place-Harmonizer.user.js
@@ -26,7 +26,7 @@
 // ==/UserScript==
 
 
-function () {
+(function () {
     var jqUI_CssSrc = GM_getResourceText("jqUI_CSS");
     GM_addStyle(jqUI_CssSrc);
     GM_addStyle([
@@ -278,7 +278,8 @@ function () {
     function runPH() {
         // Script update info
         var WMEPHWhatsNewList = [  // New in this version
-            '1.2.20: Fixed grammatical error "a area"',
+            '1.2.22: fixed t0s derps.',
+            '1.2.20: Fixed grammatical error "a area".',
             '1.2.18: FIXED - Some categories throw an error when being set from PNH.',
             '1.2.17: FIXED - Updated locale (user language).',
             '1.2.16: FIXED - Revised message that was added in last version.',
