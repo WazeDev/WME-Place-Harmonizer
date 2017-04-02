@@ -26,7 +26,7 @@
 // ==/UserScript==
 
 
-(function () {
+function () {
     var jqUI_CssSrc = GM_getResourceText("jqUI_CSS");
     GM_addStyle(jqUI_CssSrc);
     GM_addStyle([
