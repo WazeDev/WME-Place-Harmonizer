@@ -13,7 +13,7 @@
 // ==UserScript==
 // @name        WME Place Harmonizer Beta
 // @namespace   https://github.com/WazeUSA/WME-Place-Harmonizer/raw/master/WME-Place-Harmonizer.user.js
-// @version     1.2.24
+// @version     1.2.25
 // @description Harmonizes, formats, and locks a selected place
 // @author      WMEPH Development Group
 //// @downloadURL https://github.com/WazeUSA/WME-Place-Harmonizer/raw/Beta/WME-Place-Harmonizer.user.js
@@ -278,6 +278,7 @@
     function runPH() {
         // Script update info
         var WMEPHWhatsNewList = [  // New in this version
+            '1.2.25: FIXED - Creating a new PLA fails due to feature added in last release.',
             '1.2.24: NEW - Option to fill PLA\'s based on parking lot type.',
             '1.2.23: Fix t0s derp',
             '1.2.20: Fixed grammatical error "a area"',
@@ -610,8 +611,8 @@
                         value: value,
                         evaluate: function(venue) {
                             if ($('#WMEPH-PLATypeFill' + devVersStr).is(':checked') && venue && venue.model && venue.model.attributes.categories &&
+                                venue.model.attributes.categoryAttributes && venue.model.attributes.categoryAttributes.PARKING_LOT &&
                                 venue.model.attributes.categories.indexOf('PARKING_LOT') > -1) {
-                                debugger;
                                 var type = venue.model.attributes.categoryAttributes.PARKING_LOT.parkingType;
                                 return (!type && this.value === 'public') || (type && (type.toLowerCase() === this.value));
                             }
