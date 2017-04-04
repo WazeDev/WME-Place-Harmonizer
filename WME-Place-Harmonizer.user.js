@@ -283,6 +283,8 @@
             '1.2.24: NEW - Option to fill PLA\'s based on parking lot type.',
             '1.2.23: Fix t0s derp',
             '1.2.20: Fixed grammatical error "a area"',
+            '1.2.22: fixed t0s derps.',
+            '1.2.20: Fixed grammatical error "a area".',
             '1.2.18: FIXED - Some categories throw an error when being set from PNH.',
             '1.2.17: FIXED - Updated locale (user language).',
             '1.2.16: FIXED - Revised message that was added in last version.',
