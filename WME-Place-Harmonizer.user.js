@@ -13,10 +13,10 @@
 // ==UserScript==
 // @name        WME Place Harmonizer Beta
 // @namespace   https://github.com/WazeUSA/WME-Place-Harmonizer/raw/master/WME-Place-Harmonizer.user.js
-// @version     1.2.26
+// @version     1.2.27
 // @description Harmonizes, formats, and locks a selected place
 // @author      WMEPH Development Group
-//// @downloadURL https://github.com/WazeUSA/WME-Place-Harmonizer/raw/Beta/WME-Place-Harmonizer.user.js
+// @downloadURL https://github.com/WazeUSA/WME-Place-Harmonizer/raw/Beta/WME-Place-Harmonizer.user.js
 // @include     /^https:\/\/(www|beta)\.waze\.com\/(?!user\/)(.{2,6}\/)?editor\/.*$/
 // @require     https://raw.githubusercontent.com/WazeUSA/WME-Place-Harmonizer/Beta/jquery-ui-1.11.4.custom.min.js
 // @resource    jqUI_CSS  https://ajax.googleapis.com/ajax/libs/jqueryui/1.11.4/themes/smoothness/jquery-ui.css
@@ -278,6 +278,7 @@
     function runPH() {
         // Script update info
         var WMEPHWhatsNewList = [  // New in this version
+            '1.2.27: FIXED - Accidentally commented @downloadURL line in last release.',
             '1.2.26: FIXED - Clicking option to fill PLAs calls a function that adds a new event listener (memory leak).',
             '1.2.25: FIXED - Creating a new PLA fails due to feature added in last release.',
             '1.2.24: NEW - Option to fill PLA\'s based on parking lot type.',
