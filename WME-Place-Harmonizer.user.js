@@ -13,7 +13,7 @@
 // ==UserScript==
 // @name        WME Place Harmonizer
 // @namespace   https://github.com/WazeUSA/WME-Place-Harmonizer/raw/master/WME-Place-Harmonizer.user.js
-// @version     1.2.19
+// @version     1.2.26
 // @description Harmonizes, formats, and locks a selected place
 // @author      WMEPH Development Group
 // @downloadURL https://github.com/WazeUSA/WME-Place-Harmonizer/raw/master/WME-Place-Harmonizer.user.js
@@ -278,6 +278,11 @@
     function runPH() {
         // Script update info
         var WMEPHWhatsNewList = [  // New in this version
+            '1.2.26: FIXED - Clicking option to fill PLAs calls a function that adds a new event listener (memory leak).',
+            '1.2.25: FIXED - Creating a new PLA fails due to feature added in last release.',
+            '1.2.24: NEW - Option to fill PLA\'s based on parking lot type.',
+            '1.2.23: Fix t0s derp',
+            '1.2.20: Fixed grammatical error "a area"',
             '1.2.18: FIXED - Some categories throw an error when being set from PNH.',
             '1.2.17: FIXED - Updated locale (user language).',
             '1.2.16: FIXED - Revised message that was added in last version.',
@@ -600,7 +605,38 @@
                 'strokeDashstyle': '4 2'
             });
 
-            Array.prototype.push.apply(layer.styleMap.styles['default'].rules, [severity0, severityLock, severity1, severityLock1, severity2, severity3, severity4, severityHigh, severityAdLock]);
+            function plaTypeRuleGenerator(value, symbolizer) {
+                return new W.Rule({
+                    filter: new OL.Filter.Comparison({
+                        type: '==',
+                        value: value,
+                        evaluate: function(venue) {
+                            if ($('#WMEPH-PLATypeFill' + devVersStr).is(':checked') && venue && venue.model && venue.model.attributes.categories &&
+                                venue.model.attributes.categoryAttributes && venue.model.attributes.categoryAttributes.PARKING_LOT &&
+                                venue.model.attributes.categories.indexOf('PARKING_LOT') > -1) {
+                                var type = venue.model.attributes.categoryAttributes.PARKING_LOT.parkingType;
+                                return (!type && this.value === 'public') || (type && (type.toLowerCase() === this.value));
+                            }
+                        }
+                    }),
+                    symbolizer: symbolizer
+                });
+            }
+
+            var publicPLA = plaTypeRuleGenerator('public', {
+                fillColor: '#00FF00',
+                fillOpacity: '0.3'
+            });
+            var restrictedPLA = plaTypeRuleGenerator('restricted', {
+                fillColor: '#FFFF00',
+                fillOpacity: '0.3'
+            });
+            var privatePLA = plaTypeRuleGenerator('private', {
+                fillColor: '#FF0000',
+                fillOpacity: '0.3'
+            });
+
+                Array.prototype.push.apply(layer.styleMap.styles['default'].rules, [severity0, severityLock, severity1, severityLock1, severity2, severity3, severity4, severityHigh, severityAdLock,publicPLA, restrictedPLA, privatePLA]);
             // to make Google Script linter happy ^^^ Array.prototype.push.apply(layer.styleMap.styles.default.rules, [severity0, severityLock, severity1, severity2, severity3, severity4, severityHigh]);
             /* Can apply to normal view or selection/highlight views as well.
             _.each(layer.styleMap.styles, function(style) {
@@ -1419,7 +1455,7 @@
                 },
 
                 pointNotAreaMid: {
-                    active: false, severity: 2, message: 'This category is usually a point place, but can be a area in some cases. Verify if area is appropriate.',
+                    active: false, severity: 2, message: 'This category is usually a point place, but can be an area in some cases. Verify if area is appropriate.',
                     WLactive: true, WLmessage: '', WLtitle: 'Whitelist point (not area)',
                     WLaction: function() {
                         wlKeyName = 'pointNotArea';
@@ -1481,7 +1517,7 @@
                 },
 
                 pointNotAreaLow: {
-                    active: false, severity: 1, message: 'This category is usually a point place, but can be a area in some cases. Verify if area is appropriate.',
+                    active: false, severity: 1, message: 'This category is usually a point place, but can be an area in some cases. Verify if area is appropriate.',
                     WLactive: true, WLmessage: '', WLtitle: 'Whitelist point (not area)',
                     WLaction: function() {
                         wlKeyName = 'pointNotArea';
@@ -3678,7 +3714,7 @@
                 bannButt.changeToDoctorClinic.severity = 0;
                 bannButt.changeToDoctorClinic.WLactive = null;
             }
-            
+
             // *** Rest Area parsing
             // check rest area name against standard formats or if has the right categories
 
@@ -5918,6 +5954,7 @@
             createSettingsCheckbox("sidepanel-highlighter" + devVersStr, "WMEPH-DisableHoursHL" + devVersStr,"Disable highlighting for missing hours");
             createSettingsCheckbox("sidepanel-highlighter" + devVersStr, "WMEPH-DisableRankHL" + devVersStr,"Disable highlighting for places locked above your rank");
             createSettingsCheckbox("sidepanel-highlighter" + devVersStr, "WMEPH-DisableWLHL" + devVersStr,"Disable Whitelist highlighting (shows all missing info regardless of WL)");
+            createSettingsCheckbox("sidepanel-highlighter" + devVersStr, "WMEPH-PLATypeFill" + devVersStr,"Fill parking lots based on type (public=green, restricted=yellow, private=red)");
             if (devUser || betaUser || usrRank >= 3) {
                 //createSettingsCheckbox("sidepanel-highlighter" + devVersStr, "WMEPH-UnlockedRPPs" + devVersStr,"Highlight unlocked residential place points");
             }
@@ -6253,6 +6290,9 @@
             });
             $("#WMEPH-DisableWLHL" + devVersStr).click( function() {
                 bootstrapWMEPH_CH();
+            });
+            $("#WMEPH-PLATypeFill" + devVersStr).click( function() {
+                applyHighlightsTest(W.model.venues.getObjectArray());
             });
             if ( $("#WMEPH-ColorHighlighting" + devVersStr).prop('checked') ) {
                 phlog('Starting Highlighter');
