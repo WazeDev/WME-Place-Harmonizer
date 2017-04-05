@@ -13,7 +13,7 @@
 // ==UserScript==
 // @name        WME Place Harmonizer Beta
 // @namespace   https://github.com/WazeUSA/WME-Place-Harmonizer/raw/master/WME-Place-Harmonizer.user.js
-// @version     1.2.29
+// @version     1.2.30
 // @description Harmonizes, formats, and locks a selected place
 // @author      WMEPH Development Group
 // @downloadURL https://greasyfork.org/scripts/28689-wme-place-harmonizer-beta/code/WME%20Place%20Harmonizer%20Beta.user.js
@@ -278,6 +278,7 @@
     function runPH() {
         // Script update info
         var WMEPHWhatsNewList = [  // New in this version
+            '1.2.30: NEW - Added Change to Doctor / Clinic button to places with Offices category.',
             '1.2.29: FIXED - index.html, index.htm, index.php should not be stripped from URL\'s.',
             '1.2.28: Moved jqueryui to Greasy fork and created new repository at greasy fork.',
             '1.2.27: FIXED - Accidentally commented @downloadURL line in last release.',
@@ -2366,6 +2367,7 @@
                     lockOK = false;
                 }
             } else if (hpMode.harmFlag && item.attributes.categories.indexOf("DOCTOR_CLINIC") > -1) {
+                bannButt.changeToHospitalUrgentCare.message = "If this place provides emergency medical care:";
                 bannButt.changeToHospitalUrgentCare.active = true;
                 bannButt.changeToHospitalUrgentCare.severity = 0;
             } else if (hpMode.harmFlag && item.attributes.categories.indexOf("HOSPITAL_URGENT_CARE") > -1) {
@@ -3710,8 +3712,8 @@
             }
 
 
-            // Show the Change To Doctor / Clinic button for places with PERSONAL_CARE category
-            if (hpMode.harmFlag && newCategories.indexOf('PERSONAL_CARE') > -1) {
+            // Show the Change To Doctor / Clinic button for places with PERSONAL_CARE or OFFICES category
+            if (hpMode.harmFlag && (newCategories.indexOf('PERSONAL_CARE') > -1 || newCategories.indexOf('OFFICES') > -1)) {
                 bannButt.changeToDoctorClinic.message = 'If this place provides non-emergency medical care: ';
                 bannButt.changeToDoctorClinic.active = true;
                 bannButt.changeToDoctorClinic.severity = 0;
