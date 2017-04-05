@@ -11,14 +11,14 @@
 /* global Node */
 
 // ==UserScript==
-// @name        WME Place Harmonizer
+// @name        WME Place Harmonizer Beta
 // @namespace   https://github.com/WazeUSA/WME-Place-Harmonizer/raw/master/WME-Place-Harmonizer.user.js
-// @version     1.2.28
+// @version     1.2.29
 // @description Harmonizes, formats, and locks a selected place
 // @author      WMEPH Development Group
-// @downloadURL https://github.com/WazeUSA/WME-Place-Harmonizer/raw/master/WME-Place-Harmonizer.user.js
+// @downloadURL https://greasyfork.org/scripts/28689-wme-place-harmonizer-beta/code/WME%20Place%20Harmonizer%20Beta.user.js
 // @include     /^https:\/\/(www|beta)\.waze\.com\/(?!user\/)(.{2,6}\/)?editor\/.*$/
-// @require     https://greasyfork.org/scripts/28687-jquery-ui-1-11-4-custom-min-js/code/jquery-ui-1114customminjs.js?version=185940
+// @require     https://greasyfork.org/scripts/28687-jquery-ui-1-11-4-custom-min-js/code/jquery-ui-1114customminjs.js
 // @resource    jqUI_CSS  https://ajax.googleapis.com/ajax/libs/jqueryui/1.11.4/themes/smoothness/jquery-ui.css
 // @license     GNU GPL v3
 // @grant       GM_addStyle
@@ -278,6 +278,7 @@
     function runPH() {
         // Script update info
         var WMEPHWhatsNewList = [  // New in this version
+            '1.2.29: FIXED - index.html, index.htm, index.php should not be stripped from URL\'s.',
             '1.2.28: Moved jqueryui to Greasy fork and created new repository at greasy fork.',
             '1.2.27: FIXED - Accidentally commented @downloadURL line in last release.',
             '1.2.26: FIXED - Clicking option to fill PLAs calls a function that adds a new event listener (memory leak).',
@@ -939,12 +940,12 @@
             if (m) { s = m[1]; }
             m = s.match(/^(.*)\/pages\/default.aspx$/i);  // remove unneeded terms
             if (m) { s = m[1]; }
-            m = s.match(/^(.*)\/index.html$/i);  // remove unneeded terms
-            if (m) { s = m[1]; }
-            m = s.match(/^(.*)\/index.htm$/i);  // remove unneeded terms
-            if (m) { s = m[1]; }
-            m = s.match(/^(.*)\/index.php$/i);  // remove unneeded terms
-            if (m) { s = m[1]; }
+            // m = s.match(/^(.*)\/index.html$/i);  // remove unneeded terms
+            // if (m) { s = m[1]; }
+            // m = s.match(/^(.*)\/index.htm$/i);  // remove unneeded terms
+            // if (m) { s = m[1]; }
+            // m = s.match(/^(.*)\/index.php$/i);  // remove unneeded terms
+            // if (m) { s = m[1]; }
             m = s.match(/^(.*)\/$/i);  // remove final slash
             if (m) { s = m[1]; }
 
