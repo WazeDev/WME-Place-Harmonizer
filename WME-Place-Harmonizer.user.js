@@ -278,6 +278,8 @@
     function runPH() {
         // Script update info
         var WMEPHWhatsNewList = [  // New in this version
+            '1.2.31: Version bump. (no changes).',
+            '1.2.30: NEW - Added Change to Doctor / Clinic button to places with Offices category.',
             '1.2.29: FIXED - index.html, index.htm, index.php should not be stripped from URL\'s.',
             '1.2.28: Moved jqueryui to Greasy fork and created new repository at greasy fork.',
             '1.2.27: FIXED - Accidentally commented @downloadURL line in last release.',
