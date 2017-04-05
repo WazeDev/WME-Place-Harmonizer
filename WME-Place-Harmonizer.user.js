@@ -13,7 +13,7 @@
 // ==UserScript==
 // @name        WME Place Harmonizer Beta
 // @namespace   https://github.com/WazeUSA/WME-Place-Harmonizer/raw/master/WME-Place-Harmonizer.user.js
-// @version     1.2.31
+// @version     1.2.32
 // @description Harmonizes, formats, and locks a selected place
 // @author      WMEPH Development Group
 // @downloadURL https://greasyfork.org/scripts/28689-wme-place-harmonizer-beta/code/WME%20Place%20Harmonizer%20Beta.user.js
@@ -278,6 +278,7 @@
     function runPH() {
         // Script update info
         var WMEPHWhatsNewList = [  // New in this version
+            '1.2.32: Version bump - no changes.',
             '1.2.31: Version bump. (no changes).',
             '1.2.30: NEW - Added Change to Doctor / Clinic button to places with Offices category.',
             '1.2.29: FIXED - index.html, index.htm, index.php should not be stripped from URL\'s.',
