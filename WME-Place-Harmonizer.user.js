@@ -13,7 +13,7 @@
 // ==UserScript==
 // @name        WME Place Harmonizer
 // @namespace   https://github.com/WazeUSA/WME-Place-Harmonizer/raw/master/WME-Place-Harmonizer.user.js
-// @version     1.2.29
+// @version     1.2.31
 // @description Harmonizes, formats, and locks a selected place
 // @author      WMEPH Development Group
 // @downloadURL https://greasyfork.org/scripts/28690-wme-place-harmonizer/code/WME%20Place%20Harmonizer.user.js
@@ -2366,6 +2366,7 @@
                     lockOK = false;
                 }
             } else if (hpMode.harmFlag && item.attributes.categories.indexOf("DOCTOR_CLINIC") > -1) {
+                bannButt.changeToHospitalUrgentCare.message = "If this place provides emergency medical care:";
                 bannButt.changeToHospitalUrgentCare.active = true;
                 bannButt.changeToHospitalUrgentCare.severity = 0;
             } else if (hpMode.harmFlag && item.attributes.categories.indexOf("HOSPITAL_URGENT_CARE") > -1) {
@@ -3710,8 +3711,8 @@
             }
 
 
-            // Show the Change To Doctor / Clinic button for places with PERSONAL_CARE category
-            if (hpMode.harmFlag && newCategories.indexOf('PERSONAL_CARE') > -1) {
+            // Show the Change To Doctor / Clinic button for places with PERSONAL_CARE or OFFICES category
+            if (hpMode.harmFlag && (newCategories.indexOf('PERSONAL_CARE') > -1 || newCategories.indexOf('OFFICES') > -1)) {
                 bannButt.changeToDoctorClinic.message = 'If this place provides non-emergency medical care: ';
                 bannButt.changeToDoctorClinic.active = true;
                 bannButt.changeToDoctorClinic.severity = 0;
