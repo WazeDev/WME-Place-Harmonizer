@@ -13,7 +13,7 @@
 // ==UserScript==
 // @name        WME Place Harmonizer Beta
 // @namespace   https://github.com/WazeUSA/WME-Place-Harmonizer/raw/master/WME-Place-Harmonizer.user.js
-// @version     1.2.27
+// @version     1.2.28
 // @description Harmonizes, formats, and locks a selected place
 // @author      WMEPH Development Group
 // @downloadURL https://github.com/WazeUSA/WME-Place-Harmonizer/raw/Beta/WME-Place-Harmonizer.user.js
@@ -278,6 +278,7 @@
     function runPH() {
         // Script update info
         var WMEPHWhatsNewList = [  // New in this version
+            '1.2.28: Moved jqueryui to Greasy fork and created new repository at greasy fork.',
             '1.2.27: FIXED - Accidentally commented @downloadURL line in last release.',
             '1.2.26: FIXED - Clicking option to fill PLAs calls a function that adds a new event listener (memory leak).',
             '1.2.25: FIXED - Creating a new PLA fails due to feature added in last release.',
