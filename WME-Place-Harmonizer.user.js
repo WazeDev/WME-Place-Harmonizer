@@ -12,7 +12,7 @@
 
 // ==UserScript==
 // @name        WME Place Harmonizer Beta
-// @namespace   https://github.com/WazeUSA/WME-Place-Harmonizer/raw/master/WME-Place-Harmonizer.user.js
+// @namespace   https://github.com/WazeUSA-Beta/WME-Place-Harmonizer/raw/master/WME-Place-Harmonizer.user.js
 // @version     1.2.33
 // @description Harmonizes, formats, and locks a selected place
 // @author      WMEPH Development Group
