@@ -12,8 +12,8 @@
 
 // ==UserScript==
 // @name        WME Place Harmonizer Beta
-// @namespace   https://github.com/WazeUSA-Beta/WME-Place-Harmonizer/raw/master/WME-Place-Harmonizer.user.js
-// @version     1.2.32
+// @namespace   WazeUSA
+// @version     1.2.33
 // @description Harmonizes, formats, and locks a selected place
 // @author      WMEPH Development Group
 // @downloadURL https://greasyfork.org/scripts/28689-wme-place-harmonizer-beta/code/WME%20Place%20Harmonizer%20Beta.user.js
@@ -3715,7 +3715,7 @@
 
 
             // Show the Change To Doctor / Clinic button for places with PERSONAL_CARE or OFFICES category
-            if (hpMode.harmFlag && (newCategories.indexOf('PERSONAL_CARE') > -1 || newCategories.indexOf('OFFICES') > -1)) {
+            if (hpMode.harmFlag && ((newCategories.indexOf('PERSONAL_CARE') > -1 && !PNHNameRegMatch) || newCategories.indexOf('OFFICES') > -1)) {
                 bannButt.changeToDoctorClinic.message = 'If this place provides non-emergency medical care: ';
                 bannButt.changeToDoctorClinic.active = true;
                 bannButt.changeToDoctorClinic.severity = 0;
