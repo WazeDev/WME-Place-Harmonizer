@@ -12,8 +12,8 @@
 
 // ==UserScript==
 // @name        WME Place Harmonizer
-// @namespace   https://github.com/WazeUSA/WME-Place-Harmonizer/raw/master/WME-Place-Harmonizer.user.js
-// @version     1.2.31
+// @namespace   WazeUSA
+// @version     1.2.34
 // @description Harmonizes, formats, and locks a selected place
 // @author      WMEPH Development Group
 // @downloadURL https://greasyfork.org/scripts/28690-wme-place-harmonizer/code/WME%20Place%20Harmonizer.user.js
@@ -278,6 +278,7 @@
     function runPH() {
         // Script update info
         var WMEPHWhatsNewList = [  // New in this version
+            '1.2.32: Version bump - no changes.',
             '1.2.31: Version bump. (no changes).',
             '1.2.30: NEW - Added Change to Doctor / Clinic button to places with Offices category.',
             '1.2.29: FIXED - index.html, index.htm, index.php should not be stripped from URL\'s.',
@@ -491,7 +492,7 @@
 
         // 2017-03-23 (mapomatic) This will need to be updated to just set to 'en-US' when Waze pushes the change to production.
         // 2017-03-26 (t0cableguy) guess thats a waze never.. back to just en, first item is for WME beta second is for WME production
-        var userLanguage = W.location.locale;
+        var userLanguage = I18n.locale;
 
         // lock levels are offset by one
         var lockLevel1 = 0, lockLevel2 = 1, lockLevel3 = 2, lockLevel4 = 3, lockLevel5 = 4;
@@ -3714,7 +3715,7 @@
 
 
             // Show the Change To Doctor / Clinic button for places with PERSONAL_CARE or OFFICES category
-            if (hpMode.harmFlag && (newCategories.indexOf('PERSONAL_CARE') > -1 || newCategories.indexOf('OFFICES') > -1)) {
+            if (hpMode.harmFlag && ((newCategories.indexOf('PERSONAL_CARE') > -1 && !PNHNameRegMatch) || newCategories.indexOf('OFFICES') > -1)) {
                 bannButt.changeToDoctorClinic.message = 'If this place provides non-emergency medical care: ';
                 bannButt.changeToDoctorClinic.active = true;
                 bannButt.changeToDoctorClinic.severity = 0;
