@@ -12,8 +12,8 @@
 
 // ==UserScript==
 // @name        WME Place Harmonizer Beta
-// @namespace   https://github.com/WazeUSA/WME-Place-Harmonizer/raw/master/WME-Place-Harmonizer.user.js
-// @version     1.2.32
+// @namespace   WazeUSA
+// @version     1.2.34
 // @description Harmonizes, formats, and locks a selected place
 // @author      WMEPH Development Group
 // @downloadURL https://greasyfork.org/scripts/28689-wme-place-harmonizer-beta/code/WME%20Place%20Harmonizer%20Beta.user.js
@@ -492,7 +492,7 @@
 
         // 2017-03-23 (mapomatic) This will need to be updated to just set to 'en-US' when Waze pushes the change to production.
         // 2017-03-26 (t0cableguy) guess thats a waze never.. back to just en, first item is for WME beta second is for WME production
-        var userLanguage = W.location.locale;
+        var userLanguage = I18n.locale;
 
         // lock levels are offset by one
         var lockLevel1 = 0, lockLevel2 = 1, lockLevel3 = 2, lockLevel4 = 3, lockLevel5 = 4;
@@ -3715,7 +3715,7 @@
 
 
             // Show the Change To Doctor / Clinic button for places with PERSONAL_CARE or OFFICES category
-            if (hpMode.harmFlag && (newCategories.indexOf('PERSONAL_CARE') > -1 || newCategories.indexOf('OFFICES') > -1)) {
+            if (hpMode.harmFlag && ((newCategories.indexOf('PERSONAL_CARE') > -1 && !PNHNameRegMatch) || newCategories.indexOf('OFFICES') > -1)) {
                 bannButt.changeToDoctorClinic.message = 'If this place provides non-emergency medical care: ';
                 bannButt.changeToDoctorClinic.active = true;
                 bannButt.changeToDoctorClinic.severity = 0;
