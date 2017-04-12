@@ -13,7 +13,7 @@
 // ==UserScript==
 // @name        WME Place Harmonizer
 // @namespace   WazeUSA
-// @version     1.2.34
+// @version     1.2.35
 // @description Harmonizes, formats, and locks a selected place
 // @author      WMEPH Development Group
 // @downloadURL https://greasyfork.org/scripts/28690-wme-place-harmonizer/code/WME%20Place%20Harmonizer.user.js
@@ -278,6 +278,8 @@
     function runPH() {
         // Script update info
         var WMEPHWhatsNewList = [  // New in this version
+            '1.2.35: NEW - Removed street name entry box and replaced with Edit Address button until bug can be fixed.',
+            '1.2.34: FIXED - WME language was occasionally causing script to fail.',
             '1.2.32: Version bump - no changes.',
             '1.2.31: Version bump. (no changes).',
             '1.2.30: NEW - Added Change to Doctor / Clinic button to places with Offices category.',
@@ -642,7 +644,7 @@
                 fillOpacity: '0.3'
             });
 
-                Array.prototype.push.apply(layer.styleMap.styles['default'].rules, [severity0, severityLock, severity1, severityLock1, severity2, severity3, severity4, severityHigh, severityAdLock,publicPLA, restrictedPLA, privatePLA]);
+            Array.prototype.push.apply(layer.styleMap.styles['default'].rules, [severity0, severityLock, severity1, severityLock1, severity2, severity3, severity4, severityHigh, severityAdLock,publicPLA, restrictedPLA, privatePLA]);
             // to make Google Script linter happy ^^^ Array.prototype.push.apply(layer.styleMap.styles.default.rules, [severity0, severityLock, severity1, severity2, severity3, severity4, severityHigh]);
             /* Can apply to normal view or selection/highlight views as well.
             _.each(layer.styleMap.styles, function(style) {
@@ -1326,12 +1328,24 @@
                     }
                 },
 
+                // streetMissing: {  // no WL
+                //     active: false, severity: 3, message: 'No street: <div class="ui-widget" style="display:inline;"><input id="WMEPH_missingStreet" style="color:#000;background-color:#FDD;width:140px;margin-right:3px;"></div><input class="btn btn-default btn-xs wmeph-btn disabled" id="WMEPH_addStreetBtn" title="Add street to place" type="button" value="Add" disabled>'
+                // },
+
                 streetMissing: {  // no WL
-                    active: false, severity: 3, message: 'No street: <div class="ui-widget" style="display:inline;"><input id="WMEPH_missingStreet" style="color:#000;background-color:#FDD;width:140px;margin-right:3px;"></div><input class="btn btn-default btn-xs wmeph-btn disabled" id="WMEPH_addStreetBtn" title="Add street to place" type="button" value="Add" disabled>'
+                    active: false, severity: 3, message: 'No street:', value: 'Edit address', title: "Edit address to add street.",
+                    action: function() {
+                        $('.nav-tabs a[href="#landmark-edit-general"]').trigger('click');
+                        $('.waze-icon-edit').trigger('click');
+                        if ($('.empty-street').prop('checked')) {
+                            $('.empty-street').trigger('click');
+                        }
+                        $('.street-name').focus();
+                    }
                 },
 
                 cityMissing: {  // no WL
-                    active: false, severity: 3, message: 'No city ', value: 'Edit address', title: "Edit address to add city.",
+                    active: false, severity: 3, message: 'No city:', value: 'Edit address', title: "Edit address to add city.",
                     action: function() {
                         $('.nav-tabs a[href="#landmark-edit-general"]').trigger('click');
                         $('.waze-icon-edit').trigger('click');
