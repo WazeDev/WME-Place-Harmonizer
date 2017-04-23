@@ -13,7 +13,7 @@
 // ==UserScript==
 // @name        WME Place Harmonizer Beta
 // @namespace   WazeUSA
-// @version     1.2.36
+// @version     1.2.37
 // @description Harmonizes, formats, and locks a selected place
 // @author      WMEPH Development Group
 // @downloadURL https://greasyfork.org/scripts/28689-wme-place-harmonizer-beta/code/WME%20Place%20Harmonizer%20Beta.user.js
@@ -481,7 +481,7 @@
         var betaUser, devUser;
         if (WMEPHbetaList.length === 0 || "undefined" === typeof WMEPHbetaList) {
             if (isDevVersion) {
-                alert('Beta user list access issue.  Please post in the GHO or PM/DM t0cableguy about this message.  Script should still work.');
+                alert('Beta user list access issue.  Please post in the GHO or PM/DM MapOMatic about this message.  Script should still work.');
             }
             betaUser = false;
             devUser = false;
@@ -493,17 +493,14 @@
             betaUser = true; // dev users are beta users
         }
         var usrRank = thisUser.normalizedLevel;  // get editor's level (actual level)
-
-        // 2017-03-23 (mapomatic) This will need to be updated to just set to 'en-US' when Waze pushes the change to production.
-        // 2017-03-26 (t0cableguy) guess thats a waze never.. back to just en, first item is for WME beta second is for WME production
         var userLanguage = I18n.locale;
 
         // lock levels are offset by one
         var lockLevel1 = 0, lockLevel2 = 1, lockLevel3 = 2, lockLevel4 = 3, lockLevel5 = 4;
         var defaultLockLevel = lockLevel2, PNHLockLevel;
         var PMUserList = { // user names and IDs for PM functions
-            SER: {approvalActive: true, modID: '16941753', modName: 't0cableguy'},
-            WMEPH: {approvalActive: true, modID: '16941753', modName: 't0cableguy'}
+            SER: {approvalActive: true, modID: '2647925', modName: 'MapOMatic'},
+            WMEPH: {approvalActive: true, modID: '2647925', modName: 'MapOMatic'}
         };
         var severityButt=0;  // error tracking to determine banner color (action buttons)
         var duplicateName = '';
@@ -964,7 +961,7 @@
         function harmonizePlace() {
             // Beta version for approved users only
             if (isDevVersion && !betaUser) {
-                alert("Please sign up to beta-test this script version.\nSend a PM or Slack-DM to t0cableguy or Tonestertm, or post in the WMEPH forum thread. Thanks.");
+                alert("Please sign up to beta-test this script version.\nSend a PM or Slack-DM to MapOMatic or Tonestertm, or post in the WMEPH forum thread. Thanks.");
                 return;
             }
             // Only run if a single place is selected
@@ -3485,8 +3482,6 @@
                 var outputFormat = "({0}) {1}-{2}";
                 if ( containsAny(["CA","CO"],[region,state2L]) && (/^\d{3}-\d{3}-\d{4}$/.test(item.attributes.phone))) {
                     outputFormat = "{0}-{1}-{2}";
-                } else if (region === "SER" && thisUser.userName === 't0cableguy') {
-                    outputFormat = "{0}-{1}-{2}";
                 } else if (region === "SER" && !(/^\(\d{3}\) \d{3}-\d{4}$/.test(item.attributes.phone))) {
                     outputFormat = "{0}-{1}-{2}";
                 } else if (region === "GLR") {
@@ -6005,11 +6000,7 @@
             // User pref for KB Shortcut:
             // Set defaults
             if (isDevVersion) {
-                if (thisUser.userName.toLowerCase() === 't0cableguy') {
-                    defaultKBShortcut = 'p';
-                } else {
-                    defaultKBShortcut = 'S';
-                }
+                defaultKBShortcut = 'S';
             } else {
                 defaultKBShortcut = 'A';
             }
@@ -6302,12 +6293,6 @@
             shortcut.add("Control+Alt+Z", function() {
                 zoomPlace();
             });
-
-            if (thisUser.userName === 't0cableguy' || thisUser.userName === 't0cableguy') {
-                shortcut.add("Control+Alt+E", function() {
-                    clonePlace();
-                });
-            }
 
             // Color highlighting
             $("#WMEPH-ColorHighlighting" + devVersStr).click( function() {
