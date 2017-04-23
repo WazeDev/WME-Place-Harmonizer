@@ -13,7 +13,7 @@
 // ==UserScript==
 // @name        WME Place Harmonizer Beta
 // @namespace   WazeUSA
-// @version     1.2.35
+// @version     1.2.36
 // @description Harmonizes, formats, and locks a selected place
 // @author      WMEPH Development Group
 // @downloadURL https://greasyfork.org/scripts/28689-wme-place-harmonizer-beta/code/WME%20Place%20Harmonizer%20Beta.user.js
@@ -278,6 +278,8 @@
     function runPH() {
         // Script update info
         var WMEPHWhatsNewList = [  // New in this version
+            '1.2.36: NEW - Default to on for \'Disable check for "No external provider link(s)" on Parking Lot Areas\' setting.',
+            '1.2.36: FIXED - Alert that place address could not be inferred appears for places that can be inferred.',
             '1.2.35: NEW - Removed street name entry box and replaced with Edit Address button until bug can be fixed.',
             '1.2.34: FIXED - WME language was occasionally causing script to fail.',
             '1.2.32: Version bump - no changes.',
@@ -5701,7 +5703,7 @@
                 if (entryExitPoints.length > 0) {
                     stopPoint = entryExitPoints[0];
                 } else {
-                    return;
+                    stopPoint = selectedItem.geometry.getCentroid();
                 }
             }
 
@@ -5967,6 +5969,14 @@
                     applyHighlightsTest(W.model.venues.getObjectArray());
                 });
             });
+
+            // Turn this setting on one time.
+            var runOnceDefaultIgnorePlaGoogleLinkChecks = localStorage.getItem('WMEPH-runOnce-defaultToOff-plaGoogleLinkChecks' + devVersStr);
+            if (!runOnceDefaultIgnorePlaGoogleLinkChecks) {
+                var $chk = $('#WMEPH-DisablePLAExtProviderCheck' + devVersStr);
+                if (!$chk.is(':checked')) { $chk.trigger('click'); }
+            }
+            localStorage.setItem('WMEPH-runOnce-defaultToOff-plaGoogleLinkChecks' + devVersStr, true);
 
             // Highlighter settings
             var phDevContentHtml = '<p>Highlighter Settings:</p>';
