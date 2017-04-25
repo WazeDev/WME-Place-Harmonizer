@@ -13,7 +13,7 @@
 // ==UserScript==
 // @name        WME Place Harmonizer Beta
 // @namespace   WazeUSA
-// @version     1.2.37
+// @version     1.2.38
 // @description Harmonizes, formats, and locks a selected place
 // @author      WMEPH Development Group
 // @downloadURL https://greasyfork.org/scripts/28689-wme-place-harmonizer-beta/code/WME%20Place%20Harmonizer%20Beta.user.js
@@ -278,6 +278,7 @@
     function runPH() {
         // Script update info
         var WMEPHWhatsNewList = [  // New in this version
+            '1.2.38: FIXED - WL of non-standard HN flag was not allowing auto-lock.',
             '1.2.36: NEW - Default to on for \'Disable check for "No external provider link(s)" on Parking Lot Areas\' setting.',
             '1.2.36: FIXED - Alert that place address could not be inferred appears for places that can be inferred.',
             '1.2.35: NEW - Removed street name entry box and replaced with Edit Address button until bug can be fixed.',
@@ -3592,6 +3593,7 @@
                     bannButt.hnNonStandard.active = true;
                     if (currentWL.hnNonStandard) {
                         bannButt.hnNonStandard.WLactive = false;
+                        bannButt.hnNonStandard.severity = 0;
                     } else {
                         lockOK = false;
                     }
