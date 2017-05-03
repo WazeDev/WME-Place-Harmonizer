@@ -13,7 +13,7 @@
 // ==UserScript==
 // @name        WME Place Harmonizer Beta
 // @namespace   WazeUSA
-// @version     1.2.38
+// @version     1.2.39
 // @description Harmonizes, formats, and locks a selected place
 // @author      WMEPH Development Group
 // @downloadURL https://greasyfork.org/scripts/28689-wme-place-harmonizer-beta/code/WME%20Place%20Harmonizer%20Beta.user.js
@@ -278,6 +278,7 @@
     function runPH() {
         // Script update info
         var WMEPHWhatsNewList = [  // New in this version
+            '1.2.39: NEW - Added 6 month check/highlight for missing Google links.',
             '1.2.38: FIXED - WL of non-standard HN flag was not allowing auto-lock.',
             '1.2.36: NEW - Default to on for \'Disable check for "No external provider link(s)" on Parking Lot Areas\' setting.',
             '1.2.36: FIXED - Alert that place address could not be inferred appears for places that can be inferred.',
@@ -500,7 +501,7 @@
         var lockLevel1 = 0, lockLevel2 = 1, lockLevel3 = 2, lockLevel4 = 3, lockLevel5 = 4;
         var defaultLockLevel = lockLevel2, PNHLockLevel;
         var PMUserList = { // user names and IDs for PM functions
-            SER: {approvalActive: true, modID: '2647925', modName: 'MapOMatic'},
+            SER: {approvalActive: true, modID: '17083181', modName: 'itzwolf'},
             WMEPH: {approvalActive: true, modID: '2647925', modName: 'MapOMatic'}
         };
         var severityButt=0;  // error tracking to determine banner color (action buttons)
@@ -1089,6 +1090,7 @@
                     WLaction: function() {
                         wlKeyName = 'plaNameMissing';
                         whitelistAction(itemID, wlKeyName);
+                        harmonizePlaceGo(item, 'harmonize');
                     }
                 },
 
@@ -1102,6 +1104,7 @@
                     WLaction: function() {
                         wlKeyName = 'unmappedRegion';
                         whitelistAction(itemID, wlKeyName);
+                        harmonizePlaceGo(item, 'harmonize');
                     }
                 },
 
@@ -1111,6 +1114,7 @@
                     WLaction: function() {
                         wlKeyName = 'restAreaName';
                         whitelistAction(itemID, wlKeyName);
+                        harmonizePlaceGo(item, 'harmonize');
                     }
                 },
 
@@ -1149,6 +1153,7 @@
                     WLaction: function() {
                         wlKeyName = 'restAreaSpec';
                         whitelistAction(itemID, wlKeyName);
+                        harmonizePlaceGo(item, 'harmonize');
                     }
                 },
 
@@ -1171,6 +1176,7 @@
                     WLaction: function() {
                         wlKeyName = 'gasMismatch';
                         whitelistAction(itemID, wlKeyName);
+                        harmonizePlaceGo(item, 'harmonize');
                     }
                 },
 
@@ -1206,6 +1212,7 @@
                     WLaction: function() {
                         wlKeyName = 'hotelMkPrim';
                         whitelistAction(itemID, wlKeyName);
+                        harmonizePlaceGo(item, 'harmonize');
                     }
                 },
 
@@ -1228,6 +1235,7 @@
                     WLaction: function() {
                         wlKeyName = 'changeHMC2PetVet';
                         whitelistAction(itemID, wlKeyName);
+                        harmonizePlaceGo(item, 'harmonize');
                     }
                 },
 
@@ -1246,6 +1254,7 @@
                     WLaction: function() {
                         wlKeyName = 'changeSchool2Offices';
                         whitelistAction(itemID, wlKeyName);
+                        harmonizePlaceGo(item, 'harmonize');
                     }
                 },
 
@@ -1266,6 +1275,7 @@
                     WLaction: function() {
                         wlKeyName = 'pointNotArea';
                         whitelistAction(itemID, wlKeyName);
+                        harmonizePlaceGo(item, 'harmonize');
                     }
                 },
 
@@ -1280,6 +1290,7 @@
                     WLaction: function() {
                         wlKeyName = 'areaNotPoint';
                         whitelistAction(itemID, wlKeyName);
+                        harmonizePlaceGo(item, 'harmonize');
                     }
                 },
 
@@ -1294,7 +1305,7 @@
                         var hnTemp = newHN.replace(/[^\d]/g, '');
                         var hnTempDash = newHN.replace(/[^\d-]/g, '');
                         if (hnTemp > 0 && hnTemp < 1000000) {
-                            W.model.actionManager.add(new UpdateObject(item, { houseNumber: hnTempDash }));
+                            harmonizePlaceGo(item,'harmonize', [new UpdateObject(item, { houseNumber: hnTempDash })]);  // Rerun the script to update fields and lock
                             fieldUpdateObject.address='#dfd';
                             bannButt.hnMissing.active = false;
                             badInput = false;
@@ -1307,6 +1318,7 @@
                     WLaction: function() {
                         wlKeyName = 'HNWL';
                         whitelistAction(itemID, wlKeyName);
+                        harmonizePlaceGo(item, 'harmonize');
                     }
                 },
 
@@ -1316,6 +1328,7 @@
                     WLaction: function() {
                         wlKeyName = 'hnNonStandard';
                         whitelistAction(itemID, wlKeyName);
+                        harmonizePlaceGo(item, 'harmonize');
                     }
                 },
 
@@ -1325,6 +1338,7 @@
                     WLaction: function() {
                         wlKeyName = 'HNRange';
                         whitelistAction(itemID, wlKeyName);
+                        harmonizePlaceGo(item, 'harmonize');
                     }
                 },
 
@@ -1428,6 +1442,7 @@
                     WLaction: function() {
                         wlKeyName = 'parentCategory';
                         whitelistAction(itemID, wlKeyName);
+                        harmonizePlaceGo(item, 'harmonize');
                     }
                 },
 
@@ -1445,6 +1460,7 @@
                     WLaction: function() {
                         wlKeyName = 'suspectDesc';
                         whitelistAction(itemID, wlKeyName);
+                        harmonizePlaceGo(item, 'harmonize');
                     }
                 },
 
@@ -1454,6 +1470,7 @@
                     WLaction: function() {
                         wlKeyName = 'resiTypeName';
                         whitelistAction(itemID, wlKeyName);
+                        harmonizePlaceGo(item, 'harmonize');
                     }
                 },
 
@@ -1471,6 +1488,7 @@
                     WLaction: function() {
                         wlKeyName = 'areaNotPoint';
                         whitelistAction(itemID, wlKeyName);
+                        harmonizePlaceGo(item, 'harmonize');
                     }
                 },
 
@@ -1480,6 +1498,7 @@
                     WLaction: function() {
                         wlKeyName = 'pointNotArea';
                         whitelistAction(itemID, wlKeyName);
+                        harmonizePlaceGo(item, 'harmonize');
                     }
                 },
 
@@ -1506,6 +1525,7 @@
                     WLaction: function() {
                         wlKeyName = 'longURL';
                         whitelistAction(itemID, wlKeyName);
+                        harmonizePlaceGo(item, 'harmonize');
                     }
                 },
 
@@ -1515,6 +1535,7 @@
                     WLaction: function() {
                         wlKeyName = 'gasNoBrand';
                         whitelistAction(itemID, wlKeyName);
+                        harmonizePlaceGo(item, 'harmonize');
                     }
                 },
 
@@ -1524,6 +1545,7 @@
                     WLaction: function() {
                         wlKeyName = 'subFuel';
                         whitelistAction(itemID, wlKeyName);
+                        harmonizePlaceGo(item, 'harmonize');
                     }
                 },
 
@@ -1533,6 +1555,7 @@
                     WLaction: function() {
                         wlKeyName = 'areaNotPoint';
                         whitelistAction(itemID, wlKeyName);
+                        harmonizePlaceGo(item, 'harmonize');
                     }
                 },
 
@@ -1542,6 +1565,7 @@
                     WLaction: function() {
                         wlKeyName = 'pointNotArea';
                         whitelistAction(itemID, wlKeyName);
+                        harmonizePlaceGo(item, 'harmonize');
                     }
                 },
 
@@ -1555,6 +1579,7 @@
                     WLaction: function() {
                         wlKeyName = 'hotelLocWL';
                         whitelistAction(itemID, wlKeyName);
+                        harmonizePlaceGo(item, 'harmonize');
                     }
                 },
 
@@ -1564,6 +1589,7 @@
                     WLaction: function() {
                         wlKeyName = 'localizedName';
                         whitelistAction(itemID, wlKeyName);
+                        harmonizePlaceGo(item, 'harmonize');
                     }
                 },
 
@@ -1594,6 +1620,7 @@
                     WLaction: function() {
                         wlKeyName = 'changetoHospitalUrgentCare';
                         whitelistAction(itemID, wlKeyName);
+                        harmonizePlaceGo(item, 'harmonize');
                     }
                 },
 
@@ -1619,6 +1646,7 @@
                     WLaction: function() {
                         wlKeyName = 'changeToDoctorClinic';
                         whitelistAction(itemID, wlKeyName);
+                        harmonizePlaceGo(item, 'harmonize');
                     }
                 },
                 specCaseMessageLow: {  // no WL
@@ -1626,12 +1654,21 @@
                 },
 
                 extProviderMissing: {
-                    active:false, severity:3, message:'No external provider link(s) ',
-                    WLactive:true, WLmessage:'', WLtitle:'Whitelist missing external provider',
-                    WLaction: function() {
-                        wlKeyName = 'extProviderMissing';
-                        whitelistAction(itemID, wlKeyName);
+                    active:false, severity:3, message:'No Google place link', value:'Nudge', title:'If no other properties need to be updated, click to nudge the place (force an edit).',
+                    action: function() {
+                        var UpdateFeatureGeometry = require('Waze/Action/UpdateFeatureGeometry');
+                        var place = W.selectionManager.selectedItems[0];
+                        // Use an exact clone of the original geometry to force an edit without actually changing anything.
+                        var newGeom = place.geometry.clone();
+                        var action = new UpdateFeatureGeometry(place.model, W.model.venues, place.geometry, newGeom);
+                        W.model.actionManager.add(action);
+                        harmonizePlaceGo(item,'harmonize');  // Rerun the script to update fields and lock
                     }
+                    // WLactive:true, WLmessage:'', //WLtitle:'Whitelist missing Google place link',
+                    // WLaction: function() {
+                    //     wlKeyName = 'extProviderMissing';
+                    //     whitelistAction(itemID, wlKeyName);
+                    // }
                 },
 
                 urlMissing: {
@@ -1656,6 +1693,7 @@
                     WLaction: function() {
                         wlKeyName = 'urlWL';
                         whitelistAction(itemID, wlKeyName);
+                        harmonizePlaceGo(item, 'harmonize');
                     }
                 },
 
@@ -1692,6 +1730,7 @@
                     WLaction: function() {
                         wlKeyName = 'phoneWL';
                         whitelistAction(itemID, wlKeyName);
+                        harmonizePlaceGo(item, 'harmonize');
                     }
                 },
 
@@ -1701,6 +1740,7 @@
                     WLaction: function() {
                         wlKeyName = 'aCodeWL';
                         whitelistAction(itemID, wlKeyName);
+                        harmonizePlaceGo(item, 'harmonize');
                     }
                 },
 
@@ -1757,6 +1797,7 @@
                     WLaction: function() {
                         wlKeyName = 'noHours';
                         whitelistAction(itemID, wlKeyName);
+                        harmonizePlaceGo(item, 'harmonize');
                     }
                 },
 
@@ -2504,6 +2545,8 @@
                 fieldUpdateObject.name = '#dfd';
             }
 
+            var isLocked = item.attributes.lockRank >= (PNHLockLevel > -1 ? PNHLockLevel : defaultLockLevel);
+
             // Clear attributes from residential places
             if (item.attributes.residential) {
                 if (hpMode.harmFlag) {
@@ -2547,11 +2590,24 @@
                 if (usrRank >= 3 && !(isPLA(item) && $('#WMEPH-DisablePLAExtProviderCheck' + devVersStr).prop('checked'))) {
                     var provIDs = item.attributes.externalProviderIDs;
                     if (!provIDs || provIDs.length === 0) {
-                        if ($('#WMEPH-ExtProviderSeverity' + devVersStr).prop('checked')) {
+                        var lastUpdated = item.isNew() ? Date.now() : item.attributes.updatedOn ? item.attributes.updatedOn : item.attributes.createdOn;
+                        var weeksSinceLastUpdate = (Date.now() - lastUpdated) / 604800000;
+                        if (isLocked && weeksSinceLastUpdate >= 26 && !item.isUpdated() && (!actions || actions.length === 0)) {
+                            bannButt.extProviderMissing.severity = 3;
+                            bannButt.extProviderMissing.message += ' and place has not been edited for over 6 months. Edit a property (or nudge) and save to reset the 6 month timer: ';
+                        } else if (!isLocked) {
+                            bannButt.extProviderMissing.severity = 1;  // This will be changed to 3 later if the user does not choose to lock the place.
+                            bannButt.extProviderMissing.message += '.';
+                            delete bannButt.extProviderMissing.value;
+                            delete bannButt.extProviderMissing.action;
+                        } else {
                             bannButt.extProviderMissing.severity = 1;
+                            bannButt.extProviderMissing.message += '.';
+                            delete bannButt.extProviderMissing.value;
+                            delete bannButt.extProviderMissing.action;
                         }
-                        bannButt.extProviderMissing.active = !currentWL.extProviderMissing;
-                        bannButt.extProviderMissing.WLactive = !currentWL.extProviderMissing;
+                        // bannButt.extProviderMissing.WLactive = null;  // 4-29-2017 (mapomatic) Decided to remove WL on this, but leaving it in the bannButt code in case it needs to be resurrected.
+                        bannButt.extProviderMissing.active = true;
                     }
                 }
 
@@ -3312,6 +3368,7 @@
                             bannButt.unmappedRegion.active = true;
                             if (currentWL.unmappedRegion) {
                                 bannButt.unmappedRegion.WLactive = false;
+                                bannButt.unmappedRegion.severity = 0;
                             } else {
                                 lockOK = false;
                             }
@@ -3557,7 +3614,14 @@
             }
 
             // House number check
-            if (item.attributes.streetID && (!item.attributes.houseNumber || item.attributes.houseNumber.replace(/\D/g,'').length === 0) ) {
+            var currentHN = item.attributes.houseNumber;
+            // Check to see if there's an action that is currently updating the house number.
+            var updateHnAction = actions && actions.find(function(action) { return action.newAttributes && action.newAttributes.houseNumber; });
+            if (updateHnAction) currentHN = updateHnAction.newAttributes.houseNumber;
+            // Use the inferred address street if currently no street.
+            var hasStreet = item.attributes.streetID || (inferredAddress && inferredAddress.street);
+            
+            if (hasStreet && (!currentHN || currentHN.replace(/\D/g,'').length === 0)) {
                 if ( 'BRIDGE|ISLAND|FOREST_GROVE|SEA_LAKE_POOL|RIVER_STREAM|CANAL|DAM|TUNNEL'.split('|').indexOf(item.attributes.categories[0]) === -1 ) {
                     if (state2L === 'PR') {
                         bannButt.hnMissing.active = true;
@@ -3572,15 +3636,15 @@
                         }
                     }
                 }
-            } else if (item.attributes.houseNumber) {
+            } else if (currentHN) {
                 var hnOK = false, updateHNflag = false;
-                var hnTemp = item.attributes.houseNumber.replace(/[^\d]/g, '');  // Digits only
-                var hnTempDash = item.attributes.houseNumber.replace(/[^\d-]/g, '');  // Digits and dashes only
+                var hnTemp = currentHN.replace(/[^\d]/g, '');  // Digits only
+                var hnTempDash = currentHN.replace(/[^\d-]/g, '');  // Digits and dashes only
                 if ( hnTemp < 1000000 && state2L === "NY" && addr.city.attributes.name === 'Queens' && hnTempDash.match(/^\d{1,4}-\d{1,4}$/g) !== null ) {
                     updateHNflag = true;
                     hnOK = true;
                 }
-                if (hnTemp === item.attributes.houseNumber && hnTemp < 1000000) {  //  general check that HN is 6 digits or less, & that it is only [0-9]
+                if (hnTemp === currentHN && hnTemp < 1000000) {  //  general check that HN is 6 digits or less, & that it is only [0-9]
                     hnOK = true;
                 }
                 if (state2L === "HI" && hnTempDash.match(/^\d{1,2}-\d{1,4}$/g) !== null) {
@@ -3838,6 +3902,20 @@
             }
 
             if (levelToLock > (usrRank - 1)) {levelToLock = (usrRank - 1);}  // Only lock up to the user's level
+
+            // If no Google link and severity would otherwise allow locking, ask if user wants to lock anyway.
+            if (!isLocked && lockOK && bannButt.extProviderMissing.active && severityButt <= 2) {
+                bannButt.extProviderMissing.severity = 3;
+                severityButt = 3;
+                bannButt.extProviderMissing.value = 'Lock anyway? (' + (levelToLock + 1) + ')';
+                bannButt.extProviderMissing.title = 'If no Google link exists, lock this place.  It will highlight red again 6 months after the last update date so that you may search for a Google link again.';
+                bannButt.extProviderMissing.action = function() {
+                    var action = new UpdateObject(item, {'lockRank': levelToLock});
+                    W.model.actionManager.add(action);
+                    harmonizePlaceGo(item, 'harmonize');
+                };
+            }
+
             if ( lockOK && severityButt < 2) {
                 // Campus project exceptions
                 if ( item.attributes.lockRank < levelToLock) {
@@ -5950,8 +6028,8 @@
             createSettingsCheckbox("sidepanel-harmonizer" + devVersStr, "WMEPH-HidePlacesWiki" + devVersStr,"Hide 'Places Wiki' button in results banner");
             createSettingsCheckbox("sidepanel-harmonizer" + devVersStr, "WMEPH-ExcludePLADupes" + devVersStr,"Exclude parking lots when searching for duplicate places.");
             if (devUser || betaUser || usrRank >= 2) {
-                createSettingsCheckbox("sidepanel-harmonizer" + devVersStr, "WMEPH-DisablePLAExtProviderCheck" + devVersStr,'Disable check for "No external provider link(s)" on Parking Lot Areas');
-                createSettingsCheckbox("sidepanel-harmonizer" + devVersStr, "WMEPH-ExtProviderSeverity" + devVersStr,'Treat "No external provider link(s)" as non-critical (blue)');
+                createSettingsCheckbox("sidepanel-harmonizer" + devVersStr, "WMEPH-DisablePLAExtProviderCheck" + devVersStr,'Disable check for "Google place link" on Parking Lot Areas');
+                //createSettingsCheckbox("sidepanel-harmonizer" + devVersStr, "WMEPH-ExtProviderSeverity" + devVersStr,'Treat "No Google place link" as non-critical (blue)');
                 createSettingsCheckbox("sidepanel-harmonizer" + devVersStr, "WMEPH-EnableServices" + devVersStr,"Enable automatic addition of common services");
                 createSettingsCheckbox("sidepanel-harmonizer" + devVersStr, "WMEPH-ConvenienceStoreToGasStations" + devVersStr,'Automatically add "Convenience Store" category to gas stations');
                 createSettingsCheckbox("sidepanel-harmonizer" + devVersStr, "WMEPH-AddAddresses" + devVersStr,"Add detected address fields to places with no address");
@@ -5960,12 +6038,12 @@
                 createSettingsCheckbox("sidepanel-harmonizer" + devVersStr, "WMEPH-AutoRunOnSelect" + devVersStr,'Automatically run the script when selecting a place');
             }
 
-            ["#WMEPH-ExtProviderSeverity" + devVersStr, "#WMEPH-DisablePLAExtProviderCheck" + devVersStr].map(function(id) {
-                $(id).on('click', function() {
-                    // Force highlight refresh on all venues.
-                    applyHighlightsTest(W.model.venues.getObjectArray());
-                });
-            });
+            // ["#WMEPH-ExtProviderSeverity" + devVersStr, "#WMEPH-DisablePLAExtProviderCheck" + devVersStr].map(function(id) {
+            //     $(id).on('click', function() {
+            //         // Force highlight refresh on all venues.
+            //         applyHighlightsTest(W.model.venues.getObjectArray());
+            //     });
+            // });
 
             // Turn this setting on one time.
             var runOnceDefaultIgnorePlaGoogleLinkChecks = localStorage.getItem('WMEPH-runOnce-defaultToOff-plaGoogleLinkChecks' + devVersStr);
