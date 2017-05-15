@@ -13,7 +13,7 @@
 // ==UserScript==
 // @name        WME Place Harmonizer Beta
 // @namespace   WazeUSA
-// @version     1.2.39
+// @version     1.2.40
 // @description Harmonizes, formats, and locks a selected place
 // @author      WMEPH Development Group
 // @downloadURL https://greasyfork.org/scripts/28689-wme-place-harmonizer-beta/code/WME%20Place%20Harmonizer%20Beta.user.js
@@ -278,6 +278,8 @@
     function runPH() {
         // Script update info
         var WMEPHWhatsNewList = [  // New in this version
+            '1.2.40: FIXED - Words inside parentheses should not be automatically title cased.',
+            '1.2.40: FIXED - Removed Transportation category from rest area places.',
             '1.2.39: NEW - Added 6 month check/highlight for missing Google links.',
             '1.2.38: FIXED - WL of non-standard HN flag was not allowing auto-lock.',
             '1.2.36: NEW - Default to on for \'Disable check for "No external provider link(s)" on Parking Lot Areas\' setting.',
@@ -743,19 +745,18 @@
         var capWords = "3M|AAA|AMC|AOL|AT&T|ATM|BBC|BLT|BMV|BMW|BP|CBS|CCS|CGI|CISCO|CJ|CNN|CVS|DHL|DKNY|DMV|DSW|EMS|ER|ESPN|FCU|FCUK|FDNY|GNC|H&M|HP|HSBC|IBM|IHOP|IKEA|IRS|JBL|JCPenney|KFC|LLC|MBNA|MCA|MCI|NBC|NYPD|PDQ|PNC|TCBY|TNT|TV|UPS|USA|USPS|VW|XYZ|ZZZ".split('|');
         var specWords = "d'Bronx|iFix".split('|');
 
-        function toTitleCase(str, ignoreParensAtEnd) {
+        function toTitleCase(str) {
             if (!str) {
                 return str;
             }
             str = str.trim();
-            var parensPart = '';
-            if (ignoreParensAtEnd) {
-                var m = str.match(/.*(\(.*\))$/);
-                if (m) {
-                    parensPart = m[1];
-                    str = str.slice(0,str.length - parensPart.length);
+            var parensParts = str.match(/\(.*?\)/g);
+            if (parensParts) {
+                for (var i=0; i<parensParts.length; i++) {
+                    str = str.replace(parensParts[i], '%' + i + '%');
                 }
             }
+
             var allCaps = (str === str.toUpperCase());
             // Cap first letter of each word
             str = str.replace(/([A-Za-z\u00C0-\u017F][^\s-\/]*) */g, function(txt) {
@@ -800,23 +801,28 @@
             str = str.replace(/\b(\d+)th\b/gi, '$1th');
             // Cap first letter of entire name
             str = str.charAt(0).toUpperCase() + str.substr(1);
-            return str + parensPart;
+
+            if (parensParts) {
+                for (var i=0; i<parensParts.length; i++) {
+                    str = str.replace('%' + i + '%', parensParts[i]);
+                }
+            }
+            return str;
         }
 
         // Change place.name to title case
-        function toTitleCaseStrong(str, ignoreParensAtEnd) {
+        function toTitleCaseStrong(str) {
             if (!str) {
                 return str;
             }
             str = str.trim();
-            var parensPart = '';
-            if (ignoreParensAtEnd) {
-                var m = str.match(/.*(\(.*\))$/);
-                if (m) {
-                    parensPart = m[1];
-                    str = str.slice(0,str.length - parensPart.length);
+            var parensParts = str.match(/\(.*?\)/g);
+            if (parensParts) {
+                for (var i=0; i<parensParts.length; i++) {
+                    str = str.replace(parensParts[i], '%' + i + '%');
                 }
             }
+
             var allCaps = (str === str.toUpperCase());
             // Cap first letter of each word
             str = str.replace(/([A-Za-z\u00C0-\u017F][^\s-\/]*) */g, function(txt) {
@@ -851,7 +857,12 @@
             str = str.replace(/\b(\d+)th\b/gi, '$1th');
             // Cap first letter of entire name
             str = str.charAt(0).toUpperCase() + str.substr(1);
-            return str + parensPart;
+            if (parensParts) {
+                for (var i=0; i<parensParts.length; i++) {
+                    str = str.replace('%' + i + '%', parensParts[i]);
+                }
+            }
+            return str;
         }
 
         // normalize phone
@@ -1127,7 +1138,6 @@
                     action: function() {
                         var actions = [];
                         // update categories according to spec
-                        newCategories = insertAtIX(newCategories,"TRANSPORTATION",0);  // Insert/move TRANSPORTATION category in the first position
                         newCategories = insertAtIX(newCategories,"SCENIC_LOOKOUT_VIEWPOINT",1);  // Insert/move SCENIC_LOOKOUT_VIEWPOINT category in the 2nd position
 
                         actions.push(new UpdateObject(item, { categories: newCategories }));
@@ -1938,7 +1948,7 @@
                 STC: {    // no WL
                     active: false, severity: 0, message: "Force Title Case: ", value: "Yes", title: "Force Title Case to InterNal CaPs",
                     action: function() {
-                        newName = toTitleCaseStrong(item.attributes.name, isPLA(item));  // Get the Strong Title Case name
+                        newName = toTitleCaseStrong(item.attributes.name);  // Get the Strong Title Case name
                         if (newName !== item.attributes.name) {  // if they are not equal
                             W.model.actionManager.add(new UpdateObject(item, { name: newName }));
                             fieldUpdateObject.name='#dfd';
@@ -2342,12 +2352,12 @@
             var categories = item.attributes.categories;
             newCategories = categories.slice(0);
             newName = item.attributes.name;
-            newName = toTitleCase(newName, isPLA(item));
+            newName = toTitleCase(newName);
             // var nameShort = newName.replace(/[^A-Za-z]/g, '');  // strip non-letters for PNH name searching
             // var nameNumShort = newName.replace(/[^A-Za-z0-9]/g, ''); // strip non-letters/non-numbers for PNH name searching
             newAliases = item.attributes.aliases.slice(0);
             for (var naix=0; naix<newAliases.length; naix++) {
-                newAliases[naix] = toTitleCase(newAliases[naix], isPLA(item));
+                newAliases[naix] = toTitleCase(newAliases[naix]);
             }
             var brand = item.attributes.brand;
             var newDescripion = item.attributes.description;
@@ -2614,7 +2624,7 @@
                 // Place Harmonization
                 var PNHMatchData;
                 if (hpMode.harmFlag) {
-                    if (item.attributes.categories[0] === 'PARKING_LOT') {
+                    if (isPLA(item)) {
                         PNHMatchData = ['NoMatch'];
                     } else {
                         PNHMatchData = harmoList(newName,state2L,region,countryCode,newCategories,item);  // check against the PNH list
@@ -3061,9 +3071,9 @@
                     }
 
                     // Strong title case option for non-PNH places
-                    if (newName !== toTitleCaseStrong(newName, isPLA(item))) {
+                    if (newName !== toTitleCaseStrong(newName)) {
                         bannButt.STC.active = true;
-                    }
+                        }
 
                     newURL = normalizeURL(newURL,true);  // Normalize url
 
@@ -3136,7 +3146,7 @@
                 // Update aliases
                 newAliases = removeSFAliases(newName, newAliases);
                 for (naix=0; naix<newAliases.length; naix++) {
-                    newAliases[naix] = toTitleCase(newAliases[naix], isPLA(item));
+                    newAliases[naix] = toTitleCase(newAliases[naix]);
                 }
                 if (hpMode.harmFlag && newAliases !== item.attributes.aliases && newAliases.length !== item.attributes.aliases.length) {
                     phlogdev("Alt Names updated");
@@ -3620,7 +3630,7 @@
             if (updateHnAction) currentHN = updateHnAction.newAttributes.houseNumber;
             // Use the inferred address street if currently no street.
             var hasStreet = item.attributes.streetID || (inferredAddress && inferredAddress.street);
-            
+
             if (hasStreet && (!currentHN || currentHN.replace(/\D/g,'').length === 0)) {
                 if ( 'BRIDGE|ISLAND|FOREST_GROVE|SEA_LAKE_POOL|RIVER_STREAM|CANAL|DAM|TUNNEL'.split('|').indexOf(item.attributes.categories[0]) === -1 ) {
                     if (state2L === 'PR') {
@@ -3908,7 +3918,7 @@
                 bannButt.extProviderMissing.severity = 3;
                 severityButt = 3;
                 bannButt.extProviderMissing.value = 'Lock anyway? (' + (levelToLock + 1) + ')';
-                bannButt.extProviderMissing.title = 'If no Google link exists, lock this place.  It will highlight red again 6 months after the last update date so that you may search for a Google link again.';
+                bannButt.extProviderMissing.title = 'If no Google link exists, lock this place.\nIf there is still no Google link after 6 months from the last update date, it will turn red as a reminder to search again.';
                 bannButt.extProviderMissing.action = function() {
                     var action = new UpdateObject(item, {'lockRank': levelToLock});
                     W.model.actionManager.add(action);
