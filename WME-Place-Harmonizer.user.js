@@ -1581,7 +1581,7 @@
                 },
 
                 formatUSPS: {  // ### needs WL or not?
-                    active: false, severity: 1, message: 'Localize the post office according to this region\'s standards for USPS locations (e.g., "USPS - Tampa")'
+                    active: false, severity: 1, message: 'Localize the post office according to this region\'s standards for USPS locations (e.g., "US Post Office - Tampa")'
                 },
 
                 catHotel: {
