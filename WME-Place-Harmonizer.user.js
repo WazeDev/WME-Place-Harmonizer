@@ -13,7 +13,7 @@
 // ==UserScript==
 // @name        WME Place Harmonizer
 // @namespace   WazeUSA
-// @version     1.2.40
+// @version     1.2.41
 // @description Harmonizes, formats, and locks a selected place
 // @author      WMEPH Development Group
 // @downloadURL https://greasyfork.org/scripts/28690-wme-place-harmonizer/code/WME%20Place%20Harmonizer.user.js
@@ -278,6 +278,7 @@
     function runPH() {
         // Script update info
         var WMEPHWhatsNewList = [  // New in this version
+            '1.2.41: FIXED - Removed custom USPS code for SER.',
             '1.2.40: FIXED - Words inside parentheses should not be automatically title cased.',
             '1.2.40: FIXED - Removed Transportation category from rest area places.',
             '1.2.39: NEW - Added 6 month check/highlight for missing Google links.',
@@ -1580,7 +1581,7 @@
                 },
 
                 formatUSPS: {  // ### needs WL or not?
-                    active: false, severity: 1, message: 'Localize the post office according to this region\'s standards for USPS locations (e.g., "USPS - Tampa")'
+                    active: false, severity: 1, message: 'Localize the post office according to this region\'s standards for USPS locations (e.g., "US Post Office - Tampa")'
                 },
 
                 catHotel: {
@@ -1936,11 +1937,6 @@
                         W.model.actionManager.add(new UpdateObject(item, { url: "usps.com" }));
                         fieldUpdateObject.url='#dfd';
                         highlightChangedFields(fieldUpdateObject,hpMode);
-                        if (region === 'SER') {
-                            W.model.actionManager.add(new UpdateObject(item, { aliases: ["United States Postal Service"] }));
-                            fieldUpdateObject.aliases='#dfd';
-                            highlightChangedFields(fieldUpdateObject,hpMode);
-                        }
                         bannButt.isitUSPS.active = false;
                     }
                 },
@@ -3588,12 +3584,6 @@
                             USPSMatch = true;
                             customStoreFinderURL = "https://tools.usps.com/go/POLocatorAction.action";
                             customStoreFinder = true;
-                            if (hpMode.harmFlag && region === 'SER' && item.attributes.aliases.indexOf("United States Postal Service") === -1) {
-                                actions.push(new UpdateObject(item, { aliases: ["United States Postal Service"], url: 'www.usps.com' }));
-                                fieldUpdateObject.aliases='#dfd';
-                                fieldUpdateObject.url='#dfd';
-                                phlogdev('USPS alt name added');
-                            }
                             if ( newName.indexOf(' - ') === -1 && newName.indexOf(': ') === -1 ) {
                                 bannButt.formatUSPS.active = true;
                             }
