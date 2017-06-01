@@ -4823,8 +4823,8 @@
             if (numAttempts < 10) {
                 numAttempts++;
                 if (W.selectionManager.selectedItems.length === 1) {
-                    var item = W.selectionManager.selectedItems[0]
-                    if ((item.model.type === "venue") && (item.attributes.venueUpdateRequests.length === 0)) {
+                    var item = W.selectionManager.selectedItems[0].model;
+                    if ((item.type === "venue") && (item.attributes.venueUpdateRequests.length === 0)) {
                         displayRunButton();
                         showOpenPlaceWebsiteButton();
                         getPanelFields();
