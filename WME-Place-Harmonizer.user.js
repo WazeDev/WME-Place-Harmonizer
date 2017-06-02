@@ -978,10 +978,10 @@
                 alert("Please sign up to beta-test this script version.\nSend a PM or Slack-DM to MapOMatic or Tonestertm, or post in the WMEPH forum thread. Thanks.");
                 return;
             }
-            // Only run if a single place is selected
+            // Only run if a single place is selected and does not have any updates pending
             if (W.selectionManager.selectedItems.length === 1) {
                 var item = W.selectionManager.selectedItems[0].model;
-                if (item.type === "venue") {
+                if ((item.type === "venue") && (item.attributes.venueUpdateRequests.length === 0)) {
                     blurAll();  // focus away from current cursor position
                     _disableHighlightTest = true;
                     harmonizePlaceGo(item,'harmonize');
@@ -4823,7 +4823,8 @@
             if (numAttempts < 10) {
                 numAttempts++;
                 if (W.selectionManager.selectedItems.length === 1) {
-                    if (W.selectionManager.selectedItems[0].model.type === "venue") {
+                    var item = W.selectionManager.selectedItems[0].model;
+                    if ((item.type === "venue") && (item.attributes.venueUpdateRequests.length === 0)) {
                         displayRunButton();
                         showOpenPlaceWebsiteButton();
                         getPanelFields();
@@ -5635,7 +5636,7 @@
         function checkSelection() {
             if (W.selectionManager.selectedItems.length > 0) {
                 var newItem = W.selectionManager.selectedItems[0].model;
-                if (newItem.type === "venue") {
+                if ((newItem.type === "venue") && (newItem.attributes.venueUpdateRequests.length === 0)) {
                     displayRunButton();
                     getPanelFields();
                     if ( $("#WMEPH-EnableCloneMode" + devVersStr).prop('checked') ) {
