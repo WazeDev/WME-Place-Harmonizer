@@ -13,7 +13,7 @@
 // ==UserScript==
 // @name        WME Place Harmonizer Beta
 // @namespace   WazeUSA
-// @version     1.2.41
+// @version     1.2.42
 // @description Harmonizes, formats, and locks a selected place
 // @author      WMEPH Development Group
 // @downloadURL https://greasyfork.org/scripts/28689-wme-place-harmonizer-beta/code/WME%20Place%20Harmonizer%20Beta.user.js
@@ -278,6 +278,7 @@
     function runPH() {
         // Script update info
         var WMEPHWhatsNewList = [  // New in this version
+            '1.2.42: FIXED - WMEPH should not run on places with PURs.',
             '1.2.41: FIXED - Removed custom USPS code for SER.',
             '1.2.40: FIXED - Words inside parentheses should not be automatically title cased.',
             '1.2.40: FIXED - Removed Transportation category from rest area places.',
