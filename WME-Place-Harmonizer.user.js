@@ -11,12 +11,12 @@
 /* global Node */
 
 // ==UserScript==
-// @name        WME Place Harmonizer
+// @name        WME Place Harmonizer Beta
 // @namespace   WazeUSA
-// @version     1.2.40
+// @version     1.2.42
 // @description Harmonizes, formats, and locks a selected place
 // @author      WMEPH Development Group
-// @downloadURL https://greasyfork.org/scripts/28690-wme-place-harmonizer/code/WME%20Place%20Harmonizer.user.js
+// @downloadURL https://greasyfork.org/scripts/28689-wme-place-harmonizer-beta/code/WME%20Place%20Harmonizer%20Beta.user.js
 // @include     /^https:\/\/(www|beta)\.waze\.com\/(?!user\/)(.{2,6}\/)?editor\/.*$/
 // @require     https://greasyfork.org/scripts/28687-jquery-ui-1-11-4-custom-min-js/code/jquery-ui-1114customminjs.js
 // @resource    jqUI_CSS  https://ajax.googleapis.com/ajax/libs/jqueryui/1.11.4/themes/smoothness/jquery-ui.css
@@ -278,6 +278,8 @@
     function runPH() {
         // Script update info
         var WMEPHWhatsNewList = [  // New in this version
+            '1.2.42: FIXED - WMEPH should not run on places with PURs.',
+            '1.2.41: FIXED - Removed custom USPS code for SER.',
             '1.2.40: FIXED - Words inside parentheses should not be automatically title cased.',
             '1.2.40: FIXED - Removed Transportation category from rest area places.',
             '1.2.39: NEW - Added 6 month check/highlight for missing Google links.',
@@ -977,10 +979,10 @@
                 alert("Please sign up to beta-test this script version.\nSend a PM or Slack-DM to MapOMatic or Tonestertm, or post in the WMEPH forum thread. Thanks.");
                 return;
             }
-            // Only run if a single place is selected
+            // Only run if a single place is selected and does not have any updates pending
             if (W.selectionManager.selectedItems.length === 1) {
                 var item = W.selectionManager.selectedItems[0].model;
-                if (item.type === "venue") {
+                if ((item.type === "venue") && (item.attributes.venueUpdateRequests.length === 0)) {
                     blurAll();  // focus away from current cursor position
                     _disableHighlightTest = true;
                     harmonizePlaceGo(item,'harmonize');
@@ -1580,7 +1582,7 @@
                 },
 
                 formatUSPS: {  // ### needs WL or not?
-                    active: false, severity: 1, message: 'Localize the post office according to this region\'s standards for USPS locations (e.g., "USPS - Tampa")'
+                    active: false, severity: 1, message: 'Localize the post office according to this region\'s standards for USPS locations (e.g., "US Post Office - Tampa")'
                 },
 
                 catHotel: {
@@ -1936,11 +1938,6 @@
                         W.model.actionManager.add(new UpdateObject(item, { url: "usps.com" }));
                         fieldUpdateObject.url='#dfd';
                         highlightChangedFields(fieldUpdateObject,hpMode);
-                        if (region === 'SER') {
-                            W.model.actionManager.add(new UpdateObject(item, { aliases: ["United States Postal Service"] }));
-                            fieldUpdateObject.aliases='#dfd';
-                            highlightChangedFields(fieldUpdateObject,hpMode);
-                        }
                         bannButt.isitUSPS.active = false;
                     }
                 },
@@ -3588,12 +3585,6 @@
                             USPSMatch = true;
                             customStoreFinderURL = "https://tools.usps.com/go/POLocatorAction.action";
                             customStoreFinder = true;
-                            if (hpMode.harmFlag && region === 'SER' && item.attributes.aliases.indexOf("United States Postal Service") === -1) {
-                                actions.push(new UpdateObject(item, { aliases: ["United States Postal Service"], url: 'www.usps.com' }));
-                                fieldUpdateObject.aliases='#dfd';
-                                fieldUpdateObject.url='#dfd';
-                                phlogdev('USPS alt name added');
-                            }
                             if ( newName.indexOf(' - ') === -1 && newName.indexOf(': ') === -1 ) {
                                 bannButt.formatUSPS.active = true;
                             }
@@ -4833,7 +4824,8 @@
             if (numAttempts < 10) {
                 numAttempts++;
                 if (W.selectionManager.selectedItems.length === 1) {
-                    if (W.selectionManager.selectedItems[0].model.type === "venue") {
+                    var item = W.selectionManager.selectedItems[0].model;
+                    if ((item.type === "venue") && (item.attributes.venueUpdateRequests.length === 0)) {
                         displayRunButton();
                         showOpenPlaceWebsiteButton();
                         getPanelFields();
@@ -5645,7 +5637,7 @@
         function checkSelection() {
             if (W.selectionManager.selectedItems.length > 0) {
                 var newItem = W.selectionManager.selectedItems[0].model;
-                if (newItem.type === "venue") {
+                if ((newItem.type === "venue") && (newItem.attributes.venueUpdateRequests.length === 0)) {
                     displayRunButton();
                     getPanelFields();
                     if ( $("#WMEPH-EnableCloneMode" + devVersStr).prop('checked') ) {
