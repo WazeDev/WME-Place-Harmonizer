@@ -13,7 +13,7 @@
 // ==UserScript==
 // @name        WME Place Harmonizer
 // @namespace   WazeUSA
-// @version     1.2.41
+// @version     1.2.42
 // @description Harmonizes, formats, and locks a selected place
 // @author      WMEPH Development Group
 // @downloadURL https://greasyfork.org/scripts/28690-wme-place-harmonizer/code/WME%20Place%20Harmonizer.user.js
@@ -278,6 +278,7 @@
     function runPH() {
         // Script update info
         var WMEPHWhatsNewList = [  // New in this version
+            '1.2.42: FIXED - WMEPH should not run on places with PURs.',
             '1.2.41: FIXED - Removed custom USPS code for SER.',
             '1.2.40: FIXED - Words inside parentheses should not be automatically title cased.',
             '1.2.40: FIXED - Removed Transportation category from rest area places.',
@@ -978,10 +979,10 @@
                 alert("Please sign up to beta-test this script version.\nSend a PM or Slack-DM to MapOMatic or Tonestertm, or post in the WMEPH forum thread. Thanks.");
                 return;
             }
-            // Only run if a single place is selected
+            // Only run if a single place is selected and does not have any updates pending
             if (W.selectionManager.selectedItems.length === 1) {
                 var item = W.selectionManager.selectedItems[0].model;
-                if (item.type === "venue") {
+                if ((item.type === "venue") && (item.attributes.venueUpdateRequests.length === 0)) {
                     blurAll();  // focus away from current cursor position
                     _disableHighlightTest = true;
                     harmonizePlaceGo(item,'harmonize');
@@ -4823,7 +4824,8 @@
             if (numAttempts < 10) {
                 numAttempts++;
                 if (W.selectionManager.selectedItems.length === 1) {
-                    if (W.selectionManager.selectedItems[0].model.type === "venue") {
+                    var item = W.selectionManager.selectedItems[0].model;
+                    if ((item.type === "venue") && (item.attributes.venueUpdateRequests.length === 0)) {
                         displayRunButton();
                         showOpenPlaceWebsiteButton();
                         getPanelFields();
@@ -5635,7 +5637,7 @@
         function checkSelection() {
             if (W.selectionManager.selectedItems.length > 0) {
                 var newItem = W.selectionManager.selectedItems[0].model;
-                if (newItem.type === "venue") {
+                if ((newItem.type === "venue") && (newItem.attributes.venueUpdateRequests.length === 0)) {
                     displayRunButton();
                     getPanelFields();
                     if ( $("#WMEPH-EnableCloneMode" + devVersStr).prop('checked') ) {
