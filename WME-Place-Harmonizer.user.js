@@ -981,7 +981,7 @@
             // Only run if a single place is selected and does not have any updates pending
             if (W.selectionManager.selectedItems.length === 1) {
                 var item = W.selectionManager.selectedItems[0].model;
-                if ((item.type === "venue") && (item.attributes.venueUpdateRequests.length === 0)) {
+                if ((item.type === "venue") && item.arePropertiesEditable()) {
                     blurAll();  // focus away from current cursor position
                     _disableHighlightTest = true;
                     harmonizePlaceGo(item,'harmonize');
@@ -4824,7 +4824,7 @@
                 numAttempts++;
                 if (W.selectionManager.selectedItems.length === 1) {
                     var item = W.selectionManager.selectedItems[0].model;
-                    if ((item.type === "venue") && (item.attributes.venueUpdateRequests.length === 0)) {
+                    if ((item.type === "venue") && item.arePropertiesEditable()) {
                         displayRunButton();
                         showOpenPlaceWebsiteButton();
                         getPanelFields();
@@ -5636,7 +5636,7 @@
         function checkSelection() {
             if (W.selectionManager.selectedItems.length > 0) {
                 var newItem = W.selectionManager.selectedItems[0].model;
-                if ((newItem.type === "venue") && (newItem.attributes.venueUpdateRequests.length === 0)) {
+                if ((newItem.type === "venue") && newItem.arePropertiesEditable()) {
                     displayRunButton();
                     getPanelFields();
                     if ( $("#WMEPH-EnableCloneMode" + devVersStr).prop('checked') ) {
