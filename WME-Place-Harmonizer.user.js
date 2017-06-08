@@ -979,10 +979,10 @@
                 alert("Please sign up to beta-test this script version.\nSend a PM or Slack-DM to MapOMatic or Tonestertm, or post in the WMEPH forum thread. Thanks.");
                 return;
             }
-            // Only run if a single place is selected and does not have any updates pending
+            // Only run if a single place is selected
             if (W.selectionManager.selectedItems.length === 1) {
                 var item = W.selectionManager.selectedItems[0].model;
-                if ((item.type === "venue") && (item.attributes.venueUpdateRequests.length === 0)) {
+                if (item.type === "venue") {
                     blurAll();  // focus away from current cursor position
                     _disableHighlightTest = true;
                     harmonizePlaceGo(item,'harmonize');
@@ -4825,7 +4825,7 @@
                 numAttempts++;
                 if (W.selectionManager.selectedItems.length === 1) {
                     var item = W.selectionManager.selectedItems[0].model;
-                    if ((item.type === "venue") && (item.attributes.venueUpdateRequests.length === 0)) {
+                    if ((item.type === "venue") && item.isApproved()) {
                         displayRunButton();
                         showOpenPlaceWebsiteButton();
                         getPanelFields();
@@ -5637,13 +5637,13 @@
         function checkSelection() {
             if (W.selectionManager.selectedItems.length > 0) {
                 var newItem = W.selectionManager.selectedItems[0].model;
-                if ((newItem.type === "venue") && (newItem.attributes.venueUpdateRequests.length === 0)) {
+                if ((newItem.type === "venue") && newItem.isApproved()) {
                     displayRunButton();
                     getPanelFields();
                     if ( $("#WMEPH-EnableCloneMode" + devVersStr).prop('checked') ) {
                         displayCloneButton();
                     }
-                    if (localStorage.getItem("WMEPH-AutoRunOnSelect" + devVersStr) === '1') {
+                    if ((localStorage.getItem("WMEPH-AutoRunOnSelect" + devVersStr) === '1') && newItem.arePropertiesEditable()) {
                         setTimeout(harmonizePlace,200);
                     }
                     for (var dvtix=0; dvtix<dupeIDList.length; dvtix++) {
