@@ -869,11 +869,13 @@
         }
 
         // normalize phone
-        function normalizePhone(s, outputFormat, returnType) {
+        function normalizePhone(s, outputFormat, returnType, item) {
             if ( !s && returnType === 'existing' ) {
-                bannButt.phoneMissing.active = true;
-                if (currentWL.phoneWL) {
-                    bannButt.phoneMissing.WLactive = false;
+                if (!isPLA(item) || (isPLA(item) && item.attributes.brand)) {
+                    bannButt.phoneMissing.active = true;
+                    if (currentWL.phoneWL) {
+                        bannButt.phoneMissing.WLactive = false;
+                    }
                 }
                 return s;
             }
@@ -934,11 +936,13 @@
         }
 
         // Normalize url
-        function normalizeURL(s, lc, skipBannerActivate) {
+        function normalizeURL(s, lc, skipBannerActivate, item) {
             if ((!s || s.trim().length === 0) && !skipBannerActivate) {  // Notify that url is missing and provide web search to find website and gather data (provided for all editors)
-                bannButt.urlMissing.active = true;
-                if (currentWL.urlWL) {
-                    bannButt.urlMissing.WLactive = false;
+                if (!isPLA(item) || (isPLA(item) && item.attributes.brand)) {
+                    bannButt.urlMissing.active = true;
+                    if (currentWL.urlWL) {
+                        bannButt.urlMissing.WLactive = false;
+                    }
                 }
                 bannButt.webSearch.active = true;  // Activate websearch button
                 return s;
@@ -1100,12 +1104,12 @@
 
                 plaNameMissing: {
                     active: false, severity: 1, message: 'Name is missing.',
-                    WLactive: true, WLmessage: '', WLtitle: 'Whitelist missing name',
-                    WLaction: function() {
-                        wlKeyName = 'plaNameMissing';
-                        whitelistAction(itemID, wlKeyName);
-                        harmonizePlaceGo(item, 'harmonize');
-                    }
+                    // WLactive: false, WLmessage: '', WLtitle: 'Whitelist missing name',
+                    // WLaction: function() {
+                    //     wlKeyName = 'plaNameMissing';
+                    //     whitelistAction(itemID, wlKeyName);
+                    //     harmonizePlaceGo(item, 'harmonize');
+                    // }
                 },
 
                 hoursOverlap: {  // no WL
@@ -1690,7 +1694,7 @@
                     badInput: false,
                     action: function() {
                         var newUrlValue = $('#WMEPH-UrlAdd'+devVersStr).val();
-                        var newUrl = normalizeURL(newUrlValue, true, false);
+                        var newUrl = normalizeURL(newUrlValue, true, false, item);
                         if ((!newUrl || newUrl.trim().length === 0) || newUrl === 'badURL') {
                             this.badInput = true;
                         } else {
@@ -1716,7 +1720,7 @@
                     badInput: false,
                     action: function() {
                         var newPhoneVal = $('#WMEPH-PhoneAdd'+devVersStr).val();
-                        var newPhone = normalizePhone(newPhoneVal, outputFormat, 'inputted');
+                        var newPhone = normalizePhone(newPhoneVal, outputFormat, 'inputted', item);
                         if (newPhone === 'badPhone') {
                             this.badInput = true;
                         } else {
@@ -1810,6 +1814,24 @@
                     WLaction: function() {
                         wlKeyName = 'noHours';
                         whitelistAction(itemID, wlKeyName);
+                        harmonizePlaceGo(item, 'harmonize');
+                    }
+                },
+
+                parkingCostMissing: {
+                    active: false, severity: 1, message: 'Missing parking cost. Free?', value: "Yes", title: 'Click for free parking, or select a cost in the More Info tab.',
+                    action: function() {
+                        var existingAttr = item.attributes.categoryAttributes.PARKING_LOT;
+                        var newAttr = {};
+                        if (existingAttr) {
+                            for (var prop in existingAttr) {
+                                var value = existingAttr[prop];
+                                if (Array.isArray(value)) value = value.clone();
+                                newAttr[prop] = value;
+                            };
+                        }
+                        newAttr.costType = 'FREE';
+                        W.model.actionManager.add(new UpdateObject(item, {'categoryAttributes': {PARKING_LOT: newAttr}}));
                         harmonizePlaceGo(item, 'harmonize');
                     }
                 },
@@ -2417,6 +2439,13 @@
                 $('.save-button').click();  // apply any address changes
             }
 
+            if (isPLA(item)) {
+                var catAttr = item.attributes.categoryAttributes;
+                if (!catAttr || !catAttr.PARKING_LOT || !catAttr.PARKING_LOT.costType || catAttr.PARKING_LOT.costType === 'UNKNOWN') {
+                    bannButt.parkingCostMissing.active = true;
+                    lockOK = false;
+                }
+            }
 
             if (item.attributes.categories.indexOf("HOSPITAL_MEDICAL_CARE") > -1) {
                 if (hpMode.hlFlag) {
@@ -2995,17 +3024,17 @@
                         if (newURL !== null || newURL !== '') {
                             localURLcheckRE = new RegExp(localURLcheck, "i");
                             if ( newURL.match(localURLcheckRE) !== null ) {
-                                newURL = normalizeURL(newURL,false);
+                                newURL = normalizeURL(newURL,false, false, item);
                             } else {
-                                newURL = normalizeURL(PNHMatchData[ph_url_ix],false);
+                                newURL = normalizeURL(PNHMatchData[ph_url_ix],false, false, item);
                                 bannButt.localURL.active = true;
                             }
                         } else {
-                            newURL = normalizeURL(PNHMatchData[ph_url_ix],false);
+                            newURL = normalizeURL(PNHMatchData[ph_url_ix],false, false, item);
                             bannButt.localURL.active = true;
                         }
                     } else {
-                        newURL = normalizeURL(PNHMatchData[ph_url_ix],false);
+                        newURL = normalizeURL(PNHMatchData[ph_url_ix],false, false, item);
                     }
                     // Parse PNH Aliases
                     newAliasesTemp = PNHMatchData[ph_aliases_ix].match(/([^\(]*)/i)[0];
@@ -3071,9 +3100,9 @@
                     // Strong title case option for non-PNH places
                     if (newName !== toTitleCaseStrong(newName)) {
                         bannButt.STC.active = true;
-                        }
+                    }
 
-                    newURL = normalizeURL(newURL,true);  // Normalize url
+                    newURL = normalizeURL(newURL,true,false, item);  // Normalize url
 
                     // Generic Hotel Treatment
                     if ( newCategories.indexOf("HOTEL") > -1  && newName.indexOf(' - ') === -1 && newName.indexOf(': ') === -1) {
@@ -3518,8 +3547,8 @@
                 var updateURL = true;
                 if (newURL !== item.attributes.url && newURL !== "" && newURL !== "0") {
                     if ( PNHNameRegMatch && item.attributes.url !== null && item.attributes.url !== '' ) {  // for cases where there is an existing URL in the WME place, and there is a PNH url on queue:
-                        var newURLTemp = normalizeURL(newURL,true);  // normalize
-                        var itemURL = normalizeURL(item.attributes.url,true);
+                        var newURLTemp = normalizeURL(newURL,true,false, item);  // normalize
+                        var itemURL = normalizeURL(item.attributes.url,true,false, item);
                         newURLTemp = newURLTemp.replace(/^www\.(.*)$/i,'$1');  // strip www
                         var itemURLTemp = itemURL.replace(/^www\.(.*)$/i,'$1');  // strip www
                         if ( newURLTemp !== itemURLTemp ) { // if formatted URLs don't match, then alert the editor to check the existing URL
@@ -3557,7 +3586,7 @@
                 } else if (countryCode === "CAN") {
                     outputFormat = "+1-{0}-{1}-{2}";
                 }
-                newPhone = normalizePhone(item.attributes.phone, outputFormat, 'existing');
+                newPhone = normalizePhone(item.attributes.phone, outputFormat, 'existing', item);
 
                 // Check if valid area code  #LOC# USA and CAN only
                 if (countryCode === "USA" || countryCode === "CAN") {
@@ -3603,11 +3632,24 @@
 
             // Name check
             if ( !item.attributes.residential && ( !newName || newName.replace(/[^A-Za-z0-9]/g,'').length === 0 )) {
-                if (item.attributes.categories[0] === 'PARKING_LOT') {
-                    if (currentWL.plaNameMissing) {
-                        bannButt.plaNameMissing.active = false;
-                    } else {
+                if (isPLA(item)) {
+                    // If it's a parking lot and not locked to R3...
+                    if (item.attributes.lockRank < 2) {
+                        lockOK = false;
                         bannButt.plaNameMissing.active = true;
+                        var msgAdd;
+                        if (usrRank < 3) {
+                            msgAdd = ' Request an R3+ lock to confirm unnamed parking lot.';
+                        } else {
+                            msgAdd = ' Lock to R3+ to confirm unnamed parking lot.';
+                            bannButt.plaNameMissing.value = 'Lock';
+                            bannButt.plaNameMissing.action = function() {
+                                W.model.actionManager.add(new UpdateObject(item, {'lockRank': 2}));
+                                harmonizePlaceGo(item, 'harmonize');
+                            }
+                            bannButt.plaNameMissing.title = 'DO NOT LOCK if you are not completing this place!';
+                        }
+                        bannButt.plaNameMissing.message += msgAdd;
                     }
                 }else if ( 'ISLAND|FOREST_GROVE|SEA_LAKE_POOL|RIVER_STREAM|CANAL'.split('|').indexOf(item.attributes.categories[0]) === -1 ) {
                     bannButt.nameMissing.active = true;
