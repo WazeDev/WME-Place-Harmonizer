@@ -13,7 +13,7 @@
 // ==UserScript==
 // @name        WME Place Harmonizer Beta
 // @namespace   WazeUSA
-// @version     1.2.43
+// @version     1.2.44
 // @description Harmonizes, formats, and locks a selected place
 // @author      WMEPH Development Group
 // @downloadURL https://greasyfork.org/scripts/28689-wme-place-harmonizer-beta/code/WME%20Place%20Harmonizer%20Beta.user.js
@@ -56,7 +56,7 @@
         devVersStr = devVersStringMaster; devVersStrSpace = " " + devVersStr; devVersStrDash = "-" + devVersStr;
         betaDataDelay = 20;
     }
-    var WMEServicesArray = ["VALLET_SERVICE","DRIVETHROUGH","WI_FI","RESTROOMS","CREDIT_CARDS","RESERVATIONS","OUTSIDE_SEATING","AIR_CONDITIONING","PARKING_FOR_CUSTOMERS","DELIVERIES","TAKE_AWAY","WHEELCHAIR_ACCESSIBLE"];
+    var WMEServicesArray = ["VALLET_SERVICE","DRIVETHROUGH","WI_FI","RESTROOMS","CREDIT_CARDS","RESERVATIONS","OUTSIDE_SEATING","AIR_CONDITIONING","PARKING_FOR_CUSTOMERS","DELIVERIES","TAKE_AWAY","WHEELCHAIR_ACCESSIBLE","DISABILITY_PARKING"];
     var collegeAbbreviations = 'USF|USFSP|UF|UCF|UA|UGA|FSU|UM|SCP|FAU|FIU';
     var defaultKBShortcut,shortcutParse, modifKey = 'Alt+';
     var forumMsgInputs;
@@ -278,6 +278,7 @@
     function runPH() {
         // Script update info
         var WMEPHWhatsNewList = [  // New in this version
+            '1.2.44: NEW - Added several flags for parking lots.',
             '1.2.43: FIXED - WMEPH should run on places with detail updates, but not new place PURs.',
             '1.2.42: FIXED - WMEPH should not run on places with PURs.',
             '1.2.41: FIXED - Removed custom USPS code for SER.',
@@ -1045,7 +1046,7 @@
             var customStoreFinderLocalURL = "";  // switch indicating place-specific custom store finder url with localization option (GPS/addr)
             var fieldUpdateObject = {name: false, aliases: false, categories: false, brand: false, description: false, lockRank: false, address: false, url: false, phone: false, openingHours: false,
                                      services: { VALLET_SERVICE: false, DRIVETHROUGH: false, WI_FI: false, RESTROOMS: false, CREDIT_CARDS: false, RESERVATIONS: false,
-                                                OUTSIDE_SEATING: false, AIR_CONDITIONING: false, PARKING_FOR_CUSTOMERS: false, DELIVERIES: false, TAKE_AWAY: false, WHEELCHAIR_ACCESSIBLE: false }
+                                                OUTSIDE_SEATING: false, AIR_CONDITIONING: false, PARKING_FOR_CUSTOMERS: false, DELIVERIES: false, TAKE_AWAY: false, WHEELCHAIR_ACCESSIBLE: false, DISABILITY_PARKING: false }
                                     };
             // Whitelist: reset flags
             currentWL = {
@@ -1761,6 +1762,40 @@
                     }
                 },
 
+                plaLotTypeMissing: {
+                    active: false, severity: 3, message: 'Lot type: '
+                },
+
+                plaCostTypeMissing: {
+                    active: false, severity: 1, message: 'Parking cost: '
+                },
+
+                plaPaymentTypeMissing: {
+                    active: false, severity: 1, message: ''
+                },
+
+                plaLotElevationMissing: {
+                    active: false, severity: 1, message: 'No lot elevation. Is it street level?', value: 'Yes', title: 'Click if street level parking only, or select other option(s) in the More Info tab.',
+                    action: function() {
+                        var existingAttr = item.attributes.categoryAttributes.PARKING_LOT;
+                        var newAttr = {};
+                        if (existingAttr) {
+                            for (var prop in existingAttr) {
+                                var value = existingAttr[prop];
+                                if (Array.isArray(value)) value = value.clone();
+                                newAttr[prop] = value;
+                            };
+                        }
+                        newAttr.lotType = ['STREET_LEVEL'];
+                        W.model.actionManager.add(new UpdateObject(item, {'categoryAttributes': {PARKING_LOT: newAttr}}));
+                        harmonizePlaceGo(item, 'harmonize');
+                    }
+                },
+
+                plaSpaces: {
+                    active: false, severity: 0, message: '# of Parking Spaces is set to 1-10.<br><b>If appropriate</b>, select another option:',
+                },
+
                 noHours: {
                     active: false, severity: 1, message: 'No hours: <input type="text" value="Paste Hours Here" id="WMEPH-HoursPaste'+devVersStr+'" autocomplete="off" style="font-size:0.85em;width:170px;padding-left:3px;color:#AAA">',
                     value: "Add hours", title: 'Add pasted hours to existing',
@@ -1814,24 +1849,6 @@
                     WLaction: function() {
                         wlKeyName = 'noHours';
                         whitelistAction(itemID, wlKeyName);
-                        harmonizePlaceGo(item, 'harmonize');
-                    }
-                },
-
-                parkingCostMissing: {
-                    active: false, severity: 1, message: 'Missing parking cost. Free?', value: "Yes", title: 'Click for free parking, or select a cost in the More Info tab.',
-                    action: function() {
-                        var existingAttr = item.attributes.categoryAttributes.PARKING_LOT;
-                        var newAttr = {};
-                        if (existingAttr) {
-                            for (var prop in existingAttr) {
-                                var value = existingAttr[prop];
-                                if (Array.isArray(value)) value = value.clone();
-                                newAttr[prop] = value;
-                            };
-                        }
-                        newAttr.costType = 'FREE';
-                        W.model.actionManager.add(new UpdateObject(item, {'categoryAttributes': {PARKING_LOT: newAttr}}));
                         harmonizePlaceGo(item, 'harmonize');
                     }
                 },
@@ -2328,6 +2345,19 @@
                         this.action(actions, false);
                     }
                 },
+                addDisabilityParking: {
+                    active: false, checked: false, icon: "serv-wheelchair", w2hratio: 50/50, value: "DisabilityParking", title: 'Disability Parking', servIDIndex: 12,
+                    action: function(actions, checked) {
+                        setServiceChecked(this, checked, actions);
+                    },
+                    pnhOverride: false,
+                    actionOn: function(actions) {
+                        this.action(actions, true);
+                    },
+                    actionOff: function(actions) {
+                        this.action(actions, false);
+                    }
+                },
                 add247: {  // add 24/7 hours
                     active: false, checked: false, icon: "serv-247", w2hratio: 73/50, value: "247", title: 'Hours: Open 24\/7',
                     action: function(actions) {
@@ -2439,11 +2469,71 @@
                 $('.save-button').click();  // apply any address changes
             }
 
+            // Check parking lot attributes.
             if (isPLA(item)) {
+                bannServ.addDisabilityParking.active = true;
                 var catAttr = item.attributes.categoryAttributes;
-                if (!catAttr || !catAttr.PARKING_LOT || !catAttr.PARKING_LOT.costType || catAttr.PARKING_LOT.costType === 'UNKNOWN') {
-                    bannButt.parkingCostMissing.active = true;
+                var parkAttr = catAttr ? catAttr.PARKING_LOT : undefined;
+                if (!parkAttr || !parkAttr.costType || parkAttr.costType === 'UNKNOWN') {
+                    bannButt.plaCostTypeMissing.active = true;
+                    [
+                        ['FREE','Free','Free'],
+                        ['LOW','$','Low'],
+                        ['MODERATE','$$','Moderate'],
+                        ['EXPENSIVE','$$$','Expensive'],
+                    ].forEach(function(btnInfo) {
+                        if (btnIdx === 3) $btnDiv.append('<br>');
+                        bannButt.plaCostTypeMissing.message +=
+                            $('<button>', {id: 'wmeph_' + btnInfo[0], class: 'wmeph-pla-cost-type-btn', title: btnInfo[2]})
+                            .text(btnInfo[1])
+                            .css({padding:'3px', height:'20px', lineHeight:'0px', marginRight:'2px',
+                                  marginBottom:'3px', fontWeight:'900', fontSize:'.96em'})
+                            .prop('outerHTML');
+                    });
                     lockOK = false;
+                }
+                if (!parkAttr || !parkAttr.lotType || parkAttr.lotType.length === 0) {
+                    bannButt.plaLotElevationMissing.active = true;
+                    lockOK = false;
+                }
+                if (!parkAttr || !parkAttr.estimatedNumberOfSpots || parkAttr.estimatedNumberOfSpots === 'R_1_TO_10') {
+                    bannButt.plaSpaces.active = true;
+                    var $btnDiv = $('<div>');
+                    var btnIdx = 0;
+                    [
+                        ['R_11_TO_30','11-30'],
+                        ['R_31_TO_60','31-60'],
+                        ['R_61_TO_100','61-100'],
+                        ['R_101_TO_300','101-300'],
+                        ['R_301_TO_600','301-600'],
+                        ['R_600_PLUS','601+']
+                    ].forEach(function(btnInfo) {
+                        if (btnIdx === 3) $btnDiv.append('<br>');
+                        $btnDiv.append(
+                            $('<button>', {id: 'wmeph_' + btnInfo[0], class: 'wmeph-pla-spaces-btn'})
+                            .text(btnInfo[1])
+                            .css({padding:'3px', height:'20px', lineHeight:'0px', marginRight:'2px', 
+                                  marginBottom:'3px', fontWeight:'900', fontSize:'.96em', width:'64px'})
+                        );
+                        btnIdx++;
+                    });
+                    bannButt.plaSpaces.message += $btnDiv.prop('outerHTML');
+                }
+                if (!parkAttr || !parkAttr.parkingType) {
+                    bannButt.plaLotTypeMissing.active = true;
+                    [
+                        ['PUBLIC','Public'],
+                        ['RESTRICTED','Restricted'],
+                        ['PRIVATE','Private']
+                    ].forEach(function(btnInfo) {
+                        if (btnIdx === 3) $btnDiv.append('<br>');
+                        bannButt.plaLotTypeMissing.message +=
+                            $('<button>', {id: 'wmeph_' + btnInfo[0], class: 'wmeph-pla-lot-type-btn'})
+                            .text(btnInfo[1])
+                            .css({padding:'3px', height:'20px', lineHeight:'0px', marginRight:'2px', 
+                                  marginBottom:'3px', fontWeight:'900', fontSize:'.96em'})
+                            .prop('outerHTML');
+                    });
                 }
             }
 
@@ -3642,12 +3732,12 @@
                             msgAdd = ' Request an R3+ lock to confirm unnamed parking lot.';
                         } else {
                             msgAdd = ' Lock to R3+ to confirm unnamed parking lot.';
-                            bannButt.plaNameMissing.value = 'Lock';
-                            bannButt.plaNameMissing.action = function() {
-                                W.model.actionManager.add(new UpdateObject(item, {'lockRank': 2}));
-                                harmonizePlaceGo(item, 'harmonize');
-                            }
-                            bannButt.plaNameMissing.title = 'DO NOT LOCK if you are not completing this place!';
+                            // bannButt.plaNameMissing.value = 'Lock';
+                            // bannButt.plaNameMissing.action = function() {
+                            //     W.model.actionManager.add(new UpdateObject(item, {'lockRank': 2}));
+                            //     harmonizePlaceGo(item, 'harmonize');
+                            // };
+                            // bannButt.plaNameMissing.title = 'DO NOT LOCK if you are not completing this place!';
                         }
                         bannButt.plaNameMissing.message += msgAdd;
                     }
@@ -4423,6 +4513,7 @@
                     }
                 }
             }
+
             if ($webDiv) {
                 sidebarMessage.push($webDiv[0].outerHTML);
             }
@@ -4492,73 +4583,120 @@
                 };
             }
 
-            // Street entry textbox stuff
-            var streetNames = [];
-            var streetNamesCap = [];
-            W.model.streets.getObjectArray().forEach(function(st) {
-                if (!st.isEmpty) {
-                    streetNames.push(st.name);
-                    streetNamesCap.push(st.name.toUpperCase());
+            // Add click handlers for parking lot helper buttons.
+            $('.wmeph-pla-spaces-btn').click(function() {
+                var selectedValue = $(this).attr('id').replace('wmeph_','');
+                var existingAttr = item.attributes.categoryAttributes.PARKING_LOT;
+                var newAttr = {};
+                if (existingAttr) {
+                    for (var prop in existingAttr) {
+                        var value = existingAttr[prop];
+                        if (Array.isArray(value)) value = value.clone();
+                        newAttr[prop] = value;
+                    };
                 }
+                newAttr.estimatedNumberOfSpots = selectedValue;
+                W.model.actionManager.add(new UpdateObject(item, {'categoryAttributes': {PARKING_LOT: newAttr}}));
+                harmonizePlaceGo(item, 'harmonize');
             });
-            streetNames.sort();
-            streetNamesCap.sort();
-            $('#WMEPH_missingStreet').autocomplete({
-                source: streetNames,
-                change: onStreetChanged,
-                select: onStreetSelected,
-                response: function(e, ui) {
-                    var maxListLength = 10;
-                    if(ui.content.length > maxListLength) {
-                        ui.content.splice(maxListLength, ui.content.length - maxListLength);
-                    }
+            $('.wmeph-pla-lot-type-btn').click(function() {
+                var selectedValue = $(this).attr('id').replace('wmeph_','');
+                var existingAttr = item.attributes.categoryAttributes.PARKING_LOT;
+                var newAttr = {};
+                if (existingAttr) {
+                    for (var prop in existingAttr) {
+                        var value = existingAttr[prop];
+                        if (Array.isArray(value)) value = value.clone();
+                        newAttr[prop] = value;
+                    };
                 }
+                newAttr.parkingType = selectedValue;
+                W.model.actionManager.add(new UpdateObject(item, {'categoryAttributes': {PARKING_LOT: newAttr}}));
+                harmonizePlaceGo(item, 'harmonize');
             });
-            function onStreetSelected(e, ui) {
-                if (ui.item) {
-                    checkStreet(ui.item.value);
+
+            $('.wmeph-pla-cost-type-btn').click(function() {
+                var selectedValue = $(this).attr('id').replace('wmeph_','');
+                var existingAttr = item.attributes.categoryAttributes.PARKING_LOT;
+                var newAttr = {};
+                if (existingAttr) {
+                    for (var prop in existingAttr) {
+                        var value = existingAttr[prop];
+                        if (Array.isArray(value)) value = value.clone();
+                        newAttr[prop] = value;
+                    };
                 }
-            }
-            function onStreetChanged(e, ui) {
-                checkStreet(null);
-            }
-            $('#WMEPH_addStreetBtn').on('click', addStreetToVenue);
-            function addStreetToVenue() {
-                var stName = $('#WMEPH_missingStreet').val();
-                var street = W.model.streets.getByAttributes({name:stName})[0];
-                var addr = item.getAddress().attributes;
-                var newAddr = {
-                    country: addr.country,
-                    state: addr.state,
-                    city: addr.city,
-                    street: street
-                };
-                updateAddress(item, newAddr);
-                bannButt.streetMissing.active = false;
-                assembleBanner();
-            }
-            function checkStreet(name) {
-                name = (name || $("#WMEPH_missingStreet").val()).toUpperCase();
-                var ix = streetNamesCap.indexOf(name);
-                var enable = false;
-                if (ix > -1) {
-                    color = 'lightgreen';
-                    $("#WMEPH_missingStreet").val(streetNames[ix]);
-                    enable = true;
-                    $('#WMEPH_addStreetBtn').prop("disabled", false).removeClass('disabled');
-                } else {
-                    $('#WMEPH_addStreetBtn').prop('disabled', true).addClass('disabled');
-                }
-                return enable;
-            }
-            // If pressing enter in the street entry box, add the street
-            $("#WMEPH_missingStreet").keyup(function(event){
-                if( event.keyCode === 13 && $('#WMEPH_missingStreet').val() !== '' ){
-                    if(checkStreet(null)) {
-                        addStreetToVenue();
-                    }
-                }
+                newAttr.costType = selectedValue;
+                W.model.actionManager.add(new UpdateObject(item, {'categoryAttributes': {PARKING_LOT: newAttr}}));
+                harmonizePlaceGo(item, 'harmonize');
             });
+            // // Street entry textbox stuff
+            // var streetNames = [];
+            // var streetNamesCap = [];
+            // W.model.streets.getObjectArray().forEach(function(st) {
+            //     if (!st.isEmpty) {
+            //         streetNames.push(st.name);
+            //         streetNamesCap.push(st.name.toUpperCase());
+            //     }
+            // });
+            // streetNames.sort();
+            // streetNamesCap.sort();
+            // $('#WMEPH_missingStreet').autocomplete({
+            //     source: streetNames,
+            //     change: onStreetChanged,
+            //     select: onStreetSelected,
+            //     response: function(e, ui) {
+            //         var maxListLength = 10;
+            //         if(ui.content.length > maxListLength) {
+            //             ui.content.splice(maxListLength, ui.content.length - maxListLength);
+            //         }
+            //     }
+            // });
+            // function onStreetSelected(e, ui) {
+            //     if (ui.item) {
+            //         checkStreet(ui.item.value);
+            //     }
+            // }
+            // function onStreetChanged(e, ui) {
+            //     checkStreet(null);
+            // }
+            // $('#WMEPH_addStreetBtn').on('click', addStreetToVenue);
+            // function addStreetToVenue() {
+            //     var stName = $('#WMEPH_missingStreet').val();
+            //     var street = W.model.streets.getByAttributes({name:stName})[0];
+            //     var addr = item.getAddress().attributes;
+            //     var newAddr = {
+            //         country: addr.country,
+            //         state: addr.state,
+            //         city: addr.city,
+            //         street: street
+            //     };
+            //     updateAddress(item, newAddr);
+            //     bannButt.streetMissing.active = false;
+            //     assembleBanner();
+            // }
+            // function checkStreet(name) {
+            //     name = (name || $("#WMEPH_missingStreet").val()).toUpperCase();
+            //     var ix = streetNamesCap.indexOf(name);
+            //     var enable = false;
+            //     if (ix > -1) {
+            //         color = 'lightgreen';
+            //         $("#WMEPH_missingStreet").val(streetNames[ix]);
+            //         enable = true;
+            //         $('#WMEPH_addStreetBtn').prop("disabled", false).removeClass('disabled');
+            //     } else {
+            //         $('#WMEPH_addStreetBtn').prop('disabled', true).addClass('disabled');
+            //     }
+            //     return enable;
+            // }
+            // // If pressing enter in the street entry box, add the street
+            // $("#WMEPH_missingStreet").keyup(function(event){
+            //     if( event.keyCode === 13 && $('#WMEPH_missingStreet').val() !== '' ){
+            //         if(checkStreet(null)) {
+            //             addStreetToVenue();
+            //         }
+            //     }
+            // });
 
             // If pressing enter in the HN entry box, add the HN
             $("#WMEPH-HNAdd"+devVersStr).keyup(function(event){
