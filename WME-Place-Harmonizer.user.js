@@ -13,7 +13,7 @@
 // ==UserScript==
 // @name        WME Place Harmonizer Beta
 // @namespace   WazeUSA
-// @version     1.2.45
+// @version     1.2.46
 // @description Harmonizes, formats, and locks a selected place
 // @author      WMEPH Development Group
 // @downloadURL https://greasyfork.org/scripts/28689-wme-place-harmonizer-beta/code/WME%20Place%20Harmonizer%20Beta.user.js
@@ -245,6 +245,7 @@
     function runPH() {
         // Script update info
         var WMEPHWhatsNewList = [  // New in this version
+            '1.2.46: NEW - Added a flag for PLA stop points that have never been moved.',
             '1.2.45: NEW - Added a button to open the Google link search box and pre-fill it with the place name.',
             '1.2.45: NEW - Updating Google place link will automatically re-run WMEPH.',
             '1.2.44: NEW - Added several flags for parking lots.',
@@ -425,14 +426,15 @@
         function onObjectsChanged(arg) {
             deleteDupeLabel();
 
-            // This is the starting of code to handle updating the banner when changes are made external to the script.
+            // This is code to handle updating the banner when changes are made external to the script.
             try{
                 if ($('#WMEPH_banner').length > 0 && W.selectionManager.hasSelectedItems() && W.selectionManager.selectedItems[0].model.type === 'venue') {
                     var selItem = W.selectionManager.selectedItems[0].model;
                     var actions = W.model.actionManager.actions;
                     var lastAction = actions[actions.length - 1];
                     if (lastAction.object.type === 'venue' && lastAction.attributes.id === selItem.attributes.id) {
-                        if (lastAction.newAttributes.externalProviderIDs) {
+                        if (lastAction.newAttributes.externalProviderIDs ||
+                           lastAction.newAttributes.entryExitPoints) {
                             harmonizePlaceGo(selItem, 'harmonize');
                         }
                     }
@@ -1677,7 +1679,7 @@
                         $('div.external-providers-view a').focus().click();
                         setTimeout(function() {
                             $('div.external-providers-view > div > ul > div > li > div > a').last().mousedown();
-                            $('.select2-input').last().focus().val($('input[name="name"]').val()).trigger('input');
+                            $('.select2-input').last().focus().val(item.attributes.name).trigger('input');
                         }, 100);
                     }
                     // WLactive:true, WLmessage:'', //WLtitle:'Whitelist missing Google place link',
@@ -1792,6 +1794,10 @@
 
                 plaSpaces: {
                     active: false, severity: 0, message: '# of Parking Spaces is set to 1-10.<br><b>If appropriate</b>, select another option:'
+                },
+                
+                plaStopPointUnmoved: {
+                    active: false, severity: 1, message: 'Stop point has not been moved.'
                 },
 
                 noHours: {
@@ -2491,7 +2497,7 @@
                             $('<button>', {id: 'wmeph_' + btnInfo[0], class: 'wmeph-pla-cost-type-btn', title: btnInfo[2]})
                             .text(btnInfo[1])
                             .css({padding:'3px', height:'20px', lineHeight:'0px', marginRight:'2px',
-                                  marginBottom:'3px', fontWeight:'900', fontSize:'.96em'})
+                                  marginBottom:'1px', marginTop:'2px', fontWeight:'900', fontSize:'.96em'})
                             .prop('outerHTML');
                     });
                     lockOK = false;
@@ -2516,8 +2522,8 @@
                         $btnDiv.append(
                             $('<button>', {id: 'wmeph_' + btnInfo[0], class: 'wmeph-pla-spaces-btn'})
                             .text(btnInfo[1])
-                            .css({padding:'3px', height:'20px', lineHeight:'0px', marginRight:'2px', 
-                                  marginBottom:'3px', fontWeight:'900', fontSize:'.96em', width:'64px'})
+                            .css({padding:'3px', height:'20px', lineHeight:'0px', marginRight:'2px',
+                                  marginBottom:'1px', marginTop:'2px', fontWeight:'900', fontSize:'.96em', width:'64px'})
                         );
                         btnIdx++;
                     });
@@ -2534,10 +2540,13 @@
                         bannButt.plaLotTypeMissing.message +=
                             $('<button>', {id: 'wmeph_' + btnInfo[0], class: 'wmeph-pla-lot-type-btn'})
                             .text(btnInfo[1])
-                            .css({padding:'3px', height:'20px', lineHeight:'0px', marginRight:'2px', 
-                                  marginBottom:'3px', fontWeight:'900', fontSize:'.96em'})
+                            .css({padding:'3px', height:'20px', lineHeight:'0px', marginRight:'2px',
+                                  marginBottom:'1px', marginTop:'2px', fontWeight:'900', fontSize:'.96em'})
                             .prop('outerHTML');
                     });
+                }
+                if (!item.attributes.entryExitPoints || item.attributes.entryExitPoints.length === 0) {
+                    bannButt.plaStopPointUnmoved.active = true;
                 }
             }
 
