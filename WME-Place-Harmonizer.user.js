@@ -13,7 +13,7 @@
 // ==UserScript==
 // @name        WME Place Harmonizer Beta
 // @namespace   WazeUSA
-// @version     1.2.44
+// @version     1.2.45
 // @description Harmonizes, formats, and locks a selected place
 // @author      WMEPH Development Group
 // @downloadURL https://greasyfork.org/scripts/28689-wme-place-harmonizer-beta/code/WME%20Place%20Harmonizer%20Beta.user.js
@@ -84,105 +84,72 @@
         return 0 === this.length;
     };
 
+    function callAjax(url, onSuccess) {
+        $.ajax({
+            type: 'GET',
+            url: url,
+            jsonp: 'callback', data: { alt: 'json-in-script' }, dataType: 'jsonp',
+            success: onSuccess
+        });
+    }
+
     /* ****** Pull PNH and Userlist data ****** */
     setTimeout(function() {
         // Pull USA PNH Data
         setTimeout(function() {
-            $.ajax({
-                type: 'GET',
-                url: 'https://spreadsheets.google.com/feeds/list/1-f-JTWY5UnBx-rFTa4qhyGMYdHBZWNirUTOgn222zMY/o6q7kx/public/values',
-                jsonp: 'callback', data: { alt: 'json-in-script' }, dataType: 'jsonp',
-                success: function(response) {
-                    USA_PNH_DATA = [];
-                    for (var i = 0; i < response.feed.entry.length; i++) {
-                        USA_PNH_DATA.push(response.feed.entry[i].gsx$pnhdata.$t);
-                    }
-                }
+            callAjax('https://spreadsheets.google.com/feeds/list/1-f-JTWY5UnBx-rFTa4qhyGMYdHBZWNirUTOgn222zMY/o6q7kx/public/values',function(response) {
+                USA_PNH_DATA = [];
+                for (var i = 0; i < response.feed.entry.length; i++) USA_PNH_DATA.push(response.feed.entry[i].gsx$pnhdata.$t);
             });
         }, 0);
         // Pull Category Data ( Includes CAN for now )
         setTimeout(function() {
-            $.ajax({
-                type: 'GET',
-                url: 'https://spreadsheets.google.com/feeds/list/1-f-JTWY5UnBx-rFTa4qhyGMYdHBZWNirUTOgn222zMY/ov3dubz/public/values',
-                jsonp: 'callback', data: { alt: 'json-in-script' }, dataType: 'jsonp',
-                success: function(response) {
-                    USA_CH_DATA = [];
-                    for (var i = 0; i < response.feed.entry.length; i++) {
-                        USA_CH_DATA.push(response.feed.entry[i].gsx$pcdata.$t);
-                    }
-                }
+            callAjax('https://spreadsheets.google.com/feeds/list/1-f-JTWY5UnBx-rFTa4qhyGMYdHBZWNirUTOgn222zMY/ov3dubz/public/values',function(response) {
+                USA_CH_DATA = [];
+                for (var i = 0; i < response.feed.entry.length; i++) USA_CH_DATA.push(response.feed.entry[i].gsx$pcdata.$t);
             });
         }, 20);
         // Pull State-based Data (includes CAN for now)
         setTimeout(function() {
-            $.ajax({
-                type: 'GET',
-                url: 'https://spreadsheets.google.com/feeds/list/1-f-JTWY5UnBx-rFTa4qhyGMYdHBZWNirUTOgn222zMY/os2g2ln/public/values',
-                jsonp: 'callback', data: { alt: 'json-in-script' }, dataType: 'jsonp',
-                success: function(response) {
-                    USA_STATE_DATA = [];
-                    for (var i = 0; i < response.feed.entry.length; i++) {
-                        USA_STATE_DATA.push(response.feed.entry[i].gsx$psdata.$t);
-                    }
-                }
+            callAjax('https://spreadsheets.google.com/feeds/list/1-f-JTWY5UnBx-rFTa4qhyGMYdHBZWNirUTOgn222zMY/os2g2ln/public/values',function(response) {
+                USA_STATE_DATA = [];
+                for (var i = 0; i < response.feed.entry.length; i++) USA_STATE_DATA.push(response.feed.entry[i].gsx$psdata.$t);
             });
         }, 40);
         // Pull CAN PNH Data
         setTimeout(function() {
-            $.ajax({
-                type: 'GET',
-                url: 'https://spreadsheets.google.com/feeds/list/1TIxQZVLUbAJ8iH6LPTkJsvqFb_DstrHpKsJbv1W1FZs/o4ghhas/public/values',
-                jsonp: 'callback', data: { alt: 'json-in-script' }, dataType: 'jsonp',
-                success: function(response) {
-                    CAN_PNH_DATA = [];
-                    for (var i = 0; i < response.feed.entry.length; i++) {
-                        CAN_PNH_DATA.push(response.feed.entry[i].gsx$pnhdata.$t);
-                    }
-                }
+            callAjax('https://spreadsheets.google.com/feeds/list/1TIxQZVLUbAJ8iH6LPTkJsvqFb_DstrHpKsJbv1W1FZs/o4ghhas/public/values',function(response) {
+                CAN_PNH_DATA = [];
+                for (var i = 0; i < response.feed.entry.length; i++) CAN_PNH_DATA.push(response.feed.entry[i].gsx$pnhdata.$t);
             });
         }, 60);
         // Pull name-category lists
         setTimeout(function() {
-            $.ajax({
-                type: 'GET',
-                url: 'https://spreadsheets.google.com/feeds/list/1pDmenZA-3FOTvhlCq9yz1dnemTmS9l_njZQbu_jLVMI/op17piq/public/values',
-                jsonp: 'callback', data: { alt: 'json-in-script' }, dataType: 'jsonp',
-                success: function(response) {
-                    hospitalPartMatch = response.feed.entry[0].gsx$hmchp.$t;
-                    hospitalFullMatch = response.feed.entry[0].gsx$hmchf.$t;
-                    animalPartMatch = response.feed.entry[0].gsx$hmcap.$t;
-                    animalFullMatch = response.feed.entry[0].gsx$hmcaf.$t;
-                    schoolPartMatch = response.feed.entry[0].gsx$schp.$t;
-                    schoolFullMatch = response.feed.entry[0].gsx$schf.$t;
-                    hospitalPartMatch = hospitalPartMatch.toLowerCase().replace(/ \|/g,'|').replace(/\| /g,'|').split("|");
-                    hospitalFullMatch = hospitalFullMatch.toLowerCase().replace(/ \|/g,'|').replace(/\| /g,'|').split("|");
-                    animalPartMatch = animalPartMatch.toLowerCase().replace(/ \|/g,'|').replace(/\| /g,'|').split("|");
-                    animalFullMatch = animalFullMatch.toLowerCase().replace(/ \|/g,'|').replace(/\| /g,'|').split("|");
-                    schoolPartMatch = schoolPartMatch.toLowerCase().replace(/ \|/g,'|').replace(/\| /g,'|').split("|");
-                    schoolFullMatch = schoolFullMatch.toLowerCase().replace(/ \|/g,'|').replace(/\| /g,'|').split("|");
-                }
+            callAjax('https://spreadsheets.google.com/feeds/list/1pDmenZA-3FOTvhlCq9yz1dnemTmS9l_njZQbu_jLVMI/op17piq/public/values',function(response) {
+                hospitalPartMatch = response.feed.entry[0].gsx$hmchp.$t;
+                hospitalFullMatch = response.feed.entry[0].gsx$hmchf.$t;
+                animalPartMatch = response.feed.entry[0].gsx$hmcap.$t;
+                animalFullMatch = response.feed.entry[0].gsx$hmcaf.$t;
+                schoolPartMatch = response.feed.entry[0].gsx$schp.$t;
+                schoolFullMatch = response.feed.entry[0].gsx$schf.$t;
+                hospitalPartMatch = hospitalPartMatch.toLowerCase().replace(/ \|/g,'|').replace(/\| /g,'|').split("|");
+                hospitalFullMatch = hospitalFullMatch.toLowerCase().replace(/ \|/g,'|').replace(/\| /g,'|').split("|");
+                animalPartMatch = animalPartMatch.toLowerCase().replace(/ \|/g,'|').replace(/\| /g,'|').split("|");
+                animalFullMatch = animalFullMatch.toLowerCase().replace(/ \|/g,'|').replace(/\| /g,'|').split("|");
+                schoolPartMatch = schoolPartMatch.toLowerCase().replace(/ \|/g,'|').replace(/\| /g,'|').split("|");
+                schoolFullMatch = schoolFullMatch.toLowerCase().replace(/ \|/g,'|').replace(/\| /g,'|').split("|");
             });
         }, 80);
         // Pull dev and beta UserList Data
         setTimeout(function() {
-            $.ajax({
-                type: 'GET',
-                url: 'https://spreadsheets.google.com/feeds/list/1L82mM8Xg-MvKqK3WOfsMhFEGmVM46lA8BVcx8qwgmA8/ofblgob/public/values',
-                jsonp: 'callback', data: { alt: 'json-in-script' }, dataType: 'jsonp',
-                success: function(response) {
-                    var WMEPHuserList = response.feed.entry[0].gsx$phuserlist.$t;
-                    WMEPHuserList = WMEPHuserList.split("|");
-                    var betaix = WMEPHuserList.indexOf('BETAUSERS');
-                    WMEPHdevList = [];
-                    WMEPHbetaList = [];
-                    for (var ulix=1; ulix<betaix; ulix++) {
-                        WMEPHdevList.push(WMEPHuserList[ulix].toLowerCase());
-                    }
-                    for (ulix=betaix+1; ulix<WMEPHuserList.length; ulix++) {
-                        WMEPHbetaList.push(WMEPHuserList[ulix].toLowerCase());
-                    }
-                }
+            callAjax('https://spreadsheets.google.com/feeds/list/1L82mM8Xg-MvKqK3WOfsMhFEGmVM46lA8BVcx8qwgmA8/ofblgob/public/values',function(response) {
+                var WMEPHuserList = response.feed.entry[0].gsx$phuserlist.$t;
+                WMEPHuserList = WMEPHuserList.split("|");
+                var betaix = WMEPHuserList.indexOf('BETAUSERS');
+                WMEPHdevList = [];
+                WMEPHbetaList = [];
+                for (var ulix=1; ulix<betaix; ulix++) WMEPHdevList.push(WMEPHuserList[ulix].toLowerCase());
+                for (ulix=betaix+1; ulix<WMEPHuserList.length; ulix++) WMEPHbetaList.push(WMEPHuserList[ulix].toLowerCase());
             });
         }, 100);
     }, betaDataDelay);
@@ -278,6 +245,8 @@
     function runPH() {
         // Script update info
         var WMEPHWhatsNewList = [  // New in this version
+            '1.2.45: NEW - Added a button to open the Google link search box and pre-fill it with the place name.',
+            '1.2.45: NEW - Updating Google place link will automatically re-run WMEPH.',
             '1.2.44: NEW - Added several flags for parking lots.',
             '1.2.43: FIXED - WMEPH should run on places with detail updates, but not new place PURs.',
             '1.2.42: FIXED - WMEPH should not run on places with PURs.',
@@ -449,9 +418,31 @@
 
         // Event listeners
         W.selectionManager.events.registerPriority("selectionchanged", this, checkSelection);
-        W.model.venues.on('objectschanged', deleteDupeLabel);
-        W.accelerators.events.registerPriority('save', null, destroyDupeLabels);
+        W.model.venues.on('objectssynced', destroyDupeLabels);
         W.model.venues.on('objectssynced', syncWL);
+        W.model.venues.on('objectschanged', onObjectsChanged);
+
+        function onObjectsChanged(arg) {
+            deleteDupeLabel();
+
+            // This is the starting of code to handle updating the banner when changes are made external to the script.
+            try{
+                if ($('#WMEPH_banner').length > 0 && W.selectionManager.hasSelectedItems() && W.selectionManager.selectedItems[0].model.type === 'venue') {
+                    var selItem = W.selectionManager.selectedItems[0].model;
+                    var actions = W.model.actionManager.actions;
+                    var lastAction = actions[actions.length - 1];
+                    if (lastAction.object.type === 'venue' && lastAction.attributes.id === selItem.attributes.id) {
+                        if (lastAction.newAttributes.externalProviderIDs) {
+                            harmonizePlaceGo(selItem, 'harmonize');
+                        }
+                    }
+                }
+            } catch(ex) {
+                // Ignore errors for now.  The above function will need some work.
+                // console.log('WMEPH onObjectsChanged Error:', {exception: ex, lastAction: lastAction})
+            }
+        }
+
 
         // Remove any temporary ID values (ID < 0) from the WL store at startup.
         var removedWLCount = 0;
@@ -1104,7 +1095,7 @@
                 },
 
                 plaNameMissing: {
-                    active: false, severity: 1, message: 'Name is missing.',
+                    active: false, severity: 1, message: 'Name is missing.'
                     // WLactive: false, WLmessage: '', WLtitle: 'Whitelist missing name',
                     // WLaction: function() {
                     //     wlKeyName = 'plaNameMissing';
@@ -1681,6 +1672,13 @@
                         var action = new UpdateFeatureGeometry(place.model, W.model.venues, place.geometry, newGeom);
                         W.model.actionManager.add(action);
                         harmonizePlaceGo(item,'harmonize');  // Rerun the script to update fields and lock
+                    },
+                    value2: 'Add', title2:'Add a link to a Google place', action2: function() {
+                        $('div.external-providers-view a').focus().click();
+                        setTimeout(function() {
+                            $('div.external-providers-view > div > ul > div > li > div > a').last().mousedown();
+                            $('.select2-input').last().focus().val($('input[name="name"]').val()).trigger('input');
+                        }, 100);
                     }
                     // WLactive:true, WLmessage:'', //WLtitle:'Whitelist missing Google place link',
                     // WLaction: function() {
@@ -1793,7 +1791,7 @@
                 },
 
                 plaSpaces: {
-                    active: false, severity: 0, message: '# of Parking Spaces is set to 1-10.<br><b>If appropriate</b>, select another option:',
+                    active: false, severity: 0, message: '# of Parking Spaces is set to 1-10.<br><b>If appropriate</b>, select another option:'
                 },
 
                 noHours: {
@@ -2121,6 +2119,12 @@
                             message: 'Script version: ' + WMEPHversion + devVersStr + '\nPermalink: ' + placePL + '\nPlace name: ' + item.attributes.name + '\nCountry: ' + addr.country.name + '\n--------\nDescribe the error:  \n '
                         };
                         WMEPH_errorReport(forumMsgInputs);
+                    }
+                },
+                reportBetaIssue: {
+                    active: isDevVersion, severity: 0, message: "", value: "Report beta issue", title: "Report beta issue in GitHub",
+                    action: function() {
+                        window.open('https://github.com/WazeUSA/WME-Place-Harmonizer/issues');
                     }
                 },
                 whatsNew: {
@@ -2480,7 +2484,7 @@
                         ['FREE','Free','Free'],
                         ['LOW','$','Low'],
                         ['MODERATE','$$','Moderate'],
-                        ['EXPENSIVE','$$$','Expensive'],
+                        ['EXPENSIVE','$$$','Expensive']
                     ].forEach(function(btnInfo) {
                         if (btnIdx === 3) $btnDiv.append('<br>');
                         bannButt.plaCostTypeMissing.message +=
@@ -4489,9 +4493,9 @@
                     }
                     if (bannButt[tempKey].hasOwnProperty('action')) {
                         strButt1 += ' <input class="btn btn-default btn-xs wmeph-btn" id="WMEPH_' + tempKey + '" title="' + bannButt[tempKey].title + '" type="button" value="' + bannButt[tempKey].value + '"></input>';
-                        if (tempKey === 'noHours') {
-                            strButt1 += ' <input class="btn btn-default btn-xs wmeph-btn" id="WMEPH_' + tempKey + 'A2" title="' + bannButt[tempKey].title2 + '" type="button" value="' + bannButt[tempKey].value2 + '"></input>';
-                        }
+                    }
+                    if (bannButt[tempKey].hasOwnProperty('action2')) {
+                        strButt1 += ' <input class="btn btn-default btn-xs wmeph-btn" id="WMEPH_' + tempKey + '_2" title="' + bannButt[tempKey].title2 + '" type="button" value="' + bannButt[tempKey].value2 + '"></input>';
                     }
                     if ( bannButt[tempKey].hasOwnProperty('WLactive') ) {
                         if ( bannButt[tempKey].WLactive && bannButt[tempKey].hasOwnProperty('WLaction') ) {  // If there's a WL option, enable it
@@ -4575,13 +4579,13 @@
             // Setup bannButt2 onclicks
             setupButtons(bannButt2);
 
-            if (bannButt.noHours.active) {
-                var button = document.getElementById('WMEPH_noHoursA2');
-                button.onclick = function() {
-                    bannButt.noHours.action2();
-                    assembleBanner();
-                };
-            }
+            // if (bannButt.noHours.active) {
+            //     var button = document.getElementById('WMEPH_noHoursA2');
+            //     button.onclick = function() {
+            //         bannButt.noHours.action2();
+            //         assembleBanner();
+            //     };
+            // }
 
             // Add click handlers for parking lot helper buttons.
             $('.wmeph-pla-spaces-btn').click(function() {
@@ -4745,6 +4749,9 @@
                     if (b[tempKey].hasOwnProperty('action')) {  // If there is an action, set onclick
                         buttonAction(b, tempKey);
                     }
+                    if (b[tempKey].hasOwnProperty('action2')) {  // If there is an action2, set onclick
+                        buttonAction2(b, tempKey);
+                    }
                     // If there's a WL option, set up onclick
                     if ( b[tempKey].hasOwnProperty('WLactive') && b[tempKey].WLactive && b[tempKey].hasOwnProperty('WLaction') ) {
                         buttonWhitelist(b, tempKey);
@@ -4757,6 +4764,14 @@
             var button = document.getElementById('WMEPH_'+bKey);
             button.onclick = function() {
                 b[bKey].action();
+                assembleBanner();
+            };
+            return button;
+        }
+        function buttonAction2(b,bKey) {
+            var button = document.getElementById('WMEPH_'+bKey+'_2');
+            button.onclick = function() {
+                b[bKey].action2();
                 assembleBanner();
             };
             return button;
