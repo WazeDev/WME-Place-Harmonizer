@@ -13,7 +13,7 @@
 // ==UserScript==
 // @name        WME Place Harmonizer Beta
 // @namespace   WazeUSA
-// @version     1.2.46
+// @version     1.2.47
 // @description Harmonizes, formats, and locks a selected place
 // @author      WMEPH Development Group
 // @downloadURL https://greasyfork.org/scripts/28689-wme-place-harmonizer-beta/code/WME%20Place%20Harmonizer%20Beta.user.js
@@ -250,6 +250,7 @@
     function runPH() {
         // Script update info
         var WMEPHWhatsNewList = [  // New in this version
+            '1.2.47: NEW - Added a flag for "Can cars exit parking lot when closed?"',
             '1.2.46: NEW - Added a flag for PLA stop points that have never been moved.',
             '1.2.45: NEW - Added a button to open the Google link search box and pre-fill it with the place name.',
             '1.2.45: NEW - Updating Google place link will automatically re-run WMEPH.',
