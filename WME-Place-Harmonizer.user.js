@@ -13,7 +13,7 @@
 // ==UserScript==
 // @name        WME Place Harmonizer Beta
 // @namespace   WazeUSA
-// @version     1.2.47
+// @version     1.2.48
 // @description Harmonizes, formats, and locks a selected place
 // @author      WMEPH Development Group
 // @downloadURL https://greasyfork.org/scripts/28689-wme-place-harmonizer-beta/code/WME%20Place%20Harmonizer%20Beta.user.js
@@ -1777,7 +1777,29 @@
                 },
 
                 plaPaymentTypeMissing: {
-                    active: false, severity: 1, message: ''
+                    active: false, severity: 1, message: 'Select allowed payment type(s):<br>', value: 'Apply',
+                    action: function() {
+                        var cash = $('#wmeph-payment-cash').prop('checked');
+                        var check = $('#wmeph-payment-check').prop('checked');
+                        var credit = $('#wmeph-payment-credit').prop('checked');
+                        if (cash || check || credit) {
+                            var existingAttr = item.attributes.categoryAttributes.PARKING_LOT;
+                            var newAttr = {};
+                            if (existingAttr) {
+                                for (var prop in existingAttr) {
+                                    var value = existingAttr[prop];
+                                    if (Array.isArray(value)) value = value.clone();
+                                    newAttr[prop] = value;
+                                };
+                            }
+                            newAttr.paymentType = [];
+                            if (cash) newAttr.paymentType.push('CASH');
+                            if (check) newAttr.paymentType.push('CHECKS');
+                            if (credit) newAttr.paymentType.push('CREDIT');
+                            W.model.actionManager.add(new UpdateObject(item, {'categoryAttributes': {PARKING_LOT: newAttr}}));
+                            harmonizePlaceGo(item, 'harmonize');
+                        }
+                    }
                 },
 
                 plaLotElevationMissing: {
@@ -2568,6 +2590,20 @@
                 }
                 if (parkAttr && !parkAttr.canExitWhileClosed && ($('#WMEPH-ShowPLAExitWhileClosed' + devVersStr).prop('checked') || !(isAlwaysOpen(item) || item.attributes.openingHours.length === 0))) {
                     bannButt.plaCanExitWhileClosed.active = true;
+                }
+                if (parkAttr && parkAttr.costType !== 'FREE' && parkAttr.costType !== 'UNKNOWN' && (!parkAttr.paymentType || parkAttr.paymentType.length === 0)) {
+                    bannButt.plaPaymentTypeMissing.active = true;
+                    var $pmtDiv = $('<div>').css({display:'inline'});
+                    ['Cash', 'Check', 'Credit'].forEach(function(text) {
+                        var id = 'wmeph-payment-' + text.toLowerCase();
+                        $pmtDiv.append(
+                            $('<div>', {class: 'form-control'}).css({padding: '0px', backgroundColor: 'inherit', color: 'white', display: 'inline', border: 'none', marginRight: '5px'}).append(
+                                $('<input>', {id: id, type: 'checkbox'}).css({marginRight: '0px'}),
+                                $('<label>', {for: id}).text(text)
+                            )
+                        );
+                    });
+                    bannButt.plaPaymentTypeMissing.message += $pmtDiv.prop('outerHTML');
                 }
             }
 
