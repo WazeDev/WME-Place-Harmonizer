@@ -865,7 +865,7 @@
         // normalize phone
         function normalizePhone(s, outputFormat, returnType, item) {
             if ( !s && returnType === 'existing' ) {
-                if (!isPLA(item) || (isPLA(item) && item.attributes.brand)) {
+                if (!isPLA(item) || (isPLA(item) && item.attributes.brand && W.model.venues.categoryBrands.PARKING_LOT.indexOf(item.attributes.brand) !== -1)) {
                     bannButt.phoneMissing.active = true;
                     if (currentWL.phoneWL) {
                         bannButt.phoneMissing.WLactive = false;
@@ -932,7 +932,7 @@
         // Normalize url
         function normalizeURL(s, lc, skipBannerActivate, item) {
             if ((!s || s.trim().length === 0) && !skipBannerActivate) {  // Notify that url is missing and provide web search to find website and gather data (provided for all editors)
-                if (!isPLA(item) || (isPLA(item) && item.attributes.brand)) {
+                if (!isPLA(item) || (isPLA(item) && item.attributes.brand && W.model.venues.categoryBrands.PARKING_LOT.indexOf(item.attributes.brand) !== -1)) {
                     bannButt.urlMissing.active = true;
                     if (currentWL.urlWL) {
                         bannButt.urlMissing.WLactive = false;
