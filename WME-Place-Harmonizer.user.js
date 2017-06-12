@@ -229,6 +229,11 @@
         }
     }
 
+    function isAlwaysOpen(venue) {
+        var hours = venue.attributes.openingHours;
+        return hours.length === 1 && hours[0].days.length === 7 && hours[0].fromHour === '00:00' && hours[0].toHour ==='00:00';
+    }
+
     function isPLA(venue) {
         return venue.attributes.categories && venue.attributes.categories[0] === 'PARKING_LOT';
     }
@@ -434,7 +439,7 @@
                     var lastAction = actions[actions.length - 1];
                     if (lastAction.object.type === 'venue' && lastAction.attributes.id === selItem.attributes.id) {
                         if (lastAction.newAttributes.externalProviderIDs ||
-                           lastAction.newAttributes.entryExitPoints) {
+                            lastAction.newAttributes.entryExitPoints) {
                             harmonizePlaceGo(selItem, 'harmonize');
                         }
                     }
@@ -1795,9 +1800,27 @@
                 plaSpaces: {
                     active: false, severity: 0, message: '# of Parking Spaces is set to 1-10.<br><b>If appropriate</b>, select another option:'
                 },
-                
+
                 plaStopPointUnmoved: {
                     active: false, severity: 1, message: 'Stop point has not been moved.'
+                },
+
+                plaCanExitWhileClosed: {
+                    active: false, severity: 0, message: 'Can cars exit when lot is closed? ', value: 'Yes', title: '',
+                    action: function() {
+                        var existingAttr = item.attributes.categoryAttributes.PARKING_LOT;
+                        var newAttr = {};
+                        if (existingAttr) {
+                            for (var prop in existingAttr) {
+                                var value = existingAttr[prop];
+                                if (Array.isArray(value)) value = value.clone();
+                                newAttr[prop] = value;
+                            };
+                        }
+                        newAttr.canExitWhileClosed = true;
+                        W.model.actionManager.add(new UpdateObject(item, {'categoryAttributes': {PARKING_LOT: newAttr}}));
+                        harmonizePlaceGo(item, 'harmonize');
+                    }
                 },
 
                 noHours: {
@@ -1814,10 +1837,7 @@
                             W.model.actionManager.add(new UpdateObject(item, { openingHours: hoursObjectArray }));
                             fieldUpdateObject.openingHours='#dfd';
                             highlightChangedFields(fieldUpdateObject,hpMode);
-                            bannButt.noHours.value = 'Add hours';
-                            bannButt.noHours.severity = 0;
-                            bannButt.noHours.WLactive = false;
-                            bannButt.noHours.message = 'Hours: <input type="text" value="Paste Hours Here" id="WMEPH-HoursPaste'+devVersStr+'" style="width:170px;padding-left:3px;color:#AAA">';
+                            harmonizePlaceGo(item, 'harmonize');
                         } else {
                             phlog('Can\'t parse those hours');
                             bannButt.noHours.severity = 1;
@@ -1837,10 +1857,7 @@
                             W.model.actionManager.add(new UpdateObject(item, { openingHours: hoursObjectArray }));
                             fieldUpdateObject.openingHours='#dfd';
                             highlightChangedFields(fieldUpdateObject,hpMode);
-                            bannButt.noHours.value2 = 'Replace hours';
-                            bannButt.noHours.severity = 0;
-                            bannButt.noHours.WLactive = false;
-                            bannButt.noHours.message = 'Hours: <input type="text" value="Paste Hours Here" id="WMEPH-HoursPaste'+devVersStr+'" style="width:170px;padding-left:3px;color:#AAA">';
+                            harmonizePlaceGo(item, 'harmonize');
                         } else {
                             phlog('Can\'t parse those hours');
                             bannButt.noHours.severity = 1;
@@ -2547,6 +2564,9 @@
                 }
                 if (!item.attributes.entryExitPoints || item.attributes.entryExitPoints.length === 0) {
                     bannButt.plaStopPointUnmoved.active = true;
+                }
+                if (parkAttr && !parkAttr.canExitWhileClosed && ($('#WMEPH-ShowPLAExitWhileClosed' + devVersStr).prop('checked') || !(isAlwaysOpen(item) || item.attributes.openingHours.length === 0))) {
+                    bannButt.plaCanExitWhileClosed.active = true;
                 }
             }
 
@@ -6234,6 +6254,7 @@
             createSettingsCheckbox("sidepanel-harmonizer" + devVersStr, "WMEPH-EnableIAZoom" + devVersStr,"Enable zoom & center for places with no address");
             createSettingsCheckbox("sidepanel-harmonizer" + devVersStr, "WMEPH-HidePlacesWiki" + devVersStr,"Hide 'Places Wiki' button in results banner");
             createSettingsCheckbox("sidepanel-harmonizer" + devVersStr, "WMEPH-ExcludePLADupes" + devVersStr,"Exclude parking lots when searching for duplicate places.");
+            createSettingsCheckbox("sidepanel-harmonizer" + devVersStr, "WMEPH-ShowPLAExitWhileClosed" + devVersStr,"Always ask if cars can exit parking lots.");
             if (devUser || betaUser || usrRank >= 2) {
                 createSettingsCheckbox("sidepanel-harmonizer" + devVersStr, "WMEPH-DisablePLAExtProviderCheck" + devVersStr,'Disable check for "Google place link" on Parking Lot Areas');
                 //createSettingsCheckbox("sidepanel-harmonizer" + devVersStr, "WMEPH-ExtProviderSeverity" + devVersStr,'Treat "No Google place link" as non-critical (blue)');
