@@ -250,6 +250,7 @@
     function runPH() {
         // Script update info
         var WMEPHWhatsNewList = [  // New in this version
+            '1.2.48: NEW - Added a flag for missing payment type when PLA cost is not free or unknown',
             '1.2.47: NEW - Added a flag for "Can cars exit parking lot when closed?"',
             '1.2.46: NEW - Added a flag for PLA stop points that have never been moved.',
             '1.2.45: NEW - Added a button to open the Google link search box and pre-fill it with the place name.',
