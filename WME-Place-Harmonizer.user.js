@@ -13,7 +13,7 @@
 // ==UserScript==
 // @name        WME Place Harmonizer
 // @namespace   WazeUSA
-// @version     1.2.42
+// @version     1.3.0
 // @description Harmonizes, formats, and locks a selected place
 // @author      WMEPH Development Group
 // @downloadURL https://greasyfork.org/scripts/28690-wme-place-harmonizer/code/WME%20Place%20Harmonizer.user.js
@@ -56,7 +56,7 @@
         devVersStr = devVersStringMaster; devVersStrSpace = " " + devVersStr; devVersStrDash = "-" + devVersStr;
         betaDataDelay = 20;
     }
-    var WMEServicesArray = ["VALLET_SERVICE","DRIVETHROUGH","WI_FI","RESTROOMS","CREDIT_CARDS","RESERVATIONS","OUTSIDE_SEATING","AIR_CONDITIONING","PARKING_FOR_CUSTOMERS","DELIVERIES","TAKE_AWAY","WHEELCHAIR_ACCESSIBLE"];
+    var WMEServicesArray = ["VALLET_SERVICE","DRIVETHROUGH","WI_FI","RESTROOMS","CREDIT_CARDS","RESERVATIONS","OUTSIDE_SEATING","AIR_CONDITIONING","PARKING_FOR_CUSTOMERS","DELIVERIES","TAKE_AWAY","WHEELCHAIR_ACCESSIBLE","DISABILITY_PARKING"];
     var collegeAbbreviations = 'USF|USFSP|UF|UCF|UA|UGA|FSU|UM|SCP|FAU|FIU';
     var defaultKBShortcut,shortcutParse, modifKey = 'Alt+';
     var forumMsgInputs;
@@ -84,105 +84,72 @@
         return 0 === this.length;
     };
 
+    function callAjax(url, onSuccess) {
+        $.ajax({
+            type: 'GET',
+            url: url,
+            jsonp: 'callback', data: { alt: 'json-in-script' }, dataType: 'jsonp',
+            success: onSuccess
+        });
+    }
+
     /* ****** Pull PNH and Userlist data ****** */
     setTimeout(function() {
         // Pull USA PNH Data
         setTimeout(function() {
-            $.ajax({
-                type: 'GET',
-                url: 'https://spreadsheets.google.com/feeds/list/1-f-JTWY5UnBx-rFTa4qhyGMYdHBZWNirUTOgn222zMY/o6q7kx/public/values',
-                jsonp: 'callback', data: { alt: 'json-in-script' }, dataType: 'jsonp',
-                success: function(response) {
-                    USA_PNH_DATA = [];
-                    for (var i = 0; i < response.feed.entry.length; i++) {
-                        USA_PNH_DATA.push(response.feed.entry[i].gsx$pnhdata.$t);
-                    }
-                }
+            callAjax('https://spreadsheets.google.com/feeds/list/1-f-JTWY5UnBx-rFTa4qhyGMYdHBZWNirUTOgn222zMY/o6q7kx/public/values',function(response) {
+                USA_PNH_DATA = [];
+                for (var i = 0; i < response.feed.entry.length; i++) USA_PNH_DATA.push(response.feed.entry[i].gsx$pnhdata.$t);
             });
         }, 0);
         // Pull Category Data ( Includes CAN for now )
         setTimeout(function() {
-            $.ajax({
-                type: 'GET',
-                url: 'https://spreadsheets.google.com/feeds/list/1-f-JTWY5UnBx-rFTa4qhyGMYdHBZWNirUTOgn222zMY/ov3dubz/public/values',
-                jsonp: 'callback', data: { alt: 'json-in-script' }, dataType: 'jsonp',
-                success: function(response) {
-                    USA_CH_DATA = [];
-                    for (var i = 0; i < response.feed.entry.length; i++) {
-                        USA_CH_DATA.push(response.feed.entry[i].gsx$pcdata.$t);
-                    }
-                }
+            callAjax('https://spreadsheets.google.com/feeds/list/1-f-JTWY5UnBx-rFTa4qhyGMYdHBZWNirUTOgn222zMY/ov3dubz/public/values',function(response) {
+                USA_CH_DATA = [];
+                for (var i = 0; i < response.feed.entry.length; i++) USA_CH_DATA.push(response.feed.entry[i].gsx$pcdata.$t);
             });
         }, 20);
         // Pull State-based Data (includes CAN for now)
         setTimeout(function() {
-            $.ajax({
-                type: 'GET',
-                url: 'https://spreadsheets.google.com/feeds/list/1-f-JTWY5UnBx-rFTa4qhyGMYdHBZWNirUTOgn222zMY/os2g2ln/public/values',
-                jsonp: 'callback', data: { alt: 'json-in-script' }, dataType: 'jsonp',
-                success: function(response) {
-                    USA_STATE_DATA = [];
-                    for (var i = 0; i < response.feed.entry.length; i++) {
-                        USA_STATE_DATA.push(response.feed.entry[i].gsx$psdata.$t);
-                    }
-                }
+            callAjax('https://spreadsheets.google.com/feeds/list/1-f-JTWY5UnBx-rFTa4qhyGMYdHBZWNirUTOgn222zMY/os2g2ln/public/values',function(response) {
+                USA_STATE_DATA = [];
+                for (var i = 0; i < response.feed.entry.length; i++) USA_STATE_DATA.push(response.feed.entry[i].gsx$psdata.$t);
             });
         }, 40);
         // Pull CAN PNH Data
         setTimeout(function() {
-            $.ajax({
-                type: 'GET',
-                url: 'https://spreadsheets.google.com/feeds/list/1TIxQZVLUbAJ8iH6LPTkJsvqFb_DstrHpKsJbv1W1FZs/o4ghhas/public/values',
-                jsonp: 'callback', data: { alt: 'json-in-script' }, dataType: 'jsonp',
-                success: function(response) {
-                    CAN_PNH_DATA = [];
-                    for (var i = 0; i < response.feed.entry.length; i++) {
-                        CAN_PNH_DATA.push(response.feed.entry[i].gsx$pnhdata.$t);
-                    }
-                }
+            callAjax('https://spreadsheets.google.com/feeds/list/1TIxQZVLUbAJ8iH6LPTkJsvqFb_DstrHpKsJbv1W1FZs/o4ghhas/public/values',function(response) {
+                CAN_PNH_DATA = [];
+                for (var i = 0; i < response.feed.entry.length; i++) CAN_PNH_DATA.push(response.feed.entry[i].gsx$pnhdata.$t);
             });
         }, 60);
         // Pull name-category lists
         setTimeout(function() {
-            $.ajax({
-                type: 'GET',
-                url: 'https://spreadsheets.google.com/feeds/list/1pDmenZA-3FOTvhlCq9yz1dnemTmS9l_njZQbu_jLVMI/op17piq/public/values',
-                jsonp: 'callback', data: { alt: 'json-in-script' }, dataType: 'jsonp',
-                success: function(response) {
-                    hospitalPartMatch = response.feed.entry[0].gsx$hmchp.$t;
-                    hospitalFullMatch = response.feed.entry[0].gsx$hmchf.$t;
-                    animalPartMatch = response.feed.entry[0].gsx$hmcap.$t;
-                    animalFullMatch = response.feed.entry[0].gsx$hmcaf.$t;
-                    schoolPartMatch = response.feed.entry[0].gsx$schp.$t;
-                    schoolFullMatch = response.feed.entry[0].gsx$schf.$t;
-                    hospitalPartMatch = hospitalPartMatch.toLowerCase().replace(/ \|/g,'|').replace(/\| /g,'|').split("|");
-                    hospitalFullMatch = hospitalFullMatch.toLowerCase().replace(/ \|/g,'|').replace(/\| /g,'|').split("|");
-                    animalPartMatch = animalPartMatch.toLowerCase().replace(/ \|/g,'|').replace(/\| /g,'|').split("|");
-                    animalFullMatch = animalFullMatch.toLowerCase().replace(/ \|/g,'|').replace(/\| /g,'|').split("|");
-                    schoolPartMatch = schoolPartMatch.toLowerCase().replace(/ \|/g,'|').replace(/\| /g,'|').split("|");
-                    schoolFullMatch = schoolFullMatch.toLowerCase().replace(/ \|/g,'|').replace(/\| /g,'|').split("|");
-                }
+            callAjax('https://spreadsheets.google.com/feeds/list/1pDmenZA-3FOTvhlCq9yz1dnemTmS9l_njZQbu_jLVMI/op17piq/public/values',function(response) {
+                hospitalPartMatch = response.feed.entry[0].gsx$hmchp.$t;
+                hospitalFullMatch = response.feed.entry[0].gsx$hmchf.$t;
+                animalPartMatch = response.feed.entry[0].gsx$hmcap.$t;
+                animalFullMatch = response.feed.entry[0].gsx$hmcaf.$t;
+                schoolPartMatch = response.feed.entry[0].gsx$schp.$t;
+                schoolFullMatch = response.feed.entry[0].gsx$schf.$t;
+                hospitalPartMatch = hospitalPartMatch.toLowerCase().replace(/ \|/g,'|').replace(/\| /g,'|').split("|");
+                hospitalFullMatch = hospitalFullMatch.toLowerCase().replace(/ \|/g,'|').replace(/\| /g,'|').split("|");
+                animalPartMatch = animalPartMatch.toLowerCase().replace(/ \|/g,'|').replace(/\| /g,'|').split("|");
+                animalFullMatch = animalFullMatch.toLowerCase().replace(/ \|/g,'|').replace(/\| /g,'|').split("|");
+                schoolPartMatch = schoolPartMatch.toLowerCase().replace(/ \|/g,'|').replace(/\| /g,'|').split("|");
+                schoolFullMatch = schoolFullMatch.toLowerCase().replace(/ \|/g,'|').replace(/\| /g,'|').split("|");
             });
         }, 80);
         // Pull dev and beta UserList Data
         setTimeout(function() {
-            $.ajax({
-                type: 'GET',
-                url: 'https://spreadsheets.google.com/feeds/list/1L82mM8Xg-MvKqK3WOfsMhFEGmVM46lA8BVcx8qwgmA8/ofblgob/public/values',
-                jsonp: 'callback', data: { alt: 'json-in-script' }, dataType: 'jsonp',
-                success: function(response) {
-                    var WMEPHuserList = response.feed.entry[0].gsx$phuserlist.$t;
-                    WMEPHuserList = WMEPHuserList.split("|");
-                    var betaix = WMEPHuserList.indexOf('BETAUSERS');
-                    WMEPHdevList = [];
-                    WMEPHbetaList = [];
-                    for (var ulix=1; ulix<betaix; ulix++) {
-                        WMEPHdevList.push(WMEPHuserList[ulix].toLowerCase());
-                    }
-                    for (ulix=betaix+1; ulix<WMEPHuserList.length; ulix++) {
-                        WMEPHbetaList.push(WMEPHuserList[ulix].toLowerCase());
-                    }
-                }
+            callAjax('https://spreadsheets.google.com/feeds/list/1L82mM8Xg-MvKqK3WOfsMhFEGmVM46lA8BVcx8qwgmA8/ofblgob/public/values',function(response) {
+                var WMEPHuserList = response.feed.entry[0].gsx$phuserlist.$t;
+                WMEPHuserList = WMEPHuserList.split("|");
+                var betaix = WMEPHuserList.indexOf('BETAUSERS');
+                WMEPHdevList = [];
+                WMEPHbetaList = [];
+                for (var ulix=1; ulix<betaix; ulix++) WMEPHdevList.push(WMEPHuserList[ulix].toLowerCase());
+                for (ulix=betaix+1; ulix<WMEPHuserList.length; ulix++) WMEPHbetaList.push(WMEPHuserList[ulix].toLowerCase());
             });
         }, 100);
     }, betaDataDelay);
@@ -262,6 +229,11 @@
         }
     }
 
+    function isAlwaysOpen(venue) {
+        var hours = venue.attributes.openingHours;
+        return hours.length === 1 && hours[0].days.length === 7 && hours[0].fromHour === '00:00' && hours[0].toHour ==='00:00';
+    }
+
     function isPLA(venue) {
         return venue.attributes.categories && venue.attributes.categories[0] === 'PARKING_LOT';
     }
@@ -278,84 +250,13 @@
     function runPH() {
         // Script update info
         var WMEPHWhatsNewList = [  // New in this version
-            '1.2.42: FIXED - WMEPH should not run on places with PURs.',
-            '1.2.41: FIXED - Removed custom USPS code for SER.',
-            '1.2.40: FIXED - Words inside parentheses should not be automatically title cased.',
-            '1.2.40: FIXED - Removed Transportation category from rest area places.',
-            '1.2.39: NEW - Added 6 month check/highlight for missing Google links.',
-            '1.2.38: FIXED - WL of non-standard HN flag was not allowing auto-lock.',
-            '1.2.36: NEW - Default to on for \'Disable check for "No external provider link(s)" on Parking Lot Areas\' setting.',
-            '1.2.36: FIXED - Alert that place address could not be inferred appears for places that can be inferred.',
-            '1.2.35: NEW - Removed street name entry box and replaced with Edit Address button until bug can be fixed.',
-            '1.2.34: FIXED - WME language was occasionally causing script to fail.',
-            '1.2.32: Version bump - no changes.',
-            '1.2.31: Version bump. (no changes).',
-            '1.2.30: NEW - Added Change to Doctor / Clinic button to places with Offices category.',
-            '1.2.29: FIXED - index.html, index.htm, index.php should not be stripped from URL\'s.',
-            '1.2.28: Moved jqueryui to Greasy fork and created new repository at greasy fork.',
-            '1.2.27: FIXED - Accidentally commented @downloadURL line in last release.',
-            '1.2.26: FIXED - Clicking option to fill PLAs calls a function that adds a new event listener (memory leak).',
-            '1.2.25: FIXED - Creating a new PLA fails due to feature added in last release.',
-            '1.2.24: NEW - Option to fill PLA\'s based on parking lot type.',
-            '1.2.23: Fix t0s derp',
-            '1.2.20: Fixed grammatical error "a area"',
-            '1.2.18: FIXED - Some categories throw an error when being set from PNH.',
-            '1.2.17: FIXED - Updated locale (user language).',
-            '1.2.16: FIXED - Revised message that was added in last version.',
-            '1.2.15: NEW - Added message for "Change to Doctor / Clinic" button on Personal Care places.',
-            '1.2.14: FIXED - Hospitals not displaying the "Keywords suggest this may not be a hospital" warning.',
-            '1.2.13: FIXED - PLAs incorrectly being marked as duplicates when option to exclude is turned on.',
-            '1.2.12: FIXED - WME changed from en-US back to en.',
-            '1.2.11: NEW - Change to Doctor / Clinic button displayed for places with Personal Care category.',
-            '1.2.10: FIXED - Emergency room points being flagged as duplicates of hospital area.',
-            '1.2.9: NEW - support for new WME medical categories.',
-            '1.2.8: FIXED - Place Website button was not showing up in certain scenarios.',
-            '1.2.7: FIXED - Place Website button was not showing up.',
-            '1.2.6: Updated links from old wiki to Wazeopedia.',
-            '1.2.5: Changed user language to us-EN.',
-            '1.2.4: Moved "Place Website" button next to "Run WMEPH" button, so it is always accessible.',
-            '1.2.4: Web Search and Place Locator buttons are now side-by-side.',
-            '1.2.3: Fixed bug from last release.',
-            '1.2.2: FIXED - Whitelisting missing HN doesn\'t allow auto-lock.',
-            '1.2.1: Removed R2+ restriction for using this script.',
-            '1.2.0: Production release.',
-            '1.1.97: Added regex place name matching for increased flexibility.',
-            '1.1.96: Changed "City Missing." to "No city" to be consistent with other flag messages.',
-            '1.1.96: Hospital / gas station and PLA "special" highlights only display if no lock (L1).',
-            '1.1.96: Add "Change to Offices" button under hospital/medical care note.',
-            '1.1.96: Changed to "No external provider link(s)".',
-            '1.1.95: Change "not a hospital" note.',
-            '1.1.95: Fixed bug with area vs point warning not locking even after WL.',
-            '1.1.95: Locking a place that has an area vs point warning will effectively WL it for everyone.',
-            '1.1.94: Fixed bug that was preventing all categories from being checked for lock level, messages, etc.',
-            '1.1.93: Fixed bug with area vs point warning.',
-            '1.1.92: Minor styling tweaks.',
-            '1.1.92: Fixed bug that would prevent "Edit address" button from working if General tab is not active.',
-            '1.1.91: Fixed bug that triggered when all categories were removed.',
-            '1.1.90: Fixed bug in data compression algorithm.',
-            '1.1.89: Style tweaks.',
-            '1.1.88: Uncheck "No City" when clicking "Edit address" button (wouldn\'t jump to the field.',
-            '1.1.87: Removed "No HN" flag until street is set.',
-            '1.1.87: Added an "Edit address" button to quickly jump to the city field in the address editor.',
-            '1.1.87: Fixed bug that allowed empty URL\'s.',
-            '1.1.86: Remove "No Street" flag when city doesn\'t exist.',
-            '1.1.85: Remove bullets from banner to improve layout a bit until a new design is completed.',
-            '1.1.84: Fix to ignore title casing inside parens at end of PLA names.',
-            '1.1.83: Improved check for automated (bot) account edits.',
-            '1.1.82: Added option to disable check for missing external provider on parking lots.',
-            '1.1.81: Fix for incorrect capitalization when "mc" is in the middle of a word.',
-            '1.1.80: Fix to allow entering phone #s longer than 10 digits, e.g. 800-THE-CRAVE',
-            '1.1.79: Fixed area / point warning when multiple categories are present.',
-            '1.1.78: Added yellow "caution" highlights.  Were previously red.',
-            '1.1.77: Unlocked PLAs are highlighted with a bold red dotted outline',
-            '1.1.75: Fix for Google hyperlinks not showing up after first click on place.',
-            '1.1.74: Keep hours input visible at all times.',
-            '1.1.73: Place Website button added when URL is added.',
-            '1.1.72: Fixed lock issue with Missing External Provider flag.',
-            '1.1.71: Added "avsus" to list of staff accounts.',
-            '1.1.70: Fix for adding 24/7 service from PNH spreadsheet.',
-            '1.1.69: Added input box to enter missing street.',
-            '1.1.68: Added "Missing External Provider" and option to treat as non-critical.'
+            '1.2.48: NEW - Added a flag for missing payment type when PLA cost is not free or unknown',
+            '1.2.47: NEW - Added a flag for "Can cars exit parking lot when closed?"',
+            '1.2.46: NEW - Added a flag for PLA stop points that have never been moved.',
+            '1.2.45: NEW - Added a button to open the Google link search box and pre-fill it with the place name.',
+            '1.2.45: NEW - Updating Google place link will automatically re-run WMEPH.',
+            '1.2.44: NEW - Added several flags for parking lots.',
+            '1.2.43: FIXED - WMEPH should run on places with detail updates, but not new place PURs.'
         ];
         var WMEPHWhatsNewMetaList = [  // New in this major version
             'WMEPH is now available for R1 editors to use!',
@@ -447,9 +348,32 @@
 
         // Event listeners
         W.selectionManager.events.registerPriority("selectionchanged", this, checkSelection);
-        W.model.venues.on('objectschanged', deleteDupeLabel);
-        W.accelerators.events.registerPriority('save', null, destroyDupeLabels);
+        W.model.venues.on('objectssynced', destroyDupeLabels);
         W.model.venues.on('objectssynced', syncWL);
+        W.model.venues.on('objectschanged', onObjectsChanged);
+
+        function onObjectsChanged(arg) {
+            deleteDupeLabel();
+
+            // This is code to handle updating the banner when changes are made external to the script.
+            try{
+                if ($('#WMEPH_banner').length > 0 && W.selectionManager.hasSelectedItems() && W.selectionManager.selectedItems[0].model.type === 'venue') {
+                    var selItem = W.selectionManager.selectedItems[0].model;
+                    var actions = W.model.actionManager.actions;
+                    var lastAction = actions[actions.length - 1];
+                    if (lastAction.object.type === 'venue' && lastAction.attributes.id === selItem.attributes.id) {
+                        if (lastAction.newAttributes.externalProviderIDs ||
+                            lastAction.newAttributes.entryExitPoints) {
+                            harmonizePlaceGo(selItem, 'harmonize');
+                        }
+                    }
+                }
+            } catch(ex) {
+                // Ignore errors for now.  The above function will need some work.
+                // console.log('WMEPH onObjectsChanged Error:', {exception: ex, lastAction: lastAction})
+            }
+        }
+
 
         // Remove any temporary ID values (ID < 0) from the WL store at startup.
         var removedWLCount = 0;
@@ -868,11 +792,13 @@
         }
 
         // normalize phone
-        function normalizePhone(s, outputFormat, returnType) {
+        function normalizePhone(s, outputFormat, returnType, item) {
             if ( !s && returnType === 'existing' ) {
-                bannButt.phoneMissing.active = true;
-                if (currentWL.phoneWL) {
-                    bannButt.phoneMissing.WLactive = false;
+                if (!isPLA(item) || (isPLA(item) && item.attributes.brand && W.model.venues.categoryBrands.PARKING_LOT.indexOf(item.attributes.brand) !== -1)) {
+                    bannButt.phoneMissing.active = true;
+                    if (currentWL.phoneWL) {
+                        bannButt.phoneMissing.WLactive = false;
+                    }
                 }
                 return s;
             }
@@ -933,11 +859,13 @@
         }
 
         // Normalize url
-        function normalizeURL(s, lc, skipBannerActivate) {
+        function normalizeURL(s, lc, skipBannerActivate, item) {
             if ((!s || s.trim().length === 0) && !skipBannerActivate) {  // Notify that url is missing and provide web search to find website and gather data (provided for all editors)
-                bannButt.urlMissing.active = true;
-                if (currentWL.urlWL) {
-                    bannButt.urlMissing.WLactive = false;
+                if (!isPLA(item) || (isPLA(item) && item.attributes.brand && W.model.venues.categoryBrands.PARKING_LOT.indexOf(item.attributes.brand) !== -1)) {
+                    bannButt.urlMissing.active = true;
+                    if (currentWL.urlWL) {
+                        bannButt.urlMissing.WLactive = false;
+                    }
                 }
                 bannButt.webSearch.active = true;  // Activate websearch button
                 return s;
@@ -979,10 +907,10 @@
                 alert("Please sign up to beta-test this script version.\nSend a PM or Slack-DM to MapOMatic or Tonestertm, or post in the WMEPH forum thread. Thanks.");
                 return;
             }
-            // Only run if a single place is selected and does not have any updates pending
+            // Only run if a single place is selected
             if (W.selectionManager.selectedItems.length === 1) {
                 var item = W.selectionManager.selectedItems[0].model;
-                if ((item.type === "venue") && (item.attributes.venueUpdateRequests.length === 0)) {
+                if (item.type === "venue") {
                     blurAll();  // focus away from current cursor position
                     _disableHighlightTest = true;
                     harmonizePlaceGo(item,'harmonize');
@@ -1040,7 +968,7 @@
             var customStoreFinderLocalURL = "";  // switch indicating place-specific custom store finder url with localization option (GPS/addr)
             var fieldUpdateObject = {name: false, aliases: false, categories: false, brand: false, description: false, lockRank: false, address: false, url: false, phone: false, openingHours: false,
                                      services: { VALLET_SERVICE: false, DRIVETHROUGH: false, WI_FI: false, RESTROOMS: false, CREDIT_CARDS: false, RESERVATIONS: false,
-                                                OUTSIDE_SEATING: false, AIR_CONDITIONING: false, PARKING_FOR_CUSTOMERS: false, DELIVERIES: false, TAKE_AWAY: false, WHEELCHAIR_ACCESSIBLE: false }
+                                                OUTSIDE_SEATING: false, AIR_CONDITIONING: false, PARKING_FOR_CUSTOMERS: false, DELIVERIES: false, TAKE_AWAY: false, WHEELCHAIR_ACCESSIBLE: false, DISABILITY_PARKING: false }
                                     };
             // Whitelist: reset flags
             currentWL = {
@@ -1098,13 +1026,13 @@
                 },
 
                 plaNameMissing: {
-                    active: false, severity: 1, message: 'Name is missing.',
-                    WLactive: true, WLmessage: '', WLtitle: 'Whitelist missing name',
-                    WLaction: function() {
-                        wlKeyName = 'plaNameMissing';
-                        whitelistAction(itemID, wlKeyName);
-                        harmonizePlaceGo(item, 'harmonize');
-                    }
+                    active: false, severity: 1, message: 'Name is missing.'
+                    // WLactive: false, WLmessage: '', WLtitle: 'Whitelist missing name',
+                    // WLaction: function() {
+                    //     wlKeyName = 'plaNameMissing';
+                    //     whitelistAction(itemID, wlKeyName);
+                    //     harmonizePlaceGo(item, 'harmonize');
+                    // }
                 },
 
                 hoursOverlap: {  // no WL
@@ -1675,6 +1603,13 @@
                         var action = new UpdateFeatureGeometry(place.model, W.model.venues, place.geometry, newGeom);
                         W.model.actionManager.add(action);
                         harmonizePlaceGo(item,'harmonize');  // Rerun the script to update fields and lock
+                    },
+                    value2: 'Add', title2:'Add a link to a Google place', action2: function() {
+                        $('div.external-providers-view a').focus().click();
+                        setTimeout(function() {
+                            $('div.external-providers-view > div > ul > div > li > div > a').last().mousedown();
+                            $('.select2-input').last().focus().val(item.attributes.name).trigger('input');
+                        }, 100);
                     }
                     // WLactive:true, WLmessage:'', //WLtitle:'Whitelist missing Google place link',
                     // WLaction: function() {
@@ -1689,7 +1624,7 @@
                     badInput: false,
                     action: function() {
                         var newUrlValue = $('#WMEPH-UrlAdd'+devVersStr).val();
-                        var newUrl = normalizeURL(newUrlValue, true, false);
+                        var newUrl = normalizeURL(newUrlValue, true, false, item);
                         if ((!newUrl || newUrl.trim().length === 0) || newUrl === 'badURL') {
                             this.badInput = true;
                         } else {
@@ -1715,7 +1650,7 @@
                     badInput: false,
                     action: function() {
                         var newPhoneVal = $('#WMEPH-PhoneAdd'+devVersStr).val();
-                        var newPhone = normalizePhone(newPhoneVal, outputFormat, 'inputted');
+                        var newPhone = normalizePhone(newPhoneVal, outputFormat, 'inputted', item);
                         if (newPhone === 'badPhone') {
                             this.badInput = true;
                         } else {
@@ -1756,6 +1691,84 @@
                     }
                 },
 
+                plaLotTypeMissing: {
+                    active: false, severity: 3, message: 'Lot type: '
+                },
+
+                plaCostTypeMissing: {
+                    active: false, severity: 1, message: 'Parking cost: '
+                },
+
+                plaPaymentTypeMissing: {
+                    active: false, severity: 1, message: 'Select allowed payment type(s):<br>', value: 'Apply',
+                    action: function() {
+                        var cash = $('#wmeph-payment-cash').prop('checked');
+                        var check = $('#wmeph-payment-check').prop('checked');
+                        var credit = $('#wmeph-payment-credit').prop('checked');
+                        if (cash || check || credit) {
+                            var existingAttr = item.attributes.categoryAttributes.PARKING_LOT;
+                            var newAttr = {};
+                            if (existingAttr) {
+                                for (var prop in existingAttr) {
+                                    var value = existingAttr[prop];
+                                    if (Array.isArray(value)) value = value.clone();
+                                    newAttr[prop] = value;
+                                };
+                            }
+                            newAttr.paymentType = [];
+                            if (cash) newAttr.paymentType.push('CASH');
+                            if (check) newAttr.paymentType.push('CHECKS');
+                            if (credit) newAttr.paymentType.push('CREDIT');
+                            W.model.actionManager.add(new UpdateObject(item, {'categoryAttributes': {PARKING_LOT: newAttr}}));
+                            harmonizePlaceGo(item, 'harmonize');
+                        }
+                    }
+                },
+
+                plaLotElevationMissing: {
+                    active: false, severity: 1, message: 'No lot elevation. Is it street level?', value: 'Yes', title: 'Click if street level parking only, or select other option(s) in the More Info tab.',
+                    action: function() {
+                        var existingAttr = item.attributes.categoryAttributes.PARKING_LOT;
+                        var newAttr = {};
+                        if (existingAttr) {
+                            for (var prop in existingAttr) {
+                                var value = existingAttr[prop];
+                                if (Array.isArray(value)) value = value.clone();
+                                newAttr[prop] = value;
+                            };
+                        }
+                        newAttr.lotType = ['STREET_LEVEL'];
+                        W.model.actionManager.add(new UpdateObject(item, {'categoryAttributes': {PARKING_LOT: newAttr}}));
+                        harmonizePlaceGo(item, 'harmonize');
+                    }
+                },
+
+                plaSpaces: {
+                    active: false, severity: 0, message: '# of Parking Spaces is set to 1-10.<br><b>If appropriate</b>, select another option:'
+                },
+
+                plaStopPointUnmoved: {
+                    active: false, severity: 1, message: 'Stop point has not been moved.'
+                },
+
+                plaCanExitWhileClosed: {
+                    active: false, severity: 0, message: 'Can cars exit when lot is closed? ', value: 'Yes', title: '',
+                    action: function() {
+                        var existingAttr = item.attributes.categoryAttributes.PARKING_LOT;
+                        var newAttr = {};
+                        if (existingAttr) {
+                            for (var prop in existingAttr) {
+                                var value = existingAttr[prop];
+                                if (Array.isArray(value)) value = value.clone();
+                                newAttr[prop] = value;
+                            };
+                        }
+                        newAttr.canExitWhileClosed = true;
+                        W.model.actionManager.add(new UpdateObject(item, {'categoryAttributes': {PARKING_LOT: newAttr}}));
+                        harmonizePlaceGo(item, 'harmonize');
+                    }
+                },
+
                 noHours: {
                     active: false, severity: 1, message: 'No hours: <input type="text" value="Paste Hours Here" id="WMEPH-HoursPaste'+devVersStr+'" autocomplete="off" style="font-size:0.85em;width:170px;padding-left:3px;color:#AAA">',
                     value: "Add hours", title: 'Add pasted hours to existing',
@@ -1770,10 +1783,7 @@
                             W.model.actionManager.add(new UpdateObject(item, { openingHours: hoursObjectArray }));
                             fieldUpdateObject.openingHours='#dfd';
                             highlightChangedFields(fieldUpdateObject,hpMode);
-                            bannButt.noHours.value = 'Add hours';
-                            bannButt.noHours.severity = 0;
-                            bannButt.noHours.WLactive = false;
-                            bannButt.noHours.message = 'Hours: <input type="text" value="Paste Hours Here" id="WMEPH-HoursPaste'+devVersStr+'" style="width:170px;padding-left:3px;color:#AAA">';
+                            harmonizePlaceGo(item, 'harmonize');
                         } else {
                             phlog('Can\'t parse those hours');
                             bannButt.noHours.severity = 1;
@@ -1793,10 +1803,7 @@
                             W.model.actionManager.add(new UpdateObject(item, { openingHours: hoursObjectArray }));
                             fieldUpdateObject.openingHours='#dfd';
                             highlightChangedFields(fieldUpdateObject,hpMode);
-                            bannButt.noHours.value2 = 'Replace hours';
-                            bannButt.noHours.severity = 0;
-                            bannButt.noHours.WLactive = false;
-                            bannButt.noHours.message = 'Hours: <input type="text" value="Paste Hours Here" id="WMEPH-HoursPaste'+devVersStr+'" style="width:170px;padding-left:3px;color:#AAA">';
+                            harmonizePlaceGo(item, 'harmonize');
                         } else {
                             phlog('Can\'t parse those hours');
                             bannButt.noHours.severity = 1;
@@ -2083,6 +2090,12 @@
                         WMEPH_errorReport(forumMsgInputs);
                     }
                 },
+                reportBetaIssue: {
+                    active: isDevVersion, severity: 0, message: "", value: "Report beta issue", title: "Report beta issue in GitHub",
+                    action: function() {
+                        window.open('https://github.com/WazeUSA/WME-Place-Harmonizer/issues');
+                    }
+                },
                 whatsNew: {
                     active: false, severity: 0, message: "", value: "*Recent script updates*", title: "Open a list of recent script updates",
                     action: function() {
@@ -2305,6 +2318,19 @@
                         this.action(actions, false);
                     }
                 },
+                addDisabilityParking: {
+                    active: false, checked: false, icon: "serv-wheelchair", w2hratio: 50/50, value: "DisabilityParking", title: 'Disability Parking', servIDIndex: 12,
+                    action: function(actions, checked) {
+                        setServiceChecked(this, checked, actions);
+                    },
+                    pnhOverride: false,
+                    actionOn: function(actions) {
+                        this.action(actions, true);
+                    },
+                    actionOff: function(actions) {
+                        this.action(actions, false);
+                    }
+                },
                 add247: {  // add 24/7 hours
                     active: false, checked: false, icon: "serv-247", w2hratio: 73/50, value: "247", title: 'Hours: Open 24\/7',
                     action: function(actions) {
@@ -2416,6 +2442,93 @@
                 $('.save-button').click();  // apply any address changes
             }
 
+            // Check parking lot attributes.
+            if (isPLA(item)) {
+                bannServ.addDisabilityParking.active = true;
+                var catAttr = item.attributes.categoryAttributes;
+                var parkAttr = catAttr ? catAttr.PARKING_LOT : undefined;
+                if (!parkAttr || !parkAttr.costType || parkAttr.costType === 'UNKNOWN') {
+                    bannButt.plaCostTypeMissing.active = true;
+                    [
+                        ['FREE','Free','Free'],
+                        ['LOW','$','Low'],
+                        ['MODERATE','$$','Moderate'],
+                        ['EXPENSIVE','$$$','Expensive']
+                    ].forEach(function(btnInfo) {
+                        if (btnIdx === 3) $btnDiv.append('<br>');
+                        bannButt.plaCostTypeMissing.message +=
+                            $('<button>', {id: 'wmeph_' + btnInfo[0], class: 'wmeph-pla-cost-type-btn', title: btnInfo[2]})
+                            .text(btnInfo[1])
+                            .css({padding:'3px', height:'20px', lineHeight:'0px', marginRight:'2px',
+                                  marginBottom:'1px', marginTop:'2px', fontWeight:'900', fontSize:'.96em'})
+                            .prop('outerHTML');
+                    });
+                    lockOK = false;
+                }
+                if (!parkAttr || !parkAttr.lotType || parkAttr.lotType.length === 0) {
+                    bannButt.plaLotElevationMissing.active = true;
+                    lockOK = false;
+                }
+                if (!parkAttr || !parkAttr.estimatedNumberOfSpots || parkAttr.estimatedNumberOfSpots === 'R_1_TO_10') {
+                    bannButt.plaSpaces.active = true;
+                    var $btnDiv = $('<div>');
+                    var btnIdx = 0;
+                    [
+                        ['R_11_TO_30','11-30'],
+                        ['R_31_TO_60','31-60'],
+                        ['R_61_TO_100','61-100'],
+                        ['R_101_TO_300','101-300'],
+                        ['R_301_TO_600','301-600'],
+                        ['R_600_PLUS','601+']
+                    ].forEach(function(btnInfo) {
+                        if (btnIdx === 3) $btnDiv.append('<br>');
+                        $btnDiv.append(
+                            $('<button>', {id: 'wmeph_' + btnInfo[0], class: 'wmeph-pla-spaces-btn'})
+                            .text(btnInfo[1])
+                            .css({padding:'3px', height:'20px', lineHeight:'0px', marginRight:'2px',
+                                  marginBottom:'1px', marginTop:'2px', fontWeight:'900', fontSize:'.96em', width:'64px'})
+                        );
+                        btnIdx++;
+                    });
+                    bannButt.plaSpaces.message += $btnDiv.prop('outerHTML');
+                }
+                if (!parkAttr || !parkAttr.parkingType) {
+                    bannButt.plaLotTypeMissing.active = true;
+                    [
+                        ['PUBLIC','Public'],
+                        ['RESTRICTED','Restricted'],
+                        ['PRIVATE','Private']
+                    ].forEach(function(btnInfo) {
+                        if (btnIdx === 3) $btnDiv.append('<br>');
+                        bannButt.plaLotTypeMissing.message +=
+                            $('<button>', {id: 'wmeph_' + btnInfo[0], class: 'wmeph-pla-lot-type-btn'})
+                            .text(btnInfo[1])
+                            .css({padding:'3px', height:'20px', lineHeight:'0px', marginRight:'2px',
+                                  marginBottom:'1px', marginTop:'2px', fontWeight:'900', fontSize:'.96em'})
+                            .prop('outerHTML');
+                    });
+                }
+                if (!item.attributes.entryExitPoints || item.attributes.entryExitPoints.length === 0) {
+                    bannButt.plaStopPointUnmoved.active = true;
+                }
+                if (parkAttr && !parkAttr.canExitWhileClosed && ($('#WMEPH-ShowPLAExitWhileClosed' + devVersStr).prop('checked') || !(isAlwaysOpen(item) || item.attributes.openingHours.length === 0))) {
+                    bannButt.plaCanExitWhileClosed.active = true;
+                }
+                if (parkAttr && parkAttr.costType !== 'FREE' && parkAttr.costType !== 'UNKNOWN' && (!parkAttr.paymentType || parkAttr.paymentType.length === 0)) {
+                    bannButt.plaPaymentTypeMissing.active = true;
+                    var $pmtDiv = $('<div>').css({display:'inline'});
+                    ['Cash', 'Check', 'Credit'].forEach(function(text) {
+                        var id = 'wmeph-payment-' + text.toLowerCase();
+                        $pmtDiv.append(
+                            $('<div>', {class: 'form-control'}).css({padding: '0px', backgroundColor: 'inherit', color: 'white', display: 'inline', border: 'none', marginRight: '5px'}).append(
+                                $('<input>', {id: id, type: 'checkbox'}).css({marginRight: '0px'}),
+                                $('<label>', {for: id}).text(text)
+                            )
+                        );
+                    });
+                    bannButt.plaPaymentTypeMissing.message += $pmtDiv.prop('outerHTML');
+                }
+            }
 
             if (item.attributes.categories.indexOf("HOSPITAL_MEDICAL_CARE") > -1) {
                 if (hpMode.hlFlag) {
@@ -2994,17 +3107,17 @@
                         if (newURL !== null || newURL !== '') {
                             localURLcheckRE = new RegExp(localURLcheck, "i");
                             if ( newURL.match(localURLcheckRE) !== null ) {
-                                newURL = normalizeURL(newURL,false);
+                                newURL = normalizeURL(newURL,false, false, item);
                             } else {
-                                newURL = normalizeURL(PNHMatchData[ph_url_ix],false);
+                                newURL = normalizeURL(PNHMatchData[ph_url_ix],false, false, item);
                                 bannButt.localURL.active = true;
                             }
                         } else {
-                            newURL = normalizeURL(PNHMatchData[ph_url_ix],false);
+                            newURL = normalizeURL(PNHMatchData[ph_url_ix],false, false, item);
                             bannButt.localURL.active = true;
                         }
                     } else {
-                        newURL = normalizeURL(PNHMatchData[ph_url_ix],false);
+                        newURL = normalizeURL(PNHMatchData[ph_url_ix],false, false, item);
                     }
                     // Parse PNH Aliases
                     newAliasesTemp = PNHMatchData[ph_aliases_ix].match(/([^\(]*)/i)[0];
@@ -3070,9 +3183,9 @@
                     // Strong title case option for non-PNH places
                     if (newName !== toTitleCaseStrong(newName)) {
                         bannButt.STC.active = true;
-                        }
+                    }
 
-                    newURL = normalizeURL(newURL,true);  // Normalize url
+                    newURL = normalizeURL(newURL,true,false, item);  // Normalize url
 
                     // Generic Hotel Treatment
                     if ( newCategories.indexOf("HOTEL") > -1  && newName.indexOf(' - ') === -1 && newName.indexOf(': ') === -1) {
@@ -3517,8 +3630,8 @@
                 var updateURL = true;
                 if (newURL !== item.attributes.url && newURL !== "" && newURL !== "0") {
                     if ( PNHNameRegMatch && item.attributes.url !== null && item.attributes.url !== '' ) {  // for cases where there is an existing URL in the WME place, and there is a PNH url on queue:
-                        var newURLTemp = normalizeURL(newURL,true);  // normalize
-                        var itemURL = normalizeURL(item.attributes.url,true);
+                        var newURLTemp = normalizeURL(newURL,true,false, item);  // normalize
+                        var itemURL = normalizeURL(item.attributes.url,true,false, item);
                         newURLTemp = newURLTemp.replace(/^www\.(.*)$/i,'$1');  // strip www
                         var itemURLTemp = itemURL.replace(/^www\.(.*)$/i,'$1');  // strip www
                         if ( newURLTemp !== itemURLTemp ) { // if formatted URLs don't match, then alert the editor to check the existing URL
@@ -3556,7 +3669,7 @@
                 } else if (countryCode === "CAN") {
                     outputFormat = "+1-{0}-{1}-{2}";
                 }
-                newPhone = normalizePhone(item.attributes.phone, outputFormat, 'existing');
+                newPhone = normalizePhone(item.attributes.phone, outputFormat, 'existing', item);
 
                 // Check if valid area code  #LOC# USA and CAN only
                 if (countryCode === "USA" || countryCode === "CAN") {
@@ -3602,11 +3715,24 @@
 
             // Name check
             if ( !item.attributes.residential && ( !newName || newName.replace(/[^A-Za-z0-9]/g,'').length === 0 )) {
-                if (item.attributes.categories[0] === 'PARKING_LOT') {
-                    if (currentWL.plaNameMissing) {
-                        bannButt.plaNameMissing.active = false;
-                    } else {
+                if (isPLA(item)) {
+                    // If it's a parking lot and not locked to R3...
+                    if (item.attributes.lockRank < 2) {
+                        lockOK = false;
                         bannButt.plaNameMissing.active = true;
+                        var msgAdd;
+                        if (usrRank < 3) {
+                            msgAdd = ' Request an R3+ lock to confirm unnamed parking lot.';
+                        } else {
+                            msgAdd = ' Lock to R3+ to confirm unnamed parking lot.';
+                            // bannButt.plaNameMissing.value = 'Lock';
+                            // bannButt.plaNameMissing.action = function() {
+                            //     W.model.actionManager.add(new UpdateObject(item, {'lockRank': 2}));
+                            //     harmonizePlaceGo(item, 'harmonize');
+                            // };
+                            // bannButt.plaNameMissing.title = 'DO NOT LOCK if you are not completing this place!';
+                        }
+                        bannButt.plaNameMissing.message += msgAdd;
                     }
                 }else if ( 'ISLAND|FOREST_GROVE|SEA_LAKE_POOL|RIVER_STREAM|CANAL'.split('|').indexOf(item.attributes.categories[0]) === -1 ) {
                     bannButt.nameMissing.active = true;
@@ -4356,9 +4482,9 @@
                     }
                     if (bannButt[tempKey].hasOwnProperty('action')) {
                         strButt1 += ' <input class="btn btn-default btn-xs wmeph-btn" id="WMEPH_' + tempKey + '" title="' + bannButt[tempKey].title + '" type="button" value="' + bannButt[tempKey].value + '"></input>';
-                        if (tempKey === 'noHours') {
-                            strButt1 += ' <input class="btn btn-default btn-xs wmeph-btn" id="WMEPH_' + tempKey + 'A2" title="' + bannButt[tempKey].title2 + '" type="button" value="' + bannButt[tempKey].value2 + '"></input>';
-                        }
+                    }
+                    if (bannButt[tempKey].hasOwnProperty('action2')) {
+                        strButt1 += ' <input class="btn btn-default btn-xs wmeph-btn" id="WMEPH_' + tempKey + '_2" title="' + bannButt[tempKey].title2 + '" type="button" value="' + bannButt[tempKey].value2 + '"></input>';
                     }
                     if ( bannButt[tempKey].hasOwnProperty('WLactive') ) {
                         if ( bannButt[tempKey].WLactive && bannButt[tempKey].hasOwnProperty('WLaction') ) {  // If there's a WL option, enable it
@@ -4380,6 +4506,7 @@
                     }
                 }
             }
+
             if ($webDiv) {
                 sidebarMessage.push($webDiv[0].outerHTML);
             }
@@ -4441,81 +4568,128 @@
             // Setup bannButt2 onclicks
             setupButtons(bannButt2);
 
-            if (bannButt.noHours.active) {
-                var button = document.getElementById('WMEPH_noHoursA2');
-                button.onclick = function() {
-                    bannButt.noHours.action2();
-                    assembleBanner();
-                };
-            }
+            // if (bannButt.noHours.active) {
+            //     var button = document.getElementById('WMEPH_noHoursA2');
+            //     button.onclick = function() {
+            //         bannButt.noHours.action2();
+            //         assembleBanner();
+            //     };
+            // }
 
-            // Street entry textbox stuff
-            var streetNames = [];
-            var streetNamesCap = [];
-            W.model.streets.getObjectArray().forEach(function(st) {
-                if (!st.isEmpty) {
-                    streetNames.push(st.name);
-                    streetNamesCap.push(st.name.toUpperCase());
+            // Add click handlers for parking lot helper buttons.
+            $('.wmeph-pla-spaces-btn').click(function() {
+                var selectedValue = $(this).attr('id').replace('wmeph_','');
+                var existingAttr = item.attributes.categoryAttributes.PARKING_LOT;
+                var newAttr = {};
+                if (existingAttr) {
+                    for (var prop in existingAttr) {
+                        var value = existingAttr[prop];
+                        if (Array.isArray(value)) value = value.clone();
+                        newAttr[prop] = value;
+                    };
                 }
+                newAttr.estimatedNumberOfSpots = selectedValue;
+                W.model.actionManager.add(new UpdateObject(item, {'categoryAttributes': {PARKING_LOT: newAttr}}));
+                harmonizePlaceGo(item, 'harmonize');
             });
-            streetNames.sort();
-            streetNamesCap.sort();
-            $('#WMEPH_missingStreet').autocomplete({
-                source: streetNames,
-                change: onStreetChanged,
-                select: onStreetSelected,
-                response: function(e, ui) {
-                    var maxListLength = 10;
-                    if(ui.content.length > maxListLength) {
-                        ui.content.splice(maxListLength, ui.content.length - maxListLength);
-                    }
+            $('.wmeph-pla-lot-type-btn').click(function() {
+                var selectedValue = $(this).attr('id').replace('wmeph_','');
+                var existingAttr = item.attributes.categoryAttributes.PARKING_LOT;
+                var newAttr = {};
+                if (existingAttr) {
+                    for (var prop in existingAttr) {
+                        var value = existingAttr[prop];
+                        if (Array.isArray(value)) value = value.clone();
+                        newAttr[prop] = value;
+                    };
                 }
+                newAttr.parkingType = selectedValue;
+                W.model.actionManager.add(new UpdateObject(item, {'categoryAttributes': {PARKING_LOT: newAttr}}));
+                harmonizePlaceGo(item, 'harmonize');
             });
-            function onStreetSelected(e, ui) {
-                if (ui.item) {
-                    checkStreet(ui.item.value);
+
+            $('.wmeph-pla-cost-type-btn').click(function() {
+                var selectedValue = $(this).attr('id').replace('wmeph_','');
+                var existingAttr = item.attributes.categoryAttributes.PARKING_LOT;
+                var newAttr = {};
+                if (existingAttr) {
+                    for (var prop in existingAttr) {
+                        var value = existingAttr[prop];
+                        if (Array.isArray(value)) value = value.clone();
+                        newAttr[prop] = value;
+                    };
                 }
-            }
-            function onStreetChanged(e, ui) {
-                checkStreet(null);
-            }
-            $('#WMEPH_addStreetBtn').on('click', addStreetToVenue);
-            function addStreetToVenue() {
-                var stName = $('#WMEPH_missingStreet').val();
-                var street = W.model.streets.getByAttributes({name:stName})[0];
-                var addr = item.getAddress().attributes;
-                var newAddr = {
-                    country: addr.country,
-                    state: addr.state,
-                    city: addr.city,
-                    street: street
-                };
-                updateAddress(item, newAddr);
-                bannButt.streetMissing.active = false;
-                assembleBanner();
-            }
-            function checkStreet(name) {
-                name = (name || $("#WMEPH_missingStreet").val()).toUpperCase();
-                var ix = streetNamesCap.indexOf(name);
-                var enable = false;
-                if (ix > -1) {
-                    color = 'lightgreen';
-                    $("#WMEPH_missingStreet").val(streetNames[ix]);
-                    enable = true;
-                    $('#WMEPH_addStreetBtn').prop("disabled", false).removeClass('disabled');
-                } else {
-                    $('#WMEPH_addStreetBtn').prop('disabled', true).addClass('disabled');
-                }
-                return enable;
-            }
-            // If pressing enter in the street entry box, add the street
-            $("#WMEPH_missingStreet").keyup(function(event){
-                if( event.keyCode === 13 && $('#WMEPH_missingStreet').val() !== '' ){
-                    if(checkStreet(null)) {
-                        addStreetToVenue();
-                    }
-                }
+                newAttr.costType = selectedValue;
+                W.model.actionManager.add(new UpdateObject(item, {'categoryAttributes': {PARKING_LOT: newAttr}}));
+                harmonizePlaceGo(item, 'harmonize');
             });
+            // // Street entry textbox stuff
+            // var streetNames = [];
+            // var streetNamesCap = [];
+            // W.model.streets.getObjectArray().forEach(function(st) {
+            //     if (!st.isEmpty) {
+            //         streetNames.push(st.name);
+            //         streetNamesCap.push(st.name.toUpperCase());
+            //     }
+            // });
+            // streetNames.sort();
+            // streetNamesCap.sort();
+            // $('#WMEPH_missingStreet').autocomplete({
+            //     source: streetNames,
+            //     change: onStreetChanged,
+            //     select: onStreetSelected,
+            //     response: function(e, ui) {
+            //         var maxListLength = 10;
+            //         if(ui.content.length > maxListLength) {
+            //             ui.content.splice(maxListLength, ui.content.length - maxListLength);
+            //         }
+            //     }
+            // });
+            // function onStreetSelected(e, ui) {
+            //     if (ui.item) {
+            //         checkStreet(ui.item.value);
+            //     }
+            // }
+            // function onStreetChanged(e, ui) {
+            //     checkStreet(null);
+            // }
+            // $('#WMEPH_addStreetBtn').on('click', addStreetToVenue);
+            // function addStreetToVenue() {
+            //     var stName = $('#WMEPH_missingStreet').val();
+            //     var street = W.model.streets.getByAttributes({name:stName})[0];
+            //     var addr = item.getAddress().attributes;
+            //     var newAddr = {
+            //         country: addr.country,
+            //         state: addr.state,
+            //         city: addr.city,
+            //         street: street
+            //     };
+            //     updateAddress(item, newAddr);
+            //     bannButt.streetMissing.active = false;
+            //     assembleBanner();
+            // }
+            // function checkStreet(name) {
+            //     name = (name || $("#WMEPH_missingStreet").val()).toUpperCase();
+            //     var ix = streetNamesCap.indexOf(name);
+            //     var enable = false;
+            //     if (ix > -1) {
+            //         color = 'lightgreen';
+            //         $("#WMEPH_missingStreet").val(streetNames[ix]);
+            //         enable = true;
+            //         $('#WMEPH_addStreetBtn').prop("disabled", false).removeClass('disabled');
+            //     } else {
+            //         $('#WMEPH_addStreetBtn').prop('disabled', true).addClass('disabled');
+            //     }
+            //     return enable;
+            // }
+            // // If pressing enter in the street entry box, add the street
+            // $("#WMEPH_missingStreet").keyup(function(event){
+            //     if( event.keyCode === 13 && $('#WMEPH_missingStreet').val() !== '' ){
+            //         if(checkStreet(null)) {
+            //             addStreetToVenue();
+            //         }
+            //     }
+            // });
 
             // If pressing enter in the HN entry box, add the HN
             $("#WMEPH-HNAdd"+devVersStr).keyup(function(event){
@@ -4564,6 +4738,9 @@
                     if (b[tempKey].hasOwnProperty('action')) {  // If there is an action, set onclick
                         buttonAction(b, tempKey);
                     }
+                    if (b[tempKey].hasOwnProperty('action2')) {  // If there is an action2, set onclick
+                        buttonAction2(b, tempKey);
+                    }
                     // If there's a WL option, set up onclick
                     if ( b[tempKey].hasOwnProperty('WLactive') && b[tempKey].WLactive && b[tempKey].hasOwnProperty('WLaction') ) {
                         buttonWhitelist(b, tempKey);
@@ -4576,6 +4753,14 @@
             var button = document.getElementById('WMEPH_'+bKey);
             button.onclick = function() {
                 b[bKey].action();
+                assembleBanner();
+            };
+            return button;
+        }
+        function buttonAction2(b,bKey) {
+            var button = document.getElementById('WMEPH_'+bKey+'_2');
+            button.onclick = function() {
+                b[bKey].action2();
                 assembleBanner();
             };
             return button;
@@ -4825,7 +5010,7 @@
                 numAttempts++;
                 if (W.selectionManager.selectedItems.length === 1) {
                     var item = W.selectionManager.selectedItems[0].model;
-                    if ((item.type === "venue") && (item.attributes.venueUpdateRequests.length === 0)) {
+                    if ((item.type === "venue") && item.isApproved()) {
                         displayRunButton();
                         showOpenPlaceWebsiteButton();
                         getPanelFields();
@@ -5637,13 +5822,13 @@
         function checkSelection() {
             if (W.selectionManager.selectedItems.length > 0) {
                 var newItem = W.selectionManager.selectedItems[0].model;
-                if ((newItem.type === "venue") && (newItem.attributes.venueUpdateRequests.length === 0)) {
+                if ((newItem.type === "venue") && newItem.isApproved()) {
                     displayRunButton();
                     getPanelFields();
                     if ( $("#WMEPH-EnableCloneMode" + devVersStr).prop('checked') ) {
                         displayCloneButton();
                     }
-                    if (localStorage.getItem("WMEPH-AutoRunOnSelect" + devVersStr) === '1') {
+                    if ((localStorage.getItem("WMEPH-AutoRunOnSelect" + devVersStr) === '1') && newItem.arePropertiesEditable()) {
                         setTimeout(harmonizePlace,200);
                     }
                     for (var dvtix=0; dvtix<dupeIDList.length; dvtix++) {
@@ -6029,6 +6214,7 @@
             createSettingsCheckbox("sidepanel-harmonizer" + devVersStr, "WMEPH-EnableIAZoom" + devVersStr,"Enable zoom & center for places with no address");
             createSettingsCheckbox("sidepanel-harmonizer" + devVersStr, "WMEPH-HidePlacesWiki" + devVersStr,"Hide 'Places Wiki' button in results banner");
             createSettingsCheckbox("sidepanel-harmonizer" + devVersStr, "WMEPH-ExcludePLADupes" + devVersStr,"Exclude parking lots when searching for duplicate places.");
+            createSettingsCheckbox("sidepanel-harmonizer" + devVersStr, "WMEPH-ShowPLAExitWhileClosed" + devVersStr,"Always ask if cars can exit parking lots.");
             if (devUser || betaUser || usrRank >= 2) {
                 createSettingsCheckbox("sidepanel-harmonizer" + devVersStr, "WMEPH-DisablePLAExtProviderCheck" + devVersStr,'Disable check for "Google place link" on Parking Lot Areas');
                 //createSettingsCheckbox("sidepanel-harmonizer" + devVersStr, "WMEPH-ExtProviderSeverity" + devVersStr,'Treat "No Google place link" as non-critical (blue)');
