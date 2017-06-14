@@ -259,8 +259,13 @@
             '1.2.43: FIXED - WMEPH should run on places with detail updates, but not new place PURs.'
         ];
         var WMEPHWhatsNewMetaList = [  // New in this major version
-            'New flags and helpers for parking lots!',
-            'A new button to pre-fill the Google Link search box with the place name.'
+            'WMEPH is now available for R1 editors to use!',
+            'Yellow "caution" map highlights.',
+            'Missing external provider (Google linked place) is flagged if R3+.',
+            'Optional setting to treat missing external provider link as a blue flag instead of red.',
+            'Improvements to hospital, gas station, and PLA highlighting.',
+            'Layout and data entry improvements.',
+            'A boatload of bug fixes.'
         ];
         var newSep = '\n - ', listSep = '<li>';  // joiners for script and html messages
         var WMEPHWhatsNew = WMEPHWhatsNewList.join(newSep);
