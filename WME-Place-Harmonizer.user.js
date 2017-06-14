@@ -13,7 +13,7 @@
 // ==UserScript==
 // @name        WME Place Harmonizer Beta
 // @namespace   WazeUSA
-// @version     1.3.0
+// @version     1.3.1
 // @description Harmonizes, formats, and locks a selected place
 // @author      WMEPH Development Group
 // @downloadURL https://greasyfork.org/scripts/28689-wme-place-harmonizer-beta/code/WME%20Place%20Harmonizer%20Beta.user.js
@@ -250,6 +250,8 @@
     function runPH() {
         // Script update info
         var WMEPHWhatsNewList = [  // New in this version
+            '1.3.1: Temporarily removed "Updating Google place link will automatically re-run WMEPH".',
+            '1.3.0: Production release.',
             '1.2.48: NEW - Added a flag for missing payment type when PLA cost is not free or unknown',
             '1.2.47: NEW - Added a flag for "Can cars exit parking lot when closed?"',
             '1.2.46: NEW - Added a flag for PLA stop points that have never been moved.',
@@ -259,13 +261,8 @@
             '1.2.43: FIXED - WMEPH should run on places with detail updates, but not new place PURs.'
         ];
         var WMEPHWhatsNewMetaList = [  // New in this major version
-            'WMEPH is now available for R1 editors to use!',
-            'Yellow "caution" map highlights.',
-            'Missing external provider (Google linked place) is flagged if R3+.',
-            'Optional setting to treat missing external provider link as a blue flag instead of red.',
-            'Improvements to hospital, gas station, and PLA highlighting.',
-            'Layout and data entry improvements.',
-            'A boatload of bug fixes.'
+            'New flags and helpers for parking lots!',
+            'A new button to pre-fill the Google Link search box with the place name.'
         ];
         var newSep = '\n - ', listSep = '<li>';  // joiners for script and html messages
         var WMEPHWhatsNew = WMEPHWhatsNewList.join(newSep);
@@ -356,22 +353,21 @@
             deleteDupeLabel();
 
             // This is code to handle updating the banner when changes are made external to the script.
-            try{
+//            try{
                 if ($('#WMEPH_banner').length > 0 && W.selectionManager.hasSelectedItems() && W.selectionManager.selectedItems[0].model.type === 'venue') {
                     var selItem = W.selectionManager.selectedItems[0].model;
                     var actions = W.model.actionManager.actions;
                     var lastAction = actions[actions.length - 1];
-                    if (lastAction.object.type === 'venue' && lastAction.attributes.id === selItem.attributes.id) {
-                        if (lastAction.newAttributes.externalProviderIDs ||
-                            lastAction.newAttributes.entryExitPoints) {
+                    if (lastAction.object && lastAction.object.type === 'venue' && lastAction.attributes && lastAction.attributes.id === selItem.attributes.id) {
+                        if (lastAction.newAttributes && lastAction.newAttributes.entryExitPoints) {
                             harmonizePlaceGo(selItem, 'harmonize');
                         }
                     }
                 }
-            } catch(ex) {
-                // Ignore errors for now.  The above function will need some work.
-                // console.log('WMEPH onObjectsChanged Error:', {exception: ex, lastAction: lastAction})
-            }
+//            } catch(ex) {
+//                // Ignore errors for now.  The above function will need some work.
+//                // console.log('WMEPH onObjectsChanged Error:', {exception: ex, lastAction: lastAction})
+//            }
         }
 
 
