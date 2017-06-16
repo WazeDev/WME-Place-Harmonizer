@@ -13,7 +13,7 @@
 // ==UserScript==
 // @name        WME Place Harmonizer Beta
 // @namespace   WazeUSA
-// @version     1.3.3
+// @version     1.3.4
 // @description Harmonizes, formats, and locks a selected place
 // @author      WMEPH Development Group
 // @downloadURL https://greasyfork.org/scripts/28689-wme-place-harmonizer-beta/code/WME%20Place%20Harmonizer%20Beta.user.js
@@ -265,8 +265,11 @@
         function buildSearchUrl(searchName, address) {
             searchName = searchName
                 .replace(/&/g, "%26")
-                .replace(/[ \/]/g, "%20");
+                .replace(/[ \/]/g, "%20")
+                .trim();
             address = address
+                .replace(/No street, /, "")
+                .replace(/No address/, "")
                 .replace(/ /g, "%20")
                 .replace(/CR-/g, "County%20Rd%20")
                 .replace(/SR-/g, "State%20Hwy%20")
@@ -276,9 +279,10 @@
                 .replace(/ US /g, "%20US%20Hwy%20")
                 .replace(/$CR /g, "County%20Rd%20")
                 .replace(/$SR /g, "State%20Hwy%20")
-                .replace(/$US /g, "US%20Hwy%20");
+                .replace(/$US /g, "US%20Hwy%20")
+                .trim();
 
-            return "http://www.google.com/search?q=" + searchName + ",%20" + address;
+            return "http://www.google.com/search?q=" + searchName + (address.length > 0 ? ",%20" + address: "");
         }
 
         function openWebSearch() {
@@ -295,6 +299,7 @@
     function runPH() {
         // Script update info
         var WMEPHWhatsNewList = [  // New in this version
+            '1.3.4: FIXED - PUR web search should remove No Street and No Address',
             '1.3.3: FIXED - Web Search button doesn\'t always appear on PURs.',
             '1.3.2: NEW - Added Web Search button to PUR popups.',
             '1.3.1: Temporarily removed "Updating Google place link will automatically re-run WMEPH".',
