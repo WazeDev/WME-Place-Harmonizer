@@ -13,7 +13,7 @@
 // ==UserScript==
 // @name        WME Place Harmonizer Beta
 // @namespace   WazeUSA
-// @version     1.3.2
+// @version     1.3.3
 // @description Harmonizes, formats, and locks a selected place
 // @author      WMEPH Development Group
 // @downloadURL https://greasyfork.org/scripts/28689-wme-place-harmonizer-beta/code/WME%20Place%20Harmonizer%20Beta.user.js
@@ -248,25 +248,20 @@
     }
 
     (function addPURWebSearchButton() {
-        var purLayerObserver = new MutationObserver(purLayerChanged);
-        purLayerObserver.observe(W.map.placeUpdatesLayer.div,{childList : true});
+        var purLayerObserver = new MutationObserver(panelContainerChanged);
+        purLayerObserver.observe($('#map #panel-container')[0],{childList: true, subtree: true});
 
-        function isPURNode($node) {
-            return $node.hasClass('place-update');
+        function panelContainerChanged() {
+            var $panelNav = $('#panel-container .navigation');
+            if ($('#PHPURWebSearchButton').length === 0 && $panelNav.length > 0) {
+                var $btn = $('<button>', {class:"btn btn-block btn-primary", id:"PHPURWebSearchButton"})
+                //.css({color: "#fff", backgroundColor: "#92c2d1", borderColor: "#78b0bf"})
+                .text("Web Search")
+                .click(function() { openWebSearch(); });
+                $panelNav.prepend($btn);
+            }
         }
-        function purLayerChanged(records) {
-            records.forEach(function(record) {
-                record.addedNodes.forEach(function(node) {
-                    var $node = $(node);
-                    if (isPURNode($node)) $node.click(purMarkerClick);
-                });
-                record.removedNodes.forEach(function(node) {
-                    var $node = $(node);
-                    if (isPURNode($node)) $(node).unbind('click', purMarkerClick);
-                });
-            });
-        }
-        
+
         function buildSearchUrl(searchName, address) {
             searchName = searchName
                 .replace(/&/g, "%26")
@@ -285,7 +280,7 @@
 
             return "http://www.google.com/search?q=" + searchName + ",%20" + address;
         }
-        
+
         function openWebSearch() {
             var newName = $('.place-update-edit.panel .name').first().text();
             var addr = $('.place-update-edit.panel .address').first().text();
@@ -295,22 +290,12 @@
                 window.open(buildSearchUrl(newName,addr), searchResultsWindowName, searchResultsWindowSpecs);
             }
         }
-        
-        function purMarkerClick() {
-            var $btn = $('<button>', {class:"btn btn-block btn-primary", id:"PHPURWebSearchButton"}).css({color: "#fff", backgroundColor: "#92c2d1", borderColor: "#78b0bf"}).text("Web Search");
-            var placeID = this.attributes["data-id"].value;
-            setTimeout(function(){
-                $('.place-update-edit .navigation').prepend($btn);
-                $('#PHPURWebSearchButton').click(function(){
-                    openWebSearch();
-                });
-            }, 150);
-        }
     })();
 
     function runPH() {
         // Script update info
         var WMEPHWhatsNewList = [  // New in this version
+            '1.3.3: FIXED - Web Search button doesn\'t always appear on PURs.',
             '1.3.2: NEW - Added Web Search button to PUR popups.',
             '1.3.1: Temporarily removed "Updating Google place link will automatically re-run WMEPH".',
             '1.3.0: Production release.',
