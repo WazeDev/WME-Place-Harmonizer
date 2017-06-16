@@ -2510,7 +2510,7 @@
                 if (parkAttr && !parkAttr.canExitWhileClosed && ($('#WMEPH-ShowPLAExitWhileClosed' + devVersStr).prop('checked') || !(isAlwaysOpen(item) || item.attributes.openingHours.length === 0))) {
                     bannButt.plaCanExitWhileClosed.active = true;
                 }
-                if (parkAttr && parkAttr.costType !== 'FREE' && parkAttr.costType !== 'UNKNOWN' && (!parkAttr.paymentType || parkAttr.paymentType.length === 0)) {
+                if (parkAttr && parkAttr.costType && parkAttr.costType !== 'FREE' && parkAttr.costType !== 'UNKNOWN' && (!parkAttr.paymentType || parkAttr.paymentType.length === 0)) {
                     bannButt.plaPaymentTypeMissing.active = true;
                     var $pmtDiv = $('<div>').css({display:'inline'});
                     ['Cash', 'Check', 'Credit'].forEach(function(text) {
