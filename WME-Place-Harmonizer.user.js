@@ -13,7 +13,7 @@
 // ==UserScript==
 // @name        WME Place Harmonizer Beta
 // @namespace   WazeUSA
-// @version     1.3.6
+// @version     1.3.7
 // @description Harmonizes, formats, and locks a selected place
 // @author      WMEPH Development Group
 // @downloadURL https://greasyfork.org/scripts/28689-wme-place-harmonizer-beta/code/WME%20Place%20Harmonizer%20Beta.user.js
@@ -253,16 +253,13 @@
 
         function panelContainerChanged() {
             if (!$('#WMEPH-HidePURWebSearch' + devVersStr).is(':checked')) {
-                var $panelNav = $('.place-update-edit.panel .navigation');
+                var $panelNav = $('.place-update-edit.panel .categories.small');
                 if ($('#PHPURWebSearchButton').length === 0 && $panelNav.length > 0) {
-                    var $btn = $('<button>', {class:"btn btn-block btn-primary", id:"PHPURWebSearchButton"})
-                    //.css({color: "#fff", backgroundColor: "#92c2d1", borderColor: "#78b0bf"})
+                    var $btn = $('<button>', {class:"btn btn-primary", id:"PHPURWebSearchButton"}) //NOTE: Don't use btn-block class. Causes conflict with URO+ "Done" button.
+                    .css({width:'100%',display:'block',marginTop:'4px',marginBottom:'4px'})
                     .text("Web Search")
                     .click(function() { openWebSearch(); });
-
-                    // NOTE: This button must go at the bottom of the navigation div or it causes conflicts with URO+'s option to convert
-                    // the "Next Place" button to "Done".  Not sure why, and maybe there's a workaround with a bit of studying of URO+ code.
-                    $panelNav.append($btn);
+                    $panelNav.after($btn);
                 }
             }
         }
@@ -304,6 +301,7 @@
     function runPH() {
         // Script update info
         var WMEPHWhatsNewList = [  // New in this version
+            '1.3.7: Adjusted position of PUR Web Search button.',
             '1.3.6: NEW - Added option to hide PUR "Web Search" button.',
             '1.3.6: FIXED - Moved PUR web search button to prevent conflict with URO+',
             '1.3.5: NEW - Added handicapped parking question for PLAs.', 
