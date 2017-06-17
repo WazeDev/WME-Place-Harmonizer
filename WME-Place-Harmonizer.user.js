@@ -13,7 +13,7 @@
 // ==UserScript==
 // @name        WME Place Harmonizer Beta
 // @namespace   WazeUSA
-// @version     1.3.4
+// @version     1.3.5
 // @description Harmonizes, formats, and locks a selected place
 // @author      WMEPH Development Group
 // @downloadURL https://greasyfork.org/scripts/28689-wme-place-harmonizer-beta/code/WME%20Place%20Harmonizer%20Beta.user.js
@@ -252,7 +252,7 @@
         purLayerObserver.observe($('#map #panel-container')[0],{childList: true, subtree: true});
 
         function panelContainerChanged() {
-            var $panelNav = $('#panel-container .navigation');
+            var $panelNav = $('.place-update-edit.panel .navigation');
             if ($('#PHPURWebSearchButton').length === 0 && $panelNav.length > 0) {
                 var $btn = $('<button>', {class:"btn btn-block btn-primary", id:"PHPURWebSearchButton"})
                 //.css({color: "#fff", backgroundColor: "#92c2d1", borderColor: "#78b0bf"})
@@ -299,6 +299,8 @@
     function runPH() {
         // Script update info
         var WMEPHWhatsNewList = [  // New in this version
+            '1.3.5: NEW - Added handicapped parking question for PLAs.', 
+            '1.3.5: FIXED - PUR web search button should not appear on UR popups.',
             '1.3.4: FIXED - PUR web search should remove No Street and No Address',
             '1.3.3: FIXED - Web Search button doesn\'t always appear on PURs.',
             '1.3.2: NEW - Added Web Search button to PUR popups.',
@@ -1812,6 +1814,22 @@
                     }
                 },
 
+                plaHasAccessibleParking: {
+                    active: false, severity: 0, message: 'Does this lot have handicapped parking? ', title: '', value: 'Yes',
+                    action: function() {
+                        var services = item.attributes.services;
+                        if (services) {
+                            services = services.clone();
+                        } else {
+                            services = [];
+                        }
+                        services.push('DISABILITY_PARKING');
+                        //bannServ.addDisabilityParking.on();
+                        W.model.actionManager.add(new UpdateObject(item, {'services': services}));
+                        harmonizePlaceGo(item, 'harmonize');
+                    }
+                },
+
                 noHours: {
                     active: false, severity: 1, message: 'No hours: <input type="text" value="Paste Hours Here" id="WMEPH-HoursPaste'+devVersStr+'" autocomplete="off" style="font-size:0.85em;width:170px;padding-left:3px;color:#AAA">',
                     value: "Add hours", title: 'Add pasted hours to existing',
@@ -2570,6 +2588,10 @@
                         );
                     });
                     bannButt.plaPaymentTypeMissing.message += $pmtDiv.prop('outerHTML');
+                }
+                var services = item.attributes.services;
+                if (!(services && services.indexOf("DISABILITY_PARKING") > -1)) {
+                    bannButt.plaHasAccessibleParking.active = true;
                 }
             }
 
@@ -3783,7 +3805,7 @@
                 }
             }
 
-            // House number check
+            // House number / HN check
             var currentHN = item.attributes.houseNumber;
             // Check to see if there's an action that is currently updating the house number.
             var updateHnAction = actions && actions.find(function(action) { return action.newAttributes && action.newAttributes.houseNumber; });
