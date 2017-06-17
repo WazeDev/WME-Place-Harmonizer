@@ -13,7 +13,7 @@
 // ==UserScript==
 // @name        WME Place Harmonizer Beta
 // @namespace   WazeUSA
-// @version     1.3.5
+// @version     1.3.6
 // @description Harmonizes, formats, and locks a selected place
 // @author      WMEPH Development Group
 // @downloadURL https://greasyfork.org/scripts/28689-wme-place-harmonizer-beta/code/WME%20Place%20Harmonizer%20Beta.user.js
@@ -252,13 +252,18 @@
         purLayerObserver.observe($('#map #panel-container')[0],{childList: true, subtree: true});
 
         function panelContainerChanged() {
-            var $panelNav = $('.place-update-edit.panel .navigation');
-            if ($('#PHPURWebSearchButton').length === 0 && $panelNav.length > 0) {
-                var $btn = $('<button>', {class:"btn btn-block btn-primary", id:"PHPURWebSearchButton"})
-                //.css({color: "#fff", backgroundColor: "#92c2d1", borderColor: "#78b0bf"})
-                .text("Web Search")
-                .click(function() { openWebSearch(); });
-                $panelNav.prepend($btn);
+            if (!$('#WMEPH-HidePURWebSearch' + devVersStr).is(':checked')) {
+                var $panelNav = $('.place-update-edit.panel .navigation');
+                if ($('#PHPURWebSearchButton').length === 0 && $panelNav.length > 0) {
+                    var $btn = $('<button>', {class:"btn btn-block btn-primary", id:"PHPURWebSearchButton"})
+                    //.css({color: "#fff", backgroundColor: "#92c2d1", borderColor: "#78b0bf"})
+                    .text("Web Search")
+                    .click(function() { openWebSearch(); });
+
+                    // NOTE: This button must go at the bottom of the navigation div or it causes conflicts with URO+'s option to convert
+                    // the "Next Place" button to "Done".  Not sure why, and maybe there's a workaround with a bit of studying of URO+ code.
+                    $panelNav.append($btn);
+                }
             }
         }
 
@@ -299,6 +304,8 @@
     function runPH() {
         // Script update info
         var WMEPHWhatsNewList = [  // New in this version
+            '1.3.6: NEW - Added option to hide PUR "Web Search" button.',
+            '1.3.6: FIXED - Moved PUR web search button to prevent conflict with URO+',
             '1.3.5: NEW - Added handicapped parking question for PLAs.', 
             '1.3.5: FIXED - PUR web search button should not appear on UR popups.',
             '1.3.4: FIXED - PUR web search should remove No Street and No Address',
@@ -6278,6 +6285,7 @@
             createSettingsCheckbox("sidepanel-harmonizer" + devVersStr, "WMEPH-DisableDFZoom" + devVersStr,"Disable zoom & center for duplicates");
             createSettingsCheckbox("sidepanel-harmonizer" + devVersStr, "WMEPH-EnableIAZoom" + devVersStr,"Enable zoom & center for places with no address");
             createSettingsCheckbox("sidepanel-harmonizer" + devVersStr, "WMEPH-HidePlacesWiki" + devVersStr,"Hide 'Places Wiki' button in results banner");
+            createSettingsCheckbox("sidepanel-harmonizer" + devVersStr, "WMEPH-HidePURWebSearch" + devVersStr,"Hide 'Web Search' button on PUR popups");
             createSettingsCheckbox("sidepanel-harmonizer" + devVersStr, "WMEPH-ExcludePLADupes" + devVersStr,"Exclude parking lots when searching for duplicate places.");
             createSettingsCheckbox("sidepanel-harmonizer" + devVersStr, "WMEPH-ShowPLAExitWhileClosed" + devVersStr,"Always ask if cars can exit parking lots.");
             if (devUser || betaUser || usrRank >= 2) {
