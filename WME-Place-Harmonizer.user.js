@@ -13,7 +13,7 @@
 // ==UserScript==
 // @name        WME Place Harmonizer Beta
 // @namespace   WazeUSA
-// @version     1.3.7
+// @version     1.3.8
 // @description Harmonizes, formats, and locks a selected place
 // @author      WMEPH Development Group
 // @downloadURL https://greasyfork.org/scripts/28689-wme-place-harmonizer-beta/code/WME%20Place%20Harmonizer%20Beta.user.js
@@ -301,6 +301,7 @@
     function runPH() {
         // Script update info
         var WMEPHWhatsNewList = [  // New in this version
+            '1.3.8: Bug fix',
             '1.3.7: Adjusted position of PUR Web Search button.',
             '1.3.6: NEW - Added option to hide PUR "Web Search" button.',
             '1.3.6: FIXED - Moved PUR web search button to prevent conflict with URO+',
@@ -416,7 +417,7 @@
                 var selItem = W.selectionManager.selectedItems[0].model;
                 var actions = W.model.actionManager.actions;
                 var lastAction = actions[actions.length - 1];
-                if (lastAction.object && lastAction.object.type === 'venue' && lastAction.attributes && lastAction.attributes.id === selItem.attributes.id) {
+                if (lastAction && lastAction.object && lastAction.object.type === 'venue' && lastAction.attributes && lastAction.attributes.id === selItem.attributes.id) {
                     if (lastAction.newAttributes && lastAction.newAttributes.entryExitPoints) {
                         harmonizePlaceGo(selItem, 'harmonize');
                     }
