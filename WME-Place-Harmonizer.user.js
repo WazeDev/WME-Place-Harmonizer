@@ -16,7 +16,6 @@
 // @version     1.3.8
 // @description Harmonizes, formats, and locks a selected place
 // @author      WMEPH Development Group
-// @downloadURL https://greasyfork.org/scripts/28689-wme-place-harmonizer-beta/code/WME%20Place%20Harmonizer%20Beta.user.js
 // @include     /^https:\/\/(www|beta)\.waze\.com\/(?!user\/)(.{2,6}\/)?editor\/.*$/
 // @require     https://greasyfork.org/scripts/28687-jquery-ui-1-11-4-custom-min-js/code/jquery-ui-1114customminjs.js
 // @resource    jqUI_CSS  https://ajax.googleapis.com/ajax/libs/jqueryui/1.11.4/themes/smoothness/jquery-ui.css
@@ -232,10 +231,6 @@
     function isAlwaysOpen(venue) {
         var hours = venue.attributes.openingHours;
         return hours.length === 1 && hours[0].days.length === 7 && hours[0].fromHour === '00:00' && hours[0].toHour ==='00:00';
-    }
-
-    function isPLA(venue) {
-        return venue.attributes.categories && venue.attributes.categories[0] === 'PARKING_LOT';
     }
 
     function isEmergencyRoom(venue) {
@@ -845,7 +840,7 @@
         // normalize phone
         function normalizePhone(s, outputFormat, returnType, item) {
             if ( !s && returnType === 'existing' ) {
-                if (!isPLA(item) || (isPLA(item) && item.attributes.brand && W.model.venues.categoryBrands.PARKING_LOT.indexOf(item.attributes.brand) !== -1)) {
+                if (!item.isParkingLot() || (item.isParkingLot() && item.attributes.brand && W.model.venues.categoryBrands.PARKING_LOT.indexOf(item.attributes.brand) !== -1)) {
                     bannButt.phoneMissing.active = true;
                     if (currentWL.phoneWL) {
                         bannButt.phoneMissing.WLactive = false;
@@ -912,7 +907,7 @@
         // Normalize url
         function normalizeURL(s, lc, skipBannerActivate, item) {
             if ((!s || s.trim().length === 0) && !skipBannerActivate) {  // Notify that url is missing and provide web search to find website and gather data (provided for all editors)
-                if (!isPLA(item) || (isPLA(item) && item.attributes.brand && W.model.venues.categoryBrands.PARKING_LOT.indexOf(item.attributes.brand) !== -1)) {
+                if (!item.isParkingLot() || (item.isParkingLot() && item.attributes.brand && W.model.venues.categoryBrands.PARKING_LOT.indexOf(item.attributes.brand) !== -1)) {
                     bannButt.urlMissing.active = true;
                     if (currentWL.urlWL) {
                         bannButt.urlMissing.WLactive = false;
@@ -996,10 +991,10 @@
                 hpMode.scanFlag = true;
             }
 
-            // If it's an unlocked parking lot, return with severity 4.
-            if (hpMode.hlFlag && isPLA(item) && item.attributes.lockRank === 0) {
-                return 4;
-            }
+            // // If it's an unlocked parking lot, return with severity 4.
+            // if (hpMode.hlFlag && item.isParkingLot() && item.attributes.lockRank === 0) {
+            //     return 4;
+            // }
 
             var placePL = getItemPL();  //  set up external post div and pull place PL
             // https://www.waze.com/editor/?env=usa&lon=-80.60757&lat=28.17850&layers=1957&zoom=4&segments=86124344&update_requestsFilter=false&problemsFilter=false&mapProblemFilter=0&mapUpdateRequestFilter=0&venueFilter=1
@@ -2498,7 +2493,7 @@
                 } else if (hpMode.hlFlag) {
                     if ( item.attributes.adLocked ) {
                         return 'adLock';
-                    } else if ( item.attributes.categories.indexOf("HOSPITAL_MEDICAL_CARE") > -1 || item.attributes.categories.indexOf("HOSPITAL_URGENT_CARE") > -1 || item.attributes.categories.indexOf("GAS_STATION") > -1 ) {
+                    } else if ( item.attributes.categories.indexOf("HOSPITAL_MEDICAL_CARE") > -1 || item.attributes.categories.indexOf("HOSPITAL_URGENT_CARE") > -1 || item.isGasStation() ) {
                         phlogdev('Unaddressed HMC/GS');
                         return 5;
                     } else {
@@ -2510,7 +2505,7 @@
             }
 
             // Check parking lot attributes.
-            if (isPLA(item)) {
+            if (item.isParkingLot()) {
                 bannServ.addDisabilityParking.active = true;
                 var catAttr = item.attributes.categoryAttributes;
                 var parkAttr = catAttr ? catAttr.PARKING_LOT : undefined;
@@ -2730,7 +2725,7 @@
             }
 
             // If no gas station name, replace with brand name
-            if (hpMode.harmFlag && item.attributes.categories[0] === 'GAS_STATION' && (!newName || newName.trim().length === 0) && item.attributes.brand) {
+            if (hpMode.harmFlag && item.isGasStation() && (!newName || newName.trim().length === 0) && item.attributes.brand) {
                 newName = item.attributes.brand;
                 actions.push(new UpdateObject(item, {name: newName }));
                 fieldUpdateObject.name = '#dfd';
@@ -2777,8 +2772,8 @@
                 if (item.is2D()) {
                     bannButt.pointNotArea.active = true;
                 }
-            } else if (isPLA(item) || (newName && newName.trim().length > 0)) {  // for non-residential places
-                if (usrRank >= 3 && !(isPLA(item) && $('#WMEPH-DisablePLAExtProviderCheck' + devVersStr).prop('checked'))) {
+            } else if (item.isParkingLot() || (newName && newName.trim().length > 0)) {  // for non-residential places
+                if (usrRank >= 3 && !(item.isParkingLot() && $('#WMEPH-DisablePLAExtProviderCheck' + devVersStr).prop('checked'))) {
                     var provIDs = item.attributes.externalProviderIDs;
                     if (!provIDs || provIDs.length === 0) {
                         var lastUpdated = item.isNew() ? Date.now() : item.attributes.updatedOn ? item.attributes.updatedOn : item.attributes.createdOn;
@@ -2805,7 +2800,7 @@
                 // Place Harmonization
                 var PNHMatchData;
                 if (hpMode.harmFlag) {
-                    if (isPLA(item)) {
+                    if (item.isParkingLot()) {
                         PNHMatchData = ['NoMatch'];
                     } else {
                         PNHMatchData = harmoList(newName,state2L,region,countryCode,newCategories,item);  // check against the PNH list
@@ -3786,7 +3781,7 @@
 
             // Name check
             if ( !item.attributes.residential && ( !newName || newName.replace(/[^A-Za-z0-9]/g,'').length === 0 )) {
-                if (isPLA(item)) {
+                if (item.isParkingLot()) {
                     // If it's a parking lot and not locked to R3...
                     if (item.attributes.lockRank < 2) {
                         lockOK = false;
@@ -4243,7 +4238,7 @@
                 //phlogdev('calculated in harmGo: ' +severityButt + '; ' + item.attributes.name);
 
                 // Special case flags
-                if (  item.attributes.lockRank === 0 && (item.attributes.categories.indexOf("HOSPITAL_MEDICAL_CARE") > -1 || item.attributes.categories.indexOf("HOSPITAL_URGENT_CARE") > -1 || item.attributes.categories.indexOf("GAS_STATION") > -1) ) {
+                if (  item.attributes.lockRank === 0 && (item.attributes.categories.indexOf("HOSPITAL_MEDICAL_CARE") > -1 || item.attributes.categories.indexOf("HOSPITAL_URGENT_CARE") > -1 || item.isGasStation()) ) {
                     severityButt = 5;
                 }
 
@@ -5700,7 +5695,7 @@
                     altNameMatch = -1;
                     testVenueAtt = venueList[venix].attributes;
                     var excludePLADupes = $('#WMEPH-ExcludePLADupes' + devVersStr).prop('checked');
-                    if ((!excludePLADupes || (excludePLADupes && !(isPLA(item) || isPLA(venueList[venix])))) && !isEmergencyRoom(venueList[venix])) {
+                    if ((!excludePLADupes || (excludePLADupes && !(item.isParkingLot() || venueList[venix].isParkingLot()))) && !isEmergencyRoom(venueList[venix])) {
 
                         var pt2ptDistance =  item.geometry.getCentroid().distanceTo(venueList[venix].geometry.getCentroid());
                         if ( item.isPoint() && venueList[venix].isPoint() && pt2ptDistance < 2 && item.attributes.id !== testVenueAtt.id ) {
