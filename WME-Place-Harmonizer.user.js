@@ -13,7 +13,7 @@
 // ==UserScript==
 // @name        WME Place Harmonizer
 // @namespace   WazeUSA
-// @version     1.3.1
+// @version     1.3.10
 // @description Harmonizes, formats, and locks a selected place
 // @author      WMEPH Development Group
 // @downloadURL https://greasyfork.org/scripts/28690-wme-place-harmonizer/code/WME%20Place%20Harmonizer.user.js
@@ -234,10 +234,6 @@
         return hours.length === 1 && hours[0].days.length === 7 && hours[0].fromHour === '00:00' && hours[0].toHour ==='00:00';
     }
 
-    function isPLA(venue) {
-        return venue.attributes.categories && venue.attributes.categories[0] === 'PARKING_LOT';
-    }
-
     function isEmergencyRoom(venue) {
         return /(?:emergency\s+(?:room|department|dept))|\b(?:er|ed)\b/i.test(venue.attributes.name);
     }
@@ -247,9 +243,70 @@
         return (pvaValue ==='' || pvaValue === '0' || (pvaValue === 'hosp' && !isER)) ? 3 : (pvaValue ==='2') ? 1 : (pvaValue ==='3') ? 2 : 0;
     }
 
+    (function addPURWebSearchButton() {
+        var purLayerObserver = new MutationObserver(panelContainerChanged);
+        purLayerObserver.observe($('#map #panel-container')[0],{childList: true, subtree: true});
+
+        function panelContainerChanged() {
+            if (!$('#WMEPH-HidePURWebSearch' + devVersStr).is(':checked')) {
+                var $panelNav = $('.place-update-edit.panel .categories.small');
+                if ($('#PHPURWebSearchButton').length === 0 && $panelNav.length > 0) {
+                    var $btn = $('<button>', {class:"btn btn-primary", id:"PHPURWebSearchButton"}) //NOTE: Don't use btn-block class. Causes conflict with URO+ "Done" button.
+                    .css({width:'100%',display:'block',marginTop:'4px',marginBottom:'4px'})
+                    .text("Web Search")
+                    .click(function() { openWebSearch(); });
+                    $panelNav.after($btn);
+                }
+            }
+        }
+
+        function buildSearchUrl(searchName, address) {
+            searchName = searchName
+                .replace(/&/g, "%26")
+                .replace(/[ \/]/g, "%20")
+                .trim();
+            address = address
+                .replace(/No street, /, "")
+                .replace(/No address/, "")
+                .replace(/ /g, "%20")
+                .replace(/CR-/g, "County%20Rd%20")
+                .replace(/SR-/g, "State%20Hwy%20")
+                .replace(/US-/g, "US%20Hwy%20")
+                .replace(/ CR /g, "%20County%20Rd%20")
+                .replace(/ SR /g, "%20State%20Hwy%20")
+                .replace(/ US /g, "%20US%20Hwy%20")
+                .replace(/$CR /g, "County%20Rd%20")
+                .replace(/$SR /g, "State%20Hwy%20")
+                .replace(/$US /g, "US%20Hwy%20")
+                .trim();
+
+            return "http://www.google.com/search?q=" + searchName + (address.length > 0 ? ",%20" + address: "");
+        }
+
+        function openWebSearch() {
+            var newName = $('.place-update-edit.panel .name').first().text();
+            var addr = $('.place-update-edit.panel .address').first().text();
+            if ( $("#WMEPH-WebSearchNewTab" + devVersStr).prop('checked') ) {
+                window.open(buildSearchUrl(newName,addr));
+            } else {
+                window.open(buildSearchUrl(newName,addr), searchResultsWindowName, searchResultsWindowSpecs);
+            }
+        }
+    })();
+
     function runPH() {
         // Script update info
         var WMEPHWhatsNewList = [  // New in this version
+            '1.3.10: FIXED - Rest area flag issues.',
+            '1.3.8: Bug fix',
+            '1.3.7: Adjusted position of PUR Web Search button.',
+            '1.3.6: NEW - Added option to hide PUR "Web Search" button.',
+            '1.3.6: FIXED - Moved PUR web search button to prevent conflict with URO+',
+            '1.3.5: NEW - Added handicapped parking question for PLAs.', 
+            '1.3.5: FIXED - PUR web search button should not appear on UR popups.',
+            '1.3.4: FIXED - PUR web search should remove No Street and No Address',
+            '1.3.3: FIXED - Web Search button doesn\'t always appear on PURs.',
+            '1.3.2: NEW - Added Web Search button to PUR popups.',
             '1.3.1: Temporarily removed "Updating Google place link will automatically re-run WMEPH".',
             '1.3.0: Production release.',
             '1.2.48: NEW - Added a flag for missing payment type when PLA cost is not free or unknown',
@@ -353,21 +410,16 @@
             deleteDupeLabel();
 
             // This is code to handle updating the banner when changes are made external to the script.
-//            try{
-                if ($('#WMEPH_banner').length > 0 && W.selectionManager.hasSelectedItems() && W.selectionManager.selectedItems[0].model.type === 'venue') {
-                    var selItem = W.selectionManager.selectedItems[0].model;
-                    var actions = W.model.actionManager.actions;
-                    var lastAction = actions[actions.length - 1];
-                    if (lastAction.object && lastAction.object.type === 'venue' && lastAction.attributes && lastAction.attributes.id === selItem.attributes.id) {
-                        if (lastAction.newAttributes && lastAction.newAttributes.entryExitPoints) {
-                            harmonizePlaceGo(selItem, 'harmonize');
-                        }
+            if ($('#WMEPH_banner').length > 0 && W.selectionManager.hasSelectedItems() && W.selectionManager.selectedItems[0].model.type === 'venue') {
+                var selItem = W.selectionManager.selectedItems[0].model;
+                var actions = W.model.actionManager.actions;
+                var lastAction = actions[actions.length - 1];
+                if (lastAction && lastAction.object && lastAction.object.type === 'venue' && lastAction.attributes && lastAction.attributes.id === selItem.attributes.id) {
+                    if (lastAction.newAttributes && lastAction.newAttributes.entryExitPoints) {
+                        harmonizePlaceGo(selItem, 'harmonize');
                     }
                 }
-//            } catch(ex) {
-//                // Ignore errors for now.  The above function will need some work.
-//                // console.log('WMEPH onObjectsChanged Error:', {exception: ex, lastAction: lastAction})
-//            }
+            }
         }
 
 
@@ -790,7 +842,7 @@
         // normalize phone
         function normalizePhone(s, outputFormat, returnType, item) {
             if ( !s && returnType === 'existing' ) {
-                if (!isPLA(item) || (isPLA(item) && item.attributes.brand && W.model.venues.categoryBrands.PARKING_LOT.indexOf(item.attributes.brand) !== -1)) {
+                if (!item.isParkingLot() || (item.isParkingLot() && item.attributes.brand && W.model.venues.categoryBrands.PARKING_LOT.indexOf(item.attributes.brand) !== -1)) {
                     bannButt.phoneMissing.active = true;
                     if (currentWL.phoneWL) {
                         bannButt.phoneMissing.WLactive = false;
@@ -857,7 +909,7 @@
         // Normalize url
         function normalizeURL(s, lc, skipBannerActivate, item) {
             if ((!s || s.trim().length === 0) && !skipBannerActivate) {  // Notify that url is missing and provide web search to find website and gather data (provided for all editors)
-                if (!isPLA(item) || (isPLA(item) && item.attributes.brand && W.model.venues.categoryBrands.PARKING_LOT.indexOf(item.attributes.brand) !== -1)) {
+                if (!item.isParkingLot() || (item.isParkingLot() && item.attributes.brand && W.model.venues.categoryBrands.PARKING_LOT.indexOf(item.attributes.brand) !== -1)) {
                     bannButt.urlMissing.active = true;
                     if (currentWL.urlWL) {
                         bannButt.urlMissing.WLactive = false;
@@ -941,10 +993,10 @@
                 hpMode.scanFlag = true;
             }
 
-            // If it's an unlocked parking lot, return with severity 4.
-            if (hpMode.hlFlag && isPLA(item) && item.attributes.lockRank === 0) {
-                return 4;
-            }
+            // // If it's an unlocked parking lot, return with severity 4.
+            // if (hpMode.hlFlag && item.isParkingLot() && item.attributes.lockRank === 0) {
+            //     return 4;
+            // }
 
             var placePL = getItemPL();  //  set up external post div and pull place PL
             // https://www.waze.com/editor/?env=usa&lon=-80.60757&lat=28.17850&layers=1957&zoom=4&segments=86124344&update_requestsFilter=false&problemsFilter=false&mapProblemFilter=0&mapUpdateRequestFilter=0&venueFilter=1
@@ -1055,6 +1107,21 @@
                     }
                 },
 
+                restAreaNoTransportation: {
+                    active: false, severity: 2, message: 'Rest areas should not use the Transportation category.', value: 'Remove it?',
+                    action: function() {
+                        var ix = newCategories.indexOf('TRANSPORTATION');
+                        if (ix > -1) {
+                            newCategories.splice(ix, 1);
+                            var actions = [];
+                            actions.push(new UpdateObject(item, { categories: newCategories }));
+                            executeMultiAction(actions);
+                            harmonizePlaceGo(item,'harmonize');
+                            //applyHighlightsTest(item);
+                        }
+                    }
+                },
+                
                 restAreaGas: { // no WL
                     active: false, severity: 3, message: 'Gas stations at Rest Areas should be separate area places.'
                 },
@@ -1765,6 +1832,22 @@
                     }
                 },
 
+                plaHasAccessibleParking: {
+                    active: false, severity: 0, message: 'Does this lot have handicapped parking? ', title: '', value: 'Yes',
+                    action: function() {
+                        var services = item.attributes.services;
+                        if (services) {
+                            services = services.clone();
+                        } else {
+                            services = [];
+                        }
+                        services.push('DISABILITY_PARKING');
+                        //bannServ.addDisabilityParking.on();
+                        W.model.actionManager.add(new UpdateObject(item, {'services': services}));
+                        harmonizePlaceGo(item, 'harmonize');
+                    }
+                },
+
                 noHours: {
                     active: false, severity: 1, message: 'No hours: <input type="text" value="Paste Hours Here" id="WMEPH-HoursPaste'+devVersStr+'" autocomplete="off" style="font-size:0.85em;width:170px;padding-left:3px;color:#AAA">',
                     value: "Add hours", title: 'Add pasted hours to existing',
@@ -2427,7 +2510,7 @@
                 } else if (hpMode.hlFlag) {
                     if ( item.attributes.adLocked ) {
                         return 'adLock';
-                    } else if ( item.attributes.categories.indexOf("HOSPITAL_MEDICAL_CARE") > -1 || item.attributes.categories.indexOf("HOSPITAL_URGENT_CARE") > -1 || item.attributes.categories.indexOf("GAS_STATION") > -1 ) {
+                    } else if ( item.attributes.categories.indexOf("HOSPITAL_MEDICAL_CARE") > -1 || item.attributes.categories.indexOf("HOSPITAL_URGENT_CARE") > -1 || item.isGasStation() ) {
                         phlogdev('Unaddressed HMC/GS');
                         return 5;
                     } else {
@@ -2439,7 +2522,7 @@
             }
 
             // Check parking lot attributes.
-            if (isPLA(item)) {
+            if (item.isParkingLot()) {
                 bannServ.addDisabilityParking.active = true;
                 var catAttr = item.attributes.categoryAttributes;
                 var parkAttr = catAttr ? catAttr.PARKING_LOT : undefined;
@@ -2510,7 +2593,7 @@
                 if (parkAttr && !parkAttr.canExitWhileClosed && ($('#WMEPH-ShowPLAExitWhileClosed' + devVersStr).prop('checked') || !(isAlwaysOpen(item) || item.attributes.openingHours.length === 0))) {
                     bannButt.plaCanExitWhileClosed.active = true;
                 }
-                if (parkAttr && parkAttr.costType !== 'FREE' && parkAttr.costType !== 'UNKNOWN' && (!parkAttr.paymentType || parkAttr.paymentType.length === 0)) {
+                if (parkAttr && parkAttr.costType && parkAttr.costType !== 'FREE' && parkAttr.costType !== 'UNKNOWN' && (!parkAttr.paymentType || parkAttr.paymentType.length === 0)) {
                     bannButt.plaPaymentTypeMissing.active = true;
                     var $pmtDiv = $('<div>').css({display:'inline'});
                     ['Cash', 'Check', 'Credit'].forEach(function(text) {
@@ -2523,6 +2606,10 @@
                         );
                     });
                     bannButt.plaPaymentTypeMissing.message += $pmtDiv.prop('outerHTML');
+                }
+                var services = item.attributes.services;
+                if (!(services && services.indexOf("DISABILITY_PARKING") > -1)) {
+                    bannButt.plaHasAccessibleParking.active = true;
                 }
             }
 
@@ -2655,7 +2742,7 @@
             }
 
             // If no gas station name, replace with brand name
-            if (hpMode.harmFlag && item.attributes.categories[0] === 'GAS_STATION' && (!newName || newName.trim().length === 0) && item.attributes.brand) {
+            if (hpMode.harmFlag && item.isGasStation() && (!newName || newName.trim().length === 0) && item.attributes.brand) {
                 newName = item.attributes.brand;
                 actions.push(new UpdateObject(item, {name: newName }));
                 fieldUpdateObject.name = '#dfd';
@@ -2702,8 +2789,8 @@
                 if (item.is2D()) {
                     bannButt.pointNotArea.active = true;
                 }
-            } else if (isPLA(item) || (newName && newName.trim().length > 0)) {  // for non-residential places
-                if (usrRank >= 3 && !(isPLA(item) && $('#WMEPH-DisablePLAExtProviderCheck' + devVersStr).prop('checked'))) {
+            } else if (item.isParkingLot() || (newName && newName.trim().length > 0)) {  // for non-residential places
+                if (usrRank >= 3 && !(item.isParkingLot() && $('#WMEPH-DisablePLAExtProviderCheck' + devVersStr).prop('checked'))) {
                     var provIDs = item.attributes.externalProviderIDs;
                     if (!provIDs || provIDs.length === 0) {
                         var lastUpdated = item.isNew() ? Date.now() : item.attributes.updatedOn ? item.attributes.updatedOn : item.attributes.createdOn;
@@ -2730,7 +2817,7 @@
                 // Place Harmonization
                 var PNHMatchData;
                 if (hpMode.harmFlag) {
-                    if (isPLA(item)) {
+                    if (item.isParkingLot()) {
                         PNHMatchData = ['NoMatch'];
                     } else {
                         PNHMatchData = harmoList(newName,state2L,region,countryCode,newCategories,item);  // check against the PNH list
@@ -3711,7 +3798,7 @@
 
             // Name check
             if ( !item.attributes.residential && ( !newName || newName.replace(/[^A-Za-z0-9]/g,'').length === 0 )) {
-                if (isPLA(item)) {
+                if (item.isParkingLot()) {
                     // If it's a parking lot and not locked to R3...
                     if (item.attributes.lockRank < 2) {
                         lockOK = false;
@@ -3736,7 +3823,7 @@
                 }
             }
 
-            // House number check
+            // House number / HN check
             var currentHN = item.attributes.houseNumber;
             // Check to see if there's an action that is currently updating the house number.
             var updateHnAction = actions && actions.find(function(action) { return action.newAttributes && action.newAttributes.houseNumber; });
@@ -3930,12 +4017,14 @@
             // but due to a bug in WME, we can't force that.  I've temporarily changed the check for TRANSPORTATION
             // and SCENIC_LOOKOUT_VIEWPOINT to be < 2 instead of === 0 and === 1, respectively.
             // ****************************************************************************************************
-            var transCatIndex = categories.indexOf('TRANSPORTATION');
             var lookoutCatIndex = categories.indexOf('SCENIC_LOOKOUT_VIEWPOINT');
             if ( /rest area/i.test(newName) || /rest stop/i.test(newName) || /service plaza/i.test(newName) ||
-                ( transCatIndex > -1 && lookoutCatIndex > -1 ) ) {
-                if ( transCatIndex < 2 && transCatIndex > -1 && lookoutCatIndex < 2 && lookoutCatIndex > -1 ) {
+                ( lookoutCatIndex > -1 ) ) {
+                if ( lookoutCatIndex > -1 ) {
 
+                    if (categories.indexOf('TRANSPORTATION') > -1) {
+                        bannButt.restAreaNoTransportation.active = true;
+                    }
                     if ( item.isPoint() ) {  // needs to be area
                         bannButt.areaNotPoint.active = true;
                     }
@@ -3985,14 +4074,12 @@
                     bannButt.urlMissing.severity = 0;
                     bannButt.phoneMissing.severity = 0;
                     //assembleBanner();
-
-
                 } else {
                     bannButt.restAreaSpec.active = true;
-                    if (currentWL.restAreaName) {
+                    if (currentWL.restAreaSpec) {
                         bannButt.restAreaSpec.WLactive = false;
                     } else {
-                        bannButt.pointNotArea.active = false;
+                        bannButt.restAreaSpec.active = false;
                     }
                 }
             }
@@ -4168,7 +4255,7 @@
                 //phlogdev('calculated in harmGo: ' +severityButt + '; ' + item.attributes.name);
 
                 // Special case flags
-                if (  item.attributes.lockRank === 0 && (item.attributes.categories.indexOf("HOSPITAL_MEDICAL_CARE") > -1 || item.attributes.categories.indexOf("HOSPITAL_URGENT_CARE") > -1 || item.attributes.categories.indexOf("GAS_STATION") > -1) ) {
+                if (  item.attributes.lockRank === 0 && (item.attributes.categories.indexOf("HOSPITAL_MEDICAL_CARE") > -1 || item.attributes.categories.indexOf("HOSPITAL_URGENT_CARE") > -1 || item.isGasStation()) ) {
                     severityButt = 5;
                 }
 
@@ -5625,7 +5712,7 @@
                     altNameMatch = -1;
                     testVenueAtt = venueList[venix].attributes;
                     var excludePLADupes = $('#WMEPH-ExcludePLADupes' + devVersStr).prop('checked');
-                    if ((!excludePLADupes || (excludePLADupes && !(isPLA(item) || isPLA(venueList[venix])))) && !isEmergencyRoom(venueList[venix])) {
+                    if ((!excludePLADupes || (excludePLADupes && !(item.isParkingLot() || venueList[venix].isParkingLot()))) && !isEmergencyRoom(venueList[venix])) {
 
                         var pt2ptDistance =  item.geometry.getCentroid().distanceTo(venueList[venix].geometry.getCentroid());
                         if ( item.isPoint() && venueList[venix].isPoint() && pt2ptDistance < 2 && item.attributes.id !== testVenueAtt.id ) {
@@ -6209,6 +6296,7 @@
             createSettingsCheckbox("sidepanel-harmonizer" + devVersStr, "WMEPH-DisableDFZoom" + devVersStr,"Disable zoom & center for duplicates");
             createSettingsCheckbox("sidepanel-harmonizer" + devVersStr, "WMEPH-EnableIAZoom" + devVersStr,"Enable zoom & center for places with no address");
             createSettingsCheckbox("sidepanel-harmonizer" + devVersStr, "WMEPH-HidePlacesWiki" + devVersStr,"Hide 'Places Wiki' button in results banner");
+            createSettingsCheckbox("sidepanel-harmonizer" + devVersStr, "WMEPH-HidePURWebSearch" + devVersStr,"Hide 'Web Search' button on PUR popups");
             createSettingsCheckbox("sidepanel-harmonizer" + devVersStr, "WMEPH-ExcludePLADupes" + devVersStr,"Exclude parking lots when searching for duplicate places.");
             createSettingsCheckbox("sidepanel-harmonizer" + devVersStr, "WMEPH-ShowPLAExitWhileClosed" + devVersStr,"Always ask if cars can exit parking lots.");
             if (devUser || betaUser || usrRank >= 2) {
