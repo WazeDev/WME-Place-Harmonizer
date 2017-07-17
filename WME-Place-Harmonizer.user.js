@@ -13,7 +13,7 @@
 // ==UserScript==
 // @name        WME Place Harmonizer Beta
 // @namespace   WazeUSA
-// @version     1.3.9
+// @version     1.3.10
 // @description Harmonizes, formats, and locks a selected place
 // @author      WMEPH Development Group
 // @include     /^https:\/\/(www|beta)\.waze\.com\/(?!user\/)(.{2,6}\/)?editor\/.*$/
@@ -296,6 +296,7 @@
     function runPH() {
         // Script update info
         var WMEPHWhatsNewList = [  // New in this version
+            '1.3.10: FIXED - Rest area flag issues.',
             '1.3.8: Bug fix',
             '1.3.7: Adjusted position of PUR Web Search button.',
             '1.3.6: NEW - Added option to hide PUR "Web Search" button.',
@@ -1105,6 +1106,21 @@
                     }
                 },
 
+                restAreaNoTransportation: {
+                    active: false, severity: 2, message: 'Rest areas should not use the Transportation category.', value: 'Remove it?',
+                    action: function() {
+                        var ix = newCategories.indexOf('TRANSPORTATION');
+                        if (ix > -1) {
+                            newCategories.splice(ix, 1);
+                            var actions = [];
+                            actions.push(new UpdateObject(item, { categories: newCategories }));
+                            executeMultiAction(actions);
+                            harmonizePlaceGo(item,'harmonize');
+                            //applyHighlightsTest(item);
+                        }
+                    }
+                },
+                
                 restAreaGas: { // no WL
                     active: false, severity: 3, message: 'Gas stations at Rest Areas should be separate area places.'
                 },
@@ -4000,12 +4016,14 @@
             // but due to a bug in WME, we can't force that.  I've temporarily changed the check for TRANSPORTATION
             // and SCENIC_LOOKOUT_VIEWPOINT to be < 2 instead of === 0 and === 1, respectively.
             // ****************************************************************************************************
-            var transCatIndex = categories.indexOf('TRANSPORTATION');
             var lookoutCatIndex = categories.indexOf('SCENIC_LOOKOUT_VIEWPOINT');
             if ( /rest area/i.test(newName) || /rest stop/i.test(newName) || /service plaza/i.test(newName) ||
-                ( transCatIndex > -1 && lookoutCatIndex > -1 ) ) {
-                if ( transCatIndex < 2 && transCatIndex > -1 && lookoutCatIndex < 2 && lookoutCatIndex > -1 ) {
+                ( lookoutCatIndex > -1 ) ) {
+                if ( lookoutCatIndex > -1 ) {
 
+                    if (categories.indexOf('TRANSPORTATION') > -1) {
+                        bannButt.restAreaNoTransportation.active = true;
+                    }
                     if ( item.isPoint() ) {  // needs to be area
                         bannButt.areaNotPoint.active = true;
                     }
@@ -4055,14 +4073,12 @@
                     bannButt.urlMissing.severity = 0;
                     bannButt.phoneMissing.severity = 0;
                     //assembleBanner();
-
-
                 } else {
                     bannButt.restAreaSpec.active = true;
-                    if (currentWL.restAreaName) {
+                    if (currentWL.restAreaSpec) {
                         bannButt.restAreaSpec.WLactive = false;
                     } else {
-                        bannButt.pointNotArea.active = false;
+                        bannButt.restAreaSpec.active = false;
                     }
                 }
             }
