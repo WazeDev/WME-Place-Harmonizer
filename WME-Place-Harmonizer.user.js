@@ -13,7 +13,7 @@
 // ==UserScript==
 // @name        WME Place Harmonizer Beta
 // @namespace   WazeUSA
-// @version     1.3.12
+// @version     1.3.13
 // @description Harmonizes, formats, and locks a selected place
 // @author      WMEPH Development Group
 // @downloadURL https://greasyfork.org/scripts/28689-wme-place-harmonizer-beta/code/WME%20Place%20Harmonizer%20Beta.user.js
@@ -297,6 +297,8 @@
     function runPH() {
         // Script update info
         var WMEPHWhatsNewList = [  // New in this version
+            '1.3.13: FIXED - Highlights for places a user cannot edit external links',
+            '1.3.13: NEW - All hotels will get 24/7 hours, and PNH matches get WiFi service',
             '1.3.12: FIXED - Will not run on URLs without a trailing forward slash.',
             '1.3.10: FIXED - Rest area flag issues.',
             '1.3.8: Bug fix',
@@ -2791,7 +2793,7 @@
                     bannButt.pointNotArea.active = true;
                 }
             } else if (item.isParkingLot() || (newName && newName.trim().length > 0)) {  // for non-residential places
-                if (usrRank >= 3 && !(item.isParkingLot() && $('#WMEPH-DisablePLAExtProviderCheck' + devVersStr).prop('checked'))) {
+                if (usrRank >= 3 && item.areExternalProvidersEditable() && !(item.isParkingLot() && $('#WMEPH-DisablePLAExtProviderCheck' + devVersStr).prop('checked'))) {
                     var provIDs = item.attributes.externalProviderIDs;
                     if (!provIDs || provIDs.length === 0) {
                         var lastUpdated = item.isNew() ? Date.now() : item.attributes.updatedOn ? item.attributes.updatedOn : item.attributes.createdOn;
@@ -3122,6 +3124,15 @@
                                 lockOK = false;
                             }
                         }
+                        // If PNH match, set wifi service.
+                        if (PNHMatchData && !bannServ.addWiFi.checked) {
+                            bannServ.addWiFi.action();
+                        }
+                        // Set hotel hours to 24/7 for all hotels.
+                        if (!bannServ.add247.checked) {
+                            debugger;
+                            bannServ.add247.action();
+                        }
                     } else if ( ["BANK_FINANCIAL"].indexOf(priPNHPlaceCat) > -1 && PNHMatchData[ph_speccase_ix].indexOf('notABank') === -1 ) {
                         // PNH Bank treatment
                         ixBank = item.attributes.categories.indexOf("BANK_FINANCIAL");
@@ -3383,6 +3394,8 @@
                     }
                 }  // END Gas Station Checks
 
+                
+                // TODO - FIX APPROVAL SUBMISSION STUFF
                 // Make PNH submission links
                 var regionFormURL = '';
                 var newPlaceAddon = '';
