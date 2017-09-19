@@ -13,7 +13,7 @@
 // ==UserScript==
 // @name        WME Place Harmonizer Beta
 // @namespace   WazeUSA
-// @version     1.3.15
+// @version     1.3.16
 // @description Harmonizes, formats, and locks a selected place
 // @author      WMEPH Development Group
 // @include     /^https:\/\/(www|beta)\.waze\.com\/(?!user\/)(.{2,6}\/)?editor\/?.*$/
@@ -71,6 +71,7 @@
     var bannButt, bannButt2, bannServ, bannDupl, bannButtHL;  // Banner Buttons objects
     var RPPLockString = 'Lock?';
     var panelFields = {};  // the fields for the sidebar
+    var newNameSuffix;
 
     // Array prototype extensions (for Firefox fix)
     Array.prototype.toSet = function () {
@@ -296,6 +297,8 @@
     function runPH() {
         // Script update info
         var WMEPHWhatsNewList = [  // New in this version
+            '1.3.16: FIXED - Matching PNH and duplicate places when name contains hyphen or paren suffix.',
+            '1.3.15: FIXED - Localized hotel name highlight/flag colors.',
             '1.3.14: FIXED - R2 editors can use Google link options and highlights.',
             '1.3.13: FIXED - Highlights for places a user cannot edit external links',
             '1.3.13: NEW - All hotels will get 24/7 hours, and PNH matches get WiFi service',
@@ -2456,7 +2459,9 @@
             var lockOK = true;  // if nothing goes wrong, then place will be locked
             var categories = item.attributes.categories;
             newCategories = categories.slice(0);
-            newName = item.attributes.name;
+            newNameSplits = item.attributes.name.match(/(.*?)(\s+[-\(\/].*)*$/);
+            newNameSuffix = newNameSplits[2];
+            newName = newNameSplits[1];
             newName = toTitleCase(newName);
             // var nameShort = newName.replace(/[^A-Za-z]/g, '');  // strip non-letters for PNH name searching
             // var nameNumShort = newName.replace(/[^A-Za-z0-9]/g, ''); // strip non-letters/non-numbers for PNH name searching
@@ -2828,7 +2833,7 @@
                 } else if (hpMode.hlFlag) {
                     PNHMatchData = ['Highlight'];
                 }
-                debugger;
+
                 PNHNameRegMatch = false;
                 if (PNHMatchData[0] !== "NoMatch" && PNHMatchData[0] !== "ApprovalNeeded" && PNHMatchData[0] !== "Highlight" ) { // *** Replace place data with PNH data
                     PNHNameRegMatch = true;
@@ -2949,7 +2954,7 @@
                                 updatePNHName = false;
                                 var baseName = specCases[scix].match(/^checkLocalization<>(.+)/i)[1];
                                 var baseNameRE = new RegExp(baseName, 'g');
-                                if ( newName.match(baseNameRE) === null ) {
+                                if ( (newName + (newNameSuffix ? newNameSuffix : '')).match(baseNameRE) === null ) {
                                     bannButt.localizedName.active = true;
                                     if (currentWL.localizedName) {
                                         bannButt.localizedName.WLactive = false;
@@ -3096,17 +3101,17 @@
 
                     // name parsing with category exceptions
                     if (["HOTEL"].indexOf(priPNHPlaceCat) > -1) {
-                        debugger;
-                        if (newName.toUpperCase() === PNHMatchData[ph_name_ix].toUpperCase()) {  // If no localization
+                        var nameToCheck = newName + (newNameSuffix ? newNameSuffix : '');
+                        if (nameToCheck.toUpperCase() === PNHMatchData[ph_name_ix].toUpperCase()) {  // If no localization
                             bannButt.catHotel.message = 'Check hotel website for any name localization (e.g. '+ PNHMatchData[ph_name_ix] +' - Tampa Airport).';
                             bannButt.catHotel.active = true;
                             newName = PNHMatchData[ph_name_ix];
                         } else {
                             // Replace PNH part of name with PNH name
-                            var splix = newName.toUpperCase().replace(/[-\/]/g,' ').indexOf(PNHMatchData[ph_name_ix].toUpperCase().replace(/[-\/]/g,' ') );
+                            var splix = nameToCheck.toUpperCase().replace(/[-\/]/g,' ').indexOf(PNHMatchData[ph_name_ix].toUpperCase().replace(/[-\/]/g,' ') );
                             if (splix>-1) {
-                                var frontText = newName.slice(0,splix);
-                                var backText = newName.slice(splix+PNHMatchData[ph_name_ix].length);
+                                var frontText = nameToCheck.slice(0,splix);
+                                var backText = nameToCheck.slice(splix+PNHMatchData[ph_name_ix].length);
                                 newName = PNHMatchData[ph_name_ix];
                                 if (frontText.length > 0) { newName = frontText + ' ' + newName; }
                                 if (backText.length > 0) { newName = newName + ' ' + backText; }
@@ -3132,7 +3137,6 @@
                         }
                         // Set hotel hours to 24/7 for all hotels.
                         if (!bannServ.add247.checked) {
-                            debugger;
                             bannServ.add247.action();
                         }
                     } else if ( ["BANK_FINANCIAL"].indexOf(priPNHPlaceCat) > -1 && PNHMatchData[ph_speccase_ix].indexOf('notABank') === -1 ) {
@@ -3330,22 +3334,10 @@
 
                 }  // END PNH match/no-match updates
 
-                // Strip/add suffixes
-                if ( hpMode.harmFlag && thisUser.userName === 'bmtg' )  {
-                    var suffixStr = ' - ZQXWCEVRBT';
-                    var suffixStrRE = new RegExp(suffixStr, 'i');
-                    if ( newName.indexOf(suffixStr) > -1 ) {
-                        //newName = newName.replace(suffixStrRE, '');
-                    }
-                    if ( newName.indexOf(suffixStr) === -1 ) {
-                        //newName = newName + suffixStr;
-                    }
-                }
-
                 // Update name:
-                if (hpMode.harmFlag && newName !== item.attributes.name) {
+                if (hpMode.harmFlag && (newName + (newNameSuffix ? newNameSuffix : '')) !== item.attributes.name) {
                     phlogdev("Name updated");
-                    actions.push(new UpdateObject(item, { name: newName }));
+                    actions.push(new UpdateObject(item, { name: newName + (newNameSuffix ? newNameSuffix : '') }));
                     //actions.push(new UpdateObject(item, { name: newName }));
                     fieldUpdateObject.name='#dfd';
                 }
@@ -5771,7 +5763,7 @@
 
                             if ( !suppressMatch ) {
                                 //Reformat the testPlace name
-                                testName = testVenueAtt.name.toUpperCase().replace(/ AND /g, '').replace(/^THE /g, '').replace(/[^A-Z0-9]/g, '');  // Format test name
+                                testName = testVenueAtt.name.toUpperCase().replace(/\s+[-\(].*$/,'').replace(/ AND /g, '').replace(/^THE /g, '').replace(/[^A-Z0-9]/g, '');  // Format test name
                                 if (  (testName.length>2 && noNumSkip.indexOf(testName) === -1) || allowedTwoLetters.indexOf(testName) > -1  ) {
                                     testNameList = [testName];
                                 } else {
@@ -6930,7 +6922,7 @@
         }
 
         // Function that checks current place against the Harmonization Data.  Returns place data or "NoMatch"
-        function harmoList(itemName,state2L,region3L,country,itemCats,item) {
+        function harmoList(itemName,state2L,region3L,country,itemCats,item,stripSuffix) {
             var PNH_DATA_headers;
             var ixendPNH_NAMES;
             if (country === 'USA') {
@@ -6963,6 +6955,7 @@
             var PNHNameMatch = false;  // tracks match status
             var PNHStringMatch = false;  // compares name string match
             var PNHMatchProceed;  // tracks match status
+            
             itemName = itemName.toUpperCase();  // UpperCase the current place name (The Holly And Ivy Pub #23 --> THE HOLLY AND IVY PUB #23 )
             itemName = itemName.replace(/ AND /g, ' ');  // Clear the word " AND " from the name (THE HOLLY AND IVY PUB #23 --> THE HOLLY IVY PUB #23 )
             itemName = itemName.replace(/^THE /g, '');  // Clear the word "THE " from the start of the name ( THE HOLLYIVY PUB #23 -- > HOLLY IVY PUB #23 )
