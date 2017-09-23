@@ -13,7 +13,7 @@
 // ==UserScript==
 // @name        WME Place Harmonizer Beta
 // @namespace   WazeUSA
-// @version     1.3.16
+// @version     1.3.17
 // @description Harmonizes, formats, and locks a selected place
 // @author      WMEPH Development Group
 // @include     /^https:\/\/(www|beta)\.waze\.com\/(?!user\/)(.{2,6}\/)?editor\/?.*$/
@@ -297,6 +297,7 @@
     function runPH() {
         // Script update info
         var WMEPHWhatsNewList = [  // New in this version
+            '1.3.17: FIXED - a couple bugs caused by changes in the last release',
             '1.3.16: FIXED - Matching PNH and duplicate places when name contains hyphen or paren suffix.',
             '1.3.15: FIXED - Localized hotel name highlight/flag colors.',
             '1.3.14: FIXED - R2 editors can use Google link options and highlights.',
@@ -3789,7 +3790,7 @@
                             USPSMatch = true;
                             customStoreFinderURL = "https://tools.usps.com/go/POLocatorAction.action";
                             customStoreFinder = true;
-                            if ( newName.indexOf(' - ') === -1 && newName.indexOf(': ') === -1 ) {
+                            if ( (newName + newNameSuffix).indexOf(' - ') === -1 && newName.indexOf(': ') === -1 ) {
                                 bannButt.formatUSPS.active = true;
                             }
                             break;
@@ -4026,7 +4027,8 @@
             // and SCENIC_LOOKOUT_VIEWPOINT to be < 2 instead of === 0 and === 1, respectively.
             // ****************************************************************************************************
             var lookoutCatIndex = categories.indexOf('SCENIC_LOOKOUT_VIEWPOINT');
-            if ( /rest area/i.test(newName) || /rest stop/i.test(newName) || /service plaza/i.test(newName) ||
+            var oldName = item.attributes.name;
+            if ( /rest area/i.test(oldName) || /rest stop/i.test(oldName) || /service plaza/i.test(oldName) ||
                 ( lookoutCatIndex > -1 ) ) {
                 if ( lookoutCatIndex > -1 ) {
 
@@ -4043,16 +4045,16 @@
                         bannButt.restAreaGas.active = true;
                     }
 
-                    if ( newName.match(/^Rest Area.* \- /) === null ) {
+                    if ( oldName.match(/^Rest Area.* \- /) === null ) {
                         bannButt.restAreaName.active = true;
                         if (currentWL.restAreaName) {
                             bannButt.restAreaName.WLactive = false;
                         }
                     } else {
-                        newName = newName.replace(/Mile/i, 'mile');
                         if (hpMode.harmFlag) {
-                            if (newName !== item.attributes.name) {
-                                actions.push(new UpdateObject(item, { name: newName }));
+                            var newSuffix = newNameSuffix.replace(/Mile/i, 'mile');
+                            if (newName + newSuffix !== item.attributes.name) {
+                                actions.push(new UpdateObject(item, { name: newName + newSuffix }));
                                 fieldUpdateObject.name='#dfd';
                                 phlogdev('Lower case "mile"');
                             } else {
@@ -7309,7 +7311,7 @@
                 }
                 // Clear out any empty entries
                 var newNameListTemp = [];
-                for ( catix=0; catix<newNameList.length; catix++) {  // extend the list by adding Hotel to all items
+                for ( catix=0; catix<newNameList.length; catix++) {
                     if (newNameList[catix].length > 1) {
                         newNameListTemp.push(newNameList[catix]);
                     }
