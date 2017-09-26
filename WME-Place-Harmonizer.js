@@ -2828,7 +2828,6 @@
                 } else if (hpMode.hlFlag) {
                     PNHMatchData = ['Highlight'];
                 }
-                debugger;
                 PNHNameRegMatch = false;
                 if (PNHMatchData[0] !== "NoMatch" && PNHMatchData[0] !== "ApprovalNeeded" && PNHMatchData[0] !== "Highlight" ) { // *** Replace place data with PNH data
                     PNHNameRegMatch = true;
@@ -3096,7 +3095,6 @@
 
                     // name parsing with category exceptions
                     if (["HOTEL"].indexOf(priPNHPlaceCat) > -1) {
-                        debugger;
                         if (newName.toUpperCase() === PNHMatchData[ph_name_ix].toUpperCase()) {  // If no localization
                             bannButt.catHotel.message = 'Check hotel website for any name localization (e.g. '+ PNHMatchData[ph_name_ix] +' - Tampa Airport).';
                             bannButt.catHotel.active = true;
@@ -3132,7 +3130,6 @@
                         }
                         // Set hotel hours to 24/7 for all hotels.
                         if (!bannServ.add247.checked) {
-                            debugger;
                             bannServ.add247.action();
                         }
                     } else if ( ["BANK_FINANCIAL"].indexOf(priPNHPlaceCat) > -1 && PNHMatchData[ph_speccase_ix].indexOf('notABank') === -1 ) {
