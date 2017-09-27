@@ -13,7 +13,7 @@
 // ==UserScript==
 // @name        WME Place Harmonizer Beta
 // @namespace   WazeUSA
-// @version     1.3.17
+// @version     1.3.18
 // @description Harmonizes, formats, and locks a selected place
 // @author      WMEPH Development Group
 // @include     /^https:\/\/(www|beta)\.waze\.com\/(?!user\/)(.{2,6}\/)?editor\/?.*$/
@@ -297,6 +297,7 @@
     function runPH() {
         // Script update info
         var WMEPHWhatsNewList = [  // New in this version
+            '1.3.18: NEW - Updates to Canada place submission forms.',
             '1.3.17: FIXED - a couple bugs caused by changes in the last release',
             '1.3.16: FIXED - Matching PNH and duplicate places when name contains hyphen or paren suffix.',
             '1.3.15: FIXED - Localized hotel name highlight/flag colors.',
@@ -315,14 +316,7 @@
             '1.3.3: FIXED - Web Search button doesn\'t always appear on PURs.',
             '1.3.2: NEW - Added Web Search button to PUR popups.',
             '1.3.1: Temporarily removed "Updating Google place link will automatically re-run WMEPH".',
-            '1.3.0: Production release.',
-            '1.2.48: NEW - Added a flag for missing payment type when PLA cost is not free or unknown',
-            '1.2.47: NEW - Added a flag for "Can cars exit parking lot when closed?"',
-            '1.2.46: NEW - Added a flag for PLA stop points that have never been moved.',
-            '1.2.45: NEW - Added a button to open the Google link search box and pre-fill it with the place name.',
-            '1.2.45: NEW - Updating Google place link will automatically re-run WMEPH.',
-            '1.2.44: NEW - Added several flags for parking lots.',
-            '1.2.43: FIXED - WMEPH should run on places with detail updates, but not new place PURs.'
+            '1.3.0: Production release.'
         ];
         var WMEPHWhatsNewMetaList = [  // New in this major version
             'New flags and helpers for parking lots!',
@@ -1584,7 +1578,7 @@
                 },
 
                 catHotel: {
-                    active: false, severity: 0, message: 'Check hotel website for any name localization (e.g. Hilton - Tampa Airport)',
+                    active: false, severity: 0, message: 'Check hotel website for any name localization (e.g. Hilton - Tampa Airport)'
                     //WLactive: true, WLmessage: '', WLtitle: 'Whitelist hotel localization',
                     //WLaction: function() {
                     //    wlKeyName = 'hotelLocWL';
@@ -3276,9 +3270,10 @@
                     if (PNHMatchData[0] === "ApprovalNeeded") {
                         //PNHNameTemp = PNHMatchData[1].join(', ');
                         PNHNameTemp = PNHMatchData[1][0];  // Just do the first match
-                        PNHNameTempWeb = PNHNameTemp.replace(/\&/g, "%26");
-                        PNHNameTempWeb = PNHNameTemp.replace(/\#/g, "%23");
-                        PNHNameTempWeb = PNHNameTempWeb.replace(/\//g, "%2F");
+                        PNHNameTempWeb = encodeURIComponent(PNHNameTemp);
+                        //PNHNameTempWeb = PNHNameTemp.replace(/\&/g, "%26");
+                        //PNHNameTempWeb = PNHNameTemp.replace(/\#/g, "%23");
+                        //PNHNameTempWeb = PNHNameTempWeb.replace(/\//g, "%2F");
                         PNHOrderNum = PNHMatchData[2].join(',');
                     }
 
@@ -3396,68 +3391,72 @@
                 var newPlaceAddon = '';
                 var approvalAddon = '';
                 var approvalMessage = 'Submitted via WMEPH. PNH order number ' + PNHOrderNum;
-                var tempSubmitName = newName.replace(/\&/g,'%26').replace(/\//g, "%2F").replace(/\#/g, "%23");
+                var tempSubmitName_encoded = encodeURIComponent(newName);
+                var placePL_encoded = encodeURIComponent(placePL);
+                var newURLSubmit_encoded = encodeURIComponent(newURLSubmit);
                 if (hpMode.harmFlag) {
                     switch (region) {
                         case "NWR": regionFormURL = 'https://docs.google.com/forms/d/1hv5hXBlGr1pTMmo4n3frUx1DovUODbZodfDBwwTc7HE/viewform';
-                            newPlaceAddon = '?entry.925969794='+tempSubmitName+'&entry.1970139752='+newURLSubmit+'&entry.1749047694='+thisUser.userName+gFormState;
+                            newPlaceAddon = '?entry.925969794='+tempSubmitName_encoded+'&entry.1970139752='+newURLSubmit_encoded+'&entry.1749047694='+thisUser.userName+gFormState;
                             approvalAddon = '?entry.925969794='+PNHNameTempWeb+'&entry.50214576='+approvalMessage+'&entry.1749047694='+thisUser.userName+gFormState;
                             break;
                         case "SWR": regionFormURL = 'https://docs.google.com/forms/d/1Qf2N4fSkNzhVuXJwPBJMQBmW0suNuy8W9itCo1qgJL4/viewform';
-                            newPlaceAddon = '?entry.1497446659='+tempSubmitName+'&entry.1970139752='+newURLSubmit+'&entry.1749047694='+thisUser.userName+gFormState;
+                            newPlaceAddon = '?entry.1497446659='+tempSubmitName_encoded+'&entry.1970139752='+newURLSubmit_encoded+'&entry.1749047694='+thisUser.userName+gFormState;
                             approvalAddon = '?entry.1497446659='+PNHNameTempWeb+'&entry.50214576='+approvalMessage+'&entry.1749047694='+thisUser.userName+gFormState;
                             break;
                         case "HI": regionFormURL = 'https://docs.google.com/forms/d/1K7Dohm8eamIKry3KwMTVnpMdJLaMIyDGMt7Bw6iqH_A/viewform';
-                            newPlaceAddon = '?entry.1497446659='+tempSubmitName+'&entry.1970139752='+newURLSubmit+'&entry.1749047694='+thisUser.userName+gFormState;
+                            newPlaceAddon = '?entry.1497446659='+tempSubmitName_encoded+'&entry.1970139752='+newURLSubmit_encoded+'&entry.1749047694='+thisUser.userName+gFormState;
                             approvalAddon = '?entry.1497446659='+PNHNameTempWeb+'&entry.50214576='+approvalMessage+'&entry.1749047694='+thisUser.userName+gFormState;
                             break;
                         case "PLN": regionFormURL = 'https://docs.google.com/forms/d/1ycXtAppoR5eEydFBwnghhu1hkHq26uabjUu8yAlIQuI/viewform';
-                            newPlaceAddon = '?entry.925969794='+tempSubmitName+'&entry.1970139752='+newURLSubmit+'&entry.1749047694='+thisUser.userName+gFormState;
+                            newPlaceAddon = '?entry.925969794='+tempSubmitName_encoded+'&entry.1970139752='+newURLSubmit_encoded+'&entry.1749047694='+thisUser.userName+gFormState;
                             approvalAddon = '?entry.925969794='+PNHNameTempWeb+'&entry.50214576='+approvalMessage+'&entry.1749047694='+thisUser.userName+gFormState;
                             break;
                         case "SCR": regionFormURL = 'https://docs.google.com/forms/d/1KZzLdlX0HLxED5Bv0wFB-rWccxUp2Mclih5QJIQFKSQ/viewform';
-                            newPlaceAddon = '?entry.925969794='+tempSubmitName+'&entry.1970139752='+newURLSubmit+'&entry.1749047694='+thisUser.userName+gFormState;
+                            newPlaceAddon = '?entry.925969794='+tempSubmitName_encoded+'&entry.1970139752='+newURLSubmit_encoded+'&entry.1749047694='+thisUser.userName+gFormState;
                             approvalAddon = '?entry.925969794='+PNHNameTempWeb+'&entry.50214576='+approvalMessage+'&entry.1749047694='+thisUser.userName+gFormState;
                             break;
                         case "TX": regionFormURL = 'https://docs.google.com/forms/d/1x7VM7ofPOKVnWOaX7d70OWXpnVKf6Mkadn4dgYxx4ic/viewform';
-                            newPlaceAddon = '?entry.925969794='+tempSubmitName+'&entry.1970139752='+newURLSubmit+'&entry.1749047694='+thisUser.userName+gFormState;
+                            newPlaceAddon = '?entry.925969794='+tempSubmitName_encoded+'&entry.1970139752='+newURLSubmit_encoded+'&entry.1749047694='+thisUser.userName+gFormState;
                             approvalAddon = '?entry.925969794='+PNHNameTempWeb+'&entry.50214576='+approvalMessage+'&entry.1749047694='+thisUser.userName+gFormState;
                             break;
                         case "GLR": regionFormURL = 'https://docs.google.com/forms/d/19btj-Qt2-_TCRlcS49fl6AeUT95Wnmu7Um53qzjj9BA/viewform';
-                            newPlaceAddon = '?entry.925969794='+tempSubmitName+'&entry.1970139752='+newURLSubmit+'&entry.1749047694='+thisUser.userName+gFormState;
+                            newPlaceAddon = '?entry.925969794='+tempSubmitName_encoded+'&entry.1970139752='+newURLSubmit_encoded+'&entry.1749047694='+thisUser.userName+gFormState;
                             approvalAddon = '?entry.925969794='+PNHNameTempWeb+'&entry.50214576='+approvalMessage+'&entry.1749047694='+thisUser.userName+gFormState;
                             break;
                         case "SAT": regionFormURL = 'https://docs.google.com/forms/d/1bxgK_20Jix2ahbmUvY1qcY0-RmzUBT6KbE5kjDEObF8/viewform';
-                            newPlaceAddon = '?entry.2063110249='+tempSubmitName+'&entry.2018912633='+newURLSubmit+'&entry.1924826395='+thisUser.userName+gFormState;
+                            newPlaceAddon = '?entry.2063110249='+tempSubmitName_encoded+'&entry.2018912633='+newURLSubmit_encoded+'&entry.1924826395='+thisUser.userName+gFormState;
                             approvalAddon = '?entry.2063110249='+PNHNameTempWeb+'&entry.123778794='+approvalMessage+'&entry.1924826395='+thisUser.userName+gFormState;
                             break;
                         case "SER": regionFormURL = 'https://docs.google.com/forms/d/1jYBcxT3jycrkttK5BxhvPXR240KUHnoFMtkZAXzPg34/viewform';
-                            newPlaceAddon = '?entry.822075961='+tempSubmitName+'&entry.1422079728='+newURLSubmit+'&entry.1891389966='+thisUser.userName+gFormState;
+                            newPlaceAddon = '?entry.822075961='+tempSubmitName_encoded+'&entry.1422079728='+newURLSubmit_encoded+'&entry.1891389966='+thisUser.userName+gFormState;
                             approvalAddon = '?entry.822075961='+PNHNameTempWeb+'&entry.607048307='+approvalMessage+'&entry.1891389966='+thisUser.userName+gFormState;
                             break;
                         case "ATR": regionFormURL = 'https://docs.google.com/forms/d/1v7JhffTfr62aPSOp8qZHA_5ARkBPldWWJwDeDzEioR0/viewform';
-                            newPlaceAddon = '?entry.925969794='+tempSubmitName+'&entry.1970139752='+newURLSubmit+'&entry.1749047694='+thisUser.userName+gFormState;
+                            newPlaceAddon = '?entry.925969794='+tempSubmitName_encoded+'&entry.1970139752='+newURLSubmit_encoded+'&entry.1749047694='+thisUser.userName+gFormState;
                             approvalAddon = '?entry.925969794='+PNHNameTempWeb+'&entry.50214576='+approvalMessage+'&entry.1749047694='+thisUser.userName+gFormState;
                             break;
                         case "NER": regionFormURL = 'https://docs.google.com/forms/d/1UgFAMdSQuJAySHR0D86frvphp81l7qhEdJXZpyBZU6c/viewform';
-                            newPlaceAddon = '?entry.925969794='+tempSubmitName+'&entry.1970139752='+newURLSubmit+'&entry.1749047694='+thisUser.userName+gFormState;
+                            newPlaceAddon = '?entry.925969794='+tempSubmitName_encoded+'&entry.1970139752='+newURLSubmit_encoded+'&entry.1749047694='+thisUser.userName+gFormState;
                             approvalAddon = '?entry.925969794='+PNHNameTempWeb+'&entry.50214576='+approvalMessage+'&entry.1749047694='+thisUser.userName+gFormState;
                             break;
                         case "NOR": regionFormURL = 'https://docs.google.com/forms/d/1iYq2rd9HRd-RBsKqmbHDIEBGuyWBSyrIHC6QLESfm4c/viewform';
-                            newPlaceAddon = '?entry.925969794='+tempSubmitName+'&entry.1970139752='+newURLSubmit+'&entry.1749047694='+thisUser.userName+gFormState;
+                            newPlaceAddon = '?entry.925969794='+tempSubmitName_encoded+'&entry.1970139752='+newURLSubmit_encoded+'&entry.1749047694='+thisUser.userName+gFormState;
                             approvalAddon = '?entry.925969794='+PNHNameTempWeb+'&entry.50214576='+approvalMessage+'&entry.1749047694='+thisUser.userName+gFormState;
                             break;
                         case "MAR": regionFormURL = 'https://docs.google.com/forms/d/1PhL1iaugbRMc3W-yGdqESoooeOz-TJIbjdLBRScJYOk/viewform';
-                            newPlaceAddon = '?entry.925969794='+tempSubmitName+'&entry.1970139752='+newURLSubmit+'&entry.1749047694='+thisUser.userName+gFormState;
+                            newPlaceAddon = '?entry.925969794='+tempSubmitName_encoded+'&entry.1970139752='+newURLSubmit_encoded+'&entry.1749047694='+thisUser.userName+gFormState;
                             approvalAddon = '?entry.925969794='+PNHNameTempWeb+'&entry.50214576='+approvalMessage+'&entry.1749047694='+thisUser.userName+gFormState;
                             break;
                         case "CA_EN": regionFormURL = 'https://docs.google.com/forms/d/13JwXsrWPNmCdfGR5OVr5jnGZw-uNGohwgjim-JYbSws/viewform';
-                            newPlaceAddon = '?entry_839085807='+tempSubmitName+'&entry_1067461077='+newURLSubmit;
-                            approvalAddon = '?entry_839085807='+PNHNameTempWeb+'&entry_1125435193='+approvalMessage;
+                            debugger;
+                            newPlaceAddon = '?entry_839085807='+tempSubmitName_encoded+'&entry_1067461077='+newURLSubmit_encoded+'&entry_318793106='+thisUser.userName+'&entry_1149649663='+placePL_encoded;
+                            approvalAddon = '?entry_839085807='+PNHNameTempWeb+'&entry_1125435193='+approvalMessage+'&entry_318793106='+thisUser.userName+'&entry_1149649663='+placePL_encoded;
                             break;
                         case "QC": regionFormURL = 'https://docs.google.com/forms/d/13JwXsrWPNmCdfGR5OVr5jnGZw-uNGohwgjim-JYbSws/viewform';
-                            newPlaceAddon = '?entry_839085807='+tempSubmitName+'&entry_1067461077='+newURLSubmit;
-                            approvalAddon = '?entry_839085807='+PNHNameTempWeb+'&entry_1125435193='+approvalMessage;
+                            debugger;
+                            newPlaceAddon = '?entry_839085807='+tempSubmitName_encoded+'&entry_1067461077='+newURLSubmit_encoded+'&entry_318793106='+thisUser.userName+'&entry_1149649663='+placePL_encoded;
+                            approvalAddon = '?entry_839085807='+PNHNameTempWeb+'&entry_1125435193='+approvalMessage+'&entry_318793106='+thisUser.userName+'&entry_1149649663='+placePL_encoded;
                             break;
                         default: regionFormURL = "";
                     }
