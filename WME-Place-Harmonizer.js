@@ -13,7 +13,7 @@
 // ==UserScript==
 // @name        WME Place Harmonizer Beta
 // @namespace   WazeUSA
-// @version     1.3.20
+// @version     1.3.21
 // @description Harmonizes, formats, and locks a selected place
 // @author      WMEPH Development Group
 // @include     /^https:\/\/(www|beta)\.waze\.com\/(?!user\/)(.{2,6}\/)?editor\/?.*$/
@@ -304,6 +304,7 @@
     function runPH() {
         // Script update info
         var WMEPHWhatsNewList = [  // New in this version
+            '1.3.21: FIXED - Auto-expand hours entry text box when multiple lines are pasted (production version).',
             '1.3.20: NEW - "Add point" button when PLA entry/exit point hasn\'t been created.',
             '1.3.20: FIXED - Minor improvements to hours parsing.',
             '1.3.19: NEW - Hours entry text box enhancements.',
@@ -4845,26 +4846,26 @@
 
             // If pasting or dropping into hours entry box
             function resetHoursEntryHeight(evt) {
-                $('#WMEPH-HoursPasteBeta').focus();
-                var oldText = $('#WMEPH-HoursPasteBeta').val();
+                $('#WMEPH-HoursPaste'+devVersStr).focus();
+                var oldText = $('#WMEPH-HoursPaste'+devVersStr).val();
                 if (oldText === _DEFAULT_HOURS_TEXT || oldText === 'Can\'t parse, try again') {
-                    $('#WMEPH-HoursPasteBeta').val('');
+                    $('#WMEPH-HoursPaste'+devVersStr).val('');
                 }
 
                 // A small delay to allow window to process pasted text before running.
                 setTimeout(function() {
-                    var text = $('#WMEPH-HoursPasteBeta').val();
+                    var text = $('#WMEPH-HoursPaste'+devVersStr).val();
                     var lineCount = (text.match(/\n/g) || []).length + 1;
-                    $('#WMEPH-HoursPasteBeta').css({height:((lineCount)*16+6)+'px'});
+                    $('#WMEPH-HoursPaste'+devVersStr).css({height:((lineCount)*16+6)+'px'});
                 },100);
             }
-            $('#WMEPH-HoursPasteBeta')
+            $('#WMEPH-HoursPaste'+devVersStr)
                 .bind('paste', resetHoursEntryHeight)
                 .bind('drop', resetHoursEntryHeight)
                 .bind('dragenter', function() {
-                var text = $('#WMEPH-HoursPasteBeta').val();
+                var text = $('#WMEPH-HoursPaste'+devVersStr).val();
                 if (text === _DEFAULT_HOURS_TEXT || text === 'Can\'t parse, try again') {
-                    $('#WMEPH-HoursPasteBeta').val('');
+                    $('#WMEPH-HoursPaste'+devVersStr).val('');
                 }
             });
 
