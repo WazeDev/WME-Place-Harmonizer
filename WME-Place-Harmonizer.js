@@ -13,7 +13,7 @@
 // ==UserScript==
 // @name        WME Place Harmonizer Beta
 // @namespace   WazeUSA
-// @version     1.3.18
+// @version     1.3.19
 // @description Harmonizes, formats, and locks a selected place
 // @author      WMEPH Development Group
 // @include     /^https:\/\/(www|beta)\.waze\.com\/(?!user\/)(.{2,6}\/)?editor\/?.*$/
@@ -72,6 +72,13 @@
     var RPPLockString = 'Lock?';
     var panelFields = {};  // the fields for the sidebar
     var newNameSuffix;
+
+    // Stuff to assist with formatting of hours entry text box.
+    var _DEFAULT_HOURS_TEXT = 'Paste Hours Here';
+    function getHoursHtml(label, defaultText){
+        defaultText = defaultText || _DEFAULT_HOURS_TEXT;
+        return label + ': <textarea id="WMEPH-HoursPaste'+devVersStr+'" autocomplete="off" style="white-space:nowrap;max-width:185px;font-size:0.85em;width:170px;height:24px;padding-left:3px;color:#AAA">' + defaultText + '</textarea>'
+    }
 
     // Array prototype extensions (for Firefox fix)
     Array.prototype.toSet = function () {
@@ -297,6 +304,7 @@
     function runPH() {
         // Script update info
         var WMEPHWhatsNewList = [  // New in this version
+            '1.3.19: NEW - Hours entry text box enhancements.',
             '1.3.18: NEW - Updates to Canada place submission forms.',
             '1.3.17: FIXED - a couple bugs caused by changes in the last release',
             '1.3.16: FIXED - Matching PNH and duplicate places when name contains hyphen or paren suffix.',
@@ -316,7 +324,14 @@
             '1.3.3: FIXED - Web Search button doesn\'t always appear on PURs.',
             '1.3.2: NEW - Added Web Search button to PUR popups.',
             '1.3.1: Temporarily removed "Updating Google place link will automatically re-run WMEPH".',
-            '1.3.0: Production release.'
+            '1.3.0: Production release.',
+            '1.2.48: NEW - Added a flag for missing payment type when PLA cost is not free or unknown',
+            '1.2.47: NEW - Added a flag for "Can cars exit parking lot when closed?"',
+            '1.2.46: NEW - Added a flag for PLA stop points that have never been moved.',
+            '1.2.45: NEW - Added a button to open the Google link search box and pre-fill it with the place name.',
+            '1.2.45: NEW - Updating Google place link will automatically re-run WMEPH.',
+            '1.2.44: NEW - Added several flags for parking lots.',
+            '1.2.43: FIXED - WMEPH should run on places with detail updates, but not new place PURs.'
         ];
         var WMEPHWhatsNewMetaList = [  // New in this major version
             'New flags and helpers for parking lots!',
@@ -1122,7 +1137,7 @@
                         }
                     }
                 },
-                
+
                 restAreaGas: { // no WL
                     active: false, severity: 3, message: 'Gas stations at Rest Areas should be separate area places.'
                 },
@@ -1850,10 +1865,13 @@
                 },
 
                 noHours: {
-                    active: false, severity: 1, message: 'No hours: <input type="text" value="Paste Hours Here" id="WMEPH-HoursPaste'+devVersStr+'" autocomplete="off" style="font-size:0.85em;width:170px;padding-left:3px;color:#AAA">',
+                    active: false, severity: 1, message: getHoursHtml('No hours'),
                     value: "Add hours", title: 'Add pasted hours to existing',
                     action: function() {
                         var pasteHours = $('#WMEPH-HoursPaste'+devVersStr).val();
+                        if (pasteHours === 'Can\t parse, try again' || pasteHours === _DEFAULT_HOURS_TEXT) {
+                            return;
+                        }
                         phlogdev(pasteHours);
                         $('.nav-tabs a[href="#landmark-edit-more-info"]').tab('show');
                         pasteHours = pasteHours + ',' + getOpeningHours(item).join(',');
@@ -1868,12 +1886,15 @@
                             phlog('Can\'t parse those hours');
                             bannButt.noHours.severity = 1;
                             bannButt.noHours.WLactive = true;
-                            bannButt.noHours.message = 'Hours: <input type="text" value="Can\'t parse, try again" id="WMEPH-HoursPaste'+devVersStr+'" style="width:170px;padding-left:3px;color:#AAA">';
+                            bannButt.noHours.message = getHoursHtml('Hours', 'Can\'t parse, try again</textarea>');
                         }
                     },
                     value2: "Replace all hours", title2: 'Replace existing hours with pasted hours',
                     action2: function() {
                         var pasteHours = $('#WMEPH-HoursPaste'+devVersStr).val();
+                        if (pasteHours === 'Can\t parse, try again' || pasteHours === _DEFAULT_HOURS_TEXT) {
+                            return;
+                        }
                         phlogdev(pasteHours);
                         $('.nav-tabs a[href="#landmark-edit-more-info"]').tab('show');
                         var hoursObjectArray = parseHours(pasteHours);
@@ -1888,7 +1909,7 @@
                             phlog('Can\'t parse those hours');
                             bannButt.noHours.severity = 1;
                             bannButt.noHours.WLactive = true;
-                            bannButt.noHours.message = 'Hours: <input type="text" value="Can\'t parse, try again" id="WMEPH-HoursPaste'+devVersStr+'" style="width:170px;padding-left:3px;color:#AAA">';
+                            bannButt.noHours.message = getHoursHtml('Hours', 'Can\'t parse, try again</textarea>');
                         }
 
                     },
@@ -2164,7 +2185,7 @@
                     active: true, severity: 0, message: "", value: "Report script error", title: "Report a script error",
                     action: function() {
                         var forumMsgInputs = {
-                            subject: 'WMEPH Bug report: Scrpt Error',
+                            subject: 'WMEPH Bug report: Script Error',
                             message: 'Script version: ' + WMEPHversion + devVersStr + '\nPermalink: ' + placePL + '\nPlace name: ' + item.attributes.name + '\nCountry: ' + addr.country.name + '\n--------\nDescribe the error:  \n '
                         };
                         WMEPH_errorReport(forumMsgInputs);
@@ -3384,7 +3405,7 @@
                     }
                 }  // END Gas Station Checks
 
-                
+
                 // TODO - FIX APPROVAL SUBMISSION STUFF
                 // Make PNH submission links
                 var regionFormURL = '';
@@ -3449,12 +3470,10 @@
                             approvalAddon = '?entry.925969794='+PNHNameTempWeb+'&entry.50214576='+approvalMessage+'&entry.1749047694='+thisUser.userName+gFormState;
                             break;
                         case "CA_EN": regionFormURL = 'https://docs.google.com/forms/d/13JwXsrWPNmCdfGR5OVr5jnGZw-uNGohwgjim-JYbSws/viewform';
-                            debugger;
                             newPlaceAddon = '?entry_839085807='+tempSubmitName_encoded+'&entry_1067461077='+newURLSubmit_encoded+'&entry_318793106='+thisUser.userName+'&entry_1149649663='+placePL_encoded;
                             approvalAddon = '?entry_839085807='+PNHNameTempWeb+'&entry_1125435193='+approvalMessage+'&entry_318793106='+thisUser.userName+'&entry_1149649663='+placePL_encoded;
                             break;
                         case "QC": regionFormURL = 'https://docs.google.com/forms/d/13JwXsrWPNmCdfGR5OVr5jnGZw-uNGohwgjim-JYbSws/viewform';
-                            debugger;
                             newPlaceAddon = '?entry_839085807='+tempSubmitName_encoded+'&entry_1067461077='+newURLSubmit_encoded+'&entry_318793106='+thisUser.userName+'&entry_1149649663='+placePL_encoded;
                             approvalAddon = '?entry_839085807='+PNHNameTempWeb+'&entry_1125435193='+approvalMessage+'&entry_318793106='+thisUser.userName+'&entry_1149649663='+placePL_encoded;
                             break;
@@ -3692,7 +3711,7 @@
                     bannButt.noHours.value = 'Add hours';
                     bannButt.noHours.severity = 0;
                     bannButt.noHours.WLactive = false;
-                    bannButt.noHours.message = 'Hours: <input type="text" value="Paste Hours Here" id="WMEPH-HoursPaste'+devVersStr+'" style="width:170px;padding-left:3px;color:#AAA">';
+                    bannButt.noHours.message = getHoursHtml('Hours');
                 }
                 if ( !checkHours(item.attributes.openingHours) ) {
                     //phlogdev('Overlapping hours');
@@ -4804,20 +4823,60 @@
                 }
             });
 
-            // If pressing enter in the hours entry box, parse the entry
-            $("#WMEPH-HoursPaste"+devVersStr).keyup(function(event){
-                if( event.keyCode === 13 && $('#WMEPH-HoursPaste'+devVersStr).val() !== '' ){
-                    $("#WMEPH_noHours").click();
+            // If pasting or dropping into hours entry box
+            function resetHoursEntryHeight(evt) {
+                $('#WMEPH-HoursPasteBeta').focus();
+                var oldText = $('#WMEPH-HoursPasteBeta').val();
+                if (oldText === _DEFAULT_HOURS_TEXT || oldText === 'Can\'t parse, try again') {
+                    $('#WMEPH-HoursPasteBeta').val('');
+                }
+
+                // A small delay to allow window to process pasted text before running.
+                setTimeout(function() {
+                    var text = $('#WMEPH-HoursPasteBeta').val();
+                    var lineCount = (text.match(/\n/g) || []).length + 1;
+                    $('#WMEPH-HoursPasteBeta').css({height:((lineCount)*16+6)+'px'});
+                },100);
+            }
+            $('#WMEPH-HoursPasteBeta')
+                .bind('paste', resetHoursEntryHeight)
+                .bind('drop', resetHoursEntryHeight)
+                .bind('dragenter', function() {
+                var text = $('#WMEPH-HoursPasteBeta').val();
+                if (text === _DEFAULT_HOURS_TEXT || text === 'Can\'t parse, try again') {
+                     $('#WMEPH-HoursPasteBeta').val('');
                 }
             });
-            $("#WMEPH-HoursPaste"+devVersStr).click(function(){
-                if (this.value === 'Paste Hours Here' || this.value === 'Can\'t parse, try again') {
+
+            // If pressing enter in the hours entry box, parse the entry
+            $("#WMEPH-HoursPaste"+devVersStr).keydown(function(event){
+                if (event.keyCode === 13) {
+                    if (event.ctrlKey) {
+                        // Simulate a newline event (shift + enter)
+                        var text = this.value;
+                        var selStart = this.selectionStart;
+                        this.value = text.substr(0, selStart) + '\n' + text.substr(this.selectionEnd, text.length-1);
+                        this.selectionStart = selStart+1;
+                        this.selectionEnd = selStart+1;
+                        return true;
+                    } else if(!(event.shiftKey||event.ctrlKey) && $('#WMEPH-HoursPaste'+devVersStr).val() !== '' ){
+                        event.stopPropagation();
+                        event.preventDefault();
+                        event.returnValue = false;
+                        event.cancelBubble = true;
+                        $("#WMEPH_noHours").click();
+                        return false;
+                    }
+                }
+            });
+            $("#WMEPH-HoursPaste"+devVersStr).focus(function(){
+                if (this.value === _DEFAULT_HOURS_TEXT || this.value === 'Can\'t parse, try again') {
                     this.value = '';
                 }
                 this.style.color = 'black';
             }).blur(function(){
                 if ( this.value === '') {
-                    this.value = 'Paste Hours Here';
+                    this.value = _DEFAULT_HOURS_TEXT;
                     this.style.color = '#999';
                 }
             });
@@ -6956,7 +7015,7 @@
             var PNHNameMatch = false;  // tracks match status
             var PNHStringMatch = false;  // compares name string match
             var PNHMatchProceed;  // tracks match status
-            
+
             itemName = itemName.toUpperCase();  // UpperCase the current place name (The Holly And Ivy Pub #23 --> THE HOLLY AND IVY PUB #23 )
             itemName = itemName.replace(/ AND /g, ' ');  // Clear the word " AND " from the name (THE HOLLY AND IVY PUB #23 --> THE HOLLY IVY PUB #23 )
             itemName = itemName.replace(/^THE /g, '');  // Clear the word "THE " from the start of the name ( THE HOLLYIVY PUB #23 -- > HOLLY IVY PUB #23 )
