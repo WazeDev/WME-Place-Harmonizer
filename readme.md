@@ -1,9 +1,9 @@
 Place Harmonizer
 ===============
 
-Development Team: bmtg, vtpearce, cardyin, fjsawicki, jtsmith2, joyriding, t0cableguy, MapOMatic, RavenDT
+Development Team: bmtg, vtpearce, cardyin, fjsawicki, jtsmith2, joyriding, MapOMatic, RavenDT
 
-Send comments to: t0cableguy
+Send comments to: MapOMatic
 
 **Description:
 --------------
@@ -15,14 +15,14 @@ Install Tampermonkey/Greasemonkey depending on your browser.
 
 Then use the following links to install.
 
-<a href="https://goo.gl/SP9a9a">Production Version</a>
+<a href="https://greasyfork.org/en/scripts/28690-wme-place-harmonizer">Production Version</a>
 
-<a href="https://goo.gl/E22PPC">Beta Version</a>
+<a href="https://greasyfork.org/en/scripts/28689-wme-place-harmonizer-beta">Beta Version</a>
 
 
 <a href="https://goo.gl/rQxVVB">**Current Bugs & Issues</a>
 ------------------------
-SEE <a href="https://goo.gl/rQxVVB">ISSUES</a>
+SEE <a href="https://github.com/WazeDev/WME-Place-Harmonizer/issues">ISSUES</a>
 
 Please report any bugs here at the link above. Be sure to search for an open similar issue before posting a new issue.
 
