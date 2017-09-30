@@ -1826,7 +1826,7 @@
                 },
 
                 plaSpaces: {
-                    active: false, severity: 0, message: '# of Parking Spaces is set to 1-10.<br><b><i>If appropriate<i></b>, select another option:'
+                    active: false, severity: 0, message: '# of Parking Spaces is set to 1-10.<br><b><i>If appropriate</i></b>, select another option:'
                 },
 
                 noPlaStopPoint: {
