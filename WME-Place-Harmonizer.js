@@ -13,7 +13,7 @@
 // ==UserScript==
 // @name        WME Place Harmonizer
 // @namespace   WazeUSA
-// @version     1.3.15
+// @version     1.3.20
 // @description Harmonizes, formats, and locks a selected place
 // @author      WMEPH Development Group
 // @include     /^https:\/\/(www|beta)\.waze\.com\/(?!user\/)(.{2,6}\/)?editor\/?.*$/
@@ -71,6 +71,14 @@
     var bannButt, bannButt2, bannServ, bannDupl, bannButtHL;  // Banner Buttons objects
     var RPPLockString = 'Lock?';
     var panelFields = {};  // the fields for the sidebar
+    var newNameSuffix;
+
+    // Stuff to assist with formatting of hours entry text box.
+    var _DEFAULT_HOURS_TEXT = 'Paste Hours Here';
+    function getHoursHtml(label, defaultText){
+        defaultText = defaultText || _DEFAULT_HOURS_TEXT;
+        return label + ': <textarea id="WMEPH-HoursPaste'+devVersStr+'" autocomplete="off" style="white-space:nowrap;max-width:185px;font-size:0.85em;width:170px;height:24px;padding-left:3px;color:#AAA">' + defaultText + '</textarea>';
+    }
 
     // Array prototype extensions (for Firefox fix)
     Array.prototype.toSet = function () {
@@ -296,6 +304,13 @@
     function runPH() {
         // Script update info
         var WMEPHWhatsNewList = [  // New in this version
+            '1.3.20: NEW - "Add point" button when PLA entry/exit point hasn\'t been created.',
+            '1.3.20: FIXED - Minor improvements to hours parsing.',
+            '1.3.19: NEW - Hours entry text box enhancements.',
+            '1.3.18: NEW - Updates to Canada place submission forms.',
+            '1.3.17: FIXED - a couple bugs caused by changes in the last release',
+            '1.3.16: FIXED - Matching PNH and duplicate places when name contains hyphen or paren suffix.',
+            '1.3.15: FIXED - Localized hotel name highlight/flag colors.',
             '1.3.14: FIXED - R2 editors can use Google link options and highlights.',
             '1.3.13: FIXED - Highlights for places a user cannot edit external links',
             '1.3.13: NEW - All hotels will get 24/7 hours, and PNH matches get WiFi service',
@@ -305,7 +320,7 @@
             '1.3.7: Adjusted position of PUR Web Search button.',
             '1.3.6: NEW - Added option to hide PUR "Web Search" button.',
             '1.3.6: FIXED - Moved PUR web search button to prevent conflict with URO+',
-            '1.3.5: NEW - Added handicapped parking question for PLAs.', 
+            '1.3.5: NEW - Added handicapped parking question for PLAs.',
             '1.3.5: FIXED - PUR web search button should not appear on UR popups.',
             '1.3.4: FIXED - PUR web search should remove No Street and No Address',
             '1.3.3: FIXED - Web Search button doesn\'t always appear on PURs.',
@@ -1064,6 +1079,7 @@
             // action: The action that happens if the button is pressed
             // WL terms are for whitelisting
             bannButt = {
+
                 hnDashRemoved: {
                     active: false, severity: 0, message: "Dash removed from house number. Verify"
                 },
@@ -1124,7 +1140,7 @@
                         }
                     }
                 },
-                
+
                 restAreaGas: { // no WL
                     active: false, severity: 3, message: 'Gas stations at Rest Areas should be separate area places.'
                 },
@@ -1580,7 +1596,7 @@
                 },
 
                 catHotel: {
-                    active: false, severity: 0, message: 'Check hotel website for any name localization (e.g. Hilton - Tampa Airport)',
+                    active: false, severity: 0, message: 'Check hotel website for any name localization (e.g. Hilton - Tampa Airport)'
                     //WLactive: true, WLmessage: '', WLtitle: 'Whitelist hotel localization',
                     //WLaction: function() {
                     //    wlKeyName = 'hotelLocWL';
@@ -1810,11 +1826,19 @@
                 },
 
                 plaSpaces: {
-                    active: false, severity: 0, message: '# of Parking Spaces is set to 1-10.<br><b>If appropriate</b>, select another option:'
+                    active: false, severity: 0, message: '# of Parking Spaces is set to 1-10.<br><b><i>If appropriate<i></b>, select another option:'
+                },
+
+                noPlaStopPoint: {
+                    active: false, severity: 1, message: 'Entry/exit point has not been created.', value: 'Add point', title: 'Add an entry/exit point',
+                    action: function() {
+                        $('.navigation-point-view .add-button').click();
+                        harmonizePlaceGo(item, 'harmonize');
+                    }
                 },
 
                 plaStopPointUnmoved: {
-                    active: false, severity: 1, message: 'Stop point has not been moved.'
+                    active: false, severity: 1, message: 'Entry/exit point has not been moved.'
                 },
 
                 plaCanExitWhileClosed: {
@@ -1852,10 +1876,13 @@
                 },
 
                 noHours: {
-                    active: false, severity: 1, message: 'No hours: <input type="text" value="Paste Hours Here" id="WMEPH-HoursPaste'+devVersStr+'" autocomplete="off" style="font-size:0.85em;width:170px;padding-left:3px;color:#AAA">',
+                    active: false, severity: 1, message: getHoursHtml('No hours'),
                     value: "Add hours", title: 'Add pasted hours to existing',
                     action: function() {
                         var pasteHours = $('#WMEPH-HoursPaste'+devVersStr).val();
+                        if (pasteHours === 'Can\t parse, try again' || pasteHours === _DEFAULT_HOURS_TEXT) {
+                            return;
+                        }
                         phlogdev(pasteHours);
                         $('.nav-tabs a[href="#landmark-edit-more-info"]').tab('show');
                         pasteHours = pasteHours + ',' + getOpeningHours(item).join(',');
@@ -1870,12 +1897,15 @@
                             phlog('Can\'t parse those hours');
                             bannButt.noHours.severity = 1;
                             bannButt.noHours.WLactive = true;
-                            bannButt.noHours.message = 'Hours: <input type="text" value="Can\'t parse, try again" id="WMEPH-HoursPaste'+devVersStr+'" style="width:170px;padding-left:3px;color:#AAA">';
+                            bannButt.noHours.message = getHoursHtml('Hours', 'Can\'t parse, try again</textarea>');
                         }
                     },
                     value2: "Replace all hours", title2: 'Replace existing hours with pasted hours',
                     action2: function() {
                         var pasteHours = $('#WMEPH-HoursPaste'+devVersStr).val();
+                        if (pasteHours === 'Can\t parse, try again' || pasteHours === _DEFAULT_HOURS_TEXT) {
+                            return;
+                        }
                         phlogdev(pasteHours);
                         $('.nav-tabs a[href="#landmark-edit-more-info"]').tab('show');
                         var hoursObjectArray = parseHours(pasteHours);
@@ -1890,7 +1920,7 @@
                             phlog('Can\'t parse those hours');
                             bannButt.noHours.severity = 1;
                             bannButt.noHours.WLactive = true;
-                            bannButt.noHours.message = 'Hours: <input type="text" value="Can\'t parse, try again" id="WMEPH-HoursPaste'+devVersStr+'" style="width:170px;padding-left:3px;color:#AAA">';
+                            bannButt.noHours.message = getHoursHtml('Hours', 'Can\'t parse, try again</textarea>');
                         }
 
                     },
@@ -2166,7 +2196,7 @@
                     active: true, severity: 0, message: "", value: "Report script error", title: "Report a script error",
                     action: function() {
                         var forumMsgInputs = {
-                            subject: 'WMEPH Bug report: Scrpt Error',
+                            subject: 'WMEPH Bug report: Script Error',
                             message: 'Script version: ' + WMEPHversion + devVersStr + '\nPermalink: ' + placePL + '\nPlace name: ' + item.attributes.name + '\nCountry: ' + addr.country.name + '\n--------\nDescribe the error:  \n '
                         };
                         WMEPH_errorReport(forumMsgInputs);
@@ -2456,7 +2486,9 @@
             var lockOK = true;  // if nothing goes wrong, then place will be locked
             var categories = item.attributes.categories;
             newCategories = categories.slice(0);
-            newName = item.attributes.name;
+            newNameSplits = item.attributes.name.match(/(.*?)(\s+[-\(\/].*)*$/);
+            newNameSuffix = newNameSplits[2];
+            newName = newNameSplits[1];
             newName = toTitleCase(newName);
             // var nameShort = newName.replace(/[^A-Za-z]/g, '');  // strip non-letters for PNH name searching
             // var nameNumShort = newName.replace(/[^A-Za-z0-9]/g, ''); // strip non-letters/non-numbers for PNH name searching
@@ -2590,9 +2622,18 @@
                             .prop('outerHTML');
                     });
                 }
+
+                // Check if the stop point has been created and moved.
                 if (!item.attributes.entryExitPoints || item.attributes.entryExitPoints.length === 0) {
-                    bannButt.plaStopPointUnmoved.active = true;
+                    bannButt.noPlaStopPoint.active = true;
+                } else {
+                    var stopPoint = item.attributes.entryExitPoints[0].getPoint();
+                    var areaCenter = item.attributes.geometry.getCentroid();
+                    if (stopPoint.equals(areaCenter)) {
+                        bannButt.plaStopPointUnmoved.active = true;
+                    }
                 }
+
                 if (parkAttr && !parkAttr.canExitWhileClosed && ($('#WMEPH-ShowPLAExitWhileClosed' + devVersStr).prop('checked') || !(isAlwaysOpen(item) || item.attributes.openingHours.length === 0))) {
                     bannButt.plaCanExitWhileClosed.active = true;
                 }
@@ -2828,7 +2869,7 @@
                 } else if (hpMode.hlFlag) {
                     PNHMatchData = ['Highlight'];
                 }
-                debugger;
+
                 PNHNameRegMatch = false;
                 if (PNHMatchData[0] !== "NoMatch" && PNHMatchData[0] !== "ApprovalNeeded" && PNHMatchData[0] !== "Highlight" ) { // *** Replace place data with PNH data
                     PNHNameRegMatch = true;
@@ -2949,7 +2990,7 @@
                                 updatePNHName = false;
                                 var baseName = specCases[scix].match(/^checkLocalization<>(.+)/i)[1];
                                 var baseNameRE = new RegExp(baseName, 'g');
-                                if ( newName.match(baseNameRE) === null ) {
+                                if ( (newName + (newNameSuffix ? newNameSuffix : '')).match(baseNameRE) === null ) {
                                     bannButt.localizedName.active = true;
                                     if (currentWL.localizedName) {
                                         bannButt.localizedName.WLactive = false;
@@ -3096,17 +3137,17 @@
 
                     // name parsing with category exceptions
                     if (["HOTEL"].indexOf(priPNHPlaceCat) > -1) {
-                        debugger;
-                        if (newName.toUpperCase() === PNHMatchData[ph_name_ix].toUpperCase()) {  // If no localization
+                        var nameToCheck = newName + (newNameSuffix ? newNameSuffix : '');
+                        if (nameToCheck.toUpperCase() === PNHMatchData[ph_name_ix].toUpperCase()) {  // If no localization
                             bannButt.catHotel.message = 'Check hotel website for any name localization (e.g. '+ PNHMatchData[ph_name_ix] +' - Tampa Airport).';
                             bannButt.catHotel.active = true;
                             newName = PNHMatchData[ph_name_ix];
                         } else {
                             // Replace PNH part of name with PNH name
-                            var splix = newName.toUpperCase().replace(/[-\/]/g,' ').indexOf(PNHMatchData[ph_name_ix].toUpperCase().replace(/[-\/]/g,' ') );
+                            var splix = nameToCheck.toUpperCase().replace(/[-\/]/g,' ').indexOf(PNHMatchData[ph_name_ix].toUpperCase().replace(/[-\/]/g,' ') );
                             if (splix>-1) {
-                                var frontText = newName.slice(0,splix);
-                                var backText = newName.slice(splix+PNHMatchData[ph_name_ix].length);
+                                var frontText = nameToCheck.slice(0,splix);
+                                var backText = nameToCheck.slice(splix+PNHMatchData[ph_name_ix].length);
                                 newName = PNHMatchData[ph_name_ix];
                                 if (frontText.length > 0) { newName = frontText + ' ' + newName; }
                                 if (backText.length > 0) { newName = newName + ' ' + backText; }
@@ -3132,7 +3173,6 @@
                         }
                         // Set hotel hours to 24/7 for all hotels.
                         if (!bannServ.add247.checked) {
-                            debugger;
                             bannServ.add247.action();
                         }
                     } else if ( ["BANK_FINANCIAL"].indexOf(priPNHPlaceCat) > -1 && PNHMatchData[ph_speccase_ix].indexOf('notABank') === -1 ) {
@@ -3271,9 +3311,10 @@
                     if (PNHMatchData[0] === "ApprovalNeeded") {
                         //PNHNameTemp = PNHMatchData[1].join(', ');
                         PNHNameTemp = PNHMatchData[1][0];  // Just do the first match
-                        PNHNameTempWeb = PNHNameTemp.replace(/\&/g, "%26");
-                        PNHNameTempWeb = PNHNameTemp.replace(/\#/g, "%23");
-                        PNHNameTempWeb = PNHNameTempWeb.replace(/\//g, "%2F");
+                        PNHNameTempWeb = encodeURIComponent(PNHNameTemp);
+                        //PNHNameTempWeb = PNHNameTemp.replace(/\&/g, "%26");
+                        //PNHNameTempWeb = PNHNameTemp.replace(/\#/g, "%23");
+                        //PNHNameTempWeb = PNHNameTempWeb.replace(/\//g, "%2F");
                         PNHOrderNum = PNHMatchData[2].join(',');
                     }
 
@@ -3330,22 +3371,10 @@
 
                 }  // END PNH match/no-match updates
 
-                // Strip/add suffixes
-                if ( hpMode.harmFlag && thisUser.userName === 'bmtg' )  {
-                    var suffixStr = ' - ZQXWCEVRBT';
-                    var suffixStrRE = new RegExp(suffixStr, 'i');
-                    if ( newName.indexOf(suffixStr) > -1 ) {
-                        //newName = newName.replace(suffixStrRE, '');
-                    }
-                    if ( newName.indexOf(suffixStr) === -1 ) {
-                        //newName = newName + suffixStr;
-                    }
-                }
-
                 // Update name:
-                if (hpMode.harmFlag && newName !== item.attributes.name) {
+                if (hpMode.harmFlag && (newName + (newNameSuffix ? newNameSuffix : '')) !== item.attributes.name) {
                     phlogdev("Name updated");
-                    actions.push(new UpdateObject(item, { name: newName }));
+                    actions.push(new UpdateObject(item, { name: newName + (newNameSuffix ? newNameSuffix : '') }));
                     //actions.push(new UpdateObject(item, { name: newName }));
                     fieldUpdateObject.name='#dfd';
                 }
@@ -3396,75 +3425,77 @@
                     }
                 }  // END Gas Station Checks
 
-                
+
                 // TODO - FIX APPROVAL SUBMISSION STUFF
                 // Make PNH submission links
                 var regionFormURL = '';
                 var newPlaceAddon = '';
                 var approvalAddon = '';
                 var approvalMessage = 'Submitted via WMEPH. PNH order number ' + PNHOrderNum;
-                var tempSubmitName = newName.replace(/\&/g,'%26').replace(/\//g, "%2F").replace(/\#/g, "%23");
+                var tempSubmitName_encoded = encodeURIComponent(newName);
+                var placePL_encoded = encodeURIComponent(placePL);
+                var newURLSubmit_encoded = encodeURIComponent(newURLSubmit);
                 if (hpMode.harmFlag) {
                     switch (region) {
                         case "NWR": regionFormURL = 'https://docs.google.com/forms/d/1hv5hXBlGr1pTMmo4n3frUx1DovUODbZodfDBwwTc7HE/viewform';
-                            newPlaceAddon = '?entry.925969794='+tempSubmitName+'&entry.1970139752='+newURLSubmit+'&entry.1749047694='+thisUser.userName+gFormState;
+                            newPlaceAddon = '?entry.925969794='+tempSubmitName_encoded+'&entry.1970139752='+newURLSubmit_encoded+'&entry.1749047694='+thisUser.userName+gFormState;
                             approvalAddon = '?entry.925969794='+PNHNameTempWeb+'&entry.50214576='+approvalMessage+'&entry.1749047694='+thisUser.userName+gFormState;
                             break;
                         case "SWR": regionFormURL = 'https://docs.google.com/forms/d/1Qf2N4fSkNzhVuXJwPBJMQBmW0suNuy8W9itCo1qgJL4/viewform';
-                            newPlaceAddon = '?entry.1497446659='+tempSubmitName+'&entry.1970139752='+newURLSubmit+'&entry.1749047694='+thisUser.userName+gFormState;
+                            newPlaceAddon = '?entry.1497446659='+tempSubmitName_encoded+'&entry.1970139752='+newURLSubmit_encoded+'&entry.1749047694='+thisUser.userName+gFormState;
                             approvalAddon = '?entry.1497446659='+PNHNameTempWeb+'&entry.50214576='+approvalMessage+'&entry.1749047694='+thisUser.userName+gFormState;
                             break;
                         case "HI": regionFormURL = 'https://docs.google.com/forms/d/1K7Dohm8eamIKry3KwMTVnpMdJLaMIyDGMt7Bw6iqH_A/viewform';
-                            newPlaceAddon = '?entry.1497446659='+tempSubmitName+'&entry.1970139752='+newURLSubmit+'&entry.1749047694='+thisUser.userName+gFormState;
+                            newPlaceAddon = '?entry.1497446659='+tempSubmitName_encoded+'&entry.1970139752='+newURLSubmit_encoded+'&entry.1749047694='+thisUser.userName+gFormState;
                             approvalAddon = '?entry.1497446659='+PNHNameTempWeb+'&entry.50214576='+approvalMessage+'&entry.1749047694='+thisUser.userName+gFormState;
                             break;
                         case "PLN": regionFormURL = 'https://docs.google.com/forms/d/1ycXtAppoR5eEydFBwnghhu1hkHq26uabjUu8yAlIQuI/viewform';
-                            newPlaceAddon = '?entry.925969794='+tempSubmitName+'&entry.1970139752='+newURLSubmit+'&entry.1749047694='+thisUser.userName+gFormState;
+                            newPlaceAddon = '?entry.925969794='+tempSubmitName_encoded+'&entry.1970139752='+newURLSubmit_encoded+'&entry.1749047694='+thisUser.userName+gFormState;
                             approvalAddon = '?entry.925969794='+PNHNameTempWeb+'&entry.50214576='+approvalMessage+'&entry.1749047694='+thisUser.userName+gFormState;
                             break;
                         case "SCR": regionFormURL = 'https://docs.google.com/forms/d/1KZzLdlX0HLxED5Bv0wFB-rWccxUp2Mclih5QJIQFKSQ/viewform';
-                            newPlaceAddon = '?entry.925969794='+tempSubmitName+'&entry.1970139752='+newURLSubmit+'&entry.1749047694='+thisUser.userName+gFormState;
+                            newPlaceAddon = '?entry.925969794='+tempSubmitName_encoded+'&entry.1970139752='+newURLSubmit_encoded+'&entry.1749047694='+thisUser.userName+gFormState;
                             approvalAddon = '?entry.925969794='+PNHNameTempWeb+'&entry.50214576='+approvalMessage+'&entry.1749047694='+thisUser.userName+gFormState;
                             break;
                         case "TX": regionFormURL = 'https://docs.google.com/forms/d/1x7VM7ofPOKVnWOaX7d70OWXpnVKf6Mkadn4dgYxx4ic/viewform';
-                            newPlaceAddon = '?entry.925969794='+tempSubmitName+'&entry.1970139752='+newURLSubmit+'&entry.1749047694='+thisUser.userName+gFormState;
+                            newPlaceAddon = '?entry.925969794='+tempSubmitName_encoded+'&entry.1970139752='+newURLSubmit_encoded+'&entry.1749047694='+thisUser.userName+gFormState;
                             approvalAddon = '?entry.925969794='+PNHNameTempWeb+'&entry.50214576='+approvalMessage+'&entry.1749047694='+thisUser.userName+gFormState;
                             break;
                         case "GLR": regionFormURL = 'https://docs.google.com/forms/d/19btj-Qt2-_TCRlcS49fl6AeUT95Wnmu7Um53qzjj9BA/viewform';
-                            newPlaceAddon = '?entry.925969794='+tempSubmitName+'&entry.1970139752='+newURLSubmit+'&entry.1749047694='+thisUser.userName+gFormState;
+                            newPlaceAddon = '?entry.925969794='+tempSubmitName_encoded+'&entry.1970139752='+newURLSubmit_encoded+'&entry.1749047694='+thisUser.userName+gFormState;
                             approvalAddon = '?entry.925969794='+PNHNameTempWeb+'&entry.50214576='+approvalMessage+'&entry.1749047694='+thisUser.userName+gFormState;
                             break;
                         case "SAT": regionFormURL = 'https://docs.google.com/forms/d/1bxgK_20Jix2ahbmUvY1qcY0-RmzUBT6KbE5kjDEObF8/viewform';
-                            newPlaceAddon = '?entry.2063110249='+tempSubmitName+'&entry.2018912633='+newURLSubmit+'&entry.1924826395='+thisUser.userName+gFormState;
+                            newPlaceAddon = '?entry.2063110249='+tempSubmitName_encoded+'&entry.2018912633='+newURLSubmit_encoded+'&entry.1924826395='+thisUser.userName+gFormState;
                             approvalAddon = '?entry.2063110249='+PNHNameTempWeb+'&entry.123778794='+approvalMessage+'&entry.1924826395='+thisUser.userName+gFormState;
                             break;
                         case "SER": regionFormURL = 'https://docs.google.com/forms/d/1jYBcxT3jycrkttK5BxhvPXR240KUHnoFMtkZAXzPg34/viewform';
-                            newPlaceAddon = '?entry.822075961='+tempSubmitName+'&entry.1422079728='+newURLSubmit+'&entry.1891389966='+thisUser.userName+gFormState;
+                            newPlaceAddon = '?entry.822075961='+tempSubmitName_encoded+'&entry.1422079728='+newURLSubmit_encoded+'&entry.1891389966='+thisUser.userName+gFormState;
                             approvalAddon = '?entry.822075961='+PNHNameTempWeb+'&entry.607048307='+approvalMessage+'&entry.1891389966='+thisUser.userName+gFormState;
                             break;
                         case "ATR": regionFormURL = 'https://docs.google.com/forms/d/1v7JhffTfr62aPSOp8qZHA_5ARkBPldWWJwDeDzEioR0/viewform';
-                            newPlaceAddon = '?entry.925969794='+tempSubmitName+'&entry.1970139752='+newURLSubmit+'&entry.1749047694='+thisUser.userName+gFormState;
+                            newPlaceAddon = '?entry.925969794='+tempSubmitName_encoded+'&entry.1970139752='+newURLSubmit_encoded+'&entry.1749047694='+thisUser.userName+gFormState;
                             approvalAddon = '?entry.925969794='+PNHNameTempWeb+'&entry.50214576='+approvalMessage+'&entry.1749047694='+thisUser.userName+gFormState;
                             break;
                         case "NER": regionFormURL = 'https://docs.google.com/forms/d/1UgFAMdSQuJAySHR0D86frvphp81l7qhEdJXZpyBZU6c/viewform';
-                            newPlaceAddon = '?entry.925969794='+tempSubmitName+'&entry.1970139752='+newURLSubmit+'&entry.1749047694='+thisUser.userName+gFormState;
+                            newPlaceAddon = '?entry.925969794='+tempSubmitName_encoded+'&entry.1970139752='+newURLSubmit_encoded+'&entry.1749047694='+thisUser.userName+gFormState;
                             approvalAddon = '?entry.925969794='+PNHNameTempWeb+'&entry.50214576='+approvalMessage+'&entry.1749047694='+thisUser.userName+gFormState;
                             break;
                         case "NOR": regionFormURL = 'https://docs.google.com/forms/d/1iYq2rd9HRd-RBsKqmbHDIEBGuyWBSyrIHC6QLESfm4c/viewform';
-                            newPlaceAddon = '?entry.925969794='+tempSubmitName+'&entry.1970139752='+newURLSubmit+'&entry.1749047694='+thisUser.userName+gFormState;
+                            newPlaceAddon = '?entry.925969794='+tempSubmitName_encoded+'&entry.1970139752='+newURLSubmit_encoded+'&entry.1749047694='+thisUser.userName+gFormState;
                             approvalAddon = '?entry.925969794='+PNHNameTempWeb+'&entry.50214576='+approvalMessage+'&entry.1749047694='+thisUser.userName+gFormState;
                             break;
                         case "MAR": regionFormURL = 'https://docs.google.com/forms/d/1PhL1iaugbRMc3W-yGdqESoooeOz-TJIbjdLBRScJYOk/viewform';
-                            newPlaceAddon = '?entry.925969794='+tempSubmitName+'&entry.1970139752='+newURLSubmit+'&entry.1749047694='+thisUser.userName+gFormState;
+                            newPlaceAddon = '?entry.925969794='+tempSubmitName_encoded+'&entry.1970139752='+newURLSubmit_encoded+'&entry.1749047694='+thisUser.userName+gFormState;
                             approvalAddon = '?entry.925969794='+PNHNameTempWeb+'&entry.50214576='+approvalMessage+'&entry.1749047694='+thisUser.userName+gFormState;
                             break;
                         case "CA_EN": regionFormURL = 'https://docs.google.com/forms/d/13JwXsrWPNmCdfGR5OVr5jnGZw-uNGohwgjim-JYbSws/viewform';
-                            newPlaceAddon = '?entry_839085807='+tempSubmitName+'&entry_1067461077='+newURLSubmit;
-                            approvalAddon = '?entry_839085807='+PNHNameTempWeb+'&entry_1125435193='+approvalMessage;
+                            newPlaceAddon = '?entry_839085807='+tempSubmitName_encoded+'&entry_1067461077='+newURLSubmit_encoded+'&entry_318793106='+thisUser.userName+'&entry_1149649663='+placePL_encoded;
+                            approvalAddon = '?entry_839085807='+PNHNameTempWeb+'&entry_1125435193='+approvalMessage+'&entry_318793106='+thisUser.userName+'&entry_1149649663='+placePL_encoded;
                             break;
                         case "QC": regionFormURL = 'https://docs.google.com/forms/d/13JwXsrWPNmCdfGR5OVr5jnGZw-uNGohwgjim-JYbSws/viewform';
-                            newPlaceAddon = '?entry_839085807='+tempSubmitName+'&entry_1067461077='+newURLSubmit;
-                            approvalAddon = '?entry_839085807='+PNHNameTempWeb+'&entry_1125435193='+approvalMessage;
+                            newPlaceAddon = '?entry_839085807='+tempSubmitName_encoded+'&entry_1067461077='+newURLSubmit_encoded+'&entry_318793106='+thisUser.userName+'&entry_1149649663='+placePL_encoded;
+                            approvalAddon = '?entry_839085807='+PNHNameTempWeb+'&entry_1125435193='+approvalMessage+'&entry_318793106='+thisUser.userName+'&entry_1149649663='+placePL_encoded;
                             break;
                         default: regionFormURL = "";
                     }
@@ -3700,7 +3731,7 @@
                     bannButt.noHours.value = 'Add hours';
                     bannButt.noHours.severity = 0;
                     bannButt.noHours.WLactive = false;
-                    bannButt.noHours.message = 'Hours: <input type="text" value="Paste Hours Here" id="WMEPH-HoursPaste'+devVersStr+'" style="width:170px;padding-left:3px;color:#AAA">';
+                    bannButt.noHours.message = getHoursHtml('Hours');
                 }
                 if ( !checkHours(item.attributes.openingHours) ) {
                     //phlogdev('Overlapping hours');
@@ -3797,7 +3828,7 @@
                             USPSMatch = true;
                             customStoreFinderURL = "https://tools.usps.com/go/POLocatorAction.action";
                             customStoreFinder = true;
-                            if ( newName.indexOf(' - ') === -1 && newName.indexOf(': ') === -1 ) {
+                            if ( (newName + newNameSuffix).indexOf(' - ') === -1 && newName.indexOf(': ') === -1 ) {
                                 bannButt.formatUSPS.active = true;
                             }
                             break;
@@ -4034,7 +4065,8 @@
             // and SCENIC_LOOKOUT_VIEWPOINT to be < 2 instead of === 0 and === 1, respectively.
             // ****************************************************************************************************
             var lookoutCatIndex = categories.indexOf('SCENIC_LOOKOUT_VIEWPOINT');
-            if ( /rest area/i.test(newName) || /rest stop/i.test(newName) || /service plaza/i.test(newName) ||
+            var oldName = item.attributes.name;
+            if ( /rest area/i.test(oldName) || /rest stop/i.test(oldName) || /service plaza/i.test(oldName) ||
                 ( lookoutCatIndex > -1 ) ) {
                 if ( lookoutCatIndex > -1 ) {
 
@@ -4051,16 +4083,16 @@
                         bannButt.restAreaGas.active = true;
                     }
 
-                    if ( newName.match(/^Rest Area.* \- /) === null ) {
+                    if ( oldName.match(/^Rest Area.* \- /) === null ) {
                         bannButt.restAreaName.active = true;
                         if (currentWL.restAreaName) {
                             bannButt.restAreaName.WLactive = false;
                         }
                     } else {
-                        newName = newName.replace(/Mile/i, 'mile');
                         if (hpMode.harmFlag) {
-                            if (newName !== item.attributes.name) {
-                                actions.push(new UpdateObject(item, { name: newName }));
+                            var newSuffix = newNameSuffix.replace(/Mile/i, 'mile');
+                            if (newName + newSuffix !== item.attributes.name) {
+                                actions.push(new UpdateObject(item, { name: newName + newSuffix }));
                                 fieldUpdateObject.name='#dfd';
                                 phlogdev('Lower case "mile"');
                             } else {
@@ -4811,20 +4843,60 @@
                 }
             });
 
-            // If pressing enter in the hours entry box, parse the entry
-            $("#WMEPH-HoursPaste"+devVersStr).keyup(function(event){
-                if( event.keyCode === 13 && $('#WMEPH-HoursPaste'+devVersStr).val() !== '' ){
-                    $("#WMEPH_noHours").click();
+            // If pasting or dropping into hours entry box
+            function resetHoursEntryHeight(evt) {
+                $('#WMEPH-HoursPasteBeta').focus();
+                var oldText = $('#WMEPH-HoursPasteBeta').val();
+                if (oldText === _DEFAULT_HOURS_TEXT || oldText === 'Can\'t parse, try again') {
+                    $('#WMEPH-HoursPasteBeta').val('');
+                }
+
+                // A small delay to allow window to process pasted text before running.
+                setTimeout(function() {
+                    var text = $('#WMEPH-HoursPasteBeta').val();
+                    var lineCount = (text.match(/\n/g) || []).length + 1;
+                    $('#WMEPH-HoursPasteBeta').css({height:((lineCount)*16+6)+'px'});
+                },100);
+            }
+            $('#WMEPH-HoursPasteBeta')
+                .bind('paste', resetHoursEntryHeight)
+                .bind('drop', resetHoursEntryHeight)
+                .bind('dragenter', function() {
+                var text = $('#WMEPH-HoursPasteBeta').val();
+                if (text === _DEFAULT_HOURS_TEXT || text === 'Can\'t parse, try again') {
+                    $('#WMEPH-HoursPasteBeta').val('');
                 }
             });
-            $("#WMEPH-HoursPaste"+devVersStr).click(function(){
-                if (this.value === 'Paste Hours Here' || this.value === 'Can\'t parse, try again') {
+
+            // If pressing enter in the hours entry box, parse the entry
+            $("#WMEPH-HoursPaste"+devVersStr).keydown(function(event){
+                if (event.keyCode === 13) {
+                    if (event.ctrlKey) {
+                        // Simulate a newline event (shift + enter)
+                        var text = this.value;
+                        var selStart = this.selectionStart;
+                        this.value = text.substr(0, selStart) + '\n' + text.substr(this.selectionEnd, text.length-1);
+                        this.selectionStart = selStart+1;
+                        this.selectionEnd = selStart+1;
+                        return true;
+                    } else if(!(event.shiftKey||event.ctrlKey) && $('#WMEPH-HoursPaste'+devVersStr).val() !== '' ){
+                        event.stopPropagation();
+                        event.preventDefault();
+                        event.returnValue = false;
+                        event.cancelBubble = true;
+                        $("#WMEPH_noHours").click();
+                        return false;
+                    }
+                }
+            });
+            $("#WMEPH-HoursPaste"+devVersStr).focus(function(){
+                if (this.value === _DEFAULT_HOURS_TEXT || this.value === 'Can\'t parse, try again') {
                     this.value = '';
                 }
                 this.style.color = 'black';
             }).blur(function(){
                 if ( this.value === '') {
-                    this.value = 'Paste Hours Here';
+                    this.value = _DEFAULT_HOURS_TEXT;
                     this.style.color = '#999';
                 }
             });
@@ -5290,20 +5362,12 @@
             inputHoursParse = inputHoursParse.replace(/\u2013|\u2014/g, "-");  // long dash replacing
             inputHoursParse = inputHoursParse.replace(/[^a-z0-9\:\-\. ~]/g, ' ');  // replace unnecessary characters with spaces
             inputHoursParse = inputHoursParse.replace(/\:{2,}/g, ':');  // remove extra colons
-            inputHoursParse = inputHoursParse.replace(/closed/g, '99:99-99:99').replace(/not open/g, '99:99-99:99');  // parse 'closed'
-            inputHoursParse = inputHoursParse.replace(/by appointment only/g, '99:99-99:99').replace(/by appointment/g, '99:99-99:99');  // parse 'appointment only'
+            inputHoursParse = inputHoursParse.replace(/closed|not open/g, '99:99-99:99');  // parse 'closed'
+            inputHoursParse = inputHoursParse.replace(/by appointment( only)?/g, '99:99-99:99');  // parse 'appointment only'
             inputHoursParse = inputHoursParse.replace(/weekdays/g, 'mon-fri').replace(/weekends/g, 'sat-sun');  // convert weekdays and weekends to days
-            inputHoursParse = inputHoursParse.replace(/12:00 noon/g, "12:00").replace(/12:00 midnight/g, "00:00");  // replace 'noon', 'midnight'
-            inputHoursParse = inputHoursParse.replace(/12 noon/g, "12:00").replace(/12 midnight/g, "00:00");  // replace 'noon', 'midnight'
-            inputHoursParse = inputHoursParse.replace(/noon/g, "12:00").replace(/midnight/g, "00:00");  // replace 'noon', 'midnight'
-            inputHoursParse = inputHoursParse.replace(/every day/g, "mon-sun");  // replace 'seven days a week'
-            inputHoursParse = inputHoursParse.replace(/seven days a week/g, "mon-sun");  // replace 'seven days a week'
-            inputHoursParse = inputHoursParse.replace(/7 days a week/g, "mon-sun");  // replace 'seven days a week'
-            inputHoursParse = inputHoursParse.replace(/daily/g, "mon-sun");  // replace 'open daily'
-            inputHoursParse = inputHoursParse.replace(/open 24 ?ho?u?rs?/g, "00:00-00:00");  // replace 'open 24 hour or similar'
-            inputHoursParse = inputHoursParse.replace(/open twenty\-? ?four ho?u?rs?/g, "00:00-00:00");  // replace 'open 24 hour or similar'
-            inputHoursParse = inputHoursParse.replace(/24 ?ho?u?rs?/g, "00:00-00:00");  // replace 'open 24 hour or similar'
-            inputHoursParse = inputHoursParse.replace(/twenty\-? ?four ho?u?rs?/g, "00:00-00:00");  // replace 'open 24 hour or similar'
+            inputHoursParse = inputHoursParse.replace(/(12(:00)?\W*)?noon/g, "12:00").replace(/(12(:00)?\W*)?mid(night|nite)/g, "00:00");  // replace 'noon', 'midnight'
+            inputHoursParse = inputHoursParse.replace(/every\s*day|daily|(7|seven) days a week/g, "mon-sun");  // replace 'seven days a week'
+            inputHoursParse = inputHoursParse.replace(/(open\s*)?(24|twenty\W*four)\W*h(ou)?rs?|all day/g, "00:00-00:00");  // replace 'open 24 hour or similar'
             inputHoursParse = inputHoursParse.replace(/(\D:)([^ ])/g, "$1 $2");  // space after colons after words
             // replace thru type words with dashes
             var thruWords = 'through|thru|to|until|till|til|-|~'.split("|");
@@ -5771,7 +5835,7 @@
 
                             if ( !suppressMatch ) {
                                 //Reformat the testPlace name
-                                testName = testVenueAtt.name.toUpperCase().replace(/ AND /g, '').replace(/^THE /g, '').replace(/[^A-Z0-9]/g, '');  // Format test name
+                                testName = testVenueAtt.name.toUpperCase().replace(/\s+[-\(].*$/,'').replace(/ AND /g, '').replace(/^THE /g, '').replace(/[^A-Z0-9]/g, '');  // Format test name
                                 if (  (testName.length>2 && noNumSkip.indexOf(testName) === -1) || allowedTwoLetters.indexOf(testName) > -1  ) {
                                     testNameList = [testName];
                                 } else {
@@ -6930,7 +6994,7 @@
         }
 
         // Function that checks current place against the Harmonization Data.  Returns place data or "NoMatch"
-        function harmoList(itemName,state2L,region3L,country,itemCats,item) {
+        function harmoList(itemName,state2L,region3L,country,itemCats,item,stripSuffix) {
             var PNH_DATA_headers;
             var ixendPNH_NAMES;
             if (country === 'USA') {
@@ -6963,6 +7027,7 @@
             var PNHNameMatch = false;  // tracks match status
             var PNHStringMatch = false;  // compares name string match
             var PNHMatchProceed;  // tracks match status
+
             itemName = itemName.toUpperCase();  // UpperCase the current place name (The Holly And Ivy Pub #23 --> THE HOLLY AND IVY PUB #23 )
             itemName = itemName.replace(/ AND /g, ' ');  // Clear the word " AND " from the name (THE HOLLY AND IVY PUB #23 --> THE HOLLY IVY PUB #23 )
             itemName = itemName.replace(/^THE /g, '');  // Clear the word "THE " from the start of the name ( THE HOLLYIVY PUB #23 -- > HOLLY IVY PUB #23 )
@@ -7316,7 +7381,7 @@
                 }
                 // Clear out any empty entries
                 var newNameListTemp = [];
-                for ( catix=0; catix<newNameList.length; catix++) {  // extend the list by adding Hotel to all items
+                for ( catix=0; catix<newNameList.length; catix++) {
                     if (newNameList[catix].length > 1) {
                         newNameListTemp.push(newNameList[catix]);
                     }
