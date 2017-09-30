@@ -13,7 +13,7 @@
 // ==UserScript==
 // @name        WME Place Harmonizer Beta
 // @namespace   WazeUSA
-// @version     1.3.19
+// @version     1.3.20
 // @description Harmonizes, formats, and locks a selected place
 // @author      WMEPH Development Group
 // @include     /^https:\/\/(www|beta)\.waze\.com\/(?!user\/)(.{2,6}\/)?editor\/?.*$/
@@ -77,7 +77,7 @@
     var _DEFAULT_HOURS_TEXT = 'Paste Hours Here';
     function getHoursHtml(label, defaultText){
         defaultText = defaultText || _DEFAULT_HOURS_TEXT;
-        return label + ': <textarea id="WMEPH-HoursPaste'+devVersStr+'" autocomplete="off" style="white-space:nowrap;max-width:185px;font-size:0.85em;width:170px;height:24px;padding-left:3px;color:#AAA">' + defaultText + '</textarea>'
+        return label + ': <textarea id="WMEPH-HoursPaste'+devVersStr+'" autocomplete="off" style="white-space:nowrap;max-width:185px;font-size:0.85em;width:170px;height:24px;padding-left:3px;color:#AAA">' + defaultText + '</textarea>';
     }
 
     // Array prototype extensions (for Firefox fix)
@@ -304,6 +304,8 @@
     function runPH() {
         // Script update info
         var WMEPHWhatsNewList = [  // New in this version
+            '1.3.20: NEW - "Add point" button when PLA entry/exit point hasn\'t been created.',
+            '1.3.20: FIXED - Minor improvements to hours parsing.',
             '1.3.19: NEW - Hours entry text box enhancements.',
             '1.3.18: NEW - Updates to Canada place submission forms.',
             '1.3.17: FIXED - a couple bugs caused by changes in the last release',
@@ -318,7 +320,7 @@
             '1.3.7: Adjusted position of PUR Web Search button.',
             '1.3.6: NEW - Added option to hide PUR "Web Search" button.',
             '1.3.6: FIXED - Moved PUR web search button to prevent conflict with URO+',
-            '1.3.5: NEW - Added handicapped parking question for PLAs.', 
+            '1.3.5: NEW - Added handicapped parking question for PLAs.',
             '1.3.5: FIXED - PUR web search button should not appear on UR popups.',
             '1.3.4: FIXED - PUR web search should remove No Street and No Address',
             '1.3.3: FIXED - Web Search button doesn\'t always appear on PURs.',
@@ -1077,6 +1079,7 @@
             // action: The action that happens if the button is pressed
             // WL terms are for whitelisting
             bannButt = {
+
                 hnDashRemoved: {
                     active: false, severity: 0, message: "Dash removed from house number. Verify"
                 },
@@ -1823,11 +1826,19 @@
                 },
 
                 plaSpaces: {
-                    active: false, severity: 0, message: '# of Parking Spaces is set to 1-10.<br><b>If appropriate</b>, select another option:'
+                    active: false, severity: 0, message: '# of Parking Spaces is set to 1-10.<br><b><i>If appropriate<i></b>, select another option:'
+                },
+
+                noPlaStopPoint: {
+                    active: false, severity: 1, message: 'Entry/exit point has not been created.', value: 'Add point', title: 'Add an entry/exit point',
+                    action: function() {
+                        $('.navigation-point-view .add-button').click();
+                        harmonizePlaceGo(item, 'harmonize');
+                    }
                 },
 
                 plaStopPointUnmoved: {
-                    active: false, severity: 1, message: 'Stop point has not been moved.'
+                    active: false, severity: 1, message: 'Entry/exit point has not been moved.'
                 },
 
                 plaCanExitWhileClosed: {
@@ -2611,9 +2622,18 @@
                             .prop('outerHTML');
                     });
                 }
+
+                // Check if the stop point has been created and moved.
                 if (!item.attributes.entryExitPoints || item.attributes.entryExitPoints.length === 0) {
-                    bannButt.plaStopPointUnmoved.active = true;
+                    bannButt.noPlaStopPoint.active = true;
+                } else {
+                    var stopPoint = item.attributes.entryExitPoints[0].getPoint();
+                    var areaCenter = item.attributes.geometry.getCentroid();
+                    if (stopPoint.equals(areaCenter)) {
+                        bannButt.plaStopPointUnmoved.active = true;
+                    }
                 }
+
                 if (parkAttr && !parkAttr.canExitWhileClosed && ($('#WMEPH-ShowPLAExitWhileClosed' + devVersStr).prop('checked') || !(isAlwaysOpen(item) || item.attributes.openingHours.length === 0))) {
                     bannButt.plaCanExitWhileClosed.active = true;
                 }
@@ -4844,7 +4864,7 @@
                 .bind('dragenter', function() {
                 var text = $('#WMEPH-HoursPasteBeta').val();
                 if (text === _DEFAULT_HOURS_TEXT || text === 'Can\'t parse, try again') {
-                     $('#WMEPH-HoursPasteBeta').val('');
+                    $('#WMEPH-HoursPasteBeta').val('');
                 }
             });
 
@@ -5342,20 +5362,12 @@
             inputHoursParse = inputHoursParse.replace(/\u2013|\u2014/g, "-");  // long dash replacing
             inputHoursParse = inputHoursParse.replace(/[^a-z0-9\:\-\. ~]/g, ' ');  // replace unnecessary characters with spaces
             inputHoursParse = inputHoursParse.replace(/\:{2,}/g, ':');  // remove extra colons
-            inputHoursParse = inputHoursParse.replace(/closed/g, '99:99-99:99').replace(/not open/g, '99:99-99:99');  // parse 'closed'
-            inputHoursParse = inputHoursParse.replace(/by appointment only/g, '99:99-99:99').replace(/by appointment/g, '99:99-99:99');  // parse 'appointment only'
+            inputHoursParse = inputHoursParse.replace(/closed|not open/g, '99:99-99:99');  // parse 'closed'
+            inputHoursParse = inputHoursParse.replace(/by appointment( only)?/g, '99:99-99:99');  // parse 'appointment only'
             inputHoursParse = inputHoursParse.replace(/weekdays/g, 'mon-fri').replace(/weekends/g, 'sat-sun');  // convert weekdays and weekends to days
-            inputHoursParse = inputHoursParse.replace(/12:00 noon/g, "12:00").replace(/12:00 midnight/g, "00:00");  // replace 'noon', 'midnight'
-            inputHoursParse = inputHoursParse.replace(/12 noon/g, "12:00").replace(/12 midnight/g, "00:00");  // replace 'noon', 'midnight'
-            inputHoursParse = inputHoursParse.replace(/noon/g, "12:00").replace(/midnight/g, "00:00");  // replace 'noon', 'midnight'
-            inputHoursParse = inputHoursParse.replace(/every day/g, "mon-sun");  // replace 'seven days a week'
-            inputHoursParse = inputHoursParse.replace(/seven days a week/g, "mon-sun");  // replace 'seven days a week'
-            inputHoursParse = inputHoursParse.replace(/7 days a week/g, "mon-sun");  // replace 'seven days a week'
-            inputHoursParse = inputHoursParse.replace(/daily/g, "mon-sun");  // replace 'open daily'
-            inputHoursParse = inputHoursParse.replace(/open 24 ?ho?u?rs?/g, "00:00-00:00");  // replace 'open 24 hour or similar'
-            inputHoursParse = inputHoursParse.replace(/open twenty\-? ?four ho?u?rs?/g, "00:00-00:00");  // replace 'open 24 hour or similar'
-            inputHoursParse = inputHoursParse.replace(/24 ?ho?u?rs?/g, "00:00-00:00");  // replace 'open 24 hour or similar'
-            inputHoursParse = inputHoursParse.replace(/twenty\-? ?four ho?u?rs?/g, "00:00-00:00");  // replace 'open 24 hour or similar'
+            inputHoursParse = inputHoursParse.replace(/(12(:00)?\W*)?noon/g, "12:00").replace(/(12(:00)?\W*)?mid(night|nite)/g, "00:00");  // replace 'noon', 'midnight'
+            inputHoursParse = inputHoursParse.replace(/every\s*day|daily|(7|seven) days a week/g, "mon-sun");  // replace 'seven days a week'
+            inputHoursParse = inputHoursParse.replace(/(open\s*)?(24|twenty\W*four)\W*h(ou)?rs?|all day/g, "00:00-00:00");  // replace 'open 24 hour or similar'
             inputHoursParse = inputHoursParse.replace(/(\D:)([^ ])/g, "$1 $2");  // space after colons after words
             // replace thru type words with dashes
             var thruWords = 'through|thru|to|until|till|til|-|~'.split("|");
