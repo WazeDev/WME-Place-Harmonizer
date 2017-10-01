@@ -13,7 +13,7 @@
 // ==UserScript==
 // @name        WME Place Harmonizer
 // @namespace   WazeUSA
-// @version     1.3.21
+// @version     1.3.22
 // @description Harmonizes, formats, and locks a selected place
 // @author      WMEPH Development Group
 // @include     /^https:\/\/(www|beta)\.waze\.com\/(?!user\/)(.{2,6}\/)?editor\/?.*$/
@@ -77,7 +77,7 @@
     var _DEFAULT_HOURS_TEXT = 'Paste Hours Here';
     function getHoursHtml(label, defaultText){
         defaultText = defaultText || _DEFAULT_HOURS_TEXT;
-        return label + ': <textarea id="WMEPH-HoursPaste'+devVersStr+'" autocomplete="off" style="white-space:nowrap;max-width:185px;font-size:0.85em;width:170px;height:24px;padding-left:3px;color:#AAA">' + defaultText + '</textarea>';
+        return label + ': <textarea id="WMEPH-HoursPaste'+devVersStr+'" wrap="off" autocomplete="off" style="overflow:auto;max-width:185px;font-size:0.85em;width:170px;height:24px;padding-left:3px;color:#AAA">' + defaultText + '</textarea>';
     }
 
     // Array prototype extensions (for Firefox fix)
@@ -304,6 +304,7 @@
     function runPH() {
         // Script update info
         var WMEPHWhatsNewList = [  // New in this version
+            '1.3.22: FIXED - Scroll bar would cover text if only one long line of text in hours entry box.',
             '1.3.21: FIXED - Auto-expand hours entry text box when multiple lines are pasted (production version).',
             '1.3.20: NEW - "Add point" button when PLA entry/exit point hasn\'t been created.',
             '1.3.20: FIXED - Minor improvements to hours parsing.',
@@ -4846,22 +4847,27 @@
 
             // If pasting or dropping into hours entry box
             function resetHoursEntryHeight(evt) {
-                $('#WMEPH-HoursPaste'+devVersStr).focus();
-                var oldText = $('#WMEPH-HoursPaste'+devVersStr).val();
+                var $sel = $('#WMEPH-HoursPaste'+devVersStr);
+                $sel.focus();
+                var oldText = $sel.val();
                 if (oldText === _DEFAULT_HOURS_TEXT || oldText === 'Can\'t parse, try again') {
-                    $('#WMEPH-HoursPaste'+devVersStr).val('');
+                    $sel.val('');
                 }
 
                 // A small delay to allow window to process pasted text before running.
                 setTimeout(function() {
-                    var text = $('#WMEPH-HoursPaste'+devVersStr).val();
+                    var text = $sel.val();
+                    var elem = $sel[0];
                     var lineCount = (text.match(/\n/g) || []).length + 1;
-                    $('#WMEPH-HoursPaste'+devVersStr).css({height:((lineCount)*16+6)+'px'});
+                    var height = lineCount*16 + 8 + (elem.scrollWidth > elem.clientWidth ? 20 : 0);
+                    $sel.css({height:height+'px'});
+
                 },100);
             }
             $('#WMEPH-HoursPaste'+devVersStr)
                 .bind('paste', resetHoursEntryHeight)
                 .bind('drop', resetHoursEntryHeight)
+                .keydown(resetHoursEntryHeight)
                 .bind('dragenter', function() {
                 var text = $('#WMEPH-HoursPaste'+devVersStr).val();
                 if (text === _DEFAULT_HOURS_TEXT || text === 'Can\'t parse, try again') {
