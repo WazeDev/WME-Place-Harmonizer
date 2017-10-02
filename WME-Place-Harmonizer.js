@@ -13,7 +13,7 @@
 // ==UserScript==
 // @name        WME Place Harmonizer Beta
 // @namespace   WazeUSA
-// @version     1.3.22
+// @version     1.3.23
 // @description Harmonizes, formats, and locks a selected place
 // @author      WMEPH Development Group
 // @include     /^https:\/\/(www|beta)\.waze\.com\/(?!user\/)(.{2,6}\/)?editor\/?.*$/
@@ -304,6 +304,7 @@
     function runPH() {
         // Script update info
         var WMEPHWhatsNewList = [  // New in this version
+            '1.3.23: FIXED - Repeating hotel localization bug.',
             '1.3.22: FIXED - Scroll bar would cover text if only one long line of text in hours entry box.',
             '1.3.21: FIXED - Auto-expand hours entry text box when multiple lines are pasted (production version).',
             '1.3.20: NEW - "Add point" button when PLA entry/exit point hasn\'t been created.',
@@ -739,11 +740,11 @@
         var capWords = "3M|AAA|AMC|AOL|AT&T|ATM|BBC|BLT|BMV|BMW|BP|CBS|CCS|CGI|CISCO|CJ|CNN|CVS|DHL|DKNY|DMV|DSW|EMS|ER|ESPN|FCU|FCUK|FDNY|GNC|H&M|HP|HSBC|IBM|IHOP|IKEA|IRS|JBL|JCPenney|KFC|LLC|MBNA|MCA|MCI|NBC|NYPD|PDQ|PNC|TCBY|TNT|TV|UPS|USA|USPS|VW|XYZ|ZZZ".split('|');
         var specWords = "d'Bronx|iFix".split('|');
 
-        function toTitleCase(str) {
+        function toTitleCase(str, noTrim) {
             if (!str) {
                 return str;
             }
-            str = str.trim();
+            if (!noTrim) str = str.trim();
             var parensParts = str.match(/\(.*?\)/g);
             if (parensParts) {
                 for (var i=0; i<parensParts.length; i++) {
@@ -2490,6 +2491,7 @@
             newCategories = categories.slice(0);
             newNameSplits = item.attributes.name.match(/(.*?)(\s+[-\(\/].*)*$/);
             newNameSuffix = newNameSplits[2];
+            newNameSuffix = toTitleCase(newNameSuffix, true);
             newName = newNameSplits[1];
             newName = toTitleCase(newName);
             // var nameShort = newName.replace(/[^A-Za-z]/g, '');  // strip non-letters for PNH name searching
@@ -3146,13 +3148,13 @@
                             newName = PNHMatchData[ph_name_ix];
                         } else {
                             // Replace PNH part of name with PNH name
-                            var splix = nameToCheck.toUpperCase().replace(/[-\/]/g,' ').indexOf(PNHMatchData[ph_name_ix].toUpperCase().replace(/[-\/]/g,' ') );
+                            var splix = newName.toUpperCase().replace(/[-\/]/g,' ').indexOf(PNHMatchData[ph_name_ix].toUpperCase().replace(/[-\/]/g,' ') );
                             if (splix>-1) {
                                 var frontText = nameToCheck.slice(0,splix);
-                                var backText = nameToCheck.slice(splix+PNHMatchData[ph_name_ix].length);
+                                //var backText = nameToCheck.slice(splix+PNHMatchData[ph_name_ix].length);
                                 newName = PNHMatchData[ph_name_ix];
                                 if (frontText.length > 0) { newName = frontText + ' ' + newName; }
-                                if (backText.length > 0) { newName = newName + ' ' + backText; }
+                                //if (backText.length > 0) { newName = newName + ' ' + backText; }
                                 newName = newName.replace(/ {2,}/g,' ');
                             } else {
                                 newName = PNHMatchData[ph_name_ix];
