@@ -2491,7 +2491,7 @@
             newCategories = categories.slice(0);
             newNameSplits = item.attributes.name.match(/(.*?)(\s+[-\(\/].*)*$/);
             newNameSuffix = newNameSplits[2];
-            newNameSuffix = toTitleCase(newNameSuffix, true);
+            //  newNameSuffix = toTitleCase(newNameSuffix, true);
             newName = newNameSplits[1];
             newName = toTitleCase(newName);
             // var nameShort = newName.replace(/[^A-Za-z]/g, '');  // strip non-letters for PNH name searching
