@@ -245,6 +245,10 @@
         return /(?:emergency\s+(?:room|department|dept))|\b(?:er|ed)\b/i.test(venue.attributes.name);
     }
 
+    function isRestArea(venue) {
+        return venue.attributes.categories.indexOf('SCENIC_LOOKOUT_VIEWPOINT') > -1 && /rest\s*area/i.test(venue.attributes.name);
+    }
+
     function getPvaSeverity(pvaValue, venue) {
         var isER = pvaValue === 'hosp' && isEmergencyRoom(venue);
         return (pvaValue ==='' || pvaValue === '0' || (pvaValue === 'hosp' && !isER)) ? 3 : (pvaValue ==='2') ? 1 : (pvaValue ==='3') ? 2 : 0;
@@ -304,6 +308,8 @@
     function runPH() {
         // Script update info
         var WMEPHWhatsNewList = [  // New in this version
+            '1.3.24: FIXED - Removed rest areas from duplicate checks.',
+            '1.3.24: NEW - Hours of 0:00-23:59 will be highlighted yellow and then automatically replaced by "All day".',
             '1.3.23: FIXED - Repeating hotel localization bug.',
             '1.3.22: FIXED - Scroll bar would cover text if only one long line of text in hours entry box.',
             '1.3.21: FIXED - Auto-expand hours entry text box when multiple lines are pasted (production version).',
@@ -4355,7 +4361,7 @@
             var dupeBannMess = '', dupesFound = false;
             dupeHNRangeList = [];
             bannDupl = {};
-            if (newName.replace(/[^A-Za-z0-9]/g,'').length > 0 && !item.attributes.residential && !isEmergencyRoom(item)) {
+            if (newName.replace(/[^A-Za-z0-9]/g,'').length > 0 && !item.attributes.residential && !isEmergencyRoom(item) && !isRestArea(item)) {
                 if ( $("#WMEPH-DisableDFZoom" + devVersStr).prop('checked') ) {  // don't zoom and pan for results outside of FOV
                     duplicateName = findNearbyDuplicate(newName, newAliases, item, false);
                 } else {
