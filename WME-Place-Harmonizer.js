@@ -13,7 +13,7 @@
 // ==UserScript==
 // @name        WME Place Harmonizer Beta
 // @namespace   WazeUSA
-// @version     1.3.23
+// @version     1.3.24
 // @description Harmonizes, formats, and locks a selected place
 // @author      WMEPH Development Group
 // @include     /^https:\/\/(www|beta)\.waze\.com\/(?!user\/)(.{2,6}\/)?editor\/?.*$/
@@ -1014,11 +1014,6 @@
                 hpMode.scanFlag = true;
             }
 
-            // // If it's an unlocked parking lot, return with severity 4.
-            // if (hpMode.hlFlag && item.isParkingLot() && item.attributes.lockRank === 0) {
-            //     return 4;
-            // }
-
             var placePL = getItemPL();  //  set up external post div and pull place PL
             // https://www.waze.com/editor/?env=usa&lon=-80.60757&lat=28.17850&layers=1957&zoom=4&segments=86124344&update_requestsFilter=false&problemsFilter=false&mapProblemFilter=0&mapUpdateRequestFilter=0&venueFilter=1
             placePL = placePL.replace(/\&layers=[^\&]+(\&?)/g, '$1');  // remove Permalink Layers
@@ -1935,6 +1930,10 @@
                     }
                 },
 
+                allDayHoursFixed: {
+                    active: false, severity: 0, message: 'Hours were changed from 00:00-23:59 to "All Day"'
+                },
+
                 resiTypeNameSoft: {  // no WL
                     active: false, severity: 0, message: 'The place name suggests a residential place or personalized place of work.  Please verify.'
                 },
@@ -2463,6 +2462,30 @@
                 }
             };  // END bannServ definitions
 
+            // If place has hours of 0:00-23:59, highlight yellow or if harmonizing, convert to All Day.
+            var hoursEntries = item.attributes.openingHours;
+            var newHoursEntries = [];
+            var updateHours = false;
+            for (var i=0; i<hoursEntries.length; i++) {
+                var newHoursEntry = {days:hoursEntries[i].days.clone(), fromHour:hoursEntries[i].fromHour, toHour:hoursEntries[i].toHour};
+                if (/^0?0:00$/.test(newHoursEntry.fromHour) && newHoursEntry.toHour === '23:59') {
+                    if ( hpMode.hlFlag && !bannButt.invalidAllDayFormat ) {
+                        bannButt.invalidAllDayFormat = {active: true, severity: 2};
+                    } else if (hpMode.harmFlag) {
+                        updateHours = true;
+                        newHoursEntry.toHour = '00:00';
+                        newHoursEntry.fromHour = '00:00';
+                    }
+                }
+                newHoursEntries.push(newHoursEntry);
+            }
+            if (updateHours) {
+                addUpdateAction({ openingHours: newHoursEntries }, actions);
+                fieldUpdateObject.openingHours='#dfd';
+                highlightChangedFields(fieldUpdateObject,hpMode);
+                bannButt.allDayHoursFixed.active = true;
+            }
+
             if (hpMode.harmFlag) {
                 // Update icons to reflect current WME place services
                 updateServicesChecks(bannServ);
@@ -2491,7 +2514,7 @@
             newCategories = categories.slice(0);
             newNameSplits = item.attributes.name.match(/(.*?)(\s+[-\(\/].*)*$/);
             newNameSuffix = newNameSplits[2];
-            //  newNameSuffix = toTitleCase(newNameSuffix, true);
+            // newNameSuffix = toTitleCase(newNameSuffix, true);
             newName = newNameSplits[1];
             newName = toTitleCase(newName);
             // var nameShort = newName.replace(/[^A-Za-z]/g, '');  // strip non-letters for PNH name searching
@@ -3726,8 +3749,9 @@
                     }
                 } else {
                     if (item.attributes.openingHours.length === 1) {  // if one set of hours exist, check for partial 24hrs setting
-                        if (item.attributes.openingHours[0].days.length < 7 && item.attributes.openingHours[0].fromHour==='00:00' &&
-                            (item.attributes.openingHours[0].toHour==='00:00' || item.attributes.openingHours[0].toHour==='23:59' ) ) {
+                        var hoursEntry = item.attributes.openingHours[0];
+                        if (hoursEntry.days.length < 7 && /^0?0:00$/.test(hoursEntry.fromHour) &&
+                            (/^0?0:00$/.test(hoursEntry.toHour) || hoursEntry.toHour==='23:59' ) ) {
                             bannButt.mismatch247.active = true;
                         }
                     }
@@ -6904,7 +6928,7 @@
                 }
             }
             // Highlight 24/7 button if hours are set that way, and add button for all places
-            if ( item.attributes.openingHours.length === 1 && item.attributes.openingHours[0].days.length === 7 && item.attributes.openingHours[0].fromHour === '00:00' && item.attributes.openingHours[0].toHour ==='00:00' ) {
+            if ( item.attributes.openingHours.length === 1 && item.attributes.openingHours[0].days.length === 7 && /^0?0:00$/.test(item.attributes.openingHours[0].fromHour) && /^0?0:00$/.test(item.attributes.openingHours[0].toHour) ) {
                 bannServ.add247.checked = true;
             }
             bannServ.add247.active = true;
