@@ -13,7 +13,7 @@
 // ==UserScript==
 // @name        WME Place Harmonizer Beta
 // @namespace   WazeUSA
-// @version     1.3.24
+// @version     1.3.25
 // @description Harmonizes, formats, and locks a selected place
 // @author      WMEPH Development Group
 // @include     /^https:\/\/(www|beta)\.waze\.com\/(?!user\/)(.{2,6}\/)?editor\/?.*$/
@@ -308,6 +308,8 @@
     function runPH() {
         // Script update info
         var WMEPHWhatsNewList = [  // New in this version
+            '1.3.25: NEW - Lodging category is removed if it exists on a hotel.',
+            '1.3.25: FIXED - Part of hotel name was incorrectly removed in some scenarios.',
             '1.3.24: FIXED - Removed rest areas from duplicate checks.',
             '1.3.24: NEW - Hours of 0:00-23:59 will be highlighted yellow and then automatically replaced by "All day".',
             '1.3.23: FIXED - Repeating hotel localization bug.',
@@ -3179,11 +3181,11 @@
                             // Replace PNH part of name with PNH name
                             var splix = newName.toUpperCase().replace(/[-\/]/g,' ').indexOf(PNHMatchData[ph_name_ix].toUpperCase().replace(/[-\/]/g,' ') );
                             if (splix>-1) {
-                                var frontText = nameToCheck.slice(0,splix);
-                                //var backText = nameToCheck.slice(splix+PNHMatchData[ph_name_ix].length);
+                                var frontText = newName.slice(0,splix);
+                                var backText = newName.slice(splix+PNHMatchData[ph_name_ix].length);
                                 newName = PNHMatchData[ph_name_ix];
                                 if (frontText.length > 0) { newName = frontText + ' ' + newName; }
-                                //if (backText.length > 0) { newName = newName + ' ' + backText; }
+                                if (backText.length > 0) { newName = newName + ' ' + backText; }
                                 newName = newName.replace(/ {2,}/g,' ');
                             } else {
                                 newName = PNHMatchData[ph_name_ix];
@@ -3192,12 +3194,18 @@
                         if ( altCategories !== "0" && altCategories !== "" ) {  // if PNH alts exist
                             insertAtIX(newCategories, altCategories, 1);  //  then insert the alts into the existing category array after the GS category
                         }
-                        if ( newCategories.indexOf('HOTEL') !== 0 ) {  // If no GS category in the primary, flag it
+                        if ( newCategories.indexOf('HOTEL') !== 0 ) {  // If no HOTEL category in the primary, flag it
                             bannButt.hotelMkPrim.active = true;
                             if (currentWL.hotelMkPrim) {
                                 bannButt.hotelMkPrim.WLactive = false;
                             } else {
                                 lockOK = false;
+                            }
+                        } else if (newCategories.indexOf('HOTEL') > -1) {
+                            // Remove LODGING if it exists
+                            var lodgingIdx = newCategories.indexOf('LODGING');
+                            if ( lodgingIdx > -1) {
+                                newCategories.splice(lodgingIdx,1);
                             }
                         }
                         // If PNH match, set wifi service.
