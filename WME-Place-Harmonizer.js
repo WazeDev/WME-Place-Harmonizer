@@ -13,7 +13,7 @@
 // ==UserScript==
 // @name        WME Place Harmonizer
 // @namespace   WazeUSA
-// @version     1.3.23
+// @version     1.3.25
 // @description Harmonizes, formats, and locks a selected place
 // @author      WMEPH Development Group
 // @include     /^https:\/\/(www|beta)\.waze\.com\/(?!user\/)(.{2,6}\/)?editor\/?.*$/
@@ -245,6 +245,10 @@
         return /(?:emergency\s+(?:room|department|dept))|\b(?:er|ed)\b/i.test(venue.attributes.name);
     }
 
+    function isRestArea(venue) {
+        return venue.attributes.categories.indexOf('SCENIC_LOOKOUT_VIEWPOINT') > -1 && /rest\s*area/i.test(venue.attributes.name);
+    }
+
     function getPvaSeverity(pvaValue, venue) {
         var isER = pvaValue === 'hosp' && isEmergencyRoom(venue);
         return (pvaValue ==='' || pvaValue === '0' || (pvaValue === 'hosp' && !isER)) ? 3 : (pvaValue ==='2') ? 1 : (pvaValue ==='3') ? 2 : 0;
@@ -304,6 +308,10 @@
     function runPH() {
         // Script update info
         var WMEPHWhatsNewList = [  // New in this version
+            '1.3.25: NEW - Lodging category is removed if it exists on a hotel.',
+            '1.3.25: FIXED - Part of hotel name was incorrectly removed in some scenarios.',
+            '1.3.24: FIXED - Removed rest areas from duplicate checks.',
+            '1.3.24: NEW - Hours of 0:00-23:59 will be highlighted yellow and then automatically replaced by "All day".',
             '1.3.23: FIXED - Repeating hotel localization bug.',
             '1.3.22: FIXED - Scroll bar would cover text if only one long line of text in hours entry box.',
             '1.3.21: FIXED - Auto-expand hours entry text box when multiple lines are pasted (production version).',
@@ -1013,11 +1021,6 @@
             if ( useFlag.indexOf('scan') > -1 ) {
                 hpMode.scanFlag = true;
             }
-
-            // // If it's an unlocked parking lot, return with severity 4.
-            // if (hpMode.hlFlag && item.isParkingLot() && item.attributes.lockRank === 0) {
-            //     return 4;
-            // }
 
             var placePL = getItemPL();  //  set up external post div and pull place PL
             // https://www.waze.com/editor/?env=usa&lon=-80.60757&lat=28.17850&layers=1957&zoom=4&segments=86124344&update_requestsFilter=false&problemsFilter=false&mapProblemFilter=0&mapUpdateRequestFilter=0&venueFilter=1
@@ -1935,6 +1938,10 @@
                     }
                 },
 
+                allDayHoursFixed: {
+                    active: false, severity: 0, message: 'Hours were changed from 00:00-23:59 to "All Day"'
+                },
+
                 resiTypeNameSoft: {  // no WL
                     active: false, severity: 0, message: 'The place name suggests a residential place or personalized place of work.  Please verify.'
                 },
@@ -2463,6 +2470,30 @@
                 }
             };  // END bannServ definitions
 
+            // If place has hours of 0:00-23:59, highlight yellow or if harmonizing, convert to All Day.
+            var hoursEntries = item.attributes.openingHours;
+            var newHoursEntries = [];
+            var updateHours = false;
+            for (var i=0; i<hoursEntries.length; i++) {
+                var newHoursEntry = {days:hoursEntries[i].days.clone(), fromHour:hoursEntries[i].fromHour, toHour:hoursEntries[i].toHour};
+                if (/^0?0:00$/.test(newHoursEntry.fromHour) && newHoursEntry.toHour === '23:59') {
+                    if ( hpMode.hlFlag && !bannButt.invalidAllDayFormat ) {
+                        bannButt.invalidAllDayFormat = {active: true, severity: 2};
+                    } else if (hpMode.harmFlag) {
+                        updateHours = true;
+                        newHoursEntry.toHour = '00:00';
+                        newHoursEntry.fromHour = '00:00';
+                    }
+                }
+                newHoursEntries.push(newHoursEntry);
+            }
+            if (updateHours) {
+                addUpdateAction({ openingHours: newHoursEntries }, actions);
+                fieldUpdateObject.openingHours='#dfd';
+                highlightChangedFields(fieldUpdateObject,hpMode);
+                bannButt.allDayHoursFixed.active = true;
+            }
+
             if (hpMode.harmFlag) {
                 // Update icons to reflect current WME place services
                 updateServicesChecks(bannServ);
@@ -2491,7 +2522,7 @@
             newCategories = categories.slice(0);
             newNameSplits = item.attributes.name.match(/(.*?)(\s+[-\(\/].*)*$/);
             newNameSuffix = newNameSplits[2];
-            //  newNameSuffix = toTitleCase(newNameSuffix, true);
+            // newNameSuffix = toTitleCase(newNameSuffix, true);
             newName = newNameSplits[1];
             newName = toTitleCase(newName);
             // var nameShort = newName.replace(/[^A-Za-z]/g, '');  // strip non-letters for PNH name searching
@@ -3150,11 +3181,11 @@
                             // Replace PNH part of name with PNH name
                             var splix = newName.toUpperCase().replace(/[-\/]/g,' ').indexOf(PNHMatchData[ph_name_ix].toUpperCase().replace(/[-\/]/g,' ') );
                             if (splix>-1) {
-                                var frontText = nameToCheck.slice(0,splix);
-                                //var backText = nameToCheck.slice(splix+PNHMatchData[ph_name_ix].length);
+                                var frontText = newName.slice(0,splix);
+                                var backText = newName.slice(splix+PNHMatchData[ph_name_ix].length);
                                 newName = PNHMatchData[ph_name_ix];
                                 if (frontText.length > 0) { newName = frontText + ' ' + newName; }
-                                //if (backText.length > 0) { newName = newName + ' ' + backText; }
+                                if (backText.length > 0) { newName = newName + ' ' + backText; }
                                 newName = newName.replace(/ {2,}/g,' ');
                             } else {
                                 newName = PNHMatchData[ph_name_ix];
@@ -3163,12 +3194,18 @@
                         if ( altCategories !== "0" && altCategories !== "" ) {  // if PNH alts exist
                             insertAtIX(newCategories, altCategories, 1);  //  then insert the alts into the existing category array after the GS category
                         }
-                        if ( newCategories.indexOf('HOTEL') !== 0 ) {  // If no GS category in the primary, flag it
+                        if ( newCategories.indexOf('HOTEL') !== 0 ) {  // If no HOTEL category in the primary, flag it
                             bannButt.hotelMkPrim.active = true;
                             if (currentWL.hotelMkPrim) {
                                 bannButt.hotelMkPrim.WLactive = false;
                             } else {
                                 lockOK = false;
+                            }
+                        } else if (newCategories.indexOf('HOTEL') > -1) {
+                            // Remove LODGING if it exists
+                            var lodgingIdx = newCategories.indexOf('LODGING');
+                            if ( lodgingIdx > -1) {
+                                newCategories.splice(lodgingIdx,1);
                             }
                         }
                         // If PNH match, set wifi service.
@@ -3726,8 +3763,9 @@
                     }
                 } else {
                     if (item.attributes.openingHours.length === 1) {  // if one set of hours exist, check for partial 24hrs setting
-                        if (item.attributes.openingHours[0].days.length < 7 && item.attributes.openingHours[0].fromHour==='00:00' &&
-                            (item.attributes.openingHours[0].toHour==='00:00' || item.attributes.openingHours[0].toHour==='23:59' ) ) {
+                        var hoursEntry = item.attributes.openingHours[0];
+                        if (hoursEntry.days.length < 7 && /^0?0:00$/.test(hoursEntry.fromHour) &&
+                            (/^0?0:00$/.test(hoursEntry.toHour) || hoursEntry.toHour==='23:59' ) ) {
                             bannButt.mismatch247.active = true;
                         }
                     }
@@ -4331,7 +4369,7 @@
             var dupeBannMess = '', dupesFound = false;
             dupeHNRangeList = [];
             bannDupl = {};
-            if (newName.replace(/[^A-Za-z0-9]/g,'').length > 0 && !item.attributes.residential && !isEmergencyRoom(item)) {
+            if (newName.replace(/[^A-Za-z0-9]/g,'').length > 0 && !item.attributes.residential && !isEmergencyRoom(item) && !isRestArea(item)) {
                 if ( $("#WMEPH-DisableDFZoom" + devVersStr).prop('checked') ) {  // don't zoom and pan for results outside of FOV
                     duplicateName = findNearbyDuplicate(newName, newAliases, item, false);
                 } else {
@@ -6904,7 +6942,7 @@
                 }
             }
             // Highlight 24/7 button if hours are set that way, and add button for all places
-            if ( item.attributes.openingHours.length === 1 && item.attributes.openingHours[0].days.length === 7 && item.attributes.openingHours[0].fromHour === '00:00' && item.attributes.openingHours[0].toHour ==='00:00' ) {
+            if ( item.attributes.openingHours.length === 1 && item.attributes.openingHours[0].days.length === 7 && /^0?0:00$/.test(item.attributes.openingHours[0].fromHour) && /^0?0:00$/.test(item.attributes.openingHours[0].toHour) ) {
                 bannServ.add247.checked = true;
             }
             bannServ.add247.active = true;
