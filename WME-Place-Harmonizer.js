@@ -13,7 +13,7 @@
 // ==UserScript==
 // @name        WME Place Harmonizer
 // @namespace   WazeUSA
-// @version     1.3.25
+// @version     1.3.26
 // @description Harmonizes, formats, and locks a selected place
 // @author      WMEPH Development Group
 // @include     /^https:\/\/(www|beta)\.waze\.com\/(?!user\/)(.{2,6}\/)?editor\/?.*$/
@@ -175,6 +175,11 @@
                 nameLayer.setVisibility(false);
                 W.map.addLayer(nameLayer);
                 WMEPH_NameLayer = nameLayer;
+
+                var ctl = W.map.controls.find(function(ctrl) { return ctrl.displayClass ==="WazeControlSelectHighlightFeature"; });
+                var ctlLayers = ctl.layers.clone();
+                ctlLayers.push(WMEPH_NameLayer);
+                ctl.setLayer(ctlLayers);
             } else {
                 WMEPH_NameLayer = rlayers[0];
             }
@@ -308,6 +313,7 @@
     function runPH() {
         // Script update info
         var WMEPHWhatsNewList = [  // New in this version
+            '1.3.26: FIXED - Map freezes after duplicate places are displayed.',
             '1.3.25: NEW - Lodging category is removed if it exists on a hotel.',
             '1.3.25: FIXED - Part of hotel name was incorrectly removed in some scenarios.',
             '1.3.24: FIXED - Removed rest areas from duplicate checks.',
@@ -5813,6 +5819,13 @@
             WMEPH_NameLayer.destroyFeatures();
             var vecLyrPlaces = W.map.getLayersBy("uniqueName","landmarks")[0];
             WMEPH_NameLayer.setZIndex(parseInt(vecLyrPlaces.getZIndex())+3);  // Move layer to just on top of Places layer
+
+            // This is a hack to get the select control to activate after moving the layer to the top.  Found that deactivating and re-activating works, but only if it's delayed.
+            setTimeout(function() {
+                var ctl = W.map.controls.find(function(ctrl) { return ctrl.displayClass ==="WazeControlSelectHighlightFeature"; });
+                ctl.deactivate();
+                ctl.activate();
+            }, 100);
 
             if ( venueWhitelist.hasOwnProperty(item.attributes.id) ) {
                 if ( venueWhitelist[item.attributes.id].hasOwnProperty('dupeWL') ) {
