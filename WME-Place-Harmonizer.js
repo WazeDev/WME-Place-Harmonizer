@@ -3767,7 +3767,7 @@
 
                 // Check for missing hours field
                 if (item.attributes.openingHours.length === 0) {  // if no hours...
-                    if (!containsAny(newCategories,["STADIUM_ARENA","CEMETERY","MILITARY","TRANSPORTATION","FERRY_PIER","SUBWAY_STATION",
+                    if (!containsAny(newCategories,["STADIUM_ARENA","CEMETERY","TRANSPORTATION","FERRY_PIER","SUBWAY_STATION",
                                                     "BRIDGE","TUNNEL","JUNCTION_INTERCHANGE","ISLAND","SEA_LAKE_POOL","RIVER_STREAM","FOREST_GROVE","CANAL","SWAMP_MARSH","DAM"]) ) {
                         bannButt.noHours.active = true;
                         if (currentWL.noHours) {
