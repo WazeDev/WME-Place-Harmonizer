@@ -832,6 +832,14 @@
                 }
             }
 
+            // Get indexes of Mac followed by a cap, as in MacMillan.
+            var macIndexes = [];
+            var macRegex = /\bMac[A-Z]/g;
+            var macMatch;
+            while ((macMatch = macRegex.exec(str)) !== null) {
+                macIndexes.push(macMatch.index);
+            }
+
             var allCaps = (str === str.toUpperCase());
             // Cap first letter of each word
             str = str.replace(/([A-Za-z\u00C0-\u017F][^\s-\/]*) */g, function(txt) {
@@ -845,7 +853,7 @@
             str = str.replace(/\b[mM][cC][A-Za-z']{3,}/g, function(txt) {
                 return ((txt === txt.toUpperCase()) && !allCaps) ? txt : txt.charAt(0).toUpperCase() + txt.charAt(1).toLowerCase() + txt.charAt(2).toUpperCase() + txt.substr(3).toLowerCase();
             });
-            // anything sith an "&" sign, cap the word after &
+            // anything with an "&" sign, cap the word after &
             str = str.replace(/&\w+/g, function(txt) {
                 return ((txt === txt.toUpperCase()) && !allCaps) ? txt : txt.charAt(0) + txt.charAt(1).toUpperCase() + txt.substr(2);
             });
@@ -871,6 +879,12 @@
                     str = str.replace('%' + i + '%', parensParts[i]);
                 }
             }
+
+            // Fix any Mac... words.
+            macIndexes.forEach(function(idx) {
+                str = str.substr(0,idx+3) + str.substr(idx+3,1).toUpperCase() + str.substr(idx+4);
+            });
+
             return str;
         }
 
