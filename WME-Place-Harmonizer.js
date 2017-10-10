@@ -6264,9 +6264,8 @@
                 } else {
                     // Default to closest if branching method fails.
                     // Go through sorted segment array until a country, state, and city have been found.
-                    inferredAddress = _.find(orderedSegments, function (element) {
-                        return hasStreetName(element.segment);
-                    }).segment.getAddress() || inferredAddress;
+                    var closestElem = _.find(orderedSegments, function (element) {return hasStreetName(element.segment); });
+                    inferredAddress = closestElem ? closestElem.segment.getAddress() || inferredAddress : inferredAddress;
                 }
             }
             return inferredAddress;
