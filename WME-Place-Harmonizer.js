@@ -77,7 +77,11 @@
     var _DEFAULT_HOURS_TEXT = 'Paste Hours Here';
     function getHoursHtml(label, defaultText){
         defaultText = defaultText || _DEFAULT_HOURS_TEXT;
-        return label + ': <textarea id="WMEPH-HoursPaste'+devVersStr+'" wrap="off" autocomplete="off" style="overflow:auto;max-width:185px;font-size:0.85em;width:170px;height:24px;padding-left:3px;color:#AAA">' + defaultText + '</textarea>';
+        console.log(defaultText);
+        return label + ': ' +
+            '<input class="btn btn-default btn-xs wmeph-btn" id="WMEPH_noHours" title="Add pasted hours to existing" type="button" value="Add hours" style="margin-bottom:4px"> ' +
+            '<input class="btn btn-default btn-xs wmeph-btn" id="WMEPH_noHours_2" title="Replace existing hours with pasted hours" type="button" value="Replace all hours" style="margin-bottom:4px">' +
+            '<textarea id="WMEPH-HoursPaste'+devVersStr+'" wrap="off" autocomplete="off" style="overflow:auto;width:235px;max-width:235px;min-width:235px;font-size:0.85em;height:24px;min-height:24px;max-height:300px;padding-left:3px;color:#AAA">' + defaultText + '</textarea>';
     }
 
     // Array prototype extensions (for Firefox fix)
@@ -1877,7 +1881,7 @@
                                 var value = existingAttr[prop];
                                 if (Array.isArray(value)) value = value.clone();
                                 newAttr[prop] = value;
-                            };
+                            }
                         }
                         newAttr.canExitWhileClosed = true;
                         W.model.actionManager.add(new UpdateObject(item, {'categoryAttributes': {PARKING_LOT: newAttr}}));
@@ -1903,8 +1907,8 @@
 
                 noHours: {
                     active: false, severity: 1, message: getHoursHtml('No hours'),
-                    value: "Add hours", title: 'Add pasted hours to existing',
-                    action: function() {
+                    // value: "Add hours", title: 'Add pasted hours to existing',
+                    addHoursAction: function() {
                         var pasteHours = $('#WMEPH-HoursPaste'+devVersStr).val();
                         if (pasteHours === 'Can\t parse, try again' || pasteHours === _DEFAULT_HOURS_TEXT) {
                             return;
@@ -1923,11 +1927,12 @@
                             phlog('Can\'t parse those hours');
                             bannButt.noHours.severity = 1;
                             bannButt.noHours.WLactive = true;
-                            bannButt.noHours.message = getHoursHtml('Hours', 'Can\'t parse, try again</textarea>');
+                            $('#WMEPH-HoursPaste'+devVersStr).css({'background-color':'#FDD'}).attr({title:'Can\'t parse, try again'});
+                            //assembleBanner()
                         }
                     },
-                    value2: "Replace all hours", title2: 'Replace existing hours with pasted hours',
-                    action2: function() {
+                    // value2: "Replace all hours", title2: 'Replace existing hours with pasted hours',
+                    replaceHoursAction: function() {
                         var pasteHours = $('#WMEPH-HoursPaste'+devVersStr).val();
                         if (pasteHours === 'Can\t parse, try again' || pasteHours === _DEFAULT_HOURS_TEXT) {
                             return;
@@ -1946,9 +1951,8 @@
                             phlog('Can\'t parse those hours');
                             bannButt.noHours.severity = 1;
                             bannButt.noHours.WLactive = true;
-                            bannButt.noHours.message = getHoursHtml('Hours', 'Can\'t parse, try again</textarea>');
+                            $('#WMEPH-HoursPaste'+devVersStr).css({'background-color':'#FDD'}).attr({title:'Can\'t parse, try again'});
                         }
-
                     },
                     WLactive: true, WLmessage: '', WLtitle: 'Whitelist no Hours',
                     WLaction: function() {
@@ -4741,11 +4745,6 @@
                 }
             }
 
-            // Add banner indicating that it's the beta version
-            // if (isDevVersion) {
-            //     sidebarTools.push('WMEPH Beta');
-            // }
-
             // Post the banners to the sidebar
             displayTools( sidebarTools.join("</div><div>") );
             displayBanners(sidebarMessage.join("</div><div>"), severityButt );
@@ -4760,14 +4759,6 @@
             setupButtons(bannServ);
             // Setup bannButt2 onclicks
             setupButtons(bannButt2);
-
-            // if (bannButt.noHours.active) {
-            //     var button = document.getElementById('WMEPH_noHoursA2');
-            //     button.onclick = function() {
-            //         bannButt.noHours.action2();
-            //         assembleBanner();
-            //     };
-            // }
 
             // Add click handlers for parking lot helper buttons.
             $('.wmeph-pla-spaces-btn').click(function() {
@@ -4843,7 +4834,7 @@
                 var $sel = $('#WMEPH-HoursPaste'+devVersStr);
                 $sel.focus();
                 var oldText = $sel.val();
-                if (oldText === _DEFAULT_HOURS_TEXT || oldText === 'Can\'t parse, try again') {
+                if (oldText === _DEFAULT_HOURS_TEXT) {
                     $sel.val('');
                 }
 
@@ -4863,7 +4854,7 @@
                 .keydown(resetHoursEntryHeight)
                 .bind('dragenter', function() {
                 var text = $('#WMEPH-HoursPaste'+devVersStr).val();
-                if (text === _DEFAULT_HOURS_TEXT || text === 'Can\'t parse, try again') {
+                if (text === _DEFAULT_HOURS_TEXT) {
                     $('#WMEPH-HoursPaste'+devVersStr).val('');
                 }
             });
@@ -4890,7 +4881,7 @@
                 }
             });
             $("#WMEPH-HoursPaste"+devVersStr).focus(function(){
-                if (this.value === _DEFAULT_HOURS_TEXT || this.value === 'Can\'t parse, try again') {
+                if (this.value === _DEFAULT_HOURS_TEXT) {
                     this.value = '';
                 }
                 this.style.color = 'black';
@@ -4900,6 +4891,12 @@
                     this.style.color = '#999';
                 }
             });
+
+            // Format "no hours" section and hook up button events.
+            $('#WMEPH_WLnoHours').css({'vertical-align':'top'});
+            $('#WMEPH_noHours').click(bannButt.noHours.addHoursAction);
+            $('#WMEPH_noHours_2').click(bannButt.noHours.replaceHoursAction);
+
         }  // END assemble Banner function
 
         // Button onclick event handler
@@ -5692,7 +5689,6 @@
                     if (hoursObj[hourSet].days.indexOf(day2Ch) > -1) {  // pull out hours that are for the current day, add 2400 if it goes past midnight, and store
                         fromHourTemp = hoursObj[hourSet].fromHour.replace(/\:/g,'');
                         toHourTemp = hoursObj[hourSet].toHour.replace(/\:/g,'');
-                        debugger;
                         if (fromHourTemp === toHourTemp) {
                             // If open and close times are the same, don't parse.
                             return false;
