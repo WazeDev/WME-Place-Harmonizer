@@ -13,7 +13,7 @@
 // ==UserScript==
 // @name        WME Place Harmonizer Beta
 // @namespace   WazeUSA
-// @version     1.3.26
+// @version     1.3.27
 // @description Harmonizes, formats, and locks a selected place
 // @author      WMEPH Development Group
 // @include     /^https:\/\/(www|beta)\.waze\.com\/(?!user\/)(.{2,6}\/)?editor\/?.*$/
@@ -317,6 +317,13 @@
     function runPH() {
         // Script update info
         var WMEPHWhatsNewList = [  // New in this version
+            '1.3.27: NEW - If hours can\'t be parsed, entry box turns red instead of replacing with message.',
+            '1.3.27: NEW - Hours buttons moved above the hours entry box.',
+            '1.3.27: NEW - Hours won\'t parse if open and close time is the same.',
+            '1.3.27: NEW - Places with Military category will show the hours entry box.',
+            '1.3.27: FIXED - Crashes when address cannot be inferred from closest segment.',
+            '1.3.27: NEW - Hours parsing handles "today" and "tomorrow".',
+            '1.3.27: NEW - "Force title case" handles Mac surnames like MacMillan.',
             '1.3.26: FIXED - Map freezes after duplicate places are displayed.',
             '1.3.25: NEW - Lodging category is removed if it exists on a hotel.',
             '1.3.25: FIXED - Part of hotel name was incorrectly removed in some scenarios.',
