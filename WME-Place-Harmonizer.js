@@ -5426,6 +5426,9 @@
                 phlogdev('No hours');
                 return false;
             }
+            var today = Date.today();
+            inputHoursParse = inputHoursParse.replace(/\btoday\b/g, today.toLocaleDateString(I18n.locale, {weekday:'short'}).toLowerCase());
+            inputHoursParse = inputHoursParse.replace(/\btomorrow\b/g, today.addDays(1).toLocaleDateString(I18n.locale, {weekday:'short'}).toLowerCase());
             inputHoursParse = inputHoursParse.replace(/\u2013|\u2014/g, "-");  // long dash replacing
             inputHoursParse = inputHoursParse.replace(/[^a-z0-9\:\-\. ~]/g, ' ');  // replace unnecessary characters with spaces
             inputHoursParse = inputHoursParse.replace(/\:{2,}/g, ':');  // remove extra colons
