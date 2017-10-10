@@ -4816,74 +4816,7 @@
                 W.model.actionManager.add(new UpdateObject(item, {'categoryAttributes': {PARKING_LOT: newAttr}}));
                 harmonizePlaceGo(item, 'harmonize');
             });
-            // // Street entry textbox stuff
-            // var streetNames = [];
-            // var streetNamesCap = [];
-            // W.model.streets.getObjectArray().forEach(function(st) {
-            //     if (!st.isEmpty) {
-            //         streetNames.push(st.name);
-            //         streetNamesCap.push(st.name.toUpperCase());
-            //     }
-            // });
-            // streetNames.sort();
-            // streetNamesCap.sort();
-            // $('#WMEPH_missingStreet').autocomplete({
-            //     source: streetNames,
-            //     change: onStreetChanged,
-            //     select: onStreetSelected,
-            //     response: function(e, ui) {
-            //         var maxListLength = 10;
-            //         if(ui.content.length > maxListLength) {
-            //             ui.content.splice(maxListLength, ui.content.length - maxListLength);
-            //         }
-            //     }
-            // });
-            // function onStreetSelected(e, ui) {
-            //     if (ui.item) {
-            //         checkStreet(ui.item.value);
-            //     }
-            // }
-            // function onStreetChanged(e, ui) {
-            //     checkStreet(null);
-            // }
-            // $('#WMEPH_addStreetBtn').on('click', addStreetToVenue);
-            // function addStreetToVenue() {
-            //     var stName = $('#WMEPH_missingStreet').val();
-            //     var street = W.model.streets.getByAttributes({name:stName})[0];
-            //     var addr = item.getAddress().attributes;
-            //     var newAddr = {
-            //         country: addr.country,
-            //         state: addr.state,
-            //         city: addr.city,
-            //         street: street
-            //     };
-            //     updateAddress(item, newAddr);
-            //     bannButt.streetMissing.active = false;
-            //     assembleBanner();
-            // }
-            // function checkStreet(name) {
-            //     name = (name || $("#WMEPH_missingStreet").val()).toUpperCase();
-            //     var ix = streetNamesCap.indexOf(name);
-            //     var enable = false;
-            //     if (ix > -1) {
-            //         color = 'lightgreen';
-            //         $("#WMEPH_missingStreet").val(streetNames[ix]);
-            //         enable = true;
-            //         $('#WMEPH_addStreetBtn').prop("disabled", false).removeClass('disabled');
-            //     } else {
-            //         $('#WMEPH_addStreetBtn').prop('disabled', true).addClass('disabled');
-            //     }
-            //     return enable;
-            // }
-            // // If pressing enter in the street entry box, add the street
-            // $("#WMEPH_missingStreet").keyup(function(event){
-            //     if( event.keyCode === 13 && $('#WMEPH_missingStreet').val() !== '' ){
-            //         if(checkStreet(null)) {
-            //             addStreetToVenue();
-            //         }
-            //     }
-            // });
-
+           
             // If pressing enter in the HN entry box, add the HN
             $("#WMEPH-HNAdd"+devVersStr).keyup(function(event){
                 if( event.keyCode === 13 && $('#WMEPH-HNAdd'+devVersStr).val() !== '' ){
@@ -5747,11 +5680,11 @@
             return hoursObjectArraySorted;
         }
 
-        // function to check overlapping hours
+        // function to check overlapping hours or same open/close times
         function checkHours(hoursObj) {
-            if (hoursObj.length === 1) {
-                return true;
-            }
+            // if (hoursObj.length === 1) {
+            //     return true;
+            // }
             var daysObj, fromHourTemp, toHourTemp;
             for (var day2Ch=0; day2Ch<7; day2Ch++) {  // Go thru each day of the week
                 daysObj = [];
@@ -5759,6 +5692,11 @@
                     if (hoursObj[hourSet].days.indexOf(day2Ch) > -1) {  // pull out hours that are for the current day, add 2400 if it goes past midnight, and store
                         fromHourTemp = hoursObj[hourSet].fromHour.replace(/\:/g,'');
                         toHourTemp = hoursObj[hourSet].toHour.replace(/\:/g,'');
+                        debugger;
+                        if (fromHourTemp === toHourTemp) {
+                            // If open and close times are the same, don't parse.
+                            return false;
+                        }
                         if (toHourTemp < fromHourTemp) {
                             toHourTemp = parseInt(toHourTemp) + 2400;
                         }
