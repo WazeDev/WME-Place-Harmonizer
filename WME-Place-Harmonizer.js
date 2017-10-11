@@ -13,7 +13,7 @@
 // ==UserScript==
 // @name        WME Place Harmonizer Beta
 // @namespace   WazeUSA
-// @version     1.3.28
+// @version     1.3.29
 // @description Harmonizes, formats, and locks a selected place
 // @author      WMEPH Development Group
 // @include     /^https:\/\/(www|beta)\.waze\.com\/(?!user\/)(.{2,6}\/)?editor\/?.*$/
@@ -317,6 +317,7 @@
     function runPH() {
         // Script update info
         var WMEPHWhatsNewList = [  // New in this version
+            '1.3.29: NEW (again) - Hours won\'t parse if open and close time is the same.',
             '1.3.28: FIXED - Hours text box extends outside panel if Fix UI is used to shrink the side panel width.',
             '1.3.28: FIXED - Removed "same hours" check to fix bug caused by that feature.  Will add in a later release.',
             '1.3.27: NEW - If hours can\'t be parsed, entry box turns red instead of replacing with message.',
@@ -1917,16 +1918,27 @@
                 noHours: {
                     active: false, severity: 1, message: getHoursHtml('No hours'),
                     // value: "Add hours", title: 'Add pasted hours to existing',
+                    getTitle: function(hoursObjectArray) {
+                        var title;
+                        if (hoursObjectArray === null) {
+                            title = 'Overlapping hours.  Check the existing hours.';
+                        } else if (typeof hoursObjectArray === 'undefined') {
+                            title = 'Open/close times cannot be the same.';
+                        } else {
+                            title = 'Can\'t parse, try again';
+                        }
+                        return title;
+                    },
                     addHoursAction: function() {
                         var pasteHours = $('#WMEPH-HoursPaste'+devVersStr).val();
-                        if (pasteHours === 'Can\t parse, try again' || pasteHours === _DEFAULT_HOURS_TEXT) {
+                        if (pasteHours === _DEFAULT_HOURS_TEXT) {
                             return;
                         }
                         phlogdev(pasteHours);
                         $('.nav-tabs a[href="#landmark-edit-more-info"]').tab('show');
                         pasteHours = pasteHours + ',' + getOpeningHours(item).join(',');
                         var hoursObjectArray = parseHours(pasteHours);
-                        if (hoursObjectArray !== false) {
+                        if (hoursObjectArray) {
                             phlogdev(hoursObjectArray);
                             W.model.actionManager.add(new UpdateObject(item, { openingHours: hoursObjectArray }));
                             fieldUpdateObject.openingHours='#dfd';
@@ -1936,22 +1948,21 @@
                             phlog('Can\'t parse those hours');
                             bannButt.noHours.severity = 1;
                             bannButt.noHours.WLactive = true;
-                            $('#WMEPH-HoursPaste'+devVersStr).css({'background-color':'#FDD'}).attr({title:'Can\'t parse, try again'});
-                            //assembleBanner()
+                            $('#WMEPH-HoursPaste'+devVersStr).css({'background-color':'#FDD'}).attr({title:bannButt.noHours.getTitle(hoursObjectArray)});
                         }
                     },
                     // value2: "Replace all hours", title2: 'Replace existing hours with pasted hours',
                     replaceHoursAction: function() {
                         var pasteHours = $('#WMEPH-HoursPaste'+devVersStr).val();
-                        if (pasteHours === 'Can\t parse, try again' || pasteHours === _DEFAULT_HOURS_TEXT) {
+                        if (pasteHours === _DEFAULT_HOURS_TEXT) {
                             return;
                         }
                         phlogdev(pasteHours);
                         $('.nav-tabs a[href="#landmark-edit-more-info"]').tab('show');
                         var hoursObjectArray = parseHours(pasteHours);
-                        if (hoursObjectArray !== false) {
+                        if (hoursObjectArray) {
                             phlogdev(hoursObjectArray);
-                            item.attributes.openingHours.push.apply(item.attributes.openingHours, hoursObjectArray);
+                            //item.attributes.openingHours.push.apply(item.attributes.openingHours, hoursObjectArray); <-- This was causing an undo bug.  Not sure why it was there.
                             W.model.actionManager.add(new UpdateObject(item, { openingHours: hoursObjectArray }));
                             fieldUpdateObject.openingHours='#dfd';
                             highlightChangedFields(fieldUpdateObject,hpMode);
@@ -1960,7 +1971,7 @@
                             phlog('Can\'t parse those hours');
                             bannButt.noHours.severity = 1;
                             bannButt.noHours.WLactive = true;
-                            $('#WMEPH-HoursPaste'+devVersStr).css({'background-color':'#FDD'}).attr({title:'Can\'t parse, try again'});
+                            $('#WMEPH-HoursPaste'+devVersStr).css({'background-color':'#FDD'}).attr({title:bannButt.noHours.getTitle(hoursObjectArray)});
                         }
                     },
                     WLactive: true, WLmessage: '', WLtitle: 'Whitelist no Hours',
@@ -5360,7 +5371,6 @@
             var inputHoursParse = inputHours.toLowerCase();
             inputHoursParse = inputHoursParse.replace(/paste hours here/i, "");  // make sure something is pasted
             phlogdev(inputHoursParse);
-            inputHoursParse = inputHoursParse.replace(/can\'t parse\, try again/i, "");  // make sure something is pasted
             if (inputHoursParse === '' || inputHoursParse === ',') {
                 phlogdev('No hours');
                 return false;
@@ -5671,7 +5681,10 @@
             }
             if ( !checkHours(hoursObjectArraySorted) ) {
                 phlogdev('Overlapping hours');
-                return false;
+                return null;
+            } else if ( hasSameOpenCloseTimes(hoursObjectArraySorted) ) {
+                phlogdev('Same open/close time');
+                return undefined;
             } else {
                 for ( var ohix=0; ohix<hoursObjectArraySorted.length; ohix++ ) {
                     phlogdev(hoursObjectArraySorted[ohix]);
@@ -5686,7 +5699,7 @@
             return hoursObjectArraySorted;
         }
 
-        // function to check overlapping hours **or same open/close times** <- need to fix same open/close time check.  Doesn't work here.
+        // function to check overlapping hours
         function checkHours(hoursObj) {
             if (hoursObj.length === 1) {
                 return true;
@@ -5698,11 +5711,7 @@
                     if (hoursObj[hourSet].days.indexOf(day2Ch) > -1) {  // pull out hours that are for the current day, add 2400 if it goes past midnight, and store
                         fromHourTemp = hoursObj[hourSet].fromHour.replace(/\:/g,'');
                         toHourTemp = hoursObj[hourSet].toHour.replace(/\:/g,'');
-                        // if (fromHourTemp === toHourTemp) {
-                        //     // If open and close times are the same, don't parse.
-                        //     return false;
-                        // }
-                        if (toHourTemp < fromHourTemp) {
+                        if (toHourTemp <= fromHourTemp) {
                             toHourTemp = parseInt(toHourTemp) + 2400;
                         }
                         daysObj.push([fromHourTemp, toHourTemp]);
@@ -5722,6 +5731,20 @@
                 }
             }
             return true;
+        }
+
+        function hasSameOpenCloseTimes(hoursObj) {
+            var fromHourTemp, toHourTemp;
+            for ( var hourSet = 0; hourSet < hoursObj.length; hourSet++ ) {  // For each set of hours
+                fromHourTemp = hoursObj[hourSet].fromHour;
+                toHourTemp = hoursObj[hourSet].toHour;
+                if (fromHourTemp !== '00:00' && fromHourTemp === toHourTemp) {
+                    debugger;
+                    // If open and close times are the same, don't parse.
+                    return true;
+                }
+            }
+            return false;
         }
 
         // Duplicate place finder  ###bmtg
