@@ -13,7 +13,7 @@
 // ==UserScript==
 // @name        WME Place Harmonizer Beta
 // @namespace   WazeUSA
-// @version     1.3.27
+// @version     1.3.28
 // @description Harmonizes, formats, and locks a selected place
 // @author      WMEPH Development Group
 // @include     /^https:\/\/(www|beta)\.waze\.com\/(?!user\/)(.{2,6}\/)?editor\/?.*$/
@@ -81,7 +81,7 @@
         return label + ': ' +
             '<input class="btn btn-default btn-xs wmeph-btn" id="WMEPH_noHours" title="Add pasted hours to existing" type="button" value="Add hours" style="margin-bottom:4px"> ' +
             '<input class="btn btn-default btn-xs wmeph-btn" id="WMEPH_noHours_2" title="Replace existing hours with pasted hours" type="button" value="Replace all hours" style="margin-bottom:4px">' +
-            '<textarea id="WMEPH-HoursPaste'+devVersStr+'" wrap="off" autocomplete="off" style="overflow:auto;width:235px;max-width:235px;min-width:235px;font-size:0.85em;height:24px;min-height:24px;max-height:300px;padding-left:3px;color:#AAA">' + defaultText + '</textarea>';
+            '<textarea id="WMEPH-HoursPaste'+devVersStr+'" wrap="off" autocomplete="off" style="overflow:auto;width:85%;max-width:85%;min-width:85%;font-size:0.85em;height:24px;min-height:24px;max-height:300px;padding-left:3px;color:#AAA">' + defaultText + '</textarea>';
     }
 
     // Array prototype extensions (for Firefox fix)
@@ -317,6 +317,8 @@
     function runPH() {
         // Script update info
         var WMEPHWhatsNewList = [  // New in this version
+            '1.3.28: FIXED - Hours text box extends outside panel if Fix UI is used to shrink the side panel width.',
+            '1.3.28: FIXED - Removed "same hours" check to fix bug caused by that feature.  Will add in a later release.',
             '1.3.27: NEW - If hours can\'t be parsed, entry box turns red instead of replacing with message.',
             '1.3.27: NEW - Hours buttons moved above the hours entry box.',
             '1.3.27: NEW - Hours won\'t parse if open and close time is the same.',
@@ -4814,7 +4816,7 @@
                 W.model.actionManager.add(new UpdateObject(item, {'categoryAttributes': {PARKING_LOT: newAttr}}));
                 harmonizePlaceGo(item, 'harmonize');
             });
-           
+
             // If pressing enter in the HN entry box, add the HN
             $("#WMEPH-HNAdd"+devVersStr).keyup(function(event){
                 if( event.keyCode === 13 && $('#WMEPH-HNAdd'+devVersStr).val() !== '' ){
@@ -5684,11 +5686,11 @@
             return hoursObjectArraySorted;
         }
 
-        // function to check overlapping hours or same open/close times
+        // function to check overlapping hours **or same open/close times** <- need to fix same open/close time check.  Doesn't work here.
         function checkHours(hoursObj) {
-            // if (hoursObj.length === 1) {
-            //     return true;
-            // }
+            if (hoursObj.length === 1) {
+                return true;
+            }
             var daysObj, fromHourTemp, toHourTemp;
             for (var day2Ch=0; day2Ch<7; day2Ch++) {  // Go thru each day of the week
                 daysObj = [];
@@ -5696,10 +5698,10 @@
                     if (hoursObj[hourSet].days.indexOf(day2Ch) > -1) {  // pull out hours that are for the current day, add 2400 if it goes past midnight, and store
                         fromHourTemp = hoursObj[hourSet].fromHour.replace(/\:/g,'');
                         toHourTemp = hoursObj[hourSet].toHour.replace(/\:/g,'');
-                        if (fromHourTemp === toHourTemp) {
-                            // If open and close times are the same, don't parse.
-                            return false;
-                        }
+                        // if (fromHourTemp === toHourTemp) {
+                        //     // If open and close times are the same, don't parse.
+                        //     return false;
+                        // }
                         if (toHourTemp < fromHourTemp) {
                             toHourTemp = parseInt(toHourTemp) + 2400;
                         }
