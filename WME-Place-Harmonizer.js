@@ -77,7 +77,6 @@
     var _DEFAULT_HOURS_TEXT = 'Paste Hours Here';
     function getHoursHtml(label, defaultText){
         defaultText = defaultText || _DEFAULT_HOURS_TEXT;
-        console.log(defaultText);
         return label + ': ' +
             '<input class="btn btn-default btn-xs wmeph-btn" id="WMEPH_noHours" title="Add pasted hours to existing" type="button" value="Add hours" style="margin-bottom:4px"> ' +
             '<input class="btn btn-default btn-xs wmeph-btn" id="WMEPH_noHours_2" title="Replace existing hours with pasted hours" type="button" value="Replace all hours" style="margin-bottom:4px">' +
