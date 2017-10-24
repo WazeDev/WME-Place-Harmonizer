@@ -13,7 +13,7 @@
 // ==UserScript==
 // @name        WME Place Harmonizer Beta
 // @namespace   WazeUSA
-// @version     1.3.29
+// @version     1.3.30
 // @description Harmonizes, formats, and locks a selected place
 // @author      WMEPH Development Group
 // @include     /^https:\/\/(www|beta)\.waze\.com\/(?!user\/)(.{2,6}\/)?editor\/?.*$/
@@ -30,7 +30,7 @@
     GM_addStyle(jqUI_CssSrc);
     GM_addStyle([
         '.wmeph-btn, .wmephwl-btn {height:18px;}',
-        '#WMEPH_banner { font-weight: 600;}',
+        //'#WMEPH_banner { font-weight: 600;}',
         '#WMEPH_banner input[type=text], #WMEPH_banner .ui-autocomplete-input { font-size: 13px !important; height:22px !important; font-family: "Open Sans", Alef, helvetica, sans-serif !important; }',
         '#WMEPH_banner div { padding-bottom: 6px !important; }',
         '#WMEPH_banner div:last-child { padding-bottom: 3px !important; }',
@@ -1411,9 +1411,9 @@
                     active: false, severity: 3, message: 'No street:', value: 'Edit address', title: "Edit address to add street.",
                     action: function() {
                         $('.nav-tabs a[href="#landmark-edit-general"]').trigger('click');
-                        $('.waze-icon-edit').trigger('click');
+                        $('.landmark .full-address').click();
                         if ($('.empty-street').prop('checked')) {
-                            $('.empty-street').trigger('click');
+                            $('.empty-street').click();
                         }
                         $('.street-name').focus();
                     }
@@ -1423,9 +1423,9 @@
                     active: false, severity: 3, message: 'No city:', value: 'Edit address', title: "Edit address to add city.",
                     action: function() {
                         $('.nav-tabs a[href="#landmark-edit-general"]').trigger('click');
-                        $('.waze-icon-edit').trigger('click');
+                        $('.landmark .full-address').click();
                         if ($('.empty-city').prop('checked')) {
-                            $('.empty-city').trigger('click');
+                            $('.empty-city').click();
                         }
                         $('.city-name').focus();
                     }
@@ -1899,7 +1899,7 @@
                 },
 
                 plaHasAccessibleParking: {
-                    active: false, severity: 0, message: 'Does this lot have handicapped parking? ', title: '', value: 'Yes',
+                    active: false, severity: 0, message: 'Does this lot have disability parking? ', title: '', value: 'Yes',
                     action: function() {
                         var services = item.attributes.services;
                         if (services) {
@@ -2649,10 +2649,10 @@
                     ].forEach(function(btnInfo) {
                         if (btnIdx === 3) $btnDiv.append('<br>');
                         bannButt.plaCostTypeMissing.message +=
-                            $('<button>', {id: 'wmeph_' + btnInfo[0], class: 'wmeph-pla-cost-type-btn', title: btnInfo[2]})
+                            $('<button>', {id: 'wmeph_' + btnInfo[0], class: 'wmeph-pla-cost-type-btn btn btn-default btn-xs wmeph-btn', title: btnInfo[2]})
                             .text(btnInfo[1])
                             .css({padding:'3px', height:'20px', lineHeight:'0px', marginRight:'2px',
-                                  marginBottom:'1px', marginTop:'2px', fontWeight:'900', fontSize:'.96em'})
+                                  marginBottom:'1px', minWidth:'18px'})
                             .prop('outerHTML');
                     });
                     lockOK = false;
@@ -2675,10 +2675,10 @@
                     ].forEach(function(btnInfo) {
                         if (btnIdx === 3) $btnDiv.append('<br>');
                         $btnDiv.append(
-                            $('<button>', {id: 'wmeph_' + btnInfo[0], class: 'wmeph-pla-spaces-btn'})
+                            $('<button>', {id: 'wmeph_' + btnInfo[0], class: 'wmeph-pla-spaces-btn btn btn-default btn-xs wmeph-btn'})
                             .text(btnInfo[1])
-                            .css({padding:'3px', height:'20px', lineHeight:'0px', marginRight:'2px',
-                                  marginBottom:'1px', marginTop:'2px', fontWeight:'900', fontSize:'.96em', width:'64px'})
+                            .css({padding:'3px', height:'20px', lineHeight:'0px', marginTop:'2px', marginRight:'2px',
+                                  marginBottom:'1px', width:'64px'})
                         );
                         btnIdx++;
                     });
@@ -4749,7 +4749,7 @@
                 }
             }
             if (sidebarServButts.length>0) {
-                sidebarTools.push('Add services:<br>' + sidebarServButts);
+                sidebarTools.push('<span class="control-label">Add services:</span><br>' + sidebarServButts);
             }
 
             //  Build general banners (below the Services)
@@ -4971,7 +4971,7 @@
         // Setup div for banner messages and color
         function displayBanners(sbm,sev) {
             if ($('#WMEPH_banner').length === 0 ) {
-                $('<div id="WMEPH_banner">').css({"width": "100%", "background-color": "#fff", "color": "white", "font-size": "14px", "padding": "3px", "margin-left": "auto", "margin-right": "auto"}).prependTo(".contents");
+                $('<div id="WMEPH_banner">').css({"background-color": "#fff", "color": "white", "font-size": "15px", "padding": "4px", "margin-left": "4px", "margin-right": "4px", "line-height":"18px", "margin-top":"2px"}).prependTo(".contents");
             } else {
                 $('#WMEPH_banner').empty();
             }
@@ -4998,7 +4998,7 @@
         // Setup div for banner messages and color
         function displayTools(sbm) {
             if ($('#WMEPH_tools').length === 0 ) {
-                $('<div id="WMEPH_tools">').css({"width": "100%", "background-color": "#eee", "color": "black", "font-size": "15px", "font-weight": "bold", "padding": "3px", "margin-left": "auto", "margin-right": "auto"}).prependTo(".contents");
+                $('<div id="WMEPH_tools">').css({"background-color": "#eee", "color": "black", "font-size": "15px", "padding": "4px", "margin-left": "4px", "margin-right": "auto"}).prependTo(".contents");
             } else {
                 $('#WMEPH_tools').empty();
             }
@@ -5021,7 +5021,7 @@
             var betaDelay = 100;
             setTimeout(function() {
                 if ($('#WMEPH_runButton').length === 0 ) {
-                    $('<div id="WMEPH_runButton">').css({"padding-bottom": "6px", "padding-top": "3px", "width": "290", "background-color": "#FFF", "color": "black", "font-size": "15px", "font-weight": "bold", "margin-left": "auto", "margin-right": "auto"}).prependTo(".contents");
+                    $('<div id="WMEPH_runButton">').css({"padding-bottom": "6px", "padding-top": "3px", "width": "290", "color": "black", "font-size": "15px", "margin-left": "auto", "margin-right": "auto"}).prependTo(".contents");
                 }
                 if ($('#runWMEPH'+devVersStr).length === 0 ) {
                     var strButt1 = '<input class="btn btn-primary" id="runWMEPH'+devVersStr+'" title="Run WMEPH'+devVersStrSpace+' on Place" type="button" value="Run WMEPH'+devVersStrSpace+'">';
@@ -5087,7 +5087,7 @@
             if (isDevVersion) { betaDelay = 300; }
             setTimeout(function() {
                 if ($('#WMEPH_runButton').length === 0 ) {
-                    $('<div id="WMEPH_runButton">').css({"padding-bottom": "6px", "padding-top": "3px", "width": "290", "background-color": "#FFF", "color": "black", "font-size": "15px", "font-weight": "bold", "margin-left": "auto;", "margin-right": "auto"}).prependTo(".contents");
+                    $('<div id="WMEPH_runButton">').css({"padding-bottom": "6px", "padding-top": "3px", "width": "290", "background-color": "#FFF", "color": "black", "font-size": "15px", "margin-left": "auto;", "margin-right": "auto"}).prependTo(".contents");
                 }
                 var strButt1, btn;
                 item = W.selectionManager.selectedItems[0].model;
@@ -5738,7 +5738,6 @@
                 fromHourTemp = hoursObj[hourSet].fromHour;
                 toHourTemp = hoursObj[hourSet].toHour;
                 if (fromHourTemp !== '00:00' && fromHourTemp === toHourTemp) {
-                    debugger;
                     // If open and close times are the same, don't parse.
                     return true;
                 }
@@ -7632,6 +7631,12 @@
                                     placeLinkDiv.innerHTML = _googleLinkHash[placeLinkId];
                                 }
                             }
+                        } else if (addedNode.querySelector('.tab-scroll-gradient')) {
+                            // Normally, scrolling happens inside the tab-content div.  When WMEPH adds stuff outside the landmark div, it effectively breaks that
+                            // and causes scrolling to occur at the main content div under edit-panel.  That's actually OK, but need to disable a couple
+                            // artifacts that "stick around" with absolute positioning.
+                            $('#edit-panel .landmark').removeClass('separator-line');
+                            $('#edit-panel .tab-scroll-gradient').css({display:'none'});
                         }
                     }
                 }
