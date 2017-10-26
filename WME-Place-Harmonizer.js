@@ -664,6 +664,7 @@
         var ps_areacode_ix = USA_STATE_HEADERS.indexOf('ps_areacode');
         var stateDataTemp, areaCodeList = '800,822,833,844,855,866,877,888';  //  include toll free non-geographic area codes
         var ixBank, ixATM, ixOffices;
+        var bannServ;
 
         // Set up Run WMEPH button once place is selected
         bootstrapRunButton();
@@ -1138,6 +1139,7 @@
             if (W.selectionManager.selectedItems.length === 1) {
                 var item = W.selectionManager.selectedItems[0].model;
                 if (item.type === "venue") {
+                    _updatedFields.reset();
                     blurAll();  // focus away from current cursor position
                     _disableHighlightTest = true;
                     harmonizePlaceGo(item,'harmonize');
@@ -1945,7 +1947,7 @@
                                     var value = existingAttr[prop];
                                     if (Array.isArray(value)) value = value.clone();
                                     newAttr[prop] = value;
-                                };
+                                }
                             }
                             newAttr.paymentType = [];
                             if (cash) newAttr.paymentType.push('CASH');
@@ -1967,7 +1969,7 @@
                                 var value = existingAttr[prop];
                                 if (Array.isArray(value)) value = value.clone();
                                 newAttr[prop] = value;
-                            };
+                            }
                         }
                         newAttr.lotType = ['STREET_LEVEL'];
                         W.model.actionManager.add(new UpdateObject(item, {'categoryAttributes': {PARKING_LOT: newAttr}}));
@@ -2021,6 +2023,7 @@
                         services.push('DISABILITY_PARKING');
                         //bannServ.addDisabilityParking.on();
                         W.model.actionManager.add(new UpdateObject(item, {'services': services}));
+                        _updatedFields.services_disabilityParking.updated = true;
                         harmonizePlaceGo(item, 'harmonize');
                     }
                 },
@@ -2428,6 +2431,7 @@
                 addValet: {  // append optional Alias to the name
                     active: false, checked: false, icon: "serv-valet", w2hratio: 50/50, value: "Valet", title: 'Valet', servIDIndex: 0,
                     action: function(actions, checked) {
+                        _updatedFields.services_valet.updated = true;
                         setServiceChecked(this, checked, actions);
                     },
                     pnhOverride: false,
@@ -2441,6 +2445,7 @@
                 addDriveThru: {  // append optional Alias to the name
                     active: false, checked: false, icon: "serv-drivethru", w2hratio: 78/50, value: "DriveThru", title: 'Drive-Thru', servIDIndex: 1,
                     action: function(actions, checked) {
+                        _updatedFields.services_driveThrough.updated = true;
                         setServiceChecked(this, checked, actions);
                     },
                     pnhOverride: false,
@@ -2454,6 +2459,7 @@
                 addWiFi: {  // append optional Alias to the name
                     active: false, checked: false, icon: "serv-wifi", w2hratio: 67/50, value: "WiFi", title: 'WiFi', servIDIndex: 2,
                     action: function(actions, checked) {
+                        _updatedFields.services_wifi.updated = true;
                         setServiceChecked(this, checked, actions);
                     },
                     pnhOverride: false,
@@ -2467,6 +2473,7 @@
                 addRestrooms: {  // append optional Alias to the name
                     active: false, checked: false, icon: "serv-restrooms", w2hratio: 49/50, value: "Restroom", title: 'Restrooms', servIDIndex: 3,
                     action: function(actions, checked) {
+                        _updatedFields.services_restrooms.updated = true;
                         setServiceChecked(this, checked, actions);
                     },
                     pnhOverride: false,
@@ -2480,6 +2487,7 @@
                 addCreditCards: {  // append optional Alias to the name
                     active: false, checked: false, icon: "serv-credit", w2hratio: 73/50, value: "CC", title: 'Credit Cards', servIDIndex: 4,
                     action: function(actions, checked) {
+                        _updatedFields.services_creditCards.updated = true;
                         setServiceChecked(this, checked, actions);
                     },
                     pnhOverride: false,
@@ -2493,6 +2501,7 @@
                 addReservations: {  // append optional Alias to the name
                     active: false, checked: false, icon: "serv-reservations", w2hratio: 55/50, value: "Reserve", title: 'Reservations', servIDIndex: 5,
                     action: function(actions, checked) {
+                        _updatedFields.services_reservations.updated = true;
                         setServiceChecked(this, checked, actions);
                     },
                     pnhOverride: false,
@@ -2506,6 +2515,7 @@
                 addOutside: {  // append optional Alias to the name
                     active: false, checked: false, icon: "serv-outdoor", w2hratio: 73/50, value: "OusideSeat", title: 'Outside Seating', servIDIndex: 6,
                     action: function(actions, checked) {
+                        _updatedFields.services_outsideSeating.updated = true;
                         setServiceChecked(this, checked, actions);
                     },
                     pnhOverride: false,
@@ -2519,6 +2529,7 @@
                 addAC: {  // append optional Alias to the name
                     active: false, checked: false, icon: "serv-ac", w2hratio: 50/50, value: "AC", title: 'AC', servIDIndex: 7,
                     action: function(actions, checked) {
+                        _updatedFields.services_AC.updated = true;
                         setServiceChecked(this, checked, actions);
                     },
                     pnhOverride: false,
@@ -2532,6 +2543,7 @@
                 addParking: {  // append optional Alias to the name
                     active: false, checked: false, icon: "serv-parking", w2hratio: 46/50, value: "Parking", title: 'Parking', servIDIndex: 8,
                     action: function(actions, checked) {
+                        _updatedFields.services_parking.updated = true;
                         setServiceChecked(this, checked, actions);
                     },
                     pnhOverride: false,
@@ -2545,6 +2557,7 @@
                 addDeliveries: {  // append optional Alias to the name
                     active: false, checked: false, icon: "serv-deliveries", w2hratio: 86/50, value: "Delivery", title: 'Deliveries', servIDIndex: 9,
                     action: function(actions, checked) {
+                        _updatedFields.services_deliveries.updated = true;
                         setServiceChecked(this, checked, actions);
                     },
                     pnhOverride: false,
@@ -2558,6 +2571,7 @@
                 addTakeAway: {  // append optional Alias to the name
                     active: false, checked: false, icon: "serv-takeaway", w2hratio: 34/50, value: "TakeOut", title: 'Take Out', servIDIndex: 10,
                     action: function(actions, checked) {
+                        _updatedFields.services_takeAway.updated = true;
                         setServiceChecked(this, checked, actions);
                     },
                     pnhOverride: false,
@@ -2571,6 +2585,7 @@
                 addWheelchair: {  // add service
                     active: false, checked: false, icon: "serv-wheelchair", w2hratio: 50/50, value: "WhCh", title: 'Wheelchair Accessible', servIDIndex: 11,
                     action: function(actions, checked) {
+                        _updatedFields.services_wheelchairAccessible.updated = true;
                         setServiceChecked(this, checked, actions);
                     },
                     pnhOverride: false,
@@ -2584,6 +2599,7 @@
                 addDisabilityParking: {
                     active: false, checked: false, icon: "serv-wheelchair", w2hratio: 50/50, value: "DisabilityParking", title: 'Disability Parking', servIDIndex: 12,
                     action: function(actions, checked) {
+                        _updatedFields.services_disabilityParking.updated = true;
                         setServiceChecked(this, checked, actions);
                     },
                     pnhOverride: false,
@@ -4963,6 +4979,13 @@
 
         }  // END assemble Banner function
 
+        W.model.venues.on('objectschanged', function() {
+            if ($('#WMEPH_banner').length > 0) {
+                updateServicesChecks();
+                assembleBanner();
+            }
+        });
+
         // Button onclick event handler
         function setupButtons(b) {
             for ( var tempKey in b ) {  // Loop through the banner possibilities
@@ -6966,7 +6989,7 @@
         function getServicesChecks() {
             var servArrayCheck = [];
             for (var wsix=0; wsix<WMEServicesArray.length; wsix++) {
-                if ($("#service-checkbox-" + WMEServicesArray[wsix]).prop('checked')) {
+                if (item.attributes.services.indexOf(WMEServicesArray[wsix]) > -1) {
                     servArrayCheck[wsix] = true;
                 } else {
                     servArrayCheck[wsix] = false;
@@ -6975,7 +6998,8 @@
             return servArrayCheck;
         }
 
-        function updateServicesChecks(bannServ) {
+        function updateServicesChecks() {
+            if (!bannServ) return;
             var servArrayCheck = getServicesChecks(), wsix=0;
             for (var keys in bannServ) {
                 if (bannServ.hasOwnProperty(keys)) {
