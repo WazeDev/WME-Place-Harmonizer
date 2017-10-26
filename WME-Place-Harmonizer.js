@@ -13,7 +13,7 @@
 // ==UserScript==
 // @name        WME Place Harmonizer Beta
 // @namespace   WazeUSA
-// @version     1.3.31
+// @version     1.3.32
 // @description Harmonizes, formats, and locks a selected place
 // @author      WMEPH Development Group
 // @include     /^https:\/\/(www|beta)\.waze\.com\/(?!user\/)(.{2,6}\/)?editor\/?.*$/
@@ -433,6 +433,8 @@
     function runPH() {
         // Script update info
         var WMEPHWhatsNewList = [  // New in this version
+            '1.3.32: FIXED - Add Google Link pops up at the top left corner of screen sometimes.',
+            '1.3.32: FIXED - Crash when undoing changes in some scenarios.',
             '1.3.31: FIXED - Latest WME update still breaks things.',
             '1.3.30: FIXED - Latest WME update breaks things.',
             '1.3.29: NEW (again) - Hours won\'t parse if open and close time is the same.',
@@ -1294,6 +1296,7 @@
                             newCategories.splice(ix, 1);
                             var actions = [];
                             actions.push(new UpdateObject(item, { categories: newCategories }));
+                            _updatedFields.categories.updated = true;
                             executeMultiAction(actions);
                             harmonizePlaceGo(item,'harmonize');
                             //applyHighlightsTest(item);
@@ -1522,10 +1525,6 @@
                     }
                 },
 
-                // streetMissing: {  // no WL
-                //     active: false, severity: 3, message: 'No street: <div class="ui-widget" style="display:inline;"><input id="WMEPH_missingStreet" style="color:#000;background-color:#FDD;width:140px;margin-right:3px;"></div><input class="btn btn-default btn-xs wmeph-btn disabled" id="WMEPH_addStreetBtn" title="Add street to place" type="button" value="Add" disabled>'
-                // },
-
                 streetMissing: {  // no WL
                     active: false, severity: 3, message: 'No street:', value: 'Edit address', title: "Edit address to add street.",
                     action: function() {
@@ -1558,9 +1557,10 @@
                     active: false, severity: 1, message: "Is this a bank branch office? ", value: "Yes", title: "Is this a bank branch?",
                     action: function() {
                         newCategories = ["BANK_FINANCIAL","ATM"];  // Change to bank and atm cats
-                        newName = newName.replace(/[\- (]*ATM[\- )]*/g, ' ').replace(/^ /g,'').replace(/ $/g,'');     // strip ATM from name if present
+                        var tempName = newName.replace(/[\- (]*ATM[\- )]*/g, ' ').replace(/^ /g,'').replace(/ $/g,'');     // strip ATM from name if present
+                        newName = tempName;
                         W.model.actionManager.add(new UpdateObject(item, { name: newName, categories: newCategories }));
-                        _updatedFields.name.updated = '#dfd';
+                        if (tempName !== newName) _updatedFields.name.updated = '#dfd';
                         _updatedFields.categories.updated = '#dfd';
                         bannButt.bankCorporate.active = false;   // reset the bank Branch display flag
                         bannButt.bankBranch.active = false;   // reset the bank Branch display flag
@@ -1574,10 +1574,10 @@
                     action: function() {
                         if (newName.indexOf("ATM") === -1) {
                             newName = newName + ' ATM';
+                            _updatedFields.name.updated = '#dfd';
                         }
                         newCategories = ["ATM"];  // Change to ATM only
                         W.model.actionManager.add(new UpdateObject(item, { name: newName, categories: newCategories }));
-                        _updatedFields.name.updated = '#dfd';
                         _updatedFields.categories.updated = '#dfd';
                         bannButt.bankCorporate.active = false;   // reset the bank Branch display flag
                         bannButt.bankBranch.active = false;   // reset the bank Branch display flag
@@ -1590,9 +1590,10 @@
                     active: false, severity: 1, message: "Or is this the bank's corporate offices?", value: "Yes", title: "Is this the bank's corporate offices?",
                     action: function() {
                         newCategories = ["OFFICES"];  // Change to offices category
-                        newName = newName.replace(/[\- (]*atm[\- )]*/ig, ' ').replace(/^ /g,'').replace(/ $/g,'').replace(/ {2,}/g,' ');     // strip ATM from name if present
+                        var tempName = newName.replace(/[\- (]*atm[\- )]*/ig, ' ').replace(/^ /g,'').replace(/ $/g,'').replace(/ {2,}/g,' ');     // strip ATM from name if present
+                        newName = tempName;
                         W.model.actionManager.add(new UpdateObject(item, { name: newName + ' - Corporate Offices', categories: newCategories }));
-                        _updatedFields.name.updated = '#dfd';
+                        if (newName !== tempName) _updatedFields.name.updated = '#dfd';
                         _updatedFields.categories.updated = '#dfd';
                         bannButt.bankCorporate.active = false;   // reset the bank Branch display flag
                         bannButt.bankBranch.active = false;   // reset the bank Branch display flag
@@ -1751,12 +1752,6 @@
 
                 catHotel: {
                     active: false, severity: 0, message: 'Check hotel website for any name localization (e.g. Hilton - Tampa Airport)'
-                    //WLactive: true, WLmessage: '', WLtitle: 'Whitelist hotel localization',
-                    //WLaction: function() {
-                    //    wlKeyName = 'hotelLocWL';
-                    //    whitelistAction(itemID, wlKeyName);
-                    //    harmonizePlaceGo(item, 'harmonize');
-                    //}
                 },
 
                 localizedName: {
@@ -1843,6 +1838,8 @@
                     value2: 'Add', title2:'Add a link to a Google place', action2: function() {
                         $('div.external-providers-view a').focus().click();
                         setTimeout(function() {
+                            $('a[href="#landmark-edit-general"]').click();
+                            $('.external-providers-view a.add').focus().mousedown();
                             $('div.external-providers-view > div > ul > div > li > div > a').last().mousedown();
                             $('.select2-input').last().focus().val(item.attributes.name).trigger('input');
                         }, 100);
@@ -1956,6 +1953,7 @@
                             if (check) newAttr.paymentType.push('CHECKS');
                             if (credit) newAttr.paymentType.push('CREDIT');
                             W.model.actionManager.add(new UpdateObject(item, {'categoryAttributes': {PARKING_LOT: newAttr}}));
+                            _updatedFields.paymentType.updated = true;
                             harmonizePlaceGo(item, 'harmonize');
                         }
                     }
@@ -4726,6 +4724,7 @@
 
         // Set up banner messages
         function assembleBanner() {
+            if (W.selectionManager.selectedItems.length !== 1 || W.selectionManager.selectedItems[0].model.type !== 'venue') return;
             phlogdev('Building banners');
             // push together messages from active banner messages
             var sidebarMessage = [], sidebarTools = [];  // Initialize message array
