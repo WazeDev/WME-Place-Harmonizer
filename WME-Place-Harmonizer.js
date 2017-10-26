@@ -433,6 +433,8 @@
     function runPH() {
         // Script update info
         var WMEPHWhatsNewList = [  // New in this version
+            '1.3.31: FIXED - Latest WME update still breaks things.',
+            '1.3.30: FIXED - Latest WME update breaks things.',
             '1.3.29: NEW (again) - Hours won\'t parse if open and close time is the same.',
             '1.3.28: FIXED - Hours text box extends outside panel if Fix UI is used to shrink the side panel width.',
             '1.3.28: FIXED - Removed "same hours" check to fix bug caused by that feature.  Will add in a later release.',
