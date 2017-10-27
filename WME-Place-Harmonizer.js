@@ -13,7 +13,7 @@
 // ==UserScript==
 // @name        WME Place Harmonizer Beta
 // @namespace   WazeUSA
-// @version     1.3.32
+// @version     1.3.33
 // @description Harmonizes, formats, and locks a selected place
 // @author      WMEPH Development Group
 // @include     /^https:\/\/(www|beta)\.waze\.com\/(?!user\/)(.{2,6}\/)?editor\/?.*$/
@@ -433,6 +433,7 @@
     function runPH() {
         // Script update info
         var WMEPHWhatsNewList = [  // New in this version
+            '1.3.33: FIXED - "Change to point" button is broken.',
             '1.3.32: FIXED - Add Google Link pops up at the top left corner of screen sometimes.',
             '1.3.32: FIXED - Crash when undoing changes in some scenarios.',
             '1.3.31: FIXED - Latest WME update still breaks things.',
@@ -1444,14 +1445,16 @@
                 pointNotArea: {  // Area 2 Point button
                     active: false, severity: 3, message: "This category should be a point place.", value: "Change to point", title: 'Change to point place',
                     action: function() {
+                        $('.landmark label.point-btn').click();
+                        // 2017-10-27 (mapomatic) The code below doesn't work anymore.  Easier to just simulate a mouse click...
                         // If a stop point is set, use it for the point, else use Centroid
-                        var newGeometry;
-                        if (item.attributes.entryExitPoints.length > 0) {
-                            newGeometry = item.attributes.entryExitPoints[0].point;
-                        } else {
-                            newGeometry = item.geometry.getCentroid();
-                        }
-                        updateFeatureGeometry (item, newGeometry);
+                        // var newGeometry;
+                        // if (item.attributes.entryExitPoints.length > 0) {
+                        //     newGeometry = item.attributes.entryExitPoints[0].point;
+                        // } else {
+                        //     newGeometry = item.geometry.getCentroid();
+                        // }
+                        // updateFeatureGeometry (item, newGeometry);
                         bannButt.pointNotArea.active = false;
                     },
                     WLactive: true, WLmessage: '', WLtitle: 'Whitelist point (not area)',
@@ -1465,7 +1468,6 @@
                 areaNotPoint: {  // Point 2 Area button
                     active: false, severity: 3, message: "This category should be an area place.", value: "Change to area", title: 'Change to Area',
                     action: function() {
-                        // If a stop point is set, use it for the point, else use Centroid
                         updateFeatureGeometry (item, item.getPolygonGeometry());
                         bannButt.areaNotPoint.active = false;
                     },
