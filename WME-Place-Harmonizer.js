@@ -433,6 +433,7 @@
     function runPH() {
         // Script update info
         var WMEPHWhatsNewList = [  // New in this version
+            '1.3.33: FIXED - Bad formatting of "Lot type" buttons.',
             '1.3.33: FIXED - "Change to point" button is broken.',
             '1.3.32: FIXED - Add Google Link pops up at the top left corner of screen sometimes.',
             '1.3.32: FIXED - Crash when undoing changes in some scenarios.',
@@ -2807,10 +2808,10 @@
                     ].forEach(function(btnInfo) {
                         if (btnIdx === 3) $btnDiv.append('<br>');
                         bannButt.plaLotTypeMissing.message +=
-                            $('<button>', {id: 'wmeph_' + btnInfo[0], class: 'wmeph-pla-lot-type-btn'})
+                            $('<button>', {id: 'wmeph_' + btnInfo[0], class: 'wmeph-pla-lot-type-btn btn btn-default btn-xs'})
                             .text(btnInfo[1])
                             .css({padding:'3px', height:'20px', lineHeight:'0px', marginRight:'2px',
-                                  marginBottom:'1px', marginTop:'2px', fontWeight:'900', fontSize:'.96em'})
+                                  marginBottom:'1px'})
                             .prop('outerHTML');
                     });
                 }
