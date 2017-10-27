@@ -13,7 +13,7 @@
 // ==UserScript==
 // @name        WME Place Harmonizer
 // @namespace   WazeUSA
-// @version     1.3.33
+// @version     1.3.34
 // @description Harmonizes, formats, and locks a selected place
 // @author      WMEPH Development Group
 // @include     /^https:\/\/(www|beta)\.waze\.com\/(?!user\/)(.{2,6}\/)?editor\/?.*$/
@@ -74,7 +74,7 @@
     var newNameSuffix;
     var _updatedFields = {
         name: { updated: false, selector: '.landmark .form-control[name="name"]', tab: 'general' },
-        aliasName: {updated: false, selector: '.landmark .form-control.alias-name', tab: 'general' },
+        aliases: {updated: false, selector: '.landmark .form-control.alias-name', tab: 'general' },
         address: {updated: false, selector: '.landmark .address-edit span.full-address', tab: 'general'},
         categories: {updated: false, selector: '.landmark .categories.controls .select2-container', tab: 'general'},
         description: {updated: false, selector: '.landmark .form-control[name="description"]', tab: 'general' },
@@ -433,6 +433,7 @@
     function runPH() {
         // Script update info
         var WMEPHWhatsNewList = [  // New in this version
+            '1.3.34: FIXED - Bug when WMEPH adds an alias place name.',
             '1.3.33: FIXED - Bad formatting of "Lot type" buttons.',
             '1.3.33: FIXED - "Change to point" button is broken.',
             '1.3.32: FIXED - Add Google Link pops up at the top left corner of screen sometimes.',
