@@ -13,7 +13,7 @@
 // ==UserScript==
 // @name        WME Place Harmonizer Beta
 // @namespace   WazeUSA
-// @version     1.3.34
+// @version     1.3.35
 // @description Harmonizes, formats, and locks a selected place
 // @author      WMEPH Development Group
 // @include     /^https:\/\/(www|beta)\.waze\.com\/(?!user\/)(.{2,6}\/)?editor\/?.*$/
@@ -433,6 +433,7 @@
     function runPH() {
         // Script update info
         var WMEPHWhatsNewList = [  // New in this version
+            '1.3.35: FIXED - After running WMEPH, map is unresponsive to clicks until hovering over a segment or other object.',
             '1.3.34: FIXED - Bug when WMEPH adds an alias place name.',
             '1.3.33: FIXED - Bad formatting of "Lot type" buttons.',
             '1.3.33: FIXED - "Change to point" button is broken.',
@@ -5871,15 +5872,9 @@
 
             // Remove any previous search labels and move the layer above the places layer
             WMEPH_NameLayer.destroyFeatures();
-            var vecLyrPlaces = W.map.getLayersBy("uniqueName","landmarks")[0];
-            WMEPH_NameLayer.setZIndex(parseInt(vecLyrPlaces.getZIndex())+3);  // Move layer to just on top of Places layer
-
-            // This is a hack to get the select control to activate after moving the layer to the top.  Found that deactivating and re-activating works, but only if it's delayed.
-            setTimeout(function() {
-                var ctl = W.map.controls.find(function(ctrl) { return ctrl.displayClass ==="WazeControlSelectHighlightFeature"; });
-                ctl.deactivate();
-                ctl.activate();
-            }, 100);
+            //var vecLyrPlaces = W.map.getLayersBy("uniqueName","landmarks")[0];
+            //W.map.setLayerZIndex(WMEPH_NameLayer, 70);
+            //WMEPH_NameLayer.setZIndex(parseInt(vecLyrPlaces.getZIndex())+3);  // Move layer to just on top of Places layer
 
             if ( venueWhitelist.hasOwnProperty(item.attributes.id) ) {
                 if ( venueWhitelist[item.attributes.id].hasOwnProperty('dupeWL') ) {
@@ -6092,6 +6087,15 @@
                 mapExtent.top = maxLat + (padFrac*padMult) * (maxLat-minLat);
                 W.map.zoomToExtent(mapExtent);
             }
+            // if (dupeNames.length > 0) {
+            //     // This is a hack to get the select control to activate after moving the layer to the top.  Found that deactivating and re-activating works, but only if it's delayed.
+            //     setTimeout(function() {
+            //         var ctl = W.map.controls.find(function(ctrl) { return ctrl.displayClass ==="WazeControlSelectHighlightFeature"; });
+            //         console.log('RAN IT!');
+            //         ctl.deactivate();
+            //         ctl.activate();
+            //     }, 100);
+            // }
             return [dupeNames, overlappingFlag];
         }  // END Dupefinder function
 
