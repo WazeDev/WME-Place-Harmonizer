@@ -13,7 +13,7 @@
 // ==UserScript==
 // @name        WME Place Harmonizer Beta
 // @namespace   WazeUSA
-// @version     1.3.35
+// @version     1.3.36
 // @description Harmonizes, formats, and locks a selected place
 // @author      WMEPH Development Group
 // @include     /^https:\/\/(www|beta)\.waze\.com\/(?!user\/)(.{2,6}\/)?editor\/?.*$/
@@ -433,6 +433,7 @@
     function runPH() {
         // Script update info
         var WMEPHWhatsNewList = [  // New in this version
+            '1.3.36: FIXED - Gas station name should only be flagged if brand does not appear anywhere in it.',
             '1.3.35: FIXED - After running WMEPH, map is unresponsive to clicks until hovering over a segment or other object.',
             '1.3.34: FIXED - Bug when WMEPH adds an alias place name.',
             '1.3.33: FIXED - Bad formatting of "Lot type" buttons.',
@@ -1346,20 +1347,8 @@
                 },
 
                 gasMismatch: {  // if the gas brand and name don't match
-                    active: false, severity: 3, message: "Gas name and brand don't match.  Move brand to name?", value: "Yes", title: 'Change the primary name to the brand and make the current name the alt-name.',
-                    action: function() {
-                        newAliases = insertAtIX(newAliases, newName, 0);
-                        for (var naix=0; naix<newAliases.length; naix++) {
-                            newAliases[naix] = toTitleCase(newAliases[naix]);
-                        }
-                        newName = item.attributes.brand;
-                        newAliases = removeSFAliases(newName, newAliases);
-                        W.model.actionManager.add(new UpdateObject(item, { name: newName, aliases: newAliases }));
-                        _updatedFields.name.updated = '#dfd';
-                        _updatedFields.aliases.updated = '#dfd';
-                        bannButt.gasMismatch.active = false;  // reset the display flag
-                    },
-                    WLactive: true, WLmessage: '', WLtitle: 'Whitelist gas brand mismatch',
+                    active: false, severity: 3, message: "Gas brand should typically be included in the place name.",
+                    WLactive: true, WLmessage: '', WLtitle: 'Whitelist gas brand / name mismatch',
                     WLaction: function() {
                         wlKeyName = 'gasMismatch';
                         whitelistAction(itemID, wlKeyName);
@@ -3603,8 +3592,16 @@
                         bannButt.gasUnbranded.active = true;
                         lockOK = false;
                     } else {
-                        var brandNameRegEx = new RegExp('\\b'+item.attributes.brand.toUpperCase().replace(/[ '-]/g,''), "i");
-                        if ( newName.toUpperCase().replace(/[ '-]/g,'').match(brandNameRegEx) === null ) {
+                        var brand = item.attributes.brand;  // If brand is going to be forced, use that.  Otherwise, use existing brand.
+                        if (PNHMatchData[ph_speccase_ix]) {
+                            var re = /forceBrand<>([^,<]+)/i;
+                            var match = re.exec(PNHMatchData[ph_speccase_ix]);
+                            if (match) {
+                                brand = match[1];
+                            }
+                        }
+                        //Check to make sure brand exists somewhere in the place name.
+                        if (brand && item.attributes.name.toUpperCase().indexOf(brand.toUpperCase()) === -1) {
                             bannButt.gasMismatch.active = true;
                             if (currentWL.gasMismatch) {
                                 bannButt.gasMismatch.WLactive = false;
