@@ -13,7 +13,7 @@
 // ==UserScript==
 // @name        WME Place Harmonizer Beta
 // @namespace   WazeUSA
-// @version     1.3.36
+// @version     1.3.37
 // @description Harmonizes, formats, and locks a selected place
 // @author      WMEPH Development Group
 // @include     /^https:\/\/(www|beta)\.waze\.com\/(?!user\/)(.{2,6}\/)?editor\/?.*$/
@@ -433,6 +433,7 @@
     function runPH() {
         // Script update info
         var WMEPHWhatsNewList = [  // New in this version
+            '1.3.37: FIXED - Gas station name vs. brand name matching should ignore non-alphanumeric characters.',
             '1.3.36: FIXED - Gas station name should only be flagged if brand does not appear anywhere in it.',
             '1.3.35: FIXED - After running WMEPH, map is unresponsive to clicks until hovering over a segment or other object.',
             '1.3.34: FIXED - Bug when WMEPH adds an alias place name.',
@@ -3600,8 +3601,8 @@
                                 brand = match[1];
                             }
                         }
-                        //Check to make sure brand exists somewhere in the place name.
-                        if (brand && item.attributes.name.toUpperCase().indexOf(brand.toUpperCase()) === -1) {
+                        //Check to make sure brand exists somewhere in the place name.  Remove non-alphanumeric characters first, for more relaxed matching.
+                        if (brand && item.attributes.name.toUpperCase().replace(/[^a-zA-Z0-9]/g,'').indexOf(brand.toUpperCase().replace(/[^a-zA-Z0-9]/g,'')) === -1) {
                             bannButt.gasMismatch.active = true;
                             if (currentWL.gasMismatch) {
                                 bannButt.gasMismatch.WLactive = false;
