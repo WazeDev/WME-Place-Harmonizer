@@ -13,7 +13,7 @@
 // ==UserScript==
 // @name        WME Place Harmonizer Beta
 // @namespace   WazeUSA
-// @version     1.3.37
+// @version     1.3.38
 // @description Harmonizes, formats, and locks a selected place
 // @author      WMEPH Development Group
 // @include     /^https:\/\/(www|beta)\.waze\.com\/(?!user\/)(.{2,6}\/)?editor\/?.*$/
@@ -26,6 +26,7 @@
 
 
 (function () {
+    var EN_DASH = String.fromCharCode(8211);
     var jqUI_CssSrc = GM_getResourceText("jqUI_CSS");
     GM_addStyle(jqUI_CssSrc);
     GM_addStyle([
@@ -433,6 +434,7 @@
     function runPH() {
         // Script update info
         var WMEPHWhatsNewList = [  // New in this version
+            '1.3.38: NEW - Allow en dash as well as hyphen in post office names.',
             '1.3.37: FIXED - Gas station name vs. brand name matching should ignore non-alphanumeric characters.',
             '1.3.36: FIXED - Gas station name should only be flagged if brand does not appear anywhere in it.',
             '1.3.35: FIXED - After running WMEPH, map is unresponsive to clicks until hovering over a segment or other object.',
@@ -1742,7 +1744,7 @@
                 },
 
                 formatUSPS: {  // ### needs WL or not?
-                    active: false, severity: 1, message: 'Localize the post office according to this region\'s standards for USPS locations (e.g., "US Post Office - Tampa")'
+                    active: false, severity: 1, message: 'Localize the post office according to this region\'s standards for USPS locations (e.g., "Post Office - Tampa")'
                 },
 
                 catHotel: {
@@ -4028,7 +4030,7 @@
                             USPSMatch = true;
                             customStoreFinderURL = "https://tools.usps.com/go/POLocatorAction.action";
                             customStoreFinder = true;
-                            if ( (newName + newNameSuffix).indexOf(' - ') === -1 && newName.indexOf(': ') === -1 ) {
+                            if ( (newName + newNameSuffix).indexOf(' - ') === -1 && newName.indexOf(': ') === -1 && newName.indexOf(' ' + EN_DASH + ' ') === -1 ) {
                                 bannButt.formatUSPS.active = true;
                             }
                             break;
