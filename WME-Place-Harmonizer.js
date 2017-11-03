@@ -13,7 +13,7 @@
 // ==UserScript==
 // @name        WME Place Harmonizer Beta
 // @namespace   WazeUSA
-// @version     1.3.38
+// @version     1.3.39
 // @description Harmonizes, formats, and locks a selected place
 // @author      WMEPH Development Group
 // @include     /^https:\/\/(www|beta)\.waze\.com\/(?!user\/)(.{2,6}\/)?editor\/?.*$/
@@ -434,6 +434,8 @@
     function runPH() {
         // Script update info
         var WMEPHWhatsNewList = [  // New in this version
+            '1.3.39: FIXED - WMEPH crashes when inferring addresses on point places in some scenarios.',
+            '1.3.39: NEW - Always treat post offices with CPU or VPU as point places.',
             '1.3.38: NEW - Allow en dash as well as hyphen in post office names.',
             '1.3.37: FIXED - Gas station name vs. brand name matching should ignore non-alphanumeric characters.',
             '1.3.36: FIXED - Gas station name should only be flagged if brand does not appear anywhere in it.',
@@ -3794,6 +3796,13 @@
                             pvaPoint = '';
                             pvaArea = '1';
                         }
+
+                        // If it's a post office with CPU or VPO in the name, always treat it as a point place.
+                        if (newCategories.indexOf('POST_OFFICE') > -1 && /\b(?:cpu|vpo)\b/i.test(item.attributes.name)) {
+                            pvaPoint = '1';
+                            pvaArea='';
+                        }
+
                         var pointSeverity = getPvaSeverity(pvaPoint, item);
                         var areaSeverity = getPvaSeverity(pvaArea, item);
 
@@ -6254,7 +6263,7 @@
             for (i = 0, n = segments.length; i < n; i++) {
                 // Make sure the segment is not an ignored roadType.
                 if (IGNORE_ROAD_TYPES.indexOf(segments[i].attributes.roadType) === -1) {
-                    distanceToSegment = (stopPoint.point ? stopPoint.point : stopPoint).distanceTo(segments[i].geometry);
+                    distanceToSegment = (stopPoint.getPoint ? stopPoint.getPoint() : stopPoint).distanceTo(segments[i].geometry);
                     // Add segment object and its distanceTo to an array.
                     orderedSegments.push({
                         distance: distanceToSegment,
