@@ -13,7 +13,7 @@
 // ==UserScript==
 // @name        WME Place Harmonizer Beta
 // @namespace   WazeUSA
-// @version     1.3.39
+// @version     1.3.40
 // @description Harmonizes, formats, and locks a selected place
 // @author      WMEPH Development Group
 // @include     /^https:\/\/(www|beta)\.waze\.com\/(?!user\/)(.{2,6}\/)?editor\/?.*$/
@@ -434,6 +434,7 @@
     function runPH() {
         // Script update info
         var WMEPHWhatsNewList = [  // New in this version
+            '1.3.40: FIXED - Names with a forward slash were causing issues in some cases.',
             '1.3.39: FIXED - WMEPH crashes when inferring addresses on point places in some scenarios.',
             '1.3.39: NEW - Always treat post offices with CPU or VPU as point places.',
             '1.3.38: NEW - Allow en dash as well as hyphen in post office names.',
@@ -2674,7 +2675,7 @@
             var lockOK = true;  // if nothing goes wrong, then place will be locked
             var categories = item.attributes.categories;
             newCategories = categories.slice(0);
-            newNameSplits = item.attributes.name.match(/(.*?)(\s+[-\(\/].*)*$/);
+            newNameSplits = item.attributes.name.match(/(.*?)(\s+[-\(].*)*$/);
             newNameSuffix = newNameSplits[2];
             // newNameSuffix = toTitleCase(newNameSuffix, true);
             newName = newNameSplits[1];
