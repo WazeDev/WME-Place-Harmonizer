@@ -13,7 +13,7 @@
 // ==UserScript==
 // @name        WME Place Harmonizer
 // @namespace   WazeUSA
-// @version     1.3.37
+// @version     1.3.40
 // @description Harmonizes, formats, and locks a selected place
 // @author      WMEPH Development Group
 // @include     /^https:\/\/(www|beta)\.waze\.com\/(?!user\/)(.{2,6}\/)?editor\/?.*$/
@@ -26,6 +26,7 @@
 
 
 (function () {
+    var EN_DASH = String.fromCharCode(8211);
     var jqUI_CssSrc = GM_getResourceText("jqUI_CSS");
     GM_addStyle(jqUI_CssSrc);
     GM_addStyle([
@@ -433,6 +434,10 @@
     function runPH() {
         // Script update info
         var WMEPHWhatsNewList = [  // New in this version
+            '1.3.40: FIXED - Names with a forward slash were causing issues in some cases.',
+            '1.3.39: FIXED - WMEPH crashes when inferring addresses on point places in some scenarios.',
+            '1.3.39: NEW - Always treat post offices with CPU or VPU as point places.',
+            '1.3.38: NEW - Allow en dash as well as hyphen in post office names.',
             '1.3.37: FIXED - Gas station name vs. brand name matching should ignore non-alphanumeric characters.',
             '1.3.36: FIXED - Gas station name should only be flagged if brand does not appear anywhere in it.',
             '1.3.35: FIXED - After running WMEPH, map is unresponsive to clicks until hovering over a segment or other object.',
@@ -1742,7 +1747,7 @@
                 },
 
                 formatUSPS: {  // ### needs WL or not?
-                    active: false, severity: 1, message: 'Localize the post office according to this region\'s standards for USPS locations (e.g., "US Post Office - Tampa")'
+                    active: false, severity: 1, message: 'Localize the post office according to this region\'s standards for USPS locations (e.g., "Post Office - Tampa")'
                 },
 
                 catHotel: {
@@ -2670,7 +2675,7 @@
             var lockOK = true;  // if nothing goes wrong, then place will be locked
             var categories = item.attributes.categories;
             newCategories = categories.slice(0);
-            newNameSplits = item.attributes.name.match(/(.*?)(\s+[-\(\/].*)*$/);
+            newNameSplits = item.attributes.name.match(/(.*?)(\s+[-\(].*)*$/);
             newNameSuffix = newNameSplits[2];
             // newNameSuffix = toTitleCase(newNameSuffix, true);
             newName = newNameSplits[1];
@@ -3792,6 +3797,13 @@
                             pvaPoint = '';
                             pvaArea = '1';
                         }
+
+                        // If it's a post office with CPU or VPO in the name, always treat it as a point place.
+                        if (newCategories.indexOf('POST_OFFICE') > -1 && /\b(?:cpu|vpo)\b/i.test(item.attributes.name)) {
+                            pvaPoint = '1';
+                            pvaArea='';
+                        }
+
                         var pointSeverity = getPvaSeverity(pvaPoint, item);
                         var areaSeverity = getPvaSeverity(pvaArea, item);
 
@@ -4028,7 +4040,7 @@
                             USPSMatch = true;
                             customStoreFinderURL = "https://tools.usps.com/go/POLocatorAction.action";
                             customStoreFinder = true;
-                            if ( (newName + newNameSuffix).indexOf(' - ') === -1 && newName.indexOf(': ') === -1 ) {
+                            if ( (newName + newNameSuffix).indexOf(' - ') === -1 && newName.indexOf(': ') === -1 && newName.indexOf(' ' + EN_DASH + ' ') === -1 ) {
                                 bannButt.formatUSPS.active = true;
                             }
                             break;
@@ -6252,7 +6264,7 @@
             for (i = 0, n = segments.length; i < n; i++) {
                 // Make sure the segment is not an ignored roadType.
                 if (IGNORE_ROAD_TYPES.indexOf(segments[i].attributes.roadType) === -1) {
-                    distanceToSegment = (stopPoint.point ? stopPoint.point : stopPoint).distanceTo(segments[i].geometry);
+                    distanceToSegment = (stopPoint.getPoint ? stopPoint.getPoint() : stopPoint).distanceTo(segments[i].geometry);
                     // Add segment object and its distanceTo to an array.
                     orderedSegments.push({
                         distance: distanceToSegment,
