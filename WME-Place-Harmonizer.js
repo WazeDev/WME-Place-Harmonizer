@@ -13,7 +13,7 @@
 // ==UserScript==
 // @name        WME Place Harmonizer Beta
 // @namespace   WazeUSA
-// @version     1.3.40
+// @version     1.3.41
 // @description Harmonizes, formats, and locks a selected place
 // @author      WMEPH Development Group
 // @include     /^https:\/\/(www|beta)\.waze\.com\/(?!user\/)(.{2,6}\/)?editor\/?.*$/
@@ -434,6 +434,7 @@
     function runPH() {
         // Script update info
         var WMEPHWhatsNewList = [  // New in this version
+            '1.3.41: NEW - Missing PLA HN\'s are flagged blue, and can be cleared by locking to L3+',
             '1.3.40: FIXED - Names with a forward slash were causing issues in some cases.',
             '1.3.39: FIXED - WMEPH crashes when inferring addresses on point places in some scenarios.',
             '1.3.39: NEW - Always treat post offices with CPU or VPU as point places.',
@@ -4066,7 +4067,7 @@
                         if (usrRank < 3) {
                             msgAdd = ' Request an R3+ lock to confirm unnamed parking lot.';
                         } else {
-                            msgAdd = ' Lock to R3+ to confirm unnamed parking lot.';
+                            msgAdd = ' Lock to 3+ to confirm unnamed parking lot.';
                             // bannButt.plaNameMissing.value = 'Lock';
                             // bannButt.plaNameMissing.action = function() {
                             //     W.model.actionManager.add(new UpdateObject(item, {'lockRank': 2}));
@@ -4097,7 +4098,22 @@
                         bannButt.hnMissing.severity = 0;
                     } else {
                         bannButt.hnMissing.active = true;
-                        if (currentWL.HNWL) {
+                        if (item.isParkingLot()) {
+                            bannButt.hnMissing.WLactive = false;
+                            if (item.attributes.lockRank < 2) {
+                                lockOK = false;
+                                var msgAdd;
+                                if (usrRank < 3) {
+                                    msgAdd = 'Request an R3+ lock to confirm no HN.';
+                                } else {
+                                    msgAdd = 'Lock to R3+ to confirm no HN.';
+                                }
+                                bannButt.hnMissing.suffixMessage = msgAdd;
+                                bannButt.hnMissing.severity = 1;
+                            } else {
+                                bannButt.hnMissing.severity = 0;
+                            }
+                        } else if (currentWL.HNWL) {
                             bannButt.hnMissing.severity = 0;
                             bannButt.hnMissing.WLactive = false;
                         } else {
@@ -4788,6 +4804,9 @@
                         }
                     } else {
                         severityButt = Math.max(bannButt[tempKey].severity, severityButt);
+                    }
+                    if (bannButt[tempKey].hasOwnProperty('suffixMessage')) {
+                        strButt1 += '<div>' + bannButt[tempKey].suffixMessage + '</div>';
                     }
                     if (tempKey.toUpperCase() === 'PLACEWEBSITE' || tempKey.toUpperCase() === 'WEBSEARCH') {
                         if (!$webDiv) {
