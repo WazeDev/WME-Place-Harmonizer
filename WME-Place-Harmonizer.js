@@ -13,7 +13,7 @@
 // ==UserScript==
 // @name        WME Place Harmonizer Beta
 // @namespace   WazeUSA
-// @version     1.3.44
+// @version     1.3.45
 // @description Harmonizes, formats, and locks a selected place
 // @author      WMEPH Development Group
 // @include     /^https:\/\/(www|beta)\.waze\.com\/(?!user\/)(.{2,6}\/)?editor\/?.*$/
@@ -434,6 +434,7 @@
     function runPH() {
         // Script update info
         var WMEPHWhatsNewList = [  // New in this version
+            '1.3.45: FIXED - Copying services to/from PLA to/from non-PLA should not be allowed.',
             '1.3.44: FIXED - Gas Stations should match PNH if PNH name is anywhere in place name.',
             '1.3.42 and .43: Accidental push of beta code to production.  Reverted in .43.',
             '1.3.41: NEW - Missing PLA HN\'s are flagged blue, and can be cleared by locking to L3+',
@@ -5231,6 +5232,7 @@
                             cloneMaster.description = item.attributes.description;
                             cloneMaster.services = item.attributes.services;
                             cloneMaster.openingHours = item.attributes.openingHours;
+                            cloneMaster.isPLA = item.isParkingLot();
                             phlogdev('Place Cloned');
                         };
                     } else {
@@ -5400,7 +5402,7 @@
                     cloneItems.description = cloneMaster.description;
                     updateItem = true;
                 }
-                if ( $("#WMEPH_CPserv").prop('checked') ) {
+                if ( $("#WMEPH_CPserv").prop('checked') && item.isParkingLot() === cloneMaster.isPLA) {
                     cloneItems.services = cloneMaster.services;
                     updateItem = true;
                 }
