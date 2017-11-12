@@ -13,7 +13,7 @@
 // ==UserScript==
 // @name        WME Place Harmonizer Beta
 // @namespace   WazeUSA
-// @version     1.3.45
+// @version     1.3.46
 // @description Harmonizes, formats, and locks a selected place
 // @author      WMEPH Development Group
 // @include     /^https:\/\/(www|beta)\.waze\.com\/(?!user\/)(.{2,6}\/)?editor\/?.*$/
@@ -434,9 +434,10 @@
     function runPH() {
         // Script update info
         var WMEPHWhatsNewList = [  // New in this version
+            '1.3.46: FIXED - Gas Stations don\'t match if PNH name is in parens or after a hyphen',
             '1.3.45: FIXED - Copying services to/from PLA to/from non-PLA should not be allowed.',
             '1.3.44: FIXED - Gas Stations should match PNH if PNH name is anywhere in place name.',
-            '1.3.42 and .43: Accidental push of beta code to production.  Reverted in .43.',
+            '1.3.42: Accidental push of beta code to production.  Reverted in .43.',
             '1.3.41: NEW - Missing PLA HN\'s are flagged blue, and can be cleared by locking to L3+',
             '1.3.40: FIXED - Names with a forward slash were causing issues in some cases.',
             '1.3.39: FIXED - WMEPH crashes when inferring addresses on point places in some scenarios.',
@@ -2679,10 +2680,13 @@
             var lockOK = true;  // if nothing goes wrong, then place will be locked
             var categories = item.attributes.categories;
             newCategories = categories.slice(0);
-            newNameSplits = item.attributes.name.match(/(.*?)(\s+[-\(].*)*$/);
-            newNameSuffix = newNameSplits[2];
-            // newNameSuffix = toTitleCase(newNameSuffix, true);
-            newName = newNameSplits[1];
+            newName = item.attributes.name;
+            if (newCategories.indexOf('GAS_STATION') === -1) {
+                var newNameSplits = newName.match(/(.*?)(\s+[-\(].*)*$/);
+                newNameSuffix = newNameSplits[2];
+                // newNameSuffix = toTitleCase(newNameSuffix, true);
+                newName = newNameSplits[1];
+            }
             newName = toTitleCase(newName);
             // var nameShort = newName.replace(/[^A-Za-z]/g, '');  // strip non-letters for PNH name searching
             // var nameNumShort = newName.replace(/[^A-Za-z0-9]/g, ''); // strip non-letters/non-numbers for PNH name searching
