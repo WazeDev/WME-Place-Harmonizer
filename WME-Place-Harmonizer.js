@@ -13,7 +13,7 @@
 // ==UserScript==
 // @name        WME Place Harmonizer Beta
 // @namespace   WazeUSA
-// @version     1.3.46
+// @version     1.3.47
 // @description Harmonizes, formats, and locks a selected place
 // @author      WMEPH Development Group
 // @include     /^https:\/\/(www|beta)\.waze\.com\/(?!user\/)(.{2,6}\/)?editor\/?.*$/
@@ -434,6 +434,7 @@
     function runPH() {
         // Script update info
         var WMEPHWhatsNewList = [  // New in this version
+            '1.3.47: FIXED - Residential places should not show "Add services" buttons.',
             '1.3.46: FIXED - Gas Stations don\'t match if PNH name is in parens or after a hyphen',
             '1.3.45: FIXED - Copying services to/from PLA to/from non-PLA should not be allowed.',
             '1.3.44: FIXED - Gas Stations should match PNH if PNH name is anywhere in place name.',
@@ -472,35 +473,7 @@
             '1.3.22: FIXED - Scroll bar would cover text if only one long line of text in hours entry box.',
             '1.3.21: FIXED - Auto-expand hours entry text box when multiple lines are pasted (production version).',
             '1.3.20: NEW - "Add point" button when PLA entry/exit point hasn\'t been created.',
-            '1.3.20: FIXED - Minor improvements to hours parsing.',
-            '1.3.19: NEW - Hours entry text box enhancements.',
-            '1.3.18: NEW - Updates to Canada place submission forms.',
-            '1.3.17: FIXED - a couple bugs caused by changes in the last release',
-            '1.3.16: FIXED - Matching PNH and duplicate places when name contains hyphen or paren suffix.',
-            '1.3.15: FIXED - Localized hotel name highlight/flag colors.',
-            '1.3.14: FIXED - R2 editors can use Google link options and highlights.',
-            '1.3.13: FIXED - Highlights for places a user cannot edit external links',
-            '1.3.13: NEW - All hotels will get 24/7 hours, and PNH matches get WiFi service',
-            '1.3.12: FIXED - Will not run on URLs without a trailing forward slash.',
-            '1.3.10: FIXED - Rest area flag issues.',
-            '1.3.8: Bug fix',
-            '1.3.7: Adjusted position of PUR Web Search button.',
-            '1.3.6: NEW - Added option to hide PUR "Web Search" button.',
-            '1.3.6: FIXED - Moved PUR web search button to prevent conflict with URO+',
-            '1.3.5: NEW - Added handicapped parking question for PLAs.',
-            '1.3.5: FIXED - PUR web search button should not appear on UR popups.',
-            '1.3.4: FIXED - PUR web search should remove No Street and No Address',
-            '1.3.3: FIXED - Web Search button doesn\'t always appear on PURs.',
-            '1.3.2: NEW - Added Web Search button to PUR popups.',
-            '1.3.1: Temporarily removed "Updating Google place link will automatically re-run WMEPH".',
-            '1.3.0: Production release.',
-            '1.2.48: NEW - Added a flag for missing payment type when PLA cost is not free or unknown',
-            '1.2.47: NEW - Added a flag for "Can cars exit parking lot when closed?"',
-            '1.2.46: NEW - Added a flag for PLA stop points that have never been moved.',
-            '1.2.45: NEW - Added a button to open the Google link search box and pre-fill it with the place name.',
-            '1.2.45: NEW - Updating Google place link will automatically re-run WMEPH.',
-            '1.2.44: NEW - Added several flags for parking lots.',
-            '1.2.43: FIXED - WMEPH should run on places with detail updates, but not new place PURs.'
+            '1.3.20: FIXED - Minor improvements to hours parsing.'
         ];
         var WMEPHWhatsNewMetaList = [  // New in this major version
             'New flags and helpers for parking lots!',
@@ -4835,24 +4808,26 @@
             }
 
             // setup Add Service Buttons for suggested services
-            var sidebarServButts = '', servButtHeight = '27', greyOption;
-            for ( tempKey in bannServ ) {
-                if ( bannServ.hasOwnProperty(tempKey) && bannServ[tempKey].hasOwnProperty('active') && bannServ[tempKey].active ) {  //  If the particular service is active
-                    if ( bannServ[tempKey].checked ) {
-                        greyOption = '';
-                    } else {
-                        greyOption = '-webkit-filter: opacity(.25);filter: opacity(.25);';
-                        //greyOption = '-webkit-filter: brightness(3); filter: brightness(3);';
+            if (!item.isResidential()) {
+                var sidebarServButts = '', servButtHeight = '27', greyOption;
+                for ( tempKey in bannServ ) {
+                    if ( bannServ.hasOwnProperty(tempKey) && bannServ[tempKey].hasOwnProperty('active') && bannServ[tempKey].active ) {  //  If the particular service is active
+                        if ( bannServ[tempKey].checked ) {
+                            greyOption = '';
+                        } else {
+                            greyOption = '-webkit-filter: opacity(.25);filter: opacity(.25);';
+                            //greyOption = '-webkit-filter: brightness(3); filter: brightness(3);';
+                        }
+                        //strButt1 = '&nbsp<input class="servButton" id="WMEPH_' + tempKey + '" title="' + bannServ[tempKey].title + '" type="image" style="height:' + servButtHeight +
+                        //    'px;background:none;border-color: none;border-style: none;" src="https://openmerchantaccount.com/img2/' + bannServ[tempKey].icon + greyOption + '.png">';
+                        strButt1 = '&nbsp<input class="'+bannServ[tempKey].icon+'" id="WMEPH_' + tempKey + '" type="button" title="' + bannServ[tempKey].title +
+                            '" style="border:0;background-size: contain; height:' + servButtHeight + 'px;width: '+Math.ceil(servButtHeight*bannServ[tempKey].w2hratio).toString()+'px;'+greyOption+'">';
+                        sidebarServButts += strButt1;
                     }
-                    //strButt1 = '&nbsp<input class="servButton" id="WMEPH_' + tempKey + '" title="' + bannServ[tempKey].title + '" type="image" style="height:' + servButtHeight +
-                    //    'px;background:none;border-color: none;border-style: none;" src="https://openmerchantaccount.com/img2/' + bannServ[tempKey].icon + greyOption + '.png">';
-                    strButt1 = '&nbsp<input class="'+bannServ[tempKey].icon+'" id="WMEPH_' + tempKey + '" type="button" title="' + bannServ[tempKey].title +
-                        '" style="border:0;background-size: contain; height:' + servButtHeight + 'px;width: '+Math.ceil(servButtHeight*bannServ[tempKey].w2hratio).toString()+'px;'+greyOption+'">';
-                    sidebarServButts += strButt1;
                 }
-            }
-            if (sidebarServButts.length>0) {
-                sidebarTools.push('<span class="control-label">Add services:</span><br>' + sidebarServButts);
+                if (sidebarServButts.length>0) {
+                    sidebarTools.push('<span class="control-label">Add services:</span><br>' + sidebarServButts);
+                }
             }
 
             //  Build general banners (below the Services)
@@ -4878,7 +4853,9 @@
             // Setup bannButt onclicks
             setupButtons(bannButt);
             // Setup bannServ onclicks
-            setupButtons(bannServ);
+            if (!item.isResidential()) {
+                setupButtons(bannServ);
+            }
             // Setup bannButt2 onclicks
             setupButtons(bannButt2);
 
