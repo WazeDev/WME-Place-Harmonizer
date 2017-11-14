@@ -434,6 +434,7 @@
     function runPH() {
         // Script update info
         var WMEPHWhatsNewList = [  // New in this version
+            '1.3.47: NEW - Added message to suggest reviewing wiki when setting parking lot type to Public.',
             '1.3.47: FIXED - Residential places should not show "Add services" buttons.',
             '1.3.46: FIXED - Gas Stations don\'t match if PNH name is in parens or after a hyphen',
             '1.3.45: FIXED - Copying services to/from PLA to/from non-PLA should not be allowed.',
@@ -1241,6 +1242,10 @@
 
                 nameMissing: {  // no WL
                     active: false, severity: 3, message: 'Name is missing.'
+                },
+
+                plaIsPublic: { // no WL
+                    active: false, severity: 0, message: 'Please ensure this lot meets the requirements for a <a href="https://wazeopedia.waze.com/wiki/USA/Places/Parking_lot#Lot_Type" target="_blank" style="color:white">public parking lot</a>.'
                 },
 
                 plaNameMissing: {
@@ -4061,6 +4066,11 @@
                     bannButt.nameMissing.active = true;
                     lockOK = false;
                 }
+            }
+
+            // Public parking lot warning message:
+            if (item.isParkingLot() && item.attributes.categoryAttributes && item.attributes.categoryAttributes.PARKING_LOT && item.attributes.categoryAttributes.PARKING_LOT.parkingType === 'PUBLIC') {
+                bannButt.plaIsPublic.active = true;
             }
 
             // House number / HN check
