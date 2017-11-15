@@ -13,7 +13,7 @@
 // ==UserScript==
 // @name        WME Place Harmonizer Beta
 // @namespace   WazeUSA
-// @version     1.3.47
+// @version     1.3.48
 // @description Harmonizes, formats, and locks a selected place
 // @author      WMEPH Development Group
 // @include     /^https:\/\/(www|beta)\.waze\.com\/(?!user\/)(.{2,6}\/)?editor\/?.*$/
@@ -72,7 +72,6 @@
     var bannButt, bannButt2, bannServ, bannDupl, bannButtHL;  // Banner Buttons objects
     var RPPLockString = 'Lock?';
     var panelFields = {};  // the fields for the sidebar
-    var newNameSuffix;
     var _updatedFields = {
         name: { updated: false, selector: '.landmark .form-control[name="name"]', tab: 'general' },
         aliases: {updated: false, selector: '.landmark .form-control.alias-name', tab: 'general' },
@@ -434,6 +433,7 @@
     function runPH() {
         // Script update info
         var WMEPHWhatsNewList = [  // New in this version
+            '1.3.48: FIXED - Name suffixes inside parens repeated with each run of WMEPH in some scenarios.',
             '1.3.47: NEW - Added message to suggest reviewing wiki when setting parking lot type to Public.',
             '1.3.47: FIXED - Residential places should not show "Add services" buttons.',
             '1.3.46: FIXED - Gas Stations don\'t match if PNH name is in parens or after a hyphen',
@@ -2659,6 +2659,7 @@
             var categories = item.attributes.categories;
             newCategories = categories.slice(0);
             newName = item.attributes.name;
+            var newNameSuffix;
             if (newCategories.indexOf('GAS_STATION') === -1) {
                 var newNameSplits = newName.match(/(.*?)(\s+[-\(].*)*$/);
                 newNameSuffix = newNameSplits[2];
