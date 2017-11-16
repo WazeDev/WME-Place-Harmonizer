@@ -72,6 +72,7 @@
     var bannButt, bannButt2, bannServ, bannDupl, bannButtHL;  // Banner Buttons objects
     var RPPLockString = 'Lock?';
     var panelFields = {};  // the fields for the sidebar
+
     var _updatedFields = {
         name: { updated: false, selector: '.landmark .form-control[name="name"]', tab: 'general' },
         aliases: {updated: false, selector: '.landmark .form-control.alias-name', tab: 'general' },
@@ -769,8 +770,8 @@
             }
 
             var publicPLA = plaTypeRuleGenerator('public', {
-                fillColor: '#00FF00',
-                fillOpacity: '0.3'
+                fillColor: '#0000FF',
+                fillOpacity: '0.25'
             });
             var restrictedPLA = plaTypeRuleGenerator('restricted', {
                 fillColor: '#FFFF00',
@@ -778,7 +779,7 @@
             });
             var privatePLA = plaTypeRuleGenerator('private', {
                 fillColor: '#FF0000',
-                fillOpacity: '0.3'
+                fillOpacity: '0.25'
             });
 
             Array.prototype.push.apply(layer.styleMap.styles['default'].rules, [severity0, severityLock, severity1, severityLock1, severity2, severity3, severity4, severityHigh, severityAdLock,publicPLA, restrictedPLA, privatePLA]);
