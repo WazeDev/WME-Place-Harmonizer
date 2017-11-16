@@ -13,7 +13,7 @@
 // ==UserScript==
 // @name        WME Place Harmonizer Beta
 // @namespace   WazeUSA
-// @version     1.3.48
+// @version     1.3.49
 // @description Harmonizes, formats, and locks a selected place
 // @author      WMEPH Development Group
 // @include     /^https:\/\/(www|beta)\.waze\.com\/(?!user\/)(.{2,6}\/)?editor\/?.*$/
@@ -434,6 +434,7 @@
     function runPH() {
         // Script update info
         var WMEPHWhatsNewList = [  // New in this version
+            '1.3.49: NEW - Public lots are filled blue, to stand out more from restricted lots.',
             '1.3.48: FIXED - Name suffixes inside parens repeated with each run of WMEPH in some scenarios.',
             '1.3.47: NEW - Added message to suggest reviewing wiki when setting parking lot type to Public.',
             '1.3.47: FIXED - Residential places should not show "Add services" buttons.',
