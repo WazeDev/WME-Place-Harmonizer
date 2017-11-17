@@ -434,6 +434,7 @@
     function runPH() {
         // Script update info
         var WMEPHWhatsNewList = [  // New in this version
+            '1.3.50: NEW - Added buttons to "confirm public PLA" message, to allow quick change to restricted or private.',
             '1.3.49: NEW - Public lots are filled blue, to stand out more from restricted lots.',
             '1.3.48: FIXED - Name suffixes inside parens repeated with each run of WMEPH in some scenarios.',
             '1.3.47: NEW - Added message to suggest reviewing wiki when setting parking lot type to Public.',
@@ -1247,7 +1248,8 @@
                 },
 
                 plaIsPublic: { // no WL
-                    active: false, severity: 0, message: 'Please ensure this lot meets the requirements for a <a href="https://wazeopedia.waze.com/wiki/USA/Places/Parking_lot#Lot_Type" target="_blank" style="color:white">public parking lot</a>.'
+                    active: false, severity: 0, message: 'If this does not meet the requirements for a <a href="https://wazeopedia.waze.com/wiki/USA/Places/Parking_lot#Lot_Type" target="_blank" style="color:white">public parking lot</a>, change to:<br>'
+                    //The buttons are appended in the code...
                 },
 
                 plaNameMissing: {
@@ -2794,7 +2796,7 @@
                     ].forEach(function(btnInfo) {
                         if (btnIdx === 3) $btnDiv.append('<br>');
                         bannButt.plaLotTypeMissing.message +=
-                            $('<button>', {id: 'wmeph_' + btnInfo[0], class: 'wmeph-pla-lot-type-btn btn btn-default btn-xs'})
+                            $('<button>', {class: 'wmeph-pla-lot-type-btn btn btn-default btn-xs', 'data-lot-type':btnInfo[0]})
                             .text(btnInfo[1])
                             .css({padding:'3px', height:'20px', lineHeight:'0px', marginRight:'2px',
                                   marginBottom:'1px'})
@@ -4074,6 +4076,19 @@
             // Public parking lot warning message:
             if (item.isParkingLot() && item.attributes.categoryAttributes && item.attributes.categoryAttributes.PARKING_LOT && item.attributes.categoryAttributes.PARKING_LOT.parkingType === 'PUBLIC') {
                 bannButt.plaIsPublic.active = true;
+                // Add the buttons to the message.
+                [
+                    ['RESTRICTED','Restricted'],
+                    ['PRIVATE','Private']
+                ].forEach(function(btnInfo) {
+                    if (btnIdx === 3) $btnDiv.append('<br>');
+                    bannButt.plaIsPublic.message +=
+                        $('<button>', {class: 'wmeph-pla-lot-type-btn btn btn-default btn-xs', 'data-lot-type':btnInfo[0]})
+                        .text(btnInfo[1])
+                        .css({padding:'3px', height:'20px', lineHeight:'0px', marginRight:'2px',
+                              marginBottom:'1px'})
+                        .prop('outerHTML');
+                });
             }
 
             // House number / HN check
@@ -4889,7 +4904,7 @@
                 harmonizePlaceGo(item, 'harmonize');
             });
             $('.wmeph-pla-lot-type-btn').click(function() {
-                var selectedValue = $(this).attr('id').replace('wmeph_','');
+                var selectedValue = $(this).data('lot-type');
                 var existingAttr = item.attributes.categoryAttributes.PARKING_LOT;
                 var newAttr = {};
                 if (existingAttr) {
