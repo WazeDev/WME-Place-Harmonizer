@@ -13,7 +13,7 @@
 // ==UserScript==
 // @name        WME Place Harmonizer Beta
 // @namespace   WazeUSA
-// @version     1.3.49
+// @version     1.3.50
 // @description Harmonizes, formats, and locks a selected place
 // @author      WMEPH Development Group
 // @include     /^https:\/\/(www|beta)\.waze\.com\/(?!user\/)(.{2,6}\/)?editor\/?.*$/
@@ -6559,7 +6559,7 @@
             createSettingsCheckbox("sidepanel-highlighter" + devVersStr, "WMEPH-DisableHoursHL" + devVersStr,"Disable highlighting for missing hours");
             createSettingsCheckbox("sidepanel-highlighter" + devVersStr, "WMEPH-DisableRankHL" + devVersStr,"Disable highlighting for places locked above your rank");
             createSettingsCheckbox("sidepanel-highlighter" + devVersStr, "WMEPH-DisableWLHL" + devVersStr,"Disable Whitelist highlighting (shows all missing info regardless of WL)");
-            createSettingsCheckbox("sidepanel-highlighter" + devVersStr, "WMEPH-PLATypeFill" + devVersStr,"Fill parking lots based on type (public=green, restricted=yellow, private=red)");
+            createSettingsCheckbox("sidepanel-highlighter" + devVersStr, "WMEPH-PLATypeFill" + devVersStr,"Fill parking lots based on type (public=blue, restricted=yellow, private=red)");
             if (devUser || betaUser || usrRank >= 3) {
                 //createSettingsCheckbox("sidepanel-highlighter" + devVersStr, "WMEPH-UnlockedRPPs" + devVersStr,"Highlight unlocked residential place points");
             }
