@@ -13,7 +13,7 @@
 // ==UserScript==
 // @name        WME Place Harmonizer Beta
 // @namespace   WazeUSA
-// @version     1.3.50
+// @version     1.3.51
 // @description Harmonizes, formats, and locks a selected place
 // @author      WMEPH Development Group
 // @include     /^https:\/\/(www|beta)\.waze\.com\/(?!user\/)(.{2,6}\/)?editor\/?.*$/
@@ -434,6 +434,9 @@
     function runPH() {
         // Script update info
         var WMEPHWhatsNewList = [  // New in this version
+            '1.3.51: NEW - En dash is treated as a valid name suffix separator (like a hyphen).',
+            '1.3.51: NEW - Ability to check for alternate versions of brand name in place name.',
+            '1.3.51: FIXED - Gas station brand not being copied to empty name field if no PNH match.',
             '1.3.50: NEW - Added buttons to "confirm public PLA" message, to allow quick change to restricted or private.',
             '1.3.49: NEW - Public lots are filled blue, to stand out more from restricted lots.',
             '1.3.48: FIXED - Name suffixes inside parens repeated with each run of WMEPH in some scenarios.',
@@ -1340,7 +1343,7 @@
                 },
 
                 gasMismatch: {  // if the gas brand and name don't match
-                    active: false, severity: 3, message: "Gas brand should typically be included in the place name.",
+                    active: false, severity: 3, message: '<a href="https://wazeopedia.waze.com/wiki/USA/Places/Gas_station#Name" target="_blank" style="color: white;">Gas brand should typically be included in the place name.</a>',
                     WLactive: true, WLmessage: '', WLtitle: 'Whitelist gas brand / name mismatch',
                     WLaction: function() {
                         wlKeyName = 'gasMismatch';
@@ -2665,7 +2668,7 @@
             newName = item.attributes.name;
             var newNameSuffix;
             if (newCategories.indexOf('GAS_STATION') === -1) {
-                var newNameSplits = newName.match(/(.*?)(\s+[-\(].*)*$/);
+                var newNameSplits = newName.match(/(.*?)(\s+[-–\(].*)*$/); // note this now includes en dash as well as hyphen
                 newNameSuffix = newNameSplits[2];
                 // newNameSuffix = toTitleCase(newNameSuffix, true);
                 newName = newNameSplits[1];
@@ -2966,15 +2969,40 @@
                 return 3;
             }
 
-            // If no gas station name, replace with brand name
-            if (hpMode.harmFlag && item.isGasStation() && (!newName || newName.trim().length === 0) && item.attributes.brand) {
-                newName = item.attributes.brand;
-                actions.push(new UpdateObject(item, {name: newName }));
-                _updatedFields.name.updated = true;
-            }
+            // Gas station treatment (applies to all including PNH)
+            if (newCategories[0] === 'GAS_STATION') {
+                // Brand checking
 
+                // If no gas station name, replace with brand name
+                if (hpMode.harmFlag && item.isGasStation() && (!newName || newName.trim().length === 0) && item.attributes.brand) {
+                    newName = item.attributes.brand;
+                    actions.push(new UpdateObject(item, {name: newName }));
+                    _updatedFields.name.updated = true;
+                }
+                if ( !item.attributes.brand || item.attributes.brand === null || item.attributes.brand === "" ) {
+                    bannButt.gasNoBrand.active = true;
+                    if (currentWL.gasNoBrand) {
+                        bannButt.gasNoBrand.WLactive = false;
+                    }
+                } else if (item.attributes.brand === 'Unbranded' ) {  //  Unbranded is not used per wiki
+                    bannButt.gasUnbranded.active = true;
+                    lockOK = false;
+                }
+                // Add convenience store category to station
+                if (newCategories.indexOf("CONVENIENCE_STORE") === -1 && !bannButt.subFuel.active) {
+                    if ( hpMode.harmFlag && $("#WMEPH-ConvenienceStoreToGasStations" + devVersStr).prop('checked') ) {  // Automatic if user has the setting checked
+                        newCategories = insertAtIX(newCategories, "CONVENIENCE_STORE", 1);  // insert the C.S. category
+                        actions.push(new UpdateObject(item, { categories: newCategories }));
+                        _updatedFields.categories.updated = true;
+                        phlogdev('Conv. store category added');
+                    } else {  // If not checked, then it will be a banner button
+                        bannButt.addConvStore.active = true;
+                    }
+                }
+            }  // END Gas Station Checks
+            
             var isLocked = item.attributes.lockRank >= (PNHLockLevel > -1 ? PNHLockLevel : defaultLockLevel);
-
+            
             // Clear attributes from residential places
             if (item.attributes.residential) {
                 if (hpMode.harmFlag) {
@@ -3577,49 +3605,6 @@
                     _updatedFields.aliases.updated = true;
                 }
 
-                // Gas station treatment (applies to all including PNH)
-                if (newCategories[0] === 'GAS_STATION') {
-                    // Brand checking
-                    if ( !item.attributes.brand || item.attributes.brand === null || item.attributes.brand === "" ) {
-                        bannButt.gasNoBrand.active = true;
-                        if (currentWL.gasNoBrand) {
-                            bannButt.gasNoBrand.WLactive = false;
-                        }
-                    } else if (item.attributes.brand === 'Unbranded' ) {  //  Unbranded is not used per wiki
-                        bannButt.gasUnbranded.active = true;
-                        lockOK = false;
-                    } else {
-                        var brand = item.attributes.brand;  // If brand is going to be forced, use that.  Otherwise, use existing brand.
-                        if (PNHMatchData[ph_speccase_ix]) {
-                            var re = /forceBrand<>([^,<]+)/i;
-                            var match = re.exec(PNHMatchData[ph_speccase_ix]);
-                            if (match) {
-                                brand = match[1];
-                            }
-                        }
-                        //Check to make sure brand exists somewhere in the place name.  Remove non-alphanumeric characters first, for more relaxed matching.
-                        if (brand && item.attributes.name.toUpperCase().replace(/[^a-zA-Z0-9]/g,'').indexOf(brand.toUpperCase().replace(/[^a-zA-Z0-9]/g,'')) === -1) {
-                            bannButt.gasMismatch.active = true;
-                            if (currentWL.gasMismatch) {
-                                bannButt.gasMismatch.WLactive = false;
-                            } else {
-                                lockOK = false;
-                            }
-                        }
-                    }
-                    // Add convenience store category to station
-                    if (newCategories.indexOf("CONVENIENCE_STORE") === -1 && !bannButt.subFuel.active) {
-                        if ( hpMode.harmFlag && $("#WMEPH-ConvenienceStoreToGasStations" + devVersStr).prop('checked') ) {  // Automatic if user has the setting checked
-                            newCategories = insertAtIX(newCategories, "CONVENIENCE_STORE", 1);  // insert the C.S. category
-                            actions.push(new UpdateObject(item, { categories: newCategories }));
-                            _updatedFields.categories.updated = true;
-                            phlogdev('Conv. store category added');
-                        } else {  // If not checked, then it will be a banner button
-                            bannButt.addConvStore.active = true;
-                        }
-                    }
-                }  // END Gas Station Checks
-
 
                 // TODO - FIX APPROVAL SUBMISSION STUFF
                 // Make PNH submission links
@@ -4045,6 +4030,32 @@
                 }  // END Post Office category check
 
             }  // END if (!residential && has name)
+
+            //For gas stations, check to make sure brand exists somewhere in the place name.  Remove non-alphanumeric characters first, for more relaxed matching.
+            if (newCategories[0] === 'GAS_STATION' && item.attributes.brand) {
+                var brand = item.attributes.brand;  // If brand is going to be forced, use that.  Otherwise, use existing brand.
+                if (PNHMatchData && PNHMatchData[ph_speccase_ix]) {
+                    var re = /forceBrand<>([^,<]+)/i;
+                    var match = re.exec(PNHMatchData[ph_speccase_ix]);
+                    if (match) {
+                        brand = match[1];
+                    }
+                }
+                var compressedName = item.attributes.name.toUpperCase().replace(/[^a-zA-Z0-9]/g,'');
+                var compressedNewName = newName.toUpperCase().replace(/[^a-zA-Z0-9]/g,'');
+                // Some brands may have more than one acceptable name, or the brand listed in WME doesn't match what we want to see in the name.
+                // Ideally, this would be addressed in the PNH spreadsheet somehow, but for now hardcoding is the only option.
+                var compressedBrands = [brand.toUpperCase().replace(/[^a-zA-Z0-9]/g,'')];
+                if (brand === 'Diamond Gasoline') compressedBrands.push('DIAMONDOIL');
+                if (compressedBrands.every(function(compressedBrand) { return compressedName.indexOf(compressedBrand) === -1 && compressedNewName.indexOf(compressedBrand) === -1; })) {
+                    bannButt.gasMismatch.active = true;
+                    if (currentWL.gasMismatch) {
+                        bannButt.gasMismatch.WLactive = false;
+                    } else {
+                        lockOK = false;
+                    }
+                }
+            }
 
             // Name check
             if ( !item.attributes.residential && ( !newName || newName.replace(/[^A-Za-z0-9]/g,'').length === 0 )) {
@@ -4685,81 +4696,81 @@
         // **** vvv Function definitions vvv ****
 
         // highlight changed fields
-//        function highlightChangedFields(fieldUpdateObject,hpMode) {
-//            if (hpMode.harmFlag) {
-//                //var panelFields = {};
-//                getPanelFields();
-//                var tab1HL = false;
-//                var tab2HL = false;
-//                //phlogdev(fieldUpdateObject);
-//                if (fieldUpdateObject.name) {
-//                    _updatedFields.name.updated = true;
-//                }
-//                if (fieldUpdateObject.aliases) {
-//                    _updatedFields.aliasName.updated = true;
-//                }
-//                if (fieldUpdateObject.categories) {
-//                    _updatedFields.categories.updated  = true;
-//                }
-//                if (fieldUpdateObject.brand) {
-//                    _updatedFields.brand.updated  = true;
-//                }
-//                if (fieldUpdateObject.description) {
-//                    _updatedFields.description.updated  = true;
-//                }
-//                if (fieldUpdateObject.lockRank) {
-//                    _updatedFields.lock.updated = true;
-//                }
-//                if (fieldUpdateObject.address) {
-//                    _updatedFields.address.updated = true;
-//                }
-//                if (fieldUpdateObject.url) {
-//                    _updatedFields.url.updated = true;
-//                }
-//                if (fieldUpdateObject.phone) {
-//                    _updatedFields.phone.updated = true;
-//                }
-//                if (fieldUpdateObject.openingHours) {
-//                    _updatedFields.openingHours.updated = true;
-//                }
-//                if (fieldUpdateObject.services.VALLET_SERVICE) {
-//                    _updatedFields.services_valet.updated = true;
-//                }
-//                if (fieldUpdateObject.services.DRIVETHROUGH) {
-//                    _updatedFields.services_driveThrough.updated = true;
-//                }
-//                if (fieldUpdateObject.services.WI_FI) {
-//                    _updatedFields.services_wifi.updated = true;
-//                }
-//                if (fieldUpdateObject.services.RESTROOMS) {
-//                    _updatedFields.services_restrooms.updated = true;
-//                }
-//                if (fieldUpdateObject.services.CREDIT_CARDS) {
-//                    _updatedFields.services_creditCards.updated = true;
-//                }
-//                if (fieldUpdateObject.services.RESERVATIONS) {
-//                    _updatedFields.services_reservations.updated = true;
-//                }
-//                if (fieldUpdateObject.services.OUTSIDE_SEATING) {
-//                    _updatedFields.services_outsideSeating.updated = true;
-//                }
-//                if (fieldUpdateObject.services.AIR_CONDITIONING) {
-//                    _updatedFields.services_AC.updated = true;
-//                }
-//                if (fieldUpdateObject.services.PARKING_FOR_CUSTOMERS) {
-//                    _updatedFields.services_parking.updated = true;
-//                }
-//                if (fieldUpdateObject.services.DELIVERIES) {
-//                    _updatedFields.services_deliveries.updated = true;
-//                }
-//                if (fieldUpdateObject.services.TAKE_AWAY) {
-//                    _updatedFields.services_takeAway.updated = true;
-//                }
-//                if (fieldUpdateObject.services.WHEELCHAIR_ACCESSIBLE) {
-//                    _updatedFields.services_wheelchairAccessible.updated = true;
-//                }
-//            }
-//        }
+        //        function highlightChangedFields(fieldUpdateObject,hpMode) {
+        //            if (hpMode.harmFlag) {
+        //                //var panelFields = {};
+        //                getPanelFields();
+        //                var tab1HL = false;
+        //                var tab2HL = false;
+        //                //phlogdev(fieldUpdateObject);
+        //                if (fieldUpdateObject.name) {
+        //                    _updatedFields.name.updated = true;
+        //                }
+        //                if (fieldUpdateObject.aliases) {
+        //                    _updatedFields.aliasName.updated = true;
+        //                }
+        //                if (fieldUpdateObject.categories) {
+        //                    _updatedFields.categories.updated  = true;
+        //                }
+        //                if (fieldUpdateObject.brand) {
+        //                    _updatedFields.brand.updated  = true;
+        //                }
+        //                if (fieldUpdateObject.description) {
+        //                    _updatedFields.description.updated  = true;
+        //                }
+        //                if (fieldUpdateObject.lockRank) {
+        //                    _updatedFields.lock.updated = true;
+        //                }
+        //                if (fieldUpdateObject.address) {
+        //                    _updatedFields.address.updated = true;
+        //                }
+        //                if (fieldUpdateObject.url) {
+        //                    _updatedFields.url.updated = true;
+        //                }
+        //                if (fieldUpdateObject.phone) {
+        //                    _updatedFields.phone.updated = true;
+        //                }
+        //                if (fieldUpdateObject.openingHours) {
+        //                    _updatedFields.openingHours.updated = true;
+        //                }
+        //                if (fieldUpdateObject.services.VALLET_SERVICE) {
+        //                    _updatedFields.services_valet.updated = true;
+        //                }
+        //                if (fieldUpdateObject.services.DRIVETHROUGH) {
+        //                    _updatedFields.services_driveThrough.updated = true;
+        //                }
+        //                if (fieldUpdateObject.services.WI_FI) {
+        //                    _updatedFields.services_wifi.updated = true;
+        //                }
+        //                if (fieldUpdateObject.services.RESTROOMS) {
+        //                    _updatedFields.services_restrooms.updated = true;
+        //                }
+        //                if (fieldUpdateObject.services.CREDIT_CARDS) {
+        //                    _updatedFields.services_creditCards.updated = true;
+        //                }
+        //                if (fieldUpdateObject.services.RESERVATIONS) {
+        //                    _updatedFields.services_reservations.updated = true;
+        //                }
+        //                if (fieldUpdateObject.services.OUTSIDE_SEATING) {
+        //                    _updatedFields.services_outsideSeating.updated = true;
+        //                }
+        //                if (fieldUpdateObject.services.AIR_CONDITIONING) {
+        //                    _updatedFields.services_AC.updated = true;
+        //                }
+        //                if (fieldUpdateObject.services.PARKING_FOR_CUSTOMERS) {
+        //                    _updatedFields.services_parking.updated = true;
+        //                }
+        //                if (fieldUpdateObject.services.DELIVERIES) {
+        //                    _updatedFields.services_deliveries.updated = true;
+        //                }
+        //                if (fieldUpdateObject.services.TAKE_AWAY) {
+        //                    _updatedFields.services_takeAway.updated = true;
+        //                }
+        //                if (fieldUpdateObject.services.WHEELCHAIR_ACCESSIBLE) {
+        //                    _updatedFields.services_wheelchairAccessible.updated = true;
+        //                }
+        //            }
+        //        }
 
         // Set up banner messages
         function assembleBanner() {
