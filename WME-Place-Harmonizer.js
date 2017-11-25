@@ -434,6 +434,7 @@
     function runPH() {
         // Script update info
         var WMEPHWhatsNewList = [  // New in this version
+            '1.3.52: FIXED - New gas station matching method does not work as intended.  Reverting to old method for now.',
             '1.3.51: NEW - En dash is treated as a valid name suffix separator (like a hyphen).',
             '1.3.51: NEW - Ability to check for alternate versions of brand name in place name.',
             '1.3.51: FIXED - Gas station brand not being copied to empty name field if no PNH match.',
