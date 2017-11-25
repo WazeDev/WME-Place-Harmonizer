@@ -13,7 +13,7 @@
 // ==UserScript==
 // @name        WME Place Harmonizer
 // @namespace   WazeUSA
-// @version     1.3.43
+// @version     1.3.52
 // @description Harmonizes, formats, and locks a selected place
 // @author      WMEPH Development Group
 // @include     /^https:\/\/(www|beta)\.waze\.com\/(?!user\/)(.{2,6}\/)?editor\/?.*$/
@@ -72,7 +72,7 @@
     var bannButt, bannButt2, bannServ, bannDupl, bannButtHL;  // Banner Buttons objects
     var RPPLockString = 'Lock?';
     var panelFields = {};  // the fields for the sidebar
-    var newNameSuffix;
+
     var _updatedFields = {
         name: { updated: false, selector: '.landmark .form-control[name="name"]', tab: 'general' },
         aliases: {updated: false, selector: '.landmark .form-control.alias-name', tab: 'general' },
@@ -434,6 +434,18 @@
     function runPH() {
         // Script update info
         var WMEPHWhatsNewList = [  // New in this version
+            '1.3.51: NEW - En dash is treated as a valid name suffix separator (like a hyphen).',
+            '1.3.51: NEW - Ability to check for alternate versions of brand name in place name.',
+            '1.3.51: FIXED - Gas station brand not being copied to empty name field if no PNH match.',
+            '1.3.50: NEW - Added buttons to "confirm public PLA" message, to allow quick change to restricted or private.',
+            '1.3.49: NEW - Public lots are filled blue, to stand out more from restricted lots.',
+            '1.3.48: FIXED - Name suffixes inside parens repeated with each run of WMEPH in some scenarios.',
+            '1.3.47: NEW - Added message to suggest reviewing wiki when setting parking lot type to Public.',
+            '1.3.47: FIXED - Residential places should not show "Add services" buttons.',
+            '1.3.46: FIXED - Gas Stations don\'t match if PNH name is in parens or after a hyphen',
+            '1.3.45: FIXED - Copying services to/from PLA to/from non-PLA should not be allowed.',
+            '1.3.44: FIXED - Gas Stations should match PNH if PNH name is anywhere in place name.',
+            '1.3.42: Accidental push of beta code to production.  Reverted in .43.',
             '1.3.41: NEW - Missing PLA HN\'s are flagged blue, and can be cleared by locking to L3+',
             '1.3.40: FIXED - Names with a forward slash were causing issues in some cases.',
             '1.3.39: FIXED - WMEPH crashes when inferring addresses on point places in some scenarios.',
@@ -468,35 +480,7 @@
             '1.3.22: FIXED - Scroll bar would cover text if only one long line of text in hours entry box.',
             '1.3.21: FIXED - Auto-expand hours entry text box when multiple lines are pasted (production version).',
             '1.3.20: NEW - "Add point" button when PLA entry/exit point hasn\'t been created.',
-            '1.3.20: FIXED - Minor improvements to hours parsing.',
-            '1.3.19: NEW - Hours entry text box enhancements.',
-            '1.3.18: NEW - Updates to Canada place submission forms.',
-            '1.3.17: FIXED - a couple bugs caused by changes in the last release',
-            '1.3.16: FIXED - Matching PNH and duplicate places when name contains hyphen or paren suffix.',
-            '1.3.15: FIXED - Localized hotel name highlight/flag colors.',
-            '1.3.14: FIXED - R2 editors can use Google link options and highlights.',
-            '1.3.13: FIXED - Highlights for places a user cannot edit external links',
-            '1.3.13: NEW - All hotels will get 24/7 hours, and PNH matches get WiFi service',
-            '1.3.12: FIXED - Will not run on URLs without a trailing forward slash.',
-            '1.3.10: FIXED - Rest area flag issues.',
-            '1.3.8: Bug fix',
-            '1.3.7: Adjusted position of PUR Web Search button.',
-            '1.3.6: NEW - Added option to hide PUR "Web Search" button.',
-            '1.3.6: FIXED - Moved PUR web search button to prevent conflict with URO+',
-            '1.3.5: NEW - Added handicapped parking question for PLAs.',
-            '1.3.5: FIXED - PUR web search button should not appear on UR popups.',
-            '1.3.4: FIXED - PUR web search should remove No Street and No Address',
-            '1.3.3: FIXED - Web Search button doesn\'t always appear on PURs.',
-            '1.3.2: NEW - Added Web Search button to PUR popups.',
-            '1.3.1: Temporarily removed "Updating Google place link will automatically re-run WMEPH".',
-            '1.3.0: Production release.',
-            '1.2.48: NEW - Added a flag for missing payment type when PLA cost is not free or unknown',
-            '1.2.47: NEW - Added a flag for "Can cars exit parking lot when closed?"',
-            '1.2.46: NEW - Added a flag for PLA stop points that have never been moved.',
-            '1.2.45: NEW - Added a button to open the Google link search box and pre-fill it with the place name.',
-            '1.2.45: NEW - Updating Google place link will automatically re-run WMEPH.',
-            '1.2.44: NEW - Added several flags for parking lots.',
-            '1.2.43: FIXED - WMEPH should run on places with detail updates, but not new place PURs.'
+            '1.3.20: FIXED - Minor improvements to hours parsing.'
         ];
         var WMEPHWhatsNewMetaList = [  // New in this major version
             'New flags and helpers for parking lots!',
@@ -791,8 +775,8 @@
             }
 
             var publicPLA = plaTypeRuleGenerator('public', {
-                fillColor: '#00FF00',
-                fillOpacity: '0.3'
+                fillColor: '#0000FF',
+                fillOpacity: '0.25'
             });
             var restrictedPLA = plaTypeRuleGenerator('restricted', {
                 fillColor: '#FFFF00',
@@ -800,7 +784,7 @@
             });
             var privatePLA = plaTypeRuleGenerator('private', {
                 fillColor: '#FF0000',
-                fillOpacity: '0.3'
+                fillOpacity: '0.25'
             });
 
             Array.prototype.push.apply(layer.styleMap.styles['default'].rules, [severity0, severityLock, severity1, severityLock1, severity2, severity3, severity4, severityHigh, severityAdLock,publicPLA, restrictedPLA, privatePLA]);
@@ -1266,6 +1250,11 @@
                     active: false, severity: 3, message: 'Name is missing.'
                 },
 
+                plaIsPublic: { // no WL
+                    active: false, severity: 0, message: 'If this does not meet the requirements for a <a href="https://wazeopedia.waze.com/wiki/USA/Places/Parking_lot#Lot_Type" target="_blank" style="color:white">public parking lot</a>, change to:<br>'
+                    //The buttons are appended in the code...
+                },
+
                 plaNameMissing: {
                     active: false, severity: 1, message: 'Name is missing.'
                     // WLactive: false, WLmessage: '', WLtitle: 'Whitelist missing name',
@@ -1354,7 +1343,7 @@
                 },
 
                 gasMismatch: {  // if the gas brand and name don't match
-                    active: false, severity: 3, message: "Gas brand should typically be included in the place name.",
+                    active: false, severity: 3, message: '<a href="https://wazeopedia.waze.com/wiki/USA/Places/Gas_station#Name" target="_blank" style="color: white;">Gas brand should typically be included in the place name.</a>',
                     WLactive: true, WLmessage: '', WLtitle: 'Whitelist gas brand / name mismatch',
                     WLaction: function() {
                         wlKeyName = 'gasMismatch';
@@ -2676,9 +2665,9 @@
             var lockOK = true;  // if nothing goes wrong, then place will be locked
             var categories = item.attributes.categories;
             newCategories = categories.slice(0);
-            newNameSplits = item.attributes.name.match(/(.*?)(\s+[-\(].*)*$/);
+            var newNameSplits = item.attributes.name.match(/(.*?)(\s+[-\(].*)*$/);
+            var newNameSuffix;
             newNameSuffix = newNameSplits[2];
-            // newNameSuffix = toTitleCase(newNameSuffix, true);
             newName = newNameSplits[1];
             newName = toTitleCase(newName);
             // var nameShort = newName.replace(/[^A-Za-z]/g, '');  // strip non-letters for PNH name searching
@@ -2806,7 +2795,7 @@
                     ].forEach(function(btnInfo) {
                         if (btnIdx === 3) $btnDiv.append('<br>');
                         bannButt.plaLotTypeMissing.message +=
-                            $('<button>', {id: 'wmeph_' + btnInfo[0], class: 'wmeph-pla-lot-type-btn btn btn-default btn-xs'})
+                            $('<button>', {class: 'wmeph-pla-lot-type-btn btn btn-default btn-xs', 'data-lot-type':btnInfo[0]})
                             .text(btnInfo[1])
                             .css({padding:'3px', height:'20px', lineHeight:'0px', marginRight:'2px',
                                   marginBottom:'1px'})
@@ -2976,15 +2965,40 @@
                 return 3;
             }
 
-            // If no gas station name, replace with brand name
-            if (hpMode.harmFlag && item.isGasStation() && (!newName || newName.trim().length === 0) && item.attributes.brand) {
-                newName = item.attributes.brand;
-                actions.push(new UpdateObject(item, {name: newName }));
-                _updatedFields.name.updated = true;
-            }
+            // Gas station treatment (applies to all including PNH)
+            if (newCategories[0] === 'GAS_STATION') {
+                // Brand checking
 
+                // If no gas station name, replace with brand name
+                if (hpMode.harmFlag && item.isGasStation() && (!newName || newName.trim().length === 0) && item.attributes.brand) {
+                    newName = item.attributes.brand;
+                    actions.push(new UpdateObject(item, {name: newName }));
+                    _updatedFields.name.updated = true;
+                }
+                if ( !item.attributes.brand || item.attributes.brand === null || item.attributes.brand === "" ) {
+                    bannButt.gasNoBrand.active = true;
+                    if (currentWL.gasNoBrand) {
+                        bannButt.gasNoBrand.WLactive = false;
+                    }
+                } else if (item.attributes.brand === 'Unbranded' ) {  //  Unbranded is not used per wiki
+                    bannButt.gasUnbranded.active = true;
+                    lockOK = false;
+                }
+                // Add convenience store category to station
+                if (newCategories.indexOf("CONVENIENCE_STORE") === -1 && !bannButt.subFuel.active) {
+                    if ( hpMode.harmFlag && $("#WMEPH-ConvenienceStoreToGasStations" + devVersStr).prop('checked') ) {  // Automatic if user has the setting checked
+                        newCategories = insertAtIX(newCategories, "CONVENIENCE_STORE", 1);  // insert the C.S. category
+                        actions.push(new UpdateObject(item, { categories: newCategories }));
+                        _updatedFields.categories.updated = true;
+                        phlogdev('Conv. store category added');
+                    } else {  // If not checked, then it will be a banner button
+                        bannButt.addConvStore.active = true;
+                    }
+                }
+            }  // END Gas Station Checks
+            
             var isLocked = item.attributes.lockRank >= (PNHLockLevel > -1 ? PNHLockLevel : defaultLockLevel);
-
+            
             // Clear attributes from residential places
             if (item.attributes.residential) {
                 if (hpMode.harmFlag) {
@@ -3587,49 +3601,6 @@
                     _updatedFields.aliases.updated = true;
                 }
 
-                // Gas station treatment (applies to all including PNH)
-                if (newCategories[0] === 'GAS_STATION') {
-                    // Brand checking
-                    if ( !item.attributes.brand || item.attributes.brand === null || item.attributes.brand === "" ) {
-                        bannButt.gasNoBrand.active = true;
-                        if (currentWL.gasNoBrand) {
-                            bannButt.gasNoBrand.WLactive = false;
-                        }
-                    } else if (item.attributes.brand === 'Unbranded' ) {  //  Unbranded is not used per wiki
-                        bannButt.gasUnbranded.active = true;
-                        lockOK = false;
-                    } else {
-                        var brand = item.attributes.brand;  // If brand is going to be forced, use that.  Otherwise, use existing brand.
-                        if (PNHMatchData[ph_speccase_ix]) {
-                            var re = /forceBrand<>([^,<]+)/i;
-                            var match = re.exec(PNHMatchData[ph_speccase_ix]);
-                            if (match) {
-                                brand = match[1];
-                            }
-                        }
-                        //Check to make sure brand exists somewhere in the place name.  Remove non-alphanumeric characters first, for more relaxed matching.
-                        if (brand && item.attributes.name.toUpperCase().replace(/[^a-zA-Z0-9]/g,'').indexOf(brand.toUpperCase().replace(/[^a-zA-Z0-9]/g,'')) === -1) {
-                            bannButt.gasMismatch.active = true;
-                            if (currentWL.gasMismatch) {
-                                bannButt.gasMismatch.WLactive = false;
-                            } else {
-                                lockOK = false;
-                            }
-                        }
-                    }
-                    // Add convenience store category to station
-                    if (newCategories.indexOf("CONVENIENCE_STORE") === -1 && !bannButt.subFuel.active) {
-                        if ( hpMode.harmFlag && $("#WMEPH-ConvenienceStoreToGasStations" + devVersStr).prop('checked') ) {  // Automatic if user has the setting checked
-                            newCategories = insertAtIX(newCategories, "CONVENIENCE_STORE", 1);  // insert the C.S. category
-                            actions.push(new UpdateObject(item, { categories: newCategories }));
-                            _updatedFields.categories.updated = true;
-                            phlogdev('Conv. store category added');
-                        } else {  // If not checked, then it will be a banner button
-                            bannButt.addConvStore.active = true;
-                        }
-                    }
-                }  // END Gas Station Checks
-
 
                 // TODO - FIX APPROVAL SUBMISSION STUFF
                 // Make PNH submission links
@@ -4056,6 +4027,32 @@
 
             }  // END if (!residential && has name)
 
+            //For gas stations, check to make sure brand exists somewhere in the place name.  Remove non-alphanumeric characters first, for more relaxed matching.
+            if (newCategories[0] === 'GAS_STATION' && item.attributes.brand) {
+                var brand = item.attributes.brand;  // If brand is going to be forced, use that.  Otherwise, use existing brand.
+                if (PNHMatchData && PNHMatchData[ph_speccase_ix]) {
+                    var re = /forceBrand<>([^,<]+)/i;
+                    var match = re.exec(PNHMatchData[ph_speccase_ix]);
+                    if (match) {
+                        brand = match[1];
+                    }
+                }
+                var compressedName = item.attributes.name.toUpperCase().replace(/[^a-zA-Z0-9]/g,'');
+                var compressedNewName = newName.toUpperCase().replace(/[^a-zA-Z0-9]/g,'');
+                // Some brands may have more than one acceptable name, or the brand listed in WME doesn't match what we want to see in the name.
+                // Ideally, this would be addressed in the PNH spreadsheet somehow, but for now hardcoding is the only option.
+                var compressedBrands = [brand.toUpperCase().replace(/[^a-zA-Z0-9]/g,'')];
+                if (brand === 'Diamond Gasoline') compressedBrands.push('DIAMONDOIL');
+                if (compressedBrands.every(function(compressedBrand) { return compressedName.indexOf(compressedBrand) === -1 && compressedNewName.indexOf(compressedBrand) === -1; })) {
+                    bannButt.gasMismatch.active = true;
+                    if (currentWL.gasMismatch) {
+                        bannButt.gasMismatch.WLactive = false;
+                    } else {
+                        lockOK = false;
+                    }
+                }
+            }
+
             // Name check
             if ( !item.attributes.residential && ( !newName || newName.replace(/[^A-Za-z0-9]/g,'').length === 0 )) {
                 if (item.isParkingLot()) {
@@ -4081,6 +4078,24 @@
                     bannButt.nameMissing.active = true;
                     lockOK = false;
                 }
+            }
+
+            // Public parking lot warning message:
+            if (item.isParkingLot() && item.attributes.categoryAttributes && item.attributes.categoryAttributes.PARKING_LOT && item.attributes.categoryAttributes.PARKING_LOT.parkingType === 'PUBLIC') {
+                bannButt.plaIsPublic.active = true;
+                // Add the buttons to the message.
+                [
+                    ['RESTRICTED','Restricted'],
+                    ['PRIVATE','Private']
+                ].forEach(function(btnInfo) {
+                    if (btnIdx === 3) $btnDiv.append('<br>');
+                    bannButt.plaIsPublic.message +=
+                        $('<button>', {class: 'wmeph-pla-lot-type-btn btn btn-default btn-xs', 'data-lot-type':btnInfo[0]})
+                        .text(btnInfo[1])
+                        .css({padding:'3px', height:'20px', lineHeight:'0px', marginRight:'2px',
+                              marginBottom:'1px'})
+                        .prop('outerHTML');
+                });
             }
 
             // House number / HN check
@@ -4677,81 +4692,81 @@
         // **** vvv Function definitions vvv ****
 
         // highlight changed fields
-//        function highlightChangedFields(fieldUpdateObject,hpMode) {
-//            if (hpMode.harmFlag) {
-//                //var panelFields = {};
-//                getPanelFields();
-//                var tab1HL = false;
-//                var tab2HL = false;
-//                //phlogdev(fieldUpdateObject);
-//                if (fieldUpdateObject.name) {
-//                    _updatedFields.name.updated = true;
-//                }
-//                if (fieldUpdateObject.aliases) {
-//                    _updatedFields.aliasName.updated = true;
-//                }
-//                if (fieldUpdateObject.categories) {
-//                    _updatedFields.categories.updated  = true;
-//                }
-//                if (fieldUpdateObject.brand) {
-//                    _updatedFields.brand.updated  = true;
-//                }
-//                if (fieldUpdateObject.description) {
-//                    _updatedFields.description.updated  = true;
-//                }
-//                if (fieldUpdateObject.lockRank) {
-//                    _updatedFields.lock.updated = true;
-//                }
-//                if (fieldUpdateObject.address) {
-//                    _updatedFields.address.updated = true;
-//                }
-//                if (fieldUpdateObject.url) {
-//                    _updatedFields.url.updated = true;
-//                }
-//                if (fieldUpdateObject.phone) {
-//                    _updatedFields.phone.updated = true;
-//                }
-//                if (fieldUpdateObject.openingHours) {
-//                    _updatedFields.openingHours.updated = true;
-//                }
-//                if (fieldUpdateObject.services.VALLET_SERVICE) {
-//                    _updatedFields.services_valet.updated = true;
-//                }
-//                if (fieldUpdateObject.services.DRIVETHROUGH) {
-//                    _updatedFields.services_driveThrough.updated = true;
-//                }
-//                if (fieldUpdateObject.services.WI_FI) {
-//                    _updatedFields.services_wifi.updated = true;
-//                }
-//                if (fieldUpdateObject.services.RESTROOMS) {
-//                    _updatedFields.services_restrooms.updated = true;
-//                }
-//                if (fieldUpdateObject.services.CREDIT_CARDS) {
-//                    _updatedFields.services_creditCards.updated = true;
-//                }
-//                if (fieldUpdateObject.services.RESERVATIONS) {
-//                    _updatedFields.services_reservations.updated = true;
-//                }
-//                if (fieldUpdateObject.services.OUTSIDE_SEATING) {
-//                    _updatedFields.services_outsideSeating.updated = true;
-//                }
-//                if (fieldUpdateObject.services.AIR_CONDITIONING) {
-//                    _updatedFields.services_AC.updated = true;
-//                }
-//                if (fieldUpdateObject.services.PARKING_FOR_CUSTOMERS) {
-//                    _updatedFields.services_parking.updated = true;
-//                }
-//                if (fieldUpdateObject.services.DELIVERIES) {
-//                    _updatedFields.services_deliveries.updated = true;
-//                }
-//                if (fieldUpdateObject.services.TAKE_AWAY) {
-//                    _updatedFields.services_takeAway.updated = true;
-//                }
-//                if (fieldUpdateObject.services.WHEELCHAIR_ACCESSIBLE) {
-//                    _updatedFields.services_wheelchairAccessible.updated = true;
-//                }
-//            }
-//        }
+        //        function highlightChangedFields(fieldUpdateObject,hpMode) {
+        //            if (hpMode.harmFlag) {
+        //                //var panelFields = {};
+        //                getPanelFields();
+        //                var tab1HL = false;
+        //                var tab2HL = false;
+        //                //phlogdev(fieldUpdateObject);
+        //                if (fieldUpdateObject.name) {
+        //                    _updatedFields.name.updated = true;
+        //                }
+        //                if (fieldUpdateObject.aliases) {
+        //                    _updatedFields.aliasName.updated = true;
+        //                }
+        //                if (fieldUpdateObject.categories) {
+        //                    _updatedFields.categories.updated  = true;
+        //                }
+        //                if (fieldUpdateObject.brand) {
+        //                    _updatedFields.brand.updated  = true;
+        //                }
+        //                if (fieldUpdateObject.description) {
+        //                    _updatedFields.description.updated  = true;
+        //                }
+        //                if (fieldUpdateObject.lockRank) {
+        //                    _updatedFields.lock.updated = true;
+        //                }
+        //                if (fieldUpdateObject.address) {
+        //                    _updatedFields.address.updated = true;
+        //                }
+        //                if (fieldUpdateObject.url) {
+        //                    _updatedFields.url.updated = true;
+        //                }
+        //                if (fieldUpdateObject.phone) {
+        //                    _updatedFields.phone.updated = true;
+        //                }
+        //                if (fieldUpdateObject.openingHours) {
+        //                    _updatedFields.openingHours.updated = true;
+        //                }
+        //                if (fieldUpdateObject.services.VALLET_SERVICE) {
+        //                    _updatedFields.services_valet.updated = true;
+        //                }
+        //                if (fieldUpdateObject.services.DRIVETHROUGH) {
+        //                    _updatedFields.services_driveThrough.updated = true;
+        //                }
+        //                if (fieldUpdateObject.services.WI_FI) {
+        //                    _updatedFields.services_wifi.updated = true;
+        //                }
+        //                if (fieldUpdateObject.services.RESTROOMS) {
+        //                    _updatedFields.services_restrooms.updated = true;
+        //                }
+        //                if (fieldUpdateObject.services.CREDIT_CARDS) {
+        //                    _updatedFields.services_creditCards.updated = true;
+        //                }
+        //                if (fieldUpdateObject.services.RESERVATIONS) {
+        //                    _updatedFields.services_reservations.updated = true;
+        //                }
+        //                if (fieldUpdateObject.services.OUTSIDE_SEATING) {
+        //                    _updatedFields.services_outsideSeating.updated = true;
+        //                }
+        //                if (fieldUpdateObject.services.AIR_CONDITIONING) {
+        //                    _updatedFields.services_AC.updated = true;
+        //                }
+        //                if (fieldUpdateObject.services.PARKING_FOR_CUSTOMERS) {
+        //                    _updatedFields.services_parking.updated = true;
+        //                }
+        //                if (fieldUpdateObject.services.DELIVERIES) {
+        //                    _updatedFields.services_deliveries.updated = true;
+        //                }
+        //                if (fieldUpdateObject.services.TAKE_AWAY) {
+        //                    _updatedFields.services_takeAway.updated = true;
+        //                }
+        //                if (fieldUpdateObject.services.WHEELCHAIR_ACCESSIBLE) {
+        //                    _updatedFields.services_wheelchairAccessible.updated = true;
+        //                }
+        //            }
+        //        }
 
         // Set up banner messages
         function assembleBanner() {
@@ -4828,24 +4843,26 @@
             }
 
             // setup Add Service Buttons for suggested services
-            var sidebarServButts = '', servButtHeight = '27', greyOption;
-            for ( tempKey in bannServ ) {
-                if ( bannServ.hasOwnProperty(tempKey) && bannServ[tempKey].hasOwnProperty('active') && bannServ[tempKey].active ) {  //  If the particular service is active
-                    if ( bannServ[tempKey].checked ) {
-                        greyOption = '';
-                    } else {
-                        greyOption = '-webkit-filter: opacity(.25);filter: opacity(.25);';
-                        //greyOption = '-webkit-filter: brightness(3); filter: brightness(3);';
+            if (!item.isResidential()) {
+                var sidebarServButts = '', servButtHeight = '27', greyOption;
+                for ( tempKey in bannServ ) {
+                    if ( bannServ.hasOwnProperty(tempKey) && bannServ[tempKey].hasOwnProperty('active') && bannServ[tempKey].active ) {  //  If the particular service is active
+                        if ( bannServ[tempKey].checked ) {
+                            greyOption = '';
+                        } else {
+                            greyOption = '-webkit-filter: opacity(.25);filter: opacity(.25);';
+                            //greyOption = '-webkit-filter: brightness(3); filter: brightness(3);';
+                        }
+                        //strButt1 = '&nbsp<input class="servButton" id="WMEPH_' + tempKey + '" title="' + bannServ[tempKey].title + '" type="image" style="height:' + servButtHeight +
+                        //    'px;background:none;border-color: none;border-style: none;" src="https://openmerchantaccount.com/img2/' + bannServ[tempKey].icon + greyOption + '.png">';
+                        strButt1 = '&nbsp<input class="'+bannServ[tempKey].icon+'" id="WMEPH_' + tempKey + '" type="button" title="' + bannServ[tempKey].title +
+                            '" style="border:0;background-size: contain; height:' + servButtHeight + 'px;width: '+Math.ceil(servButtHeight*bannServ[tempKey].w2hratio).toString()+'px;'+greyOption+'">';
+                        sidebarServButts += strButt1;
                     }
-                    //strButt1 = '&nbsp<input class="servButton" id="WMEPH_' + tempKey + '" title="' + bannServ[tempKey].title + '" type="image" style="height:' + servButtHeight +
-                    //    'px;background:none;border-color: none;border-style: none;" src="https://openmerchantaccount.com/img2/' + bannServ[tempKey].icon + greyOption + '.png">';
-                    strButt1 = '&nbsp<input class="'+bannServ[tempKey].icon+'" id="WMEPH_' + tempKey + '" type="button" title="' + bannServ[tempKey].title +
-                        '" style="border:0;background-size: contain; height:' + servButtHeight + 'px;width: '+Math.ceil(servButtHeight*bannServ[tempKey].w2hratio).toString()+'px;'+greyOption+'">';
-                    sidebarServButts += strButt1;
                 }
-            }
-            if (sidebarServButts.length>0) {
-                sidebarTools.push('<span class="control-label">Add services:</span><br>' + sidebarServButts);
+                if (sidebarServButts.length>0) {
+                    sidebarTools.push('<span class="control-label">Add services:</span><br>' + sidebarServButts);
+                }
             }
 
             //  Build general banners (below the Services)
@@ -4871,7 +4888,9 @@
             // Setup bannButt onclicks
             setupButtons(bannButt);
             // Setup bannServ onclicks
-            setupButtons(bannServ);
+            if (!item.isResidential()) {
+                setupButtons(bannServ);
+            }
             // Setup bannButt2 onclicks
             setupButtons(bannButt2);
 
@@ -4892,7 +4911,7 @@
                 harmonizePlaceGo(item, 'harmonize');
             });
             $('.wmeph-pla-lot-type-btn').click(function() {
-                var selectedValue = $(this).attr('id').replace('wmeph_','');
+                var selectedValue = $(this).data('lot-type');
                 var existingAttr = item.attributes.categoryAttributes.PARKING_LOT;
                 var newAttr = {};
                 if (existingAttr) {
@@ -5229,6 +5248,7 @@
                             cloneMaster.description = item.attributes.description;
                             cloneMaster.services = item.attributes.services;
                             cloneMaster.openingHours = item.attributes.openingHours;
+                            cloneMaster.isPLA = item.isParkingLot();
                             phlogdev('Place Cloned');
                         };
                     } else {
@@ -5398,7 +5418,7 @@
                     cloneItems.description = cloneMaster.description;
                     updateItem = true;
                 }
-                if ( $("#WMEPH_CPserv").prop('checked') ) {
+                if ( $("#WMEPH_CPserv").prop('checked') && item.isParkingLot() === cloneMaster.isPLA) {
                     cloneItems.services = cloneMaster.services;
                     updateItem = true;
                 }
@@ -5477,9 +5497,12 @@
                 phlogdev('No hours');
                 return false;
             }
-            var today = Date.today();
+
+            var today = new Date();
+            var tomorrow = new Date();
+            tomorrow.setDate(tomorrow.getDate() + 1);
             inputHoursParse = inputHoursParse.replace(/\btoday\b/g, today.toLocaleDateString(I18n.locale, {weekday:'short'}).toLowerCase());
-            inputHoursParse = inputHoursParse.replace(/\btomorrow\b/g, today.addDays(1).toLocaleDateString(I18n.locale, {weekday:'short'}).toLowerCase());
+            inputHoursParse = inputHoursParse.replace(/\btomorrow\b/g, tomorrow.toLocaleDateString(I18n.locale, {weekday:'short'}).toLowerCase());
             inputHoursParse = inputHoursParse.replace(/\u2013|\u2014/g, "-");  // long dash replacing
             inputHoursParse = inputHoursParse.replace(/[^a-z0-9\:\-\. ~]/g, ' ');  // replace unnecessary characters with spaces
             inputHoursParse = inputHoursParse.replace(/\:{2,}/g, ':');  // remove extra colons
@@ -6558,7 +6581,7 @@
             createSettingsCheckbox("sidepanel-highlighter" + devVersStr, "WMEPH-DisableHoursHL" + devVersStr,"Disable highlighting for missing hours");
             createSettingsCheckbox("sidepanel-highlighter" + devVersStr, "WMEPH-DisableRankHL" + devVersStr,"Disable highlighting for places locked above your rank");
             createSettingsCheckbox("sidepanel-highlighter" + devVersStr, "WMEPH-DisableWLHL" + devVersStr,"Disable Whitelist highlighting (shows all missing info regardless of WL)");
-            createSettingsCheckbox("sidepanel-highlighter" + devVersStr, "WMEPH-PLATypeFill" + devVersStr,"Fill parking lots based on type (public=green, restricted=yellow, private=red)");
+            createSettingsCheckbox("sidepanel-highlighter" + devVersStr, "WMEPH-PLATypeFill" + devVersStr,"Fill parking lots based on type (public=blue, restricted=yellow, private=red)");
             if (devUser || betaUser || usrRank >= 3) {
                 //createSettingsCheckbox("sidepanel-highlighter" + devVersStr, "WMEPH-UnlockedRPPs" + devVersStr,"Highlight unlocked residential place points");
             }
