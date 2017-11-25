@@ -13,7 +13,7 @@
 // ==UserScript==
 // @name        WME Place Harmonizer Beta
 // @namespace   WazeUSA
-// @version     1.3.51
+// @version     1.3.52
 // @description Harmonizes, formats, and locks a selected place
 // @author      WMEPH Development Group
 // @include     /^https:\/\/(www|beta)\.waze\.com\/(?!user\/)(.{2,6}\/)?editor\/?.*$/
@@ -2665,14 +2665,10 @@
             var lockOK = true;  // if nothing goes wrong, then place will be locked
             var categories = item.attributes.categories;
             newCategories = categories.slice(0);
-            newName = item.attributes.name;
+            var newNameSplits = item.attributes.name.match(/(.*?)(\s+[-\(].*)*$/);
             var newNameSuffix;
-            if (newCategories.indexOf('GAS_STATION') === -1) {
-                var newNameSplits = newName.match(/(.*?)(\s+[-–\(].*)*$/); // note this now includes en dash as well as hyphen
-                newNameSuffix = newNameSplits[2];
-                // newNameSuffix = toTitleCase(newNameSuffix, true);
-                newName = newNameSplits[1];
-            }
+            newNameSuffix = newNameSplits[2];
+            newName = newNameSplits[1];
             newName = toTitleCase(newName);
             // var nameShort = newName.replace(/[^A-Za-z]/g, '');  // strip non-letters for PNH name searching
             // var nameNumShort = newName.replace(/[^A-Za-z0-9]/g, ''); // strip non-letters/non-numbers for PNH name searching
@@ -3441,7 +3437,7 @@
                             bannButt.gasMkPrim.active = true;
                             lockOK = false;
                         } else {
-                            //newName = PNHMatchData[ph_name_ix];
+                            newName = PNHMatchData[ph_name_ix];
                         }
                     } else if (updatePNHName) {  // if not a special category then update the name
                         newName = PNHMatchData[ph_name_ix];
@@ -7244,7 +7240,7 @@
                         var re = new RegExp(match[1].replace(/\\/,'\\'),'i');
                         PNHStringMatch = re.test(item.attributes.name);
                     }
-                } else if (specCases.indexOf('strMatchAny') > -1 || currMatchData[ph_category1_ix] === 'Hotel' || currMatchData[ph_category1_ix] === 'Gas Station') {  // Match any part of WME name with either the PNH name or any spaced names
+                } else if (specCases.indexOf('strMatchAny') > -1 || currMatchData[ph_category1_ix] === 'Hotel') {  // Match any part of WME name with either the PNH name or any spaced names
                     allowMultiMatch = true;
                     var spaceMatchList = [];
                     spaceMatchList.push( currMatchData[ph_name_ix].toUpperCase().replace(/ AND /g, ' ').replace(/^THE /g, '').replace(/[^A-Z0-9 ]/g, ' ').replace(/ {2,}/g, ' ') );
