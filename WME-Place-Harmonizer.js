@@ -13,7 +13,7 @@
 // ==UserScript==
 // @name        WME Place Harmonizer Beta
 // @namespace   WazeUSA
-// @version     1.3.52
+// @version     1.3.53
 // @description Harmonizes, formats, and locks a selected place
 // @author      WMEPH Development Group
 // @include     /^https:\/\/(www|beta)\.waze\.com\/(?!user\/)(.{2,6}\/)?editor\/?.*$/
@@ -124,51 +124,28 @@
         init: function() {
             var that = this;
             [
-                ['valet', 'VALLET_SERVICE'],
-                ['driveThrough', 'DRIVETHROUGH'],
-                ['wifi', 'WI_FI'],
-                ['restrooms', 'RESTROOMS'],
-                ['creditCards', 'CREDIT_CARDS'],
-                ['reservations', 'RESERVATIONS'],
-                ['outsideSeating', 'OUTSIDE_SEATING'],
-                ['AC', 'AIR_CONDITIONING'],
-                ['parking', 'PARKING_FOR_CUSTOMERS'],
-                ['deliveries', 'DELIVERIES'],
-                ['takeAway', 'TAKE_AWAY'],
-                ['wheelchairAccessible', 'WHEELCHAIR_ACCESSIBLE'],
-                ['disabilityParking', 'DISABILITY_PARKING'],
-                ['carpoolParking', 'CARPOOL_PARKING'],
-                ['EVCharging', 'EV_CHARGING_STATION'],
-                ['carWash', 'CAR_WASH'],
-                ['security', 'SECURITY'],
-                ['airportShuttle', 'AIRPORT_SHUTTLE']
+                'VALLET_SERVICE',
+                'DRIVETHROUGH',
+                'WI_FI',
+                'RESTROOMS',
+                'CREDIT_CARDS',
+                'RESERVATIONS',
+                'OUTSIDE_SEATING',
+                'AIR_CONDITIONING',
+                'PARKING_FOR_CUSTOMERS',
+                'DELIVERIES',
+                'TAKE_AWAY',
+                'WHEELCHAIR_ACCESSIBLE',
+                'DISABILITY_PARKING',
+                'CARPOOL_PARKING',
+                'EV_CHARGING_STATION',
+                'CAR_WASH',
+                'SECURITY',
+                'AIRPORT_SHUTTLE'
             ].forEach(function(service) {
-                var propName = 'services_' + service[0];
-                that[propName] = {updated: false, selector:'.landmark label[for="service-checkbox-' + service[1] + '"]', tab: 'more-info' };
+                var propName = 'services_' + service;
+                that[propName] = {updated: false, selector:'.landmark label[for="service-checkbox-' + service + '"]', tab: 'more-info' };
             });
-            // [
-            //     ['Valet', 'VALLET_SERVICE'],
-            //     ['DriveThrough', 'DRIVETHROUGH'],
-            //     ['Wifi', 'WI_FI'],
-            //     ['Restrooms', 'RESTROOMS'],
-            //     ['CreditCards', 'CREDIT_CARDS'],
-            //     ['Reservations', 'RESERVATIONS'],
-            //     ['OutsideSeating', 'OUTSIDE_SEATING'],
-            //     ['AC', 'AIR_CONDITIONING'],
-            //     ['Parking', 'PARKING_FOR_CUSTOMERS'],
-            //     ['Deliveries', 'DELIVERIES'],
-            //     ['TakeAway', 'TAKE_AWAY'],
-            //     ['WheelchairAccessible', 'WHEELCHAIR_ACCESSIBLE'],
-            //     ['DisabilityParking', 'DISABILITY_PARKING'],
-            //     ['CarpoolParking', 'CARPOOL_PARKING'],
-            //     ['EVCharging', 'EV_CHARGING_STATION'],
-            //     ['CarWash', 'CAR_WASH'],
-            //     ['Security', 'SECURITY'],
-            //     ['AirportShuttle', 'AIRPORT_SHUTTLE']
-            // ].forEach(function(service) {
-            //     var propName = 'paymentTypes_' + service[0];
-            //     that[propName] = {updated: true, selector:'.landmark label[for="service-checkbox-' + service[1] + '"]', tab: 'more-info' };
-            // });
 
             var observer = new MutationObserver(function(mutations) {
                 mutations.forEach(function(mutation) {
@@ -434,6 +411,7 @@
     function runPH() {
         // Script update info
         var WMEPHWhatsNewList = [  // New in this version
+            '1.3.53: NEW - Added flags for new post office guidance.',
             '1.3.52: FIXED - New gas station matching method does not work as intended.  Reverting to old method for now.',
             '1.3.51: NEW - En dash is treated as a valid name suffix separator (like a hyphen).',
             '1.3.51: NEW - Ability to check for alternate versions of brand name in place name.',
@@ -1594,7 +1572,7 @@
                 },
 
                 catPostOffice: {  // no WL
-                    active: false, severity: 2, message: 'If this is not a USPS post office, change the category, as "Post Office" is only used for USPS locations.'
+                    active: false, severity: 0, message: 'If this is not a <a href="https://wazeopedia.waze.com/wiki/USA/Places/Post_Office" style="color:white" target="_blank">USPS post office</a>, change the category, as "Post Office" is only used for USPS locations.'
                 },
 
                 ignEdited: {  // no WL
@@ -1738,7 +1716,20 @@
                 },
 
                 formatUSPS: {  // ### needs WL or not?
-                    active: false, severity: 1, message: 'Localize the post office according to this region\'s standards for USPS locations (e.g., "Post Office - Tampa")'
+                    active: false, severity: 1, message: 'Name the post office according to this region\'s <a href="https://wazeopedia.waze.com/wiki/USA/Places/Post_Office" ' +
+                    'style="color:white" target="_blank"> standards for USPS post offices</a>'
+                },
+
+                missingUSPSAlt: {
+                    active: false, severity: 1, message: 'USPS post offices must have an alternate name of "USPS".'
+                },
+
+                missingUSPSZipAlt: {
+                    active: false, severity: 1, message: '<a href="https://wazeopedia.waze.com/wiki/USA/Places/Post_Office" style="color:white" target="_blank">USPS post offices</a> must have at least one ZIP code alternate name, e.g. "90210"'
+                },
+
+                missingUSPSDescription: {
+                    active: false, severity: 1, message: 'The first line of the description for a <a href="https://wazeopedia.waze.com/wiki/USA/Places/Post_Office" style="color:white" target="_blank">USPS post office</a> must be CITY, STATE ZIP, e.g. "Lexington, KY 40511"'
                 },
 
                 catHotel: {
@@ -2014,7 +2005,7 @@
                         services.push('DISABILITY_PARKING');
                         //bannServ.addDisabilityParking.on();
                         W.model.actionManager.add(new UpdateObject(item, {'services': services}));
-                        _updatedFields.services_disabilityParking.updated = true;
+                        _updatedFields.services_DISABLITY_PARKING.updated = true;
                         harmonizePlaceGo(item, 'harmonize');
                     }
                 },
@@ -2194,17 +2185,13 @@
                     }
                 },
 
-                isitUSPS: {  // no WL
-                    active: false, severity: 0, message: "Is this a USPS location? ", value: "Yes", title: "Is this a USPS location?",
+                isThisAPostOffice: {  // no WL
+                    active: false, severity: 0, message: 'Is this a <a href="https://wazeopedia.waze.com/wiki/USA/Places/Post_Office" target="_blank" style="color:white">USPS post office</a>? ', value: "Yes", title: "Is this a USPS location?",
                     action: function() {
-                        bannServ.addAC.actionOn();
-                        bannServ.addCreditCards.actionOn();
-                        bannServ.addParking.actionOn();
-                        bannServ.addDeliveries.actionOn();
-                        bannServ.addWheelchair.actionOn();
-                        W.model.actionManager.add(new UpdateObject(item, { url: "usps.com" }));
-                        _updatedFields.url.updated = true;
-                        bannButt.isitUSPS.active = false;
+                        newCategories = insertAtIX(newCategories, 'POST_OFFICE', 0);
+                        W.model.actionManager.add(new UpdateObject(item, { categories: newCategories }));
+                        _updatedFields.categories.updated = true;
+                        harmonizePlaceGo(item, 'harmonize');
                     }
                 },
 
@@ -2376,6 +2363,9 @@
             function setServiceChecked(servBtn, checked, actions) {
                 var servID = WMEServicesArray[servBtn.servIDIndex];
                 var checkboxChecked = $("#service-checkbox-"+servID).prop('checked');
+                if (checkboxChecked !== checked) {
+                    _updatedFields['services_' + servID].updated = true;
+                }
                 var toggle = typeof checked === 'undefined';
                 var noAdd = false;
                 checked = (toggle) ? !servBtn.checked : checked;
@@ -2422,7 +2412,6 @@
                 addValet: {  // append optional Alias to the name
                     active: false, checked: false, icon: "serv-valet", w2hratio: 50/50, value: "Valet", title: 'Valet', servIDIndex: 0,
                     action: function(actions, checked) {
-                        _updatedFields.services_valet.updated = true;
                         setServiceChecked(this, checked, actions);
                     },
                     pnhOverride: false,
@@ -2436,7 +2425,6 @@
                 addDriveThru: {  // append optional Alias to the name
                     active: false, checked: false, icon: "serv-drivethru", w2hratio: 78/50, value: "DriveThru", title: 'Drive-Thru', servIDIndex: 1,
                     action: function(actions, checked) {
-                        _updatedFields.services_driveThrough.updated = true;
                         setServiceChecked(this, checked, actions);
                     },
                     pnhOverride: false,
@@ -2450,7 +2438,6 @@
                 addWiFi: {  // append optional Alias to the name
                     active: false, checked: false, icon: "serv-wifi", w2hratio: 67/50, value: "WiFi", title: 'WiFi', servIDIndex: 2,
                     action: function(actions, checked) {
-                        _updatedFields.services_wifi.updated = true;
                         setServiceChecked(this, checked, actions);
                     },
                     pnhOverride: false,
@@ -2464,7 +2451,6 @@
                 addRestrooms: {  // append optional Alias to the name
                     active: false, checked: false, icon: "serv-restrooms", w2hratio: 49/50, value: "Restroom", title: 'Restrooms', servIDIndex: 3,
                     action: function(actions, checked) {
-                        _updatedFields.services_restrooms.updated = true;
                         setServiceChecked(this, checked, actions);
                     },
                     pnhOverride: false,
@@ -2478,7 +2464,6 @@
                 addCreditCards: {  // append optional Alias to the name
                     active: false, checked: false, icon: "serv-credit", w2hratio: 73/50, value: "CC", title: 'Credit Cards', servIDIndex: 4,
                     action: function(actions, checked) {
-                        _updatedFields.services_creditCards.updated = true;
                         setServiceChecked(this, checked, actions);
                     },
                     pnhOverride: false,
@@ -2492,7 +2477,6 @@
                 addReservations: {  // append optional Alias to the name
                     active: false, checked: false, icon: "serv-reservations", w2hratio: 55/50, value: "Reserve", title: 'Reservations', servIDIndex: 5,
                     action: function(actions, checked) {
-                        _updatedFields.services_reservations.updated = true;
                         setServiceChecked(this, checked, actions);
                     },
                     pnhOverride: false,
@@ -2506,7 +2490,6 @@
                 addOutside: {  // append optional Alias to the name
                     active: false, checked: false, icon: "serv-outdoor", w2hratio: 73/50, value: "OusideSeat", title: 'Outside Seating', servIDIndex: 6,
                     action: function(actions, checked) {
-                        _updatedFields.services_outsideSeating.updated = true;
                         setServiceChecked(this, checked, actions);
                     },
                     pnhOverride: false,
@@ -2520,7 +2503,6 @@
                 addAC: {  // append optional Alias to the name
                     active: false, checked: false, icon: "serv-ac", w2hratio: 50/50, value: "AC", title: 'AC', servIDIndex: 7,
                     action: function(actions, checked) {
-                        _updatedFields.services_AC.updated = true;
                         setServiceChecked(this, checked, actions);
                     },
                     pnhOverride: false,
@@ -2534,7 +2516,6 @@
                 addParking: {  // append optional Alias to the name
                     active: false, checked: false, icon: "serv-parking", w2hratio: 46/50, value: "Parking", title: 'Parking', servIDIndex: 8,
                     action: function(actions, checked) {
-                        _updatedFields.services_parking.updated = true;
                         setServiceChecked(this, checked, actions);
                     },
                     pnhOverride: false,
@@ -2548,7 +2529,6 @@
                 addDeliveries: {  // append optional Alias to the name
                     active: false, checked: false, icon: "serv-deliveries", w2hratio: 86/50, value: "Delivery", title: 'Deliveries', servIDIndex: 9,
                     action: function(actions, checked) {
-                        _updatedFields.services_deliveries.updated = true;
                         setServiceChecked(this, checked, actions);
                     },
                     pnhOverride: false,
@@ -2562,7 +2542,6 @@
                 addTakeAway: {  // append optional Alias to the name
                     active: false, checked: false, icon: "serv-takeaway", w2hratio: 34/50, value: "TakeOut", title: 'Take Out', servIDIndex: 10,
                     action: function(actions, checked) {
-                        _updatedFields.services_takeAway.updated = true;
                         setServiceChecked(this, checked, actions);
                     },
                     pnhOverride: false,
@@ -2576,7 +2555,6 @@
                 addWheelchair: {  // add service
                     active: false, checked: false, icon: "serv-wheelchair", w2hratio: 50/50, value: "WhCh", title: 'Wheelchair Accessible', servIDIndex: 11,
                     action: function(actions, checked) {
-                        _updatedFields.services_wheelchairAccessible.updated = true;
                         setServiceChecked(this, checked, actions);
                     },
                     pnhOverride: false,
@@ -2590,7 +2568,6 @@
                 addDisabilityParking: {
                     active: false, checked: false, icon: "serv-wheelchair", w2hratio: 50/50, value: "DisabilityParking", title: 'Disability Parking', servIDIndex: 12,
                     action: function(actions, checked) {
-                        _updatedFields.services_disabilityParking.updated = true;
                         setServiceChecked(this, checked, actions);
                     },
                     pnhOverride: false,
@@ -2997,9 +2974,9 @@
                     }
                 }
             }  // END Gas Station Checks
-            
+
             var isLocked = item.attributes.lockRank >= (PNHLockLevel > -1 ? PNHLockLevel : defaultLockLevel);
-            
+
             // Clear attributes from residential places
             if (item.attributes.residential) {
                 if (hpMode.harmFlag) {
@@ -3771,7 +3748,7 @@
                             pvaArea = '1';
                         }
 
-                        // If it's a post office with CPU or VPO in the name, always treat it as a point place.
+                        // If Post Office and VPO or CPU is in the name, always a point.
                         if (newCategories.indexOf('POST_OFFICE') > -1 && /\b(?:cpu|vpo)\b/i.test(item.attributes.name)) {
                             pvaPoint = '1';
                             pvaArea='';
@@ -4004,27 +3981,65 @@
                     _updatedFields.phone.updated = true;
                 }
 
-                // Post Office cat check
-                if (newCategories.indexOf("POST_OFFICE") > -1 && countryCode === "USA" ) {
-                    var USPSStrings = ['USPS','POSTOFFICE','USPOSTALSERVICE','UNITEDSTATESPOSTALSERVICE','USPO','USPOSTOFFICE','UNITEDSTATESPOSTOFFICE','UNITEDSTATESPOSTALOFFICE'];
-                    var USPSMatch = false;
-                    for (var uspix=0; uspix<USPSStrings.length; uspix++) {
-                        if ( newName.toUpperCase().replace(/[ \/\-\.]/g,'').indexOf(USPSStrings[uspix]) > -1 ) {  // If it already has a USPS type term in the name, don't add the option
-                            USPSMatch = true;
+                // Post Office check
+                if (countryCode === "USA" && newCategories.indexOf('PARKING_LOT') === -1) {
+                    if (newCategories.indexOf("POST_OFFICE") === -1) {
+                        var USPSStrings = ['USPS','POSTOFFICE','USPOSTALSERVICE','UNITEDSTATESPOSTALSERVICE','USPO','USPOSTOFFICE','UNITEDSTATESPOSTOFFICE','UNITEDSTATESPOSTALOFFICE'];
+                        if (USPSStrings.some(function(words) { return newName.toUpperCase().replace(/[ \/\-\.]/g,'').indexOf(words) > -1; })) {
+                            bannButt.isThisAPostOffice.active = true;
+                        }
+                    } else {
+                        var re;
+                        if (hpMode.harmFlag) {
                             customStoreFinderURL = "https://tools.usps.com/go/POLocatorAction.action";
                             customStoreFinder = true;
-                            if ( (newName + newNameSuffix).indexOf(' - ') === -1 && newName.indexOf(': ') === -1 && newName.indexOf(' ' + EN_DASH + ' ') === -1 ) {
-                                bannButt.formatUSPS.active = true;
+                            bannButt.NewPlaceSubmit.active = false;
+                            if (item.attributes.url !== 'usps.com') {
+                                actions.push(new UpdateObject(item, { url: "usps.com" }));
+                                _updatedFields.url.updated = true;
+                                bannButt.urlMissing.active = false;
                             }
-                            break;
+                        }
+                        if (state2L === 'KY' || state2L === 'NY') {
+                            re = /^post office \d{5}( [-–](?: cpu| vpo)?(?: [a-z]+){1,})?$/i;
+                        } else {
+                            re = /^post office [-–](?: cpu| vpo)?(?: [a-z]+){1,}$/i;
+                        }
+                        newName = newName.trimLeft().replace(/ {2,}/, ' ');
+                        if (newNameSuffix) {
+                            newNameSuffix = newNameSuffix.trimRight().replace(/\bvpo\b/i, 'VPO').replace(/\bcpu\b/i, 'CPU').replace(/ {2,}/, ' ');
+                        }
+                        var nameToCheck = newName + (newNameSuffix || '');
+                        if (!re.test(nameToCheck)) {
+                            bannButt.formatUSPS.active = true;
+                            lockOK = false;
+                        } else {
+                            if (hpMode.harmFlag) {
+                                if (nameToCheck !== item.attributes.name) {
+                                    actions.push(new UpdateObject(item, {name: nameToCheck}));
+                                }
+                                bannButt.catPostOffice.active = true;
+                            }
+                        }
+                        if (!newAliases.some(function(alias) { return alias.toUpperCase() === 'USPS'; })) {
+                            if (hpMode.harmFlag) {
+                                newAliases.push('USPS');
+                                actions.push(new UpdateObject(item, {aliases: newAliases}));
+                                _updatedFields.aliases.updated = true;
+                            } else {
+                                bannButt.missingUSPSAlt.active = true;
+                            }
+                        }
+                        if (!newAliases.some(function(alias) { return /\d{5}/.test(alias); })) {
+                            bannButt.missingUSPSZipAlt.active = true;
+                        }
+                        var descr = item.attributes.description;
+                        var lines = descr.split('\n');
+                        if (lines.length < 1 || !/^(?:\w+){1,}, [A-Z]{2}\s{1,2}\d{5}$/.test(lines[0])) {
+                            bannButt.missingUSPSDescription.active = true;
                         }
                     }
-                    if (!USPSMatch) {
-                        lockOK = false;
-                        bannButt.isitUSPS.active = true;
-                        bannButt.catPostOffice.active = true;
-                    }
-                }  // END Post Office category check
+                }  // END Post Office check
 
             }  // END if (!residential && has name)
 
@@ -4691,83 +4706,6 @@
         }  // END harmonizePlaceGo function
 
         // **** vvv Function definitions vvv ****
-
-        // highlight changed fields
-        //        function highlightChangedFields(fieldUpdateObject,hpMode) {
-        //            if (hpMode.harmFlag) {
-        //                //var panelFields = {};
-        //                getPanelFields();
-        //                var tab1HL = false;
-        //                var tab2HL = false;
-        //                //phlogdev(fieldUpdateObject);
-        //                if (fieldUpdateObject.name) {
-        //                    _updatedFields.name.updated = true;
-        //                }
-        //                if (fieldUpdateObject.aliases) {
-        //                    _updatedFields.aliasName.updated = true;
-        //                }
-        //                if (fieldUpdateObject.categories) {
-        //                    _updatedFields.categories.updated  = true;
-        //                }
-        //                if (fieldUpdateObject.brand) {
-        //                    _updatedFields.brand.updated  = true;
-        //                }
-        //                if (fieldUpdateObject.description) {
-        //                    _updatedFields.description.updated  = true;
-        //                }
-        //                if (fieldUpdateObject.lockRank) {
-        //                    _updatedFields.lock.updated = true;
-        //                }
-        //                if (fieldUpdateObject.address) {
-        //                    _updatedFields.address.updated = true;
-        //                }
-        //                if (fieldUpdateObject.url) {
-        //                    _updatedFields.url.updated = true;
-        //                }
-        //                if (fieldUpdateObject.phone) {
-        //                    _updatedFields.phone.updated = true;
-        //                }
-        //                if (fieldUpdateObject.openingHours) {
-        //                    _updatedFields.openingHours.updated = true;
-        //                }
-        //                if (fieldUpdateObject.services.VALLET_SERVICE) {
-        //                    _updatedFields.services_valet.updated = true;
-        //                }
-        //                if (fieldUpdateObject.services.DRIVETHROUGH) {
-        //                    _updatedFields.services_driveThrough.updated = true;
-        //                }
-        //                if (fieldUpdateObject.services.WI_FI) {
-        //                    _updatedFields.services_wifi.updated = true;
-        //                }
-        //                if (fieldUpdateObject.services.RESTROOMS) {
-        //                    _updatedFields.services_restrooms.updated = true;
-        //                }
-        //                if (fieldUpdateObject.services.CREDIT_CARDS) {
-        //                    _updatedFields.services_creditCards.updated = true;
-        //                }
-        //                if (fieldUpdateObject.services.RESERVATIONS) {
-        //                    _updatedFields.services_reservations.updated = true;
-        //                }
-        //                if (fieldUpdateObject.services.OUTSIDE_SEATING) {
-        //                    _updatedFields.services_outsideSeating.updated = true;
-        //                }
-        //                if (fieldUpdateObject.services.AIR_CONDITIONING) {
-        //                    _updatedFields.services_AC.updated = true;
-        //                }
-        //                if (fieldUpdateObject.services.PARKING_FOR_CUSTOMERS) {
-        //                    _updatedFields.services_parking.updated = true;
-        //                }
-        //                if (fieldUpdateObject.services.DELIVERIES) {
-        //                    _updatedFields.services_deliveries.updated = true;
-        //                }
-        //                if (fieldUpdateObject.services.TAKE_AWAY) {
-        //                    _updatedFields.services_takeAway.updated = true;
-        //                }
-        //                if (fieldUpdateObject.services.WHEELCHAIR_ACCESSIBLE) {
-        //                    _updatedFields.services_wheelchairAccessible.updated = true;
-        //                }
-        //            }
-        //        }
 
         // Set up banner messages
         function assembleBanner() {
