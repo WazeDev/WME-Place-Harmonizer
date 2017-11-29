@@ -411,6 +411,7 @@
     function runPH() {
         // Script update info
         var WMEPHWhatsNewList = [  // New in this version
+            '1.3.54: FIXED - Auto-title-casing does not work in all scenarios.  Ask before forcing case.',
             '1.3.53: NEW - Added flags for new post office guidance.',
             '1.3.52: FIXED - New gas station matching method does not work as intended.  Reverting to old method for now.',
             '1.3.51: NEW - En dash is treated as a valid name suffix separator (like a hyphen).',
@@ -2196,7 +2197,7 @@
                 },
 
                 STC: {    // no WL
-                    active: false, severity: 0, message: "Force Title Case: ", value: "Yes", title: "Force Title Case to InterNal CaPs",
+                    active: false, severity: 0, message:'', value: "Force Title Case?", title: 'Force title case to: ',
                     action: function() {
                         newName = toTitleCaseStrong(item.attributes.name);  // Get the Strong Title Case name
                         if (newName !== item.attributes.name) {  // if they are not equal
@@ -2647,13 +2648,7 @@
             var newNameSuffix;
             newNameSuffix = newNameSplits[2];
             newName = newNameSplits[1];
-            newName = toTitleCase(newName);
-            // var nameShort = newName.replace(/[^A-Za-z]/g, '');  // strip non-letters for PNH name searching
-            // var nameNumShort = newName.replace(/[^A-Za-z0-9]/g, ''); // strip non-letters/non-numbers for PNH name searching
             newAliases = item.attributes.aliases.slice(0);
-            for (var naix=0; naix<newAliases.length; naix++) {
-                newAliases[naix] = toTitleCase(newAliases[naix]);
-            }
             var brand = item.attributes.brand;
             var newDescripion = item.attributes.description;
             newURL = item.attributes.url;
@@ -3508,7 +3503,10 @@
                     }
 
                     // Strong title case option for non-PNH places
-                    if (newName !== toTitleCaseStrong(newName)) {
+                    var titleCaseName = toTitleCaseStrong(newName);
+                    if (newName !== titleCaseName) {
+                        bannButt.STC.suffixMessage = '<span style="margin-left: 4px;font-size: 14px">&bull; ' + titleCaseName + '</span>';
+                        bannButt.STC.title += titleCaseName
                         bannButt.STC.active = true;
                     }
 
@@ -3570,9 +3568,6 @@
 
                 // Update aliases
                 newAliases = removeSFAliases(newName, newAliases);
-                for (naix=0; naix<newAliases.length; naix++) {
-                    newAliases[naix] = toTitleCase(newAliases[naix]);
-                }
                 if (hpMode.harmFlag && newAliases !== item.attributes.aliases && newAliases.length !== item.attributes.aliases.length) {
                     phlogdev("Alt Names updated");
                     actions.push(new UpdateObject(item, { aliases: newAliases }));
@@ -4760,7 +4755,7 @@
                         severityButt = Math.max(bannButt[tempKey].severity, severityButt);
                     }
                     if (bannButt[tempKey].hasOwnProperty('suffixMessage')) {
-                        strButt1 += '<div>' + bannButt[tempKey].suffixMessage + '</div>';
+                        strButt1 += '<div style="margin-top:2px">' + bannButt[tempKey].suffixMessage + '</div>';
                     }
                     if (tempKey.toUpperCase() === 'PLACEWEBSITE' || tempKey.toUpperCase() === 'WEBSEARCH') {
                         if (!$webDiv) {
