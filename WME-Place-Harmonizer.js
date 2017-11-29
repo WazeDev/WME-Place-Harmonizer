@@ -13,7 +13,7 @@
 // ==UserScript==
 // @name        WME Place Harmonizer Beta
 // @namespace   WazeUSA
-// @version     1.3.54
+// @version     1.3.55
 // @description Harmonizes, formats, and locks a selected place
 // @author      WMEPH Development Group
 // @include     /^https:\/\/(www|beta)\.waze\.com\/(?!user\/)(.{2,6}\/)?editor\/?.*$/
@@ -411,6 +411,7 @@
     function runPH() {
         // Script update info
         var WMEPHWhatsNewList = [  // New in this version
+            '1.3.55: FIXED - Title casing should ignore name localizers (to the right of a hyphen).',
             '1.3.54: FIXED - Title casing ignores words that begin with a lower case followed by a capital, like iPhone.',
             '1.3.54: FIXED - Auto-title-casing does not work in all scenarios.  Ask before forcing case.',
             '1.3.53: NEW - Added flags for new post office guidance.',
@@ -1015,6 +1016,12 @@
                 });
                 W.model.actionManager.add(m_action);
             }
+        }
+
+        // Split localizer (suffix) part of names, like "SUBWAY - inside Walmart".
+        function getNameParts(name) {
+            var splits = name.match(/(.*?)(\s+[-\(].*)*$/);
+            return {base: splits[1], suffix: splits[2]};
         }
 
         // Normalize url
@@ -2150,9 +2157,10 @@
                 STC: {    // no WL
                     active: false, severity: 0, message:'', value: "Force Title Case?", title: 'Force title case to: ',
                     action: function() {
-                        newName = toTitleCaseStrong(item.attributes.name);  // Get the Strong Title Case name
-                        if (newName !== item.attributes.name) {  // if they are not equal
-                            W.model.actionManager.add(new UpdateObject(item, { name: newName }));
+                        var parts = getNameParts(item.attributes.name);
+                        var newName = toTitleCaseStrong(parts.base);  // Get the Strong Title Case name
+                        if (parts.base !== newName) {  // if they are not equal
+                            W.model.actionManager.add(new UpdateObject(item, { name: newName + (parts.suffix || '') }));
                             _updatedFields.name.updated = true;
                         }
                         bannButt.STC.active = false;  // reset the display flag
@@ -2595,10 +2603,9 @@
             var lockOK = true;  // if nothing goes wrong, then place will be locked
             var categories = item.attributes.categories;
             newCategories = categories.slice(0);
-            var newNameSplits = item.attributes.name.match(/(.*?)(\s+[-\(].*)*$/);
-            var newNameSuffix;
-            newNameSuffix = newNameSplits[2];
-            newName = newNameSplits[1];
+            var nameParts = getNameParts(item.attributes.name);
+            var newNameSuffix = nameParts.suffix;
+            newName = nameParts.base;
             newAliases = item.attributes.aliases.slice(0);
             var brand = item.attributes.brand;
             var newDescripion = item.attributes.description;
@@ -3447,29 +3454,18 @@
                         //PNHNameTemp = PNHMatchData[1].join(', ');
                         PNHNameTemp = PNHMatchData[1][0];  // Just do the first match
                         PNHNameTempWeb = encodeURIComponent(PNHNameTemp);
-                        //PNHNameTempWeb = PNHNameTemp.replace(/\&/g, "%26");
-                        //PNHNameTempWeb = PNHNameTemp.replace(/\#/g, "%23");
-                        //PNHNameTempWeb = PNHNameTempWeb.replace(/\//g, "%2F");
                         PNHOrderNum = PNHMatchData[2].join(',');
                     }
 
                     // Strong title case option for non-PNH places
                     var titleCaseName = toTitleCaseStrong(newName);
                     if (newName !== titleCaseName) {
-                        bannButt.STC.suffixMessage = '<span style="margin-left: 4px;font-size: 14px">&bull; ' + titleCaseName + '</span>';
+                        bannButt.STC.suffixMessage = '<span style="margin-left: 4px;font-size: 14px">&bull; ' + titleCaseName + (newNameSuffix || '') + '</span>';
                         bannButt.STC.title += titleCaseName;
                         bannButt.STC.active = true;
                     }
 
                     newURL = normalizeURL(newURL,true,false, item);  // Normalize url
-
-                    // // Generic Hotel Treatment
-                    // if ( newCategories.indexOf("HOTEL") > -1  && newName.indexOf(' - ') === -1 && newName.indexOf(': ') === -1) {
-                    //     bannButt.catHotel.active = true;
-                    //     if (currentWL.hotelLocWL) {
-                    //         bannButt.catHotel.WLactive = false;
-                    //     }
-                    // }
 
                     // Generic Bank treatment
                     ixBank = item.attributes.categories.indexOf("BANK_FINANCIAL");
