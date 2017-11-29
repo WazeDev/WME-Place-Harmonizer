@@ -411,6 +411,7 @@
     function runPH() {
         // Script update info
         var WMEPHWhatsNewList = [  // New in this version
+            '1.3.54: FIXED - Title casing ignores words that begin with a lower case followed by a capital, like iPhone.',
             '1.3.54: FIXED - Auto-title-casing does not work in all scenarios.  Ask before forcing case.',
             '1.3.53: NEW - Added flags for new post office guidance.',
             '1.3.52: FIXED - New gas station matching method does not work as intended.  Reverting to old method for now.',
@@ -865,71 +866,6 @@
         var capWords = "3M|AAA|AMC|AOL|AT&T|ATM|BBC|BLT|BMV|BMW|BP|CBS|CCS|CGI|CISCO|CJ|CNN|CVS|DHL|DKNY|DMV|DSW|EMS|ER|ESPN|FCU|FCUK|FDNY|GNC|H&M|HP|HSBC|IBM|IHOP|IKEA|IRS|JBL|JCPenney|KFC|LLC|MBNA|MCA|MCI|NBC|NYPD|PDQ|PNC|TCBY|TNT|TV|UPS|USA|USPS|VW|XYZ|ZZZ".split('|');
         var specWords = "d'Bronx|iFix".split('|');
 
-        function toTitleCase(str, noTrim) {
-            if (!str) {
-                return str;
-            }
-            if (!noTrim) str = str.trim();
-            var parensParts = str.match(/\(.*?\)/g);
-            if (parensParts) {
-                for (var i=0; i<parensParts.length; i++) {
-                    str = str.replace(parensParts[i], '%' + i + '%');
-                }
-            }
-
-            var allCaps = (str === str.toUpperCase());
-            // Cap first letter of each word
-            str = str.replace(/([A-Za-z\u00C0-\u017F][^\s-\/]*) */g, function(txt) {
-                return ((txt === txt.toUpperCase()) && !allCaps) ? txt : txt.charAt(0).toUpperCase() + txt.substr(1);
-            });
-            // Cap O'Reilley's, L'Amour, D'Artagnan as long as 5+ letters
-            str = str.replace(/\b[oOlLdD]'[A-Za-z']{3,}/g, function(txt) {
-                return ((txt === txt.toUpperCase()) && !allCaps) ? txt : txt.charAt(0).toUpperCase() + txt.charAt(1) + txt.charAt(2).toUpperCase() + txt.substr(3);
-            });
-            // Cap McFarley's, as long as 5+ letters long
-            str = str.replace(/\b[mM][cC][A-Za-z']{3,}/g, function(txt) {
-                return ((txt === txt.toUpperCase()) && !allCaps) ? txt : txt.charAt(0).toUpperCase() + txt.charAt(1).toLowerCase() + txt.charAt(2).toUpperCase() + txt.substr(3);
-            });
-            // anything with an "&" sign, cap the character after &
-            str = str.replace(/&.+/g, function(txt) {
-                return ((txt === txt.toUpperCase()) && !allCaps) ? txt : txt.charAt(0) + txt.charAt(1).toUpperCase() + txt.substr(2);
-            });
-            // lowercase any from the ignoreWords list
-            str = str.replace(/[^ ]+/g, function(txt) {
-                var txtLC = txt.toLowerCase();
-                return (ignoreWords.indexOf(txtLC) > -1) ? txtLC : txt;
-            });
-            // uppercase any from the capWords List
-            str = str.replace(/[^ ]+/g, function(txt) {
-                var txtUC = txt.toUpperCase();
-                return (capWords.indexOf(txtUC) > -1) ? txtUC : txt;
-            });
-            // preserve any specific words
-            str = str.replace(/[^ ]+/g, function(txt) {
-                //var txtAC = txt.toUpperCase();
-                for (var swix=0; swix<specWords.length; swix++) {
-                    if ( txt.toUpperCase() === specWords[swix].toUpperCase() ) {
-                        return specWords[swix];
-                    }
-                }
-                return txt;
-            });
-            // Fix 1st, 2nd, 3rd, 4th, etc. to lowercase
-            str = str.replace(/\b(\d*1)st\b/gi, '$1st');
-            str = str.replace(/\b(\d*2)nd\b/gi, '$1nd');
-            str = str.replace(/\b(\d*3)rd\b/gi, '$1rd');
-            str = str.replace(/\b(\d+)th\b/gi, '$1th');
-            // Cap first letter of entire name
-            str = str.charAt(0).toUpperCase() + str.substr(1);
-
-            if (parensParts) {
-                for (var i=0; i<parensParts.length; i++) {
-                    str = str.replace('%' + i + '%', parensParts[i]);
-                }
-            }
-            return str;
-        }
-
         // Change place.name to title case
         function toTitleCaseStrong(str) {
             if (!str) {
@@ -954,6 +890,10 @@
             var allCaps = (str === str.toUpperCase());
             // Cap first letter of each word
             str = str.replace(/([A-Za-z\u00C0-\u017F][^\s-\/]*) */g, function(txt) {
+                // If first letter is lower case, followed by a cap, then another lower case letter... ignore it.  Example: iPhone
+                if (/^[a-z][A-Z0-9][a-z]/.test(txt)) {
+                    return txt;
+                }
                 return ((txt === txt.toUpperCase()) && !allCaps) ? txt : txt.charAt(0).toUpperCase() + txt.substr(1).toLowerCase();
             });
             // Cap O'Reilley's, L'Amour, D'Artagnan as long as 5+ letters
@@ -978,13 +918,24 @@
                 var txtLC = txt.toUpperCase();
                 return (capWords.indexOf(txtLC) > -1) ? txtLC : txt;
             });
+            // preserve any specific words
+            str = str.replace(/[^ ]+/g, function(txt) {
+                //var txtAC = txt.toUpperCase();
+                for (var swix=0; swix<specWords.length; swix++) {
+                    if ( txt.toUpperCase() === specWords[swix].toUpperCase() ) {
+                        return specWords[swix];
+                    }
+                }
+                return txt;
+            });
             // Fix 1st, 2nd, 3rd, 4th, etc.
             str = str.replace(/\b(\d*1)st\b/gi, '$1st');
             str = str.replace(/\b(\d*2)nd\b/gi, '$1nd');
             str = str.replace(/\b(\d*3)rd\b/gi, '$1rd');
             str = str.replace(/\b(\d+)th\b/gi, '$1th');
-            // Cap first letter of entire name
-            str = str.charAt(0).toUpperCase() + str.substr(1);
+
+            // Cap first letter of entire name if it's not something like iPhone or eWhatever.
+            if (!/^[a-z][A-Z0-9][a-z]/.test(str)) str = str.charAt(0).toUpperCase() + str.substr(1);
             if (parensParts) {
                 for (var i=0; i<parensParts.length; i++) {
                     str = str.replace('%' + i + '%', parensParts[i]);
@@ -3506,7 +3457,7 @@
                     var titleCaseName = toTitleCaseStrong(newName);
                     if (newName !== titleCaseName) {
                         bannButt.STC.suffixMessage = '<span style="margin-left: 4px;font-size: 14px">&bull; ' + titleCaseName + '</span>';
-                        bannButt.STC.title += titleCaseName
+                        bannButt.STC.title += titleCaseName;
                         bannButt.STC.active = true;
                     }
 
