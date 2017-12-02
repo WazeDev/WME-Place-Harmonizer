@@ -13,7 +13,7 @@
 // ==UserScript==
 // @name        WME Place Harmonizer Beta
 // @namespace   WazeUSA
-// @version     1.3.55
+// @version     1.3.56
 // @description Harmonizes, formats, and locks a selected place
 // @author      WMEPH Development Group
 // @include     /^https:\/\/(www|beta)\.waze\.com\/(?!user\/)(.{2,6}\/)?editor\/?.*$/
@@ -410,6 +410,8 @@
     function runPH() {
         // Script update info
         var WMEPHWhatsNewList = [  // New in this version
+            '1.3.56: NEW - Text box to enter missing USPS Zip code alt name.',
+            '1.3.56: FIXED - URL text entry will check for a valid URL format.',
             '1.3.55: FIXED - Title casing should ignore name localizers (to the right of a hyphen).',
             '1.3.54: FIXED - Title casing ignores words that begin with a lower case followed by a capital, like iPhone.',
             '1.3.54: FIXED - Auto-title-casing does not work in all scenarios.  Ask before forcing case.',
@@ -1061,7 +1063,7 @@
             m = s.match(/^(.*)\/$/i);  // remove final slash
             if (m) { s = m[1]; }
 
-            if (!s || s.trim().length === 0) s = 'badURL';
+            if (!s || s.trim().length === 0 || !/(^https?:\/\/)?\w+\.\w+/.test(s)) s = 'badURL';
             return s;
         }  // END normalizeURL function
 
@@ -1405,7 +1407,7 @@
                 },
 
                 hnMissing: {
-                    active: false, severity: 3, message: 'No HN: <input type="text" id="WMEPH-HNAdd'+devVersStr+'" autocomplete="off" style="font-size:0.85em;width:100px;padding-left:3px;color:#000;background-color:#FDD">',
+                    active: false, severity: 3, message: 'No HN: <input type="text" id="WMEPH-HNAdd'+devVersStr+'" autocomplete="off" style="font-size:0.85em;width:100px;padding-left:2px;color:#000;">', noBannerAssemble: true,
                     value: "Add", title: 'Add HN to place',
                     badInput: false,
                     action: function() {
@@ -1420,6 +1422,7 @@
                             bannButt.hnMissing.active = false;
                             badInput = false;
                         } else {
+                            $('input#WMEPH-HNAdd'+devVersStr).css({backgroundColor:'#FDD'}).attr('title', 'Must be a number between 0 and 1000000');
                             badInput = true;
                         }
 
@@ -1683,7 +1686,40 @@
                 },
 
                 missingUSPSZipAlt: {
-                    active: false, severity: 1, message: '<a href="https://wazeopedia.waze.com/wiki/USA/Places/Post_Office" style="color:white" target="_blank">USPS post offices</a> must have at least one ZIP code alternate name, e.g. "90210"'
+                    active: false, severity: 1, message: 'No <a href="https://wazeopedia.waze.com/wiki/USA/Places/Post_Office" style="color:white" target="_blank">ZIP code alt name</a>: ' +
+                    '<input type="text" id="WMEPH-zipAltNameAdd" autocomplete="off" style="font-size:0.85em;width:100px;padding-left:2px;color:#000;">', value: "Add", noBannerAssemble: true,
+                    action: function() {
+                        var $input = $('input#WMEPH-zipAltNameAdd');
+                        var zip = $input.val().trim();
+                        if (zip) {
+                            if (/^\d{5}/.test(zip)) {
+                                var aliases = item.attributes.aliases.clone();
+                                // Make sure zip hasn't already been added.
+                                if (aliases.indexOf(zip) === -1) {
+                                    aliases.push(zip);
+                                    W.model.actionManager.add(new UpdateObject(item, {aliases: aliases}));
+                                    harmonizePlaceGo(item, 'harmonize');
+                                } else {
+                                    $input.css({backgroundColor: '#FDD'}).attr('title', 'Zip code alt name already exists');
+                                }
+                            } else {
+                                $input.css({backgroundColor: '#FDD'}).attr('title', 'Zip code format error');
+                            }
+                        }
+                        // $('.aliases-view a.add.waze-link').click();
+                        // var zip = item.attributes.name.match(/\b\d{5}\b/);
+                        // if (zip) {
+                        //     $('.aliases-view input').last().val(zip[0]).change();
+                        //     harmonizePlaceGo(item, 'harmonize');
+                        // }
+                        // setTimeout(function() {
+                        //     var $input = $('.aliases-view input').last();
+                        //     var elem = $input[0];
+                        //     var value = $input.val();
+                        //     $input.focus();
+                        //     if (value) elem.selectionStart = value.length;
+                        // }, 100)
+                    }
                 },
 
                 missingUSPSDescription: {
@@ -1784,29 +1820,26 @@
                             $('.select2-input').last().focus().val(item.attributes.name).trigger('input');
                         }, 100);
                     }
-                    // WLactive:true, WLmessage:'', //WLtitle:'Whitelist missing Google place link',
-                    // WLaction: function() {
-                    //     wlKeyName = 'extProviderMissing';
-                    //     whitelistAction(itemID, wlKeyName);
-                    // }
                 },
 
                 urlMissing: {
-                    active: false, severity: 1, message: 'No URL: <input type="text" id="WMEPH-UrlAdd'+devVersStr+'" autocomplete="off" style="font-size:0.85em;width:100px;padding-left:3px;color:#000;background-color:#DDF">',
+                    active: false, severity: 1, message: 'No URL: <input type="text" id="WMEPH-UrlAdd'+devVersStr+'" autocomplete="off" style="font-size:0.85em;width:100px;padding-left:2px;color:#000;">', noBannerAssemble: true,
                     value: "Add", title: 'Add URL to place',
                     badInput: false,
                     action: function() {
                         var newUrlValue = $('#WMEPH-UrlAdd'+devVersStr).val();
                         var newUrl = normalizeURL(newUrlValue, true, false, item);
                         if ((!newUrl || newUrl.trim().length === 0) || newUrl === 'badURL') {
+                            $('input#WMEPH-UrlAdd'+devVersStr).css({backgroundColor:'#FDD'}).attr('title','Invalid URL format');
                             this.badInput = true;
                         } else {
                             phlogdev(newUrl);
                             W.model.actionManager.add(new UpdateObject(item, { url: newUrl }));
                             _updatedFields.url.updated = true;
-                            bannButt.urlMissing.active = false;
-                            showOpenPlaceWebsiteButton();
-                            this.badInput = false;
+                            //bannButt.urlMissing.active = false;
+                            //showOpenPlaceWebsiteButton();
+                            //this.badInput = false;
+                            harmonizePlaceGo(item, 'harmonize');
                         }
                     },
                     WLactive: true, WLmessage: '', WLtitle: 'Whitelist empty URL',
@@ -1818,13 +1851,14 @@
                 },
 
                 phoneMissing: {
-                    active: false, severity: 1, message: 'No ph#: <input type="text" id="WMEPH-PhoneAdd'+devVersStr+'" autocomplete="off" style="font-size:0.85em;width:100px;padding-left:3px;color:#000;background-color:#DDF">',
+                    active: false, severity: 1, message: 'No ph#: <input type="text" id="WMEPH-PhoneAdd'+devVersStr+'" autocomplete="off" style="font-size:0.85em;width:100px;padding-left:2px;color:#000;">', noBannerAssemble: true,
                     value: "Add", title: 'Add phone to place',
                     badInput: false,
                     action: function() {
                         var newPhoneVal = $('#WMEPH-PhoneAdd'+devVersStr).val();
                         var newPhone = normalizePhone(newPhoneVal, outputFormat, 'inputted', item);
                         if (newPhone === 'badPhone') {
+                            $('input#WMEPH-PhoneAdd'+devVersStr).css({backgroundColor: '#FDD'}).attr('title','Invalid phone # format');
                             this.badInput = true;
                         } else {
                             this.badInput = false;
@@ -1862,10 +1896,6 @@
                         whitelistAction(itemID, wlKeyName);
                         harmonizePlaceGo(item, 'harmonize');
                     }
-                },
-
-                plaLotTypeMissing: {
-                    active: false, severity: 3, message: 'Lot type: '
                 },
 
                 plaCostTypeMissing: {
@@ -1963,7 +1993,7 @@
                         services.push('DISABILITY_PARKING');
                         //bannServ.addDisabilityParking.on();
                         W.model.actionManager.add(new UpdateObject(item, {'services': services}));
-                        _updatedFields.services_DISABLITY_PARKING.updated = true;
+                        _updatedFields.services_DISABILITY_PARKING.updated = true;
                         harmonizePlaceGo(item, 'harmonize');
                     }
                 },
@@ -2154,15 +2184,22 @@
                 },
 
                 STC: {    // no WL
-                    active: false, severity: 0, message:'', value: "Force Title Case?", title: 'Force title case to: ',
+                    active: false, severity: 0, message:'', value: "Force Title Case?", title: 'Force title case to: ', originalName: null, confirmChange: false, noBannerAssemble: true,
                     action: function() {
-                        var parts = getNameParts(item.attributes.name);
-                        var newName = toTitleCaseStrong(parts.base);  // Get the Strong Title Case name
-                        if (parts.base !== newName) {  // if they are not equal
-                            W.model.actionManager.add(new UpdateObject(item, { name: newName + (parts.suffix || '') }));
-                            _updatedFields.name.updated = true;
+                        var newName = item.attributes.name;
+                        if (newName === this.originalName || this.confirmChange) {
+                            var parts = getNameParts(this.originalName);
+                            var newName = toTitleCaseStrong(parts.base);  // Get the Strong Title Case name
+                            if (parts.base !== newName) {  // if they are not equal
+                                W.model.actionManager.add(new UpdateObject(item, { name: newName + (parts.suffix || '') }));
+                                _updatedFields.name.updated = true;
+                            }
+                            harmonizePlaceGo(item, 'harmonize');
+                            //bannButt.STC.active = false;  // reset the display flag
+                        } else {
+                            $('button#WMEPH_STC').text('Are you sure?').after(' The name has changed.  This will overwrite the new name.');
+                            bannButt.STC.confirmChange = true;
                         }
-                        bannButt.STC.active = false;  // reset the display flag
                     }
                 },
 
@@ -2714,7 +2751,7 @@
                         );
                         btnIdx++;
                     });
-                    bannButt.plaSpaces.message += $btnDiv.prop('outerHTML');
+                    bannButt.plaSpaces.suffixMessage = $btnDiv.prop('outerHTML');
                 }
                 if (!parkAttr || !parkAttr.parkingType) {
                     bannButt.plaLotTypeMissing.active = true;
@@ -3461,6 +3498,7 @@
                     if (newName !== titleCaseName) {
                         bannButt.STC.suffixMessage = '<span style="margin-left: 4px;font-size: 14px">&bull; ' + titleCaseName + (newNameSuffix || '') + '</span>';
                         bannButt.STC.title += titleCaseName;
+                        bannButt.STC.originalName = newName + (newNameSuffix || '');
                         bannButt.STC.active = true;
                     }
 
@@ -3973,6 +4011,11 @@
                         }
                         if (!newAliases.some(function(alias) { return /\d{5}/.test(alias); })) {
                             bannButt.missingUSPSZipAlt.active = true;
+                            // If the zip code appears in the primary name, pre-fill it in the text entry box.
+                            var zipMatch = newName.match(/\d{5}/);
+                            if (zipMatch) {
+                                bannButt.missingUSPSZipAlt.suggestedValue = zipMatch;
+                            }
                             // Note: Started work on a Google api lookup to get the zip, but decided it's probably
                             // not worth it since it would need to be verified by the user anyway.
                             //var coords = item.geometry.getCentroid().transform(W.map.getProjection(), W.map.displayProjection);
@@ -4652,111 +4695,72 @@
         function assembleBanner() {
             if (W.selectionManager.selectedItems.length !== 1 || W.selectionManager.selectedItems[0].model.type !== 'venue') return;
             phlogdev('Building banners');
-            // push together messages from active banner messages
-            var sidebarTools = [];  // Initialize message array
-            var tempKey, strButt1, dupesFound = 0;
-            var flag, $flagDiv;
-            var flagDivs = [];
+            var dupesFound = 0;
+            var rowData;
+            var $rowDiv;
+            var rowDivs = [];
             severityButt = 0;
 
             // Setup duplicates banners
-            $flagDiv = $('<div>');
-            for (tempKey in bannDupl) {
-                flag = bannDupl[tempKey];
-                if (flag && flag.active) {
+            $rowDiv = $('<div>');
+            Object.keys(bannDupl).forEach(function(tempKey) {
+                rowData = bannDupl[tempKey];
+                if (rowData.active) {
                     dupesFound += 1;
-                    $flagDiv.append('<br><span style="margin-left:6px; margin-right:4px">&bull; ' + flag.message + '</span>');
-                    if (flag.action) {
+                    $rowDiv.append('<br><span style="margin-left:6px; margin-right:4px">&bull; ' + rowData.message + '</span>');
+                    if (rowData.action) {
                         // Nothing happening here yet.
                     }
-                    if (flag.WLactive && flag.WLaction) {  // If there's a WL option, enable it
-                        severityButt = Math.max(flag.severity, severityButt);
-                        $flagDiv.append( $('<button>', {class:'btn btn-success btn-xs wmephwl-btn', id:'WMEPH_WL' + tempKey, title: flag.WLtitle}).text(flag.WLvalue) );
+                    if (rowData.WLactive && rowData.WLaction) {  // If there's a WL option, enable it
+                        severityButt = Math.max(rowData.severity, severityButt);
+                        $rowDiv.append( $('<button>', {class:'btn btn-success btn-xs wmephwl-btn', id:'WMEPH_WL' + tempKey, title: rowData.WLtitle}).text(rowData.WLvalue) );
                     }
                 }
-            }
+            });
             if (dupesFound) {  // if at least 1 dupe
-                $flagDiv.prepend('Possible duplicate' + (dupesFound > 1 ? 's' : '') + ':');
-                flagDivs.push($flagDiv);
+                $rowDiv.prepend('Possible duplicate' + (dupesFound > 1 ? 's' : '') + ':');
+                rowDivs.push($rowDiv);
             }
 
             // Build banners above the Services
-            for (tempKey in bannButt) {
-                flag = bannButt[tempKey];
-                if ( flag && flag.active ) {  //  If the particular message is active
-                    $flagDiv = $('<div>');
-                    if (flag.divId) {
-                        $flagDiv.attr('id', flag.divId);
+            Object.keys(bannButt).forEach(function(tempKey) {
+                rowData = bannButt[tempKey];
+                if (rowData.active) {  //  If the particular message is active
+                    $rowDiv = $('<div>');
+                    if (rowData.divId) {
+                        $rowDiv.attr('id', rowData.divId);
                     }
-                    if (flag.message && flag.message.length) {
-                        $flagDiv.append($('<span>').css({'margin-right':'4px'}).append(flag.message));
+                    if (rowData.message && rowData.message.length) {
+                        $rowDiv.append($('<span>').css({'margin-right':'4px'}).append(rowData.message));
                     }
-                    if (flag.action) {
-                        $flagDiv.append( $('<button>', {class:"btn btn-default btn-xs wmeph-btn", id:'WMEPH_' + tempKey, title:flag.title || ''}).css({'margin-right':'4px'}).text(flag.value) );
+                    if (rowData.action) {
+                        $rowDiv.append( $('<button>', {class:"btn btn-default btn-xs wmeph-btn", id:'WMEPH_' + tempKey, title:rowData.title || ''}).css({'margin-right':'4px'}).text(rowData.value) );
                     }
-                    if (flag.action2) {
-                        $flagDiv.append( $('<button>', {class:"btn btn-default btn-xs wmeph-btn", id:'WMEPH_' + tempKey + '_2', title:flag.title2 || ''}).css({'margin-right':'4px'}).text(flag.value2) );
+                    if (rowData.action2) {
+                        $rowDiv.append( $('<button>', {class:"btn btn-default btn-xs wmeph-btn", id:'WMEPH_' + tempKey + '_2', title:rowData.title2 || ''}).css({'margin-right':'4px'}).text(rowData.value2) );
                     }
-                    if (flag.WLactive) {
-                        if (flag.WLaction) {  // If there's a WL option, enable it
-                            severityButt = Math.max(flag.severity, severityButt);
-                            $flagDiv.append(
-                                $('<button>', {class:'btn btn-success btn-xs wmephwl-btn', id:'WMEPH_WL' + tempKey, title:flag.WLtitle}).css({'margin-right':'4px'}).text('WL')
+                    if (rowData.WLactive) {
+                        if (rowData.WLaction) {  // If there's a WL option, enable it
+                            severityButt = Math.max(rowData.severity, severityButt);
+                            $rowDiv.append(
+                                $('<button>', {class:'btn btn-success btn-xs wmephwl-btn', id:'WMEPH_WL' + tempKey, title:rowData.WLtitle}).css({'margin-right':'4px'}).text('WL')
                             );
                         }
                     } else {
-                        severityButt = Math.max(flag.severity, severityButt);
+                        severityButt = Math.max(rowData.severity, severityButt);
                     }
-                    if (flag.suffixMessage) {
-                        $flagDiv.append( $('<div>').css({'margin-top':'2px'}).append(flag.suffixMessage) );
+                    if (rowData.suffixMessage) {
+                        $rowDiv.append( $('<div>').css({'margin-top':'2px'}).append(rowData.suffixMessage) );
                     }
 
-                    flagDivs.push($flagDiv);
+                    rowDivs.push($rowDiv);
                 }
-            }
+            });
 
             if ( $("#WMEPH-ColorHighlighting" + devVersStr).prop('checked') ) {
                 item = W.selectionManager.selectedItems[0].model;
                 item.attributes.wmephSeverity = severityButt;
             }
-
-            // setup Add Service Buttons for suggested services
-            if (!item.isResidential()) {
-                var sidebarServButts = '', servButtHeight = '27', greyOption;
-                for ( tempKey in bannServ ) {
-                    if ( bannServ.hasOwnProperty(tempKey) && bannServ[tempKey].hasOwnProperty('active') && bannServ[tempKey].active ) {  //  If the particular service is active
-                        if ( bannServ[tempKey].checked ) {
-                            greyOption = '';
-                        } else {
-                            greyOption = '-webkit-filter: opacity(.25);filter: opacity(.25);';
-                            //greyOption = '-webkit-filter: brightness(3); filter: brightness(3);';
-                        }
-                        //strButt1 = '&nbsp<input class="servButton" id="WMEPH_' + tempKey + '" title="' + bannServ[tempKey].title + '" type="image" style="height:' + servButtHeight +
-                        //    'px;background:none;border-color: none;border-style: none;" src="https://openmerchantaccount.com/img2/' + bannServ[tempKey].icon + greyOption + '.png">';
-                        strButt1 = '&nbsp<input class="'+bannServ[tempKey].icon+'" id="WMEPH_' + tempKey + '" type="button" title="' + bannServ[tempKey].title +
-                            '" style="border:0;background-size: contain; height:' + servButtHeight + 'px;width: '+Math.ceil(servButtHeight*bannServ[tempKey].w2hratio).toString()+'px;'+greyOption+'">';
-                        sidebarServButts += strButt1;
-                    }
-                }
-                if (sidebarServButts.length>0) {
-                    sidebarTools.push('<span class="control-label">Add services:</span><br>' + sidebarServButts);
-                }
-            }
-
-            //  Build general banners (below the Services)
-            for ( tempKey in bannButt2 ) {
-                if ( bannButt2.hasOwnProperty(tempKey) && bannButt2[tempKey].hasOwnProperty('active') && bannButt2[tempKey].active ) {  //  If the particular message is active
-                    strButt1 = bannButt2[tempKey].message;
-                    if (bannButt2[tempKey].hasOwnProperty('action')) {
-                        strButt1 += ' <input class="btn btn-info btn-xs wmeph-btn" id="WMEPH_' + tempKey + '" title="' + bannButt2[tempKey].title + '" style="" type="button" value="' + bannButt2[tempKey].value + '">';
-                    }
-                    sidebarTools.push(strButt1);
-                    severityButt = Math.max(bannButt2[tempKey].severity, severityButt);
-                }
-            }
-
-            // Post the banners to the sidebar
-            displayTools( sidebarTools.join("</div><div>") );
 
             if ($('#WMEPH_banner').length === 0 ) {
                 $('<div id="WMEPH_banner">').css({"background-color": "#fff", "color": "white", "font-size": "15px", "padding": "4px", "margin-left": "4px", "margin-right": "4px", "line-height":"18px", "margin-top":"2px"}).prependTo(".contents");
@@ -4777,10 +4781,34 @@
                 default:
                     bgColor = "rgb(36, 172, 36)";  // green
             }
-            $('#WMEPH_banner').css({"background-color": bgColor}).append(flagDivs);
-            //sbm = '<div>' + sbm + '</div>';
-            // $("#WMEPH_banner").append(sbm);
-            $('#select2-drop').css({display:'none'});
+            $('#WMEPH_banner').css({"background-color": bgColor}).append(rowDivs);
+            //$('#select2-drop').css({display:'none'});
+
+            assembleServicesBanner();
+
+            //  Build general banners (below the Services)
+            rowDivs = [];
+            Object.keys(bannButt2).forEach(function(tempKey) {
+                var rowData = bannButt2[tempKey];
+                if (rowData.active ) {  //  If the particular message is active
+                    $rowDiv = $('<div>');
+                    $rowDiv.append(rowData.message);
+                    if (rowData.action) {
+                        $rowDiv.append(' <input class="btn btn-info btn-xs wmeph-btn" id="WMEPH_' + tempKey + '" title="' + rowData.title + '" style="" type="button" value="' + rowData.value + '">');
+                    }
+                    rowDivs.push($rowDiv);
+                    severityButt = Math.max(bannButt2[tempKey].severity, severityButt);
+                }
+            });
+
+            if ($('#WMEPH_tools').length === 0 ) {
+                $("#WMEPH_services").after( $('<div id="WMEPH_tools">').css({"background-color": "#eee", "color": "black", "font-size": "15px", "padding": "4px", "margin-left": "4px", "margin-right": "auto"}) );
+            } else {
+                $('#WMEPH_tools').empty();
+            }
+            $("#WMEPH_tools").append(rowDivs);
+            //$('#select2-drop').css({display:'none'});
+
 
             // Set up Duplicate onclicks
             if ( dupesFound ) {
@@ -4788,12 +4816,14 @@
             }
             // Setup bannButt onclicks
             setupButtons(bannButt);
-            // Setup bannServ onclicks
-            if (!item.isResidential()) {
-                setupButtons(bannServ);
-            }
+
             // Setup bannButt2 onclicks
             setupButtons(bannButt2);
+
+            // Prefill zip code text box
+            if (bannButt.missingUSPSZipAlt.active && bannButt.missingUSPSZipAlt.suggestedValue) {
+                $('input#WMEPH-zipAltNameAdd').val(bannButt.missingUSPSZipAlt.suggestedValue);
+            }
 
             // Add click handlers for parking lot helper buttons.
             $('.wmeph-pla-spaces-btn').click(function() {
@@ -4934,10 +4964,47 @@
 
         }  // END assemble Banner function
 
+        function assembleServicesBanner() {
+            // setup Add Service Buttons for suggested services
+            var rowDivs = [];
+            if (!item.isResidential()) {
+                var $rowDiv = $('<div>');
+                var servButtHeight = '27', greyOption;
+                Object.keys(bannServ).forEach(function(tempKey) {
+                    var rowData = bannServ[tempKey];
+                    if (rowData.active) {  //  If the particular service is active
+                        var $input = $('<input>', {class:rowData.icon, id:'WMEPH_' + tempKey, type:'button', title: rowData.title}).css(
+                            {border:0, 'background-size':'contain', height:'27px', width: Math.ceil(servButtHeight * rowData.w2hratio).toString()+'px'}
+                        );
+                        if (!rowData.checked) {
+                            $input.css({'-webkit-filter':'opacity(.25)', filter:'opacity(.25)'});
+                        }
+                        $rowDiv.append($input);
+                    }
+                });
+                if ($rowDiv.length) {
+                    $rowDiv.prepend('<span class="control-label">Add services:</span><br>');
+                }
+                rowDivs.push($rowDiv);
+            }
+            if ($('#WMEPH_services').length === 0 ) {
+                $("#WMEPH_banner").after( $('<div id="WMEPH_services">').css({"background-color": "#eee", "color": "black", "font-size": "15px", "padding": "4px", "margin-left": "4px", "margin-right": "auto"}) );
+            } else {
+                $('#WMEPH_services').empty();
+            }
+            $("#WMEPH_services").append(rowDivs);
+            //$('#select2-drop').css({display:'none'});
+
+            // Setup bannServ onclicks
+            if (!item.isResidential()) {
+                setupButtons(bannServ);
+            }
+        }
+
         W.model.venues.on('objectschanged', function() {
             if ($('#WMEPH_banner').length > 0) {
                 updateServicesChecks();
-                assembleBanner();
+                assembleServicesBanner();
             }
         });
 
@@ -4963,7 +5030,7 @@
             var button = document.getElementById('WMEPH_'+bKey);
             button.onclick = function() {
                 b[bKey].action();
-                assembleBanner();
+                if (!b[bKey].noBannerAssemble) assembleBanner();
             };
             return button;
         }
@@ -4971,7 +5038,7 @@
             var button = document.getElementById('WMEPH_'+bKey+'_2');
             button.onclick = function() {
                 b[bKey].action2();
-                assembleBanner();
+                if (!b[bKey].noBannerAssemble) assembleBanner();
             };
             return button;
         }
@@ -4989,18 +5056,6 @@
             };
             return button;
         }
-
-        // Setup div for banner messages and color
-        function displayTools(sbm) {
-            if ($('#WMEPH_tools').length === 0 ) {
-                $('<div id="WMEPH_tools">').css({"background-color": "#eee", "color": "black", "font-size": "15px", "padding": "4px", "margin-left": "4px", "margin-right": "auto"}).prependTo(".contents");
-            } else {
-                $('#WMEPH_tools').empty();
-            }
-            sbm = '<div><span style="position:relative;">' + sbm+ '</span></div>';
-            $("#WMEPH_tools").append(sbm);
-            $('#select2-drop').css({display:'none'});
-        }  // END displayTools funtion
 
         // Display run button on place sidebar
         function displayRunButton() {
