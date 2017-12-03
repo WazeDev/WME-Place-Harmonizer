@@ -251,8 +251,8 @@
                 var betaix = WMEPHuserList.indexOf('BETAUSERS');
                 WMEPHdevList = [];
                 WMEPHbetaList = [];
-                for (var ulix=1; ulix<betaix; ulix++) WMEPHdevList.push(WMEPHuserList[ulix].toLowerCase());
-                for (ulix=betaix+1; ulix<WMEPHuserList.length; ulix++) WMEPHbetaList.push(WMEPHuserList[ulix].toLowerCase());
+                for (var ulix=1; ulix<betaix; ulix++) WMEPHdevList.push(WMEPHuserList[ulix].toLowerCase().trim());
+                for (ulix=betaix+1; ulix<WMEPHuserList.length; ulix++) WMEPHbetaList.push(WMEPHuserList[ulix].toLowerCase().trim());
             });
         }, 100);
     }, betaDataDelay);
