@@ -13,7 +13,7 @@
 // ==UserScript==
 // @name        WME Place Harmonizer Beta
 // @namespace   WazeUSA
-// @version     1.3.56
+// @version     1.3.57
 // @description Harmonizes, formats, and locks a selected place
 // @author      WMEPH Development Group
 // @include     /^https:\/\/(www|beta)\.waze\.com\/(?!user\/)(.{2,6}\/)?editor\/?.*$/
@@ -410,6 +410,8 @@
     function runPH() {
         // Script update info
         var WMEPHWhatsNewList = [  // New in this version
+            '1.3.57: FIXED - Hours entry box height not quite tall enough when autosizing (still an issue in FF).',
+            '1.3.57: FIXED - Some city names were not being recognized correctly in the USPS description field.',
             '1.3.56: NEW - Text box to enter missing USPS Zip code alt name.',
             '1.3.56: FIXED - URL text entry will check for a valid URL format.',
             '1.3.55: FIXED - Title casing should ignore name localizers (to the right of a hyphen).',
@@ -4024,7 +4026,7 @@
                         }
                         var descr = item.attributes.description;
                         var lines = descr.split('\n');
-                        if (lines.length < 1 || !/^(?:\w+){1,}, [A-Z]{2}\s{1,2}\d{5}$/.test(lines[0])) {
+                        if (lines.length < 1 || !/^.{2,}, [A-Z]{2}\s{1,2}\d{5}$/.test(lines[0])) {
                             bannButt.missingUSPSDescription.active = true;
                         }
                     }
@@ -4908,7 +4910,7 @@
                     var text = $sel.val();
                     var elem = $sel[0];
                     var lineCount = (text.match(/\n/g) || []).length + 1;
-                    var height = lineCount*16 + 8 + (elem.scrollWidth > elem.clientWidth ? 20 : 0);
+                    var height = lineCount*18 + 6 + (elem.scrollWidth > elem.clientWidth ? 20 : 0);
                     $sel.css({height:height+'px'});
 
                 },100);
