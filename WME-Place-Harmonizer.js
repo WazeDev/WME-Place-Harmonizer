@@ -1899,7 +1899,9 @@
                         harmonizePlaceGo(item, 'harmonize');
                     }
                 },
-
+                plaLotTypeMissing: {
+                   active: false, severity: 3, message: 'Lot type: '
+                },
                 plaCostTypeMissing: {
                     active: false, severity: 1, message: 'Parking cost: '
                 },
