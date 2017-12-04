@@ -891,6 +891,10 @@
                 if (/^[a-z][A-Z0-9][a-z]/.test(txt)) {
                     return txt;
                 }
+                // If word starts with 'De' followed by uppercase then lower case, is 5+ characters long... assume it should be like "DeBerry".
+                if (/^[dD]e[A-Z][a-zA-Z\u00C0-\u017F]{2,}/.test(txt)) {
+                    return 'De' + txt.charAt(2) + txt.substr(3).toLowerCase();
+                }
                 return ((txt === txt.toUpperCase()) && !allCaps) ? txt : txt.charAt(0).toUpperCase() + txt.substr(1).toLowerCase();
             });
             // Cap O'Reilley's, L'Amour, D'Artagnan as long as 5+ letters
