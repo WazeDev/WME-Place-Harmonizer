@@ -891,9 +891,9 @@
                 if (/^[a-z][A-Z0-9][a-z]/.test(txt)) {
                     return txt;
                 }
-                // If word starts with 'De' followed by uppercase then lower case, is 5+ characters long... assume it should be like "DeBerry".
-                if (/^[dD]e[A-Z][a-zA-Z\u00C0-\u017F]{2,}/.test(txt)) {
-                    return 'De' + txt.charAt(2) + txt.substr(3).toLowerCase();
+                // If word starts with De/Le/La followed by uppercase then lower case, is 5+ characters long... assume it should be like "DeBerry".
+                if (/^([dDlL]e|[lL]a)[A-Z][a-zA-Z\u00C0-\u017F]{2,}/.test(txt)) {
+                    return txt.charAt(0).toUpperCase() + txt.charAt(1).toLowerCase() + txt.charAt(2) + txt.substr(3).toLowerCase();
                 }
                 return ((txt === txt.toUpperCase()) && !allCaps) ? txt : txt.charAt(0).toUpperCase() + txt.substr(1).toLowerCase();
             });
