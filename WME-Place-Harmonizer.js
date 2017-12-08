@@ -1521,7 +1521,7 @@
                 },
 
                 catPostOffice: {  // no WL
-                    active: false, severity: 0, message: 'If this is not a <a href="https://wazeopedia.waze.com/wiki/USA/Places/Post_Office" style="color:white" target="_blank">USPS post office</a>, change the category, as "Post Office" is only used for USPS locations.'
+                    active: false, severity: 0, message: 'The Post Office category is reserved for certain USPS locations. Please be sure to follow <a href="https://wazeopedia.waze.com/wiki/USA/Places/Post_Office" style="color:white" target="_blank">the guidelines</a>.'
                 },
 
                 ignEdited: {  // no WL
