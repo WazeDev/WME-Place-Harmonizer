@@ -13,7 +13,7 @@
 // ==UserScript==
 // @name        WME Place Harmonizer Beta
 // @namespace   WazeUSA
-// @version     1.3.58
+// @version     1.3.59
 // @description Harmonizes, formats, and locks a selected place
 // @author      WMEPH Development Group
 // @include     /^https:\/\/(www|beta)\.waze\.com\/(?!user\/)(.{2,6}\/)?editor\/?.*$/
@@ -403,6 +403,8 @@
     function runPH() {
         // Script update info
         var WMEPHWhatsNewList = [  // New in this version
+            '1.3.59: FIXED - Bug with store finder code inserts "undefined" in URL when HN is missing.',
+            '1.3.58: FIXED - Title casing like "DeBerry", "LeCroy", and "LaTonka" not working.',
             '1.3.57: FIXED - Hours entry box height not quite tall enough when autosizing (still an issue in FF).',
             '1.3.57: FIXED - Some city names were not being recognized correctly in the USPS description field.',
             '1.3.56: NEW - Text box to enter missing USPS Zip code alt name.',
