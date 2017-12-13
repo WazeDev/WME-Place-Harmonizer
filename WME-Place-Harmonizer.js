@@ -3260,7 +3260,7 @@
                                 } else if (tempLocalURL[tlix] === 'ph_longitudePMBuffMax') {
                                     customStoreFinderLocalURL = customStoreFinderLocalURL + (itemGPS.lon+0.15).toString();
                                 } else if (tempLocalURL[tlix] === 'ph_houseNumber') {
-                                    customStoreFinderLocalURL = customStoreFinderLocalURL + item.attributes.houseNumber;
+                                    customStoreFinderLocalURL = customStoreFinderLocalURL + (item.attributes.houseNumber ? item.attributes.houseNumber : '');
                                 } else {
                                     customStoreFinderLocalURL = customStoreFinderLocalURL + tempLocalURL[tlix];
                                 }
