@@ -13,7 +13,7 @@
 // ==UserScript==
 // @name        WME Place Harmonizer
 // @namespace   WazeUSA
-// @version     1.3.59
+// @version     1.3.60
 // @description Harmonizes, formats, and locks a selected place
 // @author      WMEPH Development Group
 // @include     /^https:\/\/(www|beta)\.waze\.com\/(?!user\/)(.{2,6}\/)?editor\/?.*$/
@@ -403,6 +403,7 @@
     function runPH() {
         // Script update info
         var WMEPHWhatsNewList = [  // New in this version
+            '1.3.60: NEW - Added WL options to a couple USPS flags.',
             '1.3.59: FIXED - Bug with store finder code inserts "undefined" in URL when HN is missing.',
             '1.3.58: FIXED - Title casing like "DeBerry", "LeCroy", and "LaTonka" not working.',
             '1.3.57: FIXED - Hours entry box height not quite tall enough when autosizing (still an issue in FF).',
@@ -1677,7 +1678,8 @@
 
                 missingUSPSZipAlt: {
                     active: false, severity: 1, message: 'No <a href="https://wazeopedia.waze.com/wiki/USA/Places/Post_Office" style="color:white" target="_blank">ZIP code alt name</a>: ' +
-                    '<input type="text" id="WMEPH-zipAltNameAdd" autocomplete="off" style="font-size:0.85em;width:100px;padding-left:2px;color:#000;">', value: "Add", noBannerAssemble: true,
+                    '<input type="text" id="WMEPH-zipAltNameAdd" autocomplete="off" style="font-size:0.85em;width:65px;padding-left:2px;color:#000;" title="Enter the ZIP code and click Add">',
+                    value: "Add", noBannerAssemble: true,
                     action: function() {
                         var $input = $('input#WMEPH-zipAltNameAdd');
                         var zip = $input.val().trim();
@@ -1696,24 +1698,23 @@
                                 $input.css({backgroundColor: '#FDD'}).attr('title', 'Zip code format error');
                             }
                         }
-                        // $('.aliases-view a.add.waze-link').click();
-                        // var zip = item.attributes.name.match(/\b\d{5}\b/);
-                        // if (zip) {
-                        //     $('.aliases-view input').last().val(zip[0]).change();
-                        //     harmonizePlaceGo(item, 'harmonize');
-                        // }
-                        // setTimeout(function() {
-                        //     var $input = $('.aliases-view input').last();
-                        //     var elem = $input[0];
-                        //     var value = $input.val();
-                        //     $input.focus();
-                        //     if (value) elem.selectionStart = value.length;
-                        // }, 100)
+                    },
+                    WLactive: true, WLmessage: '', WLtitle: 'Whitelist missing USPS zip alt name',
+                    WLaction: function() {
+                        wlKeyName = 'missingUSPSZipAlt';
+                        whitelistAction(itemID, wlKeyName);
+                        harmonizePlaceGo(item, 'harmonize');
                     }
                 },
 
                 missingUSPSDescription: {
-                    active: false, severity: 1, message: 'The first line of the description for a <a href="https://wazeopedia.waze.com/wiki/USA/Places/Post_Office" style="color:white" target="_blank">USPS post office</a> must be CITY, STATE ZIP, e.g. "Lexington, KY 40511"'
+                    active: false, severity: 1, message: 'The first line of the description for a <a href="https://wazeopedia.waze.com/wiki/USA/Places/Post_Office" style="color:white" target="_blank">USPS post office</a> must be CITY, STATE ZIP, e.g. "Lexington, KY 40511"',
+                    WLactive: true, WLmessage: '', WLtitle: 'Whitelist missing USPS address line in description',
+                    WLaction: function() {
+                        wlKeyName = 'missingUSPSDescription';
+                        whitelistAction(itemID, wlKeyName);
+                        harmonizePlaceGo(item, 'harmonize');
+                    }
                 },
 
                 catHotel: {
@@ -4003,6 +4004,10 @@
                         }
                         if ( !newAliases.some(alias => /\d{5}/.test(alias)) ) {
                             bannButt.missingUSPSZipAlt.active = true;
+                            if (currentWL.missingUSPSZipAlt) {
+                                bannButt.missingUSPSZipAlt.severity = 0;
+                                bannButt.missingUSPSZipAlt.WLactive = false;
+                            }
                             // If the zip code appears in the primary name, pre-fill it in the text entry box.
                             var zipMatch = newName.match(/\d{5}/);
                             if (zipMatch) {
@@ -4018,6 +4023,10 @@
                         var lines = descr.split('\n');
                         if (lines.length < 1 || !/^.{2,}, [A-Z]{2}\s{1,2}\d{5}$/.test(lines[0])) {
                             bannButt.missingUSPSDescription.active = true;
+                            if (currentWL.missingUSPSDescription) {
+                                bannButt.missingUSPSDescription.severity = 0;
+                                bannButt.missingUSPSDescription.WLactive = false;
+                            }
                         }
                     }
                 }  // END Post Office check
