@@ -13,7 +13,7 @@
 // ==UserScript==
 // @name        WME Place Harmonizer Beta
 // @namespace   WazeUSA
-// @version     1.3.60
+// @version     1.3.61
 // @description Harmonizes, formats, and locks a selected place
 // @author      WMEPH Development Group
 // @include     /^https:\/\/(www|beta)\.waze\.com\/(?!user\/)(.{2,6}\/)?editor\/?.*$/
@@ -403,6 +403,7 @@
     function runPH() {
         // Script update info
         var WMEPHWhatsNewList = [  // New in this version
+            '1.3.61: NEW - Pilot Food Mart / Travel Center check for TN.',
             '1.3.60: NEW - Added WL options to a couple USPS flags.',
             '1.3.59: FIXED - Bug with store finder code inserts "undefined" in URL when HN is missing.',
             '1.3.58: FIXED - Title casing like "DeBerry", "LeCroy", and "LaTonka" not working.',
@@ -1308,6 +1309,17 @@
                     }
                 },
 
+                isThisAPilotTravelCenter: {
+                    active: false, severity: 0, message: 'Is this a "Travel Center"?', value: 'Yes', title: '',
+                    action: function() {
+                        var actions = [];
+                        actions.push(new UpdateObject(item, { name: 'Pilot Travel Center' }));
+                        _updatedFields.name.updated = true;
+                        executeMultiAction(actions);
+                        harmonizePlaceGo(item, 'harmonize');
+                    }
+                },
+
                 hotelMkPrim: {
                     active: false, severity: 3, message: "Hotel category is not first", value: "Fix", title: 'Make the Hotel category the primary category.',
                     action: function() {
@@ -1889,7 +1901,7 @@
                     }
                 },
                 plaLotTypeMissing: {
-                   active: false, severity: 3, message: 'Lot type: '
+                    active: false, severity: 3, message: 'Lot type: '
                 },
                 plaCostTypeMissing: {
                     active: false, severity: 1, message: 'Parking cost: '
@@ -2955,6 +2967,15 @@
                         bannButt.addConvStore.active = true;
                     }
                 }
+                // Pilot gas station check
+                if (state2L === 'TN' && newName.toLowerCase().trim() === 'pilot') {
+                    newName = 'Pilot Food Mart';
+                    actions.push(new UpdateObject(item, { name: 'Pilot Food Mart' }));
+                    _updatedFields.name.updated = true;
+                }
+                if (state2L === 'TN' && newName.toLowerCase().trim() === 'pilot food mart') {
+                    bannButt.isThisAPilotTravelCenter.active = true;
+                }
             }  // END Gas Station Checks
 
             var isLocked = item.attributes.lockRank >= (PNHLockLevel > -1 ? PNHLockLevel : defaultLockLevel);
@@ -3084,8 +3105,6 @@
                     } else {
                         PNHMatchData = PNHMatchData[0].split('|');  // Single match just gets direct split
                     }
-
-
 
                     var priPNHPlaceCat = catTranslate(PNHMatchData[ph_category1_ix]);  // translate primary category to WME code
 
