@@ -1257,10 +1257,10 @@
                         newCategories = insertAtIX(newCategories,"SCENIC_LOOKOUT_VIEWPOINT",1);  // Insert/move SCENIC_LOOKOUT_VIEWPOINT category in the 2nd position
 
                         actions.push(new UpdateObject(item, { categories: newCategories }));
-                        _updatedFields.categories.updated = '#dfd';
+                        _updatedFields.categories.updated = true;
                         // make it 24/7
                         actions.push(new UpdateObject(item, { openingHours: [{days: [1,2,3,4,5,6,0], fromHour: "00:00", toHour: "00:00"}] }));
-                        _updatedFields.openingHours.updated = '#dfd';
+                        _updatedFields.openingHours.updated = true;
 
                         bannServ.add247.checked = true;
                         bannServ.addParking.actionOn(actions);  // add parking service
@@ -1302,7 +1302,7 @@
                         newCategories = insertAtIX(newCategories,"GAS_STATION",0);  // Insert/move Gas category in the first position
                         var actions = [];
                         actions.push(new UpdateObject(item, { categories: newCategories }));
-                        _updatedFields.categories.updated = '#dfd';
+                        _updatedFields.categories.updated = true;
                         bannButt.gasMkPrim.active = false;  // reset the display flag
                         executeMultiAction(actions);
                         harmonizePlaceGo(item,'harmonize');
@@ -1326,7 +1326,7 @@
                         newCategories = insertAtIX(newCategories,"HOTEL",0);  // Insert/move Hotel category in the first position
                         var actions = [];
                         actions.push(new UpdateObject(item, { categories: newCategories }));
-                        _updatedFields.categories.updated = '#dfd';
+                        _updatedFields.categories.updated = true;
                         bannButt.hotelMkPrim.active = false;  // reset the display flag
                         executeMultiAction(actions);
                         harmonizePlaceGo(item,'harmonize');
@@ -1348,7 +1348,7 @@
                             newCategories[idx] = "PET_STORE_VETERINARIAN_SERVICES";
                             var actions = [];
                             actions.push(new UpdateObject(item, { categories: newCategories }));
-                            _updatedFields.categories.updated = '#dfd';
+                            _updatedFields.categories.updated = true;
                             bannButt.changeToPetVet.active = false;  // reset the display flag
                             executeMultiAction(actions);
                         }
@@ -1368,7 +1368,7 @@
                         newCategories[newCategories.indexOf('SCHOOL')] = "OFFICES";
                         var actions = [];
                         actions.push(new UpdateObject(item, { categories: newCategories }));
-                        _updatedFields.categories.updated = '#dfd';
+                        _updatedFields.categories.updated = true;
                         bannButt.changeSchool2Offices.active = false;  // reset the display flag
                         executeMultiAction(actions);
                         harmonizePlaceGo(item,'harmonize');  // Rerun the script to update fields and lock
@@ -1493,8 +1493,8 @@
                         var tempName = newName.replace(/[\- (]*ATM[\- )]*/g, ' ').replace(/^ /g,'').replace(/ $/g,'');     // strip ATM from name if present
                         newName = tempName;
                         W.model.actionManager.add(new UpdateObject(item, { name: newName, categories: newCategories }));
-                        if (tempName !== newName) _updatedFields.name.updated = '#dfd';
-                        _updatedFields.categories.updated = '#dfd';
+                        if (tempName !== newName) _updatedFields.name.updated = true;
+                        _updatedFields.categories.updated = true;
                         bannButt.bankCorporate.active = false;   // reset the bank Branch display flag
                         bannButt.bankBranch.active = false;   // reset the bank Branch display flag
                         bannButt.standaloneATM.active = false;   // reset the standalone ATM display flag
@@ -1507,11 +1507,11 @@
                     action: function() {
                         if (newName.indexOf("ATM") === -1) {
                             newName = newName + ' ATM';
-                            _updatedFields.name.updated = '#dfd';
+                            _updatedFields.name.updated = true;
                         }
                         newCategories = ["ATM"];  // Change to ATM only
                         W.model.actionManager.add(new UpdateObject(item, { name: newName, categories: newCategories }));
-                        _updatedFields.categories.updated = '#dfd';
+                        _updatedFields.categories.updated = true;
                         bannButt.bankCorporate.active = false;   // reset the bank Branch display flag
                         bannButt.bankBranch.active = false;   // reset the bank Branch display flag
                         bannButt.standaloneATM.active = false;   // reset the standalone ATM display flag
@@ -1526,8 +1526,8 @@
                         var tempName = newName.replace(/[\- (]*atm[\- )]*/ig, ' ').replace(/^ /g,'').replace(/ $/g,'').replace(/ {2,}/g,' ');     // strip ATM from name if present
                         newName = tempName;
                         W.model.actionManager.add(new UpdateObject(item, { name: newName + ' - Corporate Offices', categories: newCategories }));
-                        if (newName !== tempName) _updatedFields.name.updated = '#dfd';
-                        _updatedFields.categories.updated = '#dfd';
+                        if (newName !== tempName) _updatedFields.name.updated = true;
+                        _updatedFields.categories.updated = true;
                         bannButt.bankCorporate.active = false;   // reset the bank Branch display flag
                         bannButt.bankBranch.active = false;   // reset the bank Branch display flag
                         bannButt.standaloneATM.active = false;   // reset the standalone ATM display flag
@@ -1618,7 +1618,7 @@
                     action: function() {
                         if (tempPNHURL !== '') {
                             W.model.actionManager.add(new UpdateObject(item, { url: tempPNHURL }));
-                            _updatedFields.url.updated = '#dfd';
+                            _updatedFields.url.updated = true;
                             bannButt.longURL.active = false;
                             updateURL = true;
                         } else {
