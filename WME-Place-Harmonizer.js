@@ -13,7 +13,7 @@
 // ==UserScript==
 // @name        WME Place Harmonizer Beta
 // @namespace   WazeUSA
-// @version     1.3.61
+// @version     1.3.62
 // @description Harmonizes, formats, and locks a selected place
 // @author      WMEPH Development Group
 // @include     /^https:\/\/(www|beta)\.waze\.com\/(?!user\/)(.{2,6}\/)?editor\/?.*$/
@@ -403,6 +403,7 @@
     function runPH() {
         // Script update info
         var WMEPHWhatsNewList = [  // New in this version
+            '1.3.62: FIXED - WMEPH reports "No URL" on places with a URL when there is a PNH entry without a URL.',
             '1.3.61: NEW - Pilot Food Mart / Travel Center check for TN.',
             '1.3.60: NEW - Added WL options to a couple USPS flags.',
             '1.3.59: FIXED - Bug with store finder code inserts "undefined" in URL when HN is missing.',
@@ -1912,7 +1913,7 @@
                     action: function() {
                         var cash = $('#wmeph-payment-cash').prop('checked');
                         var check = $('#wmeph-payment-check').prop('checked');
-                        var credit = $('#wmeph-payment-credit').prop('checked');
+                        var credit = $('#wmeph-payment-credit-card').prop('checked');
                         if (cash || check || credit) {
                             var existingAttr = item.attributes.categoryAttributes.PARKING_LOT;
                             var newAttr = {};
@@ -2792,8 +2793,8 @@
                 if (parkAttr && parkAttr.costType && parkAttr.costType !== 'FREE' && parkAttr.costType !== 'UNKNOWN' && (!parkAttr.paymentType || parkAttr.paymentType.length === 0)) {
                     bannButt.plaPaymentTypeMissing.active = true;
                     var $pmtDiv = $('<div>').css({display:'inline'});
-                    ['Cash', 'Check', 'Credit'].forEach(text => {
-                        var id = 'wmeph-payment-' + text.toLowerCase();
+                    ['Cash', 'Check', 'Credit Card'].forEach(text => {
+                        var id = 'wmeph-payment-' + text.toLowerCase().replace(' ','-');
                         $pmtDiv.append(
                             $('<div>', {class: 'form-control'}).css({padding: '0px', backgroundColor: 'inherit', color: 'white', display: 'inline', border: 'none', marginRight: '5px'}).append(
                                 $('<input>', {id: id, type: 'checkbox'}).css({marginRight: '0px'}),
@@ -3434,17 +3435,17 @@
                         if (newURL !== null || newURL !== '') {
                             localURLcheckRE = new RegExp(localURLcheck, "i");
                             if ( newURL.match(localURLcheckRE) !== null ) {
-                                newURL = normalizeURL(newURL,false, false, item);
+                                newURL = normalizeURL(newURL,false, true, item);
                             } else {
-                                newURL = normalizeURL(PNHMatchData[ph_url_ix],false, false, item);
+                                newURL = normalizeURL(PNHMatchData[ph_url_ix],false, true, item);
                                 bannButt.localURL.active = true;
                             }
                         } else {
-                            newURL = normalizeURL(PNHMatchData[ph_url_ix],false, false, item);
+                            newURL = normalizeURL(PNHMatchData[ph_url_ix],false, true, item);
                             bannButt.localURL.active = true;
                         }
                     } else {
-                        newURL = normalizeURL(PNHMatchData[ph_url_ix],false, false, item);
+                        newURL = normalizeURL(PNHMatchData[ph_url_ix],false, true, item);
                     }
                     // Parse PNH Aliases
                     newAliasesTemp = PNHMatchData[ph_aliases_ix].match(/([^\(]*)/i)[0];
@@ -3912,7 +3913,7 @@
                 // URL updating
                 var updateURL = true;
                 if (newURL !== item.attributes.url && newURL !== "" && newURL !== "0") {
-                    if ( PNHNameRegMatch && item.attributes.url !== null && item.attributes.url !== '' ) {  // for cases where there is an existing URL in the WME place, and there is a PNH url on queue:
+                    if ( PNHNameRegMatch && item.attributes.url !== null && item.attributes.url !== '' && newURL !== 'badURL') {  // for cases where there is an existing URL in the WME place, and there is a PNH url on queue:
                         var newURLTemp = normalizeURL(newURL,true,false, item);  // normalize
                         var itemURL = normalizeURL(item.attributes.url,true,false, item);
                         newURLTemp = newURLTemp.replace(/^www\.(.*)$/i,'$1');  // strip www
@@ -3932,7 +3933,7 @@
                             tempPNHURL = newURL;
                         }
                     }
-                    if (hpMode.harmFlag && updateURL && newURL !== item.attributes.url) {  // Update the URL
+                    if (hpMode.harmFlag && updateURL && newURL !== 'badURL' && newURL !== item.attributes.url) {  // Update the URL
                         phlogdev("URL updated");
                         actions.push(new UpdateObject(item, { url: newURL }));
                         _updatedFields.url.updated = true;
