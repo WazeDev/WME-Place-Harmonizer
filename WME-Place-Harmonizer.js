@@ -13,7 +13,7 @@
 // ==UserScript==
 // @name        WME Place Harmonizer
 // @namespace   WazeUSA
-// @version     1.3.60
+// @version     1.3.63
 // @description Harmonizes, formats, and locks a selected place
 // @author      WMEPH Development Group
 // @include     /^https:\/\/(www|beta)\.waze\.com\/(?!user\/)(.{2,6}\/)?editor\/?.*$/
@@ -403,6 +403,9 @@
     function runPH() {
         // Script update info
         var WMEPHWhatsNewList = [  // New in this version
+            '1.3.63: FIEXD - NY post office exception should only apply to NYC.',
+            '1.3.62: FIXED - WMEPH reports "No URL" on places with a URL when there is a PNH entry without a URL.',
+            '1.3.61: NEW - Pilot Food Mart / Travel Center check for TN.',
             '1.3.60: NEW - Added WL options to a couple USPS flags.',
             '1.3.59: FIXED - Bug with store finder code inserts "undefined" in URL when HN is missing.',
             '1.3.58: FIXED - Title casing like "DeBerry", "LeCroy", and "LaTonka" not working.',
@@ -1256,10 +1259,10 @@
                         newCategories = insertAtIX(newCategories,"SCENIC_LOOKOUT_VIEWPOINT",1);  // Insert/move SCENIC_LOOKOUT_VIEWPOINT category in the 2nd position
 
                         actions.push(new UpdateObject(item, { categories: newCategories }));
-                        _updatedFields.categories.updated = '#dfd';
+                        _updatedFields.categories.updated = true;
                         // make it 24/7
                         actions.push(new UpdateObject(item, { openingHours: [{days: [1,2,3,4,5,6,0], fromHour: "00:00", toHour: "00:00"}] }));
-                        _updatedFields.openingHours.updated = '#dfd';
+                        _updatedFields.openingHours.updated = true;
 
                         bannServ.add247.checked = true;
                         bannServ.addParking.actionOn(actions);  // add parking service
@@ -1301,10 +1304,21 @@
                         newCategories = insertAtIX(newCategories,"GAS_STATION",0);  // Insert/move Gas category in the first position
                         var actions = [];
                         actions.push(new UpdateObject(item, { categories: newCategories }));
-                        _updatedFields.categories.updated = '#dfd';
+                        _updatedFields.categories.updated = true;
                         bannButt.gasMkPrim.active = false;  // reset the display flag
                         executeMultiAction(actions);
                         harmonizePlaceGo(item,'harmonize');
+                    }
+                },
+
+                isThisAPilotTravelCenter: {
+                    active: false, severity: 0, message: 'Is this a "Travel Center"?', value: 'Yes', title: '',
+                    action: function() {
+                        var actions = [];
+                        actions.push(new UpdateObject(item, { name: 'Pilot Travel Center' }));
+                        _updatedFields.name.updated = true;
+                        executeMultiAction(actions);
+                        harmonizePlaceGo(item, 'harmonize');
                     }
                 },
 
@@ -1314,7 +1328,7 @@
                         newCategories = insertAtIX(newCategories,"HOTEL",0);  // Insert/move Hotel category in the first position
                         var actions = [];
                         actions.push(new UpdateObject(item, { categories: newCategories }));
-                        _updatedFields.categories.updated = '#dfd';
+                        _updatedFields.categories.updated = true;
                         bannButt.hotelMkPrim.active = false;  // reset the display flag
                         executeMultiAction(actions);
                         harmonizePlaceGo(item,'harmonize');
@@ -1336,7 +1350,7 @@
                             newCategories[idx] = "PET_STORE_VETERINARIAN_SERVICES";
                             var actions = [];
                             actions.push(new UpdateObject(item, { categories: newCategories }));
-                            _updatedFields.categories.updated = '#dfd';
+                            _updatedFields.categories.updated = true;
                             bannButt.changeToPetVet.active = false;  // reset the display flag
                             executeMultiAction(actions);
                         }
@@ -1356,7 +1370,7 @@
                         newCategories[newCategories.indexOf('SCHOOL')] = "OFFICES";
                         var actions = [];
                         actions.push(new UpdateObject(item, { categories: newCategories }));
-                        _updatedFields.categories.updated = '#dfd';
+                        _updatedFields.categories.updated = true;
                         bannButt.changeSchool2Offices.active = false;  // reset the display flag
                         executeMultiAction(actions);
                         harmonizePlaceGo(item,'harmonize');  // Rerun the script to update fields and lock
@@ -1481,8 +1495,8 @@
                         var tempName = newName.replace(/[\- (]*ATM[\- )]*/g, ' ').replace(/^ /g,'').replace(/ $/g,'');     // strip ATM from name if present
                         newName = tempName;
                         W.model.actionManager.add(new UpdateObject(item, { name: newName, categories: newCategories }));
-                        if (tempName !== newName) _updatedFields.name.updated = '#dfd';
-                        _updatedFields.categories.updated = '#dfd';
+                        if (tempName !== newName) _updatedFields.name.updated = true;
+                        _updatedFields.categories.updated = true;
                         bannButt.bankCorporate.active = false;   // reset the bank Branch display flag
                         bannButt.bankBranch.active = false;   // reset the bank Branch display flag
                         bannButt.standaloneATM.active = false;   // reset the standalone ATM display flag
@@ -1495,11 +1509,11 @@
                     action: function() {
                         if (newName.indexOf("ATM") === -1) {
                             newName = newName + ' ATM';
-                            _updatedFields.name.updated = '#dfd';
+                            _updatedFields.name.updated = true;
                         }
                         newCategories = ["ATM"];  // Change to ATM only
                         W.model.actionManager.add(new UpdateObject(item, { name: newName, categories: newCategories }));
-                        _updatedFields.categories.updated = '#dfd';
+                        _updatedFields.categories.updated = true;
                         bannButt.bankCorporate.active = false;   // reset the bank Branch display flag
                         bannButt.bankBranch.active = false;   // reset the bank Branch display flag
                         bannButt.standaloneATM.active = false;   // reset the standalone ATM display flag
@@ -1514,8 +1528,8 @@
                         var tempName = newName.replace(/[\- (]*atm[\- )]*/ig, ' ').replace(/^ /g,'').replace(/ $/g,'').replace(/ {2,}/g,' ');     // strip ATM from name if present
                         newName = tempName;
                         W.model.actionManager.add(new UpdateObject(item, { name: newName + ' - Corporate Offices', categories: newCategories }));
-                        if (newName !== tempName) _updatedFields.name.updated = '#dfd';
-                        _updatedFields.categories.updated = '#dfd';
+                        if (newName !== tempName) _updatedFields.name.updated = true;
+                        _updatedFields.categories.updated = true;
                         bannButt.bankCorporate.active = false;   // reset the bank Branch display flag
                         bannButt.bankBranch.active = false;   // reset the bank Branch display flag
                         bannButt.standaloneATM.active = false;   // reset the standalone ATM display flag
@@ -1606,7 +1620,7 @@
                     action: function() {
                         if (tempPNHURL !== '') {
                             W.model.actionManager.add(new UpdateObject(item, { url: tempPNHURL }));
-                            _updatedFields.url.updated = '#dfd';
+                            _updatedFields.url.updated = true;
                             bannButt.longURL.active = false;
                             updateURL = true;
                         } else {
@@ -1889,7 +1903,7 @@
                     }
                 },
                 plaLotTypeMissing: {
-                   active: false, severity: 3, message: 'Lot type: '
+                    active: false, severity: 3, message: 'Lot type: '
                 },
                 plaCostTypeMissing: {
                     active: false, severity: 1, message: 'Parking cost: '
@@ -1900,7 +1914,7 @@
                     action: function() {
                         var cash = $('#wmeph-payment-cash').prop('checked');
                         var check = $('#wmeph-payment-check').prop('checked');
-                        var credit = $('#wmeph-payment-credit').prop('checked');
+                        var credit = $('#wmeph-payment-credit-card').prop('checked');
                         if (cash || check || credit) {
                             var existingAttr = item.attributes.categoryAttributes.PARKING_LOT;
                             var newAttr = {};
@@ -2780,8 +2794,8 @@
                 if (parkAttr && parkAttr.costType && parkAttr.costType !== 'FREE' && parkAttr.costType !== 'UNKNOWN' && (!parkAttr.paymentType || parkAttr.paymentType.length === 0)) {
                     bannButt.plaPaymentTypeMissing.active = true;
                     var $pmtDiv = $('<div>').css({display:'inline'});
-                    ['Cash', 'Check', 'Credit'].forEach(text => {
-                        var id = 'wmeph-payment-' + text.toLowerCase();
+                    ['Cash', 'Check', 'Credit Card'].forEach(text => {
+                        var id = 'wmeph-payment-' + text.toLowerCase().replace(' ','-');
                         $pmtDiv.append(
                             $('<div>', {class: 'form-control'}).css({padding: '0px', backgroundColor: 'inherit', color: 'white', display: 'inline', border: 'none', marginRight: '5px'}).append(
                                 $('<input>', {id: id, type: 'checkbox'}).css({marginRight: '0px'}),
@@ -2955,6 +2969,15 @@
                         bannButt.addConvStore.active = true;
                     }
                 }
+                // Pilot gas station check
+                if (state2L === 'TN' && newName.toLowerCase().trim() === 'pilot') {
+                    newName = 'Pilot Food Mart';
+                    actions.push(new UpdateObject(item, { name: 'Pilot Food Mart' }));
+                    _updatedFields.name.updated = true;
+                }
+                if (state2L === 'TN' && newName.toLowerCase().trim() === 'pilot food mart') {
+                    bannButt.isThisAPilotTravelCenter.active = true;
+                }
             }  // END Gas Station Checks
 
             var isLocked = item.attributes.lockRank >= (PNHLockLevel > -1 ? PNHLockLevel : defaultLockLevel);
@@ -3084,8 +3107,6 @@
                     } else {
                         PNHMatchData = PNHMatchData[0].split('|');  // Single match just gets direct split
                     }
-
-
 
                     var priPNHPlaceCat = catTranslate(PNHMatchData[ph_category1_ix]);  // translate primary category to WME code
 
@@ -3415,17 +3436,17 @@
                         if (newURL !== null || newURL !== '') {
                             localURLcheckRE = new RegExp(localURLcheck, "i");
                             if ( newURL.match(localURLcheckRE) !== null ) {
-                                newURL = normalizeURL(newURL,false, false, item);
+                                newURL = normalizeURL(newURL,false, true, item);
                             } else {
-                                newURL = normalizeURL(PNHMatchData[ph_url_ix],false, false, item);
+                                newURL = normalizeURL(PNHMatchData[ph_url_ix],false, true, item);
                                 bannButt.localURL.active = true;
                             }
                         } else {
-                            newURL = normalizeURL(PNHMatchData[ph_url_ix],false, false, item);
+                            newURL = normalizeURL(PNHMatchData[ph_url_ix],false, true, item);
                             bannButt.localURL.active = true;
                         }
                     } else {
-                        newURL = normalizeURL(PNHMatchData[ph_url_ix],false, false, item);
+                        newURL = normalizeURL(PNHMatchData[ph_url_ix],false, true, item);
                     }
                     // Parse PNH Aliases
                     newAliasesTemp = PNHMatchData[ph_aliases_ix].match(/([^\(]*)/i)[0];
@@ -3893,7 +3914,7 @@
                 // URL updating
                 var updateURL = true;
                 if (newURL !== item.attributes.url && newURL !== "" && newURL !== "0") {
-                    if ( PNHNameRegMatch && item.attributes.url !== null && item.attributes.url !== '' ) {  // for cases where there is an existing URL in the WME place, and there is a PNH url on queue:
+                    if ( PNHNameRegMatch && item.attributes.url !== null && item.attributes.url !== '' && newURL !== 'badURL') {  // for cases where there is an existing URL in the WME place, and there is a PNH url on queue:
                         var newURLTemp = normalizeURL(newURL,true,false, item);  // normalize
                         var itemURL = normalizeURL(item.attributes.url,true,false, item);
                         newURLTemp = newURLTemp.replace(/^www\.(.*)$/i,'$1');  // strip www
@@ -3913,7 +3934,7 @@
                             tempPNHURL = newURL;
                         }
                     }
-                    if (hpMode.harmFlag && updateURL && newURL !== item.attributes.url) {  // Update the URL
+                    if (hpMode.harmFlag && updateURL && newURL !== 'badURL' && newURL !== item.attributes.url) {  // Update the URL
                         phlogdev("URL updated");
                         actions.push(new UpdateObject(item, { url: newURL }));
                         _updatedFields.url.updated = true;
@@ -3972,7 +3993,7 @@
                                 bannButt.urlMissing.active = false;
                             }
                         }
-                        if (state2L === 'KY' || state2L === 'NY') {
+                        if (state2L === 'KY' || (state2L === 'NY' && addr.city && ['Queens','Bronx','Lexington','Brooklyn','Staten Island'].indexOf(addr.city.attributes.name) > -1)) {
                             re = /^post office \d{5}( [-–](?: cpu| vpo)?(?: [a-z]+){1,})?$/i;
                         } else {
                             re = /^post office [-–](?: cpu| vpo)?(?: [a-z]+){1,}$/i;
