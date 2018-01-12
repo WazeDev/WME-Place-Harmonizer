@@ -13,7 +13,7 @@
 // ==UserScript==
 // @name        WME Place Harmonizer Beta
 // @namespace   WazeUSA
-// @version     1.3.63
+// @version     1.3.64
 // @description Harmonizes, formats, and locks a selected place
 // @author      WMEPH Development Group
 // @include     /^https:\/\/(www|beta)\.waze\.com\/(?!user\/)(.{2,6}\/)?editor\/?.*$/
@@ -403,6 +403,7 @@
     function runPH() {
         // Script update info
         var WMEPHWhatsNewList = [  // New in this version
+            '1.3.64: FIXED - Post offices not working properly in Manhattan.',
             '1.3.63: FIEXD - NY post office exception should only apply to NYC.',
             '1.3.62: FIXED - WMEPH reports "No URL" on places with a URL when there is a PNH entry without a URL.',
             '1.3.61: NEW - Pilot Food Mart / Travel Center check for TN.',
@@ -3993,7 +3994,7 @@
                                 bannButt.urlMissing.active = false;
                             }
                         }
-                        if (state2L === 'KY' || (state2L === 'NY' && addr.city && ['Queens','Bronx','Lexington','Brooklyn','Staten Island'].indexOf(addr.city.attributes.name) > -1)) {
+                        if (state2L === 'KY' || (state2L === 'NY' && addr.city && ['Queens','Bronx','Manhattan','Brooklyn','Staten Island'].indexOf(addr.city.attributes.name) > -1)) {
                             re = /^post office \d{5}( [-–](?: cpu| vpo)?(?: [a-z]+){1,})?$/i;
                         } else {
                             re = /^post office [-–](?: cpu| vpo)?(?: [a-z]+){1,}$/i;
