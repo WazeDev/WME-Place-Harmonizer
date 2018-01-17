@@ -11,9 +11,9 @@
 /* global Node */
 
 // ==UserScript==
-// @name        WME Place Harmonizer
+// @name        WME Place Harmonizer Beta
 // @namespace   WazeUSA
-// @version     1.3.64
+// @version     1.3.65
 // @description Harmonizes, formats, and locks a selected place
 // @author      WMEPH Development Group
 // @include     /^https:\/\/(www|beta)\.waze\.com\/(?!user\/)(.{2,6}\/)?editor\/?.*$/
@@ -403,6 +403,7 @@
     function runPH() {
         // Script update info
         var WMEPHWhatsNewList = [  // New in this version
+            '1.3.65: NEW - PLA\'s show flags for missing Ph# and URL in SER.', 
             '1.3.64: FIXED - Post offices not working properly in Manhattan.',
             '1.3.63: FIEXD - NY post office exception should only apply to NYC.',
             '1.3.62: FIXED - WMEPH reports "No URL" on places with a URL when there is a PNH entry without a URL.',
@@ -959,10 +960,16 @@
         }
 
         // normalize phone
-        function normalizePhone(s, outputFormat, returnType, item) {
+        function normalizePhone(s, outputFormat, returnType, item, region) {
+            var regionsThatWantPLAPhones = ['SER'];
             if ( !s && returnType === 'existing' ) {
-                if (!item.isParkingLot() || (item.isParkingLot() && item.attributes.brand && W.model.venues.categoryBrands.PARKING_LOT.indexOf(item.attributes.brand) !== -1)) {
+                let hasOperator = item.attributes.brand && W.model.venues.categoryBrands.PARKING_LOT.indexOf(item.attributes.brand) !== -1;
+                if (!item.isParkingLot() || (item.isParkingLot() && (regionsThatWantPLAPhones.indexOf(region) > -1 || hasOperator))) {
                     bannButt.phoneMissing.active = true;
+                    if (item.isParkingLot() && !hasOperator) {
+                        bannButt.phoneMissing.severity = 0;
+                        bannButt.phoneMissing.WLactive = false;
+                    }
                     if (currentWL.phoneWL) {
                         bannButt.phoneMissing.WLactive = false;
                     }
@@ -1030,10 +1037,16 @@
         }
 
         // Normalize url
-        function normalizeURL(s, lc, skipBannerActivate, item) {
+        function normalizeURL(s, lc, skipBannerActivate, item, region) {
+            var regionsThatWantPLAUrls = ['SER'];
             if ((!s || s.trim().length === 0) && !skipBannerActivate) {  // Notify that url is missing and provide web search to find website and gather data (provided for all editors)
-                if (!item.isParkingLot() || (item.isParkingLot() && item.attributes.brand && W.model.venues.categoryBrands.PARKING_LOT.indexOf(item.attributes.brand) !== -1)) {
+                let hasOperator = item.attributes.brand && W.model.venues.categoryBrands.PARKING_LOT.indexOf(item.attributes.brand) !== -1;
+                if (!item.isParkingLot() || (item.isParkingLot() && (regionsThatWantPLAUrls.indexOf(region) > -1 || hasOperator))) {
                     bannButt.urlMissing.active = true;
+                    if (item.isParkingLot() && !hasOperator) {
+                        bannButt.urlMissing.severity = 0;
+                        bannButt.urlMissing.WLactive = false;
+                    }
                     if (currentWL.urlWL) {
                         bannButt.urlMissing.WLactive = false;
                     }
@@ -1903,9 +1916,11 @@
                         harmonizePlaceGo(item, 'harmonize');
                     }
                 },
+
                 plaLotTypeMissing: {
                     active: false, severity: 3, message: 'Lot type: '
                 },
+
                 plaCostTypeMissing: {
                     active: false, severity: 1, message: 'Parking cost: '
                 },
@@ -3437,17 +3452,17 @@
                         if (newURL !== null || newURL !== '') {
                             localURLcheckRE = new RegExp(localURLcheck, "i");
                             if ( newURL.match(localURLcheckRE) !== null ) {
-                                newURL = normalizeURL(newURL,false, true, item);
+                                newURL = normalizeURL(newURL,false, true, item, region);
                             } else {
-                                newURL = normalizeURL(PNHMatchData[ph_url_ix],false, true, item);
+                                newURL = normalizeURL(PNHMatchData[ph_url_ix],false, true, item, region);
                                 bannButt.localURL.active = true;
                             }
                         } else {
-                            newURL = normalizeURL(PNHMatchData[ph_url_ix],false, true, item);
+                            newURL = normalizeURL(PNHMatchData[ph_url_ix],false, true, item, region);
                             bannButt.localURL.active = true;
                         }
                     } else {
-                        newURL = normalizeURL(PNHMatchData[ph_url_ix],false, true, item);
+                        newURL = normalizeURL(PNHMatchData[ph_url_ix],false, true, item, region);
                     }
                     // Parse PNH Aliases
                     newAliasesTemp = PNHMatchData[ph_aliases_ix].match(/([^\(]*)/i)[0];
@@ -3517,7 +3532,7 @@
                         bannButt.STC.active = true;
                     }
 
-                    newURL = normalizeURL(newURL,true,false, item);  // Normalize url
+                    newURL = normalizeURL(newURL,true,false, item, region);  // Normalize url
 
                     // Generic Bank treatment
                     ixBank = item.attributes.categories.indexOf("BANK_FINANCIAL");
@@ -3955,7 +3970,7 @@
                 } else if (countryCode === "CAN") {
                     outputFormat = "+1-{0}-{1}-{2}";
                 }
-                newPhone = normalizePhone(item.attributes.phone, outputFormat, 'existing', item);
+                newPhone = normalizePhone(item.attributes.phone, outputFormat, 'existing', item, region);
 
                 // Check if valid area code  #LOC# USA and CAN only
                 if (countryCode === "USA" || countryCode === "CAN") {
