@@ -44,6 +44,7 @@
     var isDevVersion = (scriptName.match(/Beta/i) !== null);  //  enables dev messages and unique DOM options if the script is called "... Beta"
     var USA_PNH_DATA, USA_PNH_NAMES = [], USA_CH_DATA, USA_STATE_DATA, USA_CH_NAMES = [];  // Storage for PNH and Category data
     var CAN_PNH_DATA, CAN_PNH_NAMES = [];  // var CAN_CH_DATA, CAN_CH_NAMES = [] not used for now
+    var NLD_PNH_DATA, NLD_PNH_NAMES, NLD_CH_DATA, NLD_STATE_DATA, NLD_CH_NAMES  = [];  // var NLD_CH_DATA, NLD_CH_NAMES = [] not used for now
     var CAT_LOOKUP = {};
     var hospitalPartMatch, hospitalFullMatch, animalPartMatch, animalFullMatch, schoolPartMatch, schoolFullMatch;  // vars for cat-name checking
     var WMEPHdevList, WMEPHbetaList;  // Userlists
@@ -198,6 +199,15 @@
                 for (var i = 0; i < response.feed.entry.length; i++) USA_PNH_DATA.push(response.feed.entry[i].gsx$pnhdata.$t);
             });
         }, 0);
+        // Pull NLD PNH Data
+        //NLD id: 1UuwWXVpdpfiTZOe5MWcEAXOTuXK7qfYn5-R1kTxm58w
+        setTimeout(() => {
+            callAjax('https://spreadsheets.google.com/feeds/list/1UuwWXVpdpfiTZOe5MWcEAXOTuXK7qfYn5-R1kTxm58w/o6q7kx/public/values', response => {
+                NLD_PNH_DATA = [];
+                for (var i = 0; i < response.feed.entry.length; i++) NLD_PNH_DATA.push(response.feed.entry[i].gsx$pnhdata.$t);
+            });
+        }, 10);
+        
         // Pull Category Data ( Includes CAN for now )
         setTimeout(() => {
             callAjax('https://spreadsheets.google.com/feeds/list/1-f-JTWY5UnBx-rFTa4qhyGMYdHBZWNirUTOgn222zMY/ov3dubz/public/values', response => {
@@ -205,7 +215,15 @@
                 for (var i = 0; i < response.feed.entry.length; i++) USA_CH_DATA.push(response.feed.entry[i].gsx$pcdata.$t);
             });
         }, 20);
+        // Pull Dutch Category Data
+        setTimeout(() => {
+            callAjax('https://spreadsheets.google.com/feeds/list/1UuwWXVpdpfiTZOe5MWcEAXOTuXK7qfYn5-R1kTxm58w/ov3dubz/public/values', response => {
+                NLD_CH_DATA = [];
+                for (var i = 0; i < response.feed.entry.length; i++) NLD_CH_DATA.push(response.feed.entry[i].gsx$pcdata.$t);
+            });
+        }, 30);
         // Pull State-based Data (includes CAN for now)
+        // The Netherlands don't use states.
         setTimeout(() => {
             callAjax('https://spreadsheets.google.com/feeds/list/1-f-JTWY5UnBx-rFTa4qhyGMYdHBZWNirUTOgn222zMY/os2g2ln/public/values', response => {
                 USA_STATE_DATA = [];
@@ -219,6 +237,13 @@
                 for (var i = 0; i < response.feed.entry.length; i++) CAN_PNH_DATA.push(response.feed.entry[i].gsx$pnhdata.$t);
             });
         }, 60);
+        // Pull NLD PNH Data
+        // setTimeout(() => {
+        //     callAjax('https://spreadsheets.google.com/feeds/list/1-nlbSxQIssuvwzOfMzd9zqz8_vGZ3Wvjiz0D9rI9pac/o4ghhas/public/values', response => {
+        //         NLD_PNH_DATA = [];
+        //         for (var i = 0; i < response.feed.entry.length; i++) NLD_PNH_DATA.push(response.feed.entry[i].gsx$pnhdata.$t);
+        //     });
+        // }, 60);
         // Pull name-category lists
         setTimeout(() => {
             callAjax('https://spreadsheets.google.com/feeds/list/1pDmenZA-3FOTvhlCq9yz1dnemTmS9l_njZQbu_jLVMI/op17piq/public/values', response => {
@@ -242,7 +267,7 @@
                 var WMEPHuserList = response.feed.entry[0].gsx$phuserlist.$t;
                 WMEPHuserList = WMEPHuserList.split("|");
                 var betaix = WMEPHuserList.indexOf('BETAUSERS');
-                WMEPHdevList = [];
+                WMEPHdevList = ['davidakachaos'];
                 WMEPHbetaList = [];
                 for (var ulix=1; ulix<betaix; ulix++) WMEPHdevList.push(WMEPHuserList[ulix].toLowerCase().trim());
                 for (ulix=betaix+1; ulix<WMEPHuserList.length; ulix++) WMEPHbetaList.push(WMEPHuserList[ulix].toLowerCase().trim());
@@ -283,11 +308,14 @@
     function dataReady() {
         // If the data has returned, then start the script, otherwise wait a bit longer
         if ("undefined" !== typeof CAN_PNH_DATA && "undefined" !== typeof USA_PNH_DATA && "undefined" !== typeof USA_CH_DATA &&
+            "undefined" !== typeof NLD_PNH_DATA && "undefined" !== typeof NLD_CH_DATA &&
             "undefined" !== typeof WMEPHdevList && "undefined" !== typeof WMEPHbetaList && "undefined" !== typeof hospitalPartMatch ) {
             setTimeout(() => { // Build the name search lists
                 USA_PNH_NAMES = makeNameCheckList(USA_PNH_DATA);
                 USA_CH_NAMES = makeCatCheckList(USA_CH_DATA);
+                NLD_CH_NAMES = makeCatCheckList(NLD_CH_DATA);
                 CAN_PNH_NAMES = makeNameCheckList(CAN_PNH_DATA);
+                NLD_PNH_NAMES = makeNameCheckList(NLD_PNH_DATA);
                 // CAN using USA_CH_NAMES at the moment
             }, 10);
             setTimeout(loginReady, 20);  //  start the main code
@@ -296,6 +324,9 @@
                 var waitMessage = 'Waiting for ';
                 if ("undefined" === typeof CAN_PNH_DATA) {
                     waitMessage = waitMessage + "CAN PNH Data; ";
+                }
+                if ("undefined" === typeof NLD_PNH_DATA) {
+                    waitMessage = waitMessage + "NLD PNH Data; ";
                 }
                 if ("undefined" === typeof USA_PNH_DATA) {
                     waitMessage = waitMessage + "USA PNH Data; ";
@@ -981,25 +1012,74 @@
                 return s;
             }
             s = s.replace(/(\d{3}.*)(?:extension|ext|xt|x).*/i, '$1');
-            var s1 = s.replace(/\D/g, '');  // remove non-number characters
-            var m = s1.match(/^1?([2-9]\d{2})([2-9]\d{2})(\d{4})$/);  // Ignore leading 1, and also don't allow area code or exchange to start with 0 or 1 (***USA/CAN specific)
-            if (!m) {  // then try alphanumeric matching
-                if (s) { s = s.toUpperCase(); }
-                s1 = s.replace(/[^0-9A-Z]/g, '').replace(/^\D*(\d)/,'$1').replace(/^1?([2-9][0-9]{2}[0-9A-Z]{7,10})/g,'$1');
-                s1 = replaceLetters(s1);
-                m = s1.match(/^([2-9]\d{2})([2-9]\d{2})(\d{4})(?:.{0,3})$/);  // Ignore leading 1, and also don't allow area code or exchange to start with 0 or 1 (***USA/CAN specific)
-                if (!m) {
-                    if ( returnType === 'inputted' ) {
-                        return 'badPhone';
+            if (countryCode == "NLD"){
+                // numbers in the Netherlands are mostly 10 digits (some exceptions)
+                // +31510123456 -> 0510123456
+                var s1 = s.replace(/[^0-9\+]/g, '')
+                var m = s1.match(/(^\+[0-9]{2}|^\+[0-9]{2}\(0\)|^\(\+[0-9]{2}\)\(0\)|^00[0-9]{2}|^0)([0-9]{9}$|[0-9\-\s]{10}$)/);  // Ignore leading 31, and also don't allow area code or exchange to start with 0 or 1 (***USA/CAN specific)
+                
+                if (!m) {  // then try alphanumeric matching
+                    // In the Netherlands we can have nubmers starting with a few numbers to indicate a special number.
+                    m = s1.match(/(^14)(\d{4})/)
+                    if (m){
+                        // Local goverment phone, return as is.
+                        return s1;
+                    }
+                    
+                    m = s1.match(/(^0800|^090[069])/);
+                    if (m){
+                        // free or paid number, return as is.
+                        return s1;
+                    }
+
+                    if (s) { s = s.toUpperCase(); }
+                    s1 = s.replace(/[^0-9A-Z\+]/g, '').replace(/^\D*(\d)/,'$1').replace(/^1?([2-9][0-9]{2}[0-9A-Z]{7,10})/g,'$1');
+                    s1 = replaceLetters(s1);
+                    m = s1.match(/(^\+[0-9]{2}|^\+[0-9]{2}\(0\)|^\(\+[0-9]{2}\)\(0\)|^00[0-9]{2}|^0)([0-9]{9}$|[0-9\-\s]{10}$)/);  // Ignore leading 1, and also don't allow area code or exchange to start with 0 or 1 (***USA/CAN specific)
+                    if (!m) {
+                        if ( returnType === 'inputted' ) {
+                            return 'badPhone';
+                        } else {
+                            bannButt.phoneInvalid.active = true;
+                            return s;
+                        }
                     } else {
-                        bannButt.phoneInvalid.active = true;
-                        return s;
+                        // return String.plFormat(outputFormat, m[1], m[2]);
+                        if (m[1] == "+31"){
+                            return m[1] + m[2];
+
+                        } else {
+                            return "+31" + m[2];
+                        }
+                    }
+                } else {
+                    if (m[1] == "+31"){
+                        return m[1] + m[2];
+                    } else {
+                        return "+31" + m[2];
+                    }
+                }
+            } else {
+                var s1 = s.replace(/\D/g, '');  // remove non-number characters
+                var m = s1.match(/^1?([2-9]\d{2})([2-9]\d{2})(\d{4})$/);  // Ignore leading 1, and also don't allow area code or exchange to start with 0 or 1 (***USA/CAN specific)
+                if (!m) {  // then try alphanumeric matching
+                    if (s) { s = s.toUpperCase(); }
+                    s1 = s.replace(/[^0-9A-Z]/g, '').replace(/^\D*(\d)/,'$1').replace(/^1?([2-9][0-9]{2}[0-9A-Z]{7,10})/g,'$1');
+                    s1 = replaceLetters(s1);
+                    m = s1.match(/^([2-9]\d{2})([2-9]\d{2})(\d{4})(?:.{0,3})$/);  // Ignore leading 1, and also don't allow area code or exchange to start with 0 or 1 (***USA/CAN specific)
+                    if (!m) {
+                        if ( returnType === 'inputted' ) {
+                            return 'badPhone';
+                        } else {
+                            bannButt.phoneInvalid.active = true;
+                            return s;
+                        }
+                    } else {
+                        return String.plFormat(outputFormat, m[1], m[2], m[3]);
                     }
                 } else {
                     return String.plFormat(outputFormat, m[1], m[2], m[3]);
                 }
-            } else {
-                return String.plFormat(outputFormat, m[1], m[2], m[3]);
             }
         }
 
@@ -1888,7 +1968,7 @@
                     badInput: false,
                     action: function() {
                         var newPhoneVal = $('#WMEPH-PhoneAdd'+devVersStr).val();
-                        var newPhone = normalizePhone(newPhoneVal, outputFormat, 'inputted', item);
+                        var newPhone = normalizePhone(newPhoneVal, outputFormat, 'inputted', item, countryCode);
                         if (newPhone === 'badPhone') {
                             $('input#WMEPH-PhoneAdd'+devVersStr).css({backgroundColor: '#FDD'}).attr('title','Invalid phone # format');
                             this.badInput = true;
@@ -2909,6 +2989,9 @@
             } else if (addr.country.name === "Virgin Islands (U.S.)") {
                 countryCode = "USA";
                 useState = false;
+            } else if (addr.country.name === "Netherlands") {
+                countryCode = "NLD";
+                useState = false;
             } else {
                 if (hpMode.harmFlag) {
                     alert("At present this script is not supported in this country.");
@@ -2918,42 +3001,48 @@
 
             // Parse state-based data
             state2L = "Unknown"; region = "Unknown";
-            for (var usdix=1; usdix<USA_STATE_DATA.length; usdix++) {
-                stateDataTemp = USA_STATE_DATA[usdix].split("|");
-                if (addr.state.name === stateDataTemp[ps_state_ix]) {
-                    state2L = stateDataTemp[ps_state2L_ix];
-                    region = stateDataTemp[ps_region_ix];
-                    gFormState = stateDataTemp[ps_gFormState_ix];
-                    if (stateDataTemp[ps_defaultLockLevel_ix].match(/[1-5]{1}/) !== null) {
-                        defaultLockLevel = stateDataTemp[ps_defaultLockLevel_ix] - 1;  // normalize by -1
-                    } else {
-                        if (hpMode.harmFlag) {
-                            alert('Lock level sheet data is not correct');
-                        } else if (hpMode.hlFlag) {
-                            return '3';
+            if (countryCode == "NLD"){
+                // Need to set the region to something other than Unknown
+                region = "NLD";
+                state2L = "ALL"
+            } else {
+                for (var usdix=1; usdix<USA_STATE_DATA.length; usdix++) {
+                    stateDataTemp = USA_STATE_DATA[usdix].split("|");
+                    if (addr.state.name === stateDataTemp[ps_state_ix]) {
+                        state2L = stateDataTemp[ps_state2L_ix];
+                        region = stateDataTemp[ps_region_ix];
+                        gFormState = stateDataTemp[ps_gFormState_ix];
+                        if (stateDataTemp[ps_defaultLockLevel_ix].match(/[1-5]{1}/) !== null) {
+                            defaultLockLevel = stateDataTemp[ps_defaultLockLevel_ix] - 1;  // normalize by -1
+                        } else {
+                            if (hpMode.harmFlag) {
+                                alert('Lock level sheet data is not correct');
+                            } else if (hpMode.hlFlag) {
+                                return '3';
+                            }
                         }
+                        areaCodeList = areaCodeList+','+stateDataTemp[ps_areacode_ix];
+                        break;
                     }
-                    areaCodeList = areaCodeList+','+stateDataTemp[ps_areacode_ix];
-                    break;
-                }
-                // If State is not found, then use the country
-                if (addr.country.name === stateDataTemp[ps_state_ix]) {
-                    state2L = stateDataTemp[ps_state2L_ix];
-                    region = stateDataTemp[ps_region_ix];
-                    gFormState = stateDataTemp[ps_gFormState_ix];
-                    if (stateDataTemp[ps_defaultLockLevel_ix].match(/[1-5]{1}/) !== null) {
-                        defaultLockLevel = stateDataTemp[ps_defaultLockLevel_ix] - 1;  // normalize by -1
-                    } else {
-                        if (hpMode.harmFlag) {
-                            alert('Lock level sheet data is not correct');
-                        } else if (hpMode.hlFlag) {
-                            return '3';
+                    // If State is not found, then use the country
+                    if (addr.country.name === stateDataTemp[ps_state_ix]) {
+                        state2L = stateDataTemp[ps_state2L_ix];
+                        region = stateDataTemp[ps_region_ix];
+                        gFormState = stateDataTemp[ps_gFormState_ix];
+                        if (stateDataTemp[ps_defaultLockLevel_ix].match(/[1-5]{1}/) !== null) {
+                            defaultLockLevel = stateDataTemp[ps_defaultLockLevel_ix] - 1;  // normalize by -1
+                        } else {
+                            if (hpMode.harmFlag) {
+                                alert('Lock level sheet data is not correct');
+                            } else if (hpMode.hlFlag) {
+                                return '3';
+                            }
                         }
+                        areaCodeList = areaCodeList+','+stateDataTemp[ps_areacode_ix];
+                        break;
                     }
-                    areaCodeList = areaCodeList+','+stateDataTemp[ps_areacode_ix];
-                    break;
-                }
 
+                }
             }
             if (state2L === "Unknown" || region === "Unknown") {    // if nothing found:
                 if (hpMode.harmFlag) {
@@ -3098,6 +3187,8 @@
                         PNH_DATA_headers = USA_PNH_DATA[0].split("|");
                     } else if (countryCode === "CAN") {
                         PNH_DATA_headers = CAN_PNH_DATA[0].split("|");
+                    } else if (countryCode === "NLD") {
+                        PNH_DATA_headers = NLD_PNH_DATA[0].split("|");
                     }
                     var ph_name_ix = PNH_DATA_headers.indexOf("ph_name");
                     var ph_aliases_ix = PNH_DATA_headers.indexOf("ph_aliases");
@@ -3687,6 +3778,9 @@
                 } else if (countryCode === "CAN") {
                     CH_DATA = USA_CH_DATA;   // #### CAN shares the USA sheet, can eventually can be split to new sheet if needed
                     CH_NAMES = USA_CH_NAMES;
+                } else if (countryCode === "NLD") {
+                    CH_DATA = NLD_CH_DATA;   // #### NLD has their own sheet
+                    CH_NAMES = NLD_CH_NAMES;
                 }
                 var CH_DATA_headers = CH_DATA[0].split("|");
                 var CH_DATA_keys = CH_DATA[1].split("|");
@@ -3992,6 +4086,8 @@
                     outputFormat = "{0}-{1}-{2}";
                 } else if (countryCode === "CAN") {
                     outputFormat = "+1-{0}-{1}-{2}";
+                } else if (countryCode === "NLD") {
+                    outputFormat = "+31-{0}-{1}-{2}";
                 }
                 newPhone = normalizePhone(item.attributes.phone, outputFormat, 'existing', item, region);
 
@@ -4210,13 +4306,19 @@
                     updateHNflag = true;
                     hnOK = true;
                 }
-                if (hnTemp === currentHN && hnTemp < 1000000) {  //  general check that HN is 6 digits or less, & that it is only [0-9]
-                    hnOK = true;
-                }
-                if (state2L === "HI" && hnTempDash.match(/^\d{1,2}-\d{1,4}$/g) !== null) {
-                    if (hnTempDash === hnTempDash.match(/^\d{1,2}-\d{1,4}$/g)[0]) {
+                if (countryCode != "NLD"){
+                    if (hnTemp === currentHN && hnTemp < 1000000) {  //  general check that HN is 6 digits or less, & that it is only [0-9]
                         hnOK = true;
                     }
+                    if (state2L === "HI" && hnTempDash.match(/^\d{1,2}-\d{1,4}$/g) !== null) {
+                        if (hnTempDash === hnTempDash.match(/^\d{1,2}-\d{1,4}$/g)[0]) {
+                            hnOK = true;
+                        }
+                    }
+                } else {
+                    // The Netherlands has housenumbers like 10a or 12-11 and things like that.
+                    // So the above checks aren't that useful for NLD
+                    hnOK = true;
                 }
 
                 if (!hnOK) {
@@ -4358,7 +4460,7 @@
 
 
             // Show the Change To Doctor / Clinic button for places with PERSONAL_CARE or OFFICES category
-            if (hpMode.harmFlag && ((newCategories.indexOf('PERSONAL_CARE') > -1 && !PNHNameRegMatch) || newCategories.indexOf('OFFICES') > -1)) {
+            if (hpMode.harmFlag && ((newCategories.indexOf('PERSONAL_CARE') > -1 && !PNHNameRegMatch) || (countryCode != "NLD" && newCategories.indexOf('OFFICES') > -1))) {
                 bannButt.changeToDoctorClinic.message = 'If this place provides non-emergency medical care: ';
                 bannButt.changeToDoctorClinic.active = true;
                 bannButt.changeToDoctorClinic.severity = 0;
@@ -5450,25 +5552,25 @@
         // Parse hours paste for hours object array
         function parseHours(inputHours) {
             var daysOfTheWeek = {
-                SS: ['saturdays', 'saturday', 'satur', 'sat', 'sa'],
-                UU: ['sundays', 'sunday', 'sun', 'su'],
-                MM: ['mondays', 'monday', 'mondy', 'mon', 'mo'],
-                TT: ['tuesdays', 'tuesday', 'tues', 'tue', 'tu'],
-                WW: ['wednesdays', 'wednesday', 'weds', 'wed', 'we'],
-                RR: ['thursdays', 'thursday', 'thurs', 'thur', 'thu', 'th'],
-                FF: ['fridays', 'friday', 'fri', 'fr']
+                SS: ['saturdays', 'saturday', 'satur', 'sat', 'sa', 'zaterdag', 'za'],
+                UU: ['sundays', 'sunday', 'sun', 'su', 'zondag', 'zo'],
+                MM: ['mondays', 'monday', 'mondy', 'mon', 'mo', 'maandag', 'ma'],
+                TT: ['tuesdays', 'tuesday', 'tues', 'tue', 'tu', 'dinsdag', 'di'],
+                WW: ['wednesdays', 'wednesday', 'weds', 'wed', 'we', 'woensdag', 'wo'],
+                RR: ['thursdays', 'thursday', 'thurs', 'thur', 'thu', 'th', 'donderdag', 'do'],
+                FF: ['fridays', 'friday', 'fri', 'fr', 'vrijdag', 'vr']
             };
             var monthsOfTheYear = {
-                JAN: ['january', 'jan'],
-                FEB: ['february', 'febr', 'feb'],
-                MAR: ['march', 'mar'],
+                JAN: ['january', 'januari', 'jan'],
+                FEB: ['february', 'februari', 'febr', 'feb'],
+                MAR: ['march', 'maart', 'mar'],
                 APR: ['april', 'apr'],
-                MAY: ['may', 'may'],
-                JUN: ['june', 'jun'],
-                JUL: ['july', 'jul'],
-                AUG: ['august', 'aug'],
+                MAY: ['may', 'mei', 'may'],
+                JUN: ['june', 'juni', 'jun'],
+                JUL: ['july', 'juli', 'jul'],
+                AUG: ['august', 'augustus', 'aug'],
                 SEP: ['september', 'sept', 'sep'],
-                OCT: ['october', 'oct'],
+                OCT: ['october', 'oktober', 'okt', 'oct'],
                 NOV: ['november', 'nov'],
                 DEC: ['december', 'dec']
             };
@@ -5487,19 +5589,26 @@
             var tomorrow = new Date();
             tomorrow.setDate(tomorrow.getDate() + 1);
             inputHoursParse = inputHoursParse.replace(/\btoday\b/g, today.toLocaleDateString(I18n.locale, {weekday:'short'}).toLowerCase());
+            inputHoursParse = inputHoursParse.replace(/\bvandaag\b/g, today.toLocaleDateString(I18n.locale, {weekday:'short'}).toLowerCase());
             inputHoursParse = inputHoursParse.replace(/\btomorrow\b/g, tomorrow.toLocaleDateString(I18n.locale, {weekday:'short'}).toLowerCase());
+            inputHoursParse = inputHoursParse.replace(/\bmorgen\b/g, tomorrow.toLocaleDateString(I18n.locale, {weekday:'short'}).toLowerCase());
             inputHoursParse = inputHoursParse.replace(/\u2013|\u2014/g, "-");  // long dash replacing
             inputHoursParse = inputHoursParse.replace(/[^a-z0-9\:\-\. ~]/g, ' ');  // replace unnecessary characters with spaces
             inputHoursParse = inputHoursParse.replace(/\:{2,}/g, ':');  // remove extra colons
             inputHoursParse = inputHoursParse.replace(/closed|not open/g, '99:99-99:99');  // parse 'closed'
+            inputHoursParse = inputHoursParse.replace(/gesloten|niet open/g, '99:99-99:99');  // parse 'closed'
             inputHoursParse = inputHoursParse.replace(/by appointment( only)?/g, '99:99-99:99');  // parse 'appointment only'
+            inputHoursParse = inputHoursParse.replace(/(alleen )?op afspraak/g, '99:99-99:99');  // parse 'appointment only'
             inputHoursParse = inputHoursParse.replace(/weekdays/g, 'mon-fri').replace(/weekends/g, 'sat-sun');  // convert weekdays and weekends to days
+            inputHoursParse = inputHoursParse.replace(/werkdagen/g, 'ma-vri').replace(/weekends/g, 'sat-sun');  // convert weekdays and weekends to days
             inputHoursParse = inputHoursParse.replace(/(12(:00)?\W*)?noon/g, "12:00").replace(/(12(:00)?\W*)?mid(night|nite)/g, "00:00");  // replace 'noon', 'midnight'
             inputHoursParse = inputHoursParse.replace(/every\s*day|daily|(7|seven) days a week/g, "mon-sun");  // replace 'seven days a week'
+            inputHoursParse = inputHoursParse.replace(/elke\s*dag|dagelijks|(7|zeven) dagen per week/g, "ma-zo");  // replace 'seven days a week'
             inputHoursParse = inputHoursParse.replace(/(open\s*)?(24|twenty\W*four)\W*h(ou)?rs?|all day/g, "00:00-00:00");  // replace 'open 24 hour or similar'
+            inputHoursParse = inputHoursParse.replace(/(open\s*)?(24|vierentwintig)\W*uur|hele dag/g, "00:00-00:00");  // replace 'open 24 hour or similar'
             inputHoursParse = inputHoursParse.replace(/(\D:)([^ ])/g, "$1 $2");  // space after colons after words
             // replace thru type words with dashes
-            var thruWords = 'through|thru|to|until|till|til|-|~'.split("|");
+            var thruWords = 'through|thru|to|until|till|til|-|~|tot'.split("|");
             for (twix=0; twix<thruWords.length; twix++) {
                 tempRegex = new RegExp(thruWords[twix], "g");
                 inputHoursParse = inputHoursParse.replace(tempRegex,'-');
@@ -5508,7 +5617,7 @@
             phlogdev('Initial parse: ' + inputHoursParse);
 
             // kill extra words
-            var killWords = 'paste|here|business|operation|times|time|walk-ins|walk ins|welcome|dinner|lunch|brunch|breakfast|regular|weekday|weekend|opening|open|now|from|hours|hour|our|are|EST|and|&'.split("|");
+            var killWords = 'paste|here|business|operation|times|time|walk-ins|walk ins|welcome|dinner|lunch|brunch|breakfast|regular|weekday|weekend|opening|open|now|from|van|uren|uur|hours|hour|our|are|EST|and|&'.split("|");
             for (twix=0; twix<killWords.length; twix++) {
                 tempRegex = new RegExp('\\b'+killWords[twix]+'\\b', "g");
                 inputHoursParse = inputHoursParse.replace(tempRegex,'');
@@ -6416,6 +6525,10 @@
                 return CAT_LOOKUP[catNameUpper];
             }
 
+            if (catNameUpper == ""){
+                return "";
+            }
+
             // var natCategoriesRepl = natCategories.toUpperCase().replace(/ AND /g, "").replace(/[^A-Z]/g, "");
             // if (natCategoriesRepl.indexOf('PETSTORE') > -1) {
             //     return "PET_STORE_VETERINARIAN_SERVICES";
@@ -7153,6 +7266,9 @@
             } else if (country === 'CAN') {
                 PNH_DATA_headers = CAN_PNH_DATA[0].split("|");  // pull the data header names
                 ixendPNH_NAMES = CAN_PNH_NAMES.length;
+            } else if (country === 'NLD') {
+                PNH_DATA_headers = NLD_PNH_DATA[0].split("|");  // pull the data header names
+                ixendPNH_NAMES = NLD_PNH_NAMES.length;
             } else {
                 alert("No PNH data exists for this country.");
                 return ["NoMatch"];
@@ -7203,6 +7319,9 @@
                 } else if (country === 'CAN') {
                     nameComps = CAN_PNH_NAMES[phnum].split("|");  // splits all possible search names for the current PNH entry
                     PNHMatchData = CAN_PNH_DATA[phnum];
+                } else if (country === 'NLD') {
+                    nameComps = NLD_PNH_NAMES[phnum].split("|");  // splits all possible search names for the current PNH entry
+                    PNHMatchData = NLD_PNH_DATA[phnum];
                 }
                 currMatchData = PNHMatchData.split("|");  // Split the PNH place data into string array
 
