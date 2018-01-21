@@ -13,7 +13,7 @@
 // ==UserScript==
 // @name        WME Place Harmonizer Beta
 // @namespace   WazeUSA
-// @version     1.3.65
+// @version     1.3.66
 // @description Harmonizes, formats, and locks a selected place
 // @author      WMEPH Development Group
 // @include     /^https:\/\/(www|beta)\.waze\.com\/(?!user\/)(.{2,6}\/)?editor\/?.*$/
@@ -403,6 +403,7 @@
     function runPH() {
         // Script update info
         var WMEPHWhatsNewList = [  // New in this version
+            '1.3.66: NEW - Allow "Other" category for regions that want it.',
             '1.3.65: NEW - PLA\'s show flags for missing Ph# and URL in SER.', 
             '1.3.64: FIXED - Post offices not working properly in Manhattan.',
             '1.3.63: FIEXD - NY post office exception should only apply to NYC.',
@@ -3785,12 +3786,22 @@
                         // Unmapped categories
                         pc_rare = CH_DATA_Temp[CH_DATA_headers.indexOf('pc_rare')].replace(/,[^A-Za-z0-9}]+/g, ",").split(',');
                         if (pc_rare.indexOf(state2L) > -1 || pc_rare.indexOf(region) > -1 || pc_rare.indexOf(countryCode) > -1) {
-                            bannButt.unmappedRegion.active = true;
-                            if (currentWL.unmappedRegion) {
-                                bannButt.unmappedRegion.WLactive = false;
-                                bannButt.unmappedRegion.severity = 0;
+                            if (CH_DATA_Temp[0] === 'OTHER' && ['GLR','NER','NWR','PLN','SCR','SER'].indexOf(region) > -1) {
+                                if (!isLocked) {
+                                    bannButt.unmappedRegion.active = true;
+                                    bannButt.unmappedRegion.WLactive = false;
+                                    bannButt.unmappedRegion.severity = 1;
+                                    bannButt.unmappedRegion.message = 'The "Other" category should only be used if no other category applies.  Manually lock the place to override this flag.';
+                                    lockOK = false;
+                                }
                             } else {
-                                lockOK = false;
+                                bannButt.unmappedRegion.active = true;
+                                if (currentWL.unmappedRegion) {
+                                    bannButt.unmappedRegion.WLactive = false;
+                                    bannButt.unmappedRegion.severity = 0;
+                                } else {
+                                    lockOK = false;
+                                }
                             }
                         }
                         // Parent Category
