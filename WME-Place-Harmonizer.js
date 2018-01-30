@@ -13,7 +13,7 @@
 // ==UserScript==
 // @name        WME Place Harmonizer Beta
 // @namespace   WazeUSA
-// @version     1.3.66
+// @version     1.3.67
 // @description Harmonizes, formats, and locks a selected place
 // @author      WMEPH Development Group
 // @include     /^https:\/\/(www|beta)\.waze\.com\/(?!user\/)(.{2,6}\/)?editor\/?.*$/
@@ -253,6 +253,7 @@
     function placeHarmonizer_bootstrap() {
         if ( W && W.loginManager && W.loginManager.isLoggedIn() && W.map) {
             _updatedFields.init();
+            addPURWebSearchButton();
             setTimeout(dataReady,200);  //  Run the code to check for data return from the Sheets
             // Create duplicatePlaceName layer
             var rlayers = W.map.getLayersBy("uniqueName","__DuplicatePlaceNames");
@@ -349,7 +350,7 @@
         return (pvaValue ==='' || pvaValue === '0' || (pvaValue === 'hosp' && !isER)) ? 3 : (pvaValue ==='2') ? 1 : (pvaValue ==='3') ? 2 : 0;
     }
 
-    (function addPURWebSearchButton() {
+    function addPURWebSearchButton() {
         var purLayerObserver = new MutationObserver(panelContainerChanged);
         purLayerObserver.observe($('#map #panel-container')[0],{childList: true, subtree: true});
 
@@ -398,11 +399,12 @@
                 window.open(buildSearchUrl(newName,addr), searchResultsWindowName, searchResultsWindowSpecs);
             }
         }
-    })();
+    }
 
     function runPH() {
         // Script update info
         var WMEPHWhatsNewList = [  // New in this version
+            '1.3.67: FIXED - Crash on startup in latest WME beta release.',
             '1.3.66: NEW - Allow "Other" category for regions that want it.',
             '1.3.65: NEW - PLA\'s show flags for missing Ph# and URL in SER.', 
             '1.3.64: FIXED - Post offices not working properly in Manhattan.',
