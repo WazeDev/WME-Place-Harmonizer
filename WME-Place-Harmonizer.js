@@ -13,7 +13,7 @@
 // ==UserScript==
 // @name        WME Place Harmonizer
 // @namespace   WazeUSA
-// @version     1.3.67
+// @version     1.3.68
 // @description Harmonizes, formats, and locks a selected place
 // @author      WMEPH Development Group
 // @include     /^https:\/\/(www|beta)\.waze\.com\/(?!user\/)(.{2,6}\/)?editor\/?.*$/
@@ -404,6 +404,7 @@
     function runPH() {
         // Script update info
         var WMEPHWhatsNewList = [  // New in this version
+            '1.3.68: NEW - Added "Nudge" button to "last edited by automated process" flag.',
             '1.3.67: FIXED - Crash on startup in latest WME beta release.',
             '1.3.66: NEW - Allow "Other" category for regions that want it.',
             '1.3.65: NEW - PLA\'s show flags for missing Ph# and URL in SER.', 
@@ -1563,7 +1564,16 @@
                 },
 
                 wazeBot: {  // no WL
-                    active: false, severity: 2, message: 'Edited last by an automated process. Please verify information is correct.'
+                    active: false, severity: 2, message: 'Edited last by an automated process. Please verify information is correct.', value:'Nudge', title:'If no other properties need to be updated, click to nudge the place (force an edit).',
+                    action: function() {
+                        var UpdateFeatureGeometry = require('Waze/Action/UpdateFeatureGeometry');
+                        var place = W.selectionManager.selectedItems[0];
+                        // Use an exact clone of the original geometry to force an edit without actually changing anything.
+                        var newGeom = place.geometry.clone();
+                        var action = new UpdateFeatureGeometry(place.model, W.model.venues, place.geometry, newGeom);
+                        W.model.actionManager.add(action);
+                        harmonizePlaceGo(item,'harmonize');  // Rerun the script to update fields and lock
+                    }
                 },
 
                 parentCategory: {
@@ -4507,7 +4517,7 @@
             ];
             var re = new RegExp(botNamesAndIDs.join('|'),'i');
 
-            if (!item.attributes.residential && updatedById && (re.test(updatedById.toString()) || (updatedByName && re.test(updatedByName))))  {
+            if (item.isUnchanged() && !item.attributes.residential && updatedById && (re.test(updatedById.toString()) || (updatedByName && re.test(updatedByName))))  {
                 bannButt.wazeBot.active = true;
             }
 
