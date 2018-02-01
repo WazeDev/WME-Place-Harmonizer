@@ -1059,7 +1059,7 @@
         }
 
         // normalize phone
-        function normalizePhone(s, outputFormat, returnType, item, region) {
+        function normalizePhone(s, outputFormat, returnType, item, region, countryCode) {
             var regionsThatWantPLAPhones = ['SER'];
             if ( !s && returnType === 'existing' ) {
                 let hasOperator = item.attributes.brand && W.model.venues.categoryBrands.PARKING_LOT.indexOf(item.attributes.brand) !== -1;
@@ -2032,7 +2032,7 @@
                     badInput: false,
                     action: function() {
                         var newPhoneVal = $('#WMEPH-PhoneAdd'+devVersStr).val();
-                        var newPhone = normalizePhone(newPhoneVal, outputFormat, 'inputted', item, countryCode);
+                        var newPhone = normalizePhone(newPhoneVal, outputFormat, 'inputted', item, '',countryCode);
                         if (newPhone === 'badPhone') {
                             $('input#WMEPH-PhoneAdd'+devVersStr).css({backgroundColor: '#FDD'}).attr('title','Invalid phone # format');
                             this.badInput = true;
@@ -4113,7 +4113,7 @@
                 } else if (countryCode === "NL") {
                     outputFormat = "+31-{0}-{1}-{2}";
                 }
-                newPhone = normalizePhone(item.attributes.phone, outputFormat, 'existing', item, region);
+                newPhone = normalizePhone(item.attributes.phone, outputFormat, 'existing', item, region, countryCode);
 
                 // Check if valid area code  #LOC# USA and CAN only
                 // TODO: Internationalize this code
