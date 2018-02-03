@@ -7241,6 +7241,8 @@
                 return $(".WazeControlPermalink").children(".icon-link")[0].href;
             } else if ( $(".WazeControlPermalink").children(".fa-link").length > 0 ) {
                 return $(".WazeControlPermalink").children(".fa-link")[0].href;
+            } else if ( $(".WazeControlPermalink").children(".permalink").length > 0 ) {
+                return $(".WazeControlPermalink").children(".permalink")[0].href;
             }
             return  '';
         }
