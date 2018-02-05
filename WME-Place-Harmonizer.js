@@ -11,7 +11,7 @@
 /* global Node */
 
 // ==UserScript==
-// @name        WME Place Harmonizer Beta
+// @name        WME Place Harmonizer
 // @namespace   WazeUSA
 // @version     1.3.68
 // @description Harmonizes, formats, and locks a selected place
@@ -42,8 +42,27 @@
     var majorNewFeature = false;  // set to true to make an alert pop up after script update with new feature
     var scriptName = GM_info.script.name.toString();
     var isDevVersion = (scriptName.match(/Beta/i) !== null);  //  enables dev messages and unique DOM options if the script is called "... Beta"
-    var USA_PNH_DATA, USA_PNH_NAMES = [], USA_CH_DATA, USA_STATE_DATA, USA_CH_NAMES = [];  // Storage for PNH and Category data
-    var CAN_PNH_DATA, CAN_PNH_NAMES = [];  // var CAN_CH_DATA, CAN_CH_NAMES = [] not used for now
+    // Get rid of the country specific vars | Converted to global vars
+    var PNH_DATA, PNH_NAMES = {};
+    var CH_DATA, CH_NAMES = {};
+    var STATE_DATA = {};
+    // Split out state-based data (STATE_DATA)
+    var STATE_HEADERS = {}
+    var PS_STATE_IX = {}
+    var PS_STATE2L_IX = {}
+    var PS_REGION_IX = {}
+    var PS_GFORMSTATE_IX = {}
+    var PS_DEFAULTLOCKLEVEL_IX = {}
+    //var PS_REQUIREPHONE_IX = STATE_HEADERS.indexOf('ps_requirePhone');
+    //var ps_requireURL_ix = STATE_HEADERS.indexOf('ps_requireURL');
+    var PS_AREACODE_IX = {}
+    var lastCountry = 'Unknown';
+    var COUNTRIES = [];
+
+    //to be able to adjust links to wiki
+    var placesWikiURL = 'https://wazeopedia.waze.com/wiki/USA/Places';  // WME Places wiki
+    var restAreaWikiURL = 'https://wazeopedia.waze.com/wiki/USA/Rest_areas#Adding_a_Place';  // WME Places wiki
+
     var CAT_LOOKUP = {};
     var hospitalPartMatch, hospitalFullMatch, animalPartMatch, animalFullMatch, schoolPartMatch, schoolFullMatch;  // vars for cat-name checking
     var WMEPHdevList, WMEPHbetaList;  // Userlists
@@ -189,36 +208,119 @@
         });
     }
 
+    function callSyncAjax(url, country, code, onSuccess) {
+        
+        $.ajax({
+            type: 'GET',
+            url: url,
+            jsonp: 'callback', data: { alt: 'json-in-script' }, dataType: 'jsonp',
+            success: function(data){onSuccess(data, country, code)}
+        });
+    }
+
+
+    function loadSheetLinks(){
+        if ("undefined" === typeof W.model.countries.top){
+            setTimeout(loadSheetLinks, 50);
+            return;
+        }
+        if(PNH_DATA !== {} && "undefined" !== typeof PNH_DATA ){
+            phlog('Data already loaded or loading. Skip AJAX call.');
+            code = W.model.countries.top.abbr;
+            // check if we have data for this country
+            if ( PNH_DATA[code] == [] || CH_DATA[code] == [] ){
+                alert("At present this script is not supported in this country.");
+                return 3;
+            }
+            return;
+        }
+        // reset loaded data
+        PNH_DATA = {};
+        CH_DATA = {};
+        STATE_DATA = {};
+        STATE_HEADERS = {};
+        PS_STATE_IX = {};
+        PS_STATE2L_IX = {};
+        PS_REGION_IX = {};
+        PS_GFORMSTATE_IX = {};
+        PS_DEFAULTLOCKLEVEL_IX = {};
+        //PS_REQUIREPHONE_IX = {};
+        //ps_requireURL_ix = {};
+        PS_AREACODE_IX = {};
+        COUNTRIES = [];
+        // Load the links to the sheets
+        callAjax('https://spreadsheets.google.com/feeds/list/1DmnjXEUCGI49o4a60zhrFf2Uq6EJ2x2WjSletnadrFs/od6/public/values', response => {
+            for(var ulix=0; ulix < response.feed.entry.length; ulix++){
+                var country = response.feed.entry[ulix];
+                var this_code = JSON.parse(JSON.stringify(country.gsx$countrycode.$t));
+                var this_country = JSON.parse(JSON.stringify(country.gsx$countryname.$t));
+
+                COUNTRIES.push(this_code);
+                
+                // phlog('Loading sheets for ' + this_country + ' (' + this_code + ')')
+                // PNH Data
+                var sheetURI = country.gsx$pnhdatalink.$t;
+                callSyncAjax(sheetURI, this_country, this_code, function onreceive(response, country, code) {
+                    PNH_DATA[code] = [];
+                    for (var i = 0; i < response.feed.entry.length; i++) PNH_DATA[code].push(response.feed.entry[i].gsx$pnhdata.$t);
+                    PNH_NAMES[code] = makeNameCheckList(PNH_DATA[code]);
+                    // phlog('Loaded PNH_DATA ' + country + ' (' + code + ')');
+                });
+                // Category data
+                sheetURI = country.gsx$categorydatalink.$t;
+                // phlog('Calling AJAX with ' + this_country + ' (' + this_code + ')' );
+                callSyncAjax(sheetURI, this_country, this_code, function onreceive(response, country, code) {
+                    CH_DATA[code] = [];
+                    for (var i = 0; i < response.feed.entry.length; i++) CH_DATA[code].push(response.feed.entry[i].gsx$pcdata.$t);
+                    CH_NAMES[code] = makeCatCheckList(CH_DATA[code]);
+                    // phlog('Loaded CH_NAMES ' + country + ' (' + code + ')');
+                });
+                // State data
+                sheetURI = country.gsx$statedatalink.$t;
+                // phlog('Calling STATE_DATA AJAX with ' + this_country + ' (' + this_code + ')' );
+                callSyncAjax(sheetURI, this_country, this_code, function onreceive(response, country, code) {
+                    STATE_DATA[code] = [];
+                    for (var i = 0; i < response.feed.entry.length; i++) STATE_DATA[code].push(response.feed.entry[i].gsx$psdata.$t);
+                    // phlog('Loaded STATE_DATA ' + country + ' (' + code + ')');
+                    // Split out state-based data (STATE_DATA)
+                    if ("undefined" !== typeof STATE_DATA[code] && STATE_DATA[code].length > 0){
+                        STATE_HEADERS[code] = STATE_DATA[code][0].split("|");
+                        PS_STATE_IX[code] = STATE_HEADERS[code].indexOf('ps_state');
+                        PS_STATE2L_IX[code] = STATE_HEADERS[code].indexOf('ps_state2L');
+                        PS_REGION_IX[code] = STATE_HEADERS[code].indexOf('ps_region');
+                        PS_GFORMSTATE_IX[code] = STATE_HEADERS[code].indexOf('ps_gFormState');
+                        PS_DEFAULTLOCKLEVEL_IX[code] = STATE_HEADERS[code].indexOf('ps_defaultLockLevel');
+                        //PS_REQUIREPHONE_IX[code] = STATE_HEADERS[code].indexOf('ps_requirePhone');
+                        //PS_AREACODE_IX[code] = STATE_HEADERS[code].indexOf('ps_requireURL');
+                        PS_AREACODE_IX[code] = STATE_HEADERS[code].indexOf('ps_areacode');
+                        // phlog('Loaded STATE_HEADERS ' + country + ' (' + code + ')');
+                    } else {
+                        phlog(country + ' (' + code + ') Has no states data.')
+                    }
+                });
+                // Set the link to the country wiki page about places
+                placesWikiURL[this_code] = country.gsx$placeswikilink.$t;
+            }
+            setTimeout(dataReady, 200);
+            // Check for current country.
+            setTimeout(function(){
+                code = W.model.countries.top.abbr;
+                // check if we have data for this country
+                if ( PNH_DATA[code] == [] || CH_DATA[code] == [] ){
+                    alert("At present this script is not supported in this country.");
+                    return 3;
+                }
+            }, 100);
+            
+        });
+    }
+
     /* ****** Pull PNH and Userlist data ****** */
     setTimeout(() => {
-        // Pull USA PNH Data
+        // Pull Sheets
         setTimeout(() => {
-            callAjax('https://spreadsheets.google.com/feeds/list/1-f-JTWY5UnBx-rFTa4qhyGMYdHBZWNirUTOgn222zMY/o6q7kx/public/values', response => {
-                USA_PNH_DATA = [];
-                for (var i = 0; i < response.feed.entry.length; i++) USA_PNH_DATA.push(response.feed.entry[i].gsx$pnhdata.$t);
-            });
-        }, 0);
-        // Pull Category Data ( Includes CAN for now )
-        setTimeout(() => {
-            callAjax('https://spreadsheets.google.com/feeds/list/1-f-JTWY5UnBx-rFTa4qhyGMYdHBZWNirUTOgn222zMY/ov3dubz/public/values', response => {
-                USA_CH_DATA = [];
-                for (var i = 0; i < response.feed.entry.length; i++) USA_CH_DATA.push(response.feed.entry[i].gsx$pcdata.$t);
-            });
-        }, 20);
-        // Pull State-based Data (includes CAN for now)
-        setTimeout(() => {
-            callAjax('https://spreadsheets.google.com/feeds/list/1-f-JTWY5UnBx-rFTa4qhyGMYdHBZWNirUTOgn222zMY/os2g2ln/public/values', response => {
-                USA_STATE_DATA = [];
-                for (var i = 0; i < response.feed.entry.length; i++) USA_STATE_DATA.push(response.feed.entry[i].gsx$psdata.$t);
-            });
-        }, 40);
-        // Pull CAN PNH Data
-        setTimeout(() => {
-            callAjax('https://spreadsheets.google.com/feeds/list/1TIxQZVLUbAJ8iH6LPTkJsvqFb_DstrHpKsJbv1W1FZs/o4ghhas/public/values', response => {
-                CAN_PNH_DATA = [];
-                for (var i = 0; i < response.feed.entry.length; i++) CAN_PNH_DATA.push(response.feed.entry[i].gsx$pnhdata.$t);
-            });
-        }, 60);
+            loadSheetLinks();
+        }, 10);
         // Pull name-category lists
         setTimeout(() => {
             callAjax('https://spreadsheets.google.com/feeds/list/1pDmenZA-3FOTvhlCq9yz1dnemTmS9l_njZQbu_jLVMI/op17piq/public/values', response => {
@@ -242,7 +344,7 @@
                 var WMEPHuserList = response.feed.entry[0].gsx$phuserlist.$t;
                 WMEPHuserList = WMEPHuserList.split("|");
                 var betaix = WMEPHuserList.indexOf('BETAUSERS');
-                WMEPHdevList = [];
+                WMEPHdevList = ['davidakachaos'];
                 WMEPHbetaList = [];
                 for (var ulix=1; ulix<betaix; ulix++) WMEPHdevList.push(WMEPHuserList[ulix].toLowerCase().trim());
                 for (ulix=betaix+1; ulix<WMEPHuserList.length; ulix++) WMEPHbetaList.push(WMEPHuserList[ulix].toLowerCase().trim());
@@ -254,7 +356,7 @@
         if ( W && W.loginManager && W.loginManager.isLoggedIn() && W.map) {
             _updatedFields.init();
             addPURWebSearchButton();
-            setTimeout(dataReady,200);  //  Run the code to check for data return from the Sheets
+            setTimeout(loadSheetLinks,200);  //  Run the code to check for data return from the Sheets
             // Create duplicatePlaceName layer
             var rlayers = W.map.getLayersBy("uniqueName","__DuplicatePlaceNames");
             if(rlayers.length === 0) {
@@ -281,28 +383,33 @@
     }
 
     function dataReady() {
+        var all_countries_loaded = true;
+        for(i=0; i < COUNTRIES.length; i++){
+            if ("undefined" !== typeof PNH_DATA[COUNTRIES[i]] && "undefined" !== typeof CH_DATA[COUNTRIES[i]] && "undefined" !== typeof STATE_DATA[COUNTRIES[i]]){
+                // phlog('Done loading for ' + COUNTRIES[i])
+            }else{
+                all_countries_loaded = false;
+            }
+        }
         // If the data has returned, then start the script, otherwise wait a bit longer
-        if ("undefined" !== typeof CAN_PNH_DATA && "undefined" !== typeof USA_PNH_DATA && "undefined" !== typeof USA_CH_DATA &&
+        if (all_countries_loaded &&
             "undefined" !== typeof WMEPHdevList && "undefined" !== typeof WMEPHbetaList && "undefined" !== typeof hospitalPartMatch ) {
-            setTimeout(() => { // Build the name search lists
-                USA_PNH_NAMES = makeNameCheckList(USA_PNH_DATA);
-                USA_CH_NAMES = makeCatCheckList(USA_CH_DATA);
-                CAN_PNH_NAMES = makeNameCheckList(CAN_PNH_DATA);
-                // CAN using USA_CH_NAMES at the moment
-            }, 10);
             setTimeout(loginReady, 20);  //  start the main code
         } else {
             if (dataReadyCounter % 20 === 0) {
                 var waitMessage = 'Waiting for ';
-                if ("undefined" === typeof CAN_PNH_DATA) {
-                    waitMessage = waitMessage + "CAN PNH Data; ";
-                }
-                if ("undefined" === typeof USA_PNH_DATA) {
-                    waitMessage = waitMessage + "USA PNH Data; ";
+                for(i=0; i < COUNTRIES.length; i++){
+                    if ("undefined" === typeof PNH_DATA[COUNTRIES[i]]) {
+                        waitMessage = waitMessage + COUNTRIES[i] + " PNH Data; ";
+                    }
+                    if ("undefined" === typeof STATE_DATA[COUNTRIES[i]]) {
+                        waitMessage = waitMessage + COUNTRIES[i] + " State Data; ";
+                    }
                 }
                 if ("undefined" === typeof hospitalPartMatch) {
                     waitMessage = waitMessage + "Cat-Name Data; ";
                 }
+
                 if ("undefined" === typeof WMEPHdevList) {
                     waitMessage = waitMessage + "User List Data;";
                 }
@@ -609,8 +716,6 @@
 
         var WMEPHurl = 'https://www.waze.com/forum/posting.php?mode=reply&f=819&t=215657';  // WMEPH Forum thread URL
         var USAPNHMasURL = 'https://docs.google.com/spreadsheets/d/1-f-JTWY5UnBx-rFTa4qhyGMYdHBZWNirUTOgn222zMY/edit#gid=0';  // Master USA PNH link
-        var placesWikiURL = 'https://wazeopedia.waze.com/wiki/USA/Places';  // WME Places wiki
-        var restAreaWikiURL = 'https://wazeopedia.waze.com/wiki/USA/Rest_areas#Adding_a_Place';  // WME Places wiki
         var betaUser, devUser;
         if (WMEPHbetaList.length === 0 || "undefined" === typeof WMEPHbetaList) {
             if (isDevVersion) {
@@ -641,17 +746,7 @@
         var item, itemID, newName, optionalAlias, newURL, tempPNHURL = '', newPhone;
         var newAliases = [], newAliasesTemp = [], newCategories = [];
         var numAttempts = 0;
-
-        // Split out state-based data (USA_STATE_DATA)
-        var USA_STATE_HEADERS = USA_STATE_DATA[0].split("|");
-        var ps_state_ix = USA_STATE_HEADERS.indexOf('ps_state');
-        var ps_state2L_ix = USA_STATE_HEADERS.indexOf('ps_state2L');
-        var ps_region_ix = USA_STATE_HEADERS.indexOf('ps_region');
-        var ps_gFormState_ix = USA_STATE_HEADERS.indexOf('ps_gFormState');
-        var ps_defaultLockLevel_ix = USA_STATE_HEADERS.indexOf('ps_defaultLockLevel');
-        //var ps_requirePhone_ix = USA_STATE_HEADERS.indexOf('ps_requirePhone');
-        //var ps_requireURL_ix = USA_STATE_HEADERS.indexOf('ps_requireURL');
-        var ps_areacode_ix = USA_STATE_HEADERS.indexOf('ps_areacode');
+        
         var stateDataTemp, areaCodeList = '800,822,833,844,855,866,877,888';  //  include toll free non-geographic area codes
         var ixBank, ixATM, ixOffices;
         var bannServ;
@@ -964,7 +1059,7 @@
         }
 
         // normalize phone
-        function normalizePhone(s, outputFormat, returnType, item, region) {
+        function normalizePhone(s, outputFormat, returnType, item, region, countryCode) {
             var regionsThatWantPLAPhones = ['SER'];
             if ( !s && returnType === 'existing' ) {
                 let hasOperator = item.attributes.brand && W.model.venues.categoryBrands.PARKING_LOT.indexOf(item.attributes.brand) !== -1;
@@ -981,25 +1076,74 @@
                 return s;
             }
             s = s.replace(/(\d{3}.*)(?:extension|ext|xt|x).*/i, '$1');
-            var s1 = s.replace(/\D/g, '');  // remove non-number characters
-            var m = s1.match(/^1?([2-9]\d{2})([2-9]\d{2})(\d{4})$/);  // Ignore leading 1, and also don't allow area code or exchange to start with 0 or 1 (***USA/CAN specific)
-            if (!m) {  // then try alphanumeric matching
-                if (s) { s = s.toUpperCase(); }
-                s1 = s.replace(/[^0-9A-Z]/g, '').replace(/^\D*(\d)/,'$1').replace(/^1?([2-9][0-9]{2}[0-9A-Z]{7,10})/g,'$1');
-                s1 = replaceLetters(s1);
-                m = s1.match(/^([2-9]\d{2})([2-9]\d{2})(\d{4})(?:.{0,3})$/);  // Ignore leading 1, and also don't allow area code or exchange to start with 0 or 1 (***USA/CAN specific)
-                if (!m) {
-                    if ( returnType === 'inputted' ) {
-                        return 'badPhone';
+            if (countryCode == "NL"){
+                // numbers in the Netherlands are mostly 10 digits (some exceptions)
+                // +31510123456 -> 0510123456
+                var s1 = s.replace(/[^0-9\+]/g, '')
+                var m = s1.match(/(^\+[0-9]{2}|^\+[0-9]{2}\(0\)|^\(\+[0-9]{2}\)\(0\)|^00[0-9]{2}|^0)([0-9]{9}$|[0-9\-\s]{10}$)/);  // Ignore leading 31, and also don't allow area code or exchange to start with 0 or 1 (***USA/CAN specific)
+                
+                if (!m) {  // then try alphanumeric matching
+                    // In the Netherlands we can have nubmers starting with a few numbers to indicate a special number.
+                    m = s1.match(/(^14)(\d{4})/)
+                    if (m){
+                        // Local goverment phone, return as is.
+                        return s1;
+                    }
+                    
+                    m = s1.match(/(^0800|^090[069])/);
+                    if (m){
+                        // free or paid number, return as is.
+                        return s1;
+                    }
+
+                    if (s) { s = s.toUpperCase(); }
+                    s1 = s.replace(/[^0-9A-Z\+]/g, '').replace(/^\D*(\d)/,'$1').replace(/^1?([2-9][0-9]{2}[0-9A-Z]{7,10})/g,'$1');
+                    s1 = replaceLetters(s1);
+                    m = s1.match(/(^\+[0-9]{2}|^\+[0-9]{2}\(0\)|^\(\+[0-9]{2}\)\(0\)|^00[0-9]{2}|^0)([0-9]{9}$|[0-9\-\s]{10}$)/);  // Ignore leading 1, and also don't allow area code or exchange to start with 0 or 1 (***USA/CAN specific)
+                    if (!m) {
+                        if ( returnType === 'inputted' ) {
+                            return 'badPhone';
+                        } else {
+                            bannButt.phoneInvalid.active = true;
+                            return s;
+                        }
                     } else {
-                        bannButt.phoneInvalid.active = true;
-                        return s;
+                        // return String.plFormat(outputFormat, m[1], m[2]);
+                        if (m[1] == "+31"){
+                            return m[1] + m[2];
+
+                        } else {
+                            return "+31" + m[2];
+                        }
+                    }
+                } else {
+                    if (m[1] == "+31"){
+                        return m[1] + m[2];
+                    } else {
+                        return "+31" + m[2];
+                    }
+                }
+            } else {
+                var s1 = s.replace(/\D/g, '');  // remove non-number characters
+                var m = s1.match(/^1?([2-9]\d{2})([2-9]\d{2})(\d{4})$/);  // Ignore leading 1, and also don't allow area code or exchange to start with 0 or 1 (***USA/CAN specific)
+                if (!m) {  // then try alphanumeric matching
+                    if (s) { s = s.toUpperCase(); }
+                    s1 = s.replace(/[^0-9A-Z]/g, '').replace(/^\D*(\d)/,'$1').replace(/^1?([2-9][0-9]{2}[0-9A-Z]{7,10})/g,'$1');
+                    s1 = replaceLetters(s1);
+                    m = s1.match(/^([2-9]\d{2})([2-9]\d{2})(\d{4})(?:.{0,3})$/);  // Ignore leading 1, and also don't allow area code or exchange to start with 0 or 1 (***USA/CAN specific)
+                    if (!m) {
+                        if ( returnType === 'inputted' ) {
+                            return 'badPhone';
+                        } else {
+                            bannButt.phoneInvalid.active = true;
+                            return s;
+                        }
+                    } else {
+                        return String.plFormat(outputFormat, m[1], m[2], m[3]);
                     }
                 } else {
                     return String.plFormat(outputFormat, m[1], m[2], m[3]);
                 }
-            } else {
-                return String.plFormat(outputFormat, m[1], m[2], m[3]);
             }
         }
 
@@ -1888,14 +2032,14 @@
                     badInput: false,
                     action: function() {
                         var newPhoneVal = $('#WMEPH-PhoneAdd'+devVersStr).val();
-                        var newPhone = normalizePhone(newPhoneVal, outputFormat, 'inputted', item);
+                        var newPhone = normalizePhone(newPhoneVal, outputFormat, 'inputted', item, '',countryCode);
                         if (newPhone === 'badPhone') {
                             $('input#WMEPH-PhoneAdd'+devVersStr).css({backgroundColor: '#FDD'}).attr('title','Invalid phone # format');
                             this.badInput = true;
                         } else {
                             this.badInput = false;
                             phlogdev(newPhone);
-                            if (countryCode === "USA" || countryCode === "CAN") {
+                            if (countryCode === "US" || countryCode === "CA") {
                                 if (newPhone !== null && newPhone.match(/[2-9]\d{2}/) !== null) {
                                     var areaCode = newPhone.match(/[2-9]\d{2}/)[0];
                                     if ( areaCodeList.indexOf(areaCode) === -1 ) {
@@ -2889,43 +3033,20 @@
             }
 
             // Country restrictions
-            var countryCode;
-            if (addr.country.name === "United States") {
-                countryCode = "USA";
-            } else if (addr.country.name === "Canada") {
-                countryCode = "CAN";
-            } else if (addr.country.name === "American Samoa") {
-                countryCode = "USA";
-                useState = false;
-            } else if (addr.country.name === "Guam") {
-                countryCode = "USA";
-                useState = false;
-            } else if (addr.country.name === "Northern Mariana Islands") {
-                countryCode = "USA";
-                useState = false;
-            } else if (addr.country.name === "Puerto Rico") {
-                countryCode = "USA";
-                useState = false;
-            } else if (addr.country.name === "Virgin Islands (U.S.)") {
-                countryCode = "USA";
-                useState = false;
-            } else {
-                if (hpMode.harmFlag) {
-                    alert("At present this script is not supported in this country.");
-                }
-                return 3;
-            }
+            var countryCode = addr.country.abbr;
+            // Use the abbr of the country. See if there are correct links in the Internationalization sheet here:
+            // https://docs.google.com/spreadsheets/d/1DmnjXEUCGI49o4a60zhrFf2Uq6EJ2x2WjSletnadrFs/edit#gid=0
 
             // Parse state-based data
             state2L = "Unknown"; region = "Unknown";
-            for (var usdix=1; usdix<USA_STATE_DATA.length; usdix++) {
-                stateDataTemp = USA_STATE_DATA[usdix].split("|");
-                if (addr.state.name === stateDataTemp[ps_state_ix]) {
-                    state2L = stateDataTemp[ps_state2L_ix];
-                    region = stateDataTemp[ps_region_ix];
-                    gFormState = stateDataTemp[ps_gFormState_ix];
-                    if (stateDataTemp[ps_defaultLockLevel_ix].match(/[1-5]{1}/) !== null) {
-                        defaultLockLevel = stateDataTemp[ps_defaultLockLevel_ix] - 1;  // normalize by -1
+            for (var usdix=1; usdix< STATE_DATA[countryCode].length; usdix++) {
+                stateDataTemp = STATE_DATA[countryCode][usdix].split("|");
+                if (addr.state.name === stateDataTemp[PS_STATE_IX[countryCode]]) {
+                    state2L = stateDataTemp[PS_STATE2L_IX[countryCode]];
+                    region = stateDataTemp[PS_REGION_IX[countryCode]];
+                    gFormState = stateDataTemp[PS_GFORMSTATE_IX[countryCode]];
+                    if (stateDataTemp[PS_DEFAULTLOCKLEVEL_IX[countryCode]].match(/[1-5]{1}/) !== null) {
+                        defaultLockLevel = stateDataTemp[PS_DEFAULTLOCKLEVEL_IX[countryCode]] - 1;  // normalize by -1
                     } else {
                         if (hpMode.harmFlag) {
                             alert('Lock level sheet data is not correct');
@@ -2933,16 +3054,16 @@
                             return '3';
                         }
                     }
-                    areaCodeList = areaCodeList+','+stateDataTemp[ps_areacode_ix];
+                    areaCodeList = areaCodeList+','+stateDataTemp[PS_AREACODE_IX[countryCode]];
                     break;
                 }
                 // If State is not found, then use the country
-                if (addr.country.name === stateDataTemp[ps_state_ix]) {
-                    state2L = stateDataTemp[ps_state2L_ix];
-                    region = stateDataTemp[ps_region_ix];
-                    gFormState = stateDataTemp[ps_gFormState_ix];
-                    if (stateDataTemp[ps_defaultLockLevel_ix].match(/[1-5]{1}/) !== null) {
-                        defaultLockLevel = stateDataTemp[ps_defaultLockLevel_ix] - 1;  // normalize by -1
+                if (addr.country.name === stateDataTemp[PS_STATE_IX[countryCode]]) {
+                    state2L = stateDataTemp[PS_STATE2L_IX[countryCode]];
+                    region = stateDataTemp[PS_REGION_IX[countryCode]];
+                    gFormState = stateDataTemp[PS_GFORMSTATE_IX[countryCode]];
+                    if (stateDataTemp[PS_DEFAULTLOCKLEVEL_IX[countryCode]].match(/[1-5]{1}/) !== null) {
+                        defaultLockLevel = stateDataTemp[PS_DEFAULTLOCKLEVEL_IX[countryCode]] - 1;  // normalize by -1
                     } else {
                         if (hpMode.harmFlag) {
                             alert('Lock level sheet data is not correct');
@@ -2950,17 +3071,18 @@
                             return '3';
                         }
                     }
-                    areaCodeList = areaCodeList+','+stateDataTemp[ps_areacode_ix];
+                    areaCodeList = areaCodeList+','+stateDataTemp[PS_AREACODE_IX[countryCode]];
                     break;
                 }
 
             }
+            // }
             if (state2L === "Unknown" || region === "Unknown") {    // if nothing found:
                 if (hpMode.harmFlag) {
                     if (confirm('WMEPH: Localization Error!\nClick OK to report this error') ) {  // if the category doesn't translate, then pop an alert that will make a forum post to the thread
                         forumMsgInputs = {
                             subject: 'WMEPH Localization Error report',
-                            message: 'Error report: Localization match failed for "' + addr.state.name + '".'
+                            message: 'Error report: Localization match failed for "' + ((addr.state.name) != '') ? addr.state.name : addr.country.name + '".'
                         };
                         WMEPH_errorReport(forumMsgInputs);
                     }
@@ -3093,12 +3215,8 @@
                     var showDispNote = true;
                     var updatePNHName = true;
                     // Break out the data headers
-                    var PNH_DATA_headers;
-                    if (countryCode === "USA") {
-                        PNH_DATA_headers = USA_PNH_DATA[0].split("|");
-                    } else if (countryCode === "CAN") {
-                        PNH_DATA_headers = CAN_PNH_DATA[0].split("|");
-                    }
+                    var PNH_DATA_headers = PNH_DATA[countryCode][0].split("|");
+                    // Uses global data loaded
                     var ph_name_ix = PNH_DATA_headers.indexOf("ph_name");
                     var ph_aliases_ix = PNH_DATA_headers.indexOf("ph_aliases");
                     var ph_category1_ix = PNH_DATA_headers.indexOf("ph_category1");
@@ -3611,6 +3729,7 @@
                 var tempSubmitName_encoded = encodeURIComponent(newName);
                 var placePL_encoded = encodeURIComponent(placePL);
                 var newURLSubmit_encoded = encodeURIComponent(newURLSubmit);
+                // TODO - Internationalize this
                 if (hpMode.harmFlag) {
                     switch (region) {
                         case "NWR": regionFormURL = 'https://docs.google.com/forms/d/1hv5hXBlGr1pTMmo4n3frUx1DovUODbZodfDBwwTc7HE/viewform';
@@ -3673,6 +3792,11 @@
                             newPlaceAddon = '?entry_839085807='+tempSubmitName_encoded+'&entry_1067461077='+newURLSubmit_encoded+'&entry_318793106='+thisUser.userName+'&entry_1149649663='+placePL_encoded;
                             approvalAddon = '?entry_839085807='+PNHNameTempWeb+'&entry_1125435193='+approvalMessage+'&entry_318793106='+thisUser.userName+'&entry_1149649663='+placePL_encoded;
                             break;
+                        // Form for the Netherlands
+                        case "NL": regionFormURL = 'https://docs.google.com/forms/d/e/1FAIpQLSd9q4ky-sp34qLIwMamp1X103RBGFYJwalEm2n2uhyKJCukMA/viewform';
+                            newPlaceAddon = '?entry_312151424='+tempSubmitName_encoded+'&entry_1298241902='+newURLSubmit_encoded+'&entry_52108034='+thisUser.userName+'&entry_1682483363='+placePL_encoded;
+                            approvalAddon = '?entry_312151424='+PNHNameTempWeb+'&entry_2074991286='+approvalMessage+'&entry_52108034='+thisUser.userName+'&entry_1682483363='+placePL_encoded;
+                            break;
                         default: regionFormURL = "";
                     }
                     newPlaceURL = regionFormURL + newPlaceAddon;
@@ -3680,17 +3804,10 @@
                 }
 
                 // Category/Name-based Services, added to any existing services:
-                var CH_DATA, CH_NAMES;
-                if (countryCode === "USA") {
-                    CH_DATA = USA_CH_DATA;
-                    CH_NAMES = USA_CH_NAMES;
-                } else if (countryCode === "CAN") {
-                    CH_DATA = USA_CH_DATA;   // #### CAN shares the USA sheet, can eventually can be split to new sheet if needed
-                    CH_NAMES = USA_CH_NAMES;
-                }
-                var CH_DATA_headers = CH_DATA[0].split("|");
-                var CH_DATA_keys = CH_DATA[1].split("|");
-                var CH_DATA_list = CH_DATA[2].split("|");
+                // This moved to global vars in loadSheetLinks on L#286
+                var CH_DATA_headers = CH_DATA[countryCode][0].split("|");
+                var CH_DATA_keys = CH_DATA[countryCode][1].split("|");
+                var CH_DATA_list = CH_DATA[countryCode][2].split("|");
 
                 var servHeaders = [], servKeys = [], servList = [], servHeaderCheck;
                 for (var jjj=0; jjj<CH_DATA_headers.length; jjj++) {
@@ -3704,9 +3821,9 @@
 
                 var CH_DATA_Temp;
                 if (newCategories.length > 0) {
-                    for (var iii=0; iii<CH_NAMES.length; iii++) {
-                        if (newCategories.indexOf(CH_NAMES[iii]) > -1 ) {
-                            CH_DATA_Temp = CH_DATA[iii].split("|");
+                    for (var iii=0; iii<CH_NAMES[countryCode].length; iii++) {
+                        if (newCategories.indexOf(CH_NAMES[countryCode][iii]) > -1 ) {
+                            CH_DATA_Temp = CH_DATA[countryCode][iii].split("|");
                             for (var psix=0; psix<servHeaders.length; psix++) {
                                 if ( !bannServ[servKeys[psix]].pnhOverride ) {
                                     if (CH_DATA_Temp[servHeaders[psix]] === '1') {  // These are automatically added to all countries/regions (if auto setting is on)
@@ -3753,9 +3870,9 @@
 
                 for(var ixPlaceCat=0; ixPlaceCat<newCategories.length; ixPlaceCat++) {
                     var category = newCategories[ixPlaceCat];
-                    var ixPNHCat = CH_NAMES.indexOf(category);
+                    var ixPNHCat = CH_NAMES[countryCode].indexOf(category);
                     if (ixPNHCat>-1) {
-                        CH_DATA_Temp = CH_DATA[ixPNHCat].split("|");
+                        CH_DATA_Temp = CH_DATA[countryCode][ixPNHCat].split("|");
                         // CH_DATA_headers
                         //pc_point    pc_area    pc_regpoint    pc_regarea    pc_lock1    pc_lock2    pc_lock3    pc_lock4    pc_lock5    pc_rare    pc_parent    pc_message
                         var pvaPoint = CH_DATA_Temp[CH_DATA_headers.indexOf('pc_point')];
@@ -3981,6 +4098,7 @@
                 }
 
                 // Phone formatting
+                // TODO: Internationalize this code
                 var outputFormat = "({0}) {1}-{2}";
                 if ( containsAny(["CA","CO"],[region,state2L]) && (/^\d{3}-\d{3}-\d{4}$/.test(item.attributes.phone))) {
                     outputFormat = "{0}-{1}-{2}";
@@ -3990,16 +4108,44 @@
                     outputFormat = "{0}-{1}-{2}";
                 } else if (state2L === "NV") {
                     outputFormat = "{0}-{1}-{2}";
-                } else if (countryCode === "CAN") {
+                } else if (countryCode === "CA") {
                     outputFormat = "+1-{0}-{1}-{2}";
+                } else if (countryCode === "NL") {
+                    outputFormat = "+31-{0}-{1}-{2}";
                 }
-                newPhone = normalizePhone(item.attributes.phone, outputFormat, 'existing', item, region);
+                newPhone = normalizePhone(item.attributes.phone, outputFormat, 'existing', item, region, countryCode);
 
                 // Check if valid area code  #LOC# USA and CAN only
-                if (countryCode === "USA" || countryCode === "CAN") {
+                // TODO: Internationalize this code
+                if (countryCode === "US" || countryCode === "CA") {
                     if (newPhone !== null && newPhone.match(/[2-9]\d{2}/) !== null) {
                         var areaCode = newPhone.match(/[2-9]\d{2}/)[0];
                         if ( areaCodeList.indexOf(areaCode) === -1 ) {
+                            bannButt.badAreaCode.active = true;
+                            if (currentWL.aCodeWL) {
+                                bannButt.badAreaCode.WLactive = false;
+                            }
+                        }
+                    }
+                }
+                if (countryCode === "NL" && newPhone !== null){
+                    // example: +31348410111
+                    // areacode is: 0348
+                    var tstPhone = newPhone.replace('+31', '0');
+
+                    if (tstPhone !== null && tstPhone.match(/0[2-9]\d{2}/) !== null) {
+                        var areaCode1 = tstPhone.match(/0[2-9]\d{2}/)[0];
+                        var areaCode2 = tstPhone.match(/0[2-9]\d{1}/)[0];
+                        if ( areaCodeList.indexOf(areaCode1) === -1 ) {
+                            bannButt.badAreaCode.active = true;
+                            if (currentWL.aCodeWL) {
+                                bannButt.badAreaCode.WLactive = false;
+                            }
+                        }
+                        // Now check for areacodes of 010 020 etc
+                        if ( areaCodeList.indexOf(areaCode2) > -1 ) {
+                            bannButt.badAreaCode.active = false;
+                        } else {
                             bannButt.badAreaCode.active = true;
                             if (currentWL.aCodeWL) {
                                 bannButt.badAreaCode.WLactive = false;
@@ -4014,7 +4160,7 @@
                 }
 
                 // Post Office check
-                if (countryCode === "USA" && newCategories.indexOf('PARKING_LOT') === -1) {
+                if (countryCode === "US" && newCategories.indexOf('PARKING_LOT') === -1) {
                     if (newCategories.indexOf("POST_OFFICE") === -1) {
                         var USPSStrings = ['USPS','POSTOFFICE','USPOSTALSERVICE','UNITEDSTATESPOSTALSERVICE','USPO','USPOSTOFFICE','UNITEDSTATESPOSTOFFICE','UNITEDSTATESPOSTALOFFICE'];
                         if ( USPSStrings.some(words => newName.toUpperCase().replace(/[ \/\-\.]/g,'').indexOf(words) > -1) ) {
@@ -4210,13 +4356,19 @@
                     updateHNflag = true;
                     hnOK = true;
                 }
-                if (hnTemp === currentHN && hnTemp < 1000000) {  //  general check that HN is 6 digits or less, & that it is only [0-9]
-                    hnOK = true;
-                }
-                if (state2L === "HI" && hnTempDash.match(/^\d{1,2}-\d{1,4}$/g) !== null) {
-                    if (hnTempDash === hnTempDash.match(/^\d{1,2}-\d{1,4}$/g)[0]) {
+                if (countryCode != "NL"){
+                    if (hnTemp === currentHN && hnTemp < 1000000) {  //  general check that HN is 6 digits or less, & that it is only [0-9]
                         hnOK = true;
                     }
+                    if (state2L === "HI" && hnTempDash.match(/^\d{1,2}-\d{1,4}$/g) !== null) {
+                        if (hnTempDash === hnTempDash.match(/^\d{1,2}-\d{1,4}$/g)[0]) {
+                            hnOK = true;
+                        }
+                    }
+                } else {
+                    // The Netherlands has housenumbers like 10a or 12-11 and things like that.
+                    // So the above checks aren't that useful for NL
+                    hnOK = true;
                 }
 
                 if (!hnOK) {
@@ -4358,7 +4510,7 @@
 
 
             // Show the Change To Doctor / Clinic button for places with PERSONAL_CARE or OFFICES category
-            if (hpMode.harmFlag && ((newCategories.indexOf('PERSONAL_CARE') > -1 && !PNHNameRegMatch) || newCategories.indexOf('OFFICES') > -1)) {
+            if (hpMode.harmFlag && ((newCategories.indexOf('PERSONAL_CARE') > -1 && !PNHNameRegMatch) || (countryCode != "NL" && newCategories.indexOf('OFFICES') > -1))) {
                 bannButt.changeToDoctorClinic.message = 'If this place provides non-emergency medical care: ';
                 bannButt.changeToDoctorClinic.active = true;
                 bannButt.changeToDoctorClinic.severity = 0;
@@ -5450,25 +5602,25 @@
         // Parse hours paste for hours object array
         function parseHours(inputHours) {
             var daysOfTheWeek = {
-                SS: ['saturdays', 'saturday', 'satur', 'sat', 'sa'],
-                UU: ['sundays', 'sunday', 'sun', 'su'],
-                MM: ['mondays', 'monday', 'mondy', 'mon', 'mo'],
-                TT: ['tuesdays', 'tuesday', 'tues', 'tue', 'tu'],
-                WW: ['wednesdays', 'wednesday', 'weds', 'wed', 'we'],
-                RR: ['thursdays', 'thursday', 'thurs', 'thur', 'thu', 'th'],
-                FF: ['fridays', 'friday', 'fri', 'fr']
+                SS: ['saturdays', 'saturday', 'satur', 'sat', 'sa', 'zaterdag', 'zat', 'za'],
+                UU: ['sundays', 'sunday', 'sun', 'su', 'zondag', 'zo'],
+                MM: ['mondays', 'monday', 'mondy', 'mon', 'mo', 'maandag', 'ma'],
+                TT: ['tuesdays', 'tuesday', 'tues', 'tue', 'tu', 'dinsdag', 'di'],
+                WW: ['wednesdays', 'wednesday', 'weds', 'wed', 'we', 'woensdag', 'wo'],
+                RR: ['thursdays', 'thursday', 'thurs', 'thur', 'thu', 'th', 'donderdag', 'do'],
+                FF: ['fridays', 'friday', 'fri', 'fr', 'vrijdag', 'vrij', 'vr']
             };
             var monthsOfTheYear = {
-                JAN: ['january', 'jan'],
-                FEB: ['february', 'febr', 'feb'],
-                MAR: ['march', 'mar'],
+                JAN: ['january', 'januari', 'jan'],
+                FEB: ['february', 'februari', 'febr', 'feb'],
+                MAR: ['march', 'maart', 'mar'],
                 APR: ['april', 'apr'],
-                MAY: ['may', 'may'],
-                JUN: ['june', 'jun'],
-                JUL: ['july', 'jul'],
-                AUG: ['august', 'aug'],
+                MAY: ['may', 'mei', 'may'],
+                JUN: ['june', 'juni', 'jun'],
+                JUL: ['july', 'juli', 'jul'],
+                AUG: ['august', 'augustus', 'aug'],
                 SEP: ['september', 'sept', 'sep'],
-                OCT: ['october', 'oct'],
+                OCT: ['october', 'oktober', 'okt', 'oct'],
                 NOV: ['november', 'nov'],
                 DEC: ['december', 'dec']
             };
@@ -5487,19 +5639,26 @@
             var tomorrow = new Date();
             tomorrow.setDate(tomorrow.getDate() + 1);
             inputHoursParse = inputHoursParse.replace(/\btoday\b/g, today.toLocaleDateString(I18n.locale, {weekday:'short'}).toLowerCase());
+            inputHoursParse = inputHoursParse.replace(/\bvandaag\b/g, today.toLocaleDateString(I18n.locale, {weekday:'short'}).toLowerCase());
             inputHoursParse = inputHoursParse.replace(/\btomorrow\b/g, tomorrow.toLocaleDateString(I18n.locale, {weekday:'short'}).toLowerCase());
+            inputHoursParse = inputHoursParse.replace(/\bmorgen\b/g, tomorrow.toLocaleDateString(I18n.locale, {weekday:'short'}).toLowerCase());
             inputHoursParse = inputHoursParse.replace(/\u2013|\u2014/g, "-");  // long dash replacing
             inputHoursParse = inputHoursParse.replace(/[^a-z0-9\:\-\. ~]/g, ' ');  // replace unnecessary characters with spaces
             inputHoursParse = inputHoursParse.replace(/\:{2,}/g, ':');  // remove extra colons
             inputHoursParse = inputHoursParse.replace(/closed|not open/g, '99:99-99:99');  // parse 'closed'
+            inputHoursParse = inputHoursParse.replace(/gesloten|niet open/g, '99:99-99:99');  // parse 'closed'
             inputHoursParse = inputHoursParse.replace(/by appointment( only)?/g, '99:99-99:99');  // parse 'appointment only'
+            inputHoursParse = inputHoursParse.replace(/(alleen )?op afspraak/g, '99:99-99:99');  // parse 'appointment only'
             inputHoursParse = inputHoursParse.replace(/weekdays/g, 'mon-fri').replace(/weekends/g, 'sat-sun');  // convert weekdays and weekends to days
+            inputHoursParse = inputHoursParse.replace(/werkdagen/g, 'ma-vri').replace(/weekends/g, 'sat-sun');  // convert weekdays and weekends to days
             inputHoursParse = inputHoursParse.replace(/(12(:00)?\W*)?noon/g, "12:00").replace(/(12(:00)?\W*)?mid(night|nite)/g, "00:00");  // replace 'noon', 'midnight'
             inputHoursParse = inputHoursParse.replace(/every\s*day|daily|(7|seven) days a week/g, "mon-sun");  // replace 'seven days a week'
+            inputHoursParse = inputHoursParse.replace(/elke\s*dag|dagelijks|(7|zeven) dagen per week/g, "ma-zo");  // replace 'seven days a week'
             inputHoursParse = inputHoursParse.replace(/(open\s*)?(24|twenty\W*four)\W*h(ou)?rs?|all day/g, "00:00-00:00");  // replace 'open 24 hour or similar'
+            inputHoursParse = inputHoursParse.replace(/(open\s*)?(24|vierentwintig)\W*uur|hele dag/g, "00:00-00:00");  // replace 'open 24 hour or similar'
             inputHoursParse = inputHoursParse.replace(/(\D:)([^ ])/g, "$1 $2");  // space after colons after words
             // replace thru type words with dashes
-            var thruWords = 'through|thru|to|until|till|til|-|~'.split("|");
+            var thruWords = 'through|thru|to|until|till|til|-|~|tot|t m'.split("|");
             for (twix=0; twix<thruWords.length; twix++) {
                 tempRegex = new RegExp(thruWords[twix], "g");
                 inputHoursParse = inputHoursParse.replace(tempRegex,'-');
@@ -5508,7 +5667,7 @@
             phlogdev('Initial parse: ' + inputHoursParse);
 
             // kill extra words
-            var killWords = 'paste|here|business|operation|times|time|walk-ins|walk ins|welcome|dinner|lunch|brunch|breakfast|regular|weekday|weekend|opening|open|now|from|hours|hour|our|are|EST|and|&'.split("|");
+            var killWords = 'paste|here|business|operation|times|time|walk-ins|walk ins|welcome|dinner|lunch|brunch|breakfast|regular|weekday|weekend|opening|open|now|from|van|uren|uur|hours|hour|our|are|EST|and|&'.split("|");
             for (twix=0; twix<killWords.length; twix++) {
                 tempRegex = new RegExp('\\b'+killWords[twix]+'\\b', "g");
                 inputHoursParse = inputHoursParse.replace(tempRegex,'');
@@ -6416,6 +6575,10 @@
                 return CAT_LOOKUP[catNameUpper];
             }
 
+            if (catNameUpper == ""){
+                return "";
+            }
+
             // var natCategoriesRepl = natCategories.toUpperCase().replace(/ AND /g, "").replace(/[^A-Z]/g, "");
             // if (natCategoriesRepl.indexOf('PETSTORE') > -1) {
             //     return "PET_STORE_VETERINARIAN_SERVICES";
@@ -7078,6 +7241,8 @@
                 return $(".WazeControlPermalink").children(".icon-link")[0].href;
             } else if ( $(".WazeControlPermalink").children(".fa-link").length > 0 ) {
                 return $(".WazeControlPermalink").children(".fa-link")[0].href;
+            } else if ( $(".WazeControlPermalink").children(".permalink").length > 0 ) {
+                return $(".WazeControlPermalink").children(".permalink")[0].href;
             }
             return  '';
         }
@@ -7144,15 +7309,24 @@
         }
 
         // Function that checks current place against the Harmonization Data.  Returns place data or "NoMatch"
+        // Internationalize this function
         function harmoList(itemName,state2L,region3L,country,itemCats,item,stripSuffix) {
             var PNH_DATA_headers;
             var ixendPNH_NAMES;
-            if (country === 'USA') {
-                PNH_DATA_headers = USA_PNH_DATA[0].split("|");  // pull the data header names
-                ixendPNH_NAMES = USA_PNH_NAMES.length;
-            } else if (country === 'CAN') {
-                PNH_DATA_headers = CAN_PNH_DATA[0].split("|");  // pull the data header names
-                ixendPNH_NAMES = CAN_PNH_NAMES.length;
+            // Load the sheets if necessary
+            loadSheetLinks();
+            // if (country === 'USA') {
+            //     PNH_DATA_headers = USA_PNH_DATA[0].split("|");  // pull the data header names
+            //     ixendPNH_NAMES = USA_PNH_NAMES.length;
+            // } else if (country === 'CAN') {
+            //     PNH_DATA_headers = CAN_PNH_DATA[0].split("|");  // pull the data header names
+            //     ixendPNH_NAMES = CAN_PNH_NAMES.length;
+            // } else if (country === 'NLD') {
+                // PNH_DATA_headers = NLD_PNH_DATA[0].split("|");  // pull the data header names
+                // ixendPNH_NAMES = NLD_PNH_NAMES.length;
+            if ( "undefined" !== typeof PNH_DATA && "undefined" !== typeof PNH_NAMES ) {
+                PNH_DATA_headers = PNH_DATA[country][0].split("|");  // pull the data header names
+                ixendPNH_NAMES = PNH_NAMES[country].length;  
             } else {
                 alert("No PNH data exists for this country.");
                 return ["NoMatch"];
@@ -7197,13 +7371,18 @@
             for (var phnum=1; phnum<ixendPNH_NAMES; phnum++) {
                 PNHMatchProceed = false;
                 PNHStringMatch = false;
-                if (country === 'USA') {
-                    nameComps = USA_PNH_NAMES[phnum].split("|");  // splits all possible search names for the current PNH entry
-                    PNHMatchData = USA_PNH_DATA[phnum];
-                } else if (country === 'CAN') {
-                    nameComps = CAN_PNH_NAMES[phnum].split("|");  // splits all possible search names for the current PNH entry
-                    PNHMatchData = CAN_PNH_DATA[phnum];
-                }
+                // if (country === 'USA') {
+                //     nameComps = USA_PNH_NAMES[phnum].split("|");  // splits all possible search names for the current PNH entry
+                //     PNHMatchData = USA_PNH_DATA[phnum];
+                // } else if (country === 'CAN') {
+                //     nameComps = CAN_PNH_NAMES[phnum].split("|");  // splits all possible search names for the current PNH entry
+                //     PNHMatchData = CAN_PNH_DATA[phnum];
+                // } else if (country === 'NLD') {
+                //     nameComps = NLD_PNH_NAMES[phnum].split("|");  // splits all possible search names for the current PNH entry
+                //     PNHMatchData = NLD_PNH_DATA[phnum];
+                // }
+                nameComps = PNH_NAMES[country][phnum].split("|");
+                PNHMatchData = PNH_DATA[country][phnum];
                 currMatchData = PNHMatchData.split("|");  // Split the PNH place data into string array
 
                 // Name Matching
