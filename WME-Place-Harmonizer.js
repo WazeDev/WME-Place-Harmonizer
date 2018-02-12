@@ -13,7 +13,7 @@
 // ==UserScript==
 // @name        WME Place Harmonizer Beta
 // @namespace   WazeUSA
-// @version     1.3.68
+// @version     1.3.69
 // @description Harmonizes, formats, and locks a selected place
 // @author      WMEPH Development Group
 // @include     /^https:\/\/(www|beta)\.waze\.com\/(?!user\/)(.{2,6}\/)?editor\/?.*$/
@@ -404,6 +404,7 @@
     function runPH() {
         // Script update info
         var WMEPHWhatsNewList = [  // New in this version
+            '1.3.69: FIXED - Minor update to fix missing PLs in PNH submissions.',
             '1.3.68: NEW - Added "Nudge" button to "last edited by automated process" flag.',
             '1.3.67: FIXED - Crash on startup in latest WME beta release.',
             '1.3.66: NEW - Allow "Other" category for regions that want it.',
@@ -1137,6 +1138,7 @@
             var placePL = getItemPL();  //  set up external post div and pull place PL
             // https://www.waze.com/editor/?env=usa&lon=-80.60757&lat=28.17850&layers=1957&zoom=4&segments=86124344&update_requestsFilter=false&problemsFilter=false&mapProblemFilter=0&mapUpdateRequestFilter=0&venueFilter=1
             placePL = placePL.replace(/\&layers=[^\&]+(\&?)/g, '$1');  // remove Permalink Layers
+            placePL = placePL.replace(/\&s=[^\&]+(\&?)/g, '$1');  // remove Permalink Layers
             placePL = placePL.replace(/\&update_requestsFilter=[^\&]+(\&?)/g, '$1');  // remove Permalink Layers
             placePL = placePL.replace(/\&problemsFilter=[^\&]+(\&?)/g, '$1');  // remove Permalink Layers
             placePL = placePL.replace(/\&mapProblemFilter=[^\&]+(\&?)/g, '$1');  // remove Permalink Layers
@@ -7074,8 +7076,8 @@
                 setTimeout(getItemPL, 500);
                 return;
             }
-            if ( $(".WazeControlPermalink").children(".icon-link").length > 0 ) {
-                return $(".WazeControlPermalink").children(".icon-link")[0].href;
+            if ( $(".WazeControlPermalink .permalink").attr('href').length > 0 ) {
+                return $(".WazeControlPermalink .permalink").attr('href');
             } else if ( $(".WazeControlPermalink").children(".fa-link").length > 0 ) {
                 return $(".WazeControlPermalink").children(".fa-link")[0].href;
             }
