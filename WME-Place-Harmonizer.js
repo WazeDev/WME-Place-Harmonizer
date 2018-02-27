@@ -1,5 +1,4 @@
 /* global I18n */
-/* global OpenLayers */
 /* global $ */
 /* global W */
 /* global GM_info */
@@ -13,7 +12,7 @@
 // ==UserScript==
 // @name        WME Place Harmonizer
 // @namespace   WazeUSA
-// @version     1.3.70
+// @version     1.3.71
 // @description Harmonizes, formats, and locks a selected place
 // @author      WMEPH Development Group
 // @include     /^https:\/\/(www|beta)\.waze\.com\/(?!user\/)(.{2,6}\/)?editor\/?.*$/
@@ -259,10 +258,10 @@
             var rlayers = W.map.getLayersBy("uniqueName","__DuplicatePlaceNames");
             if(rlayers.length === 0) {
                 var lname = "WMEPH Duplicate Names";
-                var style = new OpenLayers.Style({ label : "${labelText}", labelOutlineColor: '#333', labelOutlineWidth: 3, labelAlign: '${labelAlign}',
+                var style = new OL.Style({ label : "${labelText}", labelOutlineColor: '#333', labelOutlineWidth: 3, labelAlign: '${labelAlign}',
                                                   fontColor: "${fontColor}", fontOpacity: 1.0, fontSize: "20px", labelYOffset: -30, labelXOffset: 0, fontWeight: "bold",
                                                   fill: false, strokeColor: "${strokeColor}", strokeWidth: 10, pointRadius: "${pointRadius}" });
-                nameLayer = new OpenLayers.Layer.Vector(lname, { displayInLayerSwitcher: false, uniqueName: "__DuplicatePlaceNames", styleMap: new OpenLayers.StyleMap(style) });
+                nameLayer = new OL.Layer.Vector(lname, { displayInLayerSwitcher: false, uniqueName: "__DuplicatePlaceNames", styleMap: new OL.StyleMap(style) });
                 nameLayer.setVisibility(false);
                 W.map.addLayer(nameLayer);
                 WMEPH_NameLayer = nameLayer;
@@ -404,6 +403,7 @@
     function runPH() {
         // Script update info
         var WMEPHWhatsNewList = [  // New in this version
+            '1.3.71: FIXED - References to "OpenLayers" replaced with "OL".',
             '1.3.70: FIXED - Places marked notABank in PNH sheet are incorrectly treated as banks when name matching.',
             '1.3.69: FIXED - Minor update to fix missing PLs in PNH submissions.',
             '1.3.68: NEW - Added "Nudge" button to "last edited by automated process" flag.',
@@ -2674,7 +2674,7 @@
 
 
             // get GPS lat/long coords from place, call as itemGPS.lat, itemGPS.lon
-            var itemGPS = OpenLayers.Layer.SphericalMercator.inverseMercator(item.attributes.geometry.getCentroid().x,item.attributes.geometry.getCentroid().y);
+            var itemGPS = OL.Layer.SphericalMercator.inverseMercator(item.attributes.geometry.getCentroid().x,item.attributes.geometry.getCentroid().y);
             var lockOK = true;  // if nothing goes wrong, then place will be locked
             var categories = item.attributes.categories;
             newCategories = categories.slice(0);
@@ -6078,7 +6078,7 @@
                                     minLat = Math.min(minLat, pt.y); minLon = Math.min(minLon, pt.x);
                                     maxLat = Math.max(maxLat, pt.y); maxLon = Math.max(maxLon, pt.x);
 
-                                    textFeature = new OpenLayers.Feature.Vector( pt, {labelText: labelTextReformat, fontColor: '#fff',
+                                    textFeature = new OL.Feature.Vector( pt, {labelText: labelTextReformat, fontColor: '#fff',
                                                                                       strokeColor: labelColorList[labelColorIX%labelColorList.length], labelAlign: 'cm', pointRadius: 25 , dupeID: testVenueAtt.id } );
                                     labelFeatures.push(textFeature);
                                     //WMEPH_NameLayer.addFeatures(labelFeatures);
@@ -6111,7 +6111,7 @@
                         currentLabel = currentLabel + '\u25A3';  // add photo icons
                     }
                 }
-                textFeature = new OpenLayers.Feature.Vector( pt, {labelText: currentLabel, fontColor: '#fff', strokeColor: '#fff', labelAlign: 'cm', pointRadius: 25 , dupeID: item.attributes.id} );
+                textFeature = new OL.Feature.Vector( pt, {labelText: currentLabel, fontColor: '#fff', strokeColor: '#fff', labelAlign: 'cm', pointRadius: 25 , dupeID: item.attributes.id} );
                 labelFeatures.push(textFeature);
                 WMEPH_NameLayer.addFeatures(labelFeatures);
             }
@@ -7697,7 +7697,7 @@
         if ( addressTemp.hasOwnProperty('attributes') ) {
             addressTemp = addressTemp.attributes;
         }
-        var itemGPS = OpenLayers.Layer.SphericalMercator.inverseMercator(item.attributes.geometry.getCentroid().x,item.attributes.geometry.getCentroid().y);
+        var itemGPS = OL.Layer.SphericalMercator.inverseMercator(item.attributes.geometry.getCentroid().x,item.attributes.geometry.getCentroid().y);
         if (!venueWhitelist.hasOwnProperty(itemID)) {  // If venue is NOT on WL, then add it.
             venueWhitelist[itemID] = { };
         }
