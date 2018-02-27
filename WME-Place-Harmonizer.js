@@ -13,7 +13,7 @@
 // ==UserScript==
 // @name        WME Place Harmonizer
 // @namespace   WazeUSA
-// @version     1.3.69
+// @version     1.3.70
 // @description Harmonizes, formats, and locks a selected place
 // @author      WMEPH Development Group
 // @include     /^https:\/\/(www|beta)\.waze\.com\/(?!user\/)(.{2,6}\/)?editor\/?.*$/
@@ -404,6 +404,7 @@
     function runPH() {
         // Script update info
         var WMEPHWhatsNewList = [  // New in this version
+            '1.3.70: FIXED - Places marked notABank in PNH sheet are incorrectly treated as banks when name matching.',
             '1.3.69: FIXED - Minor update to fix missing PLs in PNH submissions.',
             '1.3.68: NEW - Added "Nudge" button to "last edited by automated process" flag.',
             '1.3.67: FIXED - Crash on startup in latest WME beta release.',
@@ -7546,7 +7547,7 @@
                     for ( catix=0; catix<newNameListLength; catix++) {  // extend the list by adding Hotel to all items
                         newNameList.push(newNameList[catix]+"HOTEL");
                     }
-                } else if (pnhEntryTemp[ph_category1_ix].toUpperCase().replace(/[^A-Za-z0-9]/g, '') === "BANKFINANCIAL") {
+                } else if (pnhEntryTemp[ph_category1_ix].toUpperCase().replace(/[^A-Za-z0-9]/g, '') === "BANKFINANCIAL" && !/\bnotABank\b/.test(pnhEntryTemp[ph_speccase_ix])) {
                     for ( catix=0; catix<newNameListLength; catix++) {  // extend the list by adding Bank and ATM to all items
                         newNameList.push(newNameList[catix]+"BANK");
                         newNameList.push(newNameList[catix]+"ATM");
