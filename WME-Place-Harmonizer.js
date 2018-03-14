@@ -12,7 +12,7 @@
 // ==UserScript==
 // @name        WME Place Harmonizer Beta
 // @namespace   WazeUSA
-// @version     1.3.71
+// @version     1.3.72
 // @description Harmonizes, formats, and locks a selected place
 // @author      WMEPH Development Group
 // @include     /^https:\/\/(www|beta)\.waze\.com\/(?!user\/)(.{2,6}\/)?editor\/?.*$/
@@ -403,6 +403,7 @@
     function runPH() {
         // Script update info
         var WMEPHWhatsNewList = [  // New in this version
+            '1.3.72: NEW - Added HI, NER, and SAT regions to special handling of "Other" category.',
             '1.3.71: FIXED - References to "OpenLayers" replaced with "OL".',
             '1.3.70: FIXED - Places marked notABank in PNH sheet are incorrectly treated as banks when name matching.',
             '1.3.69: FIXED - Minor update to fix missing PLs in PNH submissions.',
@@ -3801,7 +3802,7 @@
                         // Unmapped categories
                         pc_rare = CH_DATA_Temp[CH_DATA_headers.indexOf('pc_rare')].replace(/,[^A-Za-z0-9}]+/g, ",").split(',');
                         if (pc_rare.indexOf(state2L) > -1 || pc_rare.indexOf(region) > -1 || pc_rare.indexOf(countryCode) > -1) {
-                            if (CH_DATA_Temp[0] === 'OTHER' && ['GLR','NER','NWR','PLN','SCR','SER'].indexOf(region) > -1) {
+                            if (CH_DATA_Temp[0] === 'OTHER' && ['GLR','NER','NWR','PLN','SCR','SER','NOR','HI','SAT'].indexOf(region) > -1) {
                                 if (!isLocked) {
                                     bannButt.unmappedRegion.active = true;
                                     bannButt.unmappedRegion.WLactive = false;
