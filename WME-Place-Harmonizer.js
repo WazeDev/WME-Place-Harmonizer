@@ -11,7 +11,7 @@
 
 // ==UserScript==
 // @name        WME Place Harmonizer Beta
-// @namespace   WazeUSA
+// @namespace   WazeUSAd
 // @version     1.3.73
 // @description Harmonizes, formats, and locks a selected place
 // @author      WMEPH Development Group
@@ -1414,7 +1414,6 @@
                 pointNotArea: {  // Area 2 Point button
                     active: false, severity: 3, message: "This category should be a point place.", value: "Change to point", title: 'Change to point place',
                     action: function() {
-                        debugger;
                         if(item.attributes.categories.indexOf("RESIDENCE_HOME") > -1){
                             let centroid = item.geometry.getCentroid();
                             updateFeatureGeometry(item, new OL.Geometry.Point(centroid.x,centroid.y));
