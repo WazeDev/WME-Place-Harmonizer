@@ -1408,7 +1408,12 @@
                 pointNotArea: {  // Area 2 Point button
                     active: false, severity: 3, message: "This category should be a point place.", value: "Change to point", title: 'Change to point place',
                     action: function() {
-                        $('.landmark label.point-btn').click();
+                        if(item.attributes.categories.indexOf("RESIDENCE_HOME") > -1){
+                            let centroid = item.geometry.getCentroid();
+                            updateFeatureGeometry(item, new OL.Geometry.Point(centroid.x,centroid.y));
+                        }
+                        else
+                            $('.landmark label.point-btn').click();
                         bannButt.pointNotArea.active = false;
                     },
                     WLactive: true, WLmessage: '', WLtitle: 'Whitelist point (not area)',
