@@ -12,7 +12,7 @@
 // ==UserScript==
 // @name        WME Place Harmonizer
 // @namespace   WazeUSA
-// @version     1.3.72
+// @version     1.3.73
 // @description Harmonizes, formats, and locks a selected place
 // @author      WMEPH Development Group
 // @include     /^https:\/\/(www|beta)\.waze\.com\/(?!user\/)(.{2,6}\/)?editor\/?.*$/
@@ -168,6 +168,12 @@
             '<textarea id="WMEPH-HoursPaste'+devVersStr+'" wrap="off" autocomplete="off" style="overflow:auto;width:85%;max-width:85%;min-width:85%;font-size:0.85em;height:24px;min-height:24px;max-height:300px;padding-left:3px;color:#AAA">' + defaultText + '</textarea>';
     }
 
+    function getSelectedFeatures(){
+        if(!W.selectionManager.getSelectedFeatures)
+            return W.selectionManager.selectedItems;
+        return W.selectionManager.getSelectedFeatures();
+    }
+
     // Array prototype extensions (for Firefox fix)
     Array.prototype.toSet = function () {
         return this.reduce(function (e, t) {return e[t] = !0, e;}, {});
@@ -267,7 +273,7 @@
                 WMEPH_NameLayer = nameLayer;
 
                 var ctl = W.map.controls.find(ctrl => ctrl.displayClass ==="WazeControlSelectHighlightFeature");
-                var ctlLayers = ctl.layers.clone();
+                var ctlLayers = [].concat(ctl.layers);
                 ctlLayers.push(WMEPH_NameLayer);
                 ctl.setLayer(ctlLayers);
             } else {
@@ -568,8 +574,8 @@
             deleteDupeLabel();
 
             // This is code to handle updating the banner when changes are made external to the script.
-            if ($('#WMEPH_banner').length > 0 && W.selectionManager.hasSelectedItems() && W.selectionManager.selectedItems[0].model.type === 'venue') {
-                var selItem = W.selectionManager.selectedItems[0].model;
+            if ($('#WMEPH_banner').length > 0 && W.selectionManager.hasSelectedItems() && getSelectedFeatures()[0].model.type === 'venue') {
+                var selItem = getSelectedFeatures()[0].model;
                 var actions = W.model.actionManager.actions;
                 var lastAction = actions[actions.length - 1];
                 if (lastAction && lastAction.object && lastAction.object.type === 'venue' && lastAction.attributes && lastAction.attributes.id === selItem.attributes.id) {
@@ -816,8 +822,8 @@
 
                 }
             });
-            if (W.selectionManager.selectedItems.length === 1) {
-                var venue = W.selectionManager.selectedItems[0].model;
+            if (getSelectedFeatures().length === 1) {
+                var venue = getSelectedFeatures()[0].model;
                 if (venue.type === "venue") {
                     venue.attributes.wmephSeverity = harmonizePlaceGo(venue,'highlight');
                     bannButt = storedBannButt;
@@ -1099,8 +1105,8 @@
                 return;
             }
             // Only run if a single place is selected
-            if (W.selectionManager.selectedItems.length === 1) {
-                var item = W.selectionManager.selectedItems[0].model;
+            if (getSelectedFeatures().length === 1) {
+                var item = getSelectedFeatures()[0].model;
                 if (item.type === "venue") {
                     _updatedFields.reset();
                     blurAll();  // focus away from current cursor position
@@ -1414,6 +1420,7 @@
                         }
                         else
                             $('.landmark label.point-btn').click();
+
                         bannButt.pointNotArea.active = false;
                     },
                     WLactive: true, WLmessage: '', WLtitle: 'Whitelist point (not area)',
@@ -1576,7 +1583,7 @@
                     active: false, severity: 2, message: 'Edited last by an automated process. Please verify information is correct.', value:'Nudge', title:'If no other properties need to be updated, click to nudge the place (force an edit).',
                     action: function() {
                         var UpdateFeatureGeometry = require('Waze/Action/UpdateFeatureGeometry');
-                        var place = W.selectionManager.selectedItems[0];
+                        var place = getSelectedFeatures()[0];
                         // Use an exact clone of the original geometry to force an edit without actually changing anything.
                         var newGeom = place.geometry.clone();
                         var action = new UpdateFeatureGeometry(place.model, W.model.venues, place.geometry, newGeom);
@@ -1735,7 +1742,7 @@
                         var zip = $input.val().trim();
                         if (zip) {
                             if (/^\d{5}/.test(zip)) {
-                                var aliases = item.attributes.aliases.clone();
+                                var aliases = [].concat(item.attributes.aliases);
                                 // Make sure zip hasn't already been added.
                                 if (aliases.indexOf(zip) === -1) {
                                     aliases.push(zip);
@@ -1845,7 +1852,7 @@
                     active:false, severity:3, message:'No Google place link', value:'Nudge', title:'If no other properties need to be updated, click to nudge the place (force an edit).',
                     action: function() {
                         var UpdateFeatureGeometry = require('Waze/Action/UpdateFeatureGeometry');
-                        var place = W.selectionManager.selectedItems[0];
+                        var place = getSelectedFeatures()[0];
                         // Use an exact clone of the original geometry to force an edit without actually changing anything.
                         var newGeom = place.geometry.clone();
                         var action = new UpdateFeatureGeometry(place.model, W.model.venues, place.geometry, newGeom);
@@ -1959,7 +1966,7 @@
                             if (existingAttr) {
                                 for (var prop in existingAttr) {
                                     var value = existingAttr[prop];
-                                    if (Array.isArray(value)) value = value.clone();
+                                    if (Array.isArray(value)) value = [].concat(value);
                                     newAttr[prop] = value;
                                 }
                             }
@@ -1982,7 +1989,7 @@
                         if (existingAttr) {
                             for (var prop in existingAttr) {
                                 var value = existingAttr[prop];
-                                if (Array.isArray(value)) value = value.clone();
+                                if (Array.isArray(value)) value = [].concat(value);
                                 newAttr[prop] = value;
                             }
                         }
@@ -2016,7 +2023,7 @@
                         if (existingAttr) {
                             for (var prop in existingAttr) {
                                 var value = existingAttr[prop];
-                                if (Array.isArray(value)) value = value.clone();
+                                if (Array.isArray(value)) value = [].concat(value);
                                 newAttr[prop] = value;
                             }
                         }
@@ -2031,7 +2038,7 @@
                     action: function() {
                         var services = item.attributes.services;
                         if (services) {
-                            services = services.clone();
+                            services = [].concat(services);
                         } else {
                             services = [];
                         }
@@ -2640,7 +2647,7 @@
             var newHoursEntries = [];
             var updateHours = false;
             for (var i=0; i<hoursEntries.length; i++) {
-                var newHoursEntry = {days:hoursEntries[i].days.clone(), fromHour:hoursEntries[i].fromHour, toHour:hoursEntries[i].toHour};
+                var newHoursEntry = {days:[].concat(hoursEntries[i].days), fromHour:hoursEntries[i].fromHour, toHour:hoursEntries[i].toHour};
                 if (/^0?0:00$/.test(newHoursEntry.fromHour) && newHoursEntry.toHour === '23:59') {
                     if ( hpMode.hlFlag && !bannButt.invalidAllDayFormat ) {
                         bannButt.invalidAllDayFormat = {active: true, severity: 2};
@@ -2707,7 +2714,7 @@
                 if (hpMode.harmFlag) {
                     if (W.map.getZoom() < 4 ) {
                         if ( $("#WMEPH-EnableIAZoom" + devVersStr).prop('checked') ) {
-                            W.map.moveTo(W.selectionManager.selectedItems[0].model.geometry.getCentroid().toLonLat(), 5);
+                            W.map.moveTo(getSelectedFeatures()[0].model.geometry.getCentroid().toLonLat(), 5);
                             return;
                         } else {
                             alert("No address and the state cannot be determined. Please zoom in and rerun the script. You can enable autozoom for this type of case in the options.");
@@ -4763,7 +4770,7 @@
 
         // Set up banner messages
         function assembleBanner() {
-            if (W.selectionManager.selectedItems.length !== 1 || W.selectionManager.selectedItems[0].model.type !== 'venue') return;
+            if (getSelectedFeatures().length !== 1 || getSelectedFeatures()[0].model.type !== 'venue') return;
             phlogdev('Building banners');
             var dupesFound = 0;
             var rowData;
@@ -4828,7 +4835,7 @@
             });
 
             if ( $("#WMEPH-ColorHighlighting" + devVersStr).prop('checked') ) {
-                item = W.selectionManager.selectedItems[0].model;
+                item = getSelectedFeatures()[0].model;
                 item.attributes.wmephSeverity = severityButt;
             }
 
@@ -4903,7 +4910,7 @@
                 if (existingAttr) {
                     for (var prop in existingAttr) {
                         var value = existingAttr[prop];
-                        if (Array.isArray(value)) value = value.clone();
+                        if (Array.isArray(value)) value = [].concat(value);
                         newAttr[prop] = value;
                     }
                 }
@@ -4918,7 +4925,7 @@
                 if (existingAttr) {
                     for (var prop in existingAttr) {
                         var value = existingAttr[prop];
-                        if (Array.isArray(value)) value = value.clone();
+                        if (Array.isArray(value)) value = [].concat(value);
                         newAttr[prop] = value;
                     }
                 }
@@ -4934,7 +4941,7 @@
                 if (existingAttr) {
                     for (var prop in existingAttr) {
                         var value = existingAttr[prop];
-                        if (Array.isArray(value)) value = value.clone();
+                        if (Array.isArray(value)) value = [].concat(value);
                         newAttr[prop] = value;
                     }
                 }
@@ -5153,8 +5160,8 @@
                 } else {
                     setTimeout(bootstrapRunButton,100);
                 }
-                if ( W.selectionManager.selectedItems.length === 1 ) {
-                    item = W.selectionManager.selectedItems[0].model;
+                if ( getSelectedFeatures().length === 1 ) {
+                    item = getSelectedFeatures()[0].model;
                     if ( item.attributes.categories.length === 1 && item.attributes.categories[0] === 'SHOPPING_AND_SERVICES' ) {
                         $('.suggested-categories').remove();
                     }
@@ -5174,7 +5181,7 @@
                         btn = document.getElementById("WMEPHurl");
                         if (btn !== null) {
                             btn.onclick = function() {
-                                var item = W.selectionManager.selectedItems[0];
+                                var item = getSelectedFeatures()[0];
                                 if (item && item.model && item.model.attributes) {
                                     openPlaceWebsiteURL = item.model.attributes.url;
                                     if (openPlaceWebsiteURL.match(/^http/i) === null) {
@@ -5208,7 +5215,7 @@
                     $('<div id="WMEPH_runButton">').css({"padding-bottom": "6px", "padding-top": "3px", "width": "290", "background-color": "#FFF", "color": "black", "font-size": "15px", "margin-left": "auto;", "margin-right": "auto"}).prependTo(".contents");
                 }
                 var strButt1, btn;
-                item = W.selectionManager.selectedItems[0].model;
+                item = getSelectedFeatures()[0].model;
                 if (item) {
                     showOpenPlaceWebsiteButton();
                     if ($('#clonePlace').length === 0 ) {
@@ -5232,7 +5239,7 @@
                     btn = document.getElementById("clonePlace");
                     if (btn !== null) {
                         btn.onclick = function() {
-                            item = W.selectionManager.selectedItems[0].model;
+                            item = getSelectedFeatures()[0].model;
                             cloneMaster = {};
                             cloneMaster.addr = item.getAddress();
                             if ( cloneMaster.addr.hasOwnProperty('attributes') ) {
@@ -5314,8 +5321,8 @@
         function bootstrapRunButton() {
             if (numAttempts < 10) {
                 numAttempts++;
-                if (W.selectionManager.selectedItems.length === 1) {
-                    var item = W.selectionManager.selectedItems[0].model;
+                if (getSelectedFeatures().length === 1) {
+                    var item = getSelectedFeatures()[0].model;
                     if ((item.type === "venue") && item.isApproved()) {
                         displayRunButton();
                         showOpenPlaceWebsiteButton();
@@ -5395,7 +5402,7 @@
             phlog('Cloning info...');
             var UpdateObject = require("Waze/Action/UpdateObject");
             if (cloneMaster !== null && cloneMaster.hasOwnProperty('url')) {
-                item = W.selectionManager.selectedItems[0].model;
+                item = getSelectedFeatures()[0].model;
                 var cloneItems = {};
                 var updateItem = false;
                 if ( $("#WMEPH_CPhn").prop('checked') ) {
@@ -6147,8 +6154,8 @@
 
         // On selection of new item:
         function checkSelection() {
-            if (W.selectionManager.selectedItems.length > 0) {
-                var newItem = W.selectionManager.selectedItems[0].model;
+            if (getSelectedFeatures().length > 0) {
+                var newItem = getSelectedFeatures()[0].model;
                 if ((newItem.type === "venue") && newItem.isApproved()) {
                     displayRunButton();
                     getPanelFields();
@@ -6190,7 +6197,7 @@
                 segments = W.model.segments.getObjectArray(),
                 selectedItem,
                 stopPoint,
-                wmeSelectedItems = W.selectionManager.selectedItems;
+                wmeSelectedItems = getSelectedFeatures();
 
             var findClosestNode = function () {
                 var closestSegment = orderedSegments[0].segment,
@@ -6280,7 +6287,7 @@
             // Make sure a place is selected and segments are loaded.
             if (wmeSelectedItems.length > 0 && segments.length > 0 &&
                 wmeSelectedItems[0].model.type === 'venue') {
-                selectedItem = W.selectionManager.selectedItems[0];
+                selectedItem = getSelectedFeatures()[0];
             } else {
                 return;
             }
@@ -7642,8 +7649,8 @@
     }
 
     function zoomPlace() {
-        if (W.selectionManager.selectedItems.length === 1 && W.selectionManager.selectedItems[0].model.type === "venue") {
-            W.map.moveTo(W.selectionManager.selectedItems[0].model.geometry.getCentroid().toLonLat(), 7);
+        if (getSelectedFeatures().length === 1 && getSelectedFeatures()[0].model.type === "venue") {
+            W.map.moveTo(getSelectedFeatures()[0].model.geometry.getCentroid().toLonLat(), 7);
         } else {
             W.map.moveTo(WMEPHmousePosition, 5);
         }
@@ -7698,7 +7705,7 @@
     //  Whitelist an item
     function whitelistAction(itemID, wlKeyName) {
         'use strict';
-        var item = W.selectionManager.selectedItems[0].model;
+        var item = getSelectedFeatures()[0].model;
         var addressTemp = item.getAddress();
         if ( addressTemp.hasOwnProperty('attributes') ) {
             addressTemp = addressTemp.attributes;
