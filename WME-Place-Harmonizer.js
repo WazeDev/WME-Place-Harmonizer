@@ -12,7 +12,7 @@
 // ==UserScript==
 // @name        WME Place Harmonizer
 // @namespace   WazeUSA
-// @version     1.3.73
+// @version     1.3.74
 // @description Harmonizes, formats, and locks a selected place
 // @author      WMEPH Development Group
 // @include     /^https:\/\/(www|beta)\.waze\.com\/(?!user\/)(.{2,6}\/)?editor\/?.*$/
@@ -574,7 +574,7 @@
             deleteDupeLabel();
 
             // This is code to handle updating the banner when changes are made external to the script.
-            if ($('#WMEPH_banner').length > 0 && W.selectionManager.hasSelectedItems() && getSelectedFeatures()[0].model.type === 'venue') {
+            if ($('#WMEPH_banner').length > 0 && W.selectionManager.hasSelectedFeatures() && getSelectedFeatures()[0].model.type === 'venue') {
                 var selItem = getSelectedFeatures()[0].model;
                 var actions = W.model.actionManager.actions;
                 var lastAction = actions[actions.length - 1];
