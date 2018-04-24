@@ -12,7 +12,7 @@
 // ==UserScript==
 // @name        WME Place Harmonizer Beta
 // @namespace   WazeUSA
-// @version     1.3.74
+// @version     1.3.75
 // @description Harmonizes, formats, and locks a selected place
 // @author      WMEPH Development Group
 // @include     /^https:\/\/(www|beta)\.waze\.com\/(?!user\/)(.{2,6}\/)?editor\/?.*$/
@@ -6279,7 +6279,7 @@
             };
 
             var hasStreetName = function (segment) {
-                return segment && segment.type === 'segment' && segment.getAddressDetails().streetName !== 'No street';
+                return segment && segment.type === 'segment' && segment.getAddress().getStreetName() !== 'No street';
             };
 
             // phlogdev("No address data, gathering ", 2);
