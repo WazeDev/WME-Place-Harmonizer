@@ -12,7 +12,7 @@
 // ==UserScript==
 // @name        WME Place Harmonizer Beta
 // @namespace   WazeUSA
-// @version     1.3.75
+// @version     1.3.76
 // @description Harmonizes, formats, and locks a selected place
 // @author      WMEPH Development Group
 // @include     /^https:\/\/(www|beta)\.waze\.com\/(?!user\/)(.{2,6}\/)?editor\/?.*$/
@@ -2722,6 +2722,9 @@
                         }
                     } else {
                         var inferredAddress = WMEPH_inferAddress(7);  // Pull address info from nearby segments
+                        if (inferredAddress.attributes) {
+                            inferredAddress = inferredAddress.attributes;
+                        }
 
                         if (inferredAddress && inferredAddress.state && inferredAddress.country ) {
                             addr = inferredAddress;
@@ -2906,23 +2909,25 @@
 
             // Country restrictions
             var countryCode;
-            if (addr.country.name === "United States") {
+            var countryName = addr.country.name;
+            var stateName = addr.state.name;
+            if (countryName === "United States") {
                 countryCode = "USA";
-            } else if (addr.country.name === "Canada") {
+            } else if (countryName === "Canada") {
                 countryCode = "CAN";
-            } else if (addr.country.name === "American Samoa") {
+            } else if (countryName === "American Samoa") {
                 countryCode = "USA";
                 useState = false;
-            } else if (addr.country.name === "Guam") {
+            } else if (countryName === "Guam") {
                 countryCode = "USA";
                 useState = false;
-            } else if (addr.country.name === "Northern Mariana Islands") {
+            } else if (countryName === "Northern Mariana Islands") {
                 countryCode = "USA";
                 useState = false;
-            } else if (addr.country.name === "Puerto Rico") {
+            } else if (countryName === "Puerto Rico") {
                 countryCode = "USA";
                 useState = false;
-            } else if (addr.country.name === "Virgin Islands (U.S.)") {
+            } else if (countryName === "Virgin Islands (U.S.)") {
                 countryCode = "USA";
                 useState = false;
             } else {
@@ -2936,7 +2941,7 @@
             state2L = "Unknown"; region = "Unknown";
             for (var usdix=1; usdix<USA_STATE_DATA.length; usdix++) {
                 stateDataTemp = USA_STATE_DATA[usdix].split("|");
-                if (addr.state.name === stateDataTemp[ps_state_ix]) {
+                if (stateName === stateDataTemp[ps_state_ix]) {
                     state2L = stateDataTemp[ps_state2L_ix];
                     region = stateDataTemp[ps_region_ix];
                     gFormState = stateDataTemp[ps_gFormState_ix];
@@ -2953,7 +2958,7 @@
                     break;
                 }
                 // If State is not found, then use the country
-                if (addr.country.name === stateDataTemp[ps_state_ix]) {
+                if (countryName === stateDataTemp[ps_state_ix]) {
                     state2L = stateDataTemp[ps_state2L_ix];
                     region = stateDataTemp[ps_region_ix];
                     gFormState = stateDataTemp[ps_gFormState_ix];
@@ -2976,7 +2981,7 @@
                     if (confirm('WMEPH: Localization Error!\nClick OK to report this error') ) {  // if the category doesn't translate, then pop an alert that will make a forum post to the thread
                         forumMsgInputs = {
                             subject: 'WMEPH Localization Error report',
-                            message: 'Error report: Localization match failed for "' + addr.state.name + '".'
+                            message: 'Error report: Localization match failed for "' + stateName + '".'
                         };
                         WMEPH_errorReport(forumMsgInputs);
                     }
@@ -6382,9 +6387,9 @@
                     countryID: address.country.id,
                     stateID: address.state.id,
                     cityName: address.city.attributes.name,
-                    emptyCity: address.city.attributes.name ? null : true,
+                    emptyCity: address.city.hasName() ? null : true,
                     streetName: address.street.name,
-                    emptyStreet: address.street.name ? null : true
+                    emptyStreet: address.street.isEmpty ? true : null
                 };
                 var action = new UpdateFeatureAddress(feature, newAttributes);
                 if(actions) {
