@@ -12,7 +12,7 @@
 // ==UserScript==
 // @name        WME Place Harmonizer Beta
 // @namespace   WazeUSA
-// @version     1.3.76
+// @version     1.3.77
 // @description Harmonizes, formats, and locks a selected place
 // @author      WMEPH Development Group
 // @include     /^https:\/\/(www|beta)\.waze\.com\/(?!user\/)(.{2,6}\/)?editor\/?.*$/
@@ -272,10 +272,14 @@
                 W.map.addLayer(nameLayer);
                 WMEPH_NameLayer = nameLayer;
 
-                var ctl = W.map.controls.find(ctrl => ctrl.displayClass ==="WazeControlSelectHighlightFeature");
-                var ctlLayers = [].concat(ctl.layers);
-                ctlLayers.push(WMEPH_NameLayer);
-                ctl.setLayer(ctlLayers);
+                // 2018-05015 (mapomatic) This stopped working when the control was removed from production WME.
+                // Limited testing seems to indicate maybe it isn't necessary.
+                // ***********************
+                // var ctl = W.map.controls.find(ctrl => ctrl.displayClass ==="WazeControlSelectHighlightFeature");
+                // var ctlLayers = [].concat(ctl.layers);
+                // ctlLayers.push(WMEPH_NameLayer);
+                // ctl.setLayer(ctlLayers);
+                // ***********************
             } else {
                 WMEPH_NameLayer = rlayers[0];
             }
@@ -881,7 +885,7 @@
 
         // Change place.name to title case
         var ignoreWords = "an|and|as|at|by|for|from|hhgregg|in|into|of|on|or|the|to|with".split('|');
-        var capWords = "3M|AAA|AMC|AOL|AT&T|ATM|BBC|BLT|BMV|BMW|BP|CBS|CCS|CGI|CISCO|CJ|CNN|CVS|DHL|DKNY|DMV|DSW|EMS|ER|ESPN|FCU|FCUK|FDNY|GNC|H&M|HP|HSBC|IBM|IHOP|IKEA|IRS|JBL|JCPenney|KFC|LLC|MBNA|MCA|MCI|NBC|NYPD|PDQ|PNC|TCBY|TNT|TV|UPS|USA|USPS|VW|XYZ|ZZZ".split('|');
+        var capWords = "3M|AAA|AMC|AOL|AT&T|ATM|BBC|BLT|BMV|BMW|BP|CBS|CCS|CGI|CISCO|CJ|CNG|CNN|CVS|DHL|DKNY|DMV|DSW|EMS|ER|ESPN|FCU|FCUK|FDNY|GNC|H&M|HP|HSBC|IBM|IHOP|IKEA|IRS|JBL|JCPenney|KFC|LLC|MBNA|MCA|MCI|NBC|NYPD|PDQ|PNC|TCBY|TNT|TV|UPS|USA|USPS|VW|XYZ|ZZZ".split('|');
         var specWords = "d'Bronx|iFix".split('|');
 
         // Change place.name to title case
