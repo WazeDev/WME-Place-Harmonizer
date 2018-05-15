@@ -12,7 +12,7 @@
 // ==UserScript==
 // @name        WME Place Harmonizer Beta
 // @namespace   WazeUSA
-// @version     1.3.77
+// @version     1.3.78
 // @description Harmonizes, formats, and locks a selected place
 // @author      WMEPH Development Group
 // @include     /^https:\/\/(www|beta)\.waze\.com\/(?!user\/)(.{2,6}\/)?editor\/?.*$/
@@ -413,6 +413,7 @@
     function runPH() {
         // Script update info
         var WMEPHWhatsNewList = [  // New in this version
+            '1.3.78: FIXED - WL of "No Hours" and/or "No Ph#" doesn\'t update banner color.',
             '1.3.72: NEW - Added HI, NER, and SAT regions to special handling of "Other" category.',
             '1.3.71: FIXED - References to "OpenLayers" replaced with "OL".',
             '1.3.70: FIXED - Places marked notABank in PNH sheet are incorrectly treated as banks when name matching.',
@@ -988,6 +989,7 @@
                         bannButt.phoneMissing.WLactive = false;
                     }
                     if (currentWL.phoneWL) {
+                        bannButt.phoneMissing.severity = 0;
                         bannButt.phoneMissing.WLactive = false;
                     }
                 }
@@ -2111,7 +2113,7 @@
                             $('#WMEPH-HoursPaste'+devVersStr).css({'background-color':'#FDD'}).attr({title:bannButt.noHours.getTitle(hoursObjectArray)});
                         }
                     },
-                    WLactive: true, WLmessage: '', WLtitle: 'Whitelist no Hours',
+                    WLactive: true, WLmessage: '', WLtitle: 'Whitelist "No hours"',
                     WLaction: function() {
                         wlKeyName = 'noHours';
                         whitelistAction(itemID, wlKeyName);
@@ -3929,6 +3931,7 @@
                         bannButt.noHours.active = true;
                         if (currentWL.noHours) {
                             bannButt.noHours.WLactive = false;
+                            bannButt.noHours.severity = 0;
                         }
                         if ( containsAny(newCategories,["SCHOOL","CONVENTIONS_EVENT_CENTER","CAMPING_TRAILER_PARK","COTTAGE_CABIN","COLLEGE_UNIVERSITY","GOLF_COURSE","SPORTS_COURT","MOVIE_THEATER","SHOPPING_CENTER","RELIGIOUS_CENTER","PARKING_LOT","PARK","PLAYGROUND","AIRPORT","FIRE_DEPARTMENT","POLICE_STATION","SEAPORT_MARINA_HARBOR","FARM"]) ) {
                             bannButt.noHours.severity = 0;
