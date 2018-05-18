@@ -12,7 +12,7 @@
 // ==UserScript==
 // @name        WME Place Harmonizer
 // @namespace   WazeUSA
-// @version     1.3.78
+// @version     1.3.79
 // @description Harmonizes, formats, and locks a selected place
 // @author      WMEPH Development Group
 // @include     /^https:\/\/(www|beta)\.waze\.com\/(?!user\/)(.{2,6}\/)?editor\/?.*$/
@@ -413,6 +413,7 @@
     function runPH() {
         // Script update info
         var WMEPHWhatsNewList = [  // New in this version
+            '1.3.79: FIXED - Optional category messages not displaying correctly.',
             '1.3.78: FIXED - WL of "No Hours" and/or "No Ph#" doesn\'t update banner color.',
             '1.3.72: NEW - Added HI, NER, and SAT regions to special handling of "Other" category.',
             '1.3.71: FIXED - References to "OpenLayers" replaced with "OL".',
@@ -3188,7 +3189,9 @@
                             // find any button/message flags in the special case (format: buttOn_xyzXyz, etc.)
                             if ( specCases[scix].match(/^buttOn_/g) !== null ) {
                                 scFlag = specCases[scix].match(/^buttOn_(.+)/i)[1];
-                                bannButt[scFlag].active = true;
+                                if (scFlag !== 'addCat2' || item.attributes.categories.indexOf(catTranslate(PNHMatchData[ph_category2_ix])) === -1) {
+                                    bannButt[scFlag].active = true;
+                                }
                             } else if ( specCases[scix].match(/^buttOff_/g) !== null ) {
                                 scFlag = specCases[scix].match(/^buttOff_(.+)/i)[1];
                                 bannButt[scFlag].active = false;
@@ -3479,7 +3482,7 @@
                     } else if (updatePNHName) {  // if not a special category then update the name
                         newName = PNHMatchData[ph_name_ix];
                         newCategories = insertAtIX(newCategories, priPNHPlaceCat,0);
-                        if (altCategories !== "0" && altCategories !== "") {
+                        if (altCategories !== "0" && altCategories !== "" && specCases.indexOf('buttOn_addCat2') === -1 && specCases.indexOf('optionCat2') === -1) {
                             newCategories = insertAtIX(newCategories,altCategories,1);
                         }
                     }
@@ -3531,11 +3534,11 @@
                             actions.push(new UpdateObject(item, { categories: newCategories }));
                             _updatedFields.categories.updated = true;
                         }
-                        // Enable optional 2nd category button
-                        if (specCases.indexOf('buttOn_addCat2') > -1 && newCategories.indexOf(catTransWaze2Lang[altCategories[0]]) === -1 ) {
-                            bannButt.addCat2.message = "Is there a " + catTransWaze2Lang[altCategories[0]] + " at this location?";
-                            bannButt.addCat2.title = 'Add ' + catTransWaze2Lang[altCategories[0]];
-                        }
+                    }
+                    // Enable optional 2nd category button
+                    if (specCases.indexOf('buttOn_addCat2') > -1 && newCategories.indexOf(catTransWaze2Lang[altCategories[0]]) === -1 ) {
+                        bannButt.addCat2.message = "Is there a " + catTransWaze2Lang[altCategories[0]] + " at this location?";
+                        bannButt.addCat2.title = 'Add ' + catTransWaze2Lang[altCategories[0]];
                     }
 
                     // Description update
