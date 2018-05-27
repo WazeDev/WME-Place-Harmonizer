@@ -12,7 +12,7 @@
 // ==UserScript==
 // @name        WME Place Harmonizer
 // @namespace   WazeUSA
-// @version     1.3.79
+// @version     1.3.80
 // @description Harmonizes, formats, and locks a selected place
 // @author      WMEPH Development Group
 // @include     /^https:\/\/(www|beta)\.waze\.com\/(?!user\/)(.{2,6}\/)?editor\/?.*$/
@@ -2990,6 +2990,11 @@
                             subject: 'WMEPH Localization Error report',
                             message: 'Error report: Localization match failed for "' + stateName + '".'
                         };
+                        if (USA_STATE_DATA.length === 0) {
+                            forumMsgInputs.message += ' USA_STATE_DATA array is empty.';
+                        } else {
+                            forumMsgInputs.message += ' state2L = ' + stateDataTemp[ps_state2L_ix] + '. region = ' + stateDataTemp[ps_region_ix];
+                        }
                         WMEPH_errorReport(forumMsgInputs);
                     }
                 }
