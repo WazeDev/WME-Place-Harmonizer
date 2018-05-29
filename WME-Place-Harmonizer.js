@@ -12,7 +12,7 @@
 // ==UserScript==
 // @name        WME Place Harmonizer
 // @namespace   WazeUSA
-// @version     1.3.80
+// @version     1.3.81
 // @description Harmonizes, formats, and locks a selected place
 // @author      WMEPH Development Group
 // @include     /^https:\/\/(www|beta)\.waze\.com\/(?!user\/)(.{2,6}\/)?editor\/?.*$/
@@ -413,6 +413,7 @@
     function runPH() {
         // Script update info
         var WMEPHWhatsNewList = [  // New in this version
+            '1.3.81: FIXED - WL of "area code mismatch" and/or "HN out of range" doesn\'t update banner color.',
             '1.3.79: FIXED - Optional category messages not displaying correctly.',
             '1.3.78: FIXED - WL of "No Hours" and/or "No Ph#" doesn\'t update banner color.',
             '1.3.72: NEW - Added HI, NER, and SAT regions to special handling of "Other" category.',
@@ -4039,6 +4040,7 @@
                             bannButt.badAreaCode.active = true;
                             if (currentWL.aCodeWL) {
                                 bannButt.badAreaCode.WLactive = false;
+                                bannButt.badAreaCode.active = false;
                             }
                         }
                     }
@@ -4753,6 +4755,7 @@
                     bannButt.HNRange.active = true;
                     if (currentWL.HNRange) {
                         bannButt.HNRange.WLactive = false;
+                        bannButt.HNRange.active = false;
                     }
                     if (arrayHNRatio[arrayHNRatioCheckIX] > 5) {
                         bannButt.HNRange.severity = 3;
