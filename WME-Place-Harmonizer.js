@@ -8,15 +8,17 @@
 /* global _ */
 /* global define */
 /* global Node */
+/* global WazeWrap */
 
 // ==UserScript==
 // @name        WME Place Harmonizer Beta
 // @namespace   WazeUSA
-// @version     1.3.81
+// @version     1.3.82
 // @description Harmonizes, formats, and locks a selected place
 // @author      WMEPH Development Group
 // @include     /^https:\/\/(www|beta)\.waze\.com\/(?!user\/)(.{2,6}\/)?editor\/?.*$/
 // @require     https://greasyfork.org/scripts/28687-jquery-ui-1-11-4-custom-min-js/code/jquery-ui-1114customminjs.js
+// @require     https://greasyfork.org/scripts/24851-wazewrap/code/WazeWrap.js
 // @resource    jqUI_CSS  https://ajax.googleapis.com/ajax/libs/jqueryui/1.11.4/themes/smoothness/jquery-ui.css
 // @license     GNU GPL v3
 // @grant       GM_addStyle
@@ -413,6 +415,7 @@
     function runPH() {
         // Script update info
         var WMEPHWhatsNewList = [  // New in this version
+            '1.3.82: NEW - Experimental "X-ray mode".',
             '1.3.81: FIXED - WL of "area code mismatch" and/or "HN out of range" doesn\'t update banner color.',
             '1.3.79: FIXED - Optional category messages not displaying correctly.',
             '1.3.78: FIXED - WL of "No Hours" and/or "No Ph#" doesn\'t update banner color.',
@@ -507,6 +510,8 @@
         var _disableHighlightTest = false;  // Set to true to temporarily disable highlight checks immediately when venues change.
 
         createObserver();
+
+        WazeWrap.Interface.AddLayerCheckbox('Display', 'WMEPH x-ray mode', false, toggleXrayMode);
 
         // Whitelist initialization
         if ( validateWLS( LZString.decompressFromUTF16(localStorage.getItem(WLlocalStoreNameCompressed)) ) === false ) {  // If no compressed WL string exists
@@ -679,6 +684,150 @@
          * Generates highlighting rules and applies them to the map.
          */
         var layer = W.map.landmarkLayer;
+        function toggleXrayMode(enable) {
+            let commentsLayer = W.map.getLayerByUniqueName('mapComments');
+            let commentRuleSymb = commentsLayer.styleMap.styles.default.rules[0].symbolizer;
+            if (enable) {
+                layer.styleMap.styles['default'].rules = layer.styleMap.styles['default'].rules.filter(rule => rule.wmephDefault !== 'default');
+                W.map.roadLayers[0].opacity = 0.25;
+                W.map.baseLayer.opacity = 0.25;
+                commentRuleSymb.Polygon.strokeColor = '#888';
+                commentRuleSymb.Polygon.fillOpacity = 0.2;
+            } else {
+                layer.styleMap.styles['default'].rules = layer.styleMap.styles['default'].rules.filter(rule => rule.wmephStyle !== 'xray');
+                W.map.roadLayers[0].opacity = 1;
+                W.map.baseLayer.opacity = 1;
+                commentRuleSymb.Polygon.strokeColor = '#fff';
+                commentRuleSymb.Polygon.fillOpacity = 0.4;
+                initializeHighlights();
+                layer.redraw();
+            }
+            commentsLayer.redraw();
+            W.map.roadLayers[0].redraw();
+            W.map.baseLayer.redraw();
+            if (!enable) return;
+
+            let defaultPointRadius = 6;
+            var ruleGenerator = function(value, symbolizer) {
+                return new W.Rule({
+                    filter: new OL.Filter.Comparison({
+                        type: '==',
+                        value: value,
+                        evaluate: function(venue) {
+                            return venue && venue.model && venue.model.attributes.wmephSeverity === this.value;
+                        }
+                    }),
+                    symbolizer: symbolizer,
+                    wmephStyle: 'xray'
+                });
+            };
+
+            var severity0 = ruleGenerator(0, {
+                Point:{
+                    strokeWidth: 1.67,
+                    strokeColor: '#888',
+                    pointRadius: 5,
+                    fillOpacity: 0.25,
+                    fillColor: 'white',
+                    zIndex: 0
+                },
+                Polygon: {
+                    strokeWidth: 1.67,
+                    strokeColor: '#888',
+                    fillOpacity: 0
+                }
+            });
+
+            var severityLock = ruleGenerator('lock', {
+                Point: {
+                    strokeColor: 'white',
+                    fillColor: '#080',
+                    fillOpacity: 1,
+                    strokeLinecap: 1,
+                    strokeDashstyle: '4 2',
+                    strokeWidth: 2.5,
+                    pointRadius: defaultPointRadius
+                },
+                Polygon: {
+                    strokeColor: 'white',
+                    fillColor: '#0a0',
+                    fillOpacity: 0.4,
+                    strokeDashstyle: '4 2',
+                    strokeWidth: 2.5
+                }
+            });
+
+            var severity1 = ruleGenerator(1, {
+                strokeColor: 'white',
+                strokeWidth: 2,
+                pointRadius: defaultPointRadius,
+                fillColor: '#0055ff'
+            });
+
+            var severityLock1 = ruleGenerator('lock1', {
+                pointRadius: defaultPointRadius,
+                fillColor: '#0055ff',
+                strokeColor: 'white',
+                strokeLinecap: '1',
+                strokeDashstyle: '4 2',
+                strokeWidth: 2.5
+            });
+
+            var severity2 = ruleGenerator(2, {
+                Point: {
+                    fillColor: '#ca0',
+                    strokeColor: 'white',
+                    strokeWidth: 2,
+                    pointRadius: defaultPointRadius
+
+                },
+                Polygon: {
+                    fillColor: '#ff0',
+                    strokeColor: 'white',
+                    strokeWidth: 2,
+                    fillOpacity: 0.4
+                }
+            });
+
+            var severity3 = ruleGenerator(3, {
+                strokeColor: 'white',
+                strokeWidth: 2,
+                pointRadius: defaultPointRadius,
+                fillColor: '#ff0000'
+            });
+
+            var severity4 = ruleGenerator(4, {
+                fillcolor: '#f42',
+                strokeLinecap: 1,
+                strokeWidth: 2,
+                strokeDashstyle: '4 2'
+            });
+
+            var severityHigh = ruleGenerator(5, {
+                fillColor: 'black',
+                strokeColor: '#f4a',
+                strokeLinecap: 1,
+                strokeWidth: 4,
+                strokeDashstyle: '4 2',
+                pointRadius: defaultPointRadius
+            });
+
+            var severityAdLock = ruleGenerator('adLock', {
+                pointRadius: 12,
+                fillColor: 'yellow',
+                fillOpacity: 0.4,
+                strokeColor: '#000',
+                strokeLinecap: 1,
+                strokeWidth: 10,
+                strokeDashstyle: '4 2'
+            });
+
+            Array.prototype.push.apply(layer.styleMap.styles['default'].rules, [severity0, severityLock, severity1, severityLock1, severity2, severity3, severity4, severityHigh, severityAdLock]);
+
+            layer.redraw();
+        }
+
+
         function initializeHighlights() {
             var ruleGenerator = function(value, symbolizer) {
                 return new W.Rule({
@@ -689,7 +838,8 @@
                             return venue && venue.model && venue.model.attributes.wmephSeverity === this.value;
                         }
                     }),
-                    symbolizer: symbolizer
+                    symbolizer: symbolizer,
+                    wmephStyle: 'default'
                 });
             };
 
@@ -776,7 +926,8 @@
                             }
                         }
                     }),
-                    symbolizer: symbolizer
+                    symbolizer: symbolizer,
+                    wmephStyle: 'default'
                 });
             }
 
