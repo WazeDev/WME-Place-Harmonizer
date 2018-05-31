@@ -13,7 +13,7 @@
 // ==UserScript==
 // @name        WME Place Harmonizer Beta
 // @namespace   WazeUSA
-// @version     1.3.82
+// @version     1.3.83
 // @description Harmonizes, formats, and locks a selected place
 // @author      WMEPH Development Group
 // @include     /^https:\/\/(www|beta)\.waze\.com\/(?!user\/)(.{2,6}\/)?editor\/?.*$/
@@ -415,6 +415,7 @@
     function runPH() {
         // Script update info
         var WMEPHWhatsNewList = [  // New in this version
+            '1.3.83: FIXED - Disable "No Google link" flag for some natural feature categories.',
             '1.3.82: NEW - Experimental "X-ray mode".',
             '1.3.81: FIXED - WL of "area code mismatch" and/or "HN out of range" doesn\'t update banner color.',
             '1.3.79: FIXED - Optional category messages not displaying correctly.',
@@ -3237,26 +3238,28 @@
                 }
             } else if (item.isParkingLot() || (newName && newName.trim().length > 0)) {  // for non-residential places
                 if (usrRank >= 2 && item.areExternalProvidersEditable() && !(item.isParkingLot() && $('#WMEPH-DisablePLAExtProviderCheck' + devVersStr).prop('checked'))) {
-                    var provIDs = item.attributes.externalProviderIDs;
-                    if (!provIDs || provIDs.length === 0) {
-                        var lastUpdated = item.isNew() ? Date.now() : item.attributes.updatedOn ? item.attributes.updatedOn : item.attributes.createdOn;
-                        var weeksSinceLastUpdate = (Date.now() - lastUpdated) / 604800000;
-                        if (isLocked && weeksSinceLastUpdate >= 26 && !item.isUpdated() && (!actions || actions.length === 0)) {
-                            bannButt.extProviderMissing.severity = 3;
-                            bannButt.extProviderMissing.message += ' and place has not been edited for over 6 months. Edit a property (or nudge) and save to reset the 6 month timer: ';
-                        } else if (!isLocked) {
-                            bannButt.extProviderMissing.severity = 1;  // This will be changed to 3 later if the user does not choose to lock the place.
-                            bannButt.extProviderMissing.message += '.';
-                            delete bannButt.extProviderMissing.value;
-                            delete bannButt.extProviderMissing.action;
-                        } else {
-                            bannButt.extProviderMissing.severity = 1;
-                            bannButt.extProviderMissing.message += '.';
-                            delete bannButt.extProviderMissing.value;
-                            delete bannButt.extProviderMissing.action;
+                    if (!newCategories.some(c => ['JUNCTION_INTERCHANGE','NATURAL_FEATURES','ISLAND','SEA_LAKE_POOL','RIVER_STREAM','CANAL','SWAMP_MARSH'].indexOf(c) > -1)) {
+                        var provIDs = item.attributes.externalProviderIDs;
+                        if (!provIDs || provIDs.length === 0) {
+                            var lastUpdated = item.isNew() ? Date.now() : item.attributes.updatedOn ? item.attributes.updatedOn : item.attributes.createdOn;
+                            var weeksSinceLastUpdate = (Date.now() - lastUpdated) / 604800000;
+                            if (isLocked && weeksSinceLastUpdate >= 26 && !item.isUpdated() && (!actions || actions.length === 0)) {
+                                bannButt.extProviderMissing.severity = 3;
+                                bannButt.extProviderMissing.message += ' and place has not been edited for over 6 months. Edit a property (or nudge) and save to reset the 6 month timer: ';
+                            } else if (!isLocked) {
+                                bannButt.extProviderMissing.severity = 1;  // This will be changed to 3 later if the user does not choose to lock the place.
+                                bannButt.extProviderMissing.message += '.';
+                                delete bannButt.extProviderMissing.value;
+                                delete bannButt.extProviderMissing.action;
+                            } else {
+                                bannButt.extProviderMissing.severity = 1;
+                                bannButt.extProviderMissing.message += '.';
+                                delete bannButt.extProviderMissing.value;
+                                delete bannButt.extProviderMissing.action;
+                            }
+                            // bannButt.extProviderMissing.WLactive = null;  // 4-29-2017 (mapomatic) Decided to remove WL on this, but leaving it in the bannButt code in case it needs to be resurrected.
+                            bannButt.extProviderMissing.active = true;
                         }
-                        // bannButt.extProviderMissing.WLactive = null;  // 4-29-2017 (mapomatic) Decided to remove WL on this, but leaving it in the bannButt code in case it needs to be resurrected.
-                        bannButt.extProviderMissing.active = true;
                     }
                 }
 
