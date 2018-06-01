@@ -13,7 +13,7 @@
 // ==UserScript==
 // @name        WME Place Harmonizer Beta
 // @namespace   WazeUSA
-// @version     1.3.84
+// @version     1.3.85
 // @description Harmonizes, formats, and locks a selected place
 // @author      WMEPH Development Group
 // @include     /^https:\/\/(www|beta)\.waze\.com\/(?!user\/)(.{2,6}\/)?editor\/?.*$/
@@ -415,6 +415,7 @@
     function runPH() {
         // Script update info
         var WMEPHWhatsNewList = [  // New in this version
+            '1.3.85: NEW - Place will be green (not blue) for 6mo after locking with a missing a Google link.',
             '1.3.84: FIXED - Address inference fails in some circumstances.',
             '1.3.84: FIXED - WL of missing URL flag does not update banner color.',
             '1.3.84: FIXED - ExtraMile not handled properly with Force Title Case.',
@@ -432,7 +433,7 @@
             '1.3.68: NEW - Added "Nudge" button to "last edited by automated process" flag.',
             '1.3.67: FIXED - Crash on startup in latest WME beta release.',
             '1.3.66: NEW - Allow "Other" category for regions that want it.',
-            '1.3.65: NEW - PLA\'s show flags for missing Ph# and URL in SER.', 
+            '1.3.65: NEW - PLA\'s show flags for missing Ph# and URL in SER.',
             '1.3.64: FIXED - Post offices not working properly in Manhattan.',
             '1.3.63: FIEXD - NY post office exception should only apply to NYC.',
             '1.3.62: FIXED - WMEPH reports "No URL" on places with a URL when there is a PNH entry without a URL.',
@@ -806,7 +807,7 @@
             });
 
             var severity4 = ruleGenerator(4, {
-                fillcolor: '#f42',
+                fillColor: '#f42',
                 strokeLinecap: 1,
                 strokeWidth: 2,
                 strokeDashstyle: '4 2'
@@ -3256,12 +3257,12 @@
                                 bannButt.extProviderMissing.severity = 3;
                                 bannButt.extProviderMissing.message += ' and place has not been edited for over 6 months. Edit a property (or nudge) and save to reset the 6 month timer: ';
                             } else if (!isLocked) {
-                                bannButt.extProviderMissing.severity = 1;  // This will be changed to 3 later if the user does not choose to lock the place.
+                                bannButt.extProviderMissing.severity = 0;  // This will be changed to 3 later if the user does not choose to lock the place.
                                 bannButt.extProviderMissing.message += '.';
                                 delete bannButt.extProviderMissing.value;
                                 delete bannButt.extProviderMissing.action;
                             } else {
-                                bannButt.extProviderMissing.severity = 1;
+                                bannButt.extProviderMissing.severity = 0;
                                 bannButt.extProviderMissing.message += '.';
                                 delete bannButt.extProviderMissing.value;
                                 delete bannButt.extProviderMissing.action;
