@@ -13,7 +13,7 @@
 // ==UserScript==
 // @name        WME Place Harmonizer Beta
 // @namespace   WazeUSA
-// @version     1.3.85
+// @version     1.3.86
 // @description Harmonizes, formats, and locks a selected place
 // @author      WMEPH Development Group
 // @include     /^https:\/\/(www|beta)\.waze\.com\/(?!user\/)(.{2,6}\/)?editor\/?.*$/
@@ -415,6 +415,7 @@
     function runPH() {
         // Script update info
         var WMEPHWhatsNewList = [  // New in this version
+            '1.3.86: FIXED - X-ray mode not being restored after refresh.',
             '1.3.85: NEW - Place will be green (not blue) for 6mo after locking with a missing a Google link.',
             '1.3.84: FIXED - Address inference fails in some circumstances.',
             '1.3.84: FIXED - WL of missing URL flag does not update banner color.',
@@ -422,81 +423,10 @@
             '1.3.84: NEW - Added more categories to ignore for missing Google link.',
             '1.3.84: NEW - Darken the GIS Layers script\'s layer when X-ray mode is enabled.',
             '1.3.83: FIXED - Disable "No Google link" flag for some natural feature categories.',
-            '1.3.82: NEW - Experimental "X-ray mode".',
+            '1.3.82: NEW - Experimental "X-ray mode"!',
             '1.3.81: FIXED - WL of "area code mismatch" and/or "HN out of range" doesn\'t update banner color.',
             '1.3.79: FIXED - Optional category messages not displaying correctly.',
-            '1.3.78: FIXED - WL of "No Hours" and/or "No Ph#" doesn\'t update banner color.',
-            '1.3.72: NEW - Added HI, NER, and SAT regions to special handling of "Other" category.',
-            '1.3.71: FIXED - References to "OpenLayers" replaced with "OL".',
-            '1.3.70: FIXED - Places marked notABank in PNH sheet are incorrectly treated as banks when name matching.',
-            '1.3.69: FIXED - Minor update to fix missing PLs in PNH submissions.',
-            '1.3.68: NEW - Added "Nudge" button to "last edited by automated process" flag.',
-            '1.3.67: FIXED - Crash on startup in latest WME beta release.',
-            '1.3.66: NEW - Allow "Other" category for regions that want it.',
-            '1.3.65: NEW - PLA\'s show flags for missing Ph# and URL in SER.',
-            '1.3.64: FIXED - Post offices not working properly in Manhattan.',
-            '1.3.63: FIEXD - NY post office exception should only apply to NYC.',
-            '1.3.62: FIXED - WMEPH reports "No URL" on places with a URL when there is a PNH entry without a URL.',
-            '1.3.61: NEW - Pilot Food Mart / Travel Center check for TN.',
-            '1.3.60: NEW - Added WL options to a couple USPS flags.',
-            '1.3.59: FIXED - Bug with store finder code inserts "undefined" in URL when HN is missing.',
-            '1.3.58: FIXED - Title casing like "DeBerry", "LeCroy", and "LaTonka" not working.',
-            '1.3.57: FIXED - Hours entry box height not quite tall enough when autosizing (still an issue in FF).',
-            '1.3.57: FIXED - Some city names were not being recognized correctly in the USPS description field.',
-            '1.3.56: NEW - Text box to enter missing USPS Zip code alt name.',
-            '1.3.56: FIXED - URL text entry will check for a valid URL format.',
-            '1.3.55: FIXED - Title casing should ignore name localizers (to the right of a hyphen).',
-            '1.3.54: FIXED - Title casing ignores words that begin with a lower case followed by a capital, like iPhone.',
-            '1.3.54: FIXED - Auto-title-casing does not work in all scenarios.  Ask before forcing case.',
-            '1.3.53: NEW - Added flags for new post office guidance.',
-            '1.3.52: FIXED - New gas station matching method does not work as intended.  Reverting to old method for now.',
-            '1.3.51: NEW - En dash is treated as a valid name suffix separator (like a hyphen).',
-            '1.3.51: NEW - Ability to check for alternate versions of brand name in place name.',
-            '1.3.51: FIXED - Gas station brand not being copied to empty name field if no PNH match.',
-            '1.3.50: NEW - Added buttons to "confirm public PLA" message, to allow quick change to restricted or private.',
-            '1.3.49: NEW - Public lots are filled blue, to stand out more from restricted lots.',
-            '1.3.48: FIXED - Name suffixes inside parens repeated with each run of WMEPH in some scenarios.',
-            '1.3.47: NEW - Added message to suggest reviewing wiki when setting parking lot type to Public.',
-            '1.3.47: FIXED - Residential places should not show "Add services" buttons.',
-            '1.3.46: FIXED - Gas Stations don\'t match if PNH name is in parens or after a hyphen',
-            '1.3.45: FIXED - Copying services to/from PLA to/from non-PLA should not be allowed.',
-            '1.3.44: FIXED - Gas Stations should match PNH if PNH name is anywhere in place name.',
-            '1.3.42: Accidental push of beta code to production.  Reverted in .43.',
-            '1.3.41: NEW - Missing PLA HN\'s are flagged blue, and can be cleared by locking to L3+',
-            '1.3.40: FIXED - Names with a forward slash were causing issues in some cases.',
-            '1.3.39: FIXED - WMEPH crashes when inferring addresses on point places in some scenarios.',
-            '1.3.39: NEW - Always treat post offices with CPU or VPU as point places.',
-            '1.3.38: NEW - Allow en dash as well as hyphen in post office names.',
-            '1.3.37: FIXED - Gas station name vs. brand name matching should ignore non-alphanumeric characters.',
-            '1.3.36: FIXED - Gas station name should only be flagged if brand does not appear anywhere in it.',
-            '1.3.35: FIXED - After running WMEPH, map is unresponsive to clicks until hovering over a segment or other object.',
-            '1.3.34: FIXED - Bug when WMEPH adds an alias place name.',
-            '1.3.33: FIXED - Bad formatting of "Lot type" buttons.',
-            '1.3.33: FIXED - "Change to point" button is broken.',
-            '1.3.32: FIXED - Add Google Link pops up at the top left corner of screen sometimes.',
-            '1.3.32: FIXED - Crash when undoing changes in some scenarios.',
-            '1.3.31: FIXED - Latest WME update still breaks things.',
-            '1.3.30: FIXED - Latest WME update breaks things.',
-            '1.3.29: NEW (again) - Hours won\'t parse if open and close time is the same.',
-            '1.3.28: FIXED - Hours text box extends outside panel if Fix UI is used to shrink the side panel width.',
-            '1.3.28: FIXED - Removed "same hours" check to fix bug caused by that feature.  Will add in a later release.',
-            '1.3.27: NEW - If hours can\'t be parsed, entry box turns red instead of replacing with message.',
-            '1.3.27: NEW - Hours buttons moved above the hours entry box.',
-            '1.3.27: NEW - Hours won\'t parse if open and close time is the same.',
-            '1.3.27: NEW - Places with Military category will show the hours entry box.',
-            '1.3.27: FIXED - Crashes when address cannot be inferred from closest segment.',
-            '1.3.27: NEW - Hours parsing handles "today" and "tomorrow".',
-            '1.3.27: NEW - "Force title case" handles Mac surnames like MacMillan.',
-            '1.3.26: FIXED - Map freezes after duplicate places are displayed.',
-            '1.3.25: NEW - Lodging category is removed if it exists on a hotel.',
-            '1.3.25: FIXED - Part of hotel name was incorrectly removed in some scenarios.',
-            '1.3.24: FIXED - Removed rest areas from duplicate checks.',
-            '1.3.24: NEW - Hours of 0:00-23:59 will be highlighted yellow and then automatically replaced by "All day".',
-            '1.3.23: FIXED - Repeating hotel localization bug.',
-            '1.3.22: FIXED - Scroll bar would cover text if only one long line of text in hours entry box.',
-            '1.3.21: FIXED - Auto-expand hours entry text box when multiple lines are pasted (production version).',
-            '1.3.20: NEW - "Add point" button when PLA entry/exit point hasn\'t been created.',
-            '1.3.20: FIXED - Minor improvements to hours parsing.'
+            '1.3.78: FIXED - WL of "No Hours" and/or "No Ph#" doesn\'t update banner color.'
         ];
         var WMEPHWhatsNewMetaList = [  // New in this major version
             'New flags and helpers for parking lots!',
@@ -518,7 +448,9 @@
 
         createObserver();
 
-        WazeWrap.Interface.AddLayerCheckbox('Display', 'WMEPH x-ray mode', false, toggleXrayMode);
+        let xrayMode = localStorage.getItem('WMEPH_xrayMode_enabled') ? true : false;
+        WazeWrap.Interface.AddLayerCheckbox('Display', 'WMEPH x-ray mode', xrayMode, toggleXrayMode);
+        if (xrayMode) setTimeout(() => toggleXrayMode(true), 2000);  // Give other layers time to load before enabling.
 
         // Whitelist initialization
         if ( validateWLS( LZString.decompressFromUTF16(localStorage.getItem(WLlocalStoreNameCompressed)) ) === false ) {  // If no compressed WL string exists
@@ -692,6 +624,8 @@
          */
         var layer = W.map.landmarkLayer;
         function toggleXrayMode(enable) {
+            localStorage.setItem('WMEPH_xrayMode_enabled', $('#layer-switcher-item_wmeph_x-ray_mode').is(':checked'));
+
             let commentsLayer = W.map.getLayerByUniqueName('mapComments');
             let gisLayer = W.map.getLayerByUniqueName('__wmeGISLayers');
             let commentRuleSymb = commentsLayer.styleMap.styles.default.rules[0].symbolizer;
@@ -7181,6 +7115,7 @@
             } else {
                 localStorage.setItem(settingID, '0');
             }
+            localStorage.setItem('WMEPH_xrayMode_enabled', $('#layer-switcher-item_wmeph_x-ray_mode').is(':checked'));
         }
 
         // This function validates that the inputted text is a JSON
