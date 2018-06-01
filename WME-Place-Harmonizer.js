@@ -13,7 +13,7 @@
 // ==UserScript==
 // @name        WME Place Harmonizer Beta
 // @namespace   WazeUSA
-// @version     1.3.86
+// @version     1.3.87
 // @description Harmonizes, formats, and locks a selected place
 // @author      WMEPH Development Group
 // @include     /^https:\/\/(www|beta)\.waze\.com\/(?!user\/)(.{2,6}\/)?editor\/?.*$/
@@ -415,6 +415,7 @@
     function runPH() {
         // Script update info
         var WMEPHWhatsNewList = [  // New in this version
+            '1.3.87: FIXED - X-ray mode doesn\'t stay disabled after refresh.',
             '1.3.86: FIXED - X-ray mode not being restored after refresh.',
             '1.3.85: NEW - Place will be green (not blue) for 6mo after locking with a missing a Google link.',
             '1.3.84: FIXED - Address inference fails in some circumstances.',
@@ -448,7 +449,7 @@
 
         createObserver();
 
-        let xrayMode = localStorage.getItem('WMEPH_xrayMode_enabled') ? true : false;
+        let xrayMode = localStorage.getItem('WMEPH_xrayMode_enabled') === 'true' ? true : false;
         WazeWrap.Interface.AddLayerCheckbox('Display', 'WMEPH x-ray mode', xrayMode, toggleXrayMode);
         if (xrayMode) setTimeout(() => toggleXrayMode(true), 2000);  // Give other layers time to load before enabling.
 
