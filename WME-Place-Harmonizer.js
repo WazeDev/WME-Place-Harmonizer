@@ -13,7 +13,7 @@
 // ==UserScript==
 // @name        WME Place Harmonizer Beta
 // @namespace   WazeUSA
-// @version     1.3.83
+// @version     1.3.84
 // @description Harmonizes, formats, and locks a selected place
 // @author      WMEPH Development Group
 // @include     /^https:\/\/(www|beta)\.waze\.com\/(?!user\/)(.{2,6}\/)?editor\/?.*$/
@@ -415,6 +415,11 @@
     function runPH() {
         // Script update info
         var WMEPHWhatsNewList = [  // New in this version
+            '1.3.84: FIXED - Address inference fails in some circumstances.',
+            '1.3.84: FIXED - WL of missing URL flag does not update banner color.',
+            '1.3.84: FIXED - ExtraMile not handled properly with Force Title Case.',
+            '1.3.84: NEW - Added more categories to ignore for missing Google link.',
+            '1.3.84: NEW - Darken the GIS Layers script\'s layer when X-ray mode is enabled.',
             '1.3.83: FIXED - Disable "No Google link" flag for some natural feature categories.',
             '1.3.82: NEW - Experimental "X-ray mode".',
             '1.3.81: FIXED - WL of "area code mismatch" and/or "HN out of range" doesn\'t update banner color.',
@@ -687,6 +692,7 @@
         var layer = W.map.landmarkLayer;
         function toggleXrayMode(enable) {
             let commentsLayer = W.map.getLayerByUniqueName('mapComments');
+            let gisLayer = W.map.getLayerByUniqueName('__wmeGISLayers');
             let commentRuleSymb = commentsLayer.styleMap.styles.default.rules[0].symbolizer;
             if (enable) {
                 layer.styleMap.styles['default'].rules = layer.styleMap.styles['default'].rules.filter(rule => rule.wmephDefault !== 'default');
@@ -694,12 +700,14 @@
                 W.map.baseLayer.opacity = 0.25;
                 commentRuleSymb.Polygon.strokeColor = '#888';
                 commentRuleSymb.Polygon.fillOpacity = 0.2;
+                if (gisLayer) gisLayer.setOpacity(0.4);
             } else {
                 layer.styleMap.styles['default'].rules = layer.styleMap.styles['default'].rules.filter(rule => rule.wmephStyle !== 'xray');
                 W.map.roadLayers[0].opacity = 1;
                 W.map.baseLayer.opacity = 1;
                 commentRuleSymb.Polygon.strokeColor = '#fff';
                 commentRuleSymb.Polygon.fillOpacity = 0.4;
+                if (gisLayer) gisLayer.setOpacity(1);
                 initializeHighlights();
                 layer.redraw();
             }
@@ -1041,7 +1049,7 @@
         // Change place.name to title case
         var ignoreWords = "an|and|as|at|by|for|from|hhgregg|in|into|of|on|or|the|to|with".split('|');
         var capWords = "3M|AAA|AMC|AOL|AT&T|ATM|BBC|BLT|BMV|BMW|BP|CBS|CCS|CGI|CISCO|CJ|CNG|CNN|CVS|DHL|DKNY|DMV|DSW|EMS|ER|ESPN|FCU|FCUK|FDNY|GNC|H&M|HP|HSBC|IBM|IHOP|IKEA|IRS|JBL|JCPenney|KFC|LLC|MBNA|MCA|MCI|NBC|NYPD|PDQ|PNC|TCBY|TNT|TV|UPS|USA|USPS|VW|XYZ|ZZZ".split('|');
-        var specWords = "d'Bronx|iFix".split('|');
+        var specWords = "d'Bronx|iFix|ExtraMile".split('|');
 
         // Change place.name to title case
         function toTitleCaseStrong(str) {
@@ -1221,6 +1229,7 @@
                         bannButt.urlMissing.WLactive = false;
                     }
                     if (currentWL.urlWL) {
+                        bannButt.urlMissing.severity = 0;
                         bannButt.urlMissing.WLactive = false;
                     }
                 }
@@ -3238,7 +3247,7 @@
                 }
             } else if (item.isParkingLot() || (newName && newName.trim().length > 0)) {  // for non-residential places
                 if (usrRank >= 2 && item.areExternalProvidersEditable() && !(item.isParkingLot() && $('#WMEPH-DisablePLAExtProviderCheck' + devVersStr).prop('checked'))) {
-                    if (!newCategories.some(c => ['JUNCTION_INTERCHANGE','NATURAL_FEATURES','ISLAND','SEA_LAKE_POOL','RIVER_STREAM','CANAL','SWAMP_MARSH'].indexOf(c) > -1)) {
+                    if (!newCategories.some(c => ['BRIDGE','TUNNEL','JUNCTION_INTERCHANGE','NATURAL_FEATURES','ISLAND','SEA_LAKE_POOL','RIVER_STREAM','CANAL','SWAMP_MARSH'].indexOf(c) > -1)) {
                         var provIDs = item.attributes.externalProviderIDs;
                         if (!provIDs || provIDs.length === 0) {
                             var lastUpdated = item.isNew() ? Date.now() : item.attributes.updatedOn ? item.attributes.updatedOn : item.attributes.createdOn;
@@ -6383,7 +6392,7 @@
                     nodeA = W.model.nodes.get(closestSegment.attributes.fromNodeID),
                     nodeB = W.model.nodes.get(closestSegment.attributes.toNodeID);
                 if (nodeA && nodeB) {
-                    var pt = stopPoint.point ? stopPoint.point : stopPoint;
+                    var pt = stopPoint.getPoint() ? stopPoint.getPoint() : stopPoint;
                     distanceA = pt.distanceTo(nodeA.attributes.geometry);
                     distanceB = pt.distanceTo(nodeB.attributes.geometry);
                     return distanceA < distanceB ?
