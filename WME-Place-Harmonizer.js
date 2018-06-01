@@ -8,15 +8,17 @@
 /* global _ */
 /* global define */
 /* global Node */
+/* global WazeWrap */
 
 // ==UserScript==
 // @name        WME Place Harmonizer
 // @namespace   WazeUSA
-// @version     1.3.81
+// @version     1.3.86
 // @description Harmonizes, formats, and locks a selected place
 // @author      WMEPH Development Group
 // @include     /^https:\/\/(www|beta)\.waze\.com\/(?!user\/)(.{2,6}\/)?editor\/?.*$/
 // @require     https://greasyfork.org/scripts/28687-jquery-ui-1-11-4-custom-min-js/code/jquery-ui-1114customminjs.js
+// @require     https://greasyfork.org/scripts/24851-wazewrap/code/WazeWrap.js
 // @resource    jqUI_CSS  https://ajax.googleapis.com/ajax/libs/jqueryui/1.11.4/themes/smoothness/jquery-ui.css
 // @license     GNU GPL v3
 // @grant       GM_addStyle
@@ -413,80 +415,18 @@
     function runPH() {
         // Script update info
         var WMEPHWhatsNewList = [  // New in this version
+            '1.3.86: FIXED - X-ray mode not being restored after refresh.',
+            '1.3.85: NEW - Place will be green (not blue) for 6mo after locking with a missing a Google link.',
+            '1.3.84: FIXED - Address inference fails in some circumstances.',
+            '1.3.84: FIXED - WL of missing URL flag does not update banner color.',
+            '1.3.84: FIXED - ExtraMile not handled properly with Force Title Case.',
+            '1.3.84: NEW - Added more categories to ignore for missing Google link.',
+            '1.3.84: NEW - Darken the GIS Layers script\'s layer when X-ray mode is enabled.',
+            '1.3.83: FIXED - Disable "No Google link" flag for some natural feature categories.',
+            '1.3.82: NEW - Experimental "X-ray mode"!',
             '1.3.81: FIXED - WL of "area code mismatch" and/or "HN out of range" doesn\'t update banner color.',
             '1.3.79: FIXED - Optional category messages not displaying correctly.',
-            '1.3.78: FIXED - WL of "No Hours" and/or "No Ph#" doesn\'t update banner color.',
-            '1.3.72: NEW - Added HI, NER, and SAT regions to special handling of "Other" category.',
-            '1.3.71: FIXED - References to "OpenLayers" replaced with "OL".',
-            '1.3.70: FIXED - Places marked notABank in PNH sheet are incorrectly treated as banks when name matching.',
-            '1.3.69: FIXED - Minor update to fix missing PLs in PNH submissions.',
-            '1.3.68: NEW - Added "Nudge" button to "last edited by automated process" flag.',
-            '1.3.67: FIXED - Crash on startup in latest WME beta release.',
-            '1.3.66: NEW - Allow "Other" category for regions that want it.',
-            '1.3.65: NEW - PLA\'s show flags for missing Ph# and URL in SER.', 
-            '1.3.64: FIXED - Post offices not working properly in Manhattan.',
-            '1.3.63: FIEXD - NY post office exception should only apply to NYC.',
-            '1.3.62: FIXED - WMEPH reports "No URL" on places with a URL when there is a PNH entry without a URL.',
-            '1.3.61: NEW - Pilot Food Mart / Travel Center check for TN.',
-            '1.3.60: NEW - Added WL options to a couple USPS flags.',
-            '1.3.59: FIXED - Bug with store finder code inserts "undefined" in URL when HN is missing.',
-            '1.3.58: FIXED - Title casing like "DeBerry", "LeCroy", and "LaTonka" not working.',
-            '1.3.57: FIXED - Hours entry box height not quite tall enough when autosizing (still an issue in FF).',
-            '1.3.57: FIXED - Some city names were not being recognized correctly in the USPS description field.',
-            '1.3.56: NEW - Text box to enter missing USPS Zip code alt name.',
-            '1.3.56: FIXED - URL text entry will check for a valid URL format.',
-            '1.3.55: FIXED - Title casing should ignore name localizers (to the right of a hyphen).',
-            '1.3.54: FIXED - Title casing ignores words that begin with a lower case followed by a capital, like iPhone.',
-            '1.3.54: FIXED - Auto-title-casing does not work in all scenarios.  Ask before forcing case.',
-            '1.3.53: NEW - Added flags for new post office guidance.',
-            '1.3.52: FIXED - New gas station matching method does not work as intended.  Reverting to old method for now.',
-            '1.3.51: NEW - En dash is treated as a valid name suffix separator (like a hyphen).',
-            '1.3.51: NEW - Ability to check for alternate versions of brand name in place name.',
-            '1.3.51: FIXED - Gas station brand not being copied to empty name field if no PNH match.',
-            '1.3.50: NEW - Added buttons to "confirm public PLA" message, to allow quick change to restricted or private.',
-            '1.3.49: NEW - Public lots are filled blue, to stand out more from restricted lots.',
-            '1.3.48: FIXED - Name suffixes inside parens repeated with each run of WMEPH in some scenarios.',
-            '1.3.47: NEW - Added message to suggest reviewing wiki when setting parking lot type to Public.',
-            '1.3.47: FIXED - Residential places should not show "Add services" buttons.',
-            '1.3.46: FIXED - Gas Stations don\'t match if PNH name is in parens or after a hyphen',
-            '1.3.45: FIXED - Copying services to/from PLA to/from non-PLA should not be allowed.',
-            '1.3.44: FIXED - Gas Stations should match PNH if PNH name is anywhere in place name.',
-            '1.3.42: Accidental push of beta code to production.  Reverted in .43.',
-            '1.3.41: NEW - Missing PLA HN\'s are flagged blue, and can be cleared by locking to L3+',
-            '1.3.40: FIXED - Names with a forward slash were causing issues in some cases.',
-            '1.3.39: FIXED - WMEPH crashes when inferring addresses on point places in some scenarios.',
-            '1.3.39: NEW - Always treat post offices with CPU or VPU as point places.',
-            '1.3.38: NEW - Allow en dash as well as hyphen in post office names.',
-            '1.3.37: FIXED - Gas station name vs. brand name matching should ignore non-alphanumeric characters.',
-            '1.3.36: FIXED - Gas station name should only be flagged if brand does not appear anywhere in it.',
-            '1.3.35: FIXED - After running WMEPH, map is unresponsive to clicks until hovering over a segment or other object.',
-            '1.3.34: FIXED - Bug when WMEPH adds an alias place name.',
-            '1.3.33: FIXED - Bad formatting of "Lot type" buttons.',
-            '1.3.33: FIXED - "Change to point" button is broken.',
-            '1.3.32: FIXED - Add Google Link pops up at the top left corner of screen sometimes.',
-            '1.3.32: FIXED - Crash when undoing changes in some scenarios.',
-            '1.3.31: FIXED - Latest WME update still breaks things.',
-            '1.3.30: FIXED - Latest WME update breaks things.',
-            '1.3.29: NEW (again) - Hours won\'t parse if open and close time is the same.',
-            '1.3.28: FIXED - Hours text box extends outside panel if Fix UI is used to shrink the side panel width.',
-            '1.3.28: FIXED - Removed "same hours" check to fix bug caused by that feature.  Will add in a later release.',
-            '1.3.27: NEW - If hours can\'t be parsed, entry box turns red instead of replacing with message.',
-            '1.3.27: NEW - Hours buttons moved above the hours entry box.',
-            '1.3.27: NEW - Hours won\'t parse if open and close time is the same.',
-            '1.3.27: NEW - Places with Military category will show the hours entry box.',
-            '1.3.27: FIXED - Crashes when address cannot be inferred from closest segment.',
-            '1.3.27: NEW - Hours parsing handles "today" and "tomorrow".',
-            '1.3.27: NEW - "Force title case" handles Mac surnames like MacMillan.',
-            '1.3.26: FIXED - Map freezes after duplicate places are displayed.',
-            '1.3.25: NEW - Lodging category is removed if it exists on a hotel.',
-            '1.3.25: FIXED - Part of hotel name was incorrectly removed in some scenarios.',
-            '1.3.24: FIXED - Removed rest areas from duplicate checks.',
-            '1.3.24: NEW - Hours of 0:00-23:59 will be highlighted yellow and then automatically replaced by "All day".',
-            '1.3.23: FIXED - Repeating hotel localization bug.',
-            '1.3.22: FIXED - Scroll bar would cover text if only one long line of text in hours entry box.',
-            '1.3.21: FIXED - Auto-expand hours entry text box when multiple lines are pasted (production version).',
-            '1.3.20: NEW - "Add point" button when PLA entry/exit point hasn\'t been created.',
-            '1.3.20: FIXED - Minor improvements to hours parsing.'
+            '1.3.78: FIXED - WL of "No Hours" and/or "No Ph#" doesn\'t update banner color.'
         ];
         var WMEPHWhatsNewMetaList = [  // New in this major version
             'New flags and helpers for parking lots!',
@@ -507,6 +447,10 @@
         var _disableHighlightTest = false;  // Set to true to temporarily disable highlight checks immediately when venues change.
 
         createObserver();
+
+        let xrayMode = localStorage.getItem('WMEPH_xrayMode_enabled') ? true : false;
+        WazeWrap.Interface.AddLayerCheckbox('Display', 'WMEPH x-ray mode', xrayMode, toggleXrayMode);
+        if (xrayMode) setTimeout(() => toggleXrayMode(true), 2000);  // Give other layers time to load before enabling.
 
         // Whitelist initialization
         if ( validateWLS( LZString.decompressFromUTF16(localStorage.getItem(WLlocalStoreNameCompressed)) ) === false ) {  // If no compressed WL string exists
@@ -679,6 +623,155 @@
          * Generates highlighting rules and applies them to the map.
          */
         var layer = W.map.landmarkLayer;
+        function toggleXrayMode(enable) {
+            localStorage.setItem('WMEPH_xrayMode_enabled', $('#layer-switcher-item_wmeph_x-ray_mode').is(':checked'));
+
+            let commentsLayer = W.map.getLayerByUniqueName('mapComments');
+            let gisLayer = W.map.getLayerByUniqueName('__wmeGISLayers');
+            let commentRuleSymb = commentsLayer.styleMap.styles.default.rules[0].symbolizer;
+            if (enable) {
+                layer.styleMap.styles['default'].rules = layer.styleMap.styles['default'].rules.filter(rule => rule.wmephDefault !== 'default');
+                W.map.roadLayers[0].opacity = 0.25;
+                W.map.baseLayer.opacity = 0.25;
+                commentRuleSymb.Polygon.strokeColor = '#888';
+                commentRuleSymb.Polygon.fillOpacity = 0.2;
+                if (gisLayer) gisLayer.setOpacity(0.4);
+            } else {
+                layer.styleMap.styles['default'].rules = layer.styleMap.styles['default'].rules.filter(rule => rule.wmephStyle !== 'xray');
+                W.map.roadLayers[0].opacity = 1;
+                W.map.baseLayer.opacity = 1;
+                commentRuleSymb.Polygon.strokeColor = '#fff';
+                commentRuleSymb.Polygon.fillOpacity = 0.4;
+                if (gisLayer) gisLayer.setOpacity(1);
+                initializeHighlights();
+                layer.redraw();
+            }
+            commentsLayer.redraw();
+            W.map.roadLayers[0].redraw();
+            W.map.baseLayer.redraw();
+            if (!enable) return;
+
+            let defaultPointRadius = 6;
+            var ruleGenerator = function(value, symbolizer) {
+                return new W.Rule({
+                    filter: new OL.Filter.Comparison({
+                        type: '==',
+                        value: value,
+                        evaluate: function(venue) {
+                            return venue && venue.model && venue.model.attributes.wmephSeverity === this.value;
+                        }
+                    }),
+                    symbolizer: symbolizer,
+                    wmephStyle: 'xray'
+                });
+            };
+
+            var severity0 = ruleGenerator(0, {
+                Point:{
+                    strokeWidth: 1.67,
+                    strokeColor: '#888',
+                    pointRadius: 5,
+                    fillOpacity: 0.25,
+                    fillColor: 'white',
+                    zIndex: 0
+                },
+                Polygon: {
+                    strokeWidth: 1.67,
+                    strokeColor: '#888',
+                    fillOpacity: 0
+                }
+            });
+
+            var severityLock = ruleGenerator('lock', {
+                Point: {
+                    strokeColor: 'white',
+                    fillColor: '#080',
+                    fillOpacity: 1,
+                    strokeLinecap: 1,
+                    strokeDashstyle: '4 2',
+                    strokeWidth: 2.5,
+                    pointRadius: defaultPointRadius
+                },
+                Polygon: {
+                    strokeColor: 'white',
+                    fillColor: '#0a0',
+                    fillOpacity: 0.4,
+                    strokeDashstyle: '4 2',
+                    strokeWidth: 2.5
+                }
+            });
+
+            var severity1 = ruleGenerator(1, {
+                strokeColor: 'white',
+                strokeWidth: 2,
+                pointRadius: defaultPointRadius,
+                fillColor: '#0055ff'
+            });
+
+            var severityLock1 = ruleGenerator('lock1', {
+                pointRadius: defaultPointRadius,
+                fillColor: '#0055ff',
+                strokeColor: 'white',
+                strokeLinecap: '1',
+                strokeDashstyle: '4 2',
+                strokeWidth: 2.5
+            });
+
+            var severity2 = ruleGenerator(2, {
+                Point: {
+                    fillColor: '#ca0',
+                    strokeColor: 'white',
+                    strokeWidth: 2,
+                    pointRadius: defaultPointRadius
+
+                },
+                Polygon: {
+                    fillColor: '#ff0',
+                    strokeColor: 'white',
+                    strokeWidth: 2,
+                    fillOpacity: 0.4
+                }
+            });
+
+            var severity3 = ruleGenerator(3, {
+                strokeColor: 'white',
+                strokeWidth: 2,
+                pointRadius: defaultPointRadius,
+                fillColor: '#ff0000'
+            });
+
+            var severity4 = ruleGenerator(4, {
+                fillColor: '#f42',
+                strokeLinecap: 1,
+                strokeWidth: 2,
+                strokeDashstyle: '4 2'
+            });
+
+            var severityHigh = ruleGenerator(5, {
+                fillColor: 'black',
+                strokeColor: '#f4a',
+                strokeLinecap: 1,
+                strokeWidth: 4,
+                strokeDashstyle: '4 2',
+                pointRadius: defaultPointRadius
+            });
+
+            var severityAdLock = ruleGenerator('adLock', {
+                pointRadius: 12,
+                fillColor: 'yellow',
+                fillOpacity: 0.4,
+                strokeColor: '#000',
+                strokeLinecap: 1,
+                strokeWidth: 10,
+                strokeDashstyle: '4 2'
+            });
+
+            Array.prototype.push.apply(layer.styleMap.styles['default'].rules, [severity0, severityLock, severity1, severityLock1, severity2, severity3, severity4, severityHigh, severityAdLock]);
+
+            layer.redraw();
+        }
+
+
         function initializeHighlights() {
             var ruleGenerator = function(value, symbolizer) {
                 return new W.Rule({
@@ -689,7 +782,8 @@
                             return venue && venue.model && venue.model.attributes.wmephSeverity === this.value;
                         }
                     }),
-                    symbolizer: symbolizer
+                    symbolizer: symbolizer,
+                    wmephStyle: 'default'
                 });
             };
 
@@ -776,7 +870,8 @@
                             }
                         }
                     }),
-                    symbolizer: symbolizer
+                    symbolizer: symbolizer,
+                    wmephStyle: 'default'
                 });
             }
 
@@ -889,7 +984,7 @@
         // Change place.name to title case
         var ignoreWords = "an|and|as|at|by|for|from|hhgregg|in|into|of|on|or|the|to|with".split('|');
         var capWords = "3M|AAA|AMC|AOL|AT&T|ATM|BBC|BLT|BMV|BMW|BP|CBS|CCS|CGI|CISCO|CJ|CNG|CNN|CVS|DHL|DKNY|DMV|DSW|EMS|ER|ESPN|FCU|FCUK|FDNY|GNC|H&M|HP|HSBC|IBM|IHOP|IKEA|IRS|JBL|JCPenney|KFC|LLC|MBNA|MCA|MCI|NBC|NYPD|PDQ|PNC|TCBY|TNT|TV|UPS|USA|USPS|VW|XYZ|ZZZ".split('|');
-        var specWords = "d'Bronx|iFix".split('|');
+        var specWords = "d'Bronx|iFix|ExtraMile".split('|');
 
         // Change place.name to title case
         function toTitleCaseStrong(str) {
@@ -1069,6 +1164,7 @@
                         bannButt.urlMissing.WLactive = false;
                     }
                     if (currentWL.urlWL) {
+                        bannButt.urlMissing.severity = 0;
                         bannButt.urlMissing.WLactive = false;
                     }
                 }
@@ -3086,26 +3182,28 @@
                 }
             } else if (item.isParkingLot() || (newName && newName.trim().length > 0)) {  // for non-residential places
                 if (usrRank >= 2 && item.areExternalProvidersEditable() && !(item.isParkingLot() && $('#WMEPH-DisablePLAExtProviderCheck' + devVersStr).prop('checked'))) {
-                    var provIDs = item.attributes.externalProviderIDs;
-                    if (!provIDs || provIDs.length === 0) {
-                        var lastUpdated = item.isNew() ? Date.now() : item.attributes.updatedOn ? item.attributes.updatedOn : item.attributes.createdOn;
-                        var weeksSinceLastUpdate = (Date.now() - lastUpdated) / 604800000;
-                        if (isLocked && weeksSinceLastUpdate >= 26 && !item.isUpdated() && (!actions || actions.length === 0)) {
-                            bannButt.extProviderMissing.severity = 3;
-                            bannButt.extProviderMissing.message += ' and place has not been edited for over 6 months. Edit a property (or nudge) and save to reset the 6 month timer: ';
-                        } else if (!isLocked) {
-                            bannButt.extProviderMissing.severity = 1;  // This will be changed to 3 later if the user does not choose to lock the place.
-                            bannButt.extProviderMissing.message += '.';
-                            delete bannButt.extProviderMissing.value;
-                            delete bannButt.extProviderMissing.action;
-                        } else {
-                            bannButt.extProviderMissing.severity = 1;
-                            bannButt.extProviderMissing.message += '.';
-                            delete bannButt.extProviderMissing.value;
-                            delete bannButt.extProviderMissing.action;
+                    if (!newCategories.some(c => ['BRIDGE','TUNNEL','JUNCTION_INTERCHANGE','NATURAL_FEATURES','ISLAND','SEA_LAKE_POOL','RIVER_STREAM','CANAL','SWAMP_MARSH'].indexOf(c) > -1)) {
+                        var provIDs = item.attributes.externalProviderIDs;
+                        if (!provIDs || provIDs.length === 0) {
+                            var lastUpdated = item.isNew() ? Date.now() : item.attributes.updatedOn ? item.attributes.updatedOn : item.attributes.createdOn;
+                            var weeksSinceLastUpdate = (Date.now() - lastUpdated) / 604800000;
+                            if (isLocked && weeksSinceLastUpdate >= 26 && !item.isUpdated() && (!actions || actions.length === 0)) {
+                                bannButt.extProviderMissing.severity = 3;
+                                bannButt.extProviderMissing.message += ' and place has not been edited for over 6 months. Edit a property (or nudge) and save to reset the 6 month timer: ';
+                            } else if (!isLocked) {
+                                bannButt.extProviderMissing.severity = 0;  // This will be changed to 3 later if the user does not choose to lock the place.
+                                bannButt.extProviderMissing.message += '.';
+                                delete bannButt.extProviderMissing.value;
+                                delete bannButt.extProviderMissing.action;
+                            } else {
+                                bannButt.extProviderMissing.severity = 0;
+                                bannButt.extProviderMissing.message += '.';
+                                delete bannButt.extProviderMissing.value;
+                                delete bannButt.extProviderMissing.action;
+                            }
+                            // bannButt.extProviderMissing.WLactive = null;  // 4-29-2017 (mapomatic) Decided to remove WL on this, but leaving it in the bannButt code in case it needs to be resurrected.
+                            bannButt.extProviderMissing.active = true;
                         }
-                        // bannButt.extProviderMissing.WLactive = null;  // 4-29-2017 (mapomatic) Decided to remove WL on this, but leaving it in the bannButt code in case it needs to be resurrected.
-                        bannButt.extProviderMissing.active = true;
                     }
                 }
 
@@ -6229,7 +6327,7 @@
                     nodeA = W.model.nodes.get(closestSegment.attributes.fromNodeID),
                     nodeB = W.model.nodes.get(closestSegment.attributes.toNodeID);
                 if (nodeA && nodeB) {
-                    var pt = stopPoint.point ? stopPoint.point : stopPoint;
+                    var pt = stopPoint.getPoint() ? stopPoint.getPoint() : stopPoint;
                     distanceA = pt.distanceTo(nodeA.attributes.geometry);
                     distanceB = pt.distanceTo(nodeB.attributes.geometry);
                     return distanceA < distanceB ?
@@ -7017,6 +7115,7 @@
             } else {
                 localStorage.setItem(settingID, '0');
             }
+            localStorage.setItem('WMEPH_xrayMode_enabled', $('#layer-switcher-item_wmeph_x-ray_mode').is(':checked'));
         }
 
         // This function validates that the inputted text is a JSON
