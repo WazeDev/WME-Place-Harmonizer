@@ -13,7 +13,7 @@
 // ==UserScript==
 // @name        WME Place Harmonizer Beta
 // @namespace   WazeUSA
-// @version     1.3.87
+// @version     1.3.88
 // @description Harmonizes, formats, and locks a selected place
 // @author      WMEPH Development Group
 // @include     /^https:\/\/(www|beta)\.waze\.com\/(?!user\/)(.{2,6}\/)?editor\/?.*$/
@@ -6328,7 +6328,7 @@
                     nodeA = W.model.nodes.get(closestSegment.attributes.fromNodeID),
                     nodeB = W.model.nodes.get(closestSegment.attributes.toNodeID);
                 if (nodeA && nodeB) {
-                    var pt = stopPoint.getPoint() ? stopPoint.getPoint() : stopPoint;
+                    var pt = stopPoint.getPoint ? stopPoint.getPoint() : stopPoint;
                     distanceA = pt.distanceTo(nodeA.attributes.geometry);
                     distanceB = pt.distanceTo(nodeB.attributes.geometry);
                     return distanceA < distanceB ?
