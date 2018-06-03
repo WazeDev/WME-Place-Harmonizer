@@ -3112,6 +3112,7 @@
                 if ( !item.attributes.brand || item.attributes.brand === null || item.attributes.brand === "" ) {
                     bannButt.gasNoBrand.active = true;
                     if (currentWL.gasNoBrand) {
+                        bannButt.gasNoBrand.severity = 0;
                         bannButt.gasNoBrand.WLactive = false;
                     }
                 } else if (item.attributes.brand === 'Unbranded' ) {  //  Unbranded is not used per wiki
