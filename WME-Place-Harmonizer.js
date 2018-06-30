@@ -13,7 +13,7 @@
 // ==UserScript==
 // @name        WME Place Harmonizer Beta
 // @namespace   WazeUSA
-// @version     1.3.89
+// @version     1.3.90
 // @description Harmonizes, formats, and locks a selected place
 // @author      WMEPH Development Group
 // @include     /^https:\/\/(www|beta)\.waze\.com\/(?!user\/)(.{2,6}\/)?editor\/?.*$/
@@ -1339,6 +1339,16 @@
                     //     whitelistAction(itemID, wlKeyName);
                     //     harmonizePlaceGo(item, 'harmonize');
                     // }
+                },
+
+                indianaLiquorStoreHours: {
+                    active: false, severity: 0, message: 'If this is a liquor store, check the hours.  As of Feb 2018, liquor stores in Indiana are allowed to be open between noon and 8 pm on Sunday.',
+                    WLactive: true, WLmessage: '', WLtitle: 'Whitelist Indiana liquor store hours',
+                    WLaction: function() {
+                        wlKeyName = 'indianaLiquorStoreHours';
+                        whitelistAction(itemID, wlKeyName);
+                        harmonizePlaceGo(item, 'harmonize');
+                    }
                 },
 
                 hoursOverlap: {  // no WL
@@ -3163,6 +3173,13 @@
                     bannButt.isThisAPilotTravelCenter.active = true;
                 }
             }  // END Gas Station Checks
+
+            // Note for Indiana editors to check liquor store hours if Sunday hours haven't been added yet.
+            var tempAddr = item.getAddress();
+            if (hpMode.harmFlag && tempAddr && tempAddr.getStateName() === 'Indiana' && !item.isResidential() &&
+                [/\bbeers?\b/,/\bwines?\b/,/\bliquor\b/,/\bspirits\b/].some(re => re.test(newName)) && !item.attributes.openingHours.some(entry => entry.days.indexOf(0) > -1)) {
+                bannButt.indianaLiquorStoreHours.active = !currentWL.indianaLiquorStoreHours;
+            }
 
             var isLocked = item.attributes.lockRank >= (PNHLockLevel > -1 ? PNHLockLevel : defaultLockLevel);
 
