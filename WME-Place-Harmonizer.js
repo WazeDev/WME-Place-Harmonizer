@@ -13,7 +13,7 @@
 // ==UserScript==
 // @name        WME Place Harmonizer
 // @namespace   WazeUSA
-// @version     1.3.90
+// @version     1.3.91
 // @description Harmonizes, formats, and locks a selected place
 // @author      WMEPH Development Group
 // @include     /^https:\/\/(www|beta)\.waze\.com\/(?!user\/)(.{2,6}\/)?editor\/?.*$/
@@ -378,43 +378,44 @@
             }
         }
 
-        function buildSearchUrl(searchName, address) {
-            searchName = searchName
-                .replace(/&/g, "%26")
-                .replace(/[ \/]/g, "%20")
-                .trim();
-            address = address
-                .replace(/No street, /, "")
-                .replace(/No address/, "")
-                .replace(/ /g, "%20")
-                .replace(/CR-/g, "County%20Rd%20")
-                .replace(/SR-/g, "State%20Hwy%20")
-                .replace(/US-/g, "US%20Hwy%20")
-                .replace(/ CR /g, "%20County%20Rd%20")
-                .replace(/ SR /g, "%20State%20Hwy%20")
-                .replace(/ US /g, "%20US%20Hwy%20")
-                .replace(/$CR /g, "County%20Rd%20")
-                .replace(/$SR /g, "State%20Hwy%20")
-                .replace(/$US /g, "US%20Hwy%20")
-                .trim();
+    function buildSearchUrl(searchName, address) {
+        searchName = searchName
+            .replace(/&/g, "%26")
+            .replace(/[ \/]/g, "%20")
+            .trim();
+        address = address
+            .replace(/No street, /, "")
+            .replace(/No address/, "")
+            .replace(/ /g, "%20")
+            .replace(/CR-/g, "County%20Rd%20")
+            .replace(/SR-/g, "State%20Hwy%20")
+            .replace(/US-/g, "US%20Hwy%20")
+            .replace(/ CR /g, "%20County%20Rd%20")
+            .replace(/ SR /g, "%20State%20Hwy%20")
+            .replace(/ US /g, "%20US%20Hwy%20")
+            .replace(/$CR /g, "County%20Rd%20")
+            .replace(/$SR /g, "State%20Hwy%20")
+            .replace(/$US /g, "US%20Hwy%20")
+            .trim();
 
-            return "http://www.google.com/search?q=" + searchName + (address.length > 0 ? ",%20" + address: "");
-        }
+        return "http://www.google.com/search?q=" + searchName + (address.length > 0 ? ",%20" + address: "");
+    }
 
-        function openWebSearch() {
-            var newName = $('.place-update-edit.panel .name').first().text();
-            var addr = $('.place-update-edit.panel .address').first().text();
-            if ( $("#WMEPH-WebSearchNewTab" + devVersStr).prop('checked') ) {
-                window.open(buildSearchUrl(newName,addr));
-            } else {
-                window.open(buildSearchUrl(newName,addr), searchResultsWindowName, searchResultsWindowSpecs);
-            }
+    function openWebSearch() {
+        var newName = $('.place-update-edit.panel .name').first().text();
+        var addr = $('.place-update-edit.panel .address').first().text();
+        if ( $("#WMEPH-WebSearchNewTab" + devVersStr).prop('checked') ) {
+            window.open(buildSearchUrl(newName,addr));
+        } else {
+            window.open(buildSearchUrl(newName,addr), searchResultsWindowName, searchResultsWindowSpecs);
         }
     }
+                }
 
     function runPH() {
         // Script update info
         var WMEPHWhatsNewList = [  // New in this version
+            '1.3.91: NEW - Added a "Google" button to search for place information so you don\'t have to click Run WMEPH first.',
             '1.3.87: FIXED - X-ray mode doesn\'t stay disabled after refresh.',
             '1.3.86: FIXED - X-ray mode not being restored after refresh.',
             '1.3.85: NEW - Place will be green (not blue) for 6mo after locking with a missing a Google link.',
@@ -4921,6 +4922,7 @@
             assembleBanner();  // Make Messaging banners
 
             showOpenPlaceWebsiteButton();
+            showSearchButton();
         }  // END harmonizePlaceGo function
 
         // **** vvv Function definitions vvv ****
@@ -5306,7 +5308,7 @@
                     $('<div id="WMEPH_runButton">').css({"padding-bottom": "6px", "padding-top": "3px", "width": "290", "color": "black", "font-size": "15px", "margin-left": "auto", "margin-right": "auto"}).prependTo(".contents");
                 }
                 if ($('#runWMEPH'+devVersStr).length === 0 ) {
-                    var strButt1 = '<input class="btn btn-primary" id="runWMEPH'+devVersStr+'" title="Run WMEPH'+devVersStrSpace+' on Place" type="button" value="Run WMEPH'+devVersStrSpace+'">';
+                    var strButt1 = '<input class="btn btn-primary" id="runWMEPH'+devVersStr+'" title="Run WMEPH'+devVersStrSpace+' on Place" type="button" value="Run WMEPH'+devVersStrSpace+'" style="padding-left:8px;padding-right:8px;">';
                     $("#WMEPH_runButton").append(strButt1);
                 }
                 var btn = document.getElementById("runWMEPH"+devVersStr);
@@ -5324,6 +5326,7 @@
                     }
                 }
                 showOpenPlaceWebsiteButton();
+                showSearchButton();
             }, betaDelay);
         }  // END displayRunButton funtion
 
@@ -5333,7 +5336,7 @@
                 var openPlaceWebsiteURL = item.attributes.url;
                 if (openPlaceWebsiteURL && openPlaceWebsiteURL.replace(/[^A-Za-z0-9]/g,'').length > 2) {
                     if ($('#WMEPHurl').length === 0  ) {
-                        strButt1 = '<input class="btn btn-success btn-xs" id="WMEPHurl" title="Open place URL" type="button" value="Open Website" style="margin-left:3px;">';
+                        strButt1 = '<input class="btn btn-success btn-xs" id="WMEPHurl" title="Open place URL" type="button" value="Open Website" style="margin-left:3px;padding-left:8px;padding-right:8px;">';
                         $("#runWMEPH" + devVersStr).after(strButt1);
                         btn = document.getElementById("WMEPHurl");
                         if (btn !== null) {
@@ -5359,6 +5362,25 @@
                     if ($('#WMEPHurl').length > 0  ) {
                         $('#WMEPHurl').remove();
                     }
+                }
+            }
+        }
+
+        function showSearchButton() {
+            if (item && $('#wmephSearch').length === 0  ) {
+                strButt1 = '<input class="btn btn-danger btn-xs" id="wmephSearch" title="Search for place information in Google" type="button" value="Google" style="margin-left:3px;padding-left:8px;padding-right:8px;">';
+                $("#WMEPH_runButton").append(strButt1);
+                btn = document.getElementById("wmephSearch");
+                if (btn !== null) {
+                    btn.onclick = function() {
+                        if ( $("#WMEPH-WebSearchNewTab" + devVersStr).prop('checked') ) {
+                            window.open(buildGLink(item.attributes.name,item.getAddress().attributes,item.attributes.houseNumber));
+                        } else {
+                            window.open(buildGLink(item.attributes.name,item.getAddress().attributes,item.attributes.houseNumber), searchResultsWindowName, searchResultsWindowSpecs);
+                        }
+                    };
+                } else {
+                    setTimeout(bootstrapRunButton,100);
                 }
             }
         }
@@ -5483,6 +5505,7 @@
                     if ((item.type === "venue") && item.isApproved()) {
                         displayRunButton();
                         showOpenPlaceWebsiteButton();
+                        showSearchButton();
                         getPanelFields();
                         if (localStorage.getItem("WMEPH-EnableCloneMode" + devVersStr) === '1') {
                             displayCloneButton();
@@ -6579,7 +6602,7 @@
             }
             searchCity = searchCity.replace(/ /g, "%20");
 
-            return "http://www.google.com/search?q=" + searchName + ",%20" + searchHN + searchStreet + searchCity + addr.state.name;
+            return "http://www.google.com/search?q=" + searchName + (searchName ? ",%20" : "") + searchHN + searchStreet + searchCity + addr.state.name;
         } // END buildGLink function
 
         // WME Category translation from Natural language to object language  (Bank / Financial --> BANK_FINANCIAL)
