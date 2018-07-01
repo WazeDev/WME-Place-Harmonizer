@@ -13,7 +13,7 @@
 // ==UserScript==
 // @name        WME Place Harmonizer
 // @namespace   WazeUSA
-// @version     1.3.91
+// @version     1.3.92
 // @description Harmonizes, formats, and locks a selected place
 // @author      WMEPH Development Group
 // @include     /^https:\/\/(www|beta)\.waze\.com\/(?!user\/)(.{2,6}\/)?editor\/?.*$/
@@ -369,7 +369,7 @@
             if (!$('#WMEPH-HidePURWebSearch' + devVersStr).is(':checked')) {
                 var $panelNav = $('.place-update-edit.panel .categories.small');
                 if ($('#PHPURWebSearchButton').length === 0 && $panelNav.length > 0) {
-                    var $btn = $('<button>', {class:"btn btn-primary", id:"PHPURWebSearchButton"}) //NOTE: Don't use btn-block class. Causes conflict with URO+ "Done" button.
+                    var $btn = $('<button>', {class:"btn btn-primary", id:"PHPURWebSearchButton", title: "Search the web for this place.  Do not copy info from 3rd party sources!" }) //NOTE: Don't use btn-block class. Causes conflict with URO+ "Done" button.
                     .css({width:'100%',display:'block',marginTop:'4px',marginBottom:'4px'})
                     .text("Web Search")
                     .click(() => { openWebSearch(); });
@@ -1170,7 +1170,6 @@
                         bannButt.urlMissing.WLactive = false;
                     }
                 }
-                bannButt.webSearch.active = true;  // Activate websearch button
                 return s;
             }
 
@@ -2430,24 +2429,6 @@
                     }
                 },
 
-                webSearch: {  // no WL
-                    active: false, severity: 0, message: "", value: "Web Search", title: "Search the web for this place.  Do not copy info from 3rd party sources!",
-                    action: function() {
-                        if (localStorage.getItem(GLinkWarning) !== '1') {
-                            if (confirm('***Please DO NOT copy info from Google or third party sources.*** This link is to help you find the business webpage.\nClick OK to agree and continue.') ) {  // if the category doesn't translate, then pop an alert that will make a forum post to the thread
-                                localStorage.setItem(GLinkWarning, '1');
-                            }
-                        }
-                        if (localStorage.getItem(GLinkWarning) === '1') {
-                            if ( $("#WMEPH-WebSearchNewTab" + devVersStr).prop('checked') ) {
-                                window.open(buildGLink(newName,addr,item.attributes.houseNumber));
-                            } else {
-                                window.open(buildGLink(newName,addr,item.attributes.houseNumber), searchResultsWindowName, searchResultsWindowSpecs);
-                            }
-                        }
-                    }
-                },
-
                 // NOTE: This is now only used to display the store locator button.  It can be updated to remove/change anything that doesn't serve that purpose.
                 PlaceWebsite: {    // no WL
                     active: false, severity: 0, message: "", value: "Place Website", title: "Direct link to place website",
@@ -2816,10 +2797,7 @@
                 if ( $("#WMEPH-HidePlacesWiki" + devVersStr).prop('checked') ) {
                     bannButt2.placesWiki.active = false;
                 }
-                // provide Google search link to places
-                if (devUser || betaUser || usrRank > 1) {  // enable the link for all places, for R2+ and betas
-                    bannButt.webSearch.active = true;
-                }
+
                 // reset PNH lock level
                 PNHLockLevel = -1;
             }
@@ -5368,7 +5346,7 @@
 
         function showSearchButton() {
             if (item && $('#wmephSearch').length === 0  ) {
-                strButt1 = '<input class="btn btn-danger btn-xs" id="wmephSearch" title="Search for place information in Google" type="button" value="Google" style="margin-left:3px;padding-left:8px;padding-right:8px;">';
+                strButt1 = '<input class="btn btn-danger btn-xs" id="wmephSearch" title="Search the web for this place.  Do not copy info from 3rd party sources!" type="button" value="Google" style="margin-left:3px;padding-left:8px;padding-right:8px;">';
                 $("#WMEPH_runButton").append(strButt1);
                 btn = document.getElementById("wmephSearch");
                 if (btn !== null) {
