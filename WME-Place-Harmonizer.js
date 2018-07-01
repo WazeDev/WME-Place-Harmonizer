@@ -1170,6 +1170,7 @@
                         bannButt.urlMissing.WLactive = false;
                     }
                 }
+                //bannButt.webSearch.active = true;  // Activate websearch button
                 return s;
             }
 
@@ -2429,6 +2430,24 @@
                     }
                 },
 
+//                 webSearch: {  // no WL
+//                     active: false, severity: 0, message: "", value: "Web Search", title: "Search the web for this place.  Do not copy info from 3rd party sources!",
+//                     action: function() {
+//                         if (localStorage.getItem(GLinkWarning) !== '1') {
+//                             if (confirm('***Please DO NOT copy info from Google or third party sources.*** This link is to help you find the business webpage.\nClick OK to agree and continue.') ) {  // if the category doesn't translate, then pop an alert that will make a forum post to the thread
+//                                 localStorage.setItem(GLinkWarning, '1');
+//                             }
+//                         }
+//                         if (localStorage.getItem(GLinkWarning) === '1') {
+//                             if ( $("#WMEPH-WebSearchNewTab" + devVersStr).prop('checked') ) {
+//                                 window.open(buildGLink(newName,addr,item.attributes.houseNumber));
+//                             } else {
+//                                 window.open(buildGLink(newName,addr,item.attributes.houseNumber), searchResultsWindowName, searchResultsWindowSpecs);
+//                             }
+//                         }
+//                     }
+//                 },
+
                 // NOTE: This is now only used to display the store locator button.  It can be updated to remove/change anything that doesn't serve that purpose.
                 PlaceWebsite: {    // no WL
                     active: false, severity: 0, message: "", value: "Place Website", title: "Direct link to place website",
@@ -2797,7 +2816,10 @@
                 if ( $("#WMEPH-HidePlacesWiki" + devVersStr).prop('checked') ) {
                     bannButt2.placesWiki.active = false;
                 }
-
+//                 // provide Google search link to places
+//                 if (devUser || betaUser || usrRank > 1) {  // enable the link for all places, for R2+ and betas
+//                     bannButt.webSearch.active = true;
+//                 }
                 // reset PNH lock level
                 PNHLockLevel = -1;
             }
@@ -2853,8 +2875,11 @@
                                     lockOK = false;
                                 }
                             } else {
-                                bannButt.cityMissing.active = true;
-                                lockOK = false;
+                                debugger;
+                                if (['JUNCTION_INTERCHANGE'].indexOf(newCategories[0]) === -1) {
+                                    bannButt.cityMissing.active = true;
+                                    lockOK = false;
+                                }
                             }
                         } else {  //  if the inference doesn't work...
                             alert("Place has no address data. Please set the address and rerun the script.");
@@ -2867,6 +2892,8 @@
                     } else if ( item.attributes.categories.indexOf("HOSPITAL_MEDICAL_CARE") > -1 || item.attributes.categories.indexOf("HOSPITAL_URGENT_CARE") > -1 || item.isGasStation() ) {
                         phlogdev('Unaddressed HMC/GS');
                         return 5;
+                    } else if ( newCategories.length && newCategories[0] === 'JUNCTION_INTERCHANGE' ) {
+                        return 0;
                     } else {
                         return 3;
                     }
@@ -4330,7 +4357,7 @@
             var hasStreet = item.attributes.streetID || (inferredAddress && inferredAddress.street);
 
             if (hasStreet && (!currentHN || currentHN.replace(/\D/g,'').length === 0)) {
-                if ( 'BRIDGE|ISLAND|FOREST_GROVE|SEA_LAKE_POOL|RIVER_STREAM|CANAL|DAM|TUNNEL'.split('|').indexOf(item.attributes.categories[0]) === -1 ) {
+                if ( 'BRIDGE|ISLAND|FOREST_GROVE|SEA_LAKE_POOL|RIVER_STREAM|CANAL|DAM|TUNNEL|JUNCTION_INTERCHANGE'.split('|').indexOf(item.attributes.categories[0]) === -1 ) {
                     if (state2L === 'PR') {
                         bannButt.hnMissing.active = true;
                         bannButt.hnMissing.severity = 0;
@@ -4400,14 +4427,14 @@
                 }
             }
 
-            if ((!addr.city || addr.city.attributes.isEmpty) && 'BRIDGE|ISLAND|FOREST_GROVE|SEA_LAKE_POOL|RIVER_STREAM|CANAL|DAM|TUNNEL'.split('|').indexOf(item.attributes.categories[0]) === -1 ) {
+            if ((!addr.city || addr.city.attributes.isEmpty) && 'BRIDGE|ISLAND|FOREST_GROVE|SEA_LAKE_POOL|RIVER_STREAM|CANAL|DAM|TUNNEL|JUNCTION_INTERCHANGE'.split('|').indexOf(item.attributes.categories[0]) === -1 ) {
                 bannButt.cityMissing.active = true;
                 if (item.attributes.residential && hpMode.hlFlag) {
                     bannButt.cityMissing.severity = 1;
                 }
                 lockOK = false;
             }
-            if (addr.city && (!addr.street || addr.street.isEmpty) && 'BRIDGE|ISLAND|FOREST_GROVE|SEA_LAKE_POOL|RIVER_STREAM|CANAL|DAM|TUNNEL'.split('|').indexOf(item.attributes.categories[0]) === -1 ) {
+            if (addr.city && (!addr.street || addr.street.isEmpty) && 'BRIDGE|ISLAND|FOREST_GROVE|SEA_LAKE_POOL|RIVER_STREAM|CANAL|DAM|TUNNEL|JUNCTION_INTERCHANGE'.split('|').indexOf(item.attributes.categories[0]) === -1 ) {
                 bannButt.streetMissing.active = true;
                 lockOK = false;
             }
@@ -4499,7 +4526,7 @@
             }  // END SCHOOL/Name check
 
             // Some cats don't need PNH messages and url/phone severities
-            if ( 'BRIDGE|FOREST_GROVE|DAM|TUNNEL|CEMETERY'.split('|').indexOf(item.attributes.categories[0]) > -1 ) {
+            if ( 'BRIDGE|FOREST_GROVE|DAM|TUNNEL|CEMETERY|JUNCTION_INTERCHANGE'.split('|').indexOf(item.attributes.categories[0]) > -1 ) {
                 bannButt.NewPlaceSubmit.active = false;
                 bannButt.phoneMissing.severity = 0;
                 bannButt.phoneMissing.WLactive = false;
@@ -4507,7 +4534,7 @@
                 bannButt.urlMissing.WLactive = false;
             }
             // Some cats don't need PNH messages and url/phone messages
-            if ( 'ISLAND|SEA_LAKE_POOL|RIVER_STREAM|CANAL'.split('|').indexOf(item.attributes.categories[0]) > -1 ) {
+            if ( 'ISLAND|SEA_LAKE_POOL|RIVER_STREAM|CANAL|JUNCTION_INTERCHANGE'.split('|').indexOf(item.attributes.categories[0]) > -1 ) {
                 bannButt.NewPlaceSubmit.active = false;
                 bannButt.phoneMissing.active = false;
                 bannButt.urlMissing.active = false;
@@ -4593,6 +4620,7 @@
             }
 
             // update Severity for banner messages
+            debugger;
             for (var bannKey in bannButt) {
                 if (bannButt.hasOwnProperty(bannKey) && bannButt[bannKey].active) {
                     severityButt = Math.max(bannButt[bannKey].severity, severityButt);
