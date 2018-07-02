@@ -13,7 +13,7 @@
 // ==UserScript==
 // @name        WME Place Harmonizer Beta
 // @namespace   WazeUSA
-// @version     1.3.92
+// @version     1.3.94
 // @description Harmonizes, formats, and locks a selected place
 // @author      WMEPH Development Group
 // @include     /^https:\/\/(www|beta)\.waze\.com\/(?!user\/)(.{2,6}\/)?editor\/?.*$/
@@ -1824,13 +1824,7 @@
                 },
 
                 gasNoBrand: {
-                    active: false, severity: 1, message: 'Verify that gas station has no brand.',
-                    WLactive: true, WLmessage: '', WLtitle: 'Whitelist no gas brand',
-                    WLaction: function() {
-                        wlKeyName = 'gasNoBrand';
-                        whitelistAction(itemID, wlKeyName);
-                        harmonizePlaceGo(item, 'harmonize');
-                    }
+                    active: false, severity: 1, message: 'Lock to region standards to verify no gas brand.'
                 },
 
                 subFuel: {
@@ -2875,7 +2869,6 @@
                                     lockOK = false;
                                 }
                             } else {
-                                debugger;
                                 if (['JUNCTION_INTERCHANGE'].indexOf(newCategories[0]) === -1) {
                                     bannButt.cityMissing.active = true;
                                     lockOK = false;
@@ -3150,10 +3143,7 @@
                 }
                 if ( !item.attributes.brand || item.attributes.brand === null || item.attributes.brand === "" ) {
                     bannButt.gasNoBrand.active = true;
-                    if (currentWL.gasNoBrand) {
-                        bannButt.gasNoBrand.severity = 0;
-                        bannButt.gasNoBrand.WLactive = false;
-                    }
+                    lockOK = false;
                 } else if (item.attributes.brand === 'Unbranded' ) {  //  Unbranded is not used per wiki
                     bannButt.gasUnbranded.active = true;
                     lockOK = false;
@@ -4620,7 +4610,6 @@
             }
 
             // update Severity for banner messages
-            debugger;
             for (var bannKey in bannButt) {
                 if (bannButt.hasOwnProperty(bannKey) && bannButt[bannKey].active) {
                     severityButt = Math.max(bannButt[bannKey].severity, severityButt);
@@ -4648,6 +4637,15 @@
             }
 
             if (levelToLock > (usrRank - 1)) {levelToLock = (usrRank - 1);}  // Only lock up to the user's level
+
+            // If gas station is missing brand, don't flag if place is locked.
+            if (bannButt.gasNoBrand.active) {
+                if (item.attributes.lockRank >= levelToLock) {
+                    bannButt.gasNoBrand.active = false;
+                } else {
+                    bannButt.gasNoBrand.message = 'Lock to L' + (levelToLock + 1) + '+ to verify no gas brand.';
+                }
+            }
 
             // If no Google link and severity would otherwise allow locking, ask if user wants to lock anyway.
             if (!isLocked && lockOK && bannButt.extProviderMissing.active && severityButt <= 2) {
@@ -5688,25 +5686,29 @@
             var today = new Date();
             var tomorrow = new Date();
             tomorrow.setDate(tomorrow.getDate() + 1);
-            inputHoursParse = inputHoursParse.replace(/\btoday\b/g, today.toLocaleDateString(I18n.locale, {weekday:'short'}).toLowerCase());
-            inputHoursParse = inputHoursParse.replace(/\btomorrow\b/g, tomorrow.toLocaleDateString(I18n.locale, {weekday:'short'}).toLowerCase());
-            inputHoursParse = inputHoursParse.replace(/\u2013|\u2014/g, "-");  // long dash replacing
-            inputHoursParse = inputHoursParse.replace(/[^a-z0-9\:\-\. ~]/g, ' ');  // replace unnecessary characters with spaces
-            inputHoursParse = inputHoursParse.replace(/\:{2,}/g, ':');  // remove extra colons
-            inputHoursParse = inputHoursParse.replace(/closed|not open/g, '99:99-99:99');  // parse 'closed'
-            inputHoursParse = inputHoursParse.replace(/by appointment( only)?/g, '99:99-99:99');  // parse 'appointment only'
-            inputHoursParse = inputHoursParse.replace(/weekdays/g, 'mon-fri').replace(/weekends/g, 'sat-sun');  // convert weekdays and weekends to days
-            inputHoursParse = inputHoursParse.replace(/(12(:00)?\W*)?noon/g, "12:00").replace(/(12(:00)?\W*)?mid(night|nite)/g, "00:00");  // replace 'noon', 'midnight'
-            inputHoursParse = inputHoursParse.replace(/every\s*day|daily|(7|seven) days a week/g, "mon-sun");  // replace 'seven days a week'
-            inputHoursParse = inputHoursParse.replace(/(open\s*)?(24|twenty\W*four)\W*h(ou)?rs?|all day/g, "00:00-00:00");  // replace 'open 24 hour or similar'
-            inputHoursParse = inputHoursParse.replace(/(\D:)([^ ])/g, "$1 $2");  // space after colons after words
-            // replace thru type words with dashes
-            var thruWords = 'through|thru|to|until|till|til|-|~'.split("|");
-            for (twix=0; twix<thruWords.length; twix++) {
-                tempRegex = new RegExp(thruWords[twix], "g");
-                inputHoursParse = inputHoursParse.replace(tempRegex,'-');
+            if (/24\s*[\\/*x]\s*7/g.test(inputHoursParse)) {
+                inputHoursParse = 'mon-sun 00:00-00:00';
+            } else {
+                inputHoursParse = inputHoursParse.replace(/\btoday\b/g, today.toLocaleDateString(I18n.locale, {weekday:'short'}).toLowerCase());
+                inputHoursParse = inputHoursParse.replace(/\btomorrow\b/g, tomorrow.toLocaleDateString(I18n.locale, {weekday:'short'}).toLowerCase());
+                inputHoursParse = inputHoursParse.replace(/\u2013|\u2014/g, "-");  // long dash replacing
+                inputHoursParse = inputHoursParse.replace(/[^a-z0-9\:\-\. ~]/g, ' ');  // replace unnecessary characters with spaces
+                inputHoursParse = inputHoursParse.replace(/\:{2,}/g, ':');  // remove extra colons
+                inputHoursParse = inputHoursParse.replace(/closed|not open/g, '99:99-99:99');  // parse 'closed'
+                inputHoursParse = inputHoursParse.replace(/by appointment( only)?/g, '99:99-99:99');  // parse 'appointment only'
+                inputHoursParse = inputHoursParse.replace(/weekdays/g, 'mon-fri').replace(/weekends/g, 'sat-sun');  // convert weekdays and weekends to days
+                inputHoursParse = inputHoursParse.replace(/(12(:00)?\W*)?noon/g, "12:00").replace(/(12(:00)?\W*)?mid(night|nite)/g, "00:00");  // replace 'noon', 'midnight'
+                inputHoursParse = inputHoursParse.replace(/every\s*day|daily|(7|seven) days a week/g, "mon-sun");  // replace 'seven days a week'
+                inputHoursParse = inputHoursParse.replace(/(open\s*)?(24|twenty\W*four)\W*h(ou)?rs?|all day/g, "00:00-00:00");  // replace 'open 24 hour or similar'
+                inputHoursParse = inputHoursParse.replace(/(\D:)([^ ])/g, "$1 $2");  // space after colons after words
+                // replace thru type words with dashes
+                var thruWords = 'through|thru|to|until|till|til|-|~'.split("|");
+                for (twix=0; twix<thruWords.length; twix++) {
+                    tempRegex = new RegExp(thruWords[twix], "g");
+                    inputHoursParse = inputHoursParse.replace(tempRegex,'-');
+                }
+                inputHoursParse = inputHoursParse.replace(/\-{2,}/g, "-");  // replace any duplicate dashes
             }
-            inputHoursParse = inputHoursParse.replace(/\-{2,}/g, "-");  // replace any duplicate dashes
             phlogdev('Initial parse: ' + inputHoursParse);
 
             // kill extra words
