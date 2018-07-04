@@ -13,7 +13,7 @@
 // ==UserScript==
 // @name        WME Place Harmonizer Beta
 // @namespace   WazeUSA
-// @version     1.3.97
+// @version     1.3.98
 // @description Harmonizes, formats, and locks a selected place
 // @author      WMEPH Development Group
 // @include     /^https:\/\/(www|beta)\.waze\.com\/(?!user\/)(.{2,6}\/)?editor\/?.*$/
@@ -2486,7 +2486,7 @@
 
             bannButt2 = {
                 placesWiki: {
-                    active: true, severity: 0, message: "", value: "Places wiki", title: "Open the places wiki page",
+                    active: true, severity: 0, message: "", value: "Places wiki", title: "Open the places Wazeopedia (wiki) page",
                     action: function() {
                         window.open(placesWikiURL);
                     }
@@ -2516,21 +2516,8 @@
                         };
                         WMEPH_errorReport(forumMsgInputs);
                     }
-                },
-                reportBetaIssue: {
-                    active: isDevVersion, severity: 0, message: "", value: "Report beta issue", title: "Report beta issue in GitHub",
-                    action: function() {
-                        window.open('https://github.com/WazeUSA/WME-Place-Harmonizer/issues');
-                    }
-                },
-                whatsNew: {
-                    active: false, severity: 0, message: "", value: "*Recent script updates*", title: "Open a list of recent script updates",
-                    action: function() {
-                        alert(WMEPHWhatsNew);
-                        localStorage.setItem('WMEPH-featuresExamined'+devVersStr, '1');
-                        bannButt2.whatsNew.active = false;
-                    }
                 }
+
             };  // END bannButt2 definitions
 
             function addUpdateAction(updateObj, actions) {
@@ -2803,13 +2790,13 @@
                 // Update icons to reflect current WME place services
                 updateServicesChecks(bannServ);
 
-                // Turn on New Features Button if not looked at yet
-                if (localStorage.getItem('WMEPH-featuresExamined'+devVersStr) === '0') {
-                    bannButt2.whatsNew.active = true;
-                }
                 //Setting switch for the Places Wiki button
                 if ( $("#WMEPH-HidePlacesWiki" + devVersStr).prop('checked') ) {
                     bannButt2.placesWiki.active = false;
+                }
+
+                if ( $("#WMEPH-HideReportError" + devVersStr).prop('checked') ) {
+                    bannButt2.PlaceErrorForumPost.active = false;
                 }
 //                 // provide Google search link to places
 //                 if (devUser || betaUser || usrRank > 1) {  // enable the link for all places, for R2+ and betas
@@ -5213,39 +5200,41 @@
         }  // END assemble Banner function
 
         function assembleServicesBanner() {
-            // setup Add Service Buttons for suggested services
-            var rowDivs = [];
-            if (!item.isResidential()) {
-                var $rowDiv = $('<div>');
-                var servButtHeight = '27';
-                Object.keys(bannServ).forEach(tempKey => {
-                    var rowData = bannServ[tempKey];
-                    if (rowData.active) {  //  If the particular service is active
-                        var $input = $('<input>', {class:rowData.icon, id:'WMEPH_' + tempKey, type:'button', title: rowData.title}).css(
-                            {border:0, 'background-size':'contain', height:'27px', width: Math.ceil(servButtHeight * rowData.w2hratio).toString()+'px'}
-                        );
-                        if (!rowData.checked) {
-                            $input.css({'-webkit-filter':'opacity(.25)', filter:'opacity(.25)'});
+            if (!$('#WMEPH-HideServicesButtons' + devVersStr).prop('checked')) {
+                // setup Add Service Buttons for suggested services
+                var rowDivs = [];
+                if (!item.isResidential()) {
+                    var $rowDiv = $('<div>');
+                    var servButtHeight = '27';
+                    Object.keys(bannServ).forEach(tempKey => {
+                        var rowData = bannServ[tempKey];
+                        if (rowData.active) {  //  If the particular service is active
+                            var $input = $('<input>', {class:rowData.icon, id:'WMEPH_' + tempKey, type:'button', title: rowData.title}).css(
+                                {border:0, 'background-size':'contain', height:'27px', width: Math.ceil(servButtHeight * rowData.w2hratio).toString()+'px'}
+                            );
+                            if (!rowData.checked) {
+                                $input.css({'-webkit-filter':'opacity(.25)', filter:'opacity(.25)'});
+                            }
+                            $rowDiv.append($input);
                         }
-                        $rowDiv.append($input);
+                    });
+                    if ($rowDiv.length) {
+                        $rowDiv.prepend('<span class="control-label">Add services:</span><br>');
                     }
-                });
-                if ($rowDiv.length) {
-                    $rowDiv.prepend('<span class="control-label">Add services:</span><br>');
+                    rowDivs.push($rowDiv);
                 }
-                rowDivs.push($rowDiv);
-            }
-            if ($('#WMEPH_services').length === 0 ) {
-                $("#WMEPH_banner").after( $('<div id="WMEPH_services">').css({"background-color": "#eee", "color": "black", "font-size": "15px", "padding": "4px", "margin-left": "4px", "margin-right": "auto"}) );
-            } else {
-                $('#WMEPH_services').empty();
-            }
-            $("#WMEPH_services").append(rowDivs);
-            //$('#select2-drop').css({display:'none'});
+                if ($('#WMEPH_services').length === 0 ) {
+                    $("#WMEPH_banner").after( $('<div id="WMEPH_services">').css({"background-color": "#eee", "color": "black", "font-size": "15px", "padding": "4px", "margin-left": "4px", "margin-right": "auto"}) );
+                } else {
+                    $('#WMEPH_services').empty();
+                }
+                $("#WMEPH_services").append(rowDivs);
+                //$('#select2-drop').css({display:'none'});
 
-            // Setup bannServ onclicks
-            if (!item.isResidential()) {
-                setupButtons(bannServ);
+                // Setup bannServ onclicks
+                if (!item.isResidential()) {
+                    setupButtons(bannServ);
+                }
             }
         }
 
@@ -6734,9 +6723,11 @@
             createSettingsCheckbox("sidepanel-harmonizer" + devVersStr, "WMEPH-DisableDFZoom" + devVersStr,"Disable zoom & center for duplicates");
             createSettingsCheckbox("sidepanel-harmonizer" + devVersStr, "WMEPH-EnableIAZoom" + devVersStr,"Enable zoom & center for places with no address");
             createSettingsCheckbox("sidepanel-harmonizer" + devVersStr, "WMEPH-HidePlacesWiki" + devVersStr,"Hide 'Places Wiki' button in results banner");
+            createSettingsCheckbox("sidepanel-harmonizer" + devVersStr, "WMEPH-HideReportError" + devVersStr,"Hide 'Report script error' button in results banner");
+            createSettingsCheckbox("sidepanel-harmonizer" + devVersStr, "WMEPH-HideServicesButtons" + devVersStr,"Hide services buttons in results banner");
             createSettingsCheckbox("sidepanel-harmonizer" + devVersStr, "WMEPH-HidePURWebSearch" + devVersStr,"Hide 'Web Search' button on PUR popups");
-            createSettingsCheckbox("sidepanel-harmonizer" + devVersStr, "WMEPH-ExcludePLADupes" + devVersStr,"Exclude parking lots when searching for duplicate places.");
-            createSettingsCheckbox("sidepanel-harmonizer" + devVersStr, "WMEPH-ShowPLAExitWhileClosed" + devVersStr,"Always ask if cars can exit parking lots.");
+            createSettingsCheckbox("sidepanel-harmonizer" + devVersStr, "WMEPH-ExcludePLADupes" + devVersStr,"Exclude parking lots when searching for duplicate places");
+            createSettingsCheckbox("sidepanel-harmonizer" + devVersStr, "WMEPH-ShowPLAExitWhileClosed" + devVersStr,"Always ask if cars can exit parking lots");
             if (devUser || betaUser || usrRank >= 2) {
                 createSettingsCheckbox("sidepanel-harmonizer" + devVersStr, "WMEPH-DisablePLAExtProviderCheck" + devVersStr,'Disable check for "Google place link" on Parking Lot Areas');
                 //createSettingsCheckbox("sidepanel-harmonizer" + devVersStr, "WMEPH-ExtProviderSeverity" + devVersStr,'Treat "No Google place link" as non-critical (blue)');
