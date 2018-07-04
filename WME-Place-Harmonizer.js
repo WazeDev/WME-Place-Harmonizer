@@ -2579,7 +2579,7 @@
             // action: The action that happens if the button is pressed
             bannServ = {
                 addValet: {  // append optional Alias to the name
-                    active: false, checked: false, icon: "serv-valet", w2hratio: 50/50, value: "Valet", title: 'Valet', servIDIndex: 0,
+                    active: false, checked: false, icon: "serv-valet", w2hratio: 50/50, value: "Valet", title: 'Valet service', servIDIndex: 0,
                     action: function(actions, checked) {
                         setServiceChecked(this, checked, actions);
                     },
@@ -2592,7 +2592,7 @@
                     }
                 },
                 addDriveThru: {  // append optional Alias to the name
-                    active: false, checked: false, icon: "serv-drivethru", w2hratio: 78/50, value: "DriveThru", title: 'Drive-Thru', servIDIndex: 1,
+                    active: false, checked: false, icon: "serv-drivethru", w2hratio: 78/50, value: "DriveThru", title: 'Drive-thru', servIDIndex: 1,
                     action: function(actions, checked) {
                         setServiceChecked(this, checked, actions);
                     },
@@ -2605,7 +2605,7 @@
                     }
                 },
                 addWiFi: {  // append optional Alias to the name
-                    active: false, checked: false, icon: "serv-wifi", w2hratio: 67/50, value: "WiFi", title: 'WiFi', servIDIndex: 2,
+                    active: false, checked: false, icon: "serv-wifi", w2hratio: 67/50, value: "WiFi", title: 'Wi-Fi', servIDIndex: 2,
                     action: function(actions, checked) {
                         setServiceChecked(this, checked, actions);
                     },
@@ -2631,7 +2631,7 @@
                     }
                 },
                 addCreditCards: {  // append optional Alias to the name
-                    active: false, checked: false, icon: "serv-credit", w2hratio: 73/50, value: "CC", title: 'Credit Cards', servIDIndex: 4,
+                    active: false, checked: false, icon: "serv-credit", w2hratio: 73/50, value: "CC", title: 'Accepts credit cards', servIDIndex: 4,
                     action: function(actions, checked) {
                         setServiceChecked(this, checked, actions);
                     },
@@ -2657,7 +2657,7 @@
                     }
                 },
                 addOutside: {  // append optional Alias to the name
-                    active: false, checked: false, icon: "serv-outdoor", w2hratio: 73/50, value: "OusideSeat", title: 'Outside Seating', servIDIndex: 6,
+                    active: false, checked: false, icon: "serv-outdoor", w2hratio: 73/50, value: "OusideSeat", title: 'Outdoor seating', servIDIndex: 6,
                     action: function(actions, checked) {
                         setServiceChecked(this, checked, actions);
                     },
@@ -2670,7 +2670,7 @@
                     }
                 },
                 addAC: {  // append optional Alias to the name
-                    active: false, checked: false, icon: "serv-ac", w2hratio: 50/50, value: "AC", title: 'AC', servIDIndex: 7,
+                    active: false, checked: false, icon: "serv-ac", w2hratio: 50/50, value: "AC", title: 'Air conditioning', servIDIndex: 7,
                     action: function(actions, checked) {
                         setServiceChecked(this, checked, actions);
                     },
@@ -2683,7 +2683,7 @@
                     }
                 },
                 addParking: {  // append optional Alias to the name
-                    active: false, checked: false, icon: "serv-parking", w2hratio: 46/50, value: "Parking", title: 'Parking', servIDIndex: 8,
+                    active: false, checked: false, icon: "serv-parking", w2hratio: 46/50, value: "Customer parking", title: 'Parking', servIDIndex: 8,
                     action: function(actions, checked) {
                         setServiceChecked(this, checked, actions);
                     },
@@ -2709,7 +2709,7 @@
                     }
                 },
                 addTakeAway: {  // append optional Alias to the name
-                    active: false, checked: false, icon: "serv-takeaway", w2hratio: 34/50, value: "TakeOut", title: 'Take Out', servIDIndex: 10,
+                    active: false, checked: false, icon: "serv-takeaway", w2hratio: 34/50, value: "Take-out", title: 'Take-out', servIDIndex: 10,
                     action: function(actions, checked) {
                         setServiceChecked(this, checked, actions);
                     },
@@ -2722,7 +2722,7 @@
                     }
                 },
                 addWheelchair: {  // add service
-                    active: false, checked: false, icon: "serv-wheelchair", w2hratio: 50/50, value: "WhCh", title: 'Wheelchair Accessible', servIDIndex: 11,
+                    active: false, checked: false, icon: "serv-wheelchair", w2hratio: 50/50, value: "WhCh", title: 'Wheelchair accessible', servIDIndex: 11,
                     action: function(actions, checked) {
                         setServiceChecked(this, checked, actions);
                     },
@@ -2735,7 +2735,7 @@
                     }
                 },
                 addDisabilityParking: {
-                    active: false, checked: false, icon: "serv-wheelchair", w2hratio: 50/50, value: "DisabilityParking", title: 'Disability Parking', servIDIndex: 12,
+                    active: false, checked: false, icon: "serv-wheelchair", w2hratio: 50/50, value: "DisabilityParking", title: 'Disability parking', servIDIndex: 12,
                     action: function(actions, checked) {
                         setServiceChecked(this, checked, actions);
                     },
@@ -5206,12 +5206,14 @@
                 if (!item.isResidential()) {
                     var $rowDiv = $('<div>');
                     var servButtHeight = '27';
+                    var buttons = [];
                     Object.keys(bannServ).forEach(tempKey => {
                         var rowData = bannServ[tempKey];
                         if (rowData.active) {  //  If the particular service is active
-                            var $input = $('<input>', {class:rowData.icon, id:'WMEPH_' + tempKey, type:'button', title: rowData.title}).css(
+                            var $input = $('<input>', {class:rowData.icon, id:'WMEPH_' + tempKey, type:'button', "title": rowData.title}).css(
                                 {border:0, 'background-size':'contain', height:'27px', width: Math.ceil(servButtHeight * rowData.w2hratio).toString()+'px'}
                             );
+                            buttons.push($input);
                             if (!rowData.checked) {
                                 $input.css({'-webkit-filter':'opacity(.25)', filter:'opacity(.25)'});
                             }
@@ -5229,7 +5231,6 @@
                     $('#WMEPH_services').empty();
                 }
                 $("#WMEPH_services").append(rowDivs);
-                //$('#select2-drop').css({display:'none'});
 
                 // Setup bannServ onclicks
                 if (!item.isResidential()) {
