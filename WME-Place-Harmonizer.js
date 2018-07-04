@@ -19,6 +19,7 @@
 // @include     /^https:\/\/(www|beta)\.waze\.com\/(?!user\/)(.{2,6}\/)?editor\/?.*$/
 // @require     https://greasyfork.org/scripts/28687-jquery-ui-1-11-4-custom-min-js/code/jquery-ui-1114customminjs.js
 // @require     https://greasyfork.org/scripts/24851-wazewrap/code/WazeWrap.js
+// @require     https://greasyfork.org/scripts/37486-wme-utils-hoursparser/code/WME%20Utils%20-%20HoursParser.js
 // @resource    jqUI_CSS  https://ajax.googleapis.com/ajax/libs/jqueryui/1.11.4/themes/smoothness/jquery-ui.css
 // @license     GNU GPL v3
 // @grant       GM_addStyle
@@ -2187,59 +2188,44 @@
                 noHours: {
                     active: false, severity: 1, message: getHoursHtml('No hours'),
                     // value: "Add hours", title: 'Add pasted hours to existing',
-                    getTitle: function(hoursObjectArray) {
+                    getTitle: function(parseResult) {
                         var title;
-                        if (hoursObjectArray === null) {
+                        if (parseResult.overlappingHours) {
                             title = 'Overlapping hours.  Check the existing hours.';
-                        } else if (typeof hoursObjectArray === 'undefined') {
+                        } else if (parseResult.sameOpenAndCloseTimes) {
                             title = 'Open/close times cannot be the same.';
                         } else {
                             title = 'Can\'t parse, try again';
                         }
                         return title;
                     },
-                    addHoursAction: function() {
+                    applyHours: function(replaceAllHours) {
                         var pasteHours = $('#WMEPH-HoursPaste'+devVersStr).val();
                         if (pasteHours === _DEFAULT_HOURS_TEXT) {
                             return;
                         }
                         phlogdev(pasteHours);
+                        pasteHours += !replaceAllHours ? ',' + getOpeningHours(item).join(',') : '';
                         $('.nav-tabs a[href="#landmark-edit-more-info"]').tab('show');
-                        pasteHours = pasteHours + ',' + getOpeningHours(item).join(',');
-                        var hoursObjectArray = parseHours(pasteHours);
-                        if (hoursObjectArray) {
-                            phlogdev(hoursObjectArray);
-                            W.model.actionManager.add(new UpdateObject(item, { openingHours: hoursObjectArray }));
+                        var parser = new HoursParser();
+                        var parseResult = parser.parseHours(pasteHours);
+                        if (parseResult.hours && !parseResult.overlappingHours && !parseResult.sameOpenAndCloseTimes && !parseResult.parseError) {
+                            phlogdev(parseResult.hours);
+                            W.model.actionManager.add(new UpdateObject(item, { openingHours: parseResult.hours }));
                             _updatedFields.openingHours.updated = true;
                             harmonizePlaceGo(item, 'harmonize');
                         } else {
                             phlog('Can\'t parse those hours');
                             bannButt.noHours.severity = 1;
                             bannButt.noHours.WLactive = true;
-                            $('#WMEPH-HoursPaste'+devVersStr).css({'background-color':'#FDD'}).attr({title:bannButt.noHours.getTitle(hoursObjectArray)});
+                            $('#WMEPH-HoursPaste'+devVersStr).css({'background-color':'#FDD'}).attr({title:bannButt.noHours.getTitle(parseResult)});
                         }
                     },
-                    // value2: "Replace all hours", title2: 'Replace existing hours with pasted hours',
+                    addHoursAction: function() {
+                        bannButt.noHours.applyHours();
+                    },
                     replaceHoursAction: function() {
-                        var pasteHours = $('#WMEPH-HoursPaste'+devVersStr).val();
-                        if (pasteHours === _DEFAULT_HOURS_TEXT) {
-                            return;
-                        }
-                        phlogdev(pasteHours);
-                        $('.nav-tabs a[href="#landmark-edit-more-info"]').tab('show');
-                        var hoursObjectArray = parseHours(pasteHours);
-                        if (hoursObjectArray) {
-                            phlogdev(hoursObjectArray);
-                            //item.attributes.openingHours.push.apply(item.attributes.openingHours, hoursObjectArray); <-- This was causing an undo bug.  Not sure why it was there.
-                            W.model.actionManager.add(new UpdateObject(item, { openingHours: hoursObjectArray }));
-                            _updatedFields.openingHours.updated = true;
-                            harmonizePlaceGo(item, 'harmonize');
-                        } else {
-                            phlog('Can\'t parse those hours');
-                            bannButt.noHours.severity = 1;
-                            bannButt.noHours.WLactive = true;
-                            $('#WMEPH-HoursPaste'+devVersStr).css({'background-color':'#FDD'}).attr({title:bannButt.noHours.getTitle(hoursObjectArray)});
-                        }
+                        bannButt.noHours.applyHours(true);
                     },
                     WLactive: true, WLmessage: '', WLtitle: 'Whitelist "No hours"',
                     WLaction: function() {
@@ -5637,371 +5623,6 @@
         // Pull natural text from opening hours
         function getOpeningHours(venue) {
             return venue && venue.getOpeningHours && venue.getOpeningHours().map(formatOpeningHour);
-        }
-        // Parse hours paste for hours object array
-        function parseHours(inputHours) {
-            var daysOfTheWeek = {
-                SS: ['saturdays', 'saturday', 'satur', 'sat', 'sa'],
-                UU: ['sundays', 'sunday', 'sun', 'su'],
-                MM: ['mondays', 'monday', 'mondy', 'mon', 'mo'],
-                TT: ['tuesdays', 'tuesday', 'tues', 'tue', 'tu'],
-                WW: ['wednesdays', 'wednesday', 'weds', 'wed', 'we'],
-                RR: ['thursdays', 'thursday', 'thurs', 'thur', 'thu', 'th'],
-                FF: ['fridays', 'friday', 'fri', 'fr']
-            };
-            var monthsOfTheYear = {
-                JAN: ['january', 'jan'],
-                FEB: ['february', 'febr', 'feb'],
-                MAR: ['march', 'mar'],
-                APR: ['april', 'apr'],
-                MAY: ['may', 'may'],
-                JUN: ['june', 'jun'],
-                JUL: ['july', 'jul'],
-                AUG: ['august', 'aug'],
-                SEP: ['september', 'sept', 'sep'],
-                OCT: ['october', 'oct'],
-                NOV: ['november', 'nov'],
-                DEC: ['december', 'dec']
-            };
-            var dayCodeVec = ['MM','TT','WW','RR','FF','SS','UU','MM','TT','WW','RR','FF','SS','UU','MM','TT','WW','RR','FF'];
-            var tfHourTemp, tfDaysTemp, newDayCodeVec = [];
-            var tempRegex, twix, tsix;
-            var inputHoursParse = inputHours.toLowerCase();
-            inputHoursParse = inputHoursParse.replace(/paste hours here/i, "");  // make sure something is pasted
-            phlogdev(inputHoursParse);
-            if (inputHoursParse === '' || inputHoursParse === ',') {
-                phlogdev('No hours');
-                return false;
-            }
-
-            var today = new Date();
-            var tomorrow = new Date();
-            tomorrow.setDate(tomorrow.getDate() + 1);
-            if (/24\s*[\\/*x]\s*7/g.test(inputHoursParse)) {
-                inputHoursParse = 'mon-sun 00:00-00:00';
-            } else {
-                inputHoursParse = inputHoursParse.replace(/\btoday\b/g, today.toLocaleDateString(I18n.locale, {weekday:'short'}).toLowerCase());
-                inputHoursParse = inputHoursParse.replace(/\btomorrow\b/g, tomorrow.toLocaleDateString(I18n.locale, {weekday:'short'}).toLowerCase());
-                inputHoursParse = inputHoursParse.replace(/\u2013|\u2014/g, "-");  // long dash replacing
-                inputHoursParse = inputHoursParse.replace(/[^a-z0-9\:\-\. ~]/g, ' ');  // replace unnecessary characters with spaces
-                inputHoursParse = inputHoursParse.replace(/\:{2,}/g, ':');  // remove extra colons
-                inputHoursParse = inputHoursParse.replace(/closed|not open/g, '99:99-99:99');  // parse 'closed'
-                inputHoursParse = inputHoursParse.replace(/by appointment( only)?/g, '99:99-99:99');  // parse 'appointment only'
-                inputHoursParse = inputHoursParse.replace(/weekdays/g, 'mon-fri').replace(/weekends/g, 'sat-sun');  // convert weekdays and weekends to days
-                inputHoursParse = inputHoursParse.replace(/(12(:00)?\W*)?noon/g, "12:00").replace(/(12(:00)?\W*)?mid(night|nite)/g, "00:00");  // replace 'noon', 'midnight'
-                inputHoursParse = inputHoursParse.replace(/every\s*day|daily|(7|seven) days a week/g, "mon-sun");  // replace 'seven days a week'
-                inputHoursParse = inputHoursParse.replace(/(open\s*)?(24|twenty\W*four)\W*h(ou)?rs?|all day/g, "00:00-00:00");  // replace 'open 24 hour or similar'
-                inputHoursParse = inputHoursParse.replace(/(\D:)([^ ])/g, "$1 $2");  // space after colons after words
-                // replace thru type words with dashes
-                var thruWords = 'through|thru|to|until|till|til|-|~'.split("|");
-                for (twix=0; twix<thruWords.length; twix++) {
-                    tempRegex = new RegExp(thruWords[twix], "g");
-                    inputHoursParse = inputHoursParse.replace(tempRegex,'-');
-                }
-                inputHoursParse = inputHoursParse.replace(/\-{2,}/g, "-");  // replace any duplicate dashes
-            }
-            phlogdev('Initial parse: ' + inputHoursParse);
-
-            // kill extra words
-            var killWords = 'paste|here|business|operation|times|time|walk-ins|walk ins|welcome|dinner|lunch|brunch|breakfast|regular|weekday|weekend|opening|open|now|from|hours|hour|our|are|EST|and|&'.split("|");
-            for (twix=0; twix<killWords.length; twix++) {
-                tempRegex = new RegExp('\\b'+killWords[twix]+'\\b', "g");
-                inputHoursParse = inputHoursParse.replace(tempRegex,'');
-            }
-            phlogdev('After kill terms: ' + inputHoursParse);
-
-            // replace day terms with double caps
-            for (var dayKey in daysOfTheWeek) {
-                if (daysOfTheWeek.hasOwnProperty(dayKey)) {
-                    var tempDayList = daysOfTheWeek[dayKey];
-                    for (var tdix=0; tdix<tempDayList.length; tdix++) {
-                        tempRegex = new RegExp(tempDayList[tdix]+'(?!a-z)', "g");
-                        inputHoursParse = inputHoursParse.replace(tempRegex,dayKey);
-                    }
-                }
-            }
-            phlogdev('Replace day terms: ' + inputHoursParse);
-
-            // Replace dates
-            for (var monthKey in monthsOfTheYear) {
-                if (monthsOfTheYear.hasOwnProperty(monthKey)) {
-                    var tempMonthList = monthsOfTheYear[monthKey];
-                    for (var tmix=0; tmix<tempMonthList.length; tmix++) {
-                        tempRegex = new RegExp(tempMonthList[tmix]+'\\.? ?\\d{1,2}\\,? ?201\\d{1}', "g");
-                        inputHoursParse = inputHoursParse.replace(tempRegex,' ');
-                        tempRegex = new RegExp(tempMonthList[tmix]+'\\.? ?\\d{1,2}', "g");
-                        inputHoursParse = inputHoursParse.replace(tempRegex,' ');
-                    }
-                }
-            }
-            phlogdev('Replace month terms: ' + inputHoursParse);
-
-            // replace any periods between hours with colons
-            inputHoursParse = inputHoursParse.replace(/(\d{1,2})\.(\d{2})/g, '$1:$2');
-            // remove remaining periods
-            inputHoursParse = inputHoursParse.replace(/\./g, '');
-            // remove any non-hour colons between letters and numbers and on string ends
-            inputHoursParse = inputHoursParse.replace(/(\D+)\:(\D+)/g, '$1 $2').replace(/^ *\:/g, ' ').replace(/\: *$/g, ' ');
-            // replace am/pm with AA/PP
-            inputHoursParse = inputHoursParse.replace(/ *pm/g,'PP').replace(/ *am/g,'AA');
-            inputHoursParse = inputHoursParse.replace(/ *p\.m\./g,'PP').replace(/ *a\.m\./g,'AA');
-            inputHoursParse = inputHoursParse.replace(/ *p\.m/g,'PP').replace(/ *a\.m/g,'AA');
-            inputHoursParse = inputHoursParse.replace(/ *p/g,'PP').replace(/ *a/g,'AA');
-            // tighten up dashes
-            inputHoursParse = inputHoursParse.replace(/\- {1,}/g,'-').replace(/ {1,}\-/g,'-');
-            inputHoursParse = inputHoursParse.replace(/^(00:00-00:00)$/g,'MM-UU$1');
-            phlogdev('AMPM parse: ' + inputHoursParse);
-
-            //  Change all MTWRFSU to doubles, if any other letters return false
-            if (inputHoursParse.match(/[bcdeghijklnoqvxyz]/g) !== null) {
-                phlogdev('Extra words in the string');
-                return false;
-            } else {
-                inputHoursParse = inputHoursParse.replace(/m/g,'MM').replace(/t/g,'TT').replace(/w/g,'WW').replace(/r/g,'RR');
-                inputHoursParse = inputHoursParse.replace(/f/g,'FF').replace(/s/g,'SS').replace(/u/g,'UU');
-            }
-            phlogdev('MM/TT format: ' + inputHoursParse);
-
-            // tighten up spaces
-            inputHoursParse = inputHoursParse.replace(/ {2,}/g,' ');
-            inputHoursParse = inputHoursParse.replace(/ {1,}AA/g,'AA');
-            inputHoursParse = inputHoursParse.replace(/ {1,}PP/g,'PP');
-            // Expand hours into XX:XX format
-            for (var asdf=0; asdf<5; asdf++) {  // repeat a few times to catch any skipped regex matches
-                inputHoursParse = inputHoursParse.replace(/([^0-9\:])(\d{1})([^0-9\:])/g, '$10$2:00$3');
-                inputHoursParse = inputHoursParse.replace(/^(\d{1})([^0-9\:])/g, '0$1:00$2');
-                inputHoursParse = inputHoursParse.replace(/([^0-9\:])(\d{1})$/g, '$10$2:00');
-
-                inputHoursParse = inputHoursParse.replace(/([^0-9\:])(\d{2})([^0-9\:])/g, '$1$2:00$3');
-                inputHoursParse = inputHoursParse.replace(/^(\d{2})([^0-9\:])/g, '$1:00$2');
-                inputHoursParse = inputHoursParse.replace(/([^0-9\:])(\d{2})$/g, '$1$2:00');
-
-                inputHoursParse = inputHoursParse.replace(/(\D)(\d{1})(\d{2}\D)/g, '$10$2:$3');
-                inputHoursParse = inputHoursParse.replace(/^(\d{1})(\d{2}\D)/g, '0$1:$2');
-                inputHoursParse = inputHoursParse.replace(/(\D)(\d{1})(\d{2})$/g, '$10$2:$3');
-
-                inputHoursParse = inputHoursParse.replace(/(\D\d{2})(\d{2}\D)/g, '$1:$2');
-                inputHoursParse = inputHoursParse.replace(/^(\d{2})(\d{2}\D)/g, '$1:$2');
-                inputHoursParse = inputHoursParse.replace(/(\D\d{2})(\d{2})$/g, '$1:$2');
-
-                inputHoursParse = inputHoursParse.replace(/(\D)(\d{1}\:)/g, '$10$2');
-                inputHoursParse = inputHoursParse.replace(/^(\d{1}\:)/g, '0$1');
-            }
-
-            // replace 12AM range with 00
-            inputHoursParse = inputHoursParse.replace( /12(\:\d{2}AA)/g, '00$1');
-            // Change PM hours to 24hr time
-            while (inputHoursParse.match(/\d{2}\:\d{2}PP/) !== null) {
-                tfHourTemp = inputHoursParse.match(/(\d{2})\:\d{2}PP/)[1];
-                tfHourTemp = parseInt(tfHourTemp) % 12 + 12;
-                inputHoursParse = inputHoursParse.replace(/\d{2}(\:\d{2})PP/,tfHourTemp.toString()+'$1');
-            }
-            // kill the AA
-            inputHoursParse = inputHoursParse.replace( /AA/g, '');
-            phlogdev('XX:XX format: ' + inputHoursParse);
-
-            // Side check for tabular input
-            var inputHoursParseTab = inputHoursParse.replace( /[^A-Z0-9\:-]/g, ' ').replace( / {2,}/g, ' ');
-            inputHoursParseTab = inputHoursParseTab.replace( /^ +/g, '').replace( / {1,}$/g, '');
-            if (inputHoursParseTab.match(/[A-Z]{2}\:?\-? [A-Z]{2}\:?\-? [A-Z]{2}\:?\-? [A-Z]{2}\:?\-? [A-Z]{2}\:?\-?/g) !== null) {
-                inputHoursParseTab = inputHoursParseTab.split(' ');
-                var reorderThree = [0,7,14,1,8,15,2,9,16,3,10,17,4,11,18,5,12,19,6,13,20];
-                var reorderTwo = [0,7,1,8,2,9,3,10,4,11,5,12,6,13];
-                var inputHoursParseReorder = [], reix;
-                if (inputHoursParseTab.length === 21) {
-                    for (reix=0; reix<21; reix++) {
-                        inputHoursParseReorder.push(inputHoursParseTab[reorderThree[reix]]);
-                    }
-                } else if (inputHoursParseTab.length === 18) {
-                    for (reix=0; reix<18; reix++) {
-                        inputHoursParseReorder.push(inputHoursParseTab[reorderThree[reix]]);
-                    }
-                } else if (inputHoursParseTab.length === 15) {
-                    for (reix=0; reix<15; reix++) {
-                        inputHoursParseReorder.push(inputHoursParseTab[reorderThree[reix]]);
-                    }
-                } else if (inputHoursParseTab.length === 14) {
-                    for (reix=0; reix<14; reix++) {
-                        inputHoursParseReorder.push(inputHoursParseTab[reorderTwo[reix]]);
-                    }
-                } else if (inputHoursParseTab.length === 12) {
-                    for (reix=0; reix<12; reix++) {
-                        inputHoursParseReorder.push(inputHoursParseTab[reorderTwo[reix]]);
-                    }
-                } else if (inputHoursParseTab.length === 10) {
-                    for (reix=0; reix<10; reix++) {
-                        inputHoursParseReorder.push(inputHoursParseTab[reorderTwo[reix]]);
-                    }
-                }
-                //phlogdev('inputHoursParseTab: ' + inputHoursParseTab);
-                phlogdev('inputHoursParseReorder: ' + inputHoursParseReorder);
-                if (inputHoursParseReorder.length > 9) {
-                    inputHoursParseReorder = inputHoursParseReorder.join(' ');
-                    inputHoursParseReorder = inputHoursParseReorder.replace(/(\:\d{2}) (\d{2}\:)/g, '$1-$2');
-                    inputHoursParse = inputHoursParseReorder;
-                }
-
-            }
-
-
-            // remove colons after Days field
-            inputHoursParse = inputHoursParse.replace(/(\D+)\:/g, '$1 ');
-
-            // Find any double sets
-            inputHoursParse = inputHoursParse.replace(/([A-Z \-]{2,}) *(\d{2}\:\d{2} *\-{1} *\d{2}\:\d{2}) *(\d{2}\:\d{2} *\-{1} *\d{2}\:\d{2})/g, '$1$2$1$3');
-            inputHoursParse = inputHoursParse.replace(/(\d{2}\:\d{2}) *(\d{2}\:\d{2})/g, '$1-$2');
-            phlogdev('Add dash: ' + inputHoursParse);
-
-            // remove all spaces
-            inputHoursParse = inputHoursParse.replace( / */g, '');
-
-            // Remove any dashes acting as Day separators for 3+ days ("M-W-F")
-            inputHoursParse = inputHoursParse.replace( /([A-Z]{2})-([A-Z]{2})-([A-Z]{2})-([A-Z]{2})-([A-Z]{2})-([A-Z]{2})-([A-Z]{2})/g, '$1$2$3$4$5$6$7');
-            inputHoursParse = inputHoursParse.replace( /([A-Z]{2})-([A-Z]{2})-([A-Z]{2})-([A-Z]{2})-([A-Z]{2})-([A-Z]{2})/g, '$1$2$3$4$5$6');
-            inputHoursParse = inputHoursParse.replace( /([A-Z]{2})-([A-Z]{2})-([A-Z]{2})-([A-Z]{2})-([A-Z]{2})/g, '$1$2$3$4$5');
-            inputHoursParse = inputHoursParse.replace( /([A-Z]{2})-([A-Z]{2})-([A-Z]{2})-([A-Z]{2})/g, '$1$2$3$4');
-            inputHoursParse = inputHoursParse.replace( /([A-Z]{2})-([A-Z]{2})-([A-Z]{2})/g, '$1$2$3');
-
-            // parse any 'through' type terms on the day ranges (MM-RR --> MMTTWWRR)
-            while (inputHoursParse.match(/[A-Z]{2}\-[A-Z]{2}/) !== null) {
-                tfDaysTemp = inputHoursParse.match(/([A-Z]{2})\-([A-Z]{2})/);
-                var startDayIX = dayCodeVec.indexOf(tfDaysTemp[1]);
-                newDayCodeVec = [tfDaysTemp[1]];
-                for (var dcvix=startDayIX+1; dcvix<startDayIX+7; dcvix++) {
-                    newDayCodeVec.push(dayCodeVec[dcvix]);
-                    if (tfDaysTemp[2] === dayCodeVec[dcvix]) {
-                        break;
-                    }
-                }
-                newDayCodeVec = newDayCodeVec.join('');
-                inputHoursParse = inputHoursParse.replace(/[A-Z]{2}\-[A-Z]{2}/,newDayCodeVec);
-            }
-
-            // split the string between numerical and letter characters
-            inputHoursParse = inputHoursParse.replace(/([A-Z])\-?\:?([0-9])/g,'$1|$2');
-            inputHoursParse = inputHoursParse.replace(/([0-9])\-?\:?([A-Z])/g,'$1|$2');
-            inputHoursParse = inputHoursParse.replace(/(\d{2}\:\d{2})\:00/g,'$1');  // remove seconds
-            inputHoursParse = inputHoursParse.split("|");
-            phlogdev('Split: ' + inputHoursParse);
-
-            var daysVec = [], hoursVec = [];
-            for (tsix=0; tsix<inputHoursParse.length; tsix++) {
-                if (inputHoursParse[tsix][0].match(/[A-Z]/) !== null) {
-                    daysVec.push(inputHoursParse[tsix]);
-                } else if (inputHoursParse[tsix][0].match(/[0-9]/) !== null) {
-                    hoursVec.push(inputHoursParse[tsix]);
-                } else {
-                    phlogdev('Filtering error');
-                    return false;
-                }
-            }
-
-            // check that the dayArray and hourArray lengths correspond
-            if ( daysVec.length !== hoursVec.length ) {
-                phlogdev('Hour and Day arrays are not matched');
-                return false;
-            }
-
-            // Combine days with the same hours in the same vector
-            var newDaysVec = [], newHoursVec = [], hrsIX;
-            for (tsix=0; tsix<daysVec.length; tsix++) {
-                if (hoursVec[tsix] !== '99:99-99:99') {  // Don't add the closed days
-                    hrsIX = newHoursVec.indexOf(hoursVec[tsix]);
-                    if (hrsIX > -1) {
-                        newDaysVec[hrsIX] = newDaysVec[hrsIX] + daysVec[tsix];
-                    } else {
-                        newDaysVec.push(daysVec[tsix]);
-                        newHoursVec.push(hoursVec[tsix]);
-                    }
-                }
-            }
-
-            var hoursObjectArray = [], hoursObjectArrayMinDay = [], hoursObjectArraySorted = [], hoursObjectAdd, daysObjArray, toFromSplit;
-            for (tsix=0; tsix<newDaysVec.length; tsix++) {
-                hoursObjectAdd = {};
-                daysObjArray = [];
-                toFromSplit = newHoursVec[tsix].match(/(\d{2}\:\d{2})\-(\d{2}\:\d{2})/);
-                if (toFromSplit === null) {
-                    phlogdev('Hours in wrong format');
-                    return false;
-                } else {  // Check for hours outside of 0-23 and 0-59
-                    var hourCheck = toFromSplit[1].match(/(\d{2})\:/)[1];
-                    if (hourCheck>23 || hourCheck < 0) {
-                        phlogdev('Not a valid time');
-                        return false;
-                    }
-                    hourCheck = toFromSplit[2].match(/(\d{2})\:/)[1];
-                    if (hourCheck>23 || hourCheck < 0) {
-                        phlogdev('Not a valid time');
-                        return false;
-                    }
-                    hourCheck = toFromSplit[1].match(/\:(\d{2})/)[1];
-                    if (hourCheck>59 || hourCheck < 0) {
-                        phlogdev('Not a valid time');
-                        return false;
-                    }
-                    hourCheck = toFromSplit[2].match(/\:(\d{2})/)[1];
-                    if (hourCheck>59 || hourCheck < 0) {
-                        phlogdev('Not a valid time');
-                        return false;
-                    }
-                }
-                // Make the days object
-                if ( newDaysVec[tsix].indexOf('MM') > -1 ) {
-                    daysObjArray.push(1);
-                }
-                if ( newDaysVec[tsix].indexOf('TT') > -1 ) {
-                    daysObjArray.push(2);
-                }
-                if ( newDaysVec[tsix].indexOf('WW') > -1 ) {
-                    daysObjArray.push(3);
-                }
-                if ( newDaysVec[tsix].indexOf('RR') > -1 ) {
-                    daysObjArray.push(4);
-                }
-                if ( newDaysVec[tsix].indexOf('FF') > -1 ) {
-                    daysObjArray.push(5);
-                }
-                if ( newDaysVec[tsix].indexOf('SS') > -1 ) {
-                    daysObjArray.push(6);
-                }
-                if ( newDaysVec[tsix].indexOf('UU') > -1 ) {
-                    daysObjArray.push(0);
-                }
-                // build the hours object
-                hoursObjectAdd.fromHour = toFromSplit[1];
-                hoursObjectAdd.toHour = toFromSplit[2];
-                hoursObjectAdd.days = daysObjArray.sort();
-                hoursObjectArray.push(hoursObjectAdd);
-                // track the order
-                if (hoursObjectAdd.days.length > 1 && hoursObjectAdd.days[0] === 0) {
-                    hoursObjectArrayMinDay.push( hoursObjectAdd.days[1] * 100 + parseInt(toFromSplit[1][0])*10 + parseInt(toFromSplit[1][1]) );
-                } else {
-                    hoursObjectArrayMinDay.push( (((hoursObjectAdd.days[0]+6)%7)+1) * 100 + parseInt(toFromSplit[1][0])*10 + parseInt(toFromSplit[1][1]) );
-                }
-            }
-            sortWithIndex(hoursObjectArrayMinDay);
-            for (var hoaix=0; hoaix < hoursObjectArrayMinDay.length; hoaix++) {
-                hoursObjectArraySorted.push(hoursObjectArray[hoursObjectArrayMinDay.sortIndices[hoaix]]);
-            }
-            if ( !checkHours(hoursObjectArraySorted) ) {
-                phlogdev('Overlapping hours');
-                return null;
-            } else if ( hasSameOpenCloseTimes(hoursObjectArraySorted) ) {
-                phlogdev('Same open/close time');
-                return undefined;
-            } else {
-                for ( var ohix=0; ohix<hoursObjectArraySorted.length; ohix++ ) {
-                    phlogdev(hoursObjectArraySorted[ohix]);
-                    if ( hoursObjectArraySorted[ohix].days.length === 2 && hoursObjectArraySorted[ohix].days[0] === 0 && hoursObjectArraySorted[ohix].days[1] === 1) {
-                        // separate hours
-                        phlogdev('Splitting M-S entry...');
-                        hoursObjectArraySorted.push({days: [0], fromHour: hoursObjectArraySorted[ohix].fromHour, toHour: hoursObjectArraySorted[ohix].toHour});
-                        hoursObjectArraySorted[ohix].days = [1];
-                    }
-                }
-            }
-            return hoursObjectArraySorted;
         }
 
         // function to check overlapping hours
