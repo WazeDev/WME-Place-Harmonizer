@@ -13,7 +13,7 @@
 // ==UserScript==
 // @name        WME Place Harmonizer Beta
 // @namespace   WazeUSA
-// @version     1.3.96
+// @version     1.3.97
 // @description Harmonizes, formats, and locks a selected place
 // @author      WMEPH Development Group
 // @include     /^https:\/\/(www|beta)\.waze\.com\/(?!user\/)(.{2,6}\/)?editor\/?.*$/
@@ -35,6 +35,7 @@
         '#WMEPH_banner input[type=text], #WMEPH_banner .ui-autocomplete-input { font-size: 13px !important; height:22px !important; font-family: "Open Sans", Alef, helvetica, sans-serif !important; }',
         '#WMEPH_banner div { padding-bottom: 6px !important; }',
         '#WMEPH_banner div:last-child { padding-bottom: 3px !important; }',
+        '#WMEPH_runButton { padding-bottom: 6px; padding-top: 3px; width: 290; color: black; font-size: 15px; margin-right: auto; margin-left: 4px; }',
         '#WMEPH_tools div { padding-bottom: 2px !important; }',
         '.ui-autocomplete { max-height: 300px;overflow-y: auto;overflow-x: hidden;} '
     ].join('\n'));
@@ -1824,13 +1825,7 @@
                 },
 
                 gasNoBrand: {
-                    active: false, severity: 1, message: 'Verify that gas station has no brand.',
-                    WLactive: true, WLmessage: '', WLtitle: 'Whitelist no gas brand',
-                    WLaction: function() {
-                        wlKeyName = 'gasNoBrand';
-                        whitelistAction(itemID, wlKeyName);
-                        harmonizePlaceGo(item, 'harmonize');
-                    }
+                    active: false, severity: 1, message: 'Lock to region standards to verify no gas brand.'
                 },
 
                 subFuel: {
@@ -2875,7 +2870,6 @@
                                     lockOK = false;
                                 }
                             } else {
-                                debugger;
                                 if (['JUNCTION_INTERCHANGE'].indexOf(newCategories[0]) === -1) {
                                     bannButt.cityMissing.active = true;
                                     lockOK = false;
@@ -3150,10 +3144,7 @@
                 }
                 if ( !item.attributes.brand || item.attributes.brand === null || item.attributes.brand === "" ) {
                     bannButt.gasNoBrand.active = true;
-                    if (currentWL.gasNoBrand) {
-                        bannButt.gasNoBrand.severity = 0;
-                        bannButt.gasNoBrand.WLactive = false;
-                    }
+                    lockOK = false;
                 } else if (item.attributes.brand === 'Unbranded' ) {  //  Unbranded is not used per wiki
                     bannButt.gasUnbranded.active = true;
                     lockOK = false;
@@ -4620,7 +4611,6 @@
             }
 
             // update Severity for banner messages
-            debugger;
             for (var bannKey in bannButt) {
                 if (bannButt.hasOwnProperty(bannKey) && bannButt[bannKey].active) {
                     severityButt = Math.max(bannButt[bannKey].severity, severityButt);
@@ -4648,6 +4638,15 @@
             }
 
             if (levelToLock > (usrRank - 1)) {levelToLock = (usrRank - 1);}  // Only lock up to the user's level
+
+            // If gas station is missing brand, don't flag if place is locked.
+            if (bannButt.gasNoBrand.active) {
+                if (item.attributes.lockRank >= levelToLock) {
+                    bannButt.gasNoBrand.active = false;
+                } else {
+                    bannButt.gasNoBrand.message = 'Lock to L' + (levelToLock + 1) + '+ to verify no gas brand.';
+                }
+            }
 
             // If no Google link and severity would otherwise allow locking, ask if user wants to lock anyway.
             if (!isLocked && lockOK && bannButt.extProviderMissing.active && severityButt <= 2) {
@@ -5005,7 +5004,7 @@
             }
 
             if ($('#WMEPH_banner').length === 0 ) {
-                $('<div id="WMEPH_banner">').css({"background-color": "#fff", "color": "white", "font-size": "15px", "padding": "4px", "margin-left": "4px", "margin-right": "4px", "line-height":"18px", "margin-top":"2px"}).prependTo(".contents");
+                $('<div id="WMEPH_banner">').css({"background-color": "#fff", "color": "white", "font-size": "15px", "padding": "4px", "margin-left": "4px", "margin-right": "4px", "line-height":"18px", "margin-top":"2px"}).prependTo('.contents');
             } else {
                 $('#WMEPH_banner').empty();
             }
@@ -5311,10 +5310,10 @@
             var betaDelay = 100;
             setTimeout(() => {
                 if ($('#WMEPH_runButton').length === 0 ) {
-                    $('<div id="WMEPH_runButton">').css({"padding-bottom": "6px", "padding-top": "3px", "width": "290", "color": "black", "font-size": "15px", "margin-left": "auto", "margin-right": "auto"}).prependTo(".contents");
+                    $('<div id="WMEPH_runButton">').prependTo(".contents");
                 }
                 if ($('#runWMEPH'+devVersStr).length === 0 ) {
-                    var strButt1 = '<input class="btn btn-primary" id="runWMEPH'+devVersStr+'" title="Run WMEPH'+devVersStrSpace+' on Place" type="button" value="Run WMEPH'+devVersStrSpace+'" style="padding-left:8px;padding-right:8px;">';
+                    var strButt1 = '<input class="btn btn-primary" id="runWMEPH'+devVersStr+'" title="Run WMEPH'+devVersStrSpace+' on Place" type="button" value="Run WMEPH'+(devVersStr==='Beta'?'-β':'')+'" style="padding-left:8px;padding-right:8px;padding-top:4px;height:24px;font-weight:normal;">';
                     $("#WMEPH_runButton").append(strButt1);
                 }
                 var btn = document.getElementById("runWMEPH"+devVersStr);
@@ -5342,7 +5341,7 @@
                 var openPlaceWebsiteURL = item.attributes.url;
                 if (openPlaceWebsiteURL && openPlaceWebsiteURL.replace(/[^A-Za-z0-9]/g,'').length > 2) {
                     if ($('#WMEPHurl').length === 0  ) {
-                        strButt1 = '<input class="btn btn-success btn-xs" id="WMEPHurl" title="Open place URL" type="button" value="Open Website" style="margin-left:3px;padding-left:8px;padding-right:8px;">';
+                        strButt1 = '<input class="btn btn-success btn-xs" id="WMEPHurl" title="Open place URL" type="button" value="Website" style="margin-left:3px;padding-left:8px;padding-right:8px;padding-top:4px;height:24px;font-weight:normal;">';
                         $("#runWMEPH" + devVersStr).after(strButt1);
                         btn = document.getElementById("WMEPHurl");
                         if (btn !== null) {
@@ -5374,7 +5373,7 @@
 
         function showSearchButton() {
             if (item && $('#wmephSearch').length === 0  ) {
-                strButt1 = '<input class="btn btn-danger btn-xs" id="wmephSearch" title="Search the web for this place.  Do not copy info from 3rd party sources!" type="button" value="Google" style="margin-left:3px;padding-left:8px;padding-right:8px;">';
+                strButt1 = '<input class="btn btn-danger btn-xs" id="wmephSearch" title="Search the web for this place.  Do not copy info from 3rd party sources!" type="button" value="Google" style="margin-left:3px;padding-left:8px;padding-right:8px;padding-top:4px;height:24px;font-weight:normal;">';
                 $("#WMEPH_runButton").append(strButt1);
                 btn = document.getElementById("wmephSearch");
                 if (btn !== null) {
@@ -5397,15 +5396,15 @@
             if (isDevVersion) { betaDelay = 300; }
             setTimeout(() => {
                 if ($('#WMEPH_runButton').length === 0 ) {
-                    $('<div id="WMEPH_runButton">').css({"padding-bottom": "6px", "padding-top": "3px", "width": "290", "background-color": "#FFF", "color": "black", "font-size": "15px", "margin-left": "auto;", "margin-right": "auto"}).prependTo(".contents");
+                    $('<div id="WMEPH_runButton">').prependTo(".contents");
                 }
                 var strButt1, btn;
                 item = getSelectedFeatures()[0].model;
                 if (item) {
                     showOpenPlaceWebsiteButton();
                     if ($('#clonePlace').length === 0 ) {
-                        strButt1 = '<div style="margin-bottom: 3px;"></div><input class="btn btn-warning btn-xs wmeph-btn" id="clonePlace" title="Copy place info" type="button" value="Copy">'+
-                            ' <input class="btn btn-warning btn-xs wmeph-btn" id="pasteClone" title="Apply the Place info. (Ctrl-Alt-O)" type="button" value="Paste (for checked boxes):"><br>';
+                        strButt1 = '<div style="margin-bottom: 3px;"></div><input class="btn btn-warning btn-xs wmeph-btn" id="clonePlace" title="Copy place info" type="button" value="Copy" style="font-weight:normal">'+
+                            ' <input class="btn btn-warning btn-xs wmeph-btn" id="pasteClone" title="Apply the Place info. (Ctrl-Alt-O)" type="button" value="Paste (for checked boxes):" style="font-weight:normal"><br>';
                         $("#WMEPH_runButton").append(strButt1);
                         createCloneCheckbox('WMEPH_runButton', 'WMEPH_CPhn', 'HN');
                         createCloneCheckbox('WMEPH_runButton', 'WMEPH_CPstr', 'Str');
@@ -5416,9 +5415,9 @@
                         createCloneCheckbox('WMEPH_runButton', 'WMEPH_CPdesc', 'Desc');
                         createCloneCheckbox('WMEPH_runButton', 'WMEPH_CPserv', 'Serv');
                         createCloneCheckbox('WMEPH_runButton', 'WMEPH_CPhrs', 'Hrs');
-                        strButt1 = '<input class="btn btn-info btn-xs wmeph-btn" id="checkAllClone" title="Check all" type="button" value="All">'+
-                            ' <input class="btn btn-info btn-xs wmeph-btn" id="checkAddrClone" title="Check Address" type="button" value="Addr">'+
-                            ' <input class="btn btn-info btn-xs wmeph-btn" id="checkNoneClone" title="Check none" type="button" value="None"><br>';
+                        strButt1 = '<input class="btn btn-info btn-xs wmeph-btn" id="checkAllClone" title="Check all" type="button" value="All" style="font-weight:normal">'+
+                            ' <input class="btn btn-info btn-xs wmeph-btn" id="checkAddrClone" title="Check Address" type="button" value="Addr" style="font-weight:normal">'+
+                            ' <input class="btn btn-info btn-xs wmeph-btn" id="checkNoneClone" title="Check none" type="button" value="None" style="font-weight:normal"><br>';
                         $("#WMEPH_runButton").append(strButt1);
                     }
                     btn = document.getElementById("clonePlace");
@@ -5688,25 +5687,29 @@
             var today = new Date();
             var tomorrow = new Date();
             tomorrow.setDate(tomorrow.getDate() + 1);
-            inputHoursParse = inputHoursParse.replace(/\btoday\b/g, today.toLocaleDateString(I18n.locale, {weekday:'short'}).toLowerCase());
-            inputHoursParse = inputHoursParse.replace(/\btomorrow\b/g, tomorrow.toLocaleDateString(I18n.locale, {weekday:'short'}).toLowerCase());
-            inputHoursParse = inputHoursParse.replace(/\u2013|\u2014/g, "-");  // long dash replacing
-            inputHoursParse = inputHoursParse.replace(/[^a-z0-9\:\-\. ~]/g, ' ');  // replace unnecessary characters with spaces
-            inputHoursParse = inputHoursParse.replace(/\:{2,}/g, ':');  // remove extra colons
-            inputHoursParse = inputHoursParse.replace(/closed|not open/g, '99:99-99:99');  // parse 'closed'
-            inputHoursParse = inputHoursParse.replace(/by appointment( only)?/g, '99:99-99:99');  // parse 'appointment only'
-            inputHoursParse = inputHoursParse.replace(/weekdays/g, 'mon-fri').replace(/weekends/g, 'sat-sun');  // convert weekdays and weekends to days
-            inputHoursParse = inputHoursParse.replace(/(12(:00)?\W*)?noon/g, "12:00").replace(/(12(:00)?\W*)?mid(night|nite)/g, "00:00");  // replace 'noon', 'midnight'
-            inputHoursParse = inputHoursParse.replace(/every\s*day|daily|(7|seven) days a week/g, "mon-sun");  // replace 'seven days a week'
-            inputHoursParse = inputHoursParse.replace(/(open\s*)?(24|twenty\W*four)\W*h(ou)?rs?|all day/g, "00:00-00:00");  // replace 'open 24 hour or similar'
-            inputHoursParse = inputHoursParse.replace(/(\D:)([^ ])/g, "$1 $2");  // space after colons after words
-            // replace thru type words with dashes
-            var thruWords = 'through|thru|to|until|till|til|-|~'.split("|");
-            for (twix=0; twix<thruWords.length; twix++) {
-                tempRegex = new RegExp(thruWords[twix], "g");
-                inputHoursParse = inputHoursParse.replace(tempRegex,'-');
+            if (/24\s*[\\/*x]\s*7/g.test(inputHoursParse)) {
+                inputHoursParse = 'mon-sun 00:00-00:00';
+            } else {
+                inputHoursParse = inputHoursParse.replace(/\btoday\b/g, today.toLocaleDateString(I18n.locale, {weekday:'short'}).toLowerCase());
+                inputHoursParse = inputHoursParse.replace(/\btomorrow\b/g, tomorrow.toLocaleDateString(I18n.locale, {weekday:'short'}).toLowerCase());
+                inputHoursParse = inputHoursParse.replace(/\u2013|\u2014/g, "-");  // long dash replacing
+                inputHoursParse = inputHoursParse.replace(/[^a-z0-9\:\-\. ~]/g, ' ');  // replace unnecessary characters with spaces
+                inputHoursParse = inputHoursParse.replace(/\:{2,}/g, ':');  // remove extra colons
+                inputHoursParse = inputHoursParse.replace(/closed|not open/g, '99:99-99:99');  // parse 'closed'
+                inputHoursParse = inputHoursParse.replace(/by appointment( only)?/g, '99:99-99:99');  // parse 'appointment only'
+                inputHoursParse = inputHoursParse.replace(/weekdays/g, 'mon-fri').replace(/weekends/g, 'sat-sun');  // convert weekdays and weekends to days
+                inputHoursParse = inputHoursParse.replace(/(12(:00)?\W*)?noon/g, "12:00").replace(/(12(:00)?\W*)?mid(night|nite)/g, "00:00");  // replace 'noon', 'midnight'
+                inputHoursParse = inputHoursParse.replace(/every\s*day|daily|(7|seven) days a week/g, "mon-sun");  // replace 'seven days a week'
+                inputHoursParse = inputHoursParse.replace(/(open\s*)?(24|twenty\W*four)\W*h(ou)?rs?|all day/g, "00:00-00:00");  // replace 'open 24 hour or similar'
+                inputHoursParse = inputHoursParse.replace(/(\D:)([^ ])/g, "$1 $2");  // space after colons after words
+                // replace thru type words with dashes
+                var thruWords = 'through|thru|to|until|till|til|-|~'.split("|");
+                for (twix=0; twix<thruWords.length; twix++) {
+                    tempRegex = new RegExp(thruWords[twix], "g");
+                    inputHoursParse = inputHoursParse.replace(tempRegex,'-');
+                }
+                inputHoursParse = inputHoursParse.replace(/\-{2,}/g, "-");  // replace any duplicate dashes
             }
-            inputHoursParse = inputHoursParse.replace(/\-{2,}/g, "-");  // replace any duplicate dashes
             phlogdev('Initial parse: ' + inputHoursParse);
 
             // kill extra words
