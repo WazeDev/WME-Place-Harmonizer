@@ -517,7 +517,7 @@
             localStorage.setItem(SFURLWarning, '0');
         }
 
-        setTimeout(add_PlaceHarmonizationSettingsTab, 50);  // initialize the settings tab
+        setTimeout(addWmephTab, 50);  // initialize the settings tab
 
         // Event listeners
         W.selectionManager.events.registerPriority("selectionchanged", this, checkSelection);
@@ -6312,54 +6312,70 @@
             return newAliasesUpdate;
         }
 
+        function initSettingsCheckbox(settingID) {
+            //Associate click event of new checkbox to call saveSettingToLocalStorage with proper ID
+            $("#" + settingID).click(function() {saveSettingToLocalStorage(settingID);});
+            //Load Setting for Local Storage, if it doesn't exist set it to NOT checked.
+            //If previously set to 1, then trigger "click" event.
+            if (!localStorage.getItem(settingID))
+            {
+                //phlogdev(settingID + ' not found.');
+            } else if (localStorage.getItem(settingID) === "1") {
+                $("#" + settingID).prop('checked', true);
+            }
+        }
+
+        // This routine will create a checkbox in the #PlaceHarmonizer tab and will load the setting
+        //        settingID:  The #id of the checkbox being created.
+        //  textDescription:  The description of the checkbox that will be use
+        function createSettingsCheckbox($div, settingID, textDescription) {
+            //Create settings checkbox and append HTML to settings tab
+            //var phTempHTML = '<input type="checkbox" id="' + settingID + '">'+ textDescription +'</input>';
+            var $checkbox = $('<input>', {type:'checkbox', id:settingID});
+            $div.append(
+                $('<div>', {class:'controls-container'}).css({paddingTop:'2px'}).append(
+                    $checkbox,
+                    $('<label>', {for:settingID}).text(textDescription).css({whiteSpace:'pre-line'})
+                )
+            );
+
+            return $checkbox;
+        }
+
         // settings tab
-        function add_PlaceHarmonizationSettingsTab() {
-            //Create Settings Tab
-            var phTabHtml = '<li><a href="#sidepanel-ph' + devVersStr + '" data-toggle="tab" id="PlaceHarmonization' + devVersStr + '">WMEPH' + devVersStrSpace + '</a></li>';
-            $("#user-tabs ul.nav-tabs:first").append(phTabHtml);
-
-            //Create Settings Tab Content
-            var phContentHtml = '<div class="tab-pane" id="sidepanel-ph' + devVersStr + '"><div id="PlaceHarmonizer' + devVersStr + '">WMEPH' +
-                devVersStrSpace + ' v. ' + WMEPHversion + '</div></div>';
-            $("#user-info div.tab-content:first").append(phContentHtml);
-
-            var c = '<div id="wmephtab" class="active" style="padding-top: 5px;">' +
-                '<ul class="nav nav-tabs"><li class="active"><a data-toggle="tab" href="#sidepanel-harmonizer' + devVersStr + '">Harmonize</a></li>' +
-                '<li><a data-toggle="tab" href="#sidepanel-highlighter' + devVersStr + '">HL \/ Scan</a></li>' +
-                '<li><a data-toggle="tab" href="#sidepanel-wltools' + devVersStr + '">WL Tools</a></li></ul>' +
-                '<div class="tab-content" style="padding:5px;"><div class="tab-pane active" id="sidepanel-harmonizer' + devVersStr + '"></div>' +
-                '<div class="tab-pane" id="sidepanel-highlighter' + devVersStr + '"></div>' +
-                '<div class="tab-pane" id="sidepanel-wltools' + devVersStr + '"></div></div></div>';
-
-            //add the sub tabs to the scripts main tab
-            $("#sidepanel-ph"+devVersStr).append(c);
-
+        function initWmephTab() {
             // Enable certain settings by default if not set by the user:
             if (localStorage.getItem('WMEPH-ColorHighlighting'+devVersStr) === null) {
                 localStorage.setItem('WMEPH-ColorHighlighting'+devVersStr, '1');
             }
 
-            //Create Settings Checkboxes and Load Data
-            //example condition:  if ( $("#WMEPH-DisableDFZoom" + devVersStr).prop('checked') ) { }
-            createSettingsCheckbox("sidepanel-harmonizer" + devVersStr, "WMEPH-WebSearchNewTab" + devVersStr,"Open URL & Search Results in new tab instead of new window");
-            createSettingsCheckbox("sidepanel-harmonizer" + devVersStr, "WMEPH-DisableDFZoom" + devVersStr,"Disable zoom & center for duplicates");
-            createSettingsCheckbox("sidepanel-harmonizer" + devVersStr, "WMEPH-EnableIAZoom" + devVersStr,"Enable zoom & center for places with no address");
-            createSettingsCheckbox("sidepanel-harmonizer" + devVersStr, "WMEPH-HidePlacesWiki" + devVersStr,"Hide 'Places Wiki' button in results banner");
-            createSettingsCheckbox("sidepanel-harmonizer" + devVersStr, "WMEPH-HideReportError" + devVersStr,"Hide 'Report script error' button in results banner");
-            createSettingsCheckbox("sidepanel-harmonizer" + devVersStr, "WMEPH-HideServicesButtons" + devVersStr,"Hide services buttons in results banner");
-            createSettingsCheckbox("sidepanel-harmonizer" + devVersStr, "WMEPH-HidePURWebSearch" + devVersStr,"Hide 'Web Search' button on PUR popups");
-            createSettingsCheckbox("sidepanel-harmonizer" + devVersStr, "WMEPH-ExcludePLADupes" + devVersStr,"Exclude parking lots when searching for duplicate places");
-            createSettingsCheckbox("sidepanel-harmonizer" + devVersStr, "WMEPH-ShowPLAExitWhileClosed" + devVersStr,"Always ask if cars can exit parking lots");
+            // Initialize settings checkboxes
+            initSettingsCheckbox("WMEPH-WebSearchNewTab" + devVersStr);
+            initSettingsCheckbox("WMEPH-DisableDFZoom" + devVersStr);
+            initSettingsCheckbox("WMEPH-EnableIAZoom" + devVersStr);
+            initSettingsCheckbox("WMEPH-HidePlacesWiki" + devVersStr);
+            initSettingsCheckbox("WMEPH-HideReportError" + devVersStr);
+            initSettingsCheckbox("WMEPH-HideServicesButtons" + devVersStr);
+            initSettingsCheckbox("WMEPH-HidePURWebSearch" + devVersStr);
+            initSettingsCheckbox("WMEPH-ExcludePLADupes" + devVersStr);
+            initSettingsCheckbox("WMEPH-ShowPLAExitWhileClosed" + devVersStr);
             if (devUser || betaUser || usrRank >= 2) {
-                createSettingsCheckbox("sidepanel-harmonizer" + devVersStr, "WMEPH-DisablePLAExtProviderCheck" + devVersStr,'Disable check for "Google place link" on Parking Lot Areas');
-                //createSettingsCheckbox("sidepanel-harmonizer" + devVersStr, "WMEPH-ExtProviderSeverity" + devVersStr,'Treat "No Google place link" as non-critical (blue)');
-                createSettingsCheckbox("sidepanel-harmonizer" + devVersStr, "WMEPH-EnableServices" + devVersStr,"Enable automatic addition of common services");
-                createSettingsCheckbox("sidepanel-harmonizer" + devVersStr, "WMEPH-ConvenienceStoreToGasStations" + devVersStr,'Automatically add "Convenience Store" category to gas stations');
-                createSettingsCheckbox("sidepanel-harmonizer" + devVersStr, "WMEPH-AddAddresses" + devVersStr,"Add detected address fields to places with no address");
-                createSettingsCheckbox("sidepanel-harmonizer" + devVersStr, "WMEPH-EnableCloneMode" + devVersStr,"Enable place cloning tools");
-                createSettingsCheckbox("sidepanel-harmonizer" + devVersStr, "WMEPH-AutoLockRPPs" + devVersStr,"Lock residential place points to region default");
-                createSettingsCheckbox("sidepanel-harmonizer" + devVersStr, "WMEPH-AutoRunOnSelect" + devVersStr,'Automatically run the script when selecting a place');
+                initSettingsCheckbox("WMEPH-DisablePLAExtProviderCheck" + devVersStr);
+                initSettingsCheckbox("WMEPH-EnableServices" + devVersStr);
+                initSettingsCheckbox("WMEPH-ConvenienceStoreToGasStations" + devVersStr);
+                initSettingsCheckbox("WMEPH-AddAddresses" + devVersStr);
+                initSettingsCheckbox("WMEPH-EnableCloneMode" + devVersStr);
+                initSettingsCheckbox("WMEPH-AutoLockRPPs" + devVersStr);
+                initSettingsCheckbox("WMEPH-AutoRunOnSelect" + devVersStr);
             }
+            initSettingsCheckbox("WMEPH-ColorHighlighting" + devVersStr);
+            initSettingsCheckbox("WMEPH-DisableHoursHL" + devVersStr);
+            initSettingsCheckbox("WMEPH-DisableRankHL" + devVersStr);
+            initSettingsCheckbox("WMEPH-DisableWLHL" + devVersStr);
+            initSettingsCheckbox("WMEPH-PLATypeFill" + devVersStr);
+
+            initSettingsCheckbox("WMEPH-KBSModifierKey" + devVersStr);
+            initSettingsCheckbox("WMEPH-RegionOverride" + devVersStr);
 
             // Turn this setting on one time.
             var runOnceDefaultIgnorePlaGoogleLinkChecks = localStorage.getItem('WMEPH-runOnce-defaultToOff-plaGoogleLinkChecks' + devVersStr);
@@ -6369,30 +6385,7 @@
             }
             localStorage.setItem('WMEPH-runOnce-defaultToOff-plaGoogleLinkChecks' + devVersStr, true);
 
-            // Highlighter settings
-            var phDevContentHtml = '<p>Highlighter Settings:</p>';
-            $("#sidepanel-highlighter" + devVersStr).append(phDevContentHtml);
-            createSettingsCheckbox("sidepanel-highlighter" + devVersStr, "WMEPH-ColorHighlighting" + devVersStr,"Enable color highlighting of map to indicate places needing work");
-            createSettingsCheckbox("sidepanel-highlighter" + devVersStr, "WMEPH-DisableHoursHL" + devVersStr,"Disable highlighting for missing hours");
-            createSettingsCheckbox("sidepanel-highlighter" + devVersStr, "WMEPH-DisableRankHL" + devVersStr,"Disable highlighting for places locked above your rank");
-            createSettingsCheckbox("sidepanel-highlighter" + devVersStr, "WMEPH-DisableWLHL" + devVersStr,"Disable Whitelist highlighting (shows all missing info regardless of WL)");
-            createSettingsCheckbox("sidepanel-highlighter" + devVersStr, "WMEPH-PLATypeFill" + devVersStr,"Fill parking lots based on type (public=blue, restricted=yellow, private=red)");
-            if (devUser || betaUser || usrRank >= 3) {
-                //createSettingsCheckbox("sidepanel-highlighter" + devVersStr, "WMEPH-UnlockedRPPs" + devVersStr,"Highlight unlocked residential place points");
-            }
-            var phHRContentHtml = '<hr align="center" width="90%">';
-            $("#sidepanel-highlighter" + devVersStr).append(phHRContentHtml);
-            phHRContentHtml = '<p>Scanner Settings (coming !soon)</p>';
-            $("#sidepanel-highlighter" + devVersStr).append(phHRContentHtml);
-
-            // Scanner settings
-            //createSettingsCheckbox("sidepanel-highlighter" + devVersStr, "WMEPH-PlaceScanner" + devVersStr,"Placeholder, under development!");
-
-            // Whitelist settings
-
-            phHRContentHtml = '<hr align="center" width="90%">';
-            $("#sidepanel-harmonizer" + devVersStr).append(phHRContentHtml);
-
+            // **** Shortcut key stuff *****************
             // User pref for KB Shortcut:
             // Set defaults
             if (isDevVersion) {
@@ -6404,23 +6397,17 @@
             if (localStorage.getItem('WMEPH-KeyboardShortcut'+devVersStr) === null) {
                 localStorage.setItem('WMEPH-KeyboardShortcut'+devVersStr, defaultKBShortcut);
             }
-
-            // Add Letter input box
-            var phKBContentHtml = $('<div id="PlaceHarmonizerKB' + devVersStr +
-                                    '"><div id="PlaceHarmonizerKBWarn' + devVersStr + '"></div>Shortcut Letter (a-Z): <input type="text" maxlength="1" id="WMEPH-KeyboardShortcut'+devVersStr+
-                                    '" style="width: 30px;padding-left:8px"><div id="PlaceHarmonizerKBCurrent' + devVersStr + '"></div></div>');
-            $("#sidepanel-harmonizer" + devVersStr).append(phKBContentHtml);
-            createSettingsCheckbox("PlaceHarmonizerKB" + devVersStr, "WMEPH-KBSModifierKey" + devVersStr, "Use Ctrl instead of Alt"); // Add Alt-->Ctrl checkbox
-            if ( localStorage.getItem('WMEPH-KBSModifierKey'+devVersStr) === '1' ) {  // Change modifier key code if checked
-                modifKey = 'Ctrl+';
-            }
             $('#WMEPH-KeyboardShortcut'+devVersStr).val(localStorage.getItem('WMEPH-KeyboardShortcut'+devVersStr));  // Load letter key value from local storage
             if ($('#WMEPH-KeyboardShortcut'+devVersStr).val().match(/^[a-z]{1}$/i) === null) {
                 $('#WMEPH-KeyboardShortcut'+devVersStr).val(defaultKBShortcut);
                 $(localStorage.setItem('WMEPH-KeyboardShortcut'+devVersStr, $('#WMEPH-KeyboardShortcut'+devVersStr).val()));
             }
+            if ( localStorage.getItem('WMEPH-KBSModifierKey'+devVersStr) === '1' ) {  // Change modifier key code if checked
+                modifKey = 'Ctrl+';
+            }
             shortcutParse = parseKBSShift($('#WMEPH-KeyboardShortcut'+devVersStr).val());
             // Check for KBS conflict on Beta script load
+            $("#PlaceHarmonizerKBCurrent" + devVersStr).empty();
             if (isDevVersion) {
                 if (checkWMEPH_KBSconflict(shortcutParse)) {
                     alert('You have the same shortcut for the Beta version and the Production version of the script. The Beta version is disabled until you change the Beta shortcut');
@@ -6492,27 +6479,9 @@
                 }
             });
 
-
-            if (devUser) {  // Override script regionality (devs only)
-                phDevContentHtml = '<hr align="center" width="90%"><p>Dev Only Settings:</p>';
-                $("#sidepanel-harmonizer" + devVersStr).append(phDevContentHtml);
-                createSettingsCheckbox("sidepanel-harmonizer" + devVersStr, "WMEPH-RegionOverride" + devVersStr,"Disable Region Specificity");
-
-            }
-
-            // *** Whitelisting section
             if (localStorage.getItem('WMEPH_WLAddCount') === null) {
                 localStorage.setItem('WMEPH_WLAddCount', 2);  // Counter to remind of WL backups
             }
-            var phWLContentHtml = $('<div id="PlaceHarmonizerWLTools' + devVersStr + '">Whitelist string: <input onClick="this.select();" type="text" id="WMEPH-WLInput'+devVersStr+
-                                    '" style="width: 200px;padding-left:1px"><br>'+
-                                    '<input class="btn btn-success btn-xs" id="WMEPH-WLMerge'+ devVersStr +'" title="Merge the string into your existing Whitelist" type="button" value="Merge">'+
-                                    '<br><input class="btn btn-success btn-xs" id="WMEPH-WLPull'+ devVersStr +'" title="Pull your existing Whitelist for backup or sharing" type="button" value="Pull">'+
-                                    '<br><input class="btn btn-success btn-xs" id="WMEPH-WLShare'+ devVersStr +'" title="Share your Whitelist to a public Google sheet" type="button" value="Share your WL">'+
-                                    '<br><input class="btn btn-info btn-xs" id="WMEPH-WLStats'+ devVersStr +'" title="Display WL stats" type="button" value="Stats">'+
-                                    '<br><input class="btn btn-danger btn-xs" id="WMEPH-WLStateFilter'+ devVersStr +'" title="Remove all WL items for a state" type="button" value="Remove data for 1 State">'+
-                                    '</div><div id="PlaceHarmonizerWLToolsMsg' + devVersStr + '"></div>');
-            $("#sidepanel-wltools" + devVersStr).append(phWLContentHtml);
 
             $("#WMEPH-WLMerge" + devVersStr).click(function() {
                 $("#PlaceHarmonizerWLToolsMsg" + devVersStr).empty();
@@ -6673,14 +6642,6 @@
                 window.open(submitWLURL);
             });
 
-            var feedbackString = 'Submit script feedback & suggestions';
-            var placesWikiStr = 'Open the WME Places Wiki page';
-            var phContentHtml2 = '<hr align="center" width="95%"><p><a href="' +
-                placesWikiURL + '" target="_blank" title="'+placesWikiStr+'">'+placesWikiStr+'</a><p><a href="' +
-                WMEPHurl + '" target="_blank" title="'+feedbackString+'">'+feedbackString+'</a></p><hr align="center" width="95%">Major features for v. ' +
-                WMEPHversionMeta+':<ul><li>'+WMEPHWhatsNewMetaHList+'</ul>Recent updates:<ul><li>'+WMEPHWhatsNewHList+'</ul>';
-            $("#sidepanel-harmonizer" + devVersStr).append(phContentHtml2);
-
             W.map.events.register("mousemove", W.map, function (e) {
                 WMEPHmousePosition = W.map.getLonLatFromPixel( W.map.events.getMousePosition(e) );
             });
@@ -6709,7 +6670,6 @@
                 bootstrapWMEPH_CH();
             }
 
-
             // Add Color Highlighting shortcut
             shortcut.add("Control+Alt+h", function() {
                 $("#WMEPH-ColorHighlighting" + devVersStr).trigger('click');
@@ -6722,32 +6682,90 @@
                 });
             }
 
-            // $("#user-info div.tab-content:first").append(phContentHtml2);
-            phlog('Ready...!');
-        } // END Settings Tab
+        }
 
-        // This routine will create a checkbox in the #PlaceHarmonizer tab and will load the setting
-        //        settingID:  The #id of the checkbox being created.
-        //  textDescription:  The description of the checkbox that will be use
-        function createSettingsCheckbox(divID, settingID, textDescription) {
-            //Create settings checkbox and append HTML to settings tab
-            //var phTempHTML = '<input type="checkbox" id="' + settingID + '">'+ textDescription +'</input>';
-            $("#" + divID).append(
-                $('<div>', {class:'controls-container'}).css({paddingTop:'2px'}).append(
-                    $('<input>', {type:'checkbox', id:settingID}),
-                    $('<label>', {for:settingID}).text(textDescription).css({whiteSpace:'pre-line'})
-                )
-            );
-            //Associate click event of new checkbox to call saveSettingToLocalStorage with proper ID
-            $("#" + settingID).click(function() {saveSettingToLocalStorage(settingID);});
-            //Load Setting for Local Storage, if it doesn't exist set it to NOT checked.
-            //If previously set to 1, then trigger "click" event.
-            if (!localStorage.getItem(settingID))
-            {
-                //phlogdev(settingID + ' not found.');
-            } else if (localStorage.getItem(settingID) === "1") {
-                $("#" + settingID).trigger('click');
+        function addWmephTab() {
+            var $container = $('<div id="wmephtab" class="active" style="padding-top: 5px;">');
+            var $navTabs = $('<ul class="nav nav-tabs"><li class="active"><a data-toggle="tab" href="#sidepanel-harmonizer' + devVersStr + '">Harmonize</a></li>' +
+                '<li><a data-toggle="tab" href="#sidepanel-highlighter' + devVersStr + '">HL \/ Scan</a></li>' +
+                '<li><a data-toggle="tab" href="#sidepanel-wltools' + devVersStr + '">WL Tools</a></li></ul>');
+            var $tabContent = $('<div class="tab-content" style="padding:5px;">');
+            var $harmonizerTab = $('<div class="tab-pane active" id="sidepanel-harmonizer' + devVersStr + '"></div>');
+            var $highlighterTab = $('<div class="tab-pane" id="sidepanel-highlighter' + devVersStr + '"></div>');
+            var $wlToolsTab = $('<div class="tab-pane" id="sidepanel-wltools' + devVersStr + '"></div>');
+            $tabContent.append($harmonizerTab, $highlighterTab, $wlToolsTab);
+            $container.append($navTabs, $tabContent);
+
+            //Harmonizer settings
+            createSettingsCheckbox($harmonizerTab, "WMEPH-WebSearchNewTab" + devVersStr,"Open URL & Search Results in new tab instead of new window");
+            createSettingsCheckbox($harmonizerTab, "WMEPH-DisableDFZoom" + devVersStr,"Disable zoom & center for duplicates");
+            createSettingsCheckbox($harmonizerTab, "WMEPH-EnableIAZoom" + devVersStr,"Enable zoom & center for places with no address");
+            createSettingsCheckbox($harmonizerTab, "WMEPH-HidePlacesWiki" + devVersStr,"Hide 'Places Wiki' button in results banner");
+            createSettingsCheckbox($harmonizerTab, "WMEPH-HideReportError" + devVersStr,"Hide 'Report script error' button in results banner");
+            createSettingsCheckbox($harmonizerTab, "WMEPH-HideServicesButtons" + devVersStr,"Hide services buttons in results banner");
+            createSettingsCheckbox($harmonizerTab, "WMEPH-HidePURWebSearch" + devVersStr,"Hide 'Web Search' button on PUR popups");
+            createSettingsCheckbox($harmonizerTab, "WMEPH-ExcludePLADupes" + devVersStr,"Exclude parking lots when searching for duplicate places");
+            createSettingsCheckbox($harmonizerTab, "WMEPH-ShowPLAExitWhileClosed" + devVersStr,"Always ask if cars can exit parking lots");
+            if (devUser || betaUser || usrRank >= 2) {
+                createSettingsCheckbox($harmonizerTab, "WMEPH-DisablePLAExtProviderCheck" + devVersStr,'Disable check for "Google place link" on Parking Lot Areas');
+                createSettingsCheckbox($harmonizerTab, "WMEPH-EnableServices" + devVersStr,"Enable automatic addition of common services");
+                createSettingsCheckbox($harmonizerTab, "WMEPH-ConvenienceStoreToGasStations" + devVersStr,'Automatically add "Convenience Store" category to gas stations');
+                createSettingsCheckbox($harmonizerTab, "WMEPH-AddAddresses" + devVersStr,"Add detected address fields to places with no address");
+                createSettingsCheckbox($harmonizerTab, "WMEPH-EnableCloneMode" + devVersStr,"Enable place cloning tools");
+                createSettingsCheckbox($harmonizerTab, "WMEPH-AutoLockRPPs" + devVersStr,"Lock residential place points to region default");
+                createSettingsCheckbox($harmonizerTab, "WMEPH-AutoRunOnSelect" + devVersStr,'Automatically run the script when selecting a place');
             }
+
+             $harmonizerTab.append('<hr align="center" width="90%">');
+
+            // Add Letter input box
+            var $phShortcutDiv = $('<div id="PlaceHarmonizerKB' + devVersStr + '">');
+            $phShortcutDiv.append('<div id="PlaceHarmonizerKBWarn' + devVersStr + '"></div>Shortcut Letter (a-Z): <input type="text" maxlength="1" id="WMEPH-KeyboardShortcut'+devVersStr+
+              '" style="width: 30px;padding-left:8px"><div id="PlaceHarmonizerKBCurrent' + devVersStr + '"></div>');
+            createSettingsCheckbox($phShortcutDiv, "WMEPH-KBSModifierKey" + devVersStr, "Use Ctrl instead of Alt"); // Add Alt-->Ctrl checkbox
+
+            if (devUser) {  // Override script regionality (devs only)
+                $phShortcutDiv.append('<hr align="center" width="90%"><p>Dev Only Settings:</p>');
+                createSettingsCheckbox($phShortcutDiv, "WMEPH-RegionOverride" + devVersStr,"Disable Region Specificity");
+            }
+
+            $harmonizerTab.append($phShortcutDiv);
+
+            $harmonizerTab.append('<hr align="center" width="95%"><p><a href="' +
+                placesWikiURL + '" target="_blank">Open the WME Places Wiki page</a><p><a href="' +
+                WMEPHurl + '" target="_blank">Submit script feedback & suggestions</a></p><hr align="center" width="95%">Major features for v. ' +
+                WMEPHversionMeta+':<ul><li>'+WMEPHWhatsNewMetaHList+'</ul>Recent updates:<ul><li>'+WMEPHWhatsNewHList+'</ul>');
+
+            // Highlighter settings
+            $highlighterTab.append('<p>Highlighter Settings:</p>');
+            createSettingsCheckbox($highlighterTab, "WMEPH-ColorHighlighting" + devVersStr,"Enable color highlighting of map to indicate places needing work");
+            createSettingsCheckbox($highlighterTab, "WMEPH-DisableHoursHL" + devVersStr,"Disable highlighting for missing hours");
+            createSettingsCheckbox($highlighterTab, "WMEPH-DisableRankHL" + devVersStr,"Disable highlighting for places locked above your rank");
+            createSettingsCheckbox($highlighterTab, "WMEPH-DisableWLHL" + devVersStr,"Disable Whitelist highlighting (shows all missing info regardless of WL)");
+            createSettingsCheckbox($highlighterTab, "WMEPH-PLATypeFill" + devVersStr,"Fill parking lots based on type (public=blue, restricted=yellow, private=red)");
+            if (devUser || betaUser || usrRank >= 3) {
+                //createSettingsCheckbox($highlighterTab "WMEPH-UnlockedRPPs" + devVersStr,"Highlight unlocked residential place points");
+            }
+
+            // Scanner settings
+            //$highlighterTab.append('<hr align="center" width="90%">');
+            //$highlighterTab.append('<p>Scanner Settings (coming !soon)</p>');
+            //createSettingsCheckbox($highlighterTab, "WMEPH-PlaceScanner" + devVersStr,"Placeholder, under development!");
+
+
+            // Whitelisting settings
+
+            var phWLContentHtml = $('<div id="PlaceHarmonizerWLTools' + devVersStr + '">Whitelist string: <input onClick="this.select();" type="text" id="WMEPH-WLInput'+devVersStr+
+                                    '" style="width: 200px;padding-left:1px"><br>'+
+                                    '<input class="btn btn-success btn-xs" id="WMEPH-WLMerge'+ devVersStr +'" title="Merge the string into your existing Whitelist" type="button" value="Merge">'+
+                                    '<br><input class="btn btn-success btn-xs" id="WMEPH-WLPull'+ devVersStr +'" title="Pull your existing Whitelist for backup or sharing" type="button" value="Pull">'+
+                                    '<br><input class="btn btn-success btn-xs" id="WMEPH-WLShare'+ devVersStr +'" title="Share your Whitelist to a public Google sheet" type="button" value="Share your WL">'+
+                                    '<br><input class="btn btn-info btn-xs" id="WMEPH-WLStats'+ devVersStr +'" title="Display WL stats" type="button" value="Stats">'+
+                                    '<br><input class="btn btn-danger btn-xs" id="WMEPH-WLStateFilter'+ devVersStr +'" title="Remove all WL items for a state" type="button" value="Remove data for 1 State">'+
+                                    '</div><div id="PlaceHarmonizerWLToolsMsg' + devVersStr + '"></div>');
+            $wlToolsTab.append(phWLContentHtml);
+
+            new WazeWrap.Interface.Tab('WMEPH' + (devVersStr==='Beta' ? '-β' : ''), $container.html(), initWmephTab, null);
         }
 
         function createCloneCheckbox(divID, settingID, textDescription) {
