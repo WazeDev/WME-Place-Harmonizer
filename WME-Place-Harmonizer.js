@@ -9,6 +9,7 @@
 /* global define */
 /* global Node */
 /* global WazeWrap */
+/* global unsafeWindow */
 
 // ==UserScript==
 // @name        WME Place Harmonizer Beta
@@ -3232,7 +3233,6 @@
 
                     // Retrieve the data from the PNH line(s)
                     var nsMultiMatch = false, orderList = [];
-                    //phlogdev('Number of PNH matches: ' + PNHMatchData.length);
                     if (PNHMatchData.length > 1) { // If multiple matches, then
                         var brandParent = -1, pmdTemp, pmdSpecCases, PNHMatchDataHold = PNHMatchData[0].split('|');
                         for (var pmdix=0; pmdix<PNHMatchData.length; pmdix++) {  // For each of the matches,
@@ -3243,7 +3243,6 @@
                                 if (pmdSpecCases > brandParent) {  // if the match is more specific than the previous ones:
                                     brandParent = pmdSpecCases;  // Update the brandParent level
                                     PNHMatchDataHold = pmdTemp;  // Update the PNH data line
-                                    //phlogdev('pmdSpecCases: ' + pmdSpecCases);
                                 }
                             } else {  // if any item has no brandParent structure, use highest brandParent match but post an error
                                 nsMultiMatch = true;
@@ -4048,7 +4047,6 @@
                     bannButt.noHours.message = getHoursHtml('Hours');
                 }
                 if ( !checkHours(item.attributes.openingHours) ) {
-                    //phlogdev('Overlapping hours');
                     bannButt.hoursOverlap.active = true;
                     bannButt.noHours.active = true;
                 } else {
@@ -4734,7 +4732,6 @@
                     }
 
                 }
-                //phlogdev('calculated in harmGo: ' +severityButt + '; ' + item.attributes.name);
 
                 // Special case flags
                 if (  item.attributes.lockRank === 0 && (item.attributes.categories.indexOf('HOSPITAL_MEDICAL_CARE') > -1 || item.attributes.categories.indexOf('HOSPITAL_URGENT_CARE') > -1 || item.isGasStation()) ) {
@@ -5692,7 +5689,6 @@
 
             for (var venix in venueList) {  // for each place on the map:
                 if (venueList.hasOwnProperty(venix)) {  // hOP filter
-                    numVenues++;
                     nameMatch = false;
                     altNameMatch = -1;
                     testVenueAtt = venueList[venix].attributes;
@@ -5847,7 +5843,6 @@
                 }
             }
             // Add a marker for the working place point if any dupes were found
-            //phlogdev('dupeIDList: ' + dupeIDList);
             if (dupeIDList.length>1) {
                 pt = item.geometry.getCentroid();
                 if ( !mapExtent.containsLonLat(pt.toLonLat()) ) {
@@ -5871,10 +5866,7 @@
                 labelFeatures.push(textFeature);
                 WMEPH_NameLayer.addFeatures(labelFeatures);
             }
-            if (devUser) {
-                t1 = performance.now();  // log search time
-                //phlogdev('Ran dupe search on ' + numVenues + ' nearby venues in ' + (t1 - t0) + ' milliseconds.');
-            }
+
             if (recenterOption && dupeNames.length>0 && outOfExtent) {  // then rebuild the extent to include the duplicate
                 var padMult = 1.0;
                 mapExtent.left = minLon - (padFrac*padMult) * (maxLon-minLon);
@@ -6247,7 +6239,6 @@
                 if ( !nName.startsWith( nAliases[naix].toUpperCase().replace(/'/g,'').replace(/-/g,' ').replace(/\/ /g,' ').replace(/ \//g,' ').replace(/ {2,}/g,' ') ) ) {
                     newAliasesUpdate.push(nAliases[naix]);
                 } else {
-                    //phlogdev('Unnecessary alias removed: ' + nAliases[naix]);
                     bannButt.sfAliases.active = true;
                 }
             }
@@ -6527,14 +6518,12 @@
                             }
                         }
                     }
-                    //phlogdev(venueToRemove.length);
                     if (venueToRemove.length > 0) {
                         if (localStorage.WMEPH_WLAddCount === '1') {
                             if (confirm('Are you sure you want to clear all whitelist data for '+stateToRemove+'? This CANNOT be undone. Press OK to delete, cancel to preserve the data.') ) {  // misclick check
                                 backupWL_LS(true);
                                 for (var ixwl=0; ixwl<venueToRemove.length; ixwl++) {
                                     delete venueWhitelist[venueToRemove[ixwl]];
-                                    //phlogdev(venueWhitelist[venueToRemove[ixwl]]);
                                 }
                                 saveWL_LS(true);
                                 phWLContentHtml = '<p style="color:green">'+venueToRemove.length+' items removed from WL<p>';
@@ -6547,12 +6536,10 @@
                         } else {
                             phWLContentHtml = '<p style="color:red">Please backup your WL using the Pull button before removing state data<p>';
                             $('#PlaceHarmonizerWLToolsMsg').append(phWLContentHtml);
-                            //phlogdev('Please backup your WL using the Pull button before removing state data');
                         }
                     } else {
                         phWLContentHtml = '<p style="color:red">No data for that state. Use the state name exactly as listed in the Stats<p>';
                         $('#PlaceHarmonizerWLToolsMsg').append(phWLContentHtml);
-                        //phlogdev('No data for that state. Use the state name exactly as listed in the Stats');
                     }
                 }
             });
@@ -7004,10 +6991,6 @@
                         if (approvedRegions.indexOf(state2L) > -1 || approvedRegions.indexOf(region3L) > -1 ||  // if the WME-selected item matches the state, region
                             approvedRegions.indexOf(country) > -1 ||  //  OR if the country code is in the data then it is approved for all regions therein
                             $('#WMEPH-RegionOverride').prop('checked')) {  // OR if region override is selected (dev setting
-                            if (devUser) {
-                                t1 = performance.now();  // log search time
-                                //phlogdev('Found place in ' + (t1 - t0) + ' milliseconds.');
-                            }
                             matchPNHRegionData.push(PNHMatchData);
                             bannButt.placeMatched.active = true;
                             if (!allowMultiMatch) {
@@ -7019,8 +7002,6 @@
                             PNHNameTemp.push(currMatchData[ph_name_ix]);  // temp name for approval return
                             PNHOrderNum.push(currMatchData[ph_order_ix]);  // temp order number for approval return
                         }
-
-                        currMatchNum++;  // *** Multiple matches for future work
                     }
                 }
             }  // END loop through PNH places
@@ -7030,19 +7011,9 @@
                 return matchPNHRegionData;
             } else if (PNHNameMatch) {  // if a name match was found but not for region, prod the user to get it approved
                 bannButt.ApprovalSubmit.active = true;
-                //phlogdev('PNH data exists but not approved for this area.');
-                if (devUser) {
-                    t1 = performance.now();  // log search time
-                    //phlogdev('Searched all PNH entries in ' + (t1 - t0) + ' milliseconds.');
-                }
                 return ['ApprovalNeeded', PNHNameTemp, PNHOrderNum];
             } else {  // if no match was found, suggest adding the place to the sheet if it's a chain
                 bannButt.NewPlaceSubmit.active = true;
-                //phlogdev('Place not found in the ' + country + ' PNH list.');
-                if (devUser) {
-                    t1 = performance.now();  // log search time
-                    //phlogdev('Searched all PNH entries in ' + (t1 - t0) + ' milliseconds.');
-                }
                 return ['NoMatch'];
             }
         } // END harmoList function
