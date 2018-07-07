@@ -60,7 +60,7 @@
     }
     var WMEServicesArray = ["VALLET_SERVICE","DRIVETHROUGH","WI_FI","RESTROOMS","CREDIT_CARDS","RESERVATIONS","OUTSIDE_SEATING","AIR_CONDITIONING","PARKING_FOR_CUSTOMERS","DELIVERIES","TAKE_AWAY","WHEELCHAIR_ACCESSIBLE","DISABILITY_PARKING"];
     var collegeAbbreviations = 'USF|USFSP|UF|UCF|UA|UGA|FSU|UM|SCP|FAU|FIU';
-    var defaultKBShortcut,shortcutParse, modifKey = 'Alt+';
+    var shortcutParse, modifKey = 'Alt+';
     var forumMsgInputs;
     var venueWhitelist, venueWhitelistStr, WLSToMerge, wlKeyName, wlButtText = 'WL';  // Whitelisting vars
     var WLlocalStoreName = 'WMEPH-venueWhitelistNew';
@@ -6342,12 +6342,112 @@
             return $checkbox;
         }
 
+        function onKBShortcutModifierKeyClick() {
+            let $modifKeyCheckbox = $("#WMEPH-KBSModifierKey" + devVersStr);
+            let $shortcutInput = $('#WMEPH-KeyboardShortcut' + devVersStr);
+            let $warn = $("#PlaceHarmonizerKBWarn" + devVersStr);
+            let modifKeyNew;
+
+            modifKeyNew = $modifKeyCheckbox.prop('checked') ? 'Ctrl+' : 'Alt+';
+            shortcutParse = parseKBSShift($shortcutInput.val());
+
+            $warn.empty();  // remove any warning
+            debugger;
+            if (checkWMEPH_KBSconflict(shortcutParse)) {
+                $modifKeyCheckbox.trigger('click');
+                $warn.append('<p style="color:red">Shortcut conflict with other WMEPH version<p>');
+            } else {
+                shortcut.remove(modifKey + shortcutParse);
+                modifKey = modifKeyNew;
+                shortcut.add(modifKey + shortcutParse, function() { harmonizePlace(); });
+            }
+
+            $("#PlaceHarmonizerKBCurrent" + devVersStr).empty().append('<span style="font-weight:bold">Current shortcut: '+modifKey+shortcutParse+'</span>');
+        }
+        function onKBShortcutChange() {
+            let keyId = 'WMEPH-KeyboardShortcut' + devVersStr;
+            let $warn = $("#PlaceHarmonizerKBWarn" + devVersStr);
+            let $key = $('#' + keyId);
+            let oldKey = localStorage.getItem(keyId);
+            let newKey = $key.val();
+
+            $warn.empty();  // remove old warning
+            if (newKey.match(/^[a-z]{1}$/i) !== null) {  // If a single letter...
+                shortcutParse = parseKBSShift(oldKey);
+                let shortcutParseNew = parseKBSShift(newKey);
+                if (checkWMEPH_KBSconflict(shortcutParseNew)) {
+                    $key.val(oldKey);
+                    $warn.append('<p style="color:red">Shortcut conflict with other WMEPH version<p>');
+                } else {
+                    shortcut.remove(modifKey + shortcutParse);
+                    shortcutParse = shortcutParseNew;
+                    shortcut.add(modifKey + shortcutParse, function() { harmonizePlace(); });
+                    $(localStorage.setItem(keyId, newKey) );
+                }
+                $("#PlaceHarmonizerKBCurrent" + devVersStr).empty();
+                phKBContentHtml = $('<span style="font-weight:bold">Current shortcut: '+modifKey+shortcutParse+'</span>');
+                $("#PlaceHarmonizerKBCurrent" + devVersStr).append(phKBContentHtml);
+            } else {  // if not a letter then reset and flag
+                $key.val(oldKey);
+                $warn.append('<p style="color:red">Only letters are allowed<p>');
+            }
+        }
+
+
+        function setCheckedByDefault(id) {
+            id += devVersStr;
+            if (localStorage.getItem(id) === null) {
+                localStorage.setItem(id, '1');
+            }
+        }
+
+        // User pref for KB Shortcut:
+        function initShortcutKey() {
+            let $current = $("#PlaceHarmonizerKBCurrent" + devVersStr);
+            let defaultShortcutKey = isDevVersion ? 'S' : 'A';
+            let shortcutID = 'WMEPH-KeyboardShortcut'+devVersStr;
+            let shortcutKey = localStorage.getItem(shortcutID);
+            let $shortcutInput = $('#'+shortcutID);
+
+            // Set local storage to default if none
+            if (shortcutKey === null || !/^[a-z]{1}$/i.test(shortcutKey)) {
+                localStorage.setItem(shortcutID, defaultShortcutKey);
+                shortcutKey = defaultShortcutKey;
+            }
+            $shortcutInput.val(shortcutKey);
+
+            if ( localStorage.getItem('WMEPH-KBSModifierKey'+devVersStr) === '1' ) {  // Change modifier key code if checked
+                modifKey = 'Ctrl+';
+            }
+            shortcutParse = parseKBSShift(shortcutKey);
+
+            // Check for KBS conflict on Beta script load
+
+            $current.empty();
+            if (isDevVersion) {
+                if (checkWMEPH_KBSconflict(shortcutParse)) {
+                    alert('You have the same shortcut for the Beta version and the Production version of the script. The Beta version is disabled until you change the Beta shortcut');
+                } else {
+                    shortcut.add(modifKey + shortcutParse, function() { harmonizePlace(); });
+                    $current.append('<span style="font-weight:bold">Current shortcut: '+modifKey+shortcutParse+'</span>');
+                }
+            } else {  // Prod version always loads
+                shortcut.add(modifKey + shortcutParse, function() { harmonizePlace(); });
+                $current.append('<span style="font-weight:bold">Current shortcut: '+modifKey+shortcutParse+'</span>');
+            }
+
+            $("#WMEPH-KBSModifierKey" + devVersStr).click(onKBShortcutModifierKeyClick);
+
+            // Upon change of the KB letter:
+            $shortcutInput.change(onKBShortcutChange);
+        }
+
         // settings tab
         function initWmephTab() {
             // Enable certain settings by default if not set by the user:
-            if (localStorage.getItem('WMEPH-ColorHighlighting'+devVersStr) === null) {
-                localStorage.setItem('WMEPH-ColorHighlighting'+devVersStr, '1');
-            }
+            setCheckedByDefault('WMEPH-ColorHighlighting');
+            setCheckedByDefault('WMEPH-ExcludePLADupes');
+            setCheckedByDefault('WMEPH-DisablePLAExtProviderCheck');
 
             // Initialize settings checkboxes
             initSettingsCheckbox("WMEPH-WebSearchNewTab" + devVersStr);
@@ -6375,7 +6475,10 @@
             initSettingsCheckbox("WMEPH-PLATypeFill" + devVersStr);
 
             initSettingsCheckbox("WMEPH-KBSModifierKey" + devVersStr);
-            initSettingsCheckbox("WMEPH-RegionOverride" + devVersStr);
+
+            if (devUser) {
+                initSettingsCheckbox("WMEPH-RegionOverride" + devVersStr);
+            }
 
             // Turn this setting on one time.
             var runOnceDefaultIgnorePlaGoogleLinkChecks = localStorage.getItem('WMEPH-runOnce-defaultToOff-plaGoogleLinkChecks' + devVersStr);
@@ -6385,99 +6488,7 @@
             }
             localStorage.setItem('WMEPH-runOnce-defaultToOff-plaGoogleLinkChecks' + devVersStr, true);
 
-            // **** Shortcut key stuff *****************
-            // User pref for KB Shortcut:
-            // Set defaults
-            if (isDevVersion) {
-                defaultKBShortcut = 'S';
-            } else {
-                defaultKBShortcut = 'A';
-            }
-            // Set local storage to default if none
-            if (localStorage.getItem('WMEPH-KeyboardShortcut'+devVersStr) === null) {
-                localStorage.setItem('WMEPH-KeyboardShortcut'+devVersStr, defaultKBShortcut);
-            }
-            $('#WMEPH-KeyboardShortcut'+devVersStr).val(localStorage.getItem('WMEPH-KeyboardShortcut'+devVersStr));  // Load letter key value from local storage
-            if ($('#WMEPH-KeyboardShortcut'+devVersStr).val().match(/^[a-z]{1}$/i) === null) {
-                $('#WMEPH-KeyboardShortcut'+devVersStr).val(defaultKBShortcut);
-                $(localStorage.setItem('WMEPH-KeyboardShortcut'+devVersStr, $('#WMEPH-KeyboardShortcut'+devVersStr).val()));
-            }
-            if ( localStorage.getItem('WMEPH-KBSModifierKey'+devVersStr) === '1' ) {  // Change modifier key code if checked
-                modifKey = 'Ctrl+';
-            }
-            shortcutParse = parseKBSShift($('#WMEPH-KeyboardShortcut'+devVersStr).val());
-            // Check for KBS conflict on Beta script load
-            $("#PlaceHarmonizerKBCurrent" + devVersStr).empty();
-            if (isDevVersion) {
-                if (checkWMEPH_KBSconflict(shortcutParse)) {
-                    alert('You have the same shortcut for the Beta version and the Production version of the script. The Beta version is disabled until you change the Beta shortcut');
-                } else {
-                    shortcut.add(modifKey + shortcutParse, function() { harmonizePlace(); });
-                    phKBContentHtml = $('<span style="font-weight:bold">Current shortcut: '+modifKey+shortcutParse+'</span>');
-                    $("#PlaceHarmonizerKBCurrent" + devVersStr).append(phKBContentHtml);
-                }
-            } else {  // Prod version always loads
-                shortcut.add(modifKey + shortcutParse, function() { harmonizePlace(); });
-                phKBContentHtml = $('<span style="font-weight:bold">Current shortcut: '+modifKey+shortcutParse+'</span>');
-                $("#PlaceHarmonizerKBCurrent" + devVersStr).append(phKBContentHtml);
-            }
-
-            // Modifier on-click changes
-            var modifKeyNew;
-            $("#WMEPH-KBSModifierKey" + devVersStr).click(function() {
-                $("#PlaceHarmonizerKBWarn" + devVersStr).empty();  // remove any warning
-                if ($("#WMEPH-KBSModifierKey" + devVersStr).prop('checked')) {
-                    modifKeyNew = 'Ctrl+';
-                } else {
-                    modifKeyNew = 'Alt+';
-                }
-                shortcutParse = parseKBSShift($('#WMEPH-KeyboardShortcut'+devVersStr).val());
-
-                if (checkWMEPH_KBSconflict(shortcutParse)) {
-                    $("#WMEPH-KBSModifierKey" + devVersStr).trigger('click');
-                    phKBContentHtml = '<p style="color:red">Shortcut conflict with other WMEPH version<p>';
-                    $("#PlaceHarmonizerKBWarn" + devVersStr).append(phKBContentHtml);
-                } else {
-                    shortcut.remove(modifKey + shortcutParse);
-                    modifKey = modifKeyNew;
-                    shortcut.add(modifKey + shortcutParse, function() { harmonizePlace(); });
-                }
-
-                $("#PlaceHarmonizerKBCurrent" + devVersStr).empty();
-                phKBContentHtml = $('<span style="font-weight:bold">Current shortcut: '+modifKey+shortcutParse+'</span>');
-                $("#PlaceHarmonizerKBCurrent" + devVersStr).append(phKBContentHtml);
-            });
-
-            // Upon change of the KB letter:
-            var shortcutParseNew;
-            $("#WMEPH-KeyboardShortcut"+devVersStr).change(function() {
-                if ($('#WMEPH-KeyboardShortcut'+devVersStr).val().match(/^[a-z]{1}$/i) !== null) {  // If a single letter...
-                    $("#PlaceHarmonizerKBWarn" + devVersStr).empty();  // remove old warning
-                    // remove previous
-                    shortcutParse = parseKBSShift(localStorage.getItem('WMEPH-KeyboardShortcut'+devVersStr));
-                    shortcutParseNew = parseKBSShift($('#WMEPH-KeyboardShortcut'+devVersStr).val());
-
-                    if (checkWMEPH_KBSconflict(shortcutParseNew)) {
-                        $('#WMEPH-KeyboardShortcut'+devVersStr).val(localStorage.getItem('WMEPH-KeyboardShortcut'+devVersStr));
-                        //$("#PlaceHarmonizerKBWarn" + devVersStr).empty();
-                        phKBContentHtml = '<p style="color:red">Shortcut conflict with other WMEPH version<p>';
-                        $("#PlaceHarmonizerKBWarn" + devVersStr).append(phKBContentHtml);
-                    } else {
-                        shortcut.remove(modifKey + shortcutParse);
-                        shortcutParse = shortcutParseNew;
-                        shortcut.add(modifKey + shortcutParse, function() { harmonizePlace(); });
-                        $(localStorage.setItem('WMEPH-KeyboardShortcut'+devVersStr, $('#WMEPH-KeyboardShortcut'+devVersStr).val()) );
-                    }
-                    $("#PlaceHarmonizerKBCurrent" + devVersStr).empty();
-                    phKBContentHtml = $('<span style="font-weight:bold">Current shortcut: '+modifKey+shortcutParse+'</span>');
-                    $("#PlaceHarmonizerKBCurrent" + devVersStr).append(phKBContentHtml);
-                } else {  // if not a letter then reset and flag
-                    $('#WMEPH-KeyboardShortcut'+devVersStr).val(localStorage.getItem('WMEPH-KeyboardShortcut'+devVersStr));
-                    $("#PlaceHarmonizerKBWarn" + devVersStr).empty();
-                    phKBContentHtml = '<p style="color:red">Only letters are allowed<p>';
-                    $("#PlaceHarmonizerKBWarn" + devVersStr).append(phKBContentHtml);
-                }
-            });
+            initShortcutKey();
 
             if (localStorage.getItem('WMEPH_WLAddCount') === null) {
                 localStorage.setItem('WMEPH_WLAddCount', 2);  // Counter to remind of WL backups
@@ -6786,7 +6797,7 @@
 
         //Function to add Shift+ to upper case KBS
         function parseKBSShift(kbs) {
-            if (kbs.match(/^[A-Z]{1}$/g) !== null) { // If upper case, then add a Shift+
+            if (/^[A-Z]{1}$/g.test(kbs)) { // If upper case, then add a Shift+
                 kbs = 'Shift+' + kbs;
             }
             return kbs;
@@ -6794,13 +6805,14 @@
 
         // Function to check shortcut conflict
         function checkWMEPH_KBSconflict(KBS) {
-            var LSString = '';
-            if (!isDevVersion) {
-                LSString = devVersStringMaster;
-            }
-            if ( localStorage.getItem('WMEPH-KeyboardShortcut'+LSString) === null || localStorage.getItem('WMEPH-KBSModifierKey'+LSString) === null ) {
+            let otherVer = isDevVersion ? '' : devVersStringMaster;
+            let otherVerKey = localStorage.getItem('WMEPH-KeyboardShortcut'+otherVer);
+            let devVerModif = localStorage.getItem('WMEPH-KBSModifierKey'+devVersStringMaster) === '1' ? '1' : '0';
+            let prodVerModif = localStorage.getItem('WMEPH-KBSModifierKey') === '1' ? '1' : '0';
+
+            if ( otherVerKey === null ) {
                 return false;
-            } else if ( parseKBSShift(localStorage.getItem('WMEPH-KeyboardShortcut'+LSString)) === KBS && localStorage.getItem('WMEPH-KBSModifierKey'+devVersStringMaster) === localStorage.getItem('WMEPH-KBSModifierKey') ) {
+            } else if ( parseKBSShift(otherVerKey) === KBS && devVerModif === prodVerModif ) {
                 return true;
             } else {
                 return false;
