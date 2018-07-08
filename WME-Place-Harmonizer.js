@@ -29,7 +29,7 @@
 
 
 (function () {
-    //'use strict';
+    'use strict';
 
     if (unsafeWindow.wmephRunning) {
         alert('Multiple versions of Place Harmonizer are turned on.  Only one will be enabled.');
@@ -5308,10 +5308,16 @@
                 let btn = document.getElementById('wmephSearch');
                 if (btn !== null) {
                     btn.onclick = function() {
-                        if ( $('#WMEPH-WebSearchNewTab').prop('checked') ) {
-                            window.open(buildGLink(item.attributes.name,item.getAddress().attributes,item.attributes.houseNumber));
+                        let addr = item.getAddress();
+                        if (addr.hasState()) {
+                            let url = buildGLink(item.attributes.name,item.getAddress().attributes,item.attributes.houseNumber);
+                            if ( $('#WMEPH-WebSearchNewTab').prop('checked') ) {
+                                window.open(url);
+                            } else {
+                                window.open(url, searchResultsWindowName, searchResultsWindowSpecs);
+                            }
                         } else {
-                            window.open(buildGLink(item.attributes.name,item.getAddress().attributes,item.attributes.houseNumber), searchResultsWindowName, searchResultsWindowSpecs);
+                            alert('The state and country haven\'t been set for this place yet.  Edit the address first.');
                         }
                     };
                 } else {
