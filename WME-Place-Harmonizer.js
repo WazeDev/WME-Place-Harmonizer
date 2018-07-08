@@ -1602,10 +1602,10 @@
                             harmonizePlaceGo(item,'harmonize', [new UpdateObject(item, { houseNumber: hnTempDash })]);  // Rerun the script to update fields and lock
                             _updatedFields.address.updated = true;
                             bannButt.hnMissing.active = false;
-                            badInput = false;
+                            this.badInput = false;
                         } else {
                             $('input#WMEPH-HNAdd').css({backgroundColor:'#FDD'}).attr('title', 'Must be a number between 0 and 1000000');
-                            badInput = true;
+                            this.badInput = true;
                         }
 
                     },
@@ -4082,6 +4082,7 @@
                         if ( newURLTemp !== itemURLTemp ) { // if formatted URLs don't match, then alert the editor to check the existing URL
                             bannButt.longURL.active = true;
                             if (currentWL.longURL) {
+                                bannButt.longURL.severity = 0;
                                 bannButt.longURL.WLactive = false;
                             }
                             //bannButt.PlaceWebsite.value = 'Place Website';
