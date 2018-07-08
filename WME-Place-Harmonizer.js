@@ -15,7 +15,7 @@
 // ==UserScript==
 // @name        WME Place Harmonizer Beta
 // @namespace   WazeUSA
-// @version     1.3.99
+// @version     1.3.101
 // @description Harmonizes, formats, and locks a selected place
 // @author      WMEPH Development Group
 // @include     /^https:\/\/(www|beta)\.waze\.com\/(?!user\/)(.{2,6}\/)?editor\/?.*$/
@@ -6350,6 +6350,116 @@
             $shortcutInput.change(onKBShortcutChange);
         }
 
+        function onWLMergeClick() {
+            let $wlToolsMsg = $('#PlaceHarmonizerWLToolsMsg');
+            let $wlInput = $('#WMEPH-WLInput');
+
+            $wlToolsMsg.empty();
+            if ($wlInput.val() === 'resetWhitelist') {
+                if (confirm('***Do you want to reset all Whitelist data?\nClick OK to erase.') ) {  // if the category doesn't translate, then pop an alert that will make a forum post to the thread
+                    venueWhitelist = { '1.1.1': { Placeholder: {  } } }; // Populate with a dummy place
+                    saveWL_LS(true);
+                }
+            } else {  // try to merge uncompressed WL data
+                WLSToMerge = validateWLS($('#WMEPH-WLInput').val());
+                if (WLSToMerge) {
+                    phlog('Whitelists merged!');
+                    venueWhitelist = mergeWL(venueWhitelist,WLSToMerge);
+                    saveWL_LS(true);
+                    $wlToolsMsg.append('<p style="color:green">Whitelist data merged<p>');
+                    $wlInput.val('');
+                } else {  // try compressed WL
+                    WLSToMerge = validateWLS( LZString.decompressFromUTF16($('#WMEPH-WLInput').val()) );
+                    if (WLSToMerge) {
+                        phlog('Whitelists merged!');
+                        venueWhitelist = mergeWL(venueWhitelist,WLSToMerge);
+                        saveWL_LS(true);
+                        $wlToolsMsg.append('<p style="color:green">Whitelist data merged<p>');
+                        $wlInput.val('');
+                    } else {
+                        $wlToolsMsg.append('<p style="color:red">Invalid Whitelist data<p>');
+                    }
+                }
+            }
+        }
+
+        function onWLPullClick() {
+            $('#WMEPH-WLInput').val( LZString.decompressFromUTF16(localStorage.getItem(WLlocalStoreNameCompressed)) );
+            $('#PlaceHarmonizerWLToolsMsg').empty().append('<p style="color:green">To backup the data, copy & paste the text in the box to a safe location.<p>');
+            localStorage.setItem('WMEPH_WLAddCount', 1);
+        }
+
+        function onWLStatsClick() {
+            let currWLData = JSON.parse( LZString.decompressFromUTF16( localStorage.getItem(WLlocalStoreNameCompressed) ) );
+            let countryWL = {};
+            let stateWL = {};
+            let entries = Object.keys(currWLData).filter(key => key !== '1.1.1');
+
+            $('#WMEPH-WLInputBeta').val('');
+            entries.forEach(venueKey => {
+                let country = currWLData[venueKey].country || 'None';
+                let state = currWLData[venueKey].state || 'None';
+                countryWL[country] = countryWL[country] + 1 || 1;
+                stateWL[state] = stateWL[state] + 1 || 1;
+            });
+
+            let countryString = '';
+            for (var countryKey in countryWL) {
+                countryString = countryString + '<br>' + countryKey + ': ' + countryWL[countryKey];
+            }
+            let stateString = '';
+            for (var stateKey in stateWL) {
+                stateString = stateString + '<br>' + stateKey + ': ' + stateWL[stateKey];
+            }
+
+            $('#PlaceHarmonizerWLToolsMsg').empty().append('<p style="color:black">Number of WL places: '+ entries.length +'</p><p><span style="font-weight:bold;"><u>States</u></span>'+ stateString +'</p><p><span style="font-weight:bold;"><u>Countries</u></span>'+ countryString + '<p>');
+            //localStorage.setItem('WMEPH_WLAddCount', 1);
+        }
+
+        function onWLStateFilterClick() {
+            let $wlToolsMsg = $('#PlaceHarmonizerWLToolsMsg');
+            let $wlInput = $('#WMEPH-WLInput');
+            let stateToRemove = $wlInput.val().trim();
+            let msg = '';
+
+            if ( stateToRemove.length < 2 ) {
+                msg = '<p style="color:red">Invalid state. Enter the state name in the "Whitelist string" box above, exactly as it appears in the Stats output.<p>';
+            } else {
+                var currWLData, venueToRemove = [];
+                currWLData = JSON.parse( LZString.decompressFromUTF16( localStorage.getItem(WLlocalStoreNameCompressed) ) );
+
+                Object.keys(currWLData).filter(venueKey => venueKey !== '1.1.1').forEach(venueKey => {
+                    if ( currWLData[venueKey].state === stateToRemove || (!currWLData[venueKey].state && stateToRemove === 'None') ) {
+                        venueToRemove.push(venueKey);
+                    }
+                });
+                if (venueToRemove.length > 0) {
+                    if (localStorage.WMEPH_WLAddCount === '1') {
+                        if (confirm('Are you sure you want to clear all whitelist data for '+stateToRemove+'? This CANNOT be undone. Press OK to delete, cancel to preserve the data.') ) {
+                            backupWL_LS(true);
+                            for (var ixwl=0; ixwl<venueToRemove.length; ixwl++) {
+                                delete venueWhitelist[venueToRemove[ixwl]];
+                            }
+                            saveWL_LS(true);
+                            msg = '<p style="color:green">'+venueToRemove.length+' items removed from WL<p>';
+                            $wlInput.val('');
+                        } else {
+                            msg = '<p style="color:blue">No changes made<p>';
+                        }
+                    } else {
+                        msg = '<p style="color:red">Please backup your WL using the Pull button before removing state data<p>';
+                    }
+                } else {
+                    msg = '<p style="color:red">No data for that state. Use the state name exactly as listed in the Stats<p>';
+                }
+            }
+            $wlToolsMsg.empty().append(msg);
+        }
+
+        function onWLShareClick() {
+            window.open('https://docs.google.com/forms/d/1k_5RyOq81Fv4IRHzltC34kW3IUbXnQqDVMogwJKFNbE/viewform?entry.1173700072='+thisUser.userName);
+        }
+
         // settings tab
         function initWmephTab() {
             // Enable certain settings by default if not set by the user:
@@ -6381,7 +6491,6 @@
             initSettingsCheckbox('WMEPH-DisableRankHL');
             initSettingsCheckbox('WMEPH-DisableWLHL');
             initSettingsCheckbox('WMEPH-PLATypeFill');
-
             initSettingsCheckbox('WMEPH-KBSModifierKey');
 
             if (devUser) {
@@ -6404,160 +6513,12 @@
                 localStorage.setItem('WMEPH_WLAddCount', 2);  // Counter to remind of WL backups
             }
 
-            $('#WMEPH-WLMerge').click(function() {
-                $('#PlaceHarmonizerWLToolsMsg').empty();
-                if ($('#WMEPH-WLInput').val() === 'resetWhitelist') {
-                    if (confirm('***Do you want to reset all Whitelist data?\nClick OK to erase.') ) {  // if the category doesn't translate, then pop an alert that will make a forum post to the thread
-                        venueWhitelist = { '1.1.1': { Placeholder: {  } } }; // Populate with a dummy place
-                        saveWL_LS(true);
-                    }
-                } else {  // try to merge uncompressed WL data
-                    WLSToMerge = validateWLS($('#WMEPH-WLInput').val());
-                    if (WLSToMerge) {
-                        phlog('Whitelists merged!');
-                        venueWhitelist = mergeWL(venueWhitelist,WLSToMerge);
-                        saveWL_LS(true);
-                        phWLContentHtml = '<p style="color:green">Whitelist data merged<p>';
-                        $('#PlaceHarmonizerWLToolsMsg').append(phWLContentHtml);
-                        $('#WMEPH-WLInputBeta').val('');
-                    } else {  // try compressed WL
-                        WLSToMerge = validateWLS( LZString.decompressFromUTF16($('#WMEPH-WLInput').val()) );
-                        if (WLSToMerge) {
-                            phlog('Whitelists merged!');
-                            venueWhitelist = mergeWL(venueWhitelist,WLSToMerge);
-                            saveWL_LS(true);
-                            phWLContentHtml = '<p style="color:green">Whitelist data merged<p>';
-                            $('#PlaceHarmonizerWLToolsMsg').append(phWLContentHtml);
-                            $('#WMEPH-WLInputBeta').val('');
-                        } else {
-                            phWLContentHtml = '<p style="color:red">Invalid Whitelist data<p>';
-                            $('#PlaceHarmonizerWLToolsMsg').append(phWLContentHtml);
-                        }
-                    }
-                }
-            });
-
-            // Pull the data to the text field
-            $('#WMEPH-WLPull').click(function() {
-                $('#PlaceHarmonizerWLToolsMsg').empty();
-                $('#WMEPH-WLInput').val( LZString.decompressFromUTF16(localStorage.getItem(WLlocalStoreNameCompressed)) );
-                phWLContentHtml = '<p style="color:green">To backup the data, copy & paste the text in the box to a safe location.<p>';
-                $('#PlaceHarmonizerWLToolsMsg').append(phWLContentHtml);
-                localStorage.setItem('WMEPH_WLAddCount', 1);
-            });
-
-            // WL Stats
-            $('#WMEPH-WLStats').click(function() {
-                $('#PlaceHarmonizerWLToolsMsg').empty();
-                $('#WMEPH-WLInputBeta').val('');
-                var currWLData;
-                currWLData = JSON.parse( LZString.decompressFromUTF16( localStorage.getItem(WLlocalStoreNameCompressed) ) );
-                var countryWL = {};
-                var stateWL = {};
-                var itemCount = 0;
-                for (var venueKey in currWLData) {
-                    if (currWLData.hasOwnProperty(venueKey)) {
-                        if (venueKey !== '1.1.1') {  // Don't count the place holder
-                            itemCount++;
-                            if ( currWLData[venueKey].hasOwnProperty('country') ) {
-                                if ( countryWL.hasOwnProperty(currWLData[venueKey].country) ) {
-                                    countryWL[currWLData[venueKey].country]++;
-                                } else {
-                                    countryWL[currWLData[venueKey].country] = 1;
-                                }
-                            } else {
-                                if ( countryWL.hasOwnProperty('None') ) {
-                                    countryWL.None++;
-                                } else {
-                                    countryWL.None = 1;
-                                }
-                            }
-                            if ( currWLData[venueKey].hasOwnProperty('state') ) {
-                                if ( stateWL.hasOwnProperty(currWLData[venueKey].state) ) {
-                                    stateWL[currWLData[venueKey].state]++;
-                                } else {
-                                    stateWL[currWLData[venueKey].state] = 1;
-                                }
-                            } else {
-                                if ( stateWL.hasOwnProperty('None') ) {
-                                    stateWL.None++;
-                                } else {
-                                    stateWL.None = 1;
-                                }
-                            }
-                        }
-                    }
-                }
-
-                var countryString = '';
-                for (var countryKey in countryWL) {
-                    countryString = countryString + '<br>' + countryKey + ': ' + countryWL[countryKey];
-                }
-                var stateString = '';
-                for (var stateKey in stateWL) {
-                    stateString = stateString + '<br>' + stateKey + ': ' + stateWL[stateKey];
-                }
-
-                phWLContentHtml = '<p style="color:black">Number of WL places: '+ itemCount +'</p><p>States:'+ stateString +'</p><p>Countries:'+ countryString + '<p>';
-                $('#PlaceHarmonizerWLToolsMsg').append(phWLContentHtml);
-                //localStorage.setItem('WMEPH_WLAddCount', 1);
-            });
-
-            // WL State Filter
-            $('#WMEPH-WLStateFilter').click(function() {
-                $('#PlaceHarmonizerWLToolsMsg').empty();
-                stateToRemove = $('#WMEPH-WLInput').val();
-                if ( stateToRemove.length < 2 ) {
-                    phWLContentHtml = '<p style="color:red">Invalid state<p>';
-                    $('#PlaceHarmonizerWLToolsMsg').append(phWLContentHtml);
-                } else {
-                    var currWLData, venueToRemove = [];
-                    currWLData = JSON.parse( LZString.decompressFromUTF16( localStorage.getItem(WLlocalStoreNameCompressed) ) );
-
-                    //var WLSize = _.size(currWLData);
-
-                    for (var venueKey in currWLData) {
-                        if (currWLData.hasOwnProperty(venueKey)) {
-                            if (venueKey !== '1.1.1') {  // Don't examine the place holder
-                                if ( currWLData[venueKey].hasOwnProperty('state') ) {
-                                    if ( currWLData[venueKey].state === stateToRemove ) {
-                                        venueToRemove.push(venueKey);
-                                    }
-                                }
-                            }
-                        }
-                    }
-                    if (venueToRemove.length > 0) {
-                        if (localStorage.WMEPH_WLAddCount === '1') {
-                            if (confirm('Are you sure you want to clear all whitelist data for '+stateToRemove+'? This CANNOT be undone. Press OK to delete, cancel to preserve the data.') ) {  // misclick check
-                                backupWL_LS(true);
-                                for (var ixwl=0; ixwl<venueToRemove.length; ixwl++) {
-                                    delete venueWhitelist[venueToRemove[ixwl]];
-                                }
-                                saveWL_LS(true);
-                                phWLContentHtml = '<p style="color:green">'+venueToRemove.length+' items removed from WL<p>';
-                                $('#PlaceHarmonizerWLToolsMsg').append(phWLContentHtml);
-                                $('#WMEPH-WLInputBeta').val('');
-                            } else {
-                                phWLContentHtml = '<p style="color:blue">No changes made<p>';
-                                $('#PlaceHarmonizerWLToolsMsg').append(phWLContentHtml);
-                            }
-                        } else {
-                            phWLContentHtml = '<p style="color:red">Please backup your WL using the Pull button before removing state data<p>';
-                            $('#PlaceHarmonizerWLToolsMsg').append(phWLContentHtml);
-                        }
-                    } else {
-                        phWLContentHtml = '<p style="color:red">No data for that state. Use the state name exactly as listed in the Stats<p>';
-                        $('#PlaceHarmonizerWLToolsMsg').append(phWLContentHtml);
-                    }
-                }
-            });
-
-            // Share the data to a Google Form post
-            $('#WMEPH-WLShare').click(function() {
-                var submitWLURL = 'https://docs.google.com/forms/d/1k_5RyOq81Fv4IRHzltC34kW3IUbXnQqDVMogwJKFNbE/viewform?entry.1173700072='+thisUser.userName;
-                window.open(submitWLURL);
-            });
+            // WL button click events
+            $('#WMEPH-WLMerge').click(onWLMergeClick);
+            $('#WMEPH-WLPull').click(onWLPullClick);
+            $('#WMEPH-WLStats').click(onWLStatsClick);
+            $('#WMEPH-WLStateFilter').click(onWLStateFilterClick);
+            $('#WMEPH-WLShare').click(onWLShareClick);
 
             // Color highlighting
             $('#WMEPH-ColorHighlighting').click(bootstrapWMEPH_CH);
@@ -6642,13 +6603,19 @@
 
             // Whitelisting settings
 
-            var phWLContentHtml = $('<div id="PlaceHarmonizerWLTools">Whitelist string: <input onClick="this.select();" type="text" id="WMEPH-WLInput" style="width: 200px;padding-left:1px"><br>'+
-                                    '<input class="btn btn-success btn-xs" id="WMEPH-WLMerge" title="Merge the string into your existing Whitelist" type="button" value="Merge">'+
-                                    '<br><input class="btn btn-success btn-xs" id="WMEPH-WLPull" title="Pull your existing Whitelist for backup or sharing" type="button" value="Pull">'+
-                                    '<br><input class="btn btn-success btn-xs" id="WMEPH-WLShare" title="Share your Whitelist to a public Google sheet" type="button" value="Share your WL">'+
-                                    '<br><input class="btn btn-info btn-xs" id="WMEPH-WLStats" title="Display WL stats" type="button" value="Stats">'+
-                                    '<br><input class="btn btn-danger btn-xs" id="WMEPH-WLStateFilter" title="Remove all WL items for a state" type="button" value="Remove data for 1 State">'+
-                                    '</div><div id="PlaceHarmonizerWLToolsMsg"></div>');
+            let btnStyle = 'padding-left:10px; padding-right:10px; margin-right:4px; display:inline-block; font-weight:normal;';
+            let phWLContentHtml = $('<div id="PlaceHarmonizerWLTools">Whitelist string: <input onClick="this.select();" type="text" id="WMEPH-WLInput" style="width:100%;padding-left:1px;display:block">'+
+                                    '<div style="margin-top:3px;">'+
+                                    '<input class="btn btn-success btn-xs" id="WMEPH-WLMerge" title="Merge the string into your existing Whitelist" type="button" value="Merge" style="'+btnStyle+'">'+
+                                    '<input class="btn btn-success btn-xs" id="WMEPH-WLPull" title="Pull your existing Whitelist for backup or sharing" type="button" value="Pull" style="'+btnStyle+'">'+
+                                    '<input class="btn btn-success btn-xs" id="WMEPH-WLShare" title="Share your Whitelist to a public Google sheet" type="button" value="Share your WL" style="'+btnStyle+'">'+
+                                    '</div>'+
+                                    '<div style="margin-top:12px;">'+
+                                    '<input class="btn btn-info btn-xs" id="WMEPH-WLStats" title="Display WL stats" type="button" value="Stats" style="'+btnStyle+'">'+
+                                    '<input class="btn btn-danger btn-xs" id="WMEPH-WLStateFilter" title="Remove all WL items for a state.  Enter the state in the \'Whitelist string\' box." type="button" value="Remove data for 1 State" style="'+btnStyle+'">'+
+                                    '</div>'+
+                                    '</div>'+
+                                    '<div id="PlaceHarmonizerWLToolsMsg" style="margin-top:10px;"></div>');
             $wlToolsTab.append(phWLContentHtml);
 
             new WazeWrap.Interface.Tab('WMEPH' + (devVersStr==='Beta' ? '-β' : ''), $container.html(), initWmephTab, null);
