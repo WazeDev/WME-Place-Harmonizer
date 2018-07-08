@@ -10,6 +10,7 @@
 /* global Node */
 /* global WazeWrap */
 /* global unsafeWindow */
+/* global LZString */
 
 // ==UserScript==
 // @name        WME Place Harmonizer Beta
@@ -20,6 +21,7 @@
 // @include     /^https:\/\/(www|beta)\.waze\.com\/(?!user\/)(.{2,6}\/)?editor\/?.*$/
 // @require     https://greasyfork.org/scripts/24851-wazewrap/code/WazeWrap.js
 // @require     https://greasyfork.org/scripts/37486-wme-utils-hoursparser/code/WME%20Utils%20-%20HoursParser.js
+// @require     https://cdnjs.cloudflare.com/ajax/libs/lz-string/1.4.4/lz-string.min.js
 // @license     GNU GPL v3
 // @grant       GM_addStyle
 // @grant       GM_getResourceText
@@ -27,6 +29,8 @@
 
 
 (function () {
+    //'use strict';
+
     if (unsafeWindow.wmephRunning) {
         alert('Multiple versions of Place Harmonizer are turned on.  Only one will be enabled.');
         return;
@@ -123,26 +127,8 @@
             this.getFieldProperties().forEach(propName => {this[propName].updated = false;});
         },
         init: function() {
-            [
-                'VALLET_SERVICE',
-                'DRIVETHROUGH',
-                'WI_FI',
-                'RESTROOMS',
-                'CREDIT_CARDS',
-                'RESERVATIONS',
-                'OUTSIDE_SEATING',
-                'AIR_CONDITIONING',
-                'PARKING_FOR_CUSTOMERS',
-                'DELIVERIES',
-                'TAKE_AWAY',
-                'WHEELCHAIR_ACCESSIBLE',
-                'DISABILITY_PARKING',
-                'CARPOOL_PARKING',
-                'EV_CHARGING_STATION',
-                'CAR_WASH',
-                'SECURITY',
-                'AIRPORT_SHUTTLE'
-            ].forEach(service => {
+            ['VALLET_SERVICE', 'DRIVETHROUGH', 'WI_FI', 'RESTROOMS', 'CREDIT_CARDS', 'RESERVATIONS', 'OUTSIDE_SEATING', 'AIR_CONDITIONING', 'PARKING_FOR_CUSTOMERS', 'DELIVERIES', 'TAKE_AWAY',
+             'WHEELCHAIR_ACCESSIBLE', 'DISABILITY_PARKING', 'CARPOOL_PARKING', 'EV_CHARGING_STATION', 'CAR_WASH', 'SECURITY', 'AIRPORT_SHUTTLE'].forEach(service => {
                 var propName = 'services_' + service;
                 this[propName] = {updated: false, selector:'.landmark label[for="service-checkbox-' + service + '"]', tab: 'more-info' };
             });
@@ -161,7 +147,7 @@
             });
             observer.observe(document.getElementById('edit-panel'), { childList: true, subtree: true });
 
-            W.selectionManager.events.register('selectionchanged', null, () => {this.reset();});
+            W.selectionManager.events.register('selectionchanged', null, () => this.reset());
         }
     };
 
@@ -371,7 +357,7 @@
         purLayerObserver.observe($('#map #panel-container')[0],{childList: true, subtree: true});
 
         function panelContainerChanged() {
-            if (!$('#WMEPH-HidePURWebSearch').is(':checked')) {
+            if (!$('#WMEPH-HidePURWebSearch').prop('checked')) {
                 var $panelNav = $('.place-update-edit.panel .categories.small');
                 if ($('#PHPURWebSearchButton').length === 0 && $panelNav.length > 0) {
                     var $btn = $('<button>', {class:'btn btn-primary', id:'PHPURWebSearchButton', title: 'Search the web for this place.  Do not copy info from 3rd party sources!' }) //NOTE: Don't use btn-block class. Causes conflict with URO+ "Done" button.
@@ -629,7 +615,7 @@
          */
         var layer = W.map.landmarkLayer;
         function toggleXrayMode(enable) {
-            localStorage.setItem('WMEPH_xrayMode_enabled', $('#layer-switcher-item_wmeph_x-ray_mode').is(':checked'));
+            localStorage.setItem('WMEPH_xrayMode_enabled', $('#layer-switcher-item_wmeph_x-ray_mode').prop('checked'));
 
             let commentsLayer = W.map.getLayerByUniqueName('mapComments');
             let gisLayer = W.map.getLayerByUniqueName('__wmeGISLayers');
@@ -867,7 +853,7 @@
                         type: '==',
                         value: value,
                         evaluate: function(venue) {
-                            if ($('#WMEPH-PLATypeFill').is(':checked') && venue && venue.model && venue.model.attributes.categories &&
+                            if ($('#WMEPH-PLATypeFill').prop('checked') && venue && venue.model && venue.model.attributes.categories &&
                                 venue.model.attributes.categoryAttributes && venue.model.attributes.categoryAttributes.PARKING_LOT &&
                                 venue.model.attributes.categories.indexOf('PARKING_LOT') > -1) {
                                 var type = venue.model.attributes.categoryAttributes.PARKING_LOT.parkingType;
@@ -908,16 +894,18 @@
          */
         function applyHighlightsTest(venues) {
             venues = venues ? _.isArray(venues) ? venues : [venues] : [];
-            var storedBannButt = bannButt, storedBannServ = bannServ, storedBannButt2 = bannButt2;
-            var t0 = performance.now();  // Speed check start
+            let storedBannButt = bannButt, storedBannServ = bannServ, storedBannButt2 = bannButt2;
+            let t0 = performance.now();
+            let doHighlight = $('#WMEPH-ColorHighlighting').prop('checked');
+            let disableRankHL = $('#WMEPH-DisableRankHL').prop('checked');
+            let userLockRank = usrRank - 1;
 
-            _.each(venues, function (venue) {
-                if (venue.CLASS_NAME === 'Waze.Feature.Vector.Landmark' &&
-                    venue.attributes) {
+            _.each(venues, venue => {
+                if (venue.CLASS_NAME === 'Waze.Feature.Vector.Landmark' && venue.attributes) {
                     // Highlighting logic would go here
                     // Severity can be: 0, 'lock', 1, 2, 3, 4, or 'high'. Set to
                     // anything else to use default WME style.
-                    if ( $('#WMEPH-ColorHighlighting').prop('checked') && !($('#WMEPH-DisableRankHL').prop('checked') && venue.attributes.lockRank > (usrRank - 1))) {
+                    if ( doHighlight && !(disableRankHL && venue.attributes.lockRank > userLockRank)) {
                         try {
                             venue.attributes.wmephSeverity = harmonizePlaceGo(venue,'highlight');
                         } catch (err) {
@@ -930,7 +918,7 @@
                 }
             });
             if (getSelectedFeatures().length === 1) {
-                var venue = getSelectedFeatures()[0].model;
+                let venue = getSelectedFeatures()[0].model;
                 if (venue.type === 'venue') {
                     venue.attributes.wmephSeverity = harmonizePlaceGo(venue,'highlight');
                     bannButt = storedBannButt;
@@ -938,10 +926,8 @@
                     bannButt2 = storedBannButt2;
                 }
             }
+            phlogdev('Ran highlighter in ' + Math.round((performance.now() - t0)*10)/10 + ' milliseconds.');
             layer.redraw();
-            var t1 = performance.now();  // log search time
-            phlogdev('Ran highlighter in ' + (t1 - t0) + ' milliseconds.');
-
         }
 
         // Setup highlight colors
@@ -2972,7 +2958,6 @@
             itemID = item.attributes.id;
             if ( venueWhitelist.hasOwnProperty(itemID) ) {
                 if ( hpMode.harmFlag || ( hpMode.hlFlag && !$('#WMEPH-DisableWLHL').prop('checked')  ) ) {
-                    WLMatch = true;
                     // Enable the clear WL button if any property is true
                     for (var WLKey in venueWhitelist[itemID]) {  // loop thru the venue WL keys
                         if ( venueWhitelist[itemID].hasOwnProperty(WLKey) && (venueWhitelist[itemID][WLKey].active || false) ) {
@@ -3904,9 +3889,8 @@
                         }
 
                         // display any messaged regarding the category
-                        if (newCategories.indexOf('HOSPITAL_MEDICAL_CARE') > -1) {
-                            pc_message = '';
-                        } else {
+                        let pc_message = '';
+                        if (newCategories.indexOf('HOSPITAL_MEDICAL_CARE') === -1) {
                             pc_message = CH_DATA_Temp[CH_DATA_headers.indexOf('pc_message')];
                         }
                         if (pc_message && pc_message !== '0' && pc_message !== '') {
@@ -3914,7 +3898,7 @@
                             bannButt.pnhCatMess.message = pc_message;
                         }
                         // Unmapped categories
-                        pc_rare = CH_DATA_Temp[CH_DATA_headers.indexOf('pc_rare')].replace(/,[^A-Za-z0-9}]+/g, ',').split(',');
+                        let pc_rare = CH_DATA_Temp[CH_DATA_headers.indexOf('pc_rare')].replace(/,[^A-Za-z0-9}]+/g, ',').split(',');
                         if (pc_rare.indexOf(state2L) > -1 || pc_rare.indexOf(region) > -1 || pc_rare.indexOf(countryCode) > -1) {
                             if (CH_DATA_Temp[0] === 'OTHER' && ['GLR','NER','NWR','PLN','SCR','SER','NOR','HI','SAT'].indexOf(region) > -1) {
                                 if (!isLocked) {
@@ -3935,7 +3919,7 @@
                             }
                         }
                         // Parent Category
-                        pc_parent = CH_DATA_Temp[CH_DATA_headers.indexOf('pc_parent')].replace(/,[^A-Za-z0-9}]+/g, ',').split(',');
+                        let pc_parent = CH_DATA_Temp[CH_DATA_headers.indexOf('pc_parent')].replace(/,[^A-Za-z0-9}]+/g, ',').split(',');
                         if (pc_parent.indexOf(state2L) > -1 || pc_parent.indexOf(region) > -1 || pc_parent.indexOf(countryCode) > -1) {
                             bannButt.parentCategory.active = true;
                             if (currentWL.parentCategory) {
@@ -3944,7 +3928,7 @@
                         }
                         // Set lock level
                         for (var lockix=1; lockix<6; lockix++) {
-                            pc_lockTemp = CH_DATA_Temp[CH_DATA_headers.indexOf('pc_lock'+lockix)].replace(/,[^A-Za-z0-9}]+/g, ',').split(',');
+                            let pc_lockTemp = CH_DATA_Temp[CH_DATA_headers.indexOf('pc_lock'+lockix)].replace(/,[^A-Za-z0-9}]+/g, ',').split(',');
                             if (lockix - 1 > highestCategoryLock && (pc_lockTemp.indexOf(state2L) > -1 || pc_lockTemp.indexOf(region) > -1 || pc_lockTemp.indexOf(countryCode) > -1)) {
                                 highestCategoryLock = lockix - 1;  // Offset by 1 since lock ranks start at 0
                             }
@@ -5287,12 +5271,12 @@
                 var openPlaceWebsiteURL = item.attributes.url;
                 if (openPlaceWebsiteURL && openPlaceWebsiteURL.replace(/[^A-Za-z0-9]/g,'').length > 2) {
                     if ($('#WMEPHurl').length === 0  ) {
-                        strButt1 = '<input class="btn btn-success btn-xs" id="WMEPHurl" title="Open place URL" type="button" value="Website" style="margin-left:3px;padding-left:8px;padding-right:8px;padding-top:4px;height:24px;font-weight:normal;">';
+                        let strButt1 = '<input class="btn btn-success btn-xs" id="WMEPHurl" title="Open place URL" type="button" value="Website" style="margin-left:3px;padding-left:8px;padding-right:8px;padding-top:4px;height:24px;font-weight:normal;">';
                         $('#runWMEPH').after(strButt1);
-                        btn = document.getElementById('WMEPHurl');
+                        let btn = document.getElementById('WMEPHurl');
                         if (btn !== null) {
                             btn.onclick = function() {
-                                var item = getSelectedFeatures()[0];
+                                let item = getSelectedFeatures()[0];
                                 if (item && item.model && item.model.attributes) {
                                     openPlaceWebsiteURL = item.model.attributes.url;
                                     if (openPlaceWebsiteURL.match(/^http/i) === null) {
@@ -5319,9 +5303,9 @@
 
         function showSearchButton() {
             if (item && $('#wmephSearch').length === 0  ) {
-                strButt1 = '<input class="btn btn-danger btn-xs" id="wmephSearch" title="Search the web for this place.  Do not copy info from 3rd party sources!" type="button" value="Google" style="margin-left:3px;padding-left:8px;padding-right:8px;padding-top:4px;height:24px;font-weight:normal;">';
+                let strButt1 = '<input class="btn btn-danger btn-xs" id="wmephSearch" title="Search the web for this place.  Do not copy info from 3rd party sources!" type="button" value="Google" style="margin-left:3px;padding-left:8px;padding-right:8px;padding-top:4px;height:24px;font-weight:normal;">';
                 $('#WMEPH_runButton').append(strButt1);
-                btn = document.getElementById('wmephSearch');
+                let btn = document.getElementById('wmephSearch');
                 if (btn !== null) {
                     btn.onclick = function() {
                         if ( $('#WMEPH-WebSearchNewTab').prop('checked') ) {
@@ -5344,7 +5328,7 @@
                 if ($('#WMEPH_runButton').length === 0 ) {
                     $('<div id="WMEPH_runButton">').prependTo('.contents');
                 }
-                var strButt1, btn;
+                let strButt1, btn;
                 item = getSelectedFeatures()[0].model;
                 if (item) {
                     showOpenPlaceWebsiteButton();
@@ -5675,9 +5659,6 @@
                 }
             }
 
-            if (devUser) {
-                t0 = performance.now();  // Speed check start
-            }
             var overlappingFlag = false;
             var addrItem = item.getAddress(), itemCompAddr = false;
             if ( addrItem.hasOwnProperty('attributes') ) {
@@ -5914,7 +5895,6 @@
 
         // Functions to infer address from nearby segments
         function WMEPH_inferAddress(MAX_RECURSION_DEPTH) {
-            'use strict';
             var distanceToSegment,
                 foundAddresses = [],
                 i,
@@ -6108,7 +6088,6 @@
          * objects.
          */
         function updateAddress(feature, address, actions) {
-            'use strict';
             var newAttributes,
             feature = feature || item;
             if (feature && address) {
@@ -6385,7 +6364,7 @@
             var runOnceDefaultIgnorePlaGoogleLinkChecks = localStorage.getItem('WMEPH-runOnce-defaultToOff-plaGoogleLinkChecks');
             if (!runOnceDefaultIgnorePlaGoogleLinkChecks) {
                 var $chk = $('#WMEPH-DisablePLAExtProviderCheck');
-                if (!$chk.is(':checked')) { $chk.trigger('click'); }
+                if (!$chk.prop('checked')) { $chk.trigger('click'); }
             }
             localStorage.setItem('WMEPH-runOnce-defaultToOff-plaGoogleLinkChecks', true);
 
@@ -6555,24 +6534,14 @@
             });
 
             // Add zoom shortcut
-            shortcut.add('Control+Alt+Z', () => { zoomPlace(); });
+            shortcut.add('Control+Alt+Z', () => zoomPlace());
 
             // Color highlighting
-            $('#WMEPH-ColorHighlighting').click( function() {
-                bootstrapWMEPH_CH();
-            });
-            $('#WMEPH-DisableHoursHL').click( function() {
-                bootstrapWMEPH_CH();
-            });
-            $('#WMEPH-DisableRankHL').click( function() {
-                bootstrapWMEPH_CH();
-            });
-            $('#WMEPH-DisableWLHL').click( function() {
-                bootstrapWMEPH_CH();
-            });
-            $('#WMEPH-PLATypeFill').click( function() {
-                applyHighlightsTest(W.model.venues.getObjectArray());
-            });
+            $('#WMEPH-ColorHighlighting').click(bootstrapWMEPH_CH);
+            $('#WMEPH-DisableHoursHL').click(bootstrapWMEPH_CH);
+            $('#WMEPH-DisableRankHL').click(bootstrapWMEPH_CH);
+            $('#WMEPH-DisableWLHL').click(bootstrapWMEPH_CH);
+            $('#WMEPH-PLATypeFill').click(() => applyHighlightsTest(W.model.venues.getObjectArray()));
             if ( $('#WMEPH-ColorHighlighting').prop('checked') ) {
                 phlog('Starting Highlighter');
                 bootstrapWMEPH_CH();
@@ -6675,55 +6644,36 @@
         }
 
         function createCloneCheckbox(divID, settingID, textDescription) {
-            //Create settings checkbox and append HTML to settings tab
-            var phTempHTML = '<input type="checkbox" id="' + settingID + '">'+ textDescription +'</input>&nbsp&nbsp';
-            $('#' + divID).append(phTempHTML);
-            //Associate click event of new checkbox to call saveSettingToLocalStorage with proper ID
-            $('#' + settingID).click(function() {saveSettingToLocalStorage(settingID);});
-            //Load Setting for Local Storage, if it doesn't exist set it to NOT checked.
-            //If previously set to 1, then trigger "click" event.
-            if (!localStorage.getItem(settingID))
-            {
-                //phlogdev(settingID + ' not found.');
-            } else if (localStorage.getItem(settingID) === '1') {
+            $('#' + divID).append('<input type="checkbox" id="' + settingID + '">'+ textDescription +'</input>&nbsp&nbsp');
+            $('#' + settingID).click(() => saveSettingToLocalStorage(settingID));
+            if (localStorage.getItem(settingID) === '1') {
                 $('#' + settingID).trigger('click');
             }
         }
 
         //Function to add Shift+ to upper case KBS
         function parseKBSShift(kbs) {
-            if (/^[A-Z]{1}$/g.test(kbs)) { // If upper case, then add a Shift+
-                kbs = 'Shift+' + kbs;
-            }
-            return kbs;
+            return (/^[A-Z]{1}$/g.test(kbs) ? 'Shift+' : '') + kbs;
         }
 
         // Save settings prefs
         function saveSettingToLocalStorage(settingID) {
-            if ($('#' + settingID).prop('checked')) {
-                localStorage.setItem(settingID, '1');
-            } else {
-                localStorage.setItem(settingID, '0');
-            }
-            localStorage.setItem('WMEPH_xrayMode_enabled', $('#layer-switcher-item_wmeph_x-ray_mode').is(':checked'));
+            localStorage.setItem(settingID, $('#' + settingID).prop('checked') ? '1' : '0');
         }
 
         // This function validates that the inputted text is a JSON
         function validateWLS(jsonString) {
-            'use strict';
             try {
                 var objTry = JSON.parse(jsonString);
                 if (objTry && typeof objTry === 'object' && objTry !== null) {
                     return objTry;
                 }
-            }
-            catch (e) { }
+            } catch (e) { }
             return false;
         }
 
         // This function merges and updates venues from object vWL_2 into vWL_1
         function mergeWL(vWL_1,vWL_2) {
-            'use strict';
             var venueKey, WLKey, vWL_1_Venue, vWL_2_Venue;
             for (venueKey in vWL_2) {
                 if (vWL_2.hasOwnProperty(venueKey)) {  // basic filter
@@ -6911,11 +6861,6 @@
             itemNameSpace = ' '+itemNameSpace.replace(/ {2,}/g, ' ')+' ';  // Make double spaces into singles ( HOLLY IVY PUB  23 -- > HOLLY IVY PUB 23 )
             itemName = itemName.replace(/[^A-Z0-9]/g, '');  // Clear all non-letter and non-number characters ( HOLLYIVY PUB #23 -- > HOLLYIVYPUB23 )
             var itemNameNoNum = itemName.replace(/[^A-Z]/g, '');  // Clear non-letter characters for alternate match ( HOLLYIVYPUB23 --> HOLLYIVYPUB )
-
-            // Search performance stats
-            if (devUser) {
-                t0 = performance.now();  // Speed check start
-            }
 
             // for each place on the PNH list (skipping headers at index 0)
             // phlogdev(ixendPNH_NAMES);
@@ -7393,7 +7338,6 @@
 
     //  Whitelist an item
     function whitelistAction(itemID, wlKeyName) {
-        'use strict';
         var item = getSelectedFeatures()[0].model;
         var addressTemp = item.getAddress();
         if ( addressTemp.hasOwnProperty('attributes') ) {
@@ -7468,443 +7412,4 @@
     // Run the script...
     placeHarmonizer_bootstrap();
 
-    // LZ Compressor
-    // Copyright (c) 2013 Pieroxy <pieroxy@pieroxy.net>
-    // This work is free. You can redistribute it and/or modify it
-    // under the terms of the WTFPL, Version 2
-    // LZ-based compression algorithm, version 1.4.4
-    var LZString = (function() {
-        // private property
-        var f = String.fromCharCode;
-        var keyStrBase64 = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/=';
-        var baseReverseDic = {};
-
-        function getBaseValue(alphabet, character) {
-            if (!baseReverseDic[alphabet]) {
-                baseReverseDic[alphabet] = {};
-                for (var i = 0; i < alphabet.length; i++) {
-                    baseReverseDic[alphabet][alphabet.charAt(i)] = i;
-                }
-            }
-            return baseReverseDic[alphabet][character];
-        }
-        var LZString = {
-            compressToBase64: function(input) {
-                if (input === null) return '';
-                var res = LZString._compress(input, 6, function(a) {
-                    return keyStrBase64.charAt(a);
-                });
-                switch (res.length % 4) { // To produce valid Base64
-                    default: // When could this happen ?
-                    case 0:
-                        return res;
-                    case 1:
-                        return res + '===';
-                    case 2:
-                        return res + '==';
-                    case 3:
-                        return res + '=';
-                }
-            },
-            decompressFromBase64: function(input) {
-                if (input === null) return '';
-                if (input === '') return null;
-                return LZString._decompress(input.length, 32, function(index) {
-                    return getBaseValue(keyStrBase64, input.charAt(index));
-                });
-            },
-            compressToUTF16: function(input) {
-                if (input === null) return '';
-                return LZString._compress(input, 15, function(a) {
-                    return f(a + 32);
-                }) + ' ';
-            },
-            decompressFromUTF16: function(compressed) {
-                if (compressed === null) return '';
-                if (compressed === '') return null;
-                return LZString._decompress(compressed.length, 16384, function(index) {
-                    return compressed.charCodeAt(index) - 32;
-                });
-            },
-
-            compress: function(uncompressed) {
-                return LZString._compress(uncompressed, 16, function(a) {
-                    return f(a);
-                });
-            },
-            _compress: function(uncompressed, bitsPerChar, getCharFromInt) {
-                if (uncompressed === null) return '';
-                var i, value,
-                    context_dictionary = {},
-                    context_dictionaryToCreate = {},
-                    context_c = '',
-                    context_wc = '',
-                    context_w = '',
-                    context_enlargeIn = 2, // Compensate for the first entry which should not count
-                    context_dictSize = 3,
-                    context_numBits = 2,
-                    context_data = [],
-                    context_data_val = 0,
-                    context_data_position = 0,
-                    ii;
-                for (ii = 0; ii < uncompressed.length; ii += 1) {
-                    context_c = uncompressed.charAt(ii);
-                    if (!Object.prototype.hasOwnProperty.call(context_dictionary, context_c)) {
-                        context_dictionary[context_c] = context_dictSize++;
-                        context_dictionaryToCreate[context_c] = true;
-                    }
-                    context_wc = context_w + context_c;
-                    if (Object.prototype.hasOwnProperty.call(context_dictionary, context_wc)) {
-                        context_w = context_wc;
-                    } else {
-                        if (Object.prototype.hasOwnProperty.call(context_dictionaryToCreate, context_w)) {
-                            if (context_w.charCodeAt(0) < 256) {
-                                for (i = 0; i < context_numBits; i++) {
-                                    context_data_val = (context_data_val << 1);
-                                    if (context_data_position === bitsPerChar - 1) {
-                                        context_data_position = 0;
-                                        context_data.push(getCharFromInt(context_data_val));
-                                        context_data_val = 0;
-                                    } else {
-                                        context_data_position++;
-                                    }
-                                }
-                                value = context_w.charCodeAt(0);
-                                for (i = 0; i < 8; i++) {
-                                    context_data_val = (context_data_val << 1) | (value & 1);
-                                    if (context_data_position === bitsPerChar - 1) {
-                                        context_data_position = 0;
-                                        context_data.push(getCharFromInt(context_data_val));
-                                        context_data_val = 0;
-                                    } else {
-                                        context_data_position++;
-                                    }
-                                    value = value >> 1;
-                                }
-                            } else {
-                                value = 1;
-                                for (i = 0; i < context_numBits; i++) {
-                                    context_data_val = (context_data_val << 1) | value;
-                                    if (context_data_position === bitsPerChar - 1) {
-                                        context_data_position = 0;
-                                        context_data.push(getCharFromInt(context_data_val));
-                                        context_data_val = 0;
-                                    } else {
-                                        context_data_position++;
-                                    }
-                                    value = 0;
-                                }
-                                value = context_w.charCodeAt(0);
-                                for (i = 0; i < 16; i++) {
-                                    context_data_val = (context_data_val << 1) | (value & 1);
-                                    if (context_data_position === bitsPerChar - 1) {
-                                        context_data_position = 0;
-                                        context_data.push(getCharFromInt(context_data_val));
-                                        context_data_val = 0;
-                                    } else {
-                                        context_data_position++;
-                                    }
-                                    value = value >> 1;
-                                }
-                            }
-                            context_enlargeIn--;
-                            if (context_enlargeIn === 0) {
-                                context_enlargeIn = Math.pow(2, context_numBits);
-                                context_numBits++;
-                            }
-                            delete context_dictionaryToCreate[context_w];
-                        } else {
-                            value = context_dictionary[context_w];
-                            for (i = 0; i < context_numBits; i++) {
-                                context_data_val = (context_data_val << 1) | (value & 1);
-                                if (context_data_position === bitsPerChar - 1) {
-                                    context_data_position = 0;
-                                    context_data.push(getCharFromInt(context_data_val));
-                                    context_data_val = 0;
-                                } else {
-                                    context_data_position++;
-                                }
-                                value = value >> 1;
-                            }
-                        }
-                        context_enlargeIn--;
-                        if (context_enlargeIn === 0) {
-                            context_enlargeIn = Math.pow(2, context_numBits);
-                            context_numBits++;
-                        }
-                        // Add wc to the dictionary.
-                        context_dictionary[context_wc] = context_dictSize++;
-                        context_w = String(context_c);
-                    }
-                }
-                // Output the code for w.
-                if (context_w !== '') {
-                    if (Object.prototype.hasOwnProperty.call(context_dictionaryToCreate, context_w)) {
-                        if (context_w.charCodeAt(0) < 256) {
-                            for (i = 0; i < context_numBits; i++) {
-                                context_data_val = (context_data_val << 1);
-                                if (context_data_position === bitsPerChar - 1) {
-                                    context_data_position = 0;
-                                    context_data.push(getCharFromInt(context_data_val));
-                                    context_data_val = 0;
-                                } else {
-                                    context_data_position++;
-                                }
-                            }
-                            value = context_w.charCodeAt(0);
-                            for (i = 0; i < 8; i++) {
-                                context_data_val = (context_data_val << 1) | (value & 1);
-                                if (context_data_position === bitsPerChar - 1) {
-                                    context_data_position = 0;
-                                    context_data.push(getCharFromInt(context_data_val));
-                                    context_data_val = 0;
-                                } else {
-                                    context_data_position++;
-                                }
-                                value = value >> 1;
-                            }
-                        } else {
-                            value = 1;
-                            for (i = 0; i < context_numBits; i++) {
-                                context_data_val = (context_data_val << 1) | value;
-                                if (context_data_position === bitsPerChar - 1) {
-                                    context_data_position = 0;
-                                    context_data.push(getCharFromInt(context_data_val));
-                                    context_data_val = 0;
-                                } else {
-                                    context_data_position++;
-                                }
-                                value = 0;
-                            }
-                            value = context_w.charCodeAt(0);
-                            for (i = 0; i < 16; i++) {
-                                context_data_val = (context_data_val << 1) | (value & 1);
-                                if (context_data_position === bitsPerChar - 1) {
-                                    context_data_position = 0;
-                                    context_data.push(getCharFromInt(context_data_val));
-                                    context_data_val = 0;
-                                } else {
-                                    context_data_position++;
-                                }
-                                value = value >> 1;
-                            }
-                        }
-                        context_enlargeIn--;
-                        if (context_enlargeIn === 0) {
-                            context_enlargeIn = Math.pow(2, context_numBits);
-                            context_numBits++;
-                        }
-                        delete context_dictionaryToCreate[context_w];
-                    } else {
-                        value = context_dictionary[context_w];
-                        for (i = 0; i < context_numBits; i++) {
-                            context_data_val = (context_data_val << 1) | (value & 1);
-                            if (context_data_position === bitsPerChar - 1) {
-                                context_data_position = 0;
-                                context_data.push(getCharFromInt(context_data_val));
-                                context_data_val = 0;
-                            } else {
-                                context_data_position++;
-                            }
-                            value = value >> 1;
-                        }
-                    }
-                    context_enlargeIn--;
-                    if (context_enlargeIn === 0) {
-                        context_enlargeIn = Math.pow(2, context_numBits);
-                        context_numBits++;
-                    }
-                }
-                // Mark the end of the stream
-                value = 2;
-                for (i = 0; i < context_numBits; i++) {
-                    context_data_val = (context_data_val << 1) | (value & 1);
-                    if (context_data_position === bitsPerChar - 1) {
-                        context_data_position = 0;
-                        context_data.push(getCharFromInt(context_data_val));
-                        context_data_val = 0;
-                    } else {
-                        context_data_position++;
-                    }
-                    value = value >> 1;
-                }
-                // Flush the last char
-                while (true) {
-                    context_data_val = (context_data_val << 1);
-                    if (context_data_position === bitsPerChar - 1) {
-                        context_data.push(getCharFromInt(context_data_val));
-                        break;
-                    } else context_data_position++;
-                }
-                return context_data.join('');
-            },
-            decompress: function(compressed) {
-                if (compressed === null) return '';
-                if (compressed === '') return null;
-                return LZString._decompress(compressed.length, 32768, function(index) {
-                    return compressed.charCodeAt(index);
-                });
-            },
-            _decompress: function(length, resetValue, getNextValue) {
-                var dictionary = [],
-                    enlargeIn = 4,
-                    dictSize = 4,
-                    numBits = 3,
-                    entry = '',
-                    result = [],
-                    i,
-                    w,
-                    bits, resb, maxpower, power,
-                    c,
-                    data = {
-                        val: getNextValue(0),
-                        position: resetValue,
-                        index: 1
-                    };
-                for (i = 0; i < 3; i += 1) {
-                    dictionary[i] = i;
-                }
-                bits = 0;
-                maxpower = Math.pow(2, 2);
-                power = 1;
-                while (power !== maxpower) {
-                    resb = data.val & data.position;
-                    data.position >>= 1;
-                    if (data.position === 0) {
-                        data.position = resetValue;
-                        data.val = getNextValue(data.index++);
-                    }
-                    bits |= (resb > 0 ? 1 : 0) * power;
-                    power <<= 1;
-                }
-                switch (next = bits) {
-                    case 0:
-                        bits = 0;
-                        maxpower = Math.pow(2, 8);
-                        power = 1;
-                        while (power !== maxpower) {
-                            resb = data.val & data.position;
-                            data.position >>= 1;
-                            if (data.position === 0) {
-                                data.position = resetValue;
-                                data.val = getNextValue(data.index++);
-                            }
-                            bits |= (resb > 0 ? 1 : 0) * power;
-                            power <<= 1;
-                        }
-                        c = f(bits);
-                        break;
-                    case 1:
-                        bits = 0;
-                        maxpower = Math.pow(2, 16);
-                        power = 1;
-                        while (power !== maxpower) {
-                            resb = data.val & data.position;
-                            data.position >>= 1;
-                            if (data.position === 0) {
-                                data.position = resetValue;
-                                data.val = getNextValue(data.index++);
-                            }
-                            bits |= (resb > 0 ? 1 : 0) * power;
-                            power <<= 1;
-                        }
-                        c = f(bits);
-                        break;
-                    case 2:
-                        return '';
-                }
-                dictionary[3] = c;
-                w = c;
-                result.push(c);
-                while (true) {
-                    if (data.index > length) {
-                        return '';
-                    }
-                    bits = 0;
-                    maxpower = Math.pow(2, numBits);
-                    power = 1;
-                    while (power !== maxpower) {
-                        resb = data.val & data.position;
-                        data.position >>= 1;
-                        if (data.position === 0) {
-                            data.position = resetValue;
-                            data.val = getNextValue(data.index++);
-                        }
-                        bits |= (resb > 0 ? 1 : 0) * power;
-                        power <<= 1;
-                    }
-                    switch (c = bits) {
-                        case 0:
-                            bits = 0;
-                            maxpower = Math.pow(2, 8);
-                            power = 1;
-                            while (power !== maxpower) {
-                                resb = data.val & data.position;
-                                data.position >>= 1;
-                                if (data.position === 0) {
-                                    data.position = resetValue;
-                                    data.val = getNextValue(data.index++);
-                                }
-                                bits |= (resb > 0 ? 1 : 0) * power;
-                                power <<= 1;
-                            }
-                            dictionary[dictSize++] = f(bits);
-                            c = dictSize - 1;
-                            enlargeIn--;
-                            break;
-                        case 1:
-                            bits = 0;
-                            maxpower = Math.pow(2, 16);
-                            power = 1;
-                            while (power !== maxpower) {
-                                resb = data.val & data.position;
-                                data.position >>= 1;
-                                if (data.position === 0) {
-                                    data.position = resetValue;
-                                    data.val = getNextValue(data.index++);
-                                }
-                                bits |= (resb > 0 ? 1 : 0) * power;
-                                power <<= 1;
-                            }
-                            dictionary[dictSize++] = f(bits);
-                            c = dictSize - 1;
-                            enlargeIn--;
-                            break;
-                        case 2:
-                            return result.join('');
-                    }
-                    if (enlargeIn === 0) {
-                        enlargeIn = Math.pow(2, numBits);
-                        numBits++;
-                    }
-                    if (dictionary[c]) {
-                        entry = dictionary[c];
-                    } else {
-                        if (c === dictSize) {
-                            entry = w + w.charAt(0);
-                        } else {
-                            return null;
-                        }
-                    }
-                    result.push(entry);
-                    // Add w+entry[0] to the dictionary.
-                    dictionary[dictSize++] = w + entry.charAt(0);
-                    enlargeIn--;
-                    w = entry;
-                    if (enlargeIn === 0) {
-                        enlargeIn = Math.pow(2, numBits);
-                        numBits++;
-                    }
-                }
-            }
-        };
-        return LZString;
-    })();
-    if (typeof define === 'function' && define.amd) {
-        define(function() {
-            return LZString;
-        });
-    } else if (typeof module !== 'undefined' && module !== null) {
-        module.exports = LZString;
-    }
 })();
