@@ -15,7 +15,7 @@
 // ==UserScript==
 // @name        WME Place Harmonizer Beta
 // @namespace   WazeUSA
-// @version     1.3.102
+// @version     1.3.103
 // @description Harmonizes, formats, and locks a selected place
 // @author      WMEPH Development Group
 // @include     /^https:\/\/(www|beta)\.waze\.com\/(?!user\/)(.{2,6}\/)?editor\/?.*$/
@@ -43,7 +43,7 @@
         '.wmeph-btn, .wmephwl-btn { height:19px; }',
         '.btn.wmeph-btn { padding: 0px 3px }',
         '.btn.wmephwl-btn { padding: 0px 1px 0px 2px; height: 18px; box-shadow: 0 2px 0 #b3b3b3;}',
-        '#WMEPH_banner .banner-row { padding:2px 4px; border-bottom:solid 1px #cccccc; }',
+        '#WMEPH_banner .banner-row { padding:2px 4px; }',
         '#WMEPH_banner .banner-row.red { color:#b51212; background-color:#f0dcdc; }',
         '#WMEPH_banner .banner-row.blue { color:#3232e6; background-color:#dcdcf0; }',
         '#WMEPH_banner .banner-row.yellow { color:#584a04; background-color:#f0f0c2; }',
@@ -4033,7 +4033,7 @@
                     if (!containsAny(newCategories,['STADIUM_ARENA','CEMETERY','TRANSPORTATION','FERRY_PIER','SUBWAY_STATION',
                                                     'BRIDGE','TUNNEL','JUNCTION_INTERCHANGE','ISLAND','SEA_LAKE_POOL','RIVER_STREAM','FOREST_GROVE','CANAL','SWAMP_MARSH','DAM']) ) {
                         bannButt.noHours.active = true;
-                        if (currentWL.noHours) {
+                        if (currentWL.noHours || $('#WMEPH-DisableHoursHL').prop('checked')) {
                             bannButt.noHours.WLactive = false;
                             bannButt.noHours.severity = 0;
                         }
@@ -4925,7 +4925,9 @@
                     $rowDiv = $('<div class="banner-row">');
                     if (rowData.severity === 3) {
                         $rowDiv.addClass('red');
-                    }else if (rowData.severity === 1) {
+                    } else if (rowData.severity === 2) {
+                        $rowDiv.addClass('yellow');
+                    } else if (rowData.severity === 1) {
                         $rowDiv.addClass('blue');
                     } else if (rowData.severity === 0) {
                         $rowDiv.addClass('gray');
