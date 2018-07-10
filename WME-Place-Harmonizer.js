@@ -15,7 +15,7 @@
 // ==UserScript==
 // @name        WME Place Harmonizer Beta
 // @namespace   WazeUSA
-// @version     1.3.103
+// @version     1.3.104
 // @description Harmonizes, formats, and locks a selected place
 // @author      WMEPH Development Group
 // @include     /^https:\/\/(www|beta)\.waze\.com\/(?!user\/)(.{2,6}\/)?editor\/?.*$/
@@ -4289,7 +4289,7 @@
                 ].forEach(btnInfo => {
                     if (btnIdx === 3) $btnDiv.append('<br>');
                     bannButt.plaIsPublic.message +=
-                        $('<button>', {class: ' btn btn-default btn-xs wmeph-btn', 'data-lot-type':btnInfo[0]})
+                        $('<button>', {class: 'wmeph-pla-lot-type-btn btn btn-default btn-xs wmeph-btn', 'data-lot-type':btnInfo[0]})
                         .text(btnInfo[1])
                         .prop('outerHTML');
                 });
