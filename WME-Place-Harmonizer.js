@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name        WME Place Harmonizer Beta
 // @namespace   WazeUSA
-// @version     1.3.105
+// @version     1.3.106
 // @description Harmonizes, formats, and locks a selected place
 // @author      WMEPH Development Group
 // @include     /^https:\/\/(www|beta)\.waze\.com\/(?!user\/)(.{2,6}\/)?editor\/?.*$/
@@ -10,7 +10,6 @@
 // @require     https://cdnjs.cloudflare.com/ajax/libs/lz-string/1.4.4/lz-string.min.js
 // @license     GNU GPL v3
 // @grant       GM_addStyle
-// @grant       GM_getResourceText
 // ==/UserScript==
 
 /* global I18n */
@@ -5058,8 +5057,10 @@
 
         // Format "no hours" section and hook up button events.
         $('#WMEPH_WLnoHours').css({'vertical-align':'top'});
-        $('#WMEPH_noHours').click(bannButt.noHours.addHoursAction);
-        $('#WMEPH_noHours_2').click(bannButt.noHours.replaceHoursAction);
+        
+        // NOTE: Leave these wrapped in the "() => ..." functions, to make sure "this" is bound properly.
+        $('#WMEPH_noHours').click(() => bannButt.noHours.addHoursAction());
+        $('#WMEPH_noHours_2').click(() => bannButt.noHours.replaceHoursAction());  
 
     }  // END assemble Banner function
 
