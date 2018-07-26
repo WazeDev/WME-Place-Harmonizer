@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name        WME Place Harmonizer Beta
 // @namespace   WazeUSA
-// @version     1.3.106
+// @version     1.3.107
 // @description Harmonizes, formats, and locks a selected place
 // @author      WMEPH Development Group
 // @include     /^https:\/\/(www|beta)\.waze\.com\/(?!user\/)(.{2,6}\/)?editor\/?.*$/
@@ -74,12 +74,12 @@
         '.ui-autocomplete { max-height: 300px;overflow-y: auto;overflow-x: hidden;} '
     ];
     const _SCRIPT_VERSION  = GM_info.script.version.toString(); // pull version from header
-    let _initAlreadyRun = false; // This is used to skip a couple things if already run once.  This could probably be handled better...
     const _SCRIPT_NAME = GM_info.script.name;
     const _IS_DEV_VERSION = /Beta/i.test(_SCRIPT_NAME);  //  enables dev messages and unique DOM options if the script is called "... Beta"
     const _PNH_DATA = { USA: {}, CAN: {} };
     const _CATEGORY_LOOKUP = {};
     const _DEFAULT_HOURS_TEXT = 'Paste Hours Here';
+    let _initAlreadyRun = false; // This is used to skip a couple things if already run once.  This could probably be handled better...
     let _countryCode;
     var hospitalPartMatch, hospitalFullMatch, animalPartMatch, animalFullMatch, schoolPartMatch, schoolFullMatch;  // vars for cat-name checking
     var WMEPHdevList, WMEPHbetaList;  // Userlists
@@ -1381,14 +1381,66 @@
         return {base: splits[1], suffix: splits[2]};
     }
 
+    function addUpdateAction(venue, updateObj, actions) {
+        var action = new UpdateObject(venue, updateObj);
+        if (actions) {
+            actions.push(action);
+        } else {
+            W.model.actionManager.add(action);
+        }
+    }
+
+    function setServiceChecked(servBtn, checked, actions) {
+        var servID = WMEServicesArray[servBtn.servIDIndex];
+        var checkboxChecked = $('#service-checkbox-'+servID).prop('checked');
+        let venue = getSelectedVenue();
+
+        if (checkboxChecked !== checked) {
+            _updatedFields['services_' + servID].updated = true;
+        }
+        var toggle = typeof checked === 'undefined';
+        var noAdd = false;
+        checked = (toggle) ? !servBtn.checked : checked;
+        if (checkboxChecked === servBtn.checked && checkboxChecked !== checked) {
+            servBtn.checked = checked;
+            var services;
+            if (actions) {
+                for (var i=0; i<actions.length; i++ ) {
+                    var existingAction = actions[i];
+                    if (existingAction.newAttributes && existingAction.newAttributes.services) {
+                        services = existingAction.newAttributes.services;
+                    }
+                }
+            }
+            if (!services) {
+                services = venue.attributes.services.slice(0);
+            } else {
+                noAdd = services.indexOf(servID) > -1;
+            }
+            if (checked) {
+                services.push(servID);
+            } else {
+                var index = services.indexOf(servID);
+                if (index > -1) {
+                    services.splice(index, 1);
+                }
+            }
+            if (!noAdd) {
+                addUpdateAction(venue, {services:services}, actions);
+            }
+        }
+        updateServicesChecks(bannServ);
+        if (!toggle) servBtn.active = checked;
+    }
+
     // Normalize url
-    function normalizeURL(s, lc, skipBannerActivate, item, region) {
+    function normalizeURL(s, lc, skipBannerActivate, venue, region) {
         var regionsThatWantPLAUrls = ['SER'];
         if ((!s || s.trim().length === 0) && !skipBannerActivate) {  // Notify that url is missing and provide web search to find website and gather data (provided for all editors)
-            let hasOperator = item.attributes.brand && W.model.venues.categoryBrands.PARKING_LOT.indexOf(item.attributes.brand) !== -1;
-            if (!item.isParkingLot() || (item.isParkingLot() && (regionsThatWantPLAUrls.indexOf(region) > -1 || hasOperator))) {
+            let hasOperator = venue.attributes.brand && W.model.venues.categoryBrands.PARKING_LOT.indexOf(venue.attributes.brand) !== -1;
+            if (!venue.isParkingLot() || (venue.isParkingLot() && (regionsThatWantPLAUrls.indexOf(region) > -1 || hasOperator))) {
                 bannButt.urlMissing.active = true;
-                if (item.isParkingLot() && !hasOperator) {
+                if (venue.isParkingLot() && !hasOperator) {
                     bannButt.urlMissing.severity = 0;
                     bannButt.urlMissing.WLactive = false;
                 }
@@ -2373,283 +2425,235 @@
 
         bannButt = getBannButt();
 
-        bannButt2 = {
-            placesWiki: {
-                active: true, severity: 0, message: '', value: 'Places wiki', title: 'Open the places Wazeopedia (wiki) page',
-                action: function() {
-                    window.open(_URLS.placesWiki);
-                }
-            },
-            restAreaWiki: {
-                active: false, severity: 0, message: '', value: 'Rest Area wiki', title: 'Open the Rest Area wiki page',
-                action: function() {
-                    window.open(_URLS.restAreaWiki);
-                }
-            },
-            clearWL: {
-                active: false, severity: 0, message: '', value: 'Clear place whitelist', title: 'Clear all Whitelisted fields for this place',
-                action: function() {
-                    if (confirm('Are you sure you want to clear all whitelisted fields for this place?') ) {  // misclick check
-                        delete venueWhitelist[itemID];
-                        saveWL_LS(true);
-                        harmonizePlaceGo(item,'harmonize');  // rerun the script to check all flags again
+        if (hpMode.harmFlag) {
+            bannButt2 = {
+                placesWiki: {
+                    active: true, severity: 0, message: '', value: 'Places wiki', title: 'Open the places Wazeopedia (wiki) page',
+                    action: function() {
+                        window.open(_URLS.placesWiki);
                     }
-                }
-            },  // END placesWiki definition
-            PlaceErrorForumPost: {
-                active: true, severity: 0, message: '', value: 'Report script error', title: 'Report a script error',
-                action: function() {
-                    reportError({
-                        subject: 'WMEPH Bug report: Script Error',
-                        message: 'Script version: ' + _SCRIPT_VERSION + devVersStr + '\nPermalink: ' + placePL + '\nPlace name: ' + item.attributes.name + '\nCountry: ' + addr.country.name + '\n--------\nDescribe the error:  \n '
-                    });
-                }
-            }
-
-        };  // END bannButt2 definitions
-
-        function addUpdateAction(updateObj, actions) {
-            var action = new UpdateObject(item, updateObj);
-            if (actions) {
-                actions.push(action);
-            } else {
-                W.model.actionManager.add(action);
-            }
-        }
-
-        function setServiceChecked(servBtn, checked, actions) {
-            var servID = WMEServicesArray[servBtn.servIDIndex];
-            var checkboxChecked = $('#service-checkbox-'+servID).prop('checked');
-            if (checkboxChecked !== checked) {
-                _updatedFields['services_' + servID].updated = true;
-            }
-            var toggle = typeof checked === 'undefined';
-            var noAdd = false;
-            checked = (toggle) ? !servBtn.checked : checked;
-            if (checkboxChecked === servBtn.checked && checkboxChecked !== checked) {
-                servBtn.checked = checked;
-                var services;
-                if (actions) {
-                    for (var i=0; i<actions.length; i++ ) {
-                        var existingAction = actions[i];
-                        if (existingAction.newAttributes && existingAction.newAttributes.services) {
-                            services = existingAction.newAttributes.services;
+                },
+                restAreaWiki: {
+                    active: false, severity: 0, message: '', value: 'Rest Area wiki', title: 'Open the Rest Area wiki page',
+                    action: function() {
+                        window.open(_URLS.restAreaWiki);
+                    }
+                },
+                clearWL: {
+                    active: false, severity: 0, message: '', value: 'Clear place whitelist', title: 'Clear all Whitelisted fields for this place',
+                    action: function() {
+                        if (confirm('Are you sure you want to clear all whitelisted fields for this place?') ) {  // misclick check
+                            delete venueWhitelist[itemID];
+                            saveWL_LS(true);
+                            harmonizePlaceGo(item,'harmonize');  // rerun the script to check all flags again
                         }
                     }
-                }
-                if (!services) {
-                    services = item.attributes.services.slice(0);
-                } else {
-                    noAdd = services.indexOf(servID) > -1;
-                }
-                if (checked) {
-                    services.push(servID);
-                } else {
-                    var index = services.indexOf(servID);
-                    if (index > -1) {
-                        services.splice(index, 1);
+                },  // END placesWiki definition
+                PlaceErrorForumPost: {
+                    active: true, severity: 0, message: '', value: 'Report script error', title: 'Report a script error',
+                    action: function() {
+                        reportError({
+                            subject: 'WMEPH Bug report: Script Error',
+                            message: 'Script version: ' + _SCRIPT_VERSION + devVersStr + '\nPermalink: ' + placePL + '\nPlace name: ' + item.attributes.name + '\nCountry: ' + addr.country.name + '\n--------\nDescribe the error:  \n '
+                        });
                     }
                 }
-                if (!noAdd) {
-                    addUpdateAction({services:services}, actions);
-                }
-            }
-            updateServicesChecks(bannServ);
-            if (!toggle) servBtn.active = checked;
-        }
 
-        // set up banner action buttons.  Structure:
-        // active: false until activated in the script
-        // checked: whether the service is already set on the place. Determines grey vs white icon color
-        // icon: button icon name
-        // value: button text  (Not used for Icons, keep as backup
-        // title: tooltip text
-        // action: The action that happens if the button is pressed
-        bannServ = {
-            addValet: {  // append optional Alias to the name
-                active: false, checked: false, icon: 'serv-valet', w2hratio: 50/50, value: 'Valet', title: 'Valet service', servIDIndex: 0,
-                action: function(actions, checked) {
-                    setServiceChecked(this, checked, actions);
-                },
-                pnhOverride: false,
-                actionOn: function(actions) {
-                    this.action(actions, true);
-                },
-                actionOff: function(actions) {
-                    this.action(actions, false);
-                }
-            },
-            addDriveThru: {  // append optional Alias to the name
-                active: false, checked: false, icon: 'serv-drivethru', w2hratio: 78/50, value: 'DriveThru', title: 'Drive-thru', servIDIndex: 1,
-                action: function(actions, checked) {
-                    setServiceChecked(this, checked, actions);
-                },
-                pnhOverride: false,
-                actionOn: function(actions) {
-                    this.action(actions, true);
-                },
-                actionOff: function(actions) {
-                    this.action(actions, false);
-                }
-            },
-            addWiFi: {  // append optional Alias to the name
-                active: false, checked: false, icon: 'serv-wifi', w2hratio: 67/50, value: 'WiFi', title: 'Wi-Fi', servIDIndex: 2,
-                action: function(actions, checked) {
-                    setServiceChecked(this, checked, actions);
-                },
-                pnhOverride: false,
-                actionOn: function(actions) {
-                    this.action(actions, true);
-                },
-                actionOff: function(actions) {
-                    this.action(actions, false);
-                }
-            },
-            addRestrooms: {  // append optional Alias to the name
-                active: false, checked: false, icon: 'serv-restrooms', w2hratio: 49/50, value: 'Restroom', title: 'Restrooms', servIDIndex: 3,
-                action: function(actions, checked) {
-                    setServiceChecked(this, checked, actions);
-                },
-                pnhOverride: false,
-                actionOn: function(actions) {
-                    this.action(actions, true);
-                },
-                actionOff: function(actions) {
-                    this.action(actions, false);
-                }
-            },
-            addCreditCards: {  // append optional Alias to the name
-                active: false, checked: false, icon: 'serv-credit', w2hratio: 73/50, value: 'CC', title: 'Accepts credit cards', servIDIndex: 4,
-                action: function(actions, checked) {
-                    setServiceChecked(this, checked, actions);
-                },
-                pnhOverride: false,
-                actionOn: function(actions) {
-                    this.action(actions, true);
-                },
-                actionOff: function(actions) {
-                    this.action(actions, false);
-                }
-            },
-            addReservations: {  // append optional Alias to the name
-                active: false, checked: false, icon: 'serv-reservations', w2hratio: 55/50, value: 'Reserve', title: 'Reservations', servIDIndex: 5,
-                action: function(actions, checked) {
-                    setServiceChecked(this, checked, actions);
-                },
-                pnhOverride: false,
-                actionOn: function(actions) {
-                    this.action(actions, true);
-                },
-                actionOff: function(actions) {
-                    this.action(actions, false);
-                }
-            },
-            addOutside: {  // append optional Alias to the name
-                active: false, checked: false, icon: 'serv-outdoor', w2hratio: 73/50, value: 'OusideSeat', title: 'Outdoor seating', servIDIndex: 6,
-                action: function(actions, checked) {
-                    setServiceChecked(this, checked, actions);
-                },
-                pnhOverride: false,
-                actionOn: function(actions) {
-                    this.action(actions, true);
-                },
-                actionOff: function(actions) {
-                    this.action(actions, false);
-                }
-            },
-            addAC: {  // append optional Alias to the name
-                active: false, checked: false, icon: 'serv-ac', w2hratio: 50/50, value: 'AC', title: 'Air conditioning', servIDIndex: 7,
-                action: function(actions, checked) {
-                    setServiceChecked(this, checked, actions);
-                },
-                pnhOverride: false,
-                actionOn: function(actions) {
-                    this.action(actions, true);
-                },
-                actionOff: function(actions) {
-                    this.action(actions, false);
-                }
-            },
-            addParking: {  // append optional Alias to the name
-                active: false, checked: false, icon: 'serv-parking', w2hratio: 46/50, value: 'Customer parking', title: 'Parking', servIDIndex: 8,
-                action: function(actions, checked) {
-                    setServiceChecked(this, checked, actions);
-                },
-                pnhOverride: false,
-                actionOn: function(actions) {
-                    this.action(actions, true);
-                },
-                actionOff: function(actions) {
-                    this.action(actions, false);
-                }
-            },
-            addDeliveries: {  // append optional Alias to the name
-                active: false, checked: false, icon: 'serv-deliveries', w2hratio: 86/50, value: 'Delivery', title: 'Deliveries', servIDIndex: 9,
-                action: function(actions, checked) {
-                    setServiceChecked(this, checked, actions);
-                },
-                pnhOverride: false,
-                actionOn: function(actions) {
-                    this.action(actions, true);
-                },
-                actionOff: function(actions) {
-                    this.action(actions, false);
-                }
-            },
-            addTakeAway: {  // append optional Alias to the name
-                active: false, checked: false, icon: 'serv-takeaway', w2hratio: 34/50, value: 'Take-out', title: 'Take-out', servIDIndex: 10,
-                action: function(actions, checked) {
-                    setServiceChecked(this, checked, actions);
-                },
-                pnhOverride: false,
-                actionOn: function(actions) {
-                    this.action(actions, true);
-                },
-                actionOff: function(actions) {
-                    this.action(actions, false);
-                }
-            },
-            addWheelchair: {  // add service
-                active: false, checked: false, icon: 'serv-wheelchair', w2hratio: 50/50, value: 'WhCh', title: 'Wheelchair accessible', servIDIndex: 11,
-                action: function(actions, checked) {
-                    setServiceChecked(this, checked, actions);
-                },
-                pnhOverride: false,
-                actionOn: function(actions) {
-                    this.action(actions, true);
-                },
-                actionOff: function(actions) {
-                    this.action(actions, false);
-                }
-            },
-            addDisabilityParking: {
-                active: false, checked: false, icon: 'serv-wheelchair', w2hratio: 50/50, value: 'DisabilityParking', title: 'Disability parking', servIDIndex: 12,
-                action: function(actions, checked) {
-                    setServiceChecked(this, checked, actions);
-                },
-                pnhOverride: false,
-                actionOn: function(actions) {
-                    this.action(actions, true);
-                },
-                actionOff: function(actions) {
-                    this.action(actions, false);
-                }
-            },
-            add247: {  // add 24/7 hours
-                active: false, checked: false, icon: 'serv-247', w2hratio: 73/50, value: '247', title: 'Hours: Open 24\/7',
-                action: function(actions) {
-                    if (!bannServ.add247.checked) {
-                        addUpdateAction({ openingHours: [{days: [1,2,3,4,5,6,0], fromHour: '00:00', toHour: '00:00'}] }, actions);
-                        _updatedFields.openingHours.updated = true;
-                        bannServ.add247.checked = true;
-                        bannButt.noHours.active = false;
+            };  // END bannButt2 definitions
+
+            // set up banner action buttons.  Structure:
+            // active: false until activated in the script
+            // checked: whether the service is already set on the place. Determines grey vs white icon color
+            // icon: button icon name
+            // value: button text  (Not used for Icons, keep as backup
+            // title: tooltip text
+            // action: The action that happens if the button is pressed
+            bannServ = {
+                addValet: {  // append optional Alias to the name
+                    active: false, checked: false, icon: 'serv-valet', w2hratio: 50/50, value: 'Valet', title: 'Valet service', servIDIndex: 0,
+                    action: function(actions, checked) {
+                        setServiceChecked(this, checked, actions);
+                    },
+                    pnhOverride: false,
+                    actionOn: function(actions) {
+                        this.action(actions, true);
+                    },
+                    actionOff: function(actions) {
+                        this.action(actions, false);
                     }
                 },
-                actionOn: function(actions) {
-                    this.action(actions);
+                addDriveThru: {  // append optional Alias to the name
+                    active: false, checked: false, icon: 'serv-drivethru', w2hratio: 78/50, value: 'DriveThru', title: 'Drive-thru', servIDIndex: 1,
+                    action: function(actions, checked) {
+                        setServiceChecked(this, checked, actions);
+                    },
+                    pnhOverride: false,
+                    actionOn: function(actions) {
+                        this.action(actions, true);
+                    },
+                    actionOff: function(actions) {
+                        this.action(actions, false);
+                    }
+                },
+                addWiFi: {  // append optional Alias to the name
+                    active: false, checked: false, icon: 'serv-wifi', w2hratio: 67/50, value: 'WiFi', title: 'Wi-Fi', servIDIndex: 2,
+                    action: function(actions, checked) {
+                        setServiceChecked(this, checked, actions);
+                    },
+                    pnhOverride: false,
+                    actionOn: function(actions) {
+                        this.action(actions, true);
+                    },
+                    actionOff: function(actions) {
+                        this.action(actions, false);
+                    }
+                },
+                addRestrooms: {  // append optional Alias to the name
+                    active: false, checked: false, icon: 'serv-restrooms', w2hratio: 49/50, value: 'Restroom', title: 'Restrooms', servIDIndex: 3,
+                    action: function(actions, checked) {
+                        setServiceChecked(this, checked, actions);
+                    },
+                    pnhOverride: false,
+                    actionOn: function(actions) {
+                        this.action(actions, true);
+                    },
+                    actionOff: function(actions) {
+                        this.action(actions, false);
+                    }
+                },
+                addCreditCards: {  // append optional Alias to the name
+                    active: false, checked: false, icon: 'serv-credit', w2hratio: 73/50, value: 'CC', title: 'Accepts credit cards', servIDIndex: 4,
+                    action: function(actions, checked) {
+                        setServiceChecked(this, checked, actions);
+                    },
+                    pnhOverride: false,
+                    actionOn: function(actions) {
+                        this.action(actions, true);
+                    },
+                    actionOff: function(actions) {
+                        this.action(actions, false);
+                    }
+                },
+                addReservations: {  // append optional Alias to the name
+                    active: false, checked: false, icon: 'serv-reservations', w2hratio: 55/50, value: 'Reserve', title: 'Reservations', servIDIndex: 5,
+                    action: function(actions, checked) {
+                        setServiceChecked(this, checked, actions);
+                    },
+                    pnhOverride: false,
+                    actionOn: function(actions) {
+                        this.action(actions, true);
+                    },
+                    actionOff: function(actions) {
+                        this.action(actions, false);
+                    }
+                },
+                addOutside: {  // append optional Alias to the name
+                    active: false, checked: false, icon: 'serv-outdoor', w2hratio: 73/50, value: 'OusideSeat', title: 'Outdoor seating', servIDIndex: 6,
+                    action: function(actions, checked) {
+                        setServiceChecked(this, checked, actions);
+                    },
+                    pnhOverride: false,
+                    actionOn: function(actions) {
+                        this.action(actions, true);
+                    },
+                    actionOff: function(actions) {
+                        this.action(actions, false);
+                    }
+                },
+                addAC: {  // append optional Alias to the name
+                    active: false, checked: false, icon: 'serv-ac', w2hratio: 50/50, value: 'AC', title: 'Air conditioning', servIDIndex: 7,
+                    action: function(actions, checked) {
+                        setServiceChecked(this, checked, actions);
+                    },
+                    pnhOverride: false,
+                    actionOn: function(actions) {
+                        this.action(actions, true);
+                    },
+                    actionOff: function(actions) {
+                        this.action(actions, false);
+                    }
+                },
+                addParking: {  // append optional Alias to the name
+                    active: false, checked: false, icon: 'serv-parking', w2hratio: 46/50, value: 'Customer parking', title: 'Parking', servIDIndex: 8,
+                    action: function(actions, checked) {
+                        setServiceChecked(this, checked, actions);
+                    },
+                    pnhOverride: false,
+                    actionOn: function(actions) {
+                        this.action(actions, true);
+                    },
+                    actionOff: function(actions) {
+                        this.action(actions, false);
+                    }
+                },
+                addDeliveries: {  // append optional Alias to the name
+                    active: false, checked: false, icon: 'serv-deliveries', w2hratio: 86/50, value: 'Delivery', title: 'Deliveries', servIDIndex: 9,
+                    action: function(actions, checked) {
+                        setServiceChecked(this, checked, actions);
+                    },
+                    pnhOverride: false,
+                    actionOn: function(actions) {
+                        this.action(actions, true);
+                    },
+                    actionOff: function(actions) {
+                        this.action(actions, false);
+                    }
+                },
+                addTakeAway: {  // append optional Alias to the name
+                    active: false, checked: false, icon: 'serv-takeaway', w2hratio: 34/50, value: 'Take-out', title: 'Take-out', servIDIndex: 10,
+                    action: function(actions, checked) {
+                        setServiceChecked(this, checked, actions);
+                    },
+                    pnhOverride: false,
+                    actionOn: function(actions) {
+                        this.action(actions, true);
+                    },
+                    actionOff: function(actions) {
+                        this.action(actions, false);
+                    }
+                },
+                addWheelchair: {  // add service
+                    active: false, checked: false, icon: 'serv-wheelchair', w2hratio: 50/50, value: 'WhCh', title: 'Wheelchair accessible', servIDIndex: 11,
+                    action: function(actions, checked) {
+                        setServiceChecked(this, checked, actions);
+                    },
+                    pnhOverride: false,
+                    actionOn: function(actions) {
+                        this.action(actions, true);
+                    },
+                    actionOff: function(actions) {
+                        this.action(actions, false);
+                    }
+                },
+                addDisabilityParking: {
+                    active: false, checked: false, icon: 'serv-wheelchair', w2hratio: 50/50, value: 'DisabilityParking', title: 'Disability parking', servIDIndex: 12,
+                    action: function(actions, checked) {
+                        setServiceChecked(this, checked, actions);
+                    },
+                    pnhOverride: false,
+                    actionOn: function(actions) {
+                        this.action(actions, true);
+                    },
+                    actionOff: function(actions) {
+                        this.action(actions, false);
+                    }
+                },
+                add247: {  // add 24/7 hours
+                    active: false, checked: false, icon: 'serv-247', w2hratio: 73/50, value: '247', title: 'Hours: Open 24\/7',
+                    action: function(actions) {
+                        if (!bannServ.add247.checked) {
+                            addUpdateAction(getSelectedVenue(), { openingHours: [{days: [1,2,3,4,5,6,0], fromHour: '00:00', toHour: '00:00'}] }, actions);
+                            _updatedFields.openingHours.updated = true;
+                            bannServ.add247.checked = true;
+                            bannButt.noHours.active = false;
+                        }
+                    },
+                    actionOn: function(actions) {
+                        this.action(actions);
+                    }
                 }
-            }
-        };  // END bannServ definitions
+            };  // END bannServ definitions
+        }
 
         if (hpMode.harmFlag) {
             // Update icons to reflect current WME place services
@@ -2688,7 +2692,7 @@
                 newHoursEntries.push(newHoursEntry);
             }
             if (updateHours) {
-                addUpdateAction({ openingHours: newHoursEntries }, actions);
+                addUpdateAction(getSelectedVenue(), { openingHours: newHoursEntries }, actions);
                 _updatedFields.openingHours.updated = true;
                 bannButt.allDayHoursFixed.active = true;
             }
@@ -2770,7 +2774,7 @@
 
         // Check parking lot attributes.
         if (item.isParkingLot()) {
-            bannServ.addDisabilityParking.active = true;
+            if (hpMode.harmFlag) bannServ.addDisabilityParking.active = true;
             var catAttr = item.attributes.categoryAttributes;
             var parkAttr = catAttr ? catAttr.PARKING_LOT : undefined;
             if (!parkAttr || !parkAttr.costType || parkAttr.costType === 'UNKNOWN') {
@@ -2883,25 +2887,28 @@
 
         // Whitelist breakout if place exists on the Whitelist and the option is enabled
         itemID = item.attributes.id;
-        // get GPS lat/long coords from place, call as itemGPS.lat, itemGPS.lon
-        var itemGPS = OL.Layer.SphericalMercator.inverseMercator(item.attributes.geometry.getCentroid().x,item.attributes.geometry.getCentroid().y);
+        var itemGPS;
         if (venueWhitelist.hasOwnProperty(itemID) && (hpMode.harmFlag || (hpMode.hlFlag && !$('#WMEPH-DisableWLHL').prop('checked')))) {
             // Enable the clear WL button if any property is true
             for (var WLKey in venueWhitelist[itemID]) {  // loop thru the venue WL keys
                 if ( venueWhitelist[itemID].hasOwnProperty(WLKey) && (venueWhitelist[itemID][WLKey].active || false) ) {
-                    bannButt2.clearWL.active = true;
+                    if (hpMode.harmFlag) bannButt2.clearWL.active = true;
                     _wl[WLKey] = venueWhitelist[itemID][WLKey];
                 }
             }
             if (venueWhitelist[itemID].hasOwnProperty('dupeWL') && venueWhitelist[itemID].dupeWL.length > 0) {
-                bannButt2.clearWL.active = true;
+                if (hpMode.harmFlag) bannButt2.clearWL.active = true;
                 _wl.dupeWL = venueWhitelist[itemID].dupeWL;
             }
             // Update address and GPS info for the place
-            venueWhitelist[itemID].city = addr.city.attributes.name;  // Store city for the venue
-            venueWhitelist[itemID].state = addr.state.name;  // Store state for the venue
-            venueWhitelist[itemID].country = addr.country.name;  // Store country for the venue
-            venueWhitelist[itemID].gps = itemGPS;  // Store GPS coords for the venue
+            if (hpMode.harmFlag) {
+                // get GPS lat/long coords from place, call as itemGPS.lat, itemGPS.lon
+                itemGPS = OL.Layer.SphericalMercator.inverseMercator(item.attributes.geometry.getCentroid().x,item.attributes.geometry.getCentroid().y);
+                venueWhitelist[itemID].city = addr.city.attributes.name;  // Store city for the venue
+                venueWhitelist[itemID].state = addr.state.name;  // Store state for the venue
+                venueWhitelist[itemID].country = addr.country.name;  // Store country for the venue
+                venueWhitelist[itemID].gps = itemGPS;  // Store GPS coords for the venue
+            }
         }
 
         // Country restrictions
@@ -3722,7 +3729,8 @@
             }
 
             var CH_DATA_Temp;
-            if (newCategories.length > 0) {
+
+            if (hpMode.harmFlag && newCategories.length > 0) {
                 for (var iii=0; iii<CH_NAMES.length; iii++) {
                     if (newCategories.indexOf(CH_NAMES[iii]) > -1 ) {
                         CH_DATA_Temp = CH_DATA[iii].split('|');
@@ -3751,6 +3759,7 @@
                     }
                 }
             }
+
 
             // PNH specific Services:
 
@@ -3961,11 +3970,13 @@
                 }
             }
 
-            // Highlight 24/7 button if hours are set that way, and add button for all places
-            if ( item.attributes.openingHours.length === 1 && item.attributes.openingHours[0].days.length === 7 && item.attributes.openingHours[0].fromHour === '00:00' && item.attributes.openingHours[0].toHour ==='00:00' ) {
-                bannServ.add247.checked = true;
+            if (hpMode.harmFlag) {
+                // Highlight 24/7 button if hours are set that way, and add button for all places
+                if ( item.attributes.openingHours.length === 1 && item.attributes.openingHours[0].days.length === 7 && item.attributes.openingHours[0].fromHour === '00:00' && item.attributes.openingHours[0].toHour ==='00:00' ) {
+                    bannServ.add247.checked = true;
+                }
+                bannServ.add247.active = true;
             }
-            bannServ.add247.active = true;
 
             // URL updating
             updateURL = true;
