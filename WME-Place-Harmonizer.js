@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name        WME Place Harmonizer Beta
 // @namespace   WazeUSA
-// @version     1.3.108
+// @version     1.3.109
 // @description Harmonizes, formats, and locks a selected place
 // @author      WMEPH Development Group
 // @include     /^https:\/\/(www|beta)\.waze\.com\/(?!user\/)(.{2,6}\/)?editor\/?.*$/
@@ -1204,13 +1204,12 @@
             // Add listeners
             W.model.venues.on('objectschanged', e => errorHandler(() => {
                 if (!_disableHighlightTest) {
-                    errorHandler(() => applyHighlightsTest(e));
+                    applyHighlightsTest(e);
                 }
             }));
 
-            W.model.venues.on('objectsadded', e => errorHandler(() => {
-                errorHandler(() => applyHighlightsTest(e));
-            }));
+            W.model.venues.on('objectsadded', e => errorHandler(() => applyHighlightsTest(e)));
+            //W.map.landmarkLayer.events.register( 'beforefeaturesadded', null, e => errorHandler(() => applyHighlightsTest(e.features.map(f => f.model))) );
 
             // Apply the colors
             applyHighlightsTest(W.model.venues.getObjectArray());
@@ -3291,6 +3290,8 @@
                 }
 
                 // Localized Storefinder code:
+                customStoreFinderLocal = false;
+                customStoreFinder = false;
                 if (ph_sfurl_ix > -1) {  // if the sfurl column exists...
                     if ( ph_sfurllocal_ix > -1 && PNHMatchData[ph_sfurllocal_ix] !== '' && PNHMatchData[ph_sfurllocal_ix] !== '0' ) {
                         if ( !bannButt.localizedName.active ) {
