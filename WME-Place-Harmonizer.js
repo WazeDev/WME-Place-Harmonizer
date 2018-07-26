@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name        WME Place Harmonizer Beta
 // @namespace   WazeUSA
-// @version     1.3.107
+// @version     1.3.108
 // @description Harmonizes, formats, and locks a selected place
 // @author      WMEPH Development Group
 // @include     /^https:\/\/(www|beta)\.waze\.com\/(?!user\/)(.{2,6}\/)?editor\/?.*$/
@@ -25,6 +25,7 @@
 /* global WazeWrap */
 /* global unsafeWindow */
 /* global LZString */
+/* global Promise */
 
 (function () {
     'use strict';
@@ -596,6 +597,11 @@
         }
         console.log('WMEPH' + (_IS_DEV_VERSION ? '-β' : '') + ': ' + m);
     }
+    function phlogdev(msg, obj) {
+        if (_USER.isDevUser) {
+            console.log('WMEPH' + (_IS_DEV_VERSION ? '-β' : '') + ': ' + msg, (obj ? obj : ''));
+        }
+    }
 
     function zoomPlace() {
         let venue = getSelectedVenue();
@@ -852,12 +858,6 @@
             }
         }
     } // END harmoList function
-
-    function phlogdev(msg, obj) {
-        if (_USER.isDevUser) {
-            console.log('WMEPH' + (_IS_DEV_VERSION ? '-β' : '') + ': ' + msg, (obj ? obj : ''));
-        }
-    }
 
     function onObjectsChanged() {
         deleteDupeLabel();
@@ -1503,15 +1503,15 @@
         }
     }
 
-
-    class Flag {
+    // Abstract flag classes.  Must be declared outside the "Flag" namespace.
+    class FlagBase {
         constructor(active, severity, message) {
             this.active = active;
             this.severity = severity;
             this.message = message;
         }
     }
-    class ActionFlag extends Flag {
+    class ActionFlag extends FlagBase {
         constructor(active, severity, message, value, title) {
             super(active, severity, message);
             this.value = value;
@@ -1519,7 +1519,7 @@
         }
         action() {} // overwrite this
     }
-    class WLFlag extends Flag {
+    class WLFlag extends FlagBase {
         constructor(active, severity, message, WLactive, WLtitle, WLkeyName) {
             super(active, severity, message);
             this.WLactive = WLactive;
@@ -1540,807 +1540,810 @@
         }
         action() {} // overwrite this
     }
-    class RestAreaNoTransportationFlag extends ActionFlag {
-        constructor() { super(false, 2,  'Rest areas should not use the Transportation category.', 'Remove it?'); }
-        action() {
-            let ix = newCategories.indexOf('TRANSPORTATION');
-            if (ix > -1) {
-                let venue = getSelectedVenue();
-                newCategories.splice(ix, 1);
-                _updatedFields.categories.updated = true;
-                executeMultiAction([new UpdateObject(venue, { categories: newCategories })]);
-                harmonizePlaceGo(venue,'harmonize');
-            }
-        }
-    }
-    class RestAreaScenicFlag extends WLActionFlag {
-        constructor() { super(false, 0, 'Verify that the "Scenic Overlook" category is appropriate for this rest area.  If not: ',
-                              'Remove it', 'Remove "Scenic Overlook" category.', true, 'Whitelist place', 'restAreaScenic'); }
-        action() {
-            var ix = newCategories.indexOf('SCENIC_LOOKOUT_VIEWPOINT');
-            if (ix > -1) {
-                let venue = getSelectedVenue();
-                newCategories.splice(ix, 1);
-                _updatedFields.categories.updated = true;
-                executeMultiAction([new UpdateObject(venue, { categories: newCategories })]);
-                harmonizePlaceGo(venue,'harmonize');
-            }
-        }
-    }
-    class RestAreaSpecFlag extends WLActionFlag {
-        constructor() { super(false, 3, 'Is this a rest area?',
-                              'Yes', 'Update with proper categories and services.', true, 'Whitelist place', 'restAreaSpec'); }
-        action () {
-            let venue = getSelectedVenue();
-            let actions = [];
-            // update categories according to spec
-            newCategories = insertAtIX(newCategories,'REST_AREAS',0);
-            actions.push(new UpdateObject(venue, { categories: newCategories }));
-            _updatedFields.categories.updated = true;
 
-            // make it 24/7
-            actions.push(new UpdateObject(venue, { openingHours: [{days: [1,2,3,4,5,6,0], fromHour: '00:00', toHour: '00:00'}] }));
-            _updatedFields.openingHours.updated = true;
-
-            bannServ.add247.checked = true;
-            bannServ.addParking.actionOn(actions);  // add parking service
-            bannServ.addWheelchair.actionOn(actions);  // add parking service
-            bannButt.restAreaSpec.active = false;  // reset the display flag
-
-            executeMultiAction(actions);
-
-            _disableHighlightTest = true;
-            harmonizePlaceGo(venue,'harmonize');
-            _disableHighlightTest = false;
-            applyHighlightsTest(venue);
-        }
-    }
-    class GasMkPrimFlag extends ActionFlag {
-        constructor() { super(false, 3, 'Gas Station is not the primary category', 'Fix', 'Make the Gas Station category the primary category.'); }
-        action() {
-            let venue = getSelectedVenue();
-            newCategories = insertAtIX(newCategories,'GAS_STATION',0);  // Insert/move Gas category in the first position
-            _updatedFields.categories.updated = true;
-            executeMultiAction([new UpdateObject(venue, { categories: newCategories })]);
-            harmonizePlaceGo(venue,'harmonize');
-        }
-    }
-    class IsThisAPilotTravelCenterFlag extends ActionFlag {
-        constructor() { super(false, 0, 'Is this a "Travel Center"?', 'Yes', ''); }
-        action() {
-            let venue = getSelectedVenue();
-            _updatedFields.name.updated = true;
-            executeMultiAction([new UpdateObject(venue, { name: 'Pilot Travel Center' })]);
-            harmonizePlaceGo(venue, 'harmonize');
-        }
-    }
-    class HotelMkPrimFlag extends WLActionFlag {
-        constructor() { super(false, 3, 'Hotel category is not first', 'Fix', 'Make the Hotel category the primary category.', true, 'Whitelist hotel as secondary category', 'hotelMkPrim'); }
-        action() {
-            let venue = getSelectedVenue();
-            newCategories = insertAtIX(newCategories, 'HOTEL', 0);  // Insert/move Hotel category in the first position
-            _updatedFields.categories.updated = true;
-            executeMultiAction([new UpdateObject(venue, { categories: newCategories })]);
-            harmonizePlaceGo(venue,'harmonize');
-        }
-    }
-    class ChangeToPetVetFlag extends WLActionFlag {
-        constructor() { super(false, 3, 'This looks like it should be a Pet/Veterinarian category. Change?', 'Yes', 'Change to Pet/Veterinarian Category', true, 'Whitelist PetVet category', 'changeHMC2PetVet'); }
-        action() {
-            let venue = getSelectedVenue();
-            let idx = newCategories[newCategories.indexOf('HOSPITAL_MEDICAL_CARE')];
-            if (idx === -1) idx = newCategories[newCategories.indexOf('HOSPITAL_URGENT_CARE')];
-            if (idx > -1) {
-                newCategories[idx] = 'PET_STORE_VETERINARIAN_SERVICES';
-                _updatedFields.categories.updated = true;
-                executeMultiAction([new UpdateObject(venue, { categories: newCategories })]);
-            }
-            harmonizePlaceGo(venue,'harmonize');  // Rerun the script to update fields and lock
-        }
-    }
-    class ChangeSchool2OfficesFlag extends WLActionFlag {
-        constructor() { super(false, 3, 'This doesn\'t look like it should be School category.', 'Change to Office', 'Change to Offices Category', true, 'Whitelist School category', 'changeSchool2Offices'); }
-        action() {
-            let venue = getSelectedVenue();
-            newCategories[newCategories.indexOf('SCHOOL')] = 'OFFICES';
-            _updatedFields.categories.updated = true;
-            executeMultiAction([new UpdateObject(venue, { categories: newCategories })]);
-            harmonizePlaceGo(venue,'harmonize');  // Rerun the script to update fields and lock
-        }
-    }
-    class PointNotAreaFlag extends WLActionFlag {
-        constructor() { super(false, 3, 'This category should be a point place.', 'Change to point', 'Change to point place', true, 'Whitelist point (not area)', 'pointNotArea'); }
-        action() {
-            let venue = getSelectedVenue();
-            if (venue.attributes.categories.indexOf('RESIDENCE_HOME') > -1){
-                let centroid = venue.geometry.getCentroid();
-                updateFeatureGeometry(venue, new OL.Geometry.Point(centroid.x,centroid.y));
-            }
-            else
-                $('.landmark label.point-btn').click();
-
-            bannButt.pointNotArea.active = false;
-        }
-    }
-    class AreaNotPointFlag extends WLActionFlag {
-        constructor() { super(false, 3, 'This category should be an area place.', 'Change to area', 'Change to Area', true, 'Whitelist area (not point)', 'areaNotPoint'); }
-        action() {
-            let venue = getSelectedVenue();
-            updateFeatureGeometry(venue, venue.getPolygonGeometry());
-            bannButt.areaNotPoint.active = false;
-        }
-    }
-    class HnMissingFlag extends WLActionFlag {
-        constructor() {
-            super(false, 3, 'No HN: <input type="text" id="WMEPH-HNAdd" autocomplete="off" style="font-size:0.85em;width:100px;padding-left:2px;color:#000;">', 'Add', 'Add HN to place', true, 'Whitelist empty HN', 'HNWL');
-            this.noBannerAssemble = true;
-            this.badInput = false;
-        }
-        action() {
-            let newHN = $('#WMEPH-HNAdd').val().replace(/ +/g, '');
-            phlogdev(newHN);
-            var hnTemp = newHN.replace(/[^\d]/g, '');
-            var hnTempDash = newHN.replace(/[^\d-]/g, '');
-            if (hnTemp > 0 && hnTemp < 1000000) {
-                let venue = getSelectedVenue();
-                harmonizePlaceGo(venue, 'harmonize', [new UpdateObject(venue, { houseNumber: hnTempDash })]);  // Rerun the script to update fields and lock
-                _updatedFields.address.updated = true;
-                bannButt.hnMissing.active = false;
-                this.badInput = false;
-            } else {
-                $('input#WMEPH-HNAdd').css({backgroundColor:'#FDD'}).attr('title', 'Must be a number between 0 and 1000000');
-                this.badInput = true;
-            }
-
-        }
-    }
-    class HnNonStandardFlag extends WLFlag {
-        constructor() { super(false, 3, 'House number is non-standard.', true, 'Whitelist non-standard HN', 'hnNonStandard'); }
-    }
-    class HNRangeFlag extends WLFlag {
-        constructor() { super(false, 2, 'House number seems out of range for the street name. Verify.', true, 'Whitelist HN range', 'HNRange'); }
-    }
-    class StreetMissingFlag extends ActionFlag {
-        constructor() { super(false, 3, 'No street:', 'Edit address', 'Edit address to add street.'); }
-        action() {
-            $('.nav-tabs a[href="#landmark-edit-general"]').trigger('click');
-            $('.landmark .full-address').click();
-            if ($('.empty-street').prop('checked')) {
-                $('.empty-street').click();
-            }
-            $('.street-name').focus();
-        }
-    }
-    class CityMissingFlag extends ActionFlag {
-        constructor() { super(false, 3, 'No city:', 'Edit address', 'Edit address to add city.'); }
-        action() {
-            $('.nav-tabs a[href="#landmark-edit-general"]').trigger('click');
-            $('.landmark .full-address').click();
-            if ($('.empty-city').prop('checked')) {
-                $('.empty-city').click();
-            }
-            $('.city-name').focus();
-        }
-    }
-    class BankBranchFlag extends ActionFlag {  // no WL
-        constructor() { super(false, 1, 'Is this a bank branch office? ', 'Yes', 'Is this a bank branch?'); }
-        action() {
-            let venue = getSelectedVenue();
-            newCategories = ['BANK_FINANCIAL','ATM'];  // Change to bank and atm cats
-            var tempName = newName.replace(/[\- (]*ATM[\- )]*/g, ' ').replace(/^ /g,'').replace(/ $/g,'');     // strip ATM from name if present
-            newName = tempName;
-            W.model.actionManager.add(new UpdateObject(venue, { name: newName, categories: newCategories }));
-            if (tempName !== newName) _updatedFields.name.updated = true;
-            _updatedFields.categories.updated = true;
-            bannButt.bankCorporate.active = false;   // reset the bank Branch display flag
-            bannButt.bankBranch.active = false;   // reset the bank Branch display flag
-            bannButt.standaloneATM.active = false;   // reset the standalone ATM display flag
-            bannButt.bankType1.active = false;  // remove bank type warning
-        }
-    }
-    class StandaloneATMFlag extends ActionFlag {
-        constructor() { super(false, 2, 'Or is this a standalone ATM? ', 'Yes', 'Is this a standalone ATM with no bank branch?'); }
-        action() {
-            let venue = getSelectedVenue();
-            if (newName.indexOf('ATM') === -1) {
-                newName = newName + ' ATM';
-                _updatedFields.name.updated = true;
-            }
-            newCategories = ['ATM'];  // Change to ATM only
-            W.model.actionManager.add(new UpdateObject(venue, { name: newName, categories: newCategories }));
-            _updatedFields.categories.updated = true;
-            bannButt.bankCorporate.active = false;   // reset the bank Branch display flag
-            bannButt.bankBranch.active = false;   // reset the bank Branch display flag
-            bannButt.standaloneATM.active = false;   // reset the standalone ATM display flag
-            bannButt.bankType1.active = false;  // remove bank type warning
-        }
-    }
-    class BankCorporateFlag extends ActionFlag {
-        constructor() { super(false, 1, 'Or is this the bank\'s corporate offices?', 'Yes', 'Is this the bank\'s corporate offices?'); }
-        action() {
-            let venue = getSelectedVenue();
-            newCategories = ['OFFICES'];  // Change to offices category
-            var tempName = newName.replace(/[\- (]*atm[\- )]*/ig, ' ').replace(/^ /g,'').replace(/ $/g,'').replace(/ {2,}/g,' ');     // strip ATM from name if present
-            newName = tempName;
-            W.model.actionManager.add(new UpdateObject(venue, { name: newName + ' - Corporate Offices', categories: newCategories }));
-            if (newName !== tempName) _updatedFields.name.updated = true;
-            _updatedFields.categories.updated = true;
-            bannButt.bankCorporate.active = false;   // reset the bank Branch display flag
-            bannButt.bankBranch.active = false;   // reset the bank Branch display flag
-            bannButt.standaloneATM.active = false;   // reset the standalone ATM display flag
-            bannButt.bankType1.active = false;  // remove bank type warning
-        }
-    }
-    class WazeBotFlag extends ActionFlag {
-        constructor() { super(false, 2, 'Edited last by an automated process. Please verify information is correct.', 'Nudge', 'If no other properties need to be updated, click to nudge the place (force an edit).'); }
-        action() {
-            let venue = getSelectedVenue();
-            // Use an exact clone of the original geometry to force an edit without actually changing anything.
-            W.model.actionManager.add(new UpdateFeatureGeometry(venue, W.model.venues, venue.geometry, venue.geometry.clone()));
-            harmonizePlaceGo(venue,'harmonize');  // Rerun the script to update fields and lock
-        }
-    }
-    class ParentCategoryFlag extends WLFlag {
-        constructor() { super(false, 2, 'This parent category is usually not mapped in this region.', true, 'Whitelist parent Category','parentCategory'); }
-    }
-    class LongURLFlag extends WLActionFlag{
-        constructor() { super(false, 1, 'Existing URL doesn\'t match the suggested PNH URL. Use the Place Website button below to verify. If existing URL is invalid:', 'Use PNH URL', 'Change URL to the PNH standard', true, 'Whitelist existing URL', 'longURL'); }
-        action() {
-            let venue = getSelectedVenue();
-            if (tempPNHURL !== '') {
-                W.model.actionManager.add(new UpdateObject(venue, { url: tempPNHURL }));
-                _updatedFields.url.updated = true;
-                bannButt.longURL.active = false;
-                updateURL = true;
-            } else {
-                if (confirm('WMEPH: URL Matching Error!\nClick OK to report this error') ) {  // if the category doesn't translate, then pop an alert that will make a forum post to the thread
-                    reportError({
-                        subject: 'WMEPH URL comparison Error report',
-                        message: 'Error report: URL comparison failed for "' + venue.attributes.name + '"\nPermalink: ' + placePL
-                    });
-                }
-            }
-        }
-    }
-    class MissingUSPSZipAltFlag extends WLActionFlag {
-        constructor() {
-            super(false, 1, 'No <a href="https://wazeopedia.waze.com/wiki/USA/Places/Post_Office" style="color:#3232e6;" target="_blank">ZIP code alt name</a>: ' +
-                  '<input type="text" id="WMEPH-zipAltNameAdd" autocomplete="off" style="font-size:0.85em;width:65px;padding-left:2px;color:#000;" title="Enter the ZIP code and click Add">',
-                  'Add', true, 'Whitelist missing USPS zip alt name', 'missingUSPSZipAlt');
-            this.noBannerAssemble = true;
-        }
-        action() {
-            let $input = $('input#WMEPH-zipAltNameAdd');
-            let zip = $input.val().trim();
-            if (zip) {
-                if (/^\d{5}/.test(zip)) {
+    // Namespace to keep these grouped.
+    var Flag = {
+        RestAreaNoTransportation: class extends ActionFlag {
+            constructor() { super(false, 2,  'Rest areas should not use the Transportation category.', 'Remove it?'); }
+            action() {
+                let ix = newCategories.indexOf('TRANSPORTATION');
+                if (ix > -1) {
                     let venue = getSelectedVenue();
-                    let aliases = [].concat(venue.attributes.aliases);
-                    // Make sure zip hasn't already been added.
-                    if (aliases.indexOf(zip) === -1) {
-                        aliases.push(zip);
-                        W.model.actionManager.add(new UpdateObject(venue, {aliases: aliases}));
-                        harmonizePlaceGo(venue, 'harmonize');
-                    } else {
-                        $input.css({backgroundColor: '#FDD'}).attr('title', 'Zip code alt name already exists');
-                    }
-                } else {
-                    $input.css({backgroundColor: '#FDD'}).attr('title', 'Zip code format error');
+                    newCategories.splice(ix, 1);
+                    _updatedFields.categories.updated = true;
+                    executeMultiAction([new UpdateObject(venue, { categories: newCategories })]);
+                    harmonizePlaceGo(venue,'harmonize');
                 }
             }
-        }
-    }
-    class ExtProviderMissingFlag extends ActionFlag {
-        constructor() {
-            super(false, 3, 'No Google link', 'Nudge', 'If no other properties need to be updated, click to nudge the place (force an edit).');
-            this.value2 = 'Add';
-            this.title2 = 'Add a link to a Google place';
-        }
-        action() {
-            let venue = getSelectedVenue();
-            // Use an exact clone of the original geometry to force an edit without actually changing anything.
-            W.model.actionManager.add(new UpdateFeatureGeometry(venue, W.model.venues, venue.geometry, venue.geometry.clone()));
-            harmonizePlaceGo(venue,'harmonize');  // Rerun the script to update fields and lock
-        }
-        action2() {
-            let venue = getSelectedVenue();
-            $('div.external-providers-view a').focus().click();
-            setTimeout(function() {
-                $('a[href="#landmark-edit-general"]').click();
-                $('.external-providers-view a.add').focus().mousedown();
-                $('div.external-providers-view > div > ul > div > li > div > a').last().mousedown();
-                $('.select2-input').last().focus().val(venue.attributes.name).trigger('input');
-            }, 100);
-        }
-    }
-    class UrlMissingFlag extends WLActionFlag {
-        constructor() {
-            super(false, 1, 'No URL: <input type="text" id="WMEPH-UrlAdd" autocomplete="off" style="font-size:0.85em;width:100px;padding-left:2px;color:#000;">', 'Add', 'Add URL to place', true, 'Whitelist empty URL', 'urlWL');
-            this.noBannerAssemble = true;
-            this.badInput = false;
-        }
-        action() {
-            let venue = getSelectedVenue();
-            let newUrl = normalizeURL($('#WMEPH-UrlAdd').val(), true, false, venue);
-            if ((!newUrl || newUrl.trim().length === 0) || newUrl === 'badURL') {
-                $('input#WMEPH-UrlAdd').css({backgroundColor:'#FDD'}).attr('title','Invalid URL format');
-                //this.badInput = true;
-            } else {
-                phlogdev(newUrl);
-                W.model.actionManager.add(new UpdateObject(venue, { url: newUrl }));
-                _updatedFields.url.updated = true;
+        },
+        RestAreaScenic: class extends WLActionFlag {
+            constructor() { super(false, 0, 'Verify that the "Scenic Overlook" category is appropriate for this rest area.  If not: ',
+                                  'Remove it', 'Remove "Scenic Overlook" category.', true, 'Whitelist place', 'restAreaScenic'); }
+            action() {
+                var ix = newCategories.indexOf('SCENIC_LOOKOUT_VIEWPOINT');
+                if (ix > -1) {
+                    let venue = getSelectedVenue();
+                    newCategories.splice(ix, 1);
+                    _updatedFields.categories.updated = true;
+                    executeMultiAction([new UpdateObject(venue, { categories: newCategories })]);
+                    harmonizePlaceGo(venue,'harmonize');
+                }
+            }
+        },
+        RestAreaSpec: class extends WLActionFlag {
+            constructor() { super(false, 3, 'Is this a rest area?',
+                                  'Yes', 'Update with proper categories and services.', true, 'Whitelist place', 'restAreaSpec'); }
+            action () {
+                let venue = getSelectedVenue();
+                let actions = [];
+                // update categories according to spec
+                newCategories = insertAtIX(newCategories,'REST_AREAS',0);
+                actions.push(new UpdateObject(venue, { categories: newCategories }));
+                _updatedFields.categories.updated = true;
+
+                // make it 24/7
+                actions.push(new UpdateObject(venue, { openingHours: [{days: [1,2,3,4,5,6,0], fromHour: '00:00', toHour: '00:00'}] }));
+                _updatedFields.openingHours.updated = true;
+
+                bannServ.add247.checked = true;
+                bannServ.addParking.actionOn(actions);  // add parking service
+                bannServ.addWheelchair.actionOn(actions);  // add parking service
+                bannButt.restAreaSpec.active = false;  // reset the display flag
+
+                executeMultiAction(actions);
+
+                _disableHighlightTest = true;
+                harmonizePlaceGo(venue,'harmonize');
+                _disableHighlightTest = false;
+                applyHighlightsTest(venue);
+            }
+        },
+        GasMkPrim: class extends ActionFlag {
+            constructor() { super(false, 3, 'Gas Station is not the primary category', 'Fix', 'Make the Gas Station category the primary category.'); }
+            action() {
+                let venue = getSelectedVenue();
+                newCategories = insertAtIX(newCategories,'GAS_STATION',0);  // Insert/move Gas category in the first position
+                _updatedFields.categories.updated = true;
+                executeMultiAction([new UpdateObject(venue, { categories: newCategories })]);
+                harmonizePlaceGo(venue,'harmonize');
+            }
+        },
+        IsThisAPilotTravelCenter: class extends ActionFlag {
+            constructor() { super(false, 0, 'Is this a "Travel Center"?', 'Yes', ''); }
+            action() {
+                let venue = getSelectedVenue();
+                _updatedFields.name.updated = true;
+                executeMultiAction([new UpdateObject(venue, { name: 'Pilot Travel Center' })]);
                 harmonizePlaceGo(venue, 'harmonize');
             }
-        }
-    }
-    class PhoneMissingFlag extends WLActionFlag {
-        constructor() {
-            super(false, 1, 'No ph#: <input type="text" id="WMEPH-PhoneAdd" autocomplete="off" style="font-size:0.85em;width:100px;padding-left:2px;color:#000;">', 'Add', 'Add phone to place', true, 'Whitelist empty phone', 'phoneWL');
-            this.noBannerAssemble = true;
-            this.badInput = false;
-            // this.outputFormat will be set in code.
-        }
-        action() {
-            let venue = getSelectedVenue();
-            let newPhone = normalizePhone($('#WMEPH-PhoneAdd').val(), this.outputFormat, 'inputted', venue);
-            if (newPhone === 'badPhone') {
-                $('input#WMEPH-PhoneAdd').css({backgroundColor: '#FDD'}).attr('title','Invalid phone # format');
-                this.badInput = true;
-            } else {
+        },
+        HotelMkPrim: class extends WLActionFlag {
+            constructor() { super(false, 3, 'Hotel category is not first', 'Fix', 'Make the Hotel category the primary category.', true, 'Whitelist hotel as secondary category', 'hotelMkPrim'); }
+            action() {
+                let venue = getSelectedVenue();
+                newCategories = insertAtIX(newCategories, 'HOTEL', 0);  // Insert/move Hotel category in the first position
+                _updatedFields.categories.updated = true;
+                executeMultiAction([new UpdateObject(venue, { categories: newCategories })]);
+                harmonizePlaceGo(venue,'harmonize');
+            }
+        },
+        ChangeToPetVet: class extends WLActionFlag {
+            constructor() { super(false, 3, 'This looks like it should be a Pet/Veterinarian category. Change?', 'Yes', 'Change to Pet/Veterinarian Category', true, 'Whitelist PetVet category', 'changeHMC2PetVet'); }
+            action() {
+                let venue = getSelectedVenue();
+                let idx = newCategories[newCategories.indexOf('HOSPITAL_MEDICAL_CARE')];
+                if (idx === -1) idx = newCategories[newCategories.indexOf('HOSPITAL_URGENT_CARE')];
+                if (idx > -1) {
+                    newCategories[idx] = 'PET_STORE_VETERINARIAN_SERVICES';
+                    _updatedFields.categories.updated = true;
+                    executeMultiAction([new UpdateObject(venue, { categories: newCategories })]);
+                }
+                harmonizePlaceGo(venue,'harmonize');  // Rerun the script to update fields and lock
+            }
+        },
+        ChangeSchool2Offices: class extends WLActionFlag {
+            constructor() { super(false, 3, 'This doesn\'t look like it should be School category.', 'Change to Office', 'Change to Offices Category', true, 'Whitelist School category', 'changeSchool2Offices'); }
+            action() {
+                let venue = getSelectedVenue();
+                newCategories[newCategories.indexOf('SCHOOL')] = 'OFFICES';
+                _updatedFields.categories.updated = true;
+                executeMultiAction([new UpdateObject(venue, { categories: newCategories })]);
+                harmonizePlaceGo(venue,'harmonize');  // Rerun the script to update fields and lock
+            }
+        },
+        PointNotArea: class extends WLActionFlag {
+            constructor() { super(false, 3, 'This category should be a point place.', 'Change to point', 'Change to point place', true, 'Whitelist point (not area)', 'pointNotArea'); }
+            action() {
+                let venue = getSelectedVenue();
+                if (venue.attributes.categories.indexOf('RESIDENCE_HOME') > -1){
+                    let centroid = venue.geometry.getCentroid();
+                    updateFeatureGeometry(venue, new OL.Geometry.Point(centroid.x,centroid.y));
+                }
+                else
+                    $('.landmark label.point-btn').click();
+
+                bannButt.pointNotArea.active = false;
+            }
+        },
+        AreaNotPoint: class extends WLActionFlag {
+            constructor() { super(false, 3, 'This category should be an area place.', 'Change to area', 'Change to Area', true, 'Whitelist area (not point)', 'areaNotPoint'); }
+            action() {
+                let venue = getSelectedVenue();
+                updateFeatureGeometry(venue, venue.getPolygonGeometry());
+                bannButt.areaNotPoint.active = false;
+            }
+        },
+        HnMissing: class extends WLActionFlag {
+            constructor() {
+                super(false, 3, 'No HN: <input type="text" id="WMEPH-HNAdd" autocomplete="off" style="font-size:0.85em;width:100px;padding-left:2px;color:#000;">', 'Add', 'Add HN to place', true, 'Whitelist empty HN', 'HNWL');
+                this.noBannerAssemble = true;
                 this.badInput = false;
-                phlogdev(newPhone);
-                if (_countryCode === 'USA' || _countryCode === 'CAN') {
-                    if (newPhone !== null && newPhone.match(/[2-9]\d{2}/) !== null) {
-                        var areaCode = newPhone.match(/[2-9]\d{2}/)[0];
-                        if ( areaCodeList.indexOf(areaCode) === -1 ) {
-                            bannButt.badAreaCode.active = true;
-                            if (_wl.aCodeWL) {
-                                bannButt.badAreaCode.WLactive = false;
+            }
+            action() {
+                let newHN = $('#WMEPH-HNAdd').val().replace(/ +/g, '');
+                phlogdev(newHN);
+                var hnTemp = newHN.replace(/[^\d]/g, '');
+                var hnTempDash = newHN.replace(/[^\d-]/g, '');
+                if (hnTemp > 0 && hnTemp < 1000000) {
+                    let venue = getSelectedVenue();
+                    harmonizePlaceGo(venue, 'harmonize', [new UpdateObject(venue, { houseNumber: hnTempDash })]);  // Rerun the script to update fields and lock
+                    _updatedFields.address.updated = true;
+                    bannButt.hnMissing.active = false;
+                    this.badInput = false;
+                } else {
+                    $('input#WMEPH-HNAdd').css({backgroundColor:'#FDD'}).attr('title', 'Must be a number between 0 and 1000000');
+                    this.badInput = true;
+                }
+
+            }
+        },
+        HnNonStandard: class extends WLFlag {
+            constructor() { super(false, 3, 'House number is non-standard.', true, 'Whitelist non-standard HN', 'hnNonStandard'); }
+        },
+        HNRange: class extends WLFlag {
+            constructor() { super(false, 2, 'House number seems out of range for the street name. Verify.', true, 'Whitelist HN range', 'HNRange'); }
+        },
+        StreetMissing: class extends ActionFlag {
+            constructor() { super(false, 3, 'No street:', 'Edit address', 'Edit address to add street.'); }
+            action() {
+                $('.nav-tabs a[href="#landmark-edit-general"]').trigger('click');
+                $('.landmark .full-address').click();
+                if ($('.empty-street').prop('checked')) {
+                    $('.empty-street').click();
+                }
+                $('.street-name').focus();
+            }
+        },
+        CityMissing: class extends ActionFlag {
+            constructor() { super(false, 3, 'No city:', 'Edit address', 'Edit address to add city.'); }
+            action() {
+                $('.nav-tabs a[href="#landmark-edit-general"]').trigger('click');
+                $('.landmark .full-address').click();
+                if ($('.empty-city').prop('checked')) {
+                    $('.empty-city').click();
+                }
+                $('.city-name').focus();
+            }
+        },
+        BankBranch: class extends ActionFlag {  // no WL
+            constructor() { super(false, 1, 'Is this a bank branch office? ', 'Yes', 'Is this a bank branch?'); }
+            action() {
+                let venue = getSelectedVenue();
+                newCategories = ['BANK_FINANCIAL','ATM'];  // Change to bank and atm cats
+                var tempName = newName.replace(/[\- (]*ATM[\- )]*/g, ' ').replace(/^ /g,'').replace(/ $/g,'');     // strip ATM from name if present
+                newName = tempName;
+                W.model.actionManager.add(new UpdateObject(venue, { name: newName, categories: newCategories }));
+                if (tempName !== newName) _updatedFields.name.updated = true;
+                _updatedFields.categories.updated = true;
+                bannButt.bankCorporate.active = false;   // reset the bank Branch display flag
+                bannButt.bankBranch.active = false;   // reset the bank Branch display flag
+                bannButt.standaloneATM.active = false;   // reset the standalone ATM display flag
+                bannButt.bankType1.active = false;  // remove bank type warning
+            }
+        },
+        StandaloneATM: class extends ActionFlag {
+            constructor() { super(false, 2, 'Or is this a standalone ATM? ', 'Yes', 'Is this a standalone ATM with no bank branch?'); }
+            action() {
+                let venue = getSelectedVenue();
+                if (newName.indexOf('ATM') === -1) {
+                    newName = newName + ' ATM';
+                    _updatedFields.name.updated = true;
+                }
+                newCategories = ['ATM'];  // Change to ATM only
+                W.model.actionManager.add(new UpdateObject(venue, { name: newName, categories: newCategories }));
+                _updatedFields.categories.updated = true;
+                bannButt.bankCorporate.active = false;   // reset the bank Branch display flag
+                bannButt.bankBranch.active = false;   // reset the bank Branch display flag
+                bannButt.standaloneATM.active = false;   // reset the standalone ATM display flag
+                bannButt.bankType1.active = false;  // remove bank type warning
+            }
+        },
+        BankCorporate: class extends ActionFlag {
+            constructor() { super(false, 1, 'Or is this the bank\'s corporate offices?', 'Yes', 'Is this the bank\'s corporate offices?'); }
+            action() {
+                let venue = getSelectedVenue();
+                newCategories = ['OFFICES'];  // Change to offices category
+                var tempName = newName.replace(/[\- (]*atm[\- )]*/ig, ' ').replace(/^ /g,'').replace(/ $/g,'').replace(/ {2,}/g,' ');     // strip ATM from name if present
+                newName = tempName;
+                W.model.actionManager.add(new UpdateObject(venue, { name: newName + ' - Corporate Offices', categories: newCategories }));
+                if (newName !== tempName) _updatedFields.name.updated = true;
+                _updatedFields.categories.updated = true;
+                bannButt.bankCorporate.active = false;   // reset the bank Branch display flag
+                bannButt.bankBranch.active = false;   // reset the bank Branch display flag
+                bannButt.standaloneATM.active = false;   // reset the standalone ATM display flag
+                bannButt.bankType1.active = false;  // remove bank type warning
+            }
+        },
+        WazeBot: class extends ActionFlag {
+            constructor() { super(false, 2, 'Edited last by an automated process. Please verify information is correct.', 'Nudge', 'If no other properties need to be updated, click to nudge the place (force an edit).'); }
+            action() {
+                let venue = getSelectedVenue();
+                // Use an exact clone of the original geometry to force an edit without actually changing anything.
+                W.model.actionManager.add(new UpdateFeatureGeometry(venue, W.model.venues, venue.geometry, venue.geometry.clone()));
+                harmonizePlaceGo(venue,'harmonize');  // Rerun the script to update fields and lock
+            }
+        },
+        ParentCategory: class extends WLFlag {
+            constructor() { super(false, 2, 'This parent category is usually not mapped in this region.', true, 'Whitelist parent Category','parentCategory'); }
+        },
+        LongURL: class extends WLActionFlag{
+            constructor() { super(false, 1, 'Existing URL doesn\'t match the suggested PNH URL. Use the Place Website button below to verify. If existing URL is invalid:', 'Use PNH URL', 'Change URL to the PNH standard', true, 'Whitelist existing URL', 'longURL'); }
+            action() {
+                let venue = getSelectedVenue();
+                if (tempPNHURL !== '') {
+                    W.model.actionManager.add(new UpdateObject(venue, { url: tempPNHURL }));
+                    _updatedFields.url.updated = true;
+                    bannButt.longURL.active = false;
+                    updateURL = true;
+                } else {
+                    if (confirm('WMEPH: URL Matching Error!\nClick OK to report this error') ) {  // if the category doesn't translate, then pop an alert that will make a forum post to the thread
+                        reportError({
+                            subject: 'WMEPH URL comparison Error report',
+                            message: 'Error report: URL comparison failed for "' + venue.attributes.name + '"\nPermalink: ' + placePL
+                        });
+                    }
+                }
+            }
+        },
+        MissingUSPSZipAlt: class extends WLActionFlag {
+            constructor() {
+                super(false, 1, 'No <a href="https://wazeopedia.waze.com/wiki/USA/Places/Post_Office" style="color:#3232e6;" target="_blank">ZIP code alt name</a>: ' +
+                      '<input type="text" id="WMEPH-zipAltNameAdd" autocomplete="off" style="font-size:0.85em;width:65px;padding-left:2px;color:#000;" title="Enter the ZIP code and click Add">',
+                      'Add', true, 'Whitelist missing USPS zip alt name', 'missingUSPSZipAlt');
+                this.noBannerAssemble = true;
+            }
+            action() {
+                let $input = $('input#WMEPH-zipAltNameAdd');
+                let zip = $input.val().trim();
+                if (zip) {
+                    if (/^\d{5}/.test(zip)) {
+                        let venue = getSelectedVenue();
+                        let aliases = [].concat(venue.attributes.aliases);
+                        // Make sure zip hasn't already been added.
+                        if (aliases.indexOf(zip) === -1) {
+                            aliases.push(zip);
+                            W.model.actionManager.add(new UpdateObject(venue, {aliases: aliases}));
+                            harmonizePlaceGo(venue, 'harmonize');
+                        } else {
+                            $input.css({backgroundColor: '#FDD'}).attr('title', 'Zip code alt name already exists');
+                        }
+                    } else {
+                        $input.css({backgroundColor: '#FDD'}).attr('title', 'Zip code format error');
+                    }
+                }
+            }
+        },
+        ExtProviderMissing: class extends ActionFlag {
+            constructor() {
+                super(false, 3, 'No Google link', 'Nudge', 'If no other properties need to be updated, click to nudge the place (force an edit).');
+                this.value2 = 'Add';
+                this.title2 = 'Add a link to a Google place';
+            }
+            action() {
+                let venue = getSelectedVenue();
+                // Use an exact clone of the original geometry to force an edit without actually changing anything.
+                W.model.actionManager.add(new UpdateFeatureGeometry(venue, W.model.venues, venue.geometry, venue.geometry.clone()));
+                harmonizePlaceGo(venue,'harmonize');  // Rerun the script to update fields and lock
+            }
+            action2() {
+                let venue = getSelectedVenue();
+                $('div.external-providers-view a').focus().click();
+                setTimeout(function() {
+                    $('a[href="#landmark-edit-general"]').click();
+                    $('.external-providers-view a.add').focus().mousedown();
+                    $('div.external-providers-view > div > ul > div > li > div > a').last().mousedown();
+                    $('.select2-input').last().focus().val(venue.attributes.name).trigger('input');
+                }, 100);
+            }
+        },
+        UrlMissing: class extends WLActionFlag {
+            constructor() {
+                super(false, 1, 'No URL: <input type="text" id="WMEPH-UrlAdd" autocomplete="off" style="font-size:0.85em;width:100px;padding-left:2px;color:#000;">', 'Add', 'Add URL to place', true, 'Whitelist empty URL', 'urlWL');
+                this.noBannerAssemble = true;
+                this.badInput = false;
+            }
+            action() {
+                let venue = getSelectedVenue();
+                let newUrl = normalizeURL($('#WMEPH-UrlAdd').val(), true, false, venue);
+                if ((!newUrl || newUrl.trim().length === 0) || newUrl === 'badURL') {
+                    $('input#WMEPH-UrlAdd').css({backgroundColor:'#FDD'}).attr('title','Invalid URL format');
+                    //this.badInput = true;
+                } else {
+                    phlogdev(newUrl);
+                    W.model.actionManager.add(new UpdateObject(venue, { url: newUrl }));
+                    _updatedFields.url.updated = true;
+                    harmonizePlaceGo(venue, 'harmonize');
+                }
+            }
+        },
+        PhoneMissing: class extends WLActionFlag {
+            constructor() {
+                super(false, 1, 'No ph#: <input type="text" id="WMEPH-PhoneAdd" autocomplete="off" style="font-size:0.85em;width:100px;padding-left:2px;color:#000;">', 'Add', 'Add phone to place', true, 'Whitelist empty phone', 'phoneWL');
+                this.noBannerAssemble = true;
+                this.badInput = false;
+                // this.outputFormat will be set in code.
+            }
+            action() {
+                let venue = getSelectedVenue();
+                let newPhone = normalizePhone($('#WMEPH-PhoneAdd').val(), this.outputFormat, 'inputted', venue);
+                if (newPhone === 'badPhone') {
+                    $('input#WMEPH-PhoneAdd').css({backgroundColor: '#FDD'}).attr('title','Invalid phone # format');
+                    this.badInput = true;
+                } else {
+                    this.badInput = false;
+                    phlogdev(newPhone);
+                    if (_countryCode === 'USA' || _countryCode === 'CAN') {
+                        if (newPhone !== null && newPhone.match(/[2-9]\d{2}/) !== null) {
+                            var areaCode = newPhone.match(/[2-9]\d{2}/)[0];
+                            if ( areaCodeList.indexOf(areaCode) === -1 ) {
+                                bannButt.badAreaCode.active = true;
+                                if (_wl.aCodeWL) {
+                                    bannButt.badAreaCode.WLactive = false;
+                                }
                             }
                         }
                     }
-                }
-                W.model.actionManager.add(new UpdateObject(venue, { phone: newPhone }));
-                _updatedFields.phone.updated = true;
-                harmonizePlaceGo(venue, 'harmonize');
-            }
-        }
-    }
-    class NoHoursFlag extends WLFlag {
-        constructor() { super(false, 1, getHoursHtml('No hours'), true, 'Whitelist "No hours"', 'noHours'); }
-        getTitle(parseResult) {
-            let title;
-            if (parseResult.overlappingHours) {
-                title = 'Overlapping hours.  Check the existing hours.';
-            } else if (parseResult.sameOpenAndCloseTimes) {
-                title = 'Open/close times cannot be the same.';
-            } else {
-                title = 'Can\'t parse, try again';
-            }
-            return title;
-        }
-        applyHours(replaceAllHours) {
-            let venue = getSelectedVenue();
-            let pasteHours = $('#WMEPH-HoursPaste').val();
-            if (pasteHours === _DEFAULT_HOURS_TEXT) {
-                return;
-            }
-            phlogdev(pasteHours);
-            pasteHours += !replaceAllHours ? ',' + getOpeningHours(venue).join(',') : '';
-            $('.nav-tabs a[href="#landmark-edit-more-info"]').tab('show');
-            var parser = new HoursParser();
-            var parseResult = parser.parseHours(pasteHours);
-            if (parseResult.hours && !parseResult.overlappingHours && !parseResult.sameOpenAndCloseTimes && !parseResult.parseError) {
-                phlogdev(parseResult.hours);
-                W.model.actionManager.add(new UpdateObject(venue, { openingHours: parseResult.hours }));
-                _updatedFields.openingHours.updated = true;
-                harmonizePlaceGo(venue, 'harmonize');
-            } else {
-                phlog('Can\'t parse those hours');
-                this.severity = 1;
-                this.WLactive = true;
-                $('#WMEPH-HoursPaste').css({'background-color':'#FDD'}).attr({title:bannButt.noHours.getTitle(parseResult)});
-            }
-        }
-        addHoursAction() {
-            this.applyHours();
-        }
-        replaceHoursAction() {
-            this.applyHours(true);
-        }
-    }
-    class PlaPaymentTypeMissingFlag extends ActionFlag {
-        constructor() { super(false, 1, 'Parking isn\'t free.  Select payment type(s) from the "More info" tab. ', 'Go there'); }
-        action() {
-            $('a[href="#landmark-edit-more-info"]').click();
-            $('#payment-checkbox-ELECTRONIC_PASS').focus();
-        }
-    }
-    class PlaLotElevationMissingFlag extends ActionFlag {
-        constructor() { super(false, 1, 'No lot elevation. Is it street level?', 'Yes', 'Click if street level parking only, or select other option(s) in the More Info tab.'); }
-        action() {
-            let venue = getSelectedVenue();
-            let existingAttr = venue.attributes.categoryAttributes.PARKING_LOT;
-            let newAttr = {};
-            if (existingAttr) {
-                for (let prop in existingAttr) {
-                    let value = existingAttr[prop];
-                    if (Array.isArray(value)) value = [].concat(value);
-                    newAttr[prop] = value;
+                    W.model.actionManager.add(new UpdateObject(venue, { phone: newPhone }));
+                    _updatedFields.phone.updated = true;
+                    harmonizePlaceGo(venue, 'harmonize');
                 }
             }
-            newAttr.lotType = ['STREET_LEVEL'];
-            W.model.actionManager.add(new UpdateObject(venue, {'categoryAttributes': {PARKING_LOT: newAttr}}));
-            harmonizePlaceGo(venue, 'harmonize');
-        }
-    }
-    class NoPlaStopPointFlag extends ActionFlag {
-        constructor() { super(false, 1, 'Entry/exit point has not been created.', 'Add point', 'Add an entry/exit point'); }
-        action() {
-            $('.navigation-point-view .add-button').click();
-            harmonizePlaceGo(getSelectedVenue(), 'harmonize');
-        }
-    }
-    class PlaCanExitWhileClosedFlag extends ActionFlag {
-        constructor() { super(false, 0, 'Can cars exit when lot is closed? ', 'Yes', ''); }
-        action() {
-            let venue = getSelectedVenue();
-            let existingAttr = venue.attributes.categoryAttributes.PARKING_LOT;
-            let newAttr = {};
-            if (existingAttr) {
-                for (let prop in existingAttr) {
-                    let value = existingAttr[prop];
-                    if (Array.isArray(value)) value = [].concat(value);
-                    newAttr[prop] = value;
+        },
+        NoHours: class extends WLFlag {
+            constructor() { super(false, 1, getHoursHtml('No hours'), true, 'Whitelist "No hours"', 'noHours'); }
+            getTitle(parseResult) {
+                let title;
+                if (parseResult.overlappingHours) {
+                    title = 'Overlapping hours.  Check the existing hours.';
+                } else if (parseResult.sameOpenAndCloseTimes) {
+                    title = 'Open/close times cannot be the same.';
+                } else {
+                    title = 'Can\'t parse, try again';
+                }
+                return title;
+            }
+            applyHours(replaceAllHours) {
+                let venue = getSelectedVenue();
+                let pasteHours = $('#WMEPH-HoursPaste').val();
+                if (pasteHours === _DEFAULT_HOURS_TEXT) {
+                    return;
+                }
+                phlogdev(pasteHours);
+                pasteHours += !replaceAllHours ? ',' + getOpeningHours(venue).join(',') : '';
+                $('.nav-tabs a[href="#landmark-edit-more-info"]').tab('show');
+                var parser = new HoursParser();
+                var parseResult = parser.parseHours(pasteHours);
+                if (parseResult.hours && !parseResult.overlappingHours && !parseResult.sameOpenAndCloseTimes && !parseResult.parseError) {
+                    phlogdev(parseResult.hours);
+                    W.model.actionManager.add(new UpdateObject(venue, { openingHours: parseResult.hours }));
+                    _updatedFields.openingHours.updated = true;
+                    harmonizePlaceGo(venue, 'harmonize');
+                } else {
+                    phlog('Can\'t parse those hours');
+                    this.severity = 1;
+                    this.WLactive = true;
+                    $('#WMEPH-HoursPaste').css({'background-color':'#FDD'}).attr({title:bannButt.noHours.getTitle(parseResult)});
                 }
             }
-            newAttr.canExitWhileClosed = true;
-            W.model.actionManager.add(new UpdateObject(venue, {'categoryAttributes': {PARKING_LOT: newAttr}}));
-            harmonizePlaceGo(venue, 'harmonize');
-        }
-    }
-    class PlaHasAccessibleParkingFlag extends ActionFlag {
-        constructor() { super(false, 0, 'Does this lot have disability parking? ', 'Yes', ''); }
-        action() {
-            let venue = getSelectedVenue();
-            let services = venue.attributes.services;
-            if (services) {
-                services = [].concat(services);
-            } else {
-                services = [];
+            addHoursAction() {
+                this.applyHours();
             }
-            services.push('DISABILITY_PARKING');
-            //bannServ.addDisabilityParking.on();
-            W.model.actionManager.add(new UpdateObject(venue, {'services': services}));
-            _updatedFields.services_DISABILITY_PARKING.updated = true;
-            harmonizePlaceGo(venue, 'harmonize');
-        }
-    }
-    class LockRPPFlag extends ActionFlag {
-        constructor() { super(false, 0, 'Lock this residential point?', 'Lock', 'Lock the residential point'); }
-        action() {
-            let venue = getSelectedVenue();
-            let RPPlevelToLock = $('#RPPLockLevel :selected').val() || defaultLockLevel + 1;
-            phlogdev('RPPlevelToLock: '+ RPPlevelToLock);
-
-            RPPlevelToLock = RPPlevelToLock -1 ;
-            W.model.actionManager.add(new UpdateObject(venue, { lockRank: RPPlevelToLock }));
-            // no field highlight here
-            bannButt.lockRPP.message = 'Current lock: '+ (parseInt(venue.attributes.lockRank) + 1) +'. '+RPPLockString+' ?';
-        }
-    }
-    class AddAliasFlag extends ActionFlag {
-        constructor() { super(false, 0, 'Is ' + optionalAlias + ' at this location?', 'Yes', 'Add ' + optionalAlias); }
-        action() {
-            let venue = getSelectedVenue();
-            newAliases = insertAtIX(newAliases,optionalAlias,0);
-            if (specCases.indexOf('altName2Desc') > -1 &&  venue.attributes.description.toUpperCase().indexOf(optionalAlias.toUpperCase()) === -1 ) {
-                newDescripion = optionalAlias + '\n' + newDescripion;
-                W.model.actionManager.add(new UpdateObject(venue, { description: newDescripion }));
-                _updatedFields.description.updated = true;
+            replaceHoursAction() {
+                this.applyHours(true);
             }
-            newAliases = removeSFAliases(newName, newAliases);
-            W.model.actionManager.add(new UpdateObject(venue, { aliases: newAliases }));
-            _updatedFields.aliases.updated = true;
-            bannButt.addAlias.active = false;  // reset the display flag
-        }
-    }
-    class AddCat2Flag extends ActionFlag {
-        constructor() { super(false, 0, 'Is there a ' + newCategories[0] + ' at this location?', 'Yes', 'Add ' + newCategories[0]); }
-        action() {
-            let venue = getSelectedVenue();
-            newCategories.push.apply(newCategories,altCategories);
-            W.model.actionManager.add(new UpdateObject(venue, { categories: newCategories }));
-            _updatedFields.categories.updated = true;
-            bannButt.addCat2.active = false;  // reset the display flag
-        }
-    }
-    class AddPharmFlag extends ActionFlag {
-        constructor() { super(false, 0, 'Is there a Pharmacy at this location?', 'Yes', 'Add Pharmacy category'); }
-        action() {
-            let venue = getSelectedVenue();
-            newCategories = insertAtIX(newCategories, 'PHARMACY', 1);
-            W.model.actionManager.add(new UpdateObject(venue, { categories: newCategories }));
-            _updatedFields.categories.updated = true;
-            bannButt.addPharm.active = false;  // reset the display flag
-        }
-    }
-    class AddSuperFlag extends ActionFlag {
-        constructor() { super(false, 0, 'Does this location have a supermarket?', 'Yes', 'Add Supermarket category'); }
-        action() {
-            let venue = getSelectedVenue();
-            newCategories = insertAtIX(newCategories, 'SUPERMARKET_GROCERY', 1);
-            W.model.actionManager.add(new UpdateObject(venue, { categories: newCategories }));
-            _updatedFields.categories.updated = true;
-            bannButt.addSuper.active = false;  // reset the display flag
-        }
-    }
-    class AppendAMPMFlag extends ActionFlag {
-        constructor() { super(false, 0, 'Is there an ampm at this location?', 'Yes', 'Add ampm to the place'); }
-        action() {
-            let venue = getSelectedVenue();
-            newCategories = insertAtIX(newCategories, 'CONVENIENCE_STORE', 1);
-            newName = 'ARCO ampm';
-            newURL = 'ampm.com';
-            W.model.actionManager.add(new UpdateObject(venue, { name: newName, url: newURL, categories: newCategories }));
-            _updatedFields.name.updated = true;
-            _updatedFields.url.updated = true;
-            _updatedFields.categories.updated = true;
-            bannButt.appendAMPM.active = false;  // reset the display flag
-            bannButt.addConvStore.active = false;  // also reset the addConvStore display flag
-        }
-    }
-    class AddATMFlag extends ActionFlag {
-        constructor() { super(false, 0, 'ATM at location? ', 'Yes', 'Add the ATM category to this place'); }
-        action() {
-            let venue = getSelectedVenue();
-            newCategories = insertAtIX(newCategories,'ATM',1);  // Insert ATM category in the second position
-            W.model.actionManager.add(new UpdateObject(venue, { categories: newCategories }));
-            _updatedFields.categories.updated = true;
-            bannButt.addATM.active = false;   // reset the display flag
-        }
-    }
-    class AddConvStoreFlag extends ActionFlag {
-        constructor() { super(false, 0, 'Add convenience store category? ', 'Yes', 'Add the Convenience Store category to this place'); }
-        action() {
-            let venue = getSelectedVenue();
-            newCategories = insertAtIX(newCategories,'CONVENIENCE_STORE',1);  // Insert C.S. category in the second position
-            W.model.actionManager.add(new UpdateObject(venue, { categories: newCategories }));
-            _updatedFields.categories.updated = true;
-            bannButt.addConvStore.active = false;   // reset the display flag
-        }
-    }
-    class IsThisAPostOfficeFlag extends ActionFlag {
-        constructor() { super(false, 0, 'Is this a <a href="https://wazeopedia.waze.com/wiki/USA/Places/Post_Office" target="_blank" style="color:#3a3a3a">USPS post office</a>? ', 'Yes', 'Is this a USPS location?'); }
-        action() {
-            let venue = getSelectedVenue();
-            newCategories = insertAtIX(newCategories, 'POST_OFFICE', 0);
-            W.model.actionManager.add(new UpdateObject(venue, { categories: newCategories }));
-            _updatedFields.categories.updated = true;
-            harmonizePlaceGo(venue, 'harmonize');
-        }
-    }
-    class ChangeToHospitalUrgentCareFlag extends WLActionFlag {
-        constructor() { super(false, 0, '', 'Change to Hospital / Urgent Care', 'Change category to Hospital / Urgent Care', false, 'Whitelist category', 'changetoHospitalUrgentCare'); }
-        action() {
-            let idx = newCategories.indexOf('HOSPITAL_MEDICAL_CARE');
-            let venue = getSelectedVenue();
-            if (idx === -1) idx = newCategories.indexOf('DOCTOR_CLINIC');
-            if (idx > -1) {
-                newCategories[idx] = 'HOSPITAL_URGENT_CARE';
-                _updatedFields.categories.updated = true;
-                bannButt.changeToHospitalUrgentCare.active = false;  // reset the display flag
-                executeMultiAction([new UpdateObject(venue, { categories: newCategories })]);
+        },
+        PlaPaymentTypeMissing: class extends ActionFlag {
+            constructor() { super(false, 1, 'Parking isn\'t free.  Select payment type(s) from the "More info" tab. ', 'Go there'); }
+            action() {
+                $('a[href="#landmark-edit-more-info"]').click();
+                $('#payment-checkbox-ELECTRONIC_PASS').focus();
             }
-            harmonizePlaceGo(venue,'harmonize');  // Rerun the script to update fields and lock
-        }
-    }
-    class ChangeToDoctorClinicFlag extends WLActionFlag {
-        constructor() { super(false, 0, '', 'Change to Doctor / Clinic', 'Change category to Doctor / Clinic', false, 'Whitelist category', 'changeToDoctorClinic'); }
-        action() {
-            let actions = [];
-            let venue = getSelectedVenue();
-            ['HOSPITAL_MEDICAL_CARE', 'HOSPITAL_URGENT_CARE', 'OFFICES', 'PERSONAL_CARE'].forEach(cat => {
-                let idx = newCategories.indexOf(cat);
-                if (idx > -1) {
-                    newCategories[idx] = 'DOCTOR_CLINIC';
-                    actions.push(new UpdateObject(venue, { categories: newCategories }));
-                }
-            });
-            if (actions.length > 0) {
-                bannButt.changeToDoctorClinic.active = false;  // reset the display flag
-                _updatedFields.categories.updated = true;
-                executeMultiAction(actions);
-            }
-            harmonizePlaceGo(venue,'harmonize');  // Rerun the script to update fields and lock
-        }
-    }
-    class STCFlag extends ActionFlag {
-        constructor() {
-            super(false, 0, '', 'Force Title Case?', 'Force title case to: ');
-            this.originalName = null;
-            this.confirmChange = false;
-            this.noBannerAssemble = true;
-        }
-        action() {
-            let venue = getSelectedVenue();
-            let newName = venue.attributes.name;
-            if (newName === this.originalName || this.confirmChange) {
-                let parts = getNameParts(this.originalName);
-                newName = toTitleCaseStrong(parts.base);
-                if (parts.base !== newName) {
-                    W.model.actionManager.add(new UpdateObject(venue, { name: newName + (parts.suffix || '') }));
-                    _updatedFields.name.updated = true;
-                }
-                harmonizePlaceGo(venue, 'harmonize');
-            } else {
-                $('button#WMEPH_STC').text('Are you sure?').after(' The name has changed.  This will overwrite the new name.');
-                bannButt.STC.confirmChange = true;
-            }
-        }
-    }
-    class NewPlaceSubmitFlag extends ActionFlag {
-        constructor() { super(false, 0, 'No PNH match. If it\'s a chain: ', 'Submit new chain data', 'Submit info for a new chain through the linked form'); }
-        action() {
-            window.open(newPlaceURL);
-        }
-    }
-    class ApprovalSubmitFlag extends ActionFlag {
-        constructor() { super(false, 0, 'PNH data exists but is not approved for this region: ', 'Request approval', 'Request region/country approval of this place'); }
-        action() {
-            if ( PMUserList.hasOwnProperty(region) && PMUserList[region].approvalActive ) {
-                var forumPMInputs = {
-                    subject: '' + PNHOrderNum + ' PNH approval for "' + PNHNameTemp + '"',
-                    message: 'Please approve "' + PNHNameTemp + '" for the ' + region + ' region.  Thanks\n \nPNH order number: ' + PNHOrderNum + '\n \nPermalink: ' + placePL + '\n \nPNH Link: ' + _URLS.usaPnh,
-                    preview: 'Preview', attach_sig: 'on'
-                };
-                forumPMInputs['address_list[u]['+PMUserList[region].modID+']'] = 'to';  // Sends a PM to the regional mod instead of the submission form
-                newForumPost('https://www.waze.com/forum/ucp.php?i=pm&mode=compose', forumPMInputs);
-            } else {
-                window.open(approveRegionURL);
-            }
-        }
-    }
-    // NOTE: This is now only used to display the store locator button.  It can be updated to remove/change anything that doesn't serve that purpose.
-    class PlaceWebsiteFlag extends ActionFlag {
-        constructor() { super(false, 0, '', 'Place Website', 'Direct link to place website'); }
-        action() {
-            let openPlaceWebsiteURL, linkProceed = true;
-            if (updateURL) {
-                // replace WME url with storefinder URLs if they are in the PNH data
-                if (customStoreFinder) {
-                    openPlaceWebsiteURL = customStoreFinderURL;
-                } else if (customStoreFinderLocal) {
-                    openPlaceWebsiteURL = customStoreFinderLocalURL;
-                }
-                // If the user has 'never' opened a localized store finder URL, then warn them (just once)
-                if (localStorage.getItem(_SETTING_IDS.sfUrlWarning) === '0' && customStoreFinderLocal) {
-                    linkProceed = false;
-                    if (confirm('***Localized store finder sites often show multiple nearby results. Please make sure you pick the right location.\nClick OK to agree and continue.') ) {  // if the category doesn't translate, then pop an alert that will make a forum post to the thread
-                        localStorage.setItem(_SETTING_IDS.sfUrlWarning, '1');  // prevent future warnings
-                        linkProceed = true;
+        },
+        PlaLotElevationMissing: class extends ActionFlag {
+            constructor() { super(false, 1, 'No lot elevation. Is it street level?', 'Yes', 'Click if street level parking only, or select other option(s) in the More Info tab.'); }
+            action() {
+                let venue = getSelectedVenue();
+                let existingAttr = venue.attributes.categoryAttributes.PARKING_LOT;
+                let newAttr = {};
+                if (existingAttr) {
+                    for (let prop in existingAttr) {
+                        let value = existingAttr[prop];
+                        if (Array.isArray(value)) value = [].concat(value);
+                        newAttr[prop] = value;
                     }
                 }
-            } else {
-                let url = getSelectedVenue().url;
-                if (!/^https?:\/\//.test(url)) url = 'http://' + url;
-                openPlaceWebsiteURL = url;
+                newAttr.lotType = ['STREET_LEVEL'];
+                W.model.actionManager.add(new UpdateObject(venue, {'categoryAttributes': {PARKING_LOT: newAttr}}));
+                harmonizePlaceGo(venue, 'harmonize');
             }
-            // open the link depending on new window setting
-            if (linkProceed) {
-                if ( $('#WMEPH-WebSearchNewTab').prop('checked') ) {
-                    window.open(openPlaceWebsiteURL);
+        },
+        NoPlaStopPoint: class extends ActionFlag {
+            constructor() { super(false, 1, 'Entry/exit point has not been created.', 'Add point', 'Add an entry/exit point'); }
+            action() {
+                $('.navigation-point-view .add-button').click();
+                harmonizePlaceGo(getSelectedVenue(), 'harmonize');
+            }
+        },
+        PlaCanExitWhileClosed: class extends ActionFlag {
+            constructor() { super(false, 0, 'Can cars exit when lot is closed? ', 'Yes', ''); }
+            action() {
+                let venue = getSelectedVenue();
+                let existingAttr = venue.attributes.categoryAttributes.PARKING_LOT;
+                let newAttr = {};
+                if (existingAttr) {
+                    for (let prop in existingAttr) {
+                        let value = existingAttr[prop];
+                        if (Array.isArray(value)) value = [].concat(value);
+                        newAttr[prop] = value;
+                    }
+                }
+                newAttr.canExitWhileClosed = true;
+                W.model.actionManager.add(new UpdateObject(venue, {'categoryAttributes': {PARKING_LOT: newAttr}}));
+                harmonizePlaceGo(venue, 'harmonize');
+            }
+        },
+        PlaHasAccessibleParking: class extends ActionFlag {
+            constructor() { super(false, 0, 'Does this lot have disability parking? ', 'Yes', ''); }
+            action() {
+                let venue = getSelectedVenue();
+                let services = venue.attributes.services;
+                if (services) {
+                    services = [].concat(services);
                 } else {
-                    window.open(openPlaceWebsiteURL, searchResultsWindowName, searchResultsWindowSpecs);
+                    services = [];
+                }
+                services.push('DISABILITY_PARKING');
+                //bannServ.addDisabilityParking.on();
+                W.model.actionManager.add(new UpdateObject(venue, {'services': services}));
+                _updatedFields.services_DISABILITY_PARKING.updated = true;
+                harmonizePlaceGo(venue, 'harmonize');
+            }
+        },
+        LockRPP: class extends ActionFlag {
+            constructor() { super(false, 0, 'Lock this residential point?', 'Lock', 'Lock the residential point'); }
+            action() {
+                let venue = getSelectedVenue();
+                let RPPlevelToLock = $('#RPPLockLevel :selected').val() || defaultLockLevel + 1;
+                phlogdev('RPPlevelToLock: '+ RPPlevelToLock);
+
+                RPPlevelToLock = RPPlevelToLock -1 ;
+                W.model.actionManager.add(new UpdateObject(venue, { lockRank: RPPlevelToLock }));
+                // no field highlight here
+                bannButt.lockRPP.message = 'Current lock: '+ (parseInt(venue.attributes.lockRank) + 1) +'. '+RPPLockString+' ?';
+            }
+        },
+        AddAlias: class extends ActionFlag {
+            constructor() { super(false, 0, 'Is ' + optionalAlias + ' at this location?', 'Yes', 'Add ' + optionalAlias); }
+            action() {
+                let venue = getSelectedVenue();
+                newAliases = insertAtIX(newAliases,optionalAlias,0);
+                if (specCases.indexOf('altName2Desc') > -1 &&  venue.attributes.description.toUpperCase().indexOf(optionalAlias.toUpperCase()) === -1 ) {
+                    newDescripion = optionalAlias + '\n' + newDescripion;
+                    W.model.actionManager.add(new UpdateObject(venue, { description: newDescripion }));
+                    _updatedFields.description.updated = true;
+                }
+                newAliases = removeSFAliases(newName, newAliases);
+                W.model.actionManager.add(new UpdateObject(venue, { aliases: newAliases }));
+                _updatedFields.aliases.updated = true;
+                bannButt.addAlias.active = false;  // reset the display flag
+            }
+        },
+        AddCat2: class extends ActionFlag {
+            constructor() { super(false, 0, 'Is there a ' + newCategories[0] + ' at this location?', 'Yes', 'Add ' + newCategories[0]); }
+            action() {
+                let venue = getSelectedVenue();
+                newCategories.push.apply(newCategories,altCategories);
+                W.model.actionManager.add(new UpdateObject(venue, { categories: newCategories }));
+                _updatedFields.categories.updated = true;
+                bannButt.addCat2.active = false;  // reset the display flag
+            }
+        },
+        AddPharm: class extends ActionFlag {
+            constructor() { super(false, 0, 'Is there a Pharmacy at this location?', 'Yes', 'Add Pharmacy category'); }
+            action() {
+                let venue = getSelectedVenue();
+                newCategories = insertAtIX(newCategories, 'PHARMACY', 1);
+                W.model.actionManager.add(new UpdateObject(venue, { categories: newCategories }));
+                _updatedFields.categories.updated = true;
+                bannButt.addPharm.active = false;  // reset the display flag
+            }
+        },
+        AddSuper: class extends ActionFlag {
+            constructor() { super(false, 0, 'Does this location have a supermarket?', 'Yes', 'Add Supermarket category'); }
+            action() {
+                let venue = getSelectedVenue();
+                newCategories = insertAtIX(newCategories, 'SUPERMARKET_GROCERY', 1);
+                W.model.actionManager.add(new UpdateObject(venue, { categories: newCategories }));
+                _updatedFields.categories.updated = true;
+                bannButt.addSuper.active = false;  // reset the display flag
+            }
+        },
+        AppendAMPM: class extends ActionFlag {
+            constructor() { super(false, 0, 'Is there an ampm at this location?', 'Yes', 'Add ampm to the place'); }
+            action() {
+                let venue = getSelectedVenue();
+                newCategories = insertAtIX(newCategories, 'CONVENIENCE_STORE', 1);
+                newName = 'ARCO ampm';
+                newURL = 'ampm.com';
+                W.model.actionManager.add(new UpdateObject(venue, { name: newName, url: newURL, categories: newCategories }));
+                _updatedFields.name.updated = true;
+                _updatedFields.url.updated = true;
+                _updatedFields.categories.updated = true;
+                bannButt.appendAMPM.active = false;  // reset the display flag
+                bannButt.addConvStore.active = false;  // also reset the addConvStore display flag
+            }
+        },
+        AddATM: class extends ActionFlag {
+            constructor() { super(false, 0, 'ATM at location? ', 'Yes', 'Add the ATM category to this place'); }
+            action() {
+                let venue = getSelectedVenue();
+                newCategories = insertAtIX(newCategories,'ATM',1);  // Insert ATM category in the second position
+                W.model.actionManager.add(new UpdateObject(venue, { categories: newCategories }));
+                _updatedFields.categories.updated = true;
+                bannButt.addATM.active = false;   // reset the display flag
+            }
+        },
+        AddConvStore: class extends ActionFlag {
+            constructor() { super(false, 0, 'Add convenience store category? ', 'Yes', 'Add the Convenience Store category to this place'); }
+            action() {
+                let venue = getSelectedVenue();
+                newCategories = insertAtIX(newCategories,'CONVENIENCE_STORE',1);  // Insert C.S. category in the second position
+                W.model.actionManager.add(new UpdateObject(venue, { categories: newCategories }));
+                _updatedFields.categories.updated = true;
+                bannButt.addConvStore.active = false;   // reset the display flag
+            }
+        },
+        IsThisAPostOffice: class extends ActionFlag {
+            constructor() { super(false, 0, 'Is this a <a href="https://wazeopedia.waze.com/wiki/USA/Places/Post_Office" target="_blank" style="color:#3a3a3a">USPS post office</a>? ', 'Yes', 'Is this a USPS location?'); }
+            action() {
+                let venue = getSelectedVenue();
+                newCategories = insertAtIX(newCategories, 'POST_OFFICE', 0);
+                W.model.actionManager.add(new UpdateObject(venue, { categories: newCategories }));
+                _updatedFields.categories.updated = true;
+                harmonizePlaceGo(venue, 'harmonize');
+            }
+        },
+        ChangeToHospitalUrgentCare: class extends WLActionFlag {
+            constructor() { super(false, 0, '', 'Change to Hospital / Urgent Care', 'Change category to Hospital / Urgent Care', false, 'Whitelist category', 'changetoHospitalUrgentCare'); }
+            action() {
+                let idx = newCategories.indexOf('HOSPITAL_MEDICAL_CARE');
+                let venue = getSelectedVenue();
+                if (idx === -1) idx = newCategories.indexOf('DOCTOR_CLINIC');
+                if (idx > -1) {
+                    newCategories[idx] = 'HOSPITAL_URGENT_CARE';
+                    _updatedFields.categories.updated = true;
+                    bannButt.changeToHospitalUrgentCare.active = false;  // reset the display flag
+                    executeMultiAction([new UpdateObject(venue, { categories: newCategories })]);
+                }
+                harmonizePlaceGo(venue,'harmonize');  // Rerun the script to update fields and lock
+            }
+        },
+        ChangeToDoctorClinic: class extends WLActionFlag {
+            constructor() { super(false, 0, '', 'Change to Doctor / Clinic', 'Change category to Doctor / Clinic', false, 'Whitelist category', 'changeToDoctorClinic'); }
+            action() {
+                let actions = [];
+                let venue = getSelectedVenue();
+                ['HOSPITAL_MEDICAL_CARE', 'HOSPITAL_URGENT_CARE', 'OFFICES', 'PERSONAL_CARE'].forEach(cat => {
+                    let idx = newCategories.indexOf(cat);
+                    if (idx > -1) {
+                        newCategories[idx] = 'DOCTOR_CLINIC';
+                        actions.push(new UpdateObject(venue, { categories: newCategories }));
+                    }
+                });
+                if (actions.length > 0) {
+                    bannButt.changeToDoctorClinic.active = false;  // reset the display flag
+                    _updatedFields.categories.updated = true;
+                    executeMultiAction(actions);
+                }
+                harmonizePlaceGo(venue,'harmonize');  // Rerun the script to update fields and lock
+            }
+        },
+        STC: class extends ActionFlag {
+            constructor() {
+                super(false, 0, '', 'Force Title Case?', 'Force title case to: ');
+                this.originalName = null;
+                this.confirmChange = false;
+                this.noBannerAssemble = true;
+            }
+            action() {
+                let venue = getSelectedVenue();
+                let newName = venue.attributes.name;
+                if (newName === this.originalName || this.confirmChange) {
+                    let parts = getNameParts(this.originalName);
+                    newName = toTitleCaseStrong(parts.base);
+                    if (parts.base !== newName) {
+                        W.model.actionManager.add(new UpdateObject(venue, { name: newName + (parts.suffix || '') }));
+                        _updatedFields.name.updated = true;
+                    }
+                    harmonizePlaceGo(venue, 'harmonize');
+                } else {
+                    $('button#WMEPH_STC').text('Are you sure?').after(' The name has changed.  This will overwrite the new name.');
+                    bannButt.STC.confirmChange = true;
+                }
+            }
+        },
+        NewPlaceSubmit: class extends ActionFlag {
+            constructor() { super(false, 0, 'No PNH match. If it\'s a chain: ', 'Submit new chain data', 'Submit info for a new chain through the linked form'); }
+            action() {
+                window.open(newPlaceURL);
+            }
+        },
+        ApprovalSubmit: class extends ActionFlag {
+            constructor() { super(false, 0, 'PNH data exists but is not approved for this region: ', 'Request approval', 'Request region/country approval of this place'); }
+            action() {
+                if ( PMUserList.hasOwnProperty(region) && PMUserList[region].approvalActive ) {
+                    var forumPMInputs = {
+                        subject: '' + PNHOrderNum + ' PNH approval for "' + PNHNameTemp + '"',
+                        message: 'Please approve "' + PNHNameTemp + '" for the ' + region + ' region.  Thanks\n \nPNH order number: ' + PNHOrderNum + '\n \nPermalink: ' + placePL + '\n \nPNH Link: ' + _URLS.usaPnh,
+                        preview: 'Preview', attach_sig: 'on'
+                    };
+                    forumPMInputs['address_list[u]['+PMUserList[region].modID+']'] = 'to';  // Sends a PM to the regional mod instead of the submission form
+                    newForumPost('https://www.waze.com/forum/ucp.php?i=pm&mode=compose', forumPMInputs);
+                } else {
+                    window.open(approveRegionURL);
+                }
+            }
+        },
+        PlaceWebsite: class extends ActionFlag {
+            // NOTE: This class is now only used to display the store locator button.  It can be updated to remove/change anything that doesn't serve that purpose.
+            constructor() { super(false, 0, '', 'Place Website', 'Direct link to place website'); }
+            action() {
+                let openPlaceWebsiteURL, linkProceed = true;
+                if (updateURL) {
+                    // replace WME url with storefinder URLs if they are in the PNH data
+                    if (customStoreFinder) {
+                        openPlaceWebsiteURL = customStoreFinderURL;
+                    } else if (customStoreFinderLocal) {
+                        openPlaceWebsiteURL = customStoreFinderLocalURL;
+                    }
+                    // If the user has 'never' opened a localized store finder URL, then warn them (just once)
+                    if (localStorage.getItem(_SETTING_IDS.sfUrlWarning) === '0' && customStoreFinderLocal) {
+                        linkProceed = false;
+                        if (confirm('***Localized store finder sites often show multiple nearby results. Please make sure you pick the right location.\nClick OK to agree and continue.') ) {  // if the category doesn't translate, then pop an alert that will make a forum post to the thread
+                            localStorage.setItem(_SETTING_IDS.sfUrlWarning, '1');  // prevent future warnings
+                            linkProceed = true;
+                        }
+                    }
+                } else {
+                    let url = getSelectedVenue().url;
+                    if (!/^https?:\/\//.test(url)) url = 'http://' + url;
+                    openPlaceWebsiteURL = url;
+                }
+                // open the link depending on new window setting
+                if (linkProceed) {
+                    if ( $('#WMEPH-WebSearchNewTab').prop('checked') ) {
+                        window.open(openPlaceWebsiteURL);
+                    } else {
+                        window.open(openPlaceWebsiteURL, searchResultsWindowName, searchResultsWindowSpecs);
+                    }
                 }
             }
         }
-    }
-
+    }; // END Flag namespace
 
     function getBannButt() {
         return {
-            hnDashRemoved: new Flag(false, 0, 'Dash removed from house number. Verify'),
-            fullAddressInference: new Flag(false, 3, 'Missing address was inferred from nearby segments. Verify the address and run script again.'),
-            nameMissing: new Flag(false, 3, 'Name is missing.'),
+            hnDashRemoved: new FlagBase(false, 0, 'Dash removed from house number. Verify'),
+            fullAddressInference: new FlagBase(false, 3, 'Missing address was inferred from nearby segments. Verify the address and run script again.'),
+            nameMissing: new FlagBase(false, 3, 'Name is missing.'),
             //The buttons are appended in the code...
-            plaIsPublic: new Flag(false, 0, 'If this does not meet the requirements for a <a href="https://wazeopedia.waze.com/wiki/USA/Places/Parking_lot#Lot_Type" target="_blank" style="color:5a5a73">public parking lot</a>, change to:<br>'),
-            plaNameMissing: new Flag(false, 1, 'Name is missing.'),
+            plaIsPublic: new FlagBase(false, 0, 'If this does not meet the requirements for a <a href="https://wazeopedia.waze.com/wiki/USA/Places/Parking_lot#Lot_Type" target="_blank" style="color:5a5a73">public parking lot</a>, change to:<br>'),
+            plaNameMissing: new FlagBase(false, 1, 'Name is missing.'),
             indianaLiquorStoreHours: new WLFlag(false, 0, 'If this is a liquor store, check the hours.  As of Feb 2018, liquor stores in Indiana are allowed to be open between noon and 8 pm on Sunday.',
                                                 true, 'Whitelist Indiana liquor store hours', 'indianaLiquorStoreHours'),
-            hoursOverlap: new Flag(false, 3, 'Overlapping hours of operation. Place might not save.'),
+            hoursOverlap: new FlagBase(false, 3, 'Overlapping hours of operation. Place might not save.'),
             unmappedRegion: new WLFlag(false, 3, 'This category is usually not mapped in this region.',
                                        true, 'Whitelist unmapped category', 'unmappedRegion'),
             restAreaName: new WLFlag(false, 3, 'Rest area name is out of spec. Use the Rest Area wiki button below to view formats.',
                                      true, 'Whitelist rest area name', 'restAreaName'),
-            restAreaNoTransportation: new RestAreaNoTransportationFlag(),
-            restAreaGas: new Flag(false, 3, 'Gas stations at Rest Areas should be separate area places.'),
-            restAreaScenic: new RestAreaScenicFlag(),
-            restAreaSpec: new RestAreaSpecFlag(),
+            restAreaNoTransportation: new Flag.RestAreaNoTransportation(),
+            restAreaGas: new FlagBase(false, 3, 'Gas stations at Rest Areas should be separate area places.'),
+            restAreaScenic: new Flag.RestAreaScenic(),
+            restAreaSpec: new Flag.RestAreaSpec(),
             // if the gas brand and name don't match
             gasMismatch: new WLFlag(false, 3, '<a href="https://wazeopedia.waze.com/wiki/USA/Places/Gas_station#Name" target="_blank" class="red">Gas brand should typically be included in the place name.</a>',
                                     true, 'Whitelist gas brand / name mismatch', 'gasMismatch'),
-            gasUnbranded: new Flag(false, 3, '"Unbranded" should not be used for the station brand. Change to correct brand or use the blank entry at the top of the brand list.'),
-            gasMkPrim: new GasMkPrimFlag(),
-            isThisAPilotTravelCenter: new IsThisAPilotTravelCenterFlag(),
-            hotelMkPrim: new HotelMkPrimFlag(),
-            changeToPetVet: new ChangeToPetVetFlag(),
-            changeSchool2Offices: new ChangeSchool2OfficesFlag(),
-            pointNotArea: new PointNotAreaFlag(),
-            areaNotPoint: new AreaNotPointFlag(),
-            hnMissing: new HnMissingFlag(),
-            hnNonStandard: new HnNonStandardFlag(),
-            HNRange: new HNRangeFlag(),
-            streetMissing: new StreetMissingFlag(),
-            cityMissing: new CityMissingFlag(),
-            bankType1: new Flag(false, 3, 'Clarify the type of bank: the name has ATM but the primary category is Offices'),
-            bankBranch: new BankBranchFlag(),
-            standaloneATM: new StandaloneATMFlag(),
-            bankCorporate: new BankCorporateFlag(),
-            catPostOffice: new Flag(false, 0, 'The Post Office category is reserved for certain USPS locations. Please be sure to follow <a href="https://wazeopedia.waze.com/wiki/USA/Places/Post_Office" style="color:#3a3a3a;" target="_blank">the guidelines</a>.'),
-            ignEdited: new Flag(false, 2, 'Last edited by an IGN editor'),
-            wazeBot: new WazeBotFlag(),
-            parentCategory: new ParentCategoryFlag(),
-            checkDescription: new Flag(false, 2, 'Description field already contained info; PNH description was added in front of existing. Check for inconsistency or duplicate info.'),
-            overlapping: new Flag(false, 2, 'Place points are stacked up.'),
+            gasUnbranded: new FlagBase(false, 3, '"Unbranded" should not be used for the station brand. Change to correct brand or use the blank entry at the top of the brand list.'),
+            gasMkPrim: new Flag.GasMkPrim(),
+            isThisAPilotTravelCenter: new Flag.IsThisAPilotTravelCenter(),
+            hotelMkPrim: new Flag.HotelMkPrim(),
+            changeToPetVet: new Flag.ChangeToPetVet(),
+            changeSchool2Offices: new Flag.ChangeSchool2Offices(),
+            pointNotArea: new Flag.PointNotArea(),
+            areaNotPoint: new Flag.AreaNotPoint(),
+            hnMissing: new Flag.HnMissing(),
+            hnNonStandard: new Flag.HnNonStandard(),
+            HNRange: new Flag.HNRange(),
+            streetMissing: new Flag.StreetMissing(),
+            cityMissing: new Flag.CityMissing(),
+            bankType1: new FlagBase(false, 3, 'Clarify the type of bank: the name has ATM but the primary category is Offices'),
+            bankBranch: new Flag.BankBranch(),
+            standaloneATM: new Flag.StandaloneATM(),
+            bankCorporate: new Flag.BankCorporate(),
+            catPostOffice: new FlagBase(false, 0, 'The Post Office category is reserved for certain USPS locations. Please be sure to follow <a href="https://wazeopedia.waze.com/wiki/USA/Places/Post_Office" style="color:#3a3a3a;" target="_blank">the guidelines</a>.'),
+            ignEdited: new FlagBase(false, 2, 'Last edited by an IGN editor'),
+            wazeBot: new Flag.WazeBot(),
+            parentCategory: new Flag.ParentCategory(),
+            checkDescription: new FlagBase(false, 2, 'Description field already contained info; PNH description was added in front of existing. Check for inconsistency or duplicate info.'),
+            overlapping: new FlagBase(false, 2, 'Place points are stacked up.'),
             suspectDesc: new WLFlag(false, 2, 'Description field might contain copyrighted info.', true, 'Whitelist description', 'suspectDesc'),
             resiTypeName: new WLFlag(false, 2, 'The place name suggests a residential place or personalized place of work.  Please verify.', true, 'Whitelist Residential-type name', 'resiTypeName'),
-            mismatch247: new Flag(false, 2, 'Hours of operation listed as open 24hrs but not for all 7 days.'),
-            phoneInvalid: new Flag(false, 2, 'Phone invalid.'),
+            mismatch247: new FlagBase(false, 2, 'Hours of operation listed as open 24hrs but not for all 7 days.'),
+            phoneInvalid: new FlagBase(false, 2, 'Phone invalid.'),
             areaNotPointMid: new WLFlag(false, 2, 'This category is usually an area place, but can be a point in some cases. Verify if point is appropriate.', true, 'Whitelist area (not point)', 'areaNotPoint'),
             pointNotAreaMid: new WLFlag(false, 2, 'This category is usually a point place, but can be an area in some cases. Verify if area is appropriate.', true, 'Whitelist point (not area)', 'pointNotArea'),
-            longURL: new LongURLFlag(),
-            gasNoBrand: new Flag(false, 1, 'Lock to region standards to verify no gas brand.'),
+            longURL: new Flag.LongURL(),
+            gasNoBrand: new FlagBase(false, 1, 'Lock to region standards to verify no gas brand.'),
             subFuel: new WLFlag(false, 1, 'Make sure this place is for the gas station itself and not the main store building.  Otherwise undo and check the categories.', true, 'Whitelist no gas brand', 'subFuel'),
             areaNotPointLow: new WLFlag(false, 1, 'This category is usually an area place, but can be a point in some cases. Verify if point is appropriate.', true, 'Whitelist area (not point)', 'areaNotPoint'),
             pointNotAreaLow: new WLFlag(false,1, 'This category is usually a point place, but can be an area in some cases. Verify if area is appropriate.', true, 'Whitelist point (not area)', 'pointNotArea'),
-            formatUSPS: new Flag(false, 1, 'Name the post office according to this region\'s <a href="https://wazeopedia.waze.com/wiki/USA/Places/Post_Office" ' +
+            formatUSPS: new FlagBase(false, 1, 'Name the post office according to this region\'s <a href="https://wazeopedia.waze.com/wiki/USA/Places/Post_Office" ' +
                 'style="color:#3232e6" target="_blank"> standards for USPS post offices</a>'),
-            missingUSPSAlt: new Flag(false, 1, 'USPS post offices must have an alternate name of "USPS".'),
-            missingUSPSZipAlt: new MissingUSPSZipAltFlag(),
+            missingUSPSAlt: new FlagBase(false, 1, 'USPS post offices must have an alternate name of "USPS".'),
+            missingUSPSZipAlt: new Flag.MissingUSPSZipAlt(),
             missingUSPSDescription: new WLFlag(false, 1, 'The first line of the description for a <a href="https://wazeopedia.waze.com/wiki/USA/Places/Post_Office" style="color:#3232e6" target="_blank">USPS post office</a> must be CITY, STATE ZIP, e.g. "Lexington, KY 40511"',
                                                true, 'Whitelist missing USPS address line in description', 'missingUSPSDescription'),
-            catHotel: new Flag(false, 0, 'Check hotel website for any name localization (e.g. Hilton - Tampa Airport)'),
+            catHotel: new FlagBase(false, 0, 'Check hotel website for any name localization (e.g. Hilton - Tampa Airport)'),
             localizedName: new WLFlag(false, 1, 'Place needs localization information', true, 'Whitelist localization', 'localizedName'),
-            specCaseMessage: new Flag(false, 0, 'WMEPH: placeholder (please report this error if you see this message)'),
-            pnhCatMess: new Flag(false, 0, 'WMEPH: placeholder (please report this error if you see this message)'),
-            specCaseMessageLow: new Flag(false, 0, 'WMEPH: placeholder (please report this error if you see this message)'),
-            extProviderMissing: new ExtProviderMissingFlag(),
-            urlMissing: new UrlMissingFlag(),
-            phoneMissing: new PhoneMissingFlag(),
+            specCaseMessage: new FlagBase(false, 0, 'WMEPH: placeholder (please report this error if you see this message)'),
+            pnhCatMess: new FlagBase(false, 0, 'WMEPH: placeholder (please report this error if you see this message)'),
+            specCaseMessageLow: new FlagBase(false, 0, 'WMEPH: placeholder (please report this error if you see this message)'),
+            extProviderMissing: new Flag.ExtProviderMissing(),
+            urlMissing: new Flag.UrlMissing(),
+            phoneMissing: new Flag.PhoneMissing(),
             badAreaCode: new WLFlag(false, 1, 'Area Code mismatch ', true, 'Whitelist the area code', 'aCodeWL'),
-            noHours: new NoHoursFlag(),
-            plaLotTypeMissing: new Flag(false, 3, 'Lot type: '),
-            plaCostTypeMissing: new Flag(false, 1, 'Parking cost: '),
-            plaPaymentTypeMissing: new PlaPaymentTypeMissingFlag(),
-            plaLotElevationMissing: new PlaLotElevationMissingFlag(),
-            plaSpaces: new Flag(false, 0, '# of parking spaces is set to 1-10.<br><b><i>If appropriate</i></b>, select another option:'),
-            noPlaStopPoint: new NoPlaStopPointFlag(),
-            plaStopPointUnmoved: new Flag(false, 1, 'Entry/exit point has not been moved.'),
-            plaCanExitWhileClosed: new PlaCanExitWhileClosedFlag(),
-            plaHasAccessibleParking: new PlaHasAccessibleParkingFlag(),
-            allDayHoursFixed: new Flag(false, 0, 'Hours were changed from 00:00-23:59 to "All Day"'),
-            resiTypeNameSoft: new Flag(false, 0, 'The place name suggests a residential place or personalized place of work.  Please verify.'),
-            localURL: new Flag(false, 0, 'Some locations for this business have localized URLs, while others use the primary corporate site. Check if a local URL applies to this location.'),
-            babiesRUs: new Flag(false, 0, 'If there is a Toys R Us at this location, make it the primary name and Babies R Us the alt name and rerun the script.'),
-            lockRPP: new LockRPPFlag(),
-            addAlias: new AddAliasFlag(),
-            addCat2: new AddCat2Flag(),
-            addPharm: new AddPharmFlag(),
-            addSuper: new AddSuperFlag(),
-            appendAMPM: new AppendAMPMFlag(),
-            addATM: new AddATMFlag(),
-            addConvStore: new AddConvStoreFlag(),
-            isThisAPostOffice: new IsThisAPostOfficeFlag(),
-            changeToHospitalUrgentCare: new ChangeToHospitalUrgentCareFlag(),
-            changeToDoctorClinic: new ChangeToDoctorClinicFlag(),
-            STC: new STCFlag(),
-            sfAliases: new Flag(false, 0, 'Unnecessary aliases were removed.'),
-            placeMatched: new Flag(false, 0, 'Place matched from PNH data.'),
-            placeLocked: new Flag(false, 0, 'Place locked.'),
-            NewPlaceSubmit: new NewPlaceSubmitFlag(),
-            ApprovalSubmit: new ApprovalSubmitFlag(),
-            PlaceWebsite: new PlaceWebsiteFlag()
+            noHours: new Flag.NoHours(),
+            plaLotTypeMissing: new FlagBase(false, 3, 'Lot type: '),
+            plaCostTypeMissing: new FlagBase(false, 1, 'Parking cost: '),
+            plaPaymentTypeMissing: new Flag.PlaPaymentTypeMissing(),
+            plaLotElevationMissing: new Flag.PlaLotElevationMissing(),
+            plaSpaces: new FlagBase(false, 0, '# of parking spaces is set to 1-10.<br><b><i>If appropriate</i></b>, select another option:'),
+            noPlaStopPoint: new Flag.NoPlaStopPoint(),
+            plaStopPointUnmoved: new FlagBase(false, 1, 'Entry/exit point has not been moved.'),
+            plaCanExitWhileClosed: new Flag.PlaCanExitWhileClosed(),
+            plaHasAccessibleParking: new Flag.PlaHasAccessibleParking(),
+            allDayHoursFixed: new FlagBase(false, 0, 'Hours were changed from 00:00-23:59 to "All Day"'),
+            resiTypeNameSoft: new FlagBase(false, 0, 'The place name suggests a residential place or personalized place of work.  Please verify.'),
+            localURL: new FlagBase(false, 0, 'Some locations for this business have localized URLs, while others use the primary corporate site. Check if a local URL applies to this location.'),
+            babiesRUs: new FlagBase(false, 0, 'If there is a Toys R Us at this location, make it the primary name and Babies R Us the alt name and rerun the script.'),
+            lockRPP: new Flag.LockRPP(),
+            addAlias: new Flag.AddAlias(),
+            addCat2: new Flag.AddCat2(),
+            addPharm: new Flag.AddPharm(),
+            addSuper: new Flag.AddSuper(),
+            appendAMPM: new Flag.AppendAMPM(),
+            addATM: new Flag.AddATM(),
+            addConvStore: new Flag.AddConvStore(),
+            isThisAPostOffice: new Flag.IsThisAPostOffice(),
+            changeToHospitalUrgentCare: new Flag.ChangeToHospitalUrgentCare(),
+            changeToDoctorClinic: new Flag.ChangeToDoctorClinic(),
+            STC: new Flag.STC(),
+            sfAliases: new FlagBase(false, 0, 'Unnecessary aliases were removed.'),
+            placeMatched: new FlagBase(false, 0, 'Place matched from PNH data.'),
+            placeLocked: new FlagBase(false, 0, 'Place locked.'),
+            NewPlaceSubmit: new Flag.NewPlaceSubmit(),
+            ApprovalSubmit: new Flag.ApprovalSubmit(),
+            PlaceWebsite: new Flag.PlaceWebsite()
         };  // END bannButt definitions
     }
 
@@ -2903,7 +2906,7 @@
             // Update address and GPS info for the place
             if (hpMode.harmFlag) {
                 // get GPS lat/long coords from place, call as itemGPS.lat, itemGPS.lon
-                itemGPS = OL.Layer.SphericalMercator.inverseMercator(item.attributes.geometry.getCentroid().x,item.attributes.geometry.getCentroid().y);
+                if (!itemGPS) itemGPS = OL.Layer.SphericalMercator.inverseMercator(item.attributes.geometry.getCentroid().x,item.attributes.geometry.getCentroid().y);
                 venueWhitelist[itemID].city = addr.city.attributes.name;  // Store city for the venue
                 venueWhitelist[itemID].state = addr.state.name;  // Store state for the venue
                 venueWhitelist[itemID].country = addr.country.name;  // Store country for the venue
@@ -3332,8 +3335,10 @@
                             } else if (tempLocalURL[tlix] === 'ph_longitudeNS') {
                                 //customStoreFinderLocalURL = customStoreFinderLocalURL + itemGPS[1];
                             } else if (tempLocalURL[tlix] === 'ph_latitudePM') {
+                                if (!itemGPS) itemGPS = OL.Layer.SphericalMercator.inverseMercator(item.attributes.geometry.getCentroid().x,item.attributes.geometry.getCentroid().y);
                                 customStoreFinderLocalURL = customStoreFinderLocalURL + itemGPS.lat;
                             } else if (tempLocalURL[tlix] === 'ph_longitudePM') {
+                                if (!itemGPS) itemGPS = OL.Layer.SphericalMercator.inverseMercator(item.attributes.geometry.getCentroid().x,item.attributes.geometry.getCentroid().y);
                                 customStoreFinderLocalURL = customStoreFinderLocalURL + itemGPS.lon;
                             } else if (tempLocalURL[tlix] === 'ph_latitudePMBuffMin') {
                                 customStoreFinderLocalURL = customStoreFinderLocalURL + (itemGPS.lat-0.15).toString();
@@ -3579,9 +3584,9 @@
                 newURL = normalizeURL(newURL,true,false, item, region);  // Normalize url
 
                 // Generic Bank treatment
-                ixBank = item.attributes.categories.indexOf("BANK_FINANCIAL");
-                ixATM = item.attributes.categories.indexOf("ATM");
-                ixOffices = item.attributes.categories.indexOf("OFFICES");
+                ixBank = item.attributes.categories.indexOf('BANK_FINANCIAL');
+                ixATM = item.attributes.categories.indexOf('ATM');
+                ixOffices = item.attributes.categories.indexOf('OFFICES');
                 // if the name contains ATM in it
                 if ( newName.match(/\batm\b/ig) !== null ) {
                     if ( ixOffices === 0 ) {
