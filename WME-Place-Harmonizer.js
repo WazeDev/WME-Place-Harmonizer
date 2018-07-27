@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name        WME Place Harmonizer Beta
 // @namespace   WazeUSA
-// @version     1.3.109
+// @version     1.3.110
 // @description Harmonizes, formats, and locks a selected place
 // @author      WMEPH Development Group
 // @include     /^https:\/\/(www|beta)\.waze\.com\/(?!user\/)(.{2,6}\/)?editor\/?.*$/
@@ -80,6 +80,8 @@
     const _PNH_DATA = { USA: {}, CAN: {} };
     const _CATEGORY_LOOKUP = {};
     const _DEFAULT_HOURS_TEXT = 'Paste Hours Here';
+    const _RESULTS_CACHE = {};
+    const _MAX_CACHE_SIZE = 25000;
     let _initAlreadyRun = false; // This is used to skip a couple things if already run once.  This could probably be handled better...
     let _countryCode;
     var hospitalPartMatch, hospitalFullMatch, animalPartMatch, animalFullMatch, schoolPartMatch, schoolFullMatch;  // vars for cat-name checking
@@ -850,7 +852,7 @@
             if (bannButt.placeMatched.active) {
                 return matchPNHRegionData;
             } else if (PNHNameMatch) {  // if a name match was found but not for region, prod the user to get it approved
-                bannButt.ApprovalSubmit.active = true;
+                bannButt.ApprovalSubmit = new Flag.ApprovalSubmit(region3L);
                 return ['ApprovalNeeded', PNHNameTemp, PNHOrderNum];
             } else {  // if no match was found, suggest adding the place to the sheet if it's a chain
                 bannButt.NewPlaceSubmit.active = true;
@@ -1161,8 +1163,9 @@
     /**
     * To highlight a place, set the wmephSeverity attribute to the desired highlight level.
     * @param venues {array of venues, or single venue} Venues to check for highlights.
+    * @param force {boolean} Force recalculation of highlights, rather than using cached results.
     */
-    function applyHighlightsTest(venues) {
+    function applyHighlightsTest(venues, force) {
         if (!layer) return;
         venues = venues ? _.isArray(venues) ? venues : [venues] : [];
         let storedBannButt = bannButt, storedBannServ = bannServ, storedBannButt2 = bannButt2;
@@ -1177,16 +1180,34 @@
                 // anything else to use default WME style.
                 if ( doHighlight && !(disableRankHL && venue.attributes.lockRank >  _USER.rank - 1)) {
                     try {
-                        venue.attributes.wmephSeverity = harmonizePlaceGo(venue,'highlight');
+                        let id = venue.attributes.id;
+                        let severity;
+                        let cachedResult;
+                        if (force || !isNaN(id) || ((cachedResult = _RESULTS_CACHE[id]) === undefined) || (venue.updatedOn > cachedResult.u)) {
+                            severity = harmonizePlaceGo(venue,'highlight');
+                            if (isNaN(id)) _RESULTS_CACHE[id] = { s: severity, u: venue.updatedOn || -1 };
+                        } else {
+                            severity = cachedResult.s;
+                        }
+                        venue.attributes.wmephSeverity = severity;
                     } catch (err) {
                         phlogdev('highlight error: ',err);
                     }
                 } else {
                     venue.attributes.wmephSeverity = 'default';
                 }
-
             }
         });
+
+        // Trim the cache if it's over the max size limit.
+        let keys = Object.keys(_RESULTS_CACHE);
+        if (keys.length > _MAX_CACHE_SIZE) {
+            let trimSize = _MAX_CACHE_SIZE * 0.8;
+            for (let i = keys.length - 1; i > trimSize; i--) {
+                delete _RESULTS_CACHE[keys[i]];
+            }
+        }
+
         let venue = getSelectedVenue();
         if (venue) {
             venue.attributes.wmephSeverity = harmonizePlaceGo(venue,'highlight');
@@ -1195,7 +1216,9 @@
             bannButt2 = storedBannButt2;
         }
         phlogdev('Ran highlighter in ' + Math.round((performance.now() - t0)*10)/10 + ' milliseconds.');
-        layer.redraw();
+        //phlogdev('WMEPH cache size: ' + Object.keys(_RESULTS_CACHE).length);
+
+        //layer.redraw();
     }
 
     // Set up CH loop
@@ -1204,18 +1227,21 @@
             // Add listeners
             W.model.venues.on('objectschanged', e => errorHandler(() => {
                 if (!_disableHighlightTest) {
-                    applyHighlightsTest(e);
+                    applyHighlightsTest(e, true);
+                    layer.redraw();
                 }
             }));
 
-            W.model.venues.on('objectsadded', e => errorHandler(() => applyHighlightsTest(e)));
-            //W.map.landmarkLayer.events.register( 'beforefeaturesadded', null, e => errorHandler(() => applyHighlightsTest(e.features.map(f => f.model))) );
+            //W.model.venues.on('objectsadded', e => errorHandler(() => applyHighlightsTest(e)));
+            W.map.landmarkLayer.events.register( 'beforefeaturesadded', null, e => errorHandler(() => applyHighlightsTest(e.features.map(f => f.model))) );
 
             // Apply the colors
             applyHighlightsTest(W.model.venues.getObjectArray());
+            layer.redraw();
         } else {
             // reset the colors to default
             applyHighlightsTest(W.model.venues.getObjectArray());
+            layer.redraw();
         }
     }
 
@@ -2188,12 +2214,15 @@
             }
         },
         ApprovalSubmit: class extends ActionFlag {
-            constructor() { super(false, 0, 'PNH data exists but is not approved for this region: ', 'Request approval', 'Request region/country approval of this place'); }
+            constructor(region) {
+                super(true, 0, 'PNH data exists but is not approved for this region: ', 'Request approval', 'Request region/country approval of this place');
+                this.region = region;
+            }
             action() {
-                if ( PMUserList.hasOwnProperty(region) && PMUserList[region].approvalActive ) {
+                if ( PMUserList.hasOwnProperty(this.region) && PMUserList[this.region].approvalActive ) {
                     var forumPMInputs = {
                         subject: '' + PNHOrderNum + ' PNH approval for "' + PNHNameTemp + '"',
-                        message: 'Please approve "' + PNHNameTemp + '" for the ' + region + ' region.  Thanks\n \nPNH order number: ' + PNHOrderNum + '\n \nPermalink: ' + placePL + '\n \nPNH Link: ' + _URLS.usaPnh,
+                        message: 'Please approve "' + PNHNameTemp + '" for the ' + this.region + ' region.  Thanks\n \nPNH order number: ' + PNHOrderNum + '\n \nPermalink: ' + placePL + '\n \nPNH Link: ' + _URLS.usaPnh,
                         preview: 'Preview', attach_sig: 'on'
                     };
                     forumPMInputs['address_list[u]['+PMUserList[region].modID+']'] = 'to';  // Sends a PM to the regional mod instead of the submission form
@@ -2341,7 +2370,7 @@
             placeMatched: new FlagBase(false, 0, 'Place matched from PNH data.'),
             placeLocked: new FlagBase(false, 0, 'Place locked.'),
             NewPlaceSubmit: new Flag.NewPlaceSubmit(),
-            ApprovalSubmit: new Flag.ApprovalSubmit(),
+            ApprovalSubmit: null,
             PlaceWebsite: new Flag.PlaceWebsite()
         };  // END bannButt definitions
     }
@@ -4167,12 +4196,6 @@
                         msgAdd = ' Request an R3+ lock to confirm unnamed parking lot.';
                     } else {
                         msgAdd = ' Lock to 3+ to confirm unnamed parking lot.';
-                        // bannButt.plaNameMissing.value = 'Lock';
-                        // bannButt.plaNameMissing.action = function() {
-                        //     W.model.actionManager.add(new UpdateObject(item, {'lockRank': 2}));
-                        //     harmonizePlaceGo(item, 'harmonize');
-                        // };
-                        // bannButt.plaNameMissing.title = 'DO NOT LOCK if you are not completing this place!';
                     }
                     bannButt.plaNameMissing.message += msgAdd;
                 }
@@ -4471,7 +4494,7 @@
 
         // update Severity for banner messages
         for (var bannKey in bannButt) {
-            if (bannButt.hasOwnProperty(bannKey) && bannButt[bannKey].active) {
+            if (bannButt[bannKey] && bannButt[bannKey].active) {
                 severityButt = Math.max(bannButt[bannKey].severity, severityButt);
             }
         }
@@ -4628,7 +4651,7 @@
             // get severities from the banners
             severityButt = 0;
             for ( var tempKey in bannButt ) {
-                if ( bannButt.hasOwnProperty(tempKey) && bannButt[tempKey].hasOwnProperty('active') && bannButt[tempKey].active ) {  //  If the particular message is active
+                if ( bannButt[tempKey] && bannButt[tempKey].active ) {  //  If the particular message is active
                     if ( bannButt[tempKey].hasOwnProperty('WLactive') ) {
                         if ( bannButt[tempKey].WLactive ) {  // If there's a WL option, enable it
                             severityButt = Math.max(bannButt[tempKey].severity, severityButt);
@@ -4771,14 +4794,6 @@
             updateServicesChecks(bannServ);
         }
 
-        // Turn on website linking button if there is a url
-        //if (newURL !== null && newURL !== '') {
-        //bannButt.PlaceWebsite.active = true;
-        //}
-
-        // Highlight the changes made
-        // highlightChangedFields(fieldUpdateObject,hpMode);
-
         // Assemble the banners
         assembleBanner();  // Make Messaging banners
 
@@ -4822,7 +4837,7 @@
         // Build banners above the Services
         Object.keys(bannButt).forEach(tempKey => {
             rowData = bannButt[tempKey];
-            if (rowData.active) {  //  If the particular message is active
+            if (rowData && rowData.active) {  //  If the particular message is active
                 $rowDiv = $('<div class="banner-row">');
                 if (rowData.severity === 3) {
                     $rowDiv.addClass('red');
@@ -5125,7 +5140,7 @@
     // Button onclick event handler
     function setupButtons(b) {
         for ( var tempKey in b ) {  // Loop through the banner possibilities
-            if ( b.hasOwnProperty(tempKey) && b[tempKey].active ) {  //  If the particular message is active
+            if ( b[tempKey] && b[tempKey].active ) {  //  If the particular message is active
                 if (b[tempKey].action && b[tempKey].value) {  // If there is an action, set onclick
                     buttonAction(b, tempKey);
                 }
@@ -6863,7 +6878,7 @@
 
 
     function placeHarmonizer_bootstrap() {
-        if ( W && W.loginManager && W.loginManager.isLoggedIn() && W.map) {
+        if ( W && W.loginManager && W.loginManager.isLoggedIn() && W.map && WazeWrap.Interface) {
             placeHarmonizer_init();
         } else {
             phlog('Waiting for WME map and login...');
