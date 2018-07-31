@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name        WME Place Harmonizer Beta
 // @namespace   WazeUSA
-// @version     1.3.112
+// @version     1.3.113
 // @description Harmonizes, formats, and locks a selected place
 // @author      WMEPH Development Group
 // @include     /^https:\/\/(www|beta)\.waze\.com\/(?!user\/)(.{2,6}\/)?editor\/?.*$/
@@ -636,7 +636,7 @@
     function deleteDupeLabel(){
         //phlog('Clearing dupe label...');
         setTimeout(() => {
-            var actionsList = W.model.actionManager.actions;
+            var actionsList = W.model.actionManager.getActions();
             var lastAction = actionsList[actionsList.length-1];
             if ( 'undefined' !== typeof lastAction && lastAction.hasOwnProperty('object') && lastAction.object.hasOwnProperty('state') && lastAction.object.state === 'Delete' ) {
                 if ( dupeIDList.indexOf(lastAction.object.attributes.id) > -1 ) {
@@ -867,7 +867,7 @@
         // This is code to handle updating the banner when changes are made external to the script.
         let venue = getSelectedVenue();
         if ($('#WMEPH_banner').length > 0 && venue) {
-            var actions = W.model.actionManager.actions;
+            var actions = W.model.actionManager.getActions();
             var lastAction = actions[actions.length - 1];
             if (lastAction && lastAction.object && lastAction.object.type === 'venue' && lastAction.attributes && lastAction.attributes.id === venue.attributes.id) {
                 if (lastAction.newAttributes && lastAction.newAttributes.entryExitPoints) {
@@ -4670,14 +4670,14 @@
         }
 
         //IGN check
-        if (!item.attributes.residential && item.attributes.updatedBy && W.model.users.get(item.attributes.updatedBy) &&
-            W.model.users.get(item.attributes.updatedBy).userName && W.model.users.get(item.attributes.updatedBy).userName.match(/^ign_/i) !== null) {
+        if (!item.attributes.residential && item.attributes.updatedBy && W.model.users.getObjectById(item.attributes.updatedBy) &&
+            W.model.users.getObjectById(item.attributes.updatedBy).userName && W.model.users.getObjectById(item.attributes.updatedBy).userName.match(/^ign_/i) !== null) {
             bannButt.ignEdited = new Flag.IgnEdited();
         }
 
         //waze_maint_bot check
         var updatedById = item.attributes.updatedBy ? item.attributes.updatedBy : item.attributes.createdBy;
-        var updatedBy = W.model.users.get(updatedById);
+        var updatedBy = W.model.users.getObjectById(updatedById);
         var updatedByName = updatedBy ? updatedBy.userName : null;
         var botNamesAndIDs = [
             '^waze-maint', '^105774162$',
@@ -5963,8 +5963,8 @@
             var closestSegment = orderedSegments[0].segment,
                 distanceA,
                 distanceB,
-                nodeA = W.model.nodes.get(closestSegment.attributes.fromNodeID),
-                nodeB = W.model.nodes.get(closestSegment.attributes.toNodeID);
+                nodeA = W.model.nodes.getObjectById(closestSegment.attributes.fromNodeID),
+                nodeB = W.model.nodes.getObjectById(closestSegment.attributes.toNodeID);
             if (nodeA && nodeB) {
                 var pt = stopPoint.getPoint ? stopPoint.getPoint() : stopPoint;
                 distanceA = pt.distanceTo(nodeA.attributes.geometry);
