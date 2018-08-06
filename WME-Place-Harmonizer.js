@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name        WME Place Harmonizer Beta
 // @namespace   WazeUSA
-// @version     1.3.113
+// @version     1.3.114
 // @description Harmonizes, formats, and locks a selected place
 // @author      WMEPH Development Group
 // @include     /^https:\/\/(www|beta)\.waze\.com\/(?!user\/)(.{2,6}\/)?editor\/?.*$/
@@ -80,8 +80,8 @@
     const _PNH_DATA = { USA: {}, CAN: {} };
     const _CATEGORY_LOOKUP = {};
     const _DEFAULT_HOURS_TEXT = 'Paste Hours Here';
-    const _RESULTS_CACHE = {};
     const _MAX_CACHE_SIZE = 25000;
+    let _resultsCache = {};
     let _initAlreadyRun = false; // This is used to skip a couple things if already run once.  This could probably be handled better...
     let _countryCode;
     var hospitalPartMatch, hospitalFullMatch, animalPartMatch, animalFullMatch, schoolPartMatch, schoolFullMatch;  // vars for cat-name checking
@@ -1183,9 +1183,9 @@
                         let id = venue.attributes.id;
                         let severity;
                         let cachedResult;
-                        if (force || !isNaN(id) || ((cachedResult = _RESULTS_CACHE[id]) === undefined) || (venue.updatedOn > cachedResult.u)) {
+                        if (force || !isNaN(id) || ((cachedResult = _resultsCache[id]) === undefined) || (venue.updatedOn > cachedResult.u)) {
                             severity = harmonizePlaceGo(venue,'highlight');
-                            if (isNaN(id)) _RESULTS_CACHE[id] = { s: severity, u: venue.updatedOn || -1 };
+                            if (isNaN(id)) _resultsCache[id] = { s: severity, u: venue.updatedOn || -1 };
                         } else {
                             severity = cachedResult.s;
                         }
@@ -1200,11 +1200,11 @@
         });
 
         // Trim the cache if it's over the max size limit.
-        let keys = Object.keys(_RESULTS_CACHE);
+        let keys = Object.keys(_resultsCache);
         if (keys.length > _MAX_CACHE_SIZE) {
             let trimSize = _MAX_CACHE_SIZE * 0.8;
             for (let i = keys.length - 1; i > trimSize; i--) {
-                delete _RESULTS_CACHE[keys[i]];
+                delete _resultsCache[keys[i]];
             }
         }
 
@@ -1216,7 +1216,7 @@
             bannButt2 = storedBannButt2;
         }
         phlogdev('Ran highlighter in ' + Math.round((performance.now() - t0)*10)/10 + ' milliseconds.');
-        //phlogdev('WMEPH cache size: ' + Object.keys(_RESULTS_CACHE).length);
+        //phlogdev('WMEPH cache size: ' + Object.keys(_resultsCache).length);
 
         //layer.redraw();
     }
@@ -1235,6 +1235,9 @@
             //W.model.venues.on('objectsadded', e => errorHandler(() => applyHighlightsTest(e)));
             W.map.landmarkLayer.events.register( 'beforefeaturesadded', null, e => errorHandler(() => applyHighlightsTest(e.features.map(f => f.model))) );
 
+            // Clear the cache (highlight severities may need to be updated).
+            _resultsCache = {};
+            
             // Apply the colors
             applyHighlightsTest(W.model.venues.getObjectArray());
             layer.redraw();
@@ -1330,17 +1333,8 @@
 
     // normalize phone
     function normalizePhone(s, outputFormat, returnType, item, region) {
-        var regionsThatWantPLAPhones = ['SER'];
         if ( !s && returnType === 'existing' ) {
-            let hasOperator = item.attributes.brand && W.model.venues.categoryBrands.PARKING_LOT.indexOf(item.attributes.brand) !== -1;
-            if (!item.isParkingLot() || (item.isParkingLot() && (regionsThatWantPLAPhones.indexOf(region) > -1 || hasOperator))) {
-                bannButt.phoneMissing = new Flag.PhoneMissing();
-                bannButt.phoneMissing.outputFormat = outputFormat;
-                if ((item.isParkingLot() && !hasOperator) || _wl.phoneWL) {
-                    bannButt.phoneMissing.severity = 0;
-                    bannButt.phoneMissing.WLactive = false;
-                }
-            }
+            bannButt.phoneMissing = Flag.PhoneMissing.eval(item, _wl, region, outputFormat);
             return s;
         }
         s = s.replace(/(\d{3}.*)(?:extension|ext|xt|x).*/i, '$1');
@@ -1565,6 +1559,63 @@
         },
         FullAddressInference: class extends FlagBase {
             constructor() { super(true, 3, 'Missing address was inferred from nearby segments. Verify the address and run script again.'); }
+            static eval(venue, addr, actions) {
+                let result = {};
+                if (!addr.state || !addr.country) {
+                    if (W.map.getZoom() < 4 ) {
+                        if ( $('#WMEPH-EnableIAZoom').prop('checked') ) {
+                            W.map.moveTo(venue.geometry.getCentroid().toLonLat(), 5);
+                        } else {
+                            alert('No address and the state cannot be determined. Please zoom in and rerun the script. You can enable autozoom for this type of case in the options.');
+                        }
+                        result.exit = true;  //  don't run the rest of the script
+                    } else {
+                        let inferredAddress = WMEPH_inferAddress(7);  // Pull address info from nearby segments
+                        if (inferredAddress.attributes) inferredAddress = inferredAddress.attributes;
+
+                        if (inferredAddress && inferredAddress.state && inferredAddress.country ) {
+                            if ( $('#WMEPH-AddAddresses').prop('checked') ) {  // update the item's address if option is enabled
+                                updateAddress(venue, addr, actions);
+                                result.inferredAddress = inferredAddress;
+                                _updatedFields.address.updated = true;
+                                let hn = venue.attributes.houseNumber;
+                                if (hn && hn.replace(/[^0-9A-Za-z]/g,'').length > 0 ) {
+                                    result.flag = new Flag.FullAddressInference();
+                                    result.noLock = true;
+                                }
+                            } else {
+                                if (['JUNCTION_INTERCHANGE'].indexOf(newCategories[0]) === -1) {
+                                    bannButt.cityMissing = new Flag.CityMissing();
+                                    result.noLock = true;
+                                }
+                            }
+                        } else {  //  if the inference doesn't work...
+                            alert('Place has no address data. Please set the address and rerun the script.');
+                            result.exit = true;  //  don't run the rest of the script
+                        }
+                    }
+                }
+                return result;
+            }
+            static evalHL(venue, addr) {
+                let result = null;
+                if (!addr.state || !addr.country) {
+                    if ( venue.attributes.adLocked ) {
+                        result = 'adLock';
+                    } else {
+                        let cat = venue.attributes.categories;
+                        if ( containsAny(cat, ['HOSPITAL_MEDICAL_CARE','HOSPITAL_URGENT_CARE','GAS_STATION']) ) {
+                            phlogdev('Unaddressed HUC/GS');
+                            result = 5;
+                        } else if ( cat.indexOf('JUNCTION_INTERCHANGE') > -1 ) {
+                            result = 0;
+                        } else {
+                            result = 3;
+                        }
+                    }
+                }
+                return result;
+            }
         },
         NameMissing: class extends FlagBase {
             constructor() { super(true, 3, 'Name is missing.'); }
@@ -1999,11 +2050,25 @@
             }
         },
         PhoneMissing: class extends WLActionFlag {
-            constructor() {
+            constructor(hasOperator, wl, outputFormat, isPLA) {
                 super(true, 1, 'No ph#: <input type="text" id="WMEPH-PhoneAdd" autocomplete="off" style="font-size:0.85em;width:100px;padding-left:2px;color:#000;">', 'Add', 'Add phone to place', true, 'Whitelist empty phone', 'phoneWL');
                 this.noBannerAssemble = true;
                 this.badInput = false;
-                // this.outputFormat will be set in code.
+                this.outputFormat = outputFormat;
+                if ((isPLA && !hasOperator) || wl[this.WLkeyName]) {
+                    this.severity = 0;
+                    this.WLactive = false;
+                }
+            }
+            static get _regionsThatWantPlaPhones() { return ['SER']; }
+            static eval(venue, wl, region, outputFormat) {
+                let hasOperator = venue.attributes.brand && W.model.venues.categoryBrands.PARKING_LOT.indexOf(venue.attributes.brand) !== -1;
+                let isPLA = venue.isParkingLot();
+                let flag = null;
+                if (!isPLA || (isPLA && (this._regionsThatWantPlaPhones.indexOf(region) > -1 || hasOperator))) {
+                    flag = new Flag.PhoneMissing(hasOperator, wl, outputFormat, isPLA);
+                }
+                return flag;
             }
             action() {
                 let venue = getSelectedVenue();
@@ -2081,7 +2146,33 @@
             constructor() { super(true, 3, 'Lot type: '); }
         },
         PlaCostTypeMissing: class extends FlagBase {
-            constructor() { super(true, 1, 'Parking cost: '); }
+            constructor() {
+                super(true, 1, 'Parking cost: ');
+            }
+            static eval(venue, hpMode, parkAttr) {
+                let result = {};
+                if (!parkAttr || !parkAttr.costType || parkAttr.costType === 'UNKNOWN') {
+                    result.flag = new Flag.PlaCostTypeMissing();
+                    if (hpMode.harmFlag) {
+                        [
+                            ['FREE','Free','Free'],
+                            ['LOW','$','Low'],
+                            ['MODERATE','$$','Moderate'],
+                            ['EXPENSIVE','$$$','Expensive']
+                        ].forEach(btnInfo => {
+                            //if (btnIdx === 3) $btnDiv.append('<br>');
+                            result.flag.message +=
+                                $('<button>', {id: 'wmeph_' + btnInfo[0], class: 'wmeph-pla-cost-type-btn btn btn-default btn-xs wmeph-btn', title: btnInfo[2]})
+                                .text(btnInfo[1])
+                                .css({padding:'3px', height:'20px', lineHeight:'0px', marginRight:'2px',
+                                      marginBottom:'1px', minWidth:'18px'})
+                                .prop('outerHTML');
+                        });
+                        result.noLock = true;
+                    }
+                }
+                return result;
+            }
         },
         PlaPaymentTypeMissing: class extends ActionFlag {
             constructor() { super(true, 1, 'Parking isn\'t free.  Select payment type(s) from the "More info" tab. ', 'Go there'); }
@@ -2092,6 +2183,14 @@
         },
         PlaLotElevationMissing: class extends ActionFlag {
             constructor() { super(true, 1, 'No lot elevation. Is it street level?', 'Yes', 'Click if street level parking only, or select other option(s) in the More Info tab.'); }
+            static eval(parkAttr) {
+                let result = {};
+                if (!parkAttr || !parkAttr.lotType || parkAttr.lotType.length === 0) {
+                    result.flag = new Flag.PlaLotElevationMissing();
+                    result.noLock = true;
+                }
+                return result;
+            }
             action() {
                 let venue = getSelectedVenue();
                 let existingAttr = venue.attributes.categoryAttributes.PARKING_LOT;
@@ -2158,6 +2257,33 @@
         },
         AllDayHoursFixed: class extends FlagBase {
             constructor() { super(true, 0, 'Hours were changed from 00:00-23:59 to "All Day"'); }
+            static eval(venue, hpMode, actions) {
+                let hoursEntries = venue.attributes.openingHours;
+                let newHoursEntries = [];
+                let updateHours = false;
+                let flag = null;
+                for (let i=0, len=hoursEntries.length; i<len; i++) {
+                    let newHoursEntry = {days:[].concat(hoursEntries[i].days), fromHour:hoursEntries[i].fromHour, toHour:hoursEntries[i].toHour};
+                    if (newHoursEntry.toHour === '23:59' && /^0?0:00$/.test(newHoursEntry.fromHour)) {
+                        if (hpMode.hlFlag) {
+                            // Just return a "placeholder" flag to highlight the place.
+                            flag = new FlagBase(true, 2, 'invalid all day hours');
+                            break;
+                        } else if (hpMode.harmFlag) {
+                            updateHours = true;
+                            newHoursEntry.toHour = '00:00';
+                            newHoursEntry.fromHour = '00:00';
+                        }
+                    }
+                    newHoursEntries.push(newHoursEntry);
+                }
+                if (updateHours) {
+                    addUpdateAction(venue, { openingHours: newHoursEntries }, actions);
+                    _updatedFields.openingHours.updated = true;
+                    flag = new Flag.AllDayHoursFixed();
+                }
+                return flag;
+            }
         },
         ResiTypeNameSoft: class extends FlagBase {
             constructor() { super(true, 0, 'The place name suggests a residential place or personalized place of work.  Please verify.'); }
@@ -2830,30 +2956,10 @@
             //                 }
             // reset PNH lock level
             PNHLockLevel = -1;
-
-            // If place has hours of 0:00-23:59, highlight yellow or if harmonizing, convert to All Day.
-            var hoursEntries = item.attributes.openingHours;
-            var newHoursEntries = [];
-            var updateHours = false;
-            for (var i=0; i<hoursEntries.length; i++) {
-                var newHoursEntry = {days:[].concat(hoursEntries[i].days), fromHour:hoursEntries[i].fromHour, toHour:hoursEntries[i].toHour};
-                if (/^0?0:00$/.test(newHoursEntry.fromHour) && newHoursEntry.toHour === '23:59') {
-                    if ( hpMode.hlFlag && !bannButt.invalidAllDayFormat ) {
-                        bannButt.invalidAllDayFormat = {active: true, severity: 2};
-                    } else if (hpMode.harmFlag) {
-                        updateHours = true;
-                        newHoursEntry.toHour = '00:00';
-                        newHoursEntry.fromHour = '00:00';
-                    }
-                }
-                newHoursEntries.push(newHoursEntry);
-            }
-            if (updateHours) {
-                addUpdateAction(getSelectedVenue(), { openingHours: newHoursEntries }, actions);
-                _updatedFields.openingHours.updated = true;
-                bannButt.allDayHoursFixed = new Flag.AllDayHoursFixed();
-            }
         }
+
+        // If place has hours of 0:00-23:59, highlight yellow or if harmonizing, convert to All Day.
+        bannButt.allDayHoursFixed = Flag.AllDayHoursFixed.eval(item, hpMode, actions);
 
         var lockOK = true;  // if nothing goes wrong, then place will be locked
         var categories = item.attributes.categories;
@@ -2870,92 +2976,41 @@
             newURLSubmit = newURL;
         }
         newPhone = item.attributes.phone;
-        var addr = item.getAddress();
+        let addr = item.getAddress();
         if ( addr.hasOwnProperty('attributes') ) {
             addr = addr.attributes;
         }
         var PNHNameRegMatch;
 
         // Some user submitted places have no data in the country, state and address fields.
-        if (!addr.state || !addr.country) {
-            if (hpMode.harmFlag) {
-                if (W.map.getZoom() < 4 ) {
-                    if ( $('#WMEPH-EnableIAZoom').prop('checked') ) {
-                        W.map.moveTo(getSelectedVenue().geometry.getCentroid().toLonLat(), 5);
-                        return;
-                    } else {
-                        alert('No address and the state cannot be determined. Please zoom in and rerun the script. You can enable autozoom for this type of case in the options.');
-                        return;  //  don't run the rest of the script
-                    }
-                } else {
-                    var inferredAddress = WMEPH_inferAddress(7);  // Pull address info from nearby segments
-                    if (inferredAddress.attributes) {
-                        inferredAddress = inferredAddress.attributes;
-                    }
-
-                    if (inferredAddress && inferredAddress.state && inferredAddress.country ) {
-                        addr = inferredAddress;
-                        if ( $('#WMEPH-AddAddresses').prop('checked') ) {  // update the item's address if option is enabled
-                            updateAddress(item, addr, actions);
-                            _updatedFields.address.updated = true;
-                            if (item.attributes.houseNumber && item.attributes.houseNumber.replace(/[^0-9A-Za-z]/g,'').length > 0 ) {
-                                bannButt.fullAddressInference = new Flag.FullAddressInference();
-                                lockOK = false;
-                            }
-                        } else {
-                            if (['JUNCTION_INTERCHANGE'].indexOf(newCategories[0]) === -1) {
-                                bannButt.cityMissing = new Flag.CityMissing();
-                                lockOK = false;
-                            }
-                        }
-                    } else {  //  if the inference doesn't work...
-                        alert('Place has no address data. Please set the address and rerun the script.');
-                        return;  //  don't run the rest of the script
-                    }
-                }
-            } else if (hpMode.hlFlag) {
-                if ( item.attributes.adLocked ) {
-                    return 'adLock';
-                } else if ( item.attributes.categories.indexOf('HOSPITAL_MEDICAL_CARE') > -1 || item.attributes.categories.indexOf('HOSPITAL_URGENT_CARE') > -1 || item.isGasStation() ) {
-                    phlogdev('Unaddressed HMC/GS');
-                    return 5;
-                } else if ( newCategories.length && newCategories[0] === 'JUNCTION_INTERCHANGE' ) {
-                    return 0;
-                } else {
-                    return 3;
-                }
-            }
-        } else if (hpMode.harmFlag && $('.editing').length === 1 ) {
-            $('.save-button').click();  // apply any address changes
+        let inferredAddress;
+        if (hpMode.harmFlag) {
+            let result = Flag.FullAddressInference.eval(item, addr, actions);
+            if (result.exit) return;
+            bannButt.fullAddressInference = result.flag;
+            inferredAddress = result.inferredAddress;
+            if (result.inferredAddress) addr = result.inferredAddress;
+            if (result.noLock) lockOK = false;
+        } else if (hpMode.hlFlag) {
+            let result = Flag.FullAddressInference.evalHL(item, addr);
+            if (result) return result;
         }
 
         // Check parking lot attributes.
         if (item.isParkingLot()) {
             if (hpMode.harmFlag) bannServ.addDisabilityParking.active = true;
-            var catAttr = item.attributes.categoryAttributes;
-            var parkAttr = catAttr ? catAttr.PARKING_LOT : undefined;
-            if (!parkAttr || !parkAttr.costType || parkAttr.costType === 'UNKNOWN') {
-                bannButt.plaCostTypeMissing = new Flag.PlaCostTypeMissing();
-                [
-                    ['FREE','Free','Free'],
-                    ['LOW','$','Low'],
-                    ['MODERATE','$$','Moderate'],
-                    ['EXPENSIVE','$$$','Expensive']
-                ].forEach(btnInfo => {
-                    if (btnIdx === 3) $btnDiv.append('<br>');
-                    bannButt.plaCostTypeMissing.message +=
-                        $('<button>', {id: 'wmeph_' + btnInfo[0], class: 'wmeph-pla-cost-type-btn btn btn-default btn-xs wmeph-btn', title: btnInfo[2]})
-                        .text(btnInfo[1])
-                        .css({padding:'3px', height:'20px', lineHeight:'0px', marginRight:'2px',
-                              marginBottom:'1px', minWidth:'18px'})
-                        .prop('outerHTML');
-                });
-                lockOK = false;
-            }
-            if (!parkAttr || !parkAttr.lotType || parkAttr.lotType.length === 0) {
-                bannButt.plaLotElevationMissing = new Flag.PlaLotElevationMissing();
-                lockOK = false;
-            }
+            let catAttr = item.attributes.categoryAttributes;
+            let parkAttr = catAttr ? catAttr.PARKING_LOT : undefined;
+            let result;
+
+            result = Flag.PlaCostTypeMissing.eval(item, hpMode, parkAttr);
+            bannButt.plaCostTypeMissing = result.flag;
+            if (result.noLock) lockOK = false;
+
+            result = Flag.PlaLotElevationMissing.eval(parkAttr);
+            bannButt.plaLotElevationMissing = result.flag;
+            if (result.noLock) lockOK = false;
+
             if (!parkAttr || !parkAttr.estimatedNumberOfSpots || parkAttr.estimatedNumberOfSpots === 'R_1_TO_10') {
                 bannButt.plaSpaces = new Flag.PlaSpaces();
                 var $btnDiv = $('<div>');
@@ -4083,9 +4138,6 @@
                         bannButt.noHours.WLactive = false;
                         bannButt.noHours.severity = 0;
                     }
-                }
-                if (hpMode.hlFlag && $('#WMEPH-DisableHoursHL').prop('checked')) {
-                    bannButt.noHours.severity = 0;
                 }
             } else {
                 if (item.attributes.openingHours.length === 1) {  // if one set of hours exist, check for partial 24hrs setting
@@ -6209,7 +6261,7 @@
     }
 
     // function that checks if all elements of target are in array:source
-    function containsAll(source,target) {
+    function containsAll(source, target) {
         if (typeof(target) === 'string') { target = [target]; }  // if a single string, convert to an array
         for (var ixx = 0; ixx < target.length; ixx++) {
             if ( source.indexOf(target[ixx]) === -1 ) {
@@ -6220,9 +6272,9 @@
     }
 
     // function that checks if any element of target are in source
-    function containsAny(source,target) {
-        if (typeof(source) === 'string') { source = [source]; }  // if a single string, convert to an array
-        if (typeof(target) === 'string') { target = [target]; }  // if a single string, convert to an array
+    function containsAny(source, target) {
+        //if (typeof(source) === 'string') { source = [source]; }  // if a single string, convert to an array
+        //if (typeof(target) === 'string') { target = [target]; }  // if a single string, convert to an array
         return source.some(tt => target.indexOf(tt) > -1);
     }
 
