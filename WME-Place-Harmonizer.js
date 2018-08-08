@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name        WME Place Harmonizer Beta
 // @namespace   WazeUSA
-// @version     1.3.115
+// @version     1.3.116
 // @description Harmonizes, formats, and locks a selected place
 // @author      WMEPH Development Group
 // @include     /^https:\/\/(www|beta)\.waze\.com\/(?!user\/)(.{2,6}\/)?editor\/?.*$/
@@ -3590,12 +3590,16 @@
                                 if (!itemGPS) itemGPS = OL.Layer.SphericalMercator.inverseMercator(item.attributes.geometry.getCentroid().x,item.attributes.geometry.getCentroid().y);
                                 customStoreFinderLocalURL = customStoreFinderLocalURL + itemGPS.lon;
                             } else if (tempLocalURL[tlix] === 'ph_latitudePMBuffMin') {
+                                if (!itemGPS) itemGPS = OL.Layer.SphericalMercator.inverseMercator(item.attributes.geometry.getCentroid().x,item.attributes.geometry.getCentroid().y);
                                 customStoreFinderLocalURL = customStoreFinderLocalURL + (itemGPS.lat-0.15).toString();
                             } else if (tempLocalURL[tlix] === 'ph_longitudePMBuffMin') {
+                                if (!itemGPS) itemGPS = OL.Layer.SphericalMercator.inverseMercator(item.attributes.geometry.getCentroid().x,item.attributes.geometry.getCentroid().y);
                                 customStoreFinderLocalURL = customStoreFinderLocalURL + (itemGPS.lon-0.15).toString();
                             } else if (tempLocalURL[tlix] === 'ph_latitudePMBuffMax') {
+                                if (!itemGPS) itemGPS = OL.Layer.SphericalMercator.inverseMercator(item.attributes.geometry.getCentroid().x,item.attributes.geometry.getCentroid().y);
                                 customStoreFinderLocalURL = customStoreFinderLocalURL + (itemGPS.lat+0.15).toString();
                             } else if (tempLocalURL[tlix] === 'ph_longitudePMBuffMax') {
+                                if (!itemGPS) itemGPS = OL.Layer.SphericalMercator.inverseMercator(item.attributes.geometry.getCentroid().x,item.attributes.geometry.getCentroid().y);
                                 customStoreFinderLocalURL = customStoreFinderLocalURL + (itemGPS.lon+0.15).toString();
                             } else if (tempLocalURL[tlix] === 'ph_houseNumber') {
                                 customStoreFinderLocalURL = customStoreFinderLocalURL + (item.attributes.houseNumber ? item.attributes.houseNumber : '');
