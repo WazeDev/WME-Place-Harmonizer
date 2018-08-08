@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name        WME Place Harmonizer Beta
 // @namespace   WazeUSA
-// @version     1.3.114
+// @version     1.3.115
 // @description Harmonizes, formats, and locks a selected place
 // @author      WMEPH Development Group
 // @include     /^https:\/\/(www|beta)\.waze\.com\/(?!user\/)(.{2,6}\/)?editor\/?.*$/
@@ -1237,7 +1237,7 @@
 
             // Clear the cache (highlight severities may need to be updated).
             _resultsCache = {};
-            
+
             // Apply the colors
             applyHighlightsTest(W.model.venues.getObjectArray());
             layer.redraw();
@@ -1575,14 +1575,16 @@
 
                         if (inferredAddress && inferredAddress.state && inferredAddress.country ) {
                             if ( $('#WMEPH-AddAddresses').prop('checked') ) {  // update the item's address if option is enabled
-                                updateAddress(venue, addr, actions);
+                                updateAddress(venue, inferredAddress, actions);
                                 result.inferredAddress = inferredAddress;
                                 _updatedFields.address.updated = true;
-                                let hn = venue.attributes.houseNumber;
-                                if (hn && hn.replace(/[^0-9A-Za-z]/g,'').length > 0 ) {
-                                    result.flag = new Flag.FullAddressInference();
-                                    result.noLock = true;
-                                }
+                                result.flag = new Flag.FullAddressInference();
+                                result.noLock = true;
+//                                 let hn = venue.attributes.houseNumber;
+//                                 if (hn && hn.replace(/[^0-9A-Za-z]/g,'').length > 0 ) {
+//                                     result.flag = new Flag.FullAddressInference();
+//                                     result.noLock = true;
+//                                 }
                             } else {
                                 if (['JUNCTION_INTERCHANGE'].indexOf(newCategories[0]) === -1) {
                                     bannButt.cityMissing = new Flag.CityMissing();
@@ -2049,6 +2051,27 @@
                 }
             }
         },
+        BadAreaCode: class extends WLActionFlag {
+            constructor(textValue, outputFormat) {
+                super(true, 1, 'Area Code mismatch:<br><input type="text" id="WMEPH-PhoneAdd" autocomplete="off" style="font-size:0.85em;width:100px;padding-left:2px;color:#000;" value="' + (textValue ? textValue : '') + '">', 'Update', 'Update phone #', true, 'Whitelist the area code', 'aCodeWL');
+                this.outputFormat = outputFormat;
+                this.noBannerAssemble = true;
+            }
+            action() {
+                let venue = getSelectedVenue();
+                let newPhone = normalizePhone($('#WMEPH-PhoneAdd').val(), this.outputFormat, 'inputted', venue);
+                if (newPhone === 'badPhone') {
+                    $('input#WMEPH-PhoneAdd').css({backgroundColor: '#FDD'}).attr('title','Invalid phone # format');
+                    this.badInput = true;
+                } else {
+                    this.badInput = false;
+                    phlogdev(newPhone);
+                    W.model.actionManager.add(new UpdateObject(venue, { phone: newPhone }));
+                    _updatedFields.phone.updated = true;
+                    harmonizePlaceGo(venue, 'harmonize');
+                }
+            }
+        },
         PhoneMissing: class extends WLActionFlag {
             constructor(hasOperator, wl, outputFormat, isPLA) {
                 super(true, 1, 'No ph#: <input type="text" id="WMEPH-PhoneAdd" autocomplete="off" style="font-size:0.85em;width:100px;padding-left:2px;color:#000;">', 'Add', 'Add phone to place', true, 'Whitelist empty phone', 'phoneWL');
@@ -2079,25 +2102,11 @@
                 } else {
                     this.badInput = false;
                     phlogdev(newPhone);
-                    if (_countryCode === 'USA' || _countryCode === 'CAN') {
-                        if (newPhone !== null && newPhone.match(/[2-9]\d{2}/) !== null) {
-                            var areaCode = newPhone.match(/[2-9]\d{2}/)[0];
-                            if ( areaCodeList.indexOf(areaCode) === -1 ) {
-                                bannButt.badAreaCode = new Flag.BadAreaCode();
-                                if (_wl.aCodeWL) {
-                                    bannButt.badAreaCode.WLactive = false;
-                                }
-                            }
-                        }
-                    }
                     W.model.actionManager.add(new UpdateObject(venue, { phone: newPhone }));
                     _updatedFields.phone.updated = true;
                     harmonizePlaceGo(venue, 'harmonize');
                 }
             }
-        },
-        BadAreaCode: class extends WLFlag {
-            constructor() { super(true, 1, 'Area Code mismatch ', true, 'Whitelist the area code', 'aCodeWL'); }
         },
         NoHours: class extends WLFlag {
             constructor() { super(true, 1, getHoursHtml('No hours'), true, 'Whitelist "No hours"', 'noHours'); }
@@ -2144,31 +2153,48 @@
         },
         PlaLotTypeMissing: class extends FlagBase {
             constructor() { super(true, 3, 'Lot type: '); }
+            static eval(venue, hpMode) {
+                let result = {flag: null};
+                if (venue.isParkingLot()) {
+                    let catAttr = venue.attributes.categoryAttributes;
+                    let parkAttr = catAttr ? catAttr.PARKING_LOT : undefined;
+                    if (!parkAttr || !parkAttr.parkingType) {
+                        result.flag = new Flag.PlaLotTypeMissing();
+                        if (hpMode.harmFlag) {
+                            result.noLock = true;
+                            [['PUBLIC','Public'],['RESTRICTED','Restricted'],['PRIVATE','Private']].forEach(btnInfo => {
+                                result.flag.message +=
+                                    $('<button>', {class: 'wmeph-pla-lot-type-btn btn btn-default btn-xs wmeph-btn', 'data-lot-type':btnInfo[0]})
+                                    .text(btnInfo[1])
+                                    .css({padding:'3px', height:'20px', lineHeight:'0px', marginRight:'2px', marginBottom:'1px'})
+                                    .prop('outerHTML');
+                            });
+                        }
+                    }
+                }
+                return result;
+            }
         },
         PlaCostTypeMissing: class extends FlagBase {
-            constructor() {
-                super(true, 1, 'Parking cost: ');
-            }
-            static eval(venue, hpMode, parkAttr) {
-                let result = {};
-                if (!parkAttr || !parkAttr.costType || parkAttr.costType === 'UNKNOWN') {
-                    result.flag = new Flag.PlaCostTypeMissing();
-                    if (hpMode.harmFlag) {
-                        [
-                            ['FREE','Free','Free'],
-                            ['LOW','$','Low'],
-                            ['MODERATE','$$','Moderate'],
-                            ['EXPENSIVE','$$$','Expensive']
-                        ].forEach(btnInfo => {
-                            //if (btnIdx === 3) $btnDiv.append('<br>');
-                            result.flag.message +=
-                                $('<button>', {id: 'wmeph_' + btnInfo[0], class: 'wmeph-pla-cost-type-btn btn btn-default btn-xs wmeph-btn', title: btnInfo[2]})
-                                .text(btnInfo[1])
-                                .css({padding:'3px', height:'20px', lineHeight:'0px', marginRight:'2px',
-                                      marginBottom:'1px', minWidth:'18px'})
-                                .prop('outerHTML');
-                        });
-                        result.noLock = true;
+            constructor() { super(true, 1, 'Parking cost: '); }
+            static eval(venue, hpMode) {
+                let result = {flag: null};
+                if (venue.isParkingLot()) {
+                    let catAttr = venue.attributes.categoryAttributes;
+                    let parkAttr = catAttr ? catAttr.PARKING_LOT : undefined;
+                    if (!parkAttr || !parkAttr.costType || parkAttr.costType === 'UNKNOWN') {
+                        result.flag = new Flag.PlaCostTypeMissing();
+                        if (hpMode.harmFlag) {
+                            [['FREE','Free','Free'],['LOW','$','Low'],['MODERATE','$$','Moderate'],['EXPENSIVE','$$$','Expensive']].forEach(btnInfo => {
+                                result.flag.message +=
+                                    $('<button>', {id: 'wmeph_' + btnInfo[0], class: 'wmeph-pla-cost-type-btn btn btn-default btn-xs wmeph-btn', title: btnInfo[2]})
+                                    .text(btnInfo[1])
+                                    .css({padding:'3px', height:'20px', lineHeight:'0px', marginRight:'2px',
+                                          marginBottom:'1px', minWidth:'18px'})
+                                    .prop('outerHTML');
+                            });
+                            result.noLock = true;
+                        }
                     }
                 }
                 return result;
@@ -2176,6 +2202,17 @@
         },
         PlaPaymentTypeMissing: class extends ActionFlag {
             constructor() { super(true, 1, 'Parking isn\'t free.  Select payment type(s) from the "More info" tab. ', 'Go there'); }
+            static eval(venue) {
+                let result = {flag: null};
+                if (venue.isParkingLot()) {
+                    let catAttr = venue.attributes.categoryAttributes;
+                    let parkAttr = catAttr ? catAttr.PARKING_LOT : undefined;
+                    if (parkAttr && parkAttr.costType && parkAttr.costType !== 'FREE' && parkAttr.costType !== 'UNKNOWN' && (!parkAttr.paymentType || !parkAttr.paymentType.length)) {
+                        result.flag = new Flag.PlaPaymentTypeMissing();
+                    }
+                }
+                return result;
+            }
             action() {
                 $('a[href="#landmark-edit-more-info"]').click();
                 $('#payment-checkbox-ELECTRONIC_PASS').focus();
@@ -2183,11 +2220,15 @@
         },
         PlaLotElevationMissing: class extends ActionFlag {
             constructor() { super(true, 1, 'No lot elevation. Is it street level?', 'Yes', 'Click if street level parking only, or select other option(s) in the More Info tab.'); }
-            static eval(parkAttr) {
-                let result = {};
-                if (!parkAttr || !parkAttr.lotType || parkAttr.lotType.length === 0) {
-                    result.flag = new Flag.PlaLotElevationMissing();
-                    result.noLock = true;
+            static eval(venue) {
+                let result = {flag: null};
+                if (venue.isParkingLot()) {
+                    let catAttr = venue.attributes.categoryAttributes;
+                    let parkAttr = catAttr ? catAttr.PARKING_LOT : undefined;
+                    if (!parkAttr || !parkAttr.lotType || parkAttr.lotType.length === 0) {
+                        result.flag = new Flag.PlaLotElevationMissing();
+                        result.noLock = true;
+                    }
                 }
                 return result;
             }
@@ -2208,10 +2249,44 @@
             }
         },
         PlaSpaces: class extends FlagBase {
-            constructor() { super(true, 0, '# of parking spaces is set to 1-10.<br><b><i>If appropriate</i></b>, select another option:'); }
+            constructor() {
+                super(true, 0, '# of parking spaces is set to 1-10.<br><b><i>If appropriate</i></b>, select another option:');
+                let $btnDiv = $('<div>');
+                let btnIdx = 0;
+                [['R_11_TO_30','11-30'], ['R_31_TO_60','31-60'], ['R_61_TO_100','61-100'],
+                 ['R_101_TO_300','101-300'], ['R_301_TO_600','301-600'], ['R_600_PLUS','601+']].forEach(btnInfo => {
+                    if (btnIdx === 3) $btnDiv.append('<br>');
+                    $btnDiv.append(
+                        $('<button>', {id: 'wmeph_' + btnInfo[0], class: 'wmeph-pla-spaces-btn btn btn-default btn-xs wmeph-btn'})
+                        .text(btnInfo[1])
+                        .css({padding:'3px', height:'20px', lineHeight:'0px', marginTop:'2px', marginRight:'2px',
+                              marginBottom:'1px', width:'64px'})
+                    );
+                    btnIdx++;
+                });
+                this.suffixMessage = $btnDiv.prop('outerHTML');
+            }
+            static eval(venue, hpMode) {
+                let result = {flag: null};
+                if (hpMode.harmFlag && venue.isParkingLot()) {
+                    let catAttr = venue.attributes.categoryAttributes;
+                    let parkAttr = catAttr ? catAttr.PARKING_LOT : undefined;
+                    if (!parkAttr || !parkAttr.estimatedNumberOfSpots || parkAttr.estimatedNumberOfSpots === 'R_1_TO_10') {
+                        result.flag = new Flag.PlaSpaces();
+                    }
+                }
+                return result;
+            }
         },
         NoPlaStopPoint: class extends ActionFlag {
             constructor() { super(true, 1, 'Entry/exit point has not been created.', 'Add point', 'Add an entry/exit point'); }
+            static eval(venue) {
+                let result = {flag: null};
+                if (venue.isParkingLot() && (!venue.attributes.entryExitPoints || !venue.attributes.entryExitPoints.length)) {
+                    result.flag = new Flag.NoPlaStopPoint();
+                }
+                return result;
+            }
             action() {
                 $('.navigation-point-view .add-button').click();
                 harmonizePlaceGo(getSelectedVenue(), 'harmonize');
@@ -2219,9 +2294,32 @@
         },
         PlaStopPointUnmoved: class extends FlagBase {
             constructor() { super(true, 1, 'Entry/exit point has not been moved.'); }
+            static eval(venue) {
+                let result = {flag: null};
+                let attr = venue.attributes;
+                if (venue.isParkingLot() && attr.entryExitPoints && attr.entryExitPoints.length) {
+                    let stopPoint = attr.entryExitPoints[0].getPoint();
+                    let areaCenter = attr.geometry.getCentroid();
+                    if (stopPoint.equals(areaCenter)) {
+                        result.flag = new Flag.PlaStopPointUnmoved();
+                    }
+                }
+                return result;
+            }
         },
         PlaCanExitWhileClosed: class extends ActionFlag {
             constructor() { super(true, 0, 'Can cars exit when lot is closed? ', 'Yes', ''); }
+            static eval(venue, hpMode) {
+                let result = {flag: null};
+                if (hpMode.harmFlag && venue.isParkingLot()) {
+                    let catAttr = venue.attributes.categoryAttributes;
+                    let parkAttr = catAttr ? catAttr.PARKING_LOT : undefined;
+                    if (parkAttr && !parkAttr.canExitWhileClosed && ($('#WMEPH-ShowPLAExitWhileClosed').prop('checked') || !(isAlwaysOpen(venue) || venue.attributes.openingHours.length === 0))) {
+                        result.flag = new Flag.PlaCanExitWhileClosed();
+                    }
+                }
+                return result;
+            }
             action() {
                 let venue = getSelectedVenue();
                 let existingAttr = venue.attributes.categoryAttributes.PARKING_LOT;
@@ -2240,6 +2338,16 @@
         },
         PlaHasAccessibleParking: class extends ActionFlag {
             constructor() { super(true, 0, 'Does this lot have disability parking? ', 'Yes', ''); }
+            static eval(venue, hpMode) {
+                let result = {flag: null};
+                if (hpMode.harmFlag && venue.isParkingLot()) {
+                    let services = venue.attributes.services;
+                    if (!(services && services.indexOf('DISABILITY_PARKING') > -1)) {
+                        result.flag = new Flag.PlaHasAccessibleParking();
+                    }
+                }
+                return result;
+            }
             action() {
                 let venue = getSelectedVenue();
                 let services = venue.attributes.services;
@@ -2396,7 +2504,14 @@
             }
         },
         ChangeToHospitalUrgentCare: class extends WLActionFlag {
-            constructor() { super(true, 0, '', 'Change to Hospital / Urgent Care', 'Change category to Hospital / Urgent Care', false, 'Whitelist category', 'changetoHospitalUrgentCare'); }
+            constructor(severity, message) { super(true, severity, message, 'Change to Hospital / Urgent Care', 'Change category to Hospital / Urgent Care', false, 'Whitelist category', 'changetoHospitalUrgentCare'); }
+            static eval(venue, hpMode) {
+                let result = {flag: null};
+                if (hpMode.harmFlag && venue.attributes.categories.indexOf('DOCTOR_CLINIC') > -1) {
+                    result.flag = new Flag.ChangeToHospitalUrgentCare(0 ,'If this place provides emergency medical care:');
+                }
+                return result;
+            }
             action() {
                 let idx = newCategories.indexOf('HOSPITAL_MEDICAL_CARE');
                 let venue = getSelectedVenue();
@@ -2591,10 +2706,12 @@
             specCaseMessage: null,
             pnhCatMess: null,
             specCaseMessageLow: null,
+            changeToHospitalUrgentCare: null,
+            changeToDoctorClinic: null,
             extProviderMissing: null,
             urlMissing: null,
-            phoneMissing: null,
             badAreaCode: null,
+            phoneMissing: null,
             noHours: null,
             plaLotTypeMissing: null,
             plaCostTypeMissing: null,
@@ -2617,8 +2734,6 @@
             addATM: new Flag.AddATM(), // special case flag
             addConvStore: new Flag.AddConvStore(), // special case flag
             isThisAPostOffice: null,
-            changeToHospitalUrgentCare: null,
-            changeToDoctorClinic: null,
             STC: null,
             sfAliases: null,
             placeMatched: null,
@@ -2996,101 +3111,30 @@
             if (result) return result;
         }
 
+        let result;
         // Check parking lot attributes.
-        if (item.isParkingLot()) {
-            if (hpMode.harmFlag) bannServ.addDisabilityParking.active = true;
-            let catAttr = item.attributes.categoryAttributes;
-            let parkAttr = catAttr ? catAttr.PARKING_LOT : undefined;
-            let result;
+        if (hpMode.harmFlag && item.isParkingLot()) bannServ.addDisabilityParking.active = true;
+        result = Flag.PlaCostTypeMissing.eval(item, hpMode);
+        bannButt.plaCostTypeMissing = result.flag;
+        if (result.noLock) lockOK = false;
+        result = Flag.PlaLotElevationMissing.eval(item);
+        bannButt.plaLotElevationMissing = result.flag;
+        if (result.noLock) lockOK = false;
+        result = Flag.PlaSpaces.eval(item, hpMode);
+        bannButt.plaSpaces = result.flag;
+        result = Flag.PlaLotTypeMissing.eval(item, hpMode);
+        bannButt.plaLotTypeMissing = result.flag;
+        if (result.noLock) lockOK = false;
+        bannButt.noPlaStopPoint = Flag.NoPlaStopPoint.eval(item).flag;
+        bannButt.plaStopPointUnmoved = Flag.PlaStopPointUnmoved.eval(item).flag;
+        bannButt.plaCanExitWhileClosed = Flag.PlaCanExitWhileClosed.eval(item, hpMode).flag;
+        bannButt.plaPaymentTypeMissing = Flag.PlaPaymentTypeMissing.eval(item).flag;
+        bannButt.plaHasAccessibleParking = Flag.PlaHasAccessibleParking.eval(item, hpMode).flag;
 
-            result = Flag.PlaCostTypeMissing.eval(item, hpMode, parkAttr);
-            bannButt.plaCostTypeMissing = result.flag;
-            if (result.noLock) lockOK = false;
+        // Check categories that maybe should be Hospital / Urgent Care, or Doctor / Clinic.
+        bannButt.changeToHospitalUrgentCare = Flag.ChangeToHospitalUrgentCare.eval(item, hpMode).flag;
 
-            result = Flag.PlaLotElevationMissing.eval(parkAttr);
-            bannButt.plaLotElevationMissing = result.flag;
-            if (result.noLock) lockOK = false;
-
-            if (!parkAttr || !parkAttr.estimatedNumberOfSpots || parkAttr.estimatedNumberOfSpots === 'R_1_TO_10') {
-                bannButt.plaSpaces = new Flag.PlaSpaces();
-                var $btnDiv = $('<div>');
-                var btnIdx = 0;
-                [
-                    ['R_11_TO_30','11-30'],
-                    ['R_31_TO_60','31-60'],
-                    ['R_61_TO_100','61-100'],
-                    ['R_101_TO_300','101-300'],
-                    ['R_301_TO_600','301-600'],
-                    ['R_600_PLUS','601+']
-                ].forEach(btnInfo => {
-                    if (btnIdx === 3) $btnDiv.append('<br>');
-                    $btnDiv.append(
-                        $('<button>', {id: 'wmeph_' + btnInfo[0], class: 'wmeph-pla-spaces-btn btn btn-default btn-xs wmeph-btn'})
-                        .text(btnInfo[1])
-                        .css({padding:'3px', height:'20px', lineHeight:'0px', marginTop:'2px', marginRight:'2px',
-                              marginBottom:'1px', width:'64px'})
-                    );
-                    btnIdx++;
-                });
-                bannButt.plaSpaces.suffixMessage = $btnDiv.prop('outerHTML');
-            }
-            if (!parkAttr || !parkAttr.parkingType) {
-                bannButt.plaLotTypeMissing = new Flag.PlaLotTypeMissing();
-                [
-                    ['PUBLIC','Public'],
-                    ['RESTRICTED','Restricted'],
-                    ['PRIVATE','Private']
-                ].forEach(btnInfo => {
-                    if (btnIdx === 3) $btnDiv.append('<br>');
-                    bannButt.plaLotTypeMissing.message +=
-                        $('<button>', {class: 'wmeph-pla-lot-type-btn btn btn-default btn-xs wmeph-btn', 'data-lot-type':btnInfo[0]})
-                        .text(btnInfo[1])
-                        .css({padding:'3px', height:'20px', lineHeight:'0px', marginRight:'2px', marginBottom:'1px'})
-                        .prop('outerHTML');
-                });
-            }
-
-            // Check if the stop point has been created and moved.
-            if (!item.attributes.entryExitPoints || item.attributes.entryExitPoints.length === 0) {
-                bannButt.noPlaStopPoint = new Flag.NoPlaStopPoint();
-            } else {
-                var stopPoint = item.attributes.entryExitPoints[0].getPoint();
-                var areaCenter = item.attributes.geometry.getCentroid();
-                if (stopPoint.equals(areaCenter)) {
-                    bannButt.plaStopPointUnmoved = new Flag.PlaStopPointUnmoved();
-                }
-            }
-
-            if (parkAttr && !parkAttr.canExitWhileClosed && ($('#WMEPH-ShowPLAExitWhileClosed').prop('checked') || !(isAlwaysOpen(item) || item.attributes.openingHours.length === 0))) {
-                bannButt.plaCanExitWhileClosed = new Flag.PlaCanExitWhileClosed();
-            }
-            if (parkAttr && parkAttr.costType && parkAttr.costType !== 'FREE' && parkAttr.costType !== 'UNKNOWN' && (!parkAttr.paymentType || parkAttr.paymentType.length === 0)) {
-                bannButt.plaPaymentTypeMissing = new Flag.PlaPaymentTypeMissing();
-            }
-            var services = item.attributes.services;
-            if (!(services && services.indexOf('DISABILITY_PARKING') > -1)) {
-                bannButt.plaHasAccessibleParking = new Flag.PlaHasAccessibleParking();
-            }
-        }
-
-        if (item.attributes.categories.indexOf('HOSPITAL_MEDICAL_CARE') > -1) {
-            if (hpMode.hlFlag) {
-                return 4;
-            } else {
-                bannButt.changeToHospitalUrgentCare = new Flag.ChangeToHospitalUrgentCare();
-                bannButt.changeToHospitalUrgentCare.message = 'There are more precise categories available for this place type.  Please update the category:';
-                bannButt.changeToHospitalUrgentCare.severity = 3;
-                delete bannButt.changeToHospitalUrgentCare.WLactive;
-                bannButt.changeToDoctorClinic = new Flag.ChangeToDoctorClinic();
-                bannButt.changeToDoctorClinic.severity = 3;
-                delete bannButt.changeToDoctorClinic.WLactive;
-                lockOK = false;
-            }
-        } else if (hpMode.harmFlag && item.attributes.categories.indexOf('DOCTOR_CLINIC') > -1) {
-            bannButt.changeToHospitalUrgentCare = new Flag.ChangeToHospitalUrgentCare();
-            bannButt.changeToHospitalUrgentCare.message = 'If this place provides emergency medical care:';
-            bannButt.changeToHospitalUrgentCare.severity = 0;
-        } else if (hpMode.harmFlag && item.attributes.categories.indexOf('HOSPITAL_URGENT_CARE') > -1) {
+        if (hpMode.harmFlag && item.attributes.categories.indexOf('HOSPITAL_URGENT_CARE') > -1) {
             //bannButt.changeToDoctorClinic.active = true;
             //bannButt.changeToDoctorClinic.severity = 0;
         }
@@ -4223,15 +4267,11 @@
             newPhone = normalizePhone(item.attributes.phone, outputFormat, 'existing', item, region);
 
             // Check if valid area code  #LOC# USA and CAN only
-            if (_countryCode === 'USA' || _countryCode === 'CAN') {
+            if (!_wl.aCodeWL && (_countryCode === 'USA' || _countryCode === 'CAN')) {
                 if (newPhone !== null && newPhone.match(/[2-9]\d{2}/) !== null) {
                     var areaCode = newPhone.match(/[2-9]\d{2}/)[0];
                     if ( areaCodeList.indexOf(areaCode) === -1 ) {
-                        bannButt.badAreaCode = new Flag.BadAreaCode();
-                        if (_wl.aCodeWL) {
-                            bannButt.badAreaCode.WLactive = false;
-                            bannButt.badAreaCode.active = false;
-                        }
+                        bannButt.badAreaCode = new Flag.BadAreaCode(newPhone, outputFormat);
                     }
                 }
             }
@@ -4369,7 +4409,6 @@
                 ['RESTRICTED','Restricted'],
                 ['PRIVATE','Private']
             ].forEach(btnInfo => {
-                if (btnIdx === 3) $btnDiv.append('<br>');
                 bannButt.plaIsPublic.message +=
                     $('<button>', {class: 'wmeph-pla-lot-type-btn btn btn-default btn-xs wmeph-btn', 'data-lot-type':btnInfo[0]})
                     .text(btnInfo[1])
@@ -5159,6 +5198,7 @@
         $('#WMEPH-PhoneAdd').keyup(function(event){
             if( event.keyCode === 13 && $('#WMEPH-PhoneAdd').val() !== '' ){
                 $('#WMEPH_phoneMissing').click();
+                $('#WMEPH_badAreaCode').click();
             }
         });
 
