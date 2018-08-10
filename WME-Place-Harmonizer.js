@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name        WME Place Harmonizer Beta
 // @namespace   WazeUSA
-// @version     1.3.116
+// @version     1.3.117
 // @description Harmonizes, formats, and locks a selected place
 // @author      WMEPH Development Group
 // @include     /^https:\/\/(www|beta)\.waze\.com\/(?!user\/)(.{2,6}\/)?editor\/?.*$/
@@ -1174,7 +1174,7 @@
         let disableRankHL = $('#WMEPH-DisableRankHL').prop('checked');
 
         _.each(venues, venue => {
-            if (venue.type === 'venue' && venue.attributes) {
+            if (venue && venue.type === 'venue' && venue.attributes) {
                 // Highlighting logic would go here
                 // Severity can be: 0, 'lock', 1, 2, 3, 4, or 'high'. Set to
                 // anything else to use default WME style.
@@ -1712,6 +1712,14 @@
         },
         GasUnbranded: class extends FlagBase {
             constructor() { super(true, 3, '"Unbranded" should not be used for the station brand. Change to correct brand or use the blank entry at the top of the brand list.'); }
+            static eval(venue) {
+                let result = {flag: null};
+                if (venue.isGasStation() && venue.attributes.brand === 'Unbranded' ) {  //  Unbranded is not used per wiki
+                    result.flag = new Flag.GasUnbranded();
+                    result.noLock = true;
+                }
+                return result;
+            }
         },
         GasMkPrim: class extends ActionFlag {
             constructor() { super(true, 3, 'Gas Station is not the primary category', 'Fix', 'Make the Gas Station category the primary category.'); }
@@ -1725,6 +1733,20 @@
         },
         IsThisAPilotTravelCenter: class extends ActionFlag {
             constructor() { super(true, 0, 'Is this a "Travel Center"?', 'Yes', ''); }
+            static eval(venue, hpMode, state2L, newName, actions) {
+                let result = {flag: null, newName: newName};
+                if (hpMode.harmFlag && state2L === 'TN') {
+                    if (result.newName.toLowerCase().trim() === 'pilot') {
+                        result.newName = 'Pilot Food Mart';
+                        actions.push(new UpdateObject(venue, { name: result.newName }));
+                        _updatedFields.name.updated = true;
+                    }
+                    if (result.newName.toLowerCase().trim() === 'pilot food mart') {
+                        result.flag = new Flag.IsThisAPilotTravelCenter();
+                    }
+                }
+                return result;
+            }
             action() {
                 let venue = getSelectedVenue();
                 _updatedFields.name.updated = true;
@@ -1923,7 +1945,7 @@
             constructor() { super(true, 2, 'This category is usually a point place, but can be an area in some cases. Verify if area is appropriate.', true, 'Whitelist point (not area)', 'pointNotArea'); }
         },
         LongURL: class extends WLActionFlag{
-            constructor() { super(true, 1, 'Existing URL doesn\'t match the suggested PNH URL. Use the Place Website button below to verify. If existing URL is invalid:', 'Use PNH URL', 'Change URL to the PNH standard', true, 'Whitelist existing URL', 'longURL'); }
+            constructor() { super(true, 1, 'Existing URL doesn\'t match the suggested PNH URL. Use the Website button below to verify that existing URL is valid.  If not:', 'Use PNH URL', 'Change URL to the PNH standard', true, 'Whitelist existing URL', 'longURL'); }
             action() {
                 let venue = getSelectedVenue();
                 if (tempPNHURL !== '') {
@@ -1943,6 +1965,14 @@
         },
         GasNoBrand: class extends FlagBase {
             constructor() { super(true, 1, 'Lock to region standards to verify no gas brand.'); }
+            static eval(venue) {
+                let result = {flag: null};
+                if (venue.isGasStation() && !venue.attributes.brand) {
+                    result.flag = new Flag.GasNoBrand();
+                    result.noLock = true;
+                }
+                return result;
+            }
         },
         SubFuel: class extends WLFlag {
             constructor() { super(true, 1, 'Make sure this place is for the gas station itself and not the main store building.  Otherwise undo and check the categories.', true, 'Whitelist no gas brand', 'subFuel'); }
@@ -3253,22 +3283,28 @@
         }
 
         // Gas station treatment (applies to all including PNH)
-        if (newCategories[0] === 'GAS_STATION') {
-            // Brand checking
 
+        // Brand checking
+        result = Flag.GasNoBrand.eval(item);
+        bannButt.gasNoBrand = result.flag;
+        if (result.noLock) lockOK = false;
+
+        result = Flag.GasUnbranded.eval(item);
+        bannButt.gasUnbranded = result.flag;
+        if (result.noLock) lockOK = false;
+
+        result = Flag.IsThisAPilotTravelCenter.eval(item, hpMode, state2L, newName, actions);
+        bannButt.isThisAPilotTravelCenter = result.flag;
+        newName = result.newName;
+
+        if (item.isGasStation()) {
             // If no gas station name, replace with brand name
-            if (hpMode.harmFlag && item.isGasStation() && (!newName || newName.trim().length === 0) && item.attributes.brand) {
+            if (hpMode.harmFlag && (!newName || newName.trim().length === 0) && item.attributes.brand) {
                 newName = item.attributes.brand;
                 actions.push(new UpdateObject(item, {name: newName }));
                 _updatedFields.name.updated = true;
             }
-            if ( !item.attributes.brand || item.attributes.brand === null || item.attributes.brand === '' ) {
-                bannButt.gasNoBrand = new Flag.GasNoBrand();
-                lockOK = false;
-            } else if (item.attributes.brand === 'Unbranded' ) {  //  Unbranded is not used per wiki
-                bannButt.gasUnbranded = new Flag.GasUnbranded();
-                lockOK = false;
-            }
+
             // Add convenience store category to station
             if (newCategories.indexOf('CONVENIENCE_STORE') === -1 && !bannButt.subFuel) {
                 if ( hpMode.harmFlag && $('#WMEPH-ConvenienceStoreToGasStations').prop('checked') ) {  // Automatic if user has the setting checked
@@ -3279,15 +3315,6 @@
                 } else {  // If not checked, then it will be a banner button
                     bannButt.addConvStore.active = true;
                 }
-            }
-            // Pilot gas station check
-            if (state2L === 'TN' && newName.toLowerCase().trim() === 'pilot') {
-                newName = 'Pilot Food Mart';
-                actions.push(new UpdateObject(item, { name: 'Pilot Food Mart' }));
-                _updatedFields.name.updated = true;
-            }
-            if (state2L === 'TN' && newName.toLowerCase().trim() === 'pilot food mart') {
-                bannButt.isThisAPilotTravelCenter = new Flag.IsThisAPilotTravelCenter();
             }
         }  // END Gas Station Checks
 
