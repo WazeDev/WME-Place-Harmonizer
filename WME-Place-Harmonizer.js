@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name        WME Place Harmonizer Beta
 // @namespace   WazeUSA
-// @version     1.3.117
+// @version     1.3.118
 // @description Harmonizes, formats, and locks a selected place
 // @author      WMEPH Development Group
 // @include     /^https:\/\/(www|beta)\.waze\.com\/(?!user\/)(.{2,6}\/)?editor\/?.*$/
@@ -6344,8 +6344,8 @@
 
     // function that checks if any element of target are in source
     function containsAny(source, target) {
-        //if (typeof(source) === 'string') { source = [source]; }  // if a single string, convert to an array
-        //if (typeof(target) === 'string') { target = [target]; }  // if a single string, convert to an array
+        if (typeof(source) === 'string') { source = [source]; }  // if a single string, convert to an array
+        if (typeof(target) === 'string') { target = [target]; }  // if a single string, convert to an array
         return source.some(tt => target.indexOf(tt) > -1);
     }
 
