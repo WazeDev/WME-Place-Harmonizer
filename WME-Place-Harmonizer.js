@@ -1,5 +1,5 @@
 // ==UserScript==
-// @name        WME Place Harmonizer Beta
+// @name        WME Place Harmonizer
 // @namespace   WazeUSA
 // @version     1.3.120
 // @description Harmonizes, formats, and locks a selected place
@@ -7091,9 +7091,7 @@
 
         phlog('Starting Highlighter');
         bootstrapWMEPH_CH();
-
     } // END placeHarmonizer_init function
-
 
     function placeHarmonizer_bootstrap() {
         if ( W && W.loginManager && W.loginManager.user && W.map && WazeWrap.Interface) {
