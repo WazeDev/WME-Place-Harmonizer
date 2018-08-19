@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name        WME Place Harmonizer Beta
 // @namespace   WazeUSA
-// @version     1.3.120
+// @version     1.3.121
 // @description Harmonizes, formats, and locks a selected place
 // @author      WMEPH Development Group
 // @include     /^https:\/\/(www|beta)\.waze\.com\/(?!user\/)(.{2,6}\/)?editor\/?.*$/
@@ -3566,7 +3566,9 @@
 
                 // Localized Storefinder code:
                 customStoreFinderLocal = false;
+                customStoreFinderLocalURL = '';
                 customStoreFinder = false;
+                customStoreFinderURL = '';
                 if (ph_sfurl_ix > -1) {  // if the sfurl column exists...
                     if ( ph_sfurllocal_ix > -1 && PNHMatchData[ph_sfurllocal_ix] !== '' && PNHMatchData[ph_sfurllocal_ix] !== '0' ) {
                         if ( !bannButt.localizedName ) {
