@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name        WME Place Harmonizer Beta
 // @namespace   WazeUSA
-// @version     1.3.118
+// @version     1.3.119
 // @description Harmonizes, formats, and locks a selected place
 // @author      WMEPH Development Group
 // @include     /^https:\/\/(www|beta)\.waze\.com\/(?!user\/)(.{2,6}\/)?editor\/?.*$/
@@ -4324,6 +4324,8 @@
                     if (hpMode.harmFlag) {
                         customStoreFinderURL = 'https://tools.usps.com/go/POLocatorAction.action';
                         customStoreFinder = true;
+                        bannButt.PlaceWebsite = new Flag.PlaceWebsite();
+                        bannButt.PlaceWebsite.value = 'Store Locator';
                         bannButt.NewPlaceSubmit = null;
                         if (item.attributes.url !== 'usps.com') {
                             actions.push(new UpdateObject(item, { url: 'usps.com' }));
