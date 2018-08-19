@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name        WME Place Harmonizer Beta
 // @namespace   WazeUSA
-// @version     1.3.119
+// @version     1.3.120
 // @description Harmonizes, formats, and locks a selected place
 // @author      WMEPH Development Group
 // @include     /^https:\/\/(www|beta)\.waze\.com\/(?!user\/)(.{2,6}\/)?editor\/?.*$/
@@ -7096,7 +7096,7 @@
 
 
     function placeHarmonizer_bootstrap() {
-        if ( W && W.loginManager && W.loginManager.isLoggedIn() && W.map && WazeWrap.Interface) {
+        if ( W && W.loginManager && W.loginManager.user && W.map && WazeWrap.Interface) {
             placeHarmonizer_init();
         } else {
             phlog('Waiting for WME map and login...');
