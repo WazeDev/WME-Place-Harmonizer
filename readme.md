@@ -17,7 +17,7 @@ Then use the following links to install.
 
 <a href="https://greasyfork.org/en/scripts/28690-wme-place-harmonizer">Production Version</a>
 
-<a href="https://greasyfork.org/en/scripts/28689-wme-place-harmonizer-beta">Beta Version</a>
+<a href="https://greasyfork.org/en/scripts/28689-wme-place-harmonizer-beta">Beta Version</a> (ask to be added to the beta user list first)
 
 
 <a href="https://goo.gl/rQxVVB">**Current Bugs & Issues</a>
