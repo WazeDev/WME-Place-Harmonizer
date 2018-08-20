@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name        WME Place Harmonizer Beta
 // @namespace   WazeUSA
-// @version     1.3.121
+// @version     1.3.122
 // @description Harmonizes, formats, and locks a selected place
 // @author      WMEPH Development Group
 // @include     /^https:\/\/(www|beta)\.waze\.com\/(?!user\/)(.{2,6}\/)?editor\/?.*$/
@@ -4768,17 +4768,19 @@
         }
 
         // If no Google link and severity would otherwise allow locking, ask if user wants to lock anyway.
-        if (!isLocked && lockOK && bannButt.extProviderMissing && bannButt.extProviderMissing.active && severityButt <= 2) {
+        if (!isLocked && bannButt.extProviderMissing && bannButt.extProviderMissing.active &&  bannButt.extProviderMissing.severity <= 2) {
             bannButt.extProviderMissing.severity = 3;
             severityButt = 3;
-            bannButt.extProviderMissing.value = 'Lock anyway? (' + (levelToLock + 1) + ')';
-            bannButt.extProviderMissing.title = 'If no Google link exists, lock this place.\nIf there is still no Google link after 6 months from the last update date, it will turn red as a reminder to search again.';
-            bannButt.extProviderMissing.action = function() {
-                var action = new UpdateObject(item, {'lockRank': levelToLock});
-                W.model.actionManager.add(action);
-                _updatedFields.lock.updated = true;
-                harmonizePlaceGo(item, 'harmonize');
-            };
+            if (lockOK) {
+                bannButt.extProviderMissing.value = 'Lock anyway? (' + (levelToLock + 1) + ')';
+                bannButt.extProviderMissing.title = 'If no Google link exists, lock this place.\nIf there is still no Google link after 6 months from the last update date, it will turn red as a reminder to search again.';
+                bannButt.extProviderMissing.action = function() {
+                    var action = new UpdateObject(item, {'lockRank': levelToLock});
+                    W.model.actionManager.add(action);
+                    _updatedFields.lock.updated = true;
+                    harmonizePlaceGo(item, 'harmonize');
+                };
+            }
         }
 
         if ( lockOK && severityButt < 2) {
