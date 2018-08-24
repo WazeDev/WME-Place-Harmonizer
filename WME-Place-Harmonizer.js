@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name        WME Place Harmonizer
 // @namespace   WazeUSA
-// @version     1.3.122
+// @version     1.3.123
 // @description Harmonizes, formats, and locks a selected place
 // @author      WMEPH Development Group
 // @include     /^https:\/\/(www|beta)\.waze\.com\/(?!user\/)(.{2,6}\/)?editor\/?.*$/
@@ -3205,19 +3205,14 @@
             _countryCode = 'CAN';
         } else if (countryName === 'American Samoa') {
             _countryCode = 'USA';
-            useState = false;
         } else if (countryName === 'Guam') {
             _countryCode = 'USA';
-            useState = false;
         } else if (countryName === 'Northern Mariana Islands') {
             _countryCode = 'USA';
-            useState = false;
         } else if (countryName === 'Puerto Rico') {
             _countryCode = 'USA';
-            useState = false;
         } else if (countryName === 'Virgin Islands (U.S.)') {
             _countryCode = 'USA';
-            useState = false;
         } else {
             if (hpMode.harmFlag) {
                 alert('At present this script is not supported in this country.');
