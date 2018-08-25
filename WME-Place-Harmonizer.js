@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name        WME Place Harmonizer
 // @namespace   WazeUSA
-// @version     1.3.123
+// @version     1.3.124
 // @description Harmonizes, formats, and locks a selected place
 // @author      WMEPH Development Group
 // @include     /^https:\/\/(www|beta)\.waze\.com\/(?!user\/)(.{2,6}\/)?editor\/?.*$/
@@ -1571,7 +1571,7 @@
                         result.exit = true;  //  don't run the rest of the script
                     } else {
                         let inferredAddress = WMEPH_inferAddress(7);  // Pull address info from nearby segments
-                        if (inferredAddress.attributes) inferredAddress = inferredAddress.attributes;
+                        if (inferredAddress && inferredAddress.attributes) inferredAddress = inferredAddress.attributes;
 
                         if (inferredAddress && inferredAddress.state && inferredAddress.country ) {
                             if ( $('#WMEPH-AddAddresses').prop('checked') ) {  // update the item's address if option is enabled
@@ -1592,7 +1592,7 @@
                                 }
                             }
                         } else {  //  if the inference doesn't work...
-                            alert('Place has no address data. Please set the address and rerun the script.');
+                            alert('This place has no address data and the address cannot be inferred from nearby segments. Please edit the address and run WMEPH again.');
                             result.exit = true;  //  don't run the rest of the script
                         }
                     }
@@ -3197,6 +3197,10 @@
         }
 
         // Country restrictions
+        if (hpMode.harmFlag && (addr.county === null || addr.state === null)) {
+            alert('Country and/or state could not be determined.  Edit the place address and run WMEPH again.');
+            return;
+        }
         var countryName = addr.country.name;
         var stateName = addr.state.name;
         if (countryName === 'United States') {
@@ -5492,7 +5496,7 @@
                             window.open(url, searchResultsWindowName, searchResultsWindowSpecs);
                         }
                     } else {
-                        alert('The state and country haven\'t been set for this place yet.  Edit the address and first.');
+                        alert('The state and country haven\'t been set for this place yet.  Edit the address first.');
                     }
                 };
             } else {
