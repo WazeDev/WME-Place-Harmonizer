@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name        WME Place Harmonizer Beta
 // @namespace   WazeUSA
-// @version     1.3.124
+// @version     1.3.125
 // @description Harmonizes, formats, and locks a selected place
 // @author      WMEPH Development Group
 // @include     /^https:\/\/(www|beta)\.waze\.com\/(?!user\/)(.{2,6}\/)?editor\/?.*$/
@@ -2640,7 +2640,7 @@
         },
         PlaceWebsite: class extends ActionFlag {
             // NOTE: This class is now only used to display the store locator button.  It can be updated to remove/change anything that doesn't serve that purpose.
-            constructor() { super(true, 0, '', 'Place Website', 'Direct link to place website'); }
+            constructor() { super(true, 0, '', 'Location Finder', 'Look up details about this location on the chain\'s finder web page'); }
             action() {
                 let openPlaceWebsiteURL, linkProceed = true;
                 if (updateURL) {
@@ -3074,8 +3074,8 @@
                         if (!bannServ.add247.checked) {
                             let venue = getSelectedVenue();
                             addUpdateAction(venue, { openingHours: [{days: [1,2,3,4,5,6,0], fromHour: '00:00', toHour: '00:00'}] }, actions);
-                            _updatedFields.openingHours.updated = true;
-                            harmonizePlaceGo(venue, 'harmonize');
+                            bannServ.add247.checked = true;
+                            bannButt.noHours = null;
                         }
                     },
                     actionOn: function(actions) {
@@ -3572,7 +3572,7 @@
                     if ( ph_sfurllocal_ix > -1 && PNHMatchData[ph_sfurllocal_ix] !== '' && PNHMatchData[ph_sfurllocal_ix] !== '0' ) {
                         if ( !bannButt.localizedName ) {
                             bannButt.PlaceWebsite = new Flag.PlaceWebsite();
-                            bannButt.PlaceWebsite.value = 'Store Locator (L)';
+                            bannButt.PlaceWebsite.value = 'Location Finder (L)';
                         }
                         var tempLocalURL = PNHMatchData[ph_sfurllocal_ix].replace(/ /g,'').split('<>');
                         var searchStreet = '', searchCity = '', searchState = '';
@@ -3642,7 +3642,6 @@
                     } else if (PNHMatchData[ph_sfurl_ix] !== '' && PNHMatchData[ph_sfurl_ix] !== '0') {
                         if ( !bannButt.localizedName ) {
                             bannButt.PlaceWebsite = new Flag.PlaceWebsite();
-                            bannButt.PlaceWebsite.value = 'Store Locator';
                         }
                         customStoreFinderURL = PNHMatchData[ph_sfurl_ix];
                         if ( customStoreFinderURL.indexOf('http') !== 0 ) {
@@ -4326,7 +4325,6 @@
                         customStoreFinderURL = 'https://tools.usps.com/go/POLocatorAction.action';
                         customStoreFinder = true;
                         bannButt.PlaceWebsite = new Flag.PlaceWebsite();
-                        bannButt.PlaceWebsite.value = 'Store Locator';
                         bannButt.NewPlaceSubmit = null;
                         if (item.attributes.url !== 'usps.com') {
                             actions.push(new UpdateObject(item, { url: 'usps.com' }));
@@ -5082,10 +5080,10 @@
                     $rowDiv.append($('<span>').css({'margin-right':'4px'}).append('&bull; ' + rowData.message));
                 }
                 if (rowData.value) {
-                    $rowDiv.append( $('<button>', {class:'btn btn-default btn-xs wmeph-btn', id:'WMEPH_' + tempKey, title:rowData.title || ''}).css({'margin-right':'4px'}).text(rowData.value) );
+                    $rowDiv.append( $('<button>', {class:'btn btn-default btn-xs wmeph-btn', id:'WMEPH_' + tempKey, title:rowData.title || ''}).css({'margin-right':'4px'}).html(rowData.value) );
                 }
                 if (rowData.value2) {
-                    $rowDiv.append( $('<button>', {class:'btn btn-default btn-xs wmeph-btn', id:'WMEPH_' + tempKey + '_2', title:rowData.title2 || ''}).css({'margin-right':'4px'}).text(rowData.value2) );
+                    $rowDiv.append( $('<button>', {class:'btn btn-default btn-xs wmeph-btn', id:'WMEPH_' + tempKey + '_2', title:rowData.title2 || ''}).css({'margin-right':'4px'}).html(rowData.value2) );
                 }
                 if (rowData.WLactive) {
                     if (rowData.WLaction) {  // If there's a WL option, enable it
