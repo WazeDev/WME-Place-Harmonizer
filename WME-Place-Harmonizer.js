@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name        WME Place Harmonizer Beta
 // @namespace   WazeUSA
-// @version     1.3.125
+// @version     1.3.126
 // @description Harmonizes, formats, and locks a selected place
 // @author      WMEPH Development Group
 // @include     /^https:\/\/(www|beta)\.waze\.com\/(?!user\/)(.{2,6}\/)?editor\/?.*$/
@@ -84,6 +84,7 @@
     let _resultsCache = {};
     let _initAlreadyRun = false; // This is used to skip a couple things if already run once.  This could probably be handled better...
     let _countryCode;
+    let _textEntryValues = null; // Store the values entered in text boxes so they can be re-added when the banner is reassembled.
     var hospitalPartMatch, hospitalFullMatch, animalPartMatch, animalFullMatch, schoolPartMatch, schoolFullMatch;  // vars for cat-name checking
     var WMEPHdevList, WMEPHbetaList;  // Userlists
     var devVersStr= _IS_DEV_VERSION ? 'Beta' : '';  // strings to differentiate DOM elements between regular and beta script
@@ -2166,6 +2167,7 @@
                     phlogdev(parseResult.hours);
                     W.model.actionManager.add(new UpdateObject(venue, { openingHours: parseResult.hours }));
                     _updatedFields.openingHours.updated = true;
+                    $('#WMEPH-HoursPaste').val(_DEFAULT_HOURS_TEXT);
                     harmonizePlaceGo(venue, 'harmonize');
                 } else {
                     phlog('Can\'t parse those hours');
@@ -2465,7 +2467,7 @@
                 newCategories.push.apply(newCategories,altCategories);
                 W.model.actionManager.add(new UpdateObject(venue, { categories: newCategories }));
                 _updatedFields.categories.updated = true;
-                harmonizePlaceGo();
+                harmonizePlaceGo(venue, 'harmonize');
             }
         },
         AddPharm: class extends ActionFlag {
@@ -5037,6 +5039,10 @@
         var rowDivs = [];
         severityButt = 0;
 
+        let func = elem => { return {id: elem.getAttribute('id'), val: elem.value}; };
+        _textEntryValues = $('#WMEPH_banner input[type="text"]').toArray().map(func);
+        _textEntryValues = _textEntryValues.concat($('#WMEPH_banner textarea').toArray().map(func));
+
         // Setup duplicates banners
         $rowDiv = $('<div class="banner-row yellow">');
         Object.keys(bannDupl).forEach(tempKey => {
@@ -5322,6 +5328,9 @@
             $('#WMEPH_noHours_2').click(() => bannButt.noHours.replaceHoursAction());
         }
 
+        if (_textEntryValues) {
+            _textEntryValues.forEach(entry => $('#' + entry.id).val(entry.val));
+        }
     }  // END assemble Banner function
 
     function assembleServicesBanner() {
