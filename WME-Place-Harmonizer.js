@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name        WME Place Harmonizer Beta
 // @namespace   WazeUSA
-// @version     1.3.126
+// @version     1.3.127
 // @description Harmonizes, formats, and locks a selected place
 // @author      WMEPH Development Group
 // @include     /^https:\/\/(www|beta)\.waze\.com\/(?!user\/)(.{2,6}\/)?editor\/?.*$/
@@ -731,7 +731,7 @@
     }
 
     // Function that checks current place against the Harmonization Data.  Returns place data or "NoMatch"
-    function harmoList(itemName, state2L, region3L, country, itemCats, item) {
+    function harmoList(itemName, state2L, region3L, country, itemCats, item, placePL) {
         if (country !== 'USA' && country !== 'CAN') {
             alert('No PNH data exists for this country.');
             return ['NoMatch'];
@@ -853,7 +853,7 @@
             if (bannButt.placeMatched) {
                 return matchPNHRegionData;
             } else if (PNHNameMatch) {  // if a name match was found but not for region, prod the user to get it approved
-                bannButt.ApprovalSubmit = new Flag.ApprovalSubmit(region3L);
+                bannButt.ApprovalSubmit = new Flag.ApprovalSubmit(region3L, PNHOrderNum, PNHNameTemp, placePL);
                 return ['ApprovalNeeded', PNHNameTemp, PNHOrderNum];
             } else {  // if no match was found, suggest adding the place to the sheet if it's a chain
                 bannButt.NewPlaceSubmit = new Flag.NewPlaceSubmit();
@@ -1393,7 +1393,7 @@
 
     // Split localizer (suffix) part of names, like "SUBWAY - inside Walmart".
     function getNameParts(name) {
-        var splits = name.match(/(.*?)(\s+[-\(].*)*$/);
+        var splits = name.match(/(.*?)(\s+[-\(–].*)*$/);
         return {base: splits[1], suffix: splits[2]};
     }
 
@@ -1630,6 +1630,21 @@
             constructor() {
                 super(true, 1, 'Name is missing.');
                 this.message += _USER.rank < 3 ? ' Request an R3+ lock to confirm unnamed parking lot.' : ' Lock to 3+ to confirm unnamed parking lot.';
+            }
+        },
+        PlaNameNonStandard: class extends WLFlag {
+            constructor() {
+                super(true, 2, 'Parking lot names should contain "Parking", "Lot", and/or "Garage"', true, 'Whitelist non-standard PLA name', 'plaNameNonStandard');
+            }
+            static eval(venue, wl) {
+                let result = {flag: null};
+                if (!wl.plaNameNonStandard) {
+                    let name = venue.attributes.name;
+                    if (venue.isParkingLot() && name && !/\b(parking|lot|garage)\b/i.test(name)) {
+                        result.flag = new Flag.PlaNameNonStandard();
+                    }
+                }
+                return result;
             }
         },
         IndianaLiquorStoreHours: class extends WLFlag {
@@ -2622,18 +2637,21 @@
             }
         },
         ApprovalSubmit: class extends ActionFlag {
-            constructor(region) {
+            constructor(region, pnhOrderNum, pnhNameTemp, placePL) {
                 super(true, 0, 'PNH data exists but is not approved for this region: ', 'Request approval', 'Request region/country approval of this place');
                 this.region = region;
+                this.pnhOrderNum = pnhOrderNum;
+                this.pnhNameTemp = pnhNameTemp;
+                this.placePL = placePL;
             }
             action() {
                 if ( PMUserList.hasOwnProperty(this.region) && PMUserList[this.region].approvalActive ) {
                     var forumPMInputs = {
-                        subject: '' + PNHOrderNum + ' PNH approval for "' + PNHNameTemp + '"',
-                        message: 'Please approve "' + PNHNameTemp + '" for the ' + this.region + ' region.  Thanks\n \nPNH order number: ' + PNHOrderNum + '\n \nPermalink: ' + placePL + '\n \nPNH Link: ' + _URLS.usaPnh,
+                        subject: '' + this.pnhOrderNum + ' PNH approval for "' + this.pnhNameTemp + '"',
+                        message: 'Please approve "' + this.pnhNameTemp + '" for the ' + this.region + ' region.  Thanks\n \nPNH order number: ' + this.pnhOrderNum + '\n \nPermalink: ' + this.placePL + '\n \nPNH Link: ' + _URLS.usaPnh,
                         preview: 'Preview', attach_sig: 'on'
                     };
-                    forumPMInputs['address_list[u]['+PMUserList[region].modID+']'] = 'to';  // Sends a PM to the regional mod instead of the submission form
+                    forumPMInputs['address_list[u]['+PMUserList[this.region].modID+']'] = 'to';  // Sends a PM to the regional mod instead of the submission form
                     newForumPost('https://www.waze.com/forum/ucp.php?i=pm&mode=compose', forumPMInputs);
                 } else {
                     window.open(approveRegionURL);
@@ -2685,6 +2703,7 @@
             //The buttons are appended in the code...
             plaIsPublic: null,
             plaNameMissing: null,
+            plaNameNonStandard: null,
             indianaLiquorStoreHours: null,
             hoursOverlap: null,
             unmappedRegion: null,
@@ -3399,7 +3418,7 @@
                 if (item.isParkingLot()) {
                     PNHMatchData = ['NoMatch'];
                 } else {
-                    PNHMatchData = harmoList(newName,state2L,region,_countryCode,newCategories,item);  // check against the PNH list
+                    PNHMatchData = harmoList(newName,state2L,region,_countryCode,newCategories,item,placePL);  // check against the PNH list
                 }
             } else if (hpMode.hlFlag) {
                 PNHMatchData = ['Highlight'];
@@ -4434,6 +4453,8 @@
                 lockOK = false;
             }
         }
+
+        bannButt.plaNameNonStandard = Flag.PlaNameNonStandard.eval(item, _wl).flag;
 
         // Public parking lot warning message:
         if (item.isParkingLot() && item.attributes.categoryAttributes && item.attributes.categoryAttributes.PARKING_LOT && item.attributes.categoryAttributes.PARKING_LOT.parkingType === 'PUBLIC') {
