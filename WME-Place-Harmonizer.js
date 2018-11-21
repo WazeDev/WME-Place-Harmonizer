@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name        WME Place Harmonizer Beta
 // @namespace   WazeUSA
-// @version     1.3.127
+// @version     1.3.128
 // @description Harmonizes, formats, and locks a selected place
 // @author      WMEPH Development Group
 // @include     /^https:\/\/(www|beta)\.waze\.com\/(?!user\/)(.{2,6}\/)?editor\/?.*$/
@@ -772,7 +772,8 @@
                     // Check for regex name matching instead of "standard" name matching.
                     var match = specCases.match(/regexNameMatch<>(.+?)<>/i);
                     if (match !== null) {
-                        var re = new RegExp(match[1].replace(/\\/,'\\'),'i');
+                        let reStr = match[1].replace(/\\/,'\\').replace(/<or>/g,'|');
+                        var re = new RegExp(reStr,'i');
                         PNHStringMatch = re.test(item.attributes.name);
                     }
                 } else {
@@ -3790,6 +3791,15 @@
                     newCategories = insertAtIX(newCategories, priPNHPlaceCat,0);
                     if (altCategories !== '0' && altCategories !== '' && specCases.indexOf('buttOn_addCat2') === -1 && specCases.indexOf('optionCat2') === -1) {
                         newCategories = insertAtIX(newCategories,altCategories,1);
+                    }
+                } else if (!updatePNHName) {
+                    // Strong title case option for non-PNH places
+                    var titleCaseName = toTitleCaseStrong(newName);
+                    if (newName !== titleCaseName) {
+                        bannButt.STC = new Flag.STC();
+                        bannButt.STC.suffixMessage = '<span style="margin-left: 4px;font-size: 14px">&bull; ' + titleCaseName + (newNameSuffix || '') + '</span>';
+                        bannButt.STC.title += titleCaseName;
+                        bannButt.STC.originalName = newName + (newNameSuffix || '');
                     }
                 }
 
