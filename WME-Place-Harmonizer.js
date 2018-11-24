@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name        WME Place Harmonizer Beta
 // @namespace   WazeUSA
-// @version     1.3.131
+// @version     1.3.132
 // @description Harmonizes, formats, and locks a selected place
 // @author      WMEPH Development Group
 // @include     /^https:\/\/(www|beta)\.waze\.com\/(?!user\/)(.{2,6}\/)?editor\/?.*$/
@@ -1339,7 +1339,7 @@
             bannButt.phoneMissing = Flag.PhoneMissing.eval(item, _wl, region, outputFormat);
             return s;
         }
-        s = s.replace(/(\d{3}.*)(?:extension|ext|xt|x).*/i, '$1');
+        s = s.replace(/(\d{3}.*)\W+(?:extension|ext|xt|x).*/i, '$1');
         var s1 = s.replace(/\D/g, '');  // remove non-number characters
         var m = s1.match(/^1?([2-9]\d{2})([2-9]\d{2})(\d{4})$/);  // Ignore leading 1, and also don't allow area code or exchange to start with 0 or 1 (***USA/CAN specific)
         if (!m) {  // then try alphanumeric matching
