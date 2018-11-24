@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name        WME Place Harmonizer Beta
 // @namespace   WazeUSA
-// @version     1.3.129
+// @version     1.3.130
 // @description Harmonizes, formats, and locks a selected place
 // @author      WMEPH Development Group
 // @include     /^https:\/\/(www|beta)\.waze\.com\/(?!user\/)(.{2,6}\/)?editor\/?.*$/
@@ -1642,7 +1642,7 @@
                 if (!wl.plaNameNonStandard) {
                     let name = venue.attributes.name;
                     let state = venue.getAddress().getStateName();
-                    let re = state === 'Quebec' ? /\b(parking|stationnement)\b/i : /\b(parking|lot|garage)\b/i;
+                    let re = state === 'Quebec' ? /\b(parking|stationnement)\b/i : /\b(park(ing| (and|&|'?n))|lot|garage)\b/i;
                     if (venue.isParkingLot() && name && !re.test(name)) {
                         result.flag = new Flag.PlaNameNonStandard();
                     }
