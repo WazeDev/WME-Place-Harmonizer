@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name        WME Place Harmonizer Beta
 // @namespace   WazeUSA
-// @version     1.3.130
+// @version     1.3.131
 // @description Harmonizes, formats, and locks a selected place
 // @author      WMEPH Development Group
 // @include     /^https:\/\/(www|beta)\.waze\.com\/(?!user\/)(.{2,6}\/)?editor\/?.*$/
@@ -3330,14 +3330,7 @@
 
             // Add convenience store category to station
             if (newCategories.indexOf('CONVENIENCE_STORE') === -1 && !bannButt.subFuel) {
-                if ( hpMode.harmFlag && $('#WMEPH-ConvenienceStoreToGasStations').prop('checked') ) {  // Automatic if user has the setting checked
-                    newCategories = insertAtIX(newCategories, 'CONVENIENCE_STORE', 1);  // insert the C.S. category
-                    actions.push(new UpdateObject(item, { categories: newCategories }));
-                    _updatedFields.categories.updated = true;
-                    phlogdev('Conv. store category added');
-                } else {  // If not checked, then it will be a banner button
-                    bannButt.addConvStore.active = true;
-                }
+                bannButt.addConvStore.active = true;
             }
         }  // END Gas Station Checks
 
@@ -6648,7 +6641,6 @@
         if (_USER.isDevUser || _USER.isBetaUser || _USER.rank >= 2) {
             initSettingsCheckbox('WMEPH-DisablePLAExtProviderCheck');
             initSettingsCheckbox('WMEPH-EnableServices');
-            initSettingsCheckbox('WMEPH-ConvenienceStoreToGasStations');
             initSettingsCheckbox('WMEPH-AddAddresses');
             initSettingsCheckbox('WMEPH-EnableCloneMode');
             initSettingsCheckbox('WMEPH-AutoLockRPPs');
@@ -6726,7 +6718,6 @@
         if (_USER.isDevUser || _USER.isBetaUser || _USER.rank >= 2) {
             createSettingsCheckbox($harmonizerTab, 'WMEPH-DisablePLAExtProviderCheck','Disable check for "Google place link" on Parking Lot Areas');
             createSettingsCheckbox($harmonizerTab, 'WMEPH-EnableServices','Enable automatic addition of common services');
-            createSettingsCheckbox($harmonizerTab, 'WMEPH-ConvenienceStoreToGasStations','Automatically add "Convenience Store" category to gas stations');
             createSettingsCheckbox($harmonizerTab, 'WMEPH-AddAddresses','Add detected address fields to places with no address');
             createSettingsCheckbox($harmonizerTab, 'WMEPH-EnableCloneMode','Enable place cloning tools');
             createSettingsCheckbox($harmonizerTab, 'WMEPH-AutoLockRPPs','Lock residential place points to region default');
