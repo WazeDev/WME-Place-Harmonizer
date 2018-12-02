@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name        WME Place Harmonizer Beta
 // @namespace   WazeUSA
-// @version     1.3.132
+// @version     1.3.133
 // @description Harmonizes, formats, and locks a selected place
 // @author      WMEPH Development Group
 // @include     /^https:\/\/(www|beta)\.waze\.com\/(?!user\/)(.{2,6}\/)?editor\/?.*$/
@@ -1383,10 +1383,11 @@
     }
 
     // Add array of actions to a MultiAction to be executed at once (counts as one edit for redo/undo purposes)
-    function executeMultiAction(actions) {
+    function executeMultiAction(actions, description) {
         if(actions.length > 0) {
             var m_action = new MultiAction();
             m_action.setModel(W.model);
+            m_action._description = description || m_action._description || 'Change(s) made by WMEPH';
             actions.forEach( action => {m_action.doSubAction(action);} );
             W.model.actionManager.add(m_action);
         }
@@ -1642,7 +1643,7 @@
                 if (!wl.plaNameNonStandard) {
                     let name = venue.attributes.name;
                     let state = venue.getAddress().getStateName();
-                    let re = state === 'Quebec' ? /\b(parking|stationnement)\b/i : /\b(park(ing| (and|&|'?n))|lot|garage)\b/i;
+                    let re = state === 'Quebec' ? /\b(parking|stationnement)\b/i : /\b((park[ -](and|&|'?n'?)[ -]ride)|parking|lot|garage)\b/i;
                     if (venue.isParkingLot() && name && !re.test(name)) {
                         result.flag = new Flag.PlaNameNonStandard();
                     }
@@ -1673,7 +1674,7 @@
                     let venue = getSelectedVenue();
                     newCategories.splice(ix, 1);
                     _updatedFields.categories.updated = true;
-                    executeMultiAction([new UpdateObject(venue, { categories: newCategories })]);
+                    addUpdateAction(venue, { categories: newCategories });
                     harmonizePlaceGo(venue,'harmonize');
                 }
             }
@@ -1690,7 +1691,7 @@
                     let venue = getSelectedVenue();
                     newCategories.splice(ix, 1);
                     _updatedFields.categories.updated = true;
-                    executeMultiAction([new UpdateObject(venue, { categories: newCategories })]);
+                    addUpdateAction(venue, { categories: newCategories });
                     harmonizePlaceGo(venue,'harmonize');
                 }
             }
@@ -1746,7 +1747,7 @@
                 let venue = getSelectedVenue();
                 newCategories = insertAtIX(newCategories,'GAS_STATION',0);  // Insert/move Gas category in the first position
                 _updatedFields.categories.updated = true;
-                executeMultiAction([new UpdateObject(venue, { categories: newCategories })]);
+                addUpdateAction(venue, { categories: newCategories });
                 harmonizePlaceGo(venue,'harmonize');
             }
         },
@@ -1769,7 +1770,7 @@
             action() {
                 let venue = getSelectedVenue();
                 _updatedFields.name.updated = true;
-                executeMultiAction([new UpdateObject(venue, { name: 'Pilot Travel Center' })]);
+                addUpdateAction(venue, { name: 'Pilot Travel Center' });
                 harmonizePlaceGo(venue, 'harmonize');
             }
         },
@@ -1779,7 +1780,7 @@
                 let venue = getSelectedVenue();
                 newCategories = insertAtIX(newCategories, 'HOTEL', 0);  // Insert/move Hotel category in the first position
                 _updatedFields.categories.updated = true;
-                executeMultiAction([new UpdateObject(venue, { categories: newCategories })]);
+                addUpdateAction(venue, { categories: newCategories });
                 harmonizePlaceGo(venue,'harmonize');
             }
         },
@@ -1792,7 +1793,7 @@
                 if (idx > -1) {
                     newCategories[idx] = 'PET_STORE_VETERINARIAN_SERVICES';
                     _updatedFields.categories.updated = true;
-                    executeMultiAction([new UpdateObject(venue, { categories: newCategories })]);
+                    addUpdateAction(venue, { categories: newCategories });
                 }
                 harmonizePlaceGo(venue,'harmonize');  // Rerun the script to update fields and lock
             }
@@ -1803,7 +1804,7 @@
                 let venue = getSelectedVenue();
                 newCategories[newCategories.indexOf('SCHOOL')] = 'OFFICES';
                 _updatedFields.categories.updated = true;
-                executeMultiAction([new UpdateObject(venue, { categories: newCategories })]);
+                addUpdateAction(venue, { categories: newCategories });
                 harmonizePlaceGo(venue, 'harmonize');  // Rerun the script to update fields and lock
             }
         },
@@ -1829,8 +1830,9 @@
             }
         },
         HnMissing: class extends WLActionFlag {
-            constructor() {
+            constructor(venue) {
                 super(true, 3, 'No HN: <input type="text" id="WMEPH-HNAdd" autocomplete="off" style="font-size:0.85em;width:100px;padding-left:2px;color:#000;">', 'Add', 'Add HN to place', true, 'Whitelist empty HN', 'HNWL');
+                this.venue = venue;
                 this.noBannerAssemble = true;
                 this.badInput = false;
             }
@@ -1840,8 +1842,9 @@
                 var hnTemp = newHN.replace(/[^\d]/g, '');
                 var hnTempDash = newHN.replace(/[^\d-]/g, '');
                 if (hnTemp > 0 && hnTemp < 1000000) {
-                    let venue = getSelectedVenue();
-                    harmonizePlaceGo(venue, 'harmonize', [new UpdateObject(venue, { houseNumber: hnTempDash })]);  // Rerun the script to update fields and lock
+                    let action = new UpdateObject(this.venue, { houseNumber: hnTempDash });
+                    action.wmephDescription = 'Changed house # to: ' + hnTempDash;
+                    harmonizePlaceGo(this.venue, 'harmonize', [action]);  // Rerun the script to update fields and lock
                     _updatedFields.address.updated = true;
                 } else {
                     $('input#WMEPH-HNAdd').css({backgroundColor:'#FDD'}).attr('title', 'Must be a number between 0 and 1000000');
@@ -2122,11 +2125,12 @@
             }
         },
         PhoneMissing: class extends WLActionFlag {
-            constructor(hasOperator, wl, outputFormat, isPLA) {
+            constructor(venue, hasOperator, wl, outputFormat, isPLA) {
                 super(true, 1, 'No ph#: <input type="text" id="WMEPH-PhoneAdd" autocomplete="off" style="font-size:0.85em;width:100px;padding-left:2px;color:#000;">', 'Add', 'Add phone to place', true, 'Whitelist empty phone', 'phoneWL');
                 this.noBannerAssemble = true;
                 this.badInput = false;
                 this.outputFormat = outputFormat;
+                this.venue = venue;
                 if ((isPLA && !hasOperator) || wl[this.WLkeyName]) {
                     this.severity = 0;
                     this.WLactive = false;
@@ -2138,22 +2142,21 @@
                 let isPLA = venue.isParkingLot();
                 let flag = null;
                 if (!isPLA || (isPLA && (this._regionsThatWantPlaPhones.indexOf(region) > -1 || hasOperator))) {
-                    flag = new Flag.PhoneMissing(hasOperator, wl, outputFormat, isPLA);
+                    flag = new Flag.PhoneMissing(venue, hasOperator, wl, outputFormat, isPLA);
                 }
                 return flag;
             }
             action() {
-                let venue = getSelectedVenue();
-                let newPhone = normalizePhone($('#WMEPH-PhoneAdd').val(), this.outputFormat, 'inputted', venue);
+                let newPhone = normalizePhone($('#WMEPH-PhoneAdd').val(), this.outputFormat, 'inputted', this.venue);
                 if (newPhone === 'badPhone') {
                     $('input#WMEPH-PhoneAdd').css({backgroundColor: '#FDD'}).attr('title','Invalid phone # format');
                     this.badInput = true;
                 } else {
                     this.badInput = false;
                     phlogdev(newPhone);
-                    W.model.actionManager.add(new UpdateObject(venue, { phone: newPhone }));
+                    W.model.actionManager.add(new UpdateObject(this.venue, { phone: newPhone }));
                     _updatedFields.phone.updated = true;
-                    harmonizePlaceGo(venue, 'harmonize');
+                    harmonizePlaceGo(this.venue, 'harmonize');
                 }
             }
         },
@@ -2479,10 +2482,10 @@
             }
         },
         AddCat2: class extends ActionFlag {
-            constructor() { super(false, 0, 'Is there a ' + newCategories[0] + ' at this location?', 'Yes', 'Add ' + newCategories[0]); }
+            constructor() { super(false, 0, '', 'Yes', ''); }
             action() {
                 let venue = getSelectedVenue();
-                newCategories.push.apply(newCategories,altCategories);
+                newCategories.push(this.altCategory);
                 W.model.actionManager.add(new UpdateObject(venue, { categories: newCategories }));
                 _updatedFields.categories.updated = true;
                 harmonizePlaceGo(venue, 'harmonize');
@@ -2545,6 +2548,14 @@
         },
         IsThisAPostOffice: class extends ActionFlag {
             constructor() { super(true, 0, 'Is this a <a href="https://wazeopedia.waze.com/wiki/USA/Places/Post_Office" target="_blank" style="color:#3a3a3a">USPS post office</a>? ', 'Yes', 'Is this a USPS location?'); }
+            static eval(venue, newName) {
+                let result = {flag: null};
+                let cleanName = newName.toUpperCase().replace(/[\/\-\.]/g, '');
+                if (/\bUSP[OS]\b|\bpost(al)?\s+(service|office)\b/i.test(cleanName)) {
+                    result.flag = new Flag.IsThisAPostOffice();
+                }
+                return result;
+            }
             action() {
                 let venue = getSelectedVenue();
                 newCategories = insertAtIX(newCategories, 'POST_OFFICE', 0);
@@ -2569,7 +2580,7 @@
                 if (idx > -1) {
                     newCategories[idx] = 'HOSPITAL_URGENT_CARE';
                     _updatedFields.categories.updated = true;
-                    executeMultiAction([new UpdateObject(venue, { categories: newCategories })]);
+                    addUpdateAction(venue, { categories: newCategories });
                 }
                 harmonizePlaceGo(venue, 'harmonize');  // Rerun the script to update fields and lock
             }
@@ -3832,8 +3843,16 @@
                     bannButt.addAlias.message = 'Is there a ' + optionalAlias + ' at this location?';
                     bannButt.addAlias.title = 'Add ' + optionalAlias;
                 }
+
+                // Remove unnecessary parent categories
+                let catData = _PNH_DATA.USA.categories.map(cat => cat.split('|'));
+                let catParentIdx = catData[0].indexOf('pc_catparent');
+                let catNameIdx = catData[0].indexOf('pc_wmecat');
+                let parentCats = _.uniq(newCategories.map(catName => catData.find(cat => cat[catNameIdx] === catName)[catParentIdx])).filter(parent => parent.trim(' ').length > 0);
+                newCategories = newCategories.filter(cat => parentCats.findIndex(parentCat => cat === parentCat) === -1);
+
                 // update categories if different and no Cat2 option
-                if ( !matchSets( uniq(item.attributes.categories),uniq(newCategories) ) ) {
+                if ( !matchSets( _.uniq(item.attributes.categories), _.uniq(newCategories) ) ) {
                     if ( specCases.indexOf('optionCat2') === -1 && specCases.indexOf('buttOn_addCat2') === -1 ) {
                         phlogdev('Categories updated with ' + newCategories);
                         actions.push(new UpdateObject(item, { categories: newCategories }));
@@ -3848,8 +3867,10 @@
                 }
                 // Enable optional 2nd category button
                 if (specCases.indexOf('buttOn_addCat2') > -1 && newCategories.indexOf(catTransWaze2Lang[altCategories[0]]) === -1 ) {
-                    bannButt.addCat2.message = 'Is there a ' + catTransWaze2Lang[altCategories[0]] + ' at this location?';
-                    bannButt.addCat2.title = 'Add ' + catTransWaze2Lang[altCategories[0]];
+                    let altCat = altCategories[0];
+                    bannButt.addCat2.message = 'Is there a ' + catTransWaze2Lang[altCat] + ' at this location?';
+                    bannButt.addCat2.title = 'Add ' + catTransWaze2Lang[altCat];
+                    bannButt.addCat2.altCategory = altCat;
                 }
 
                 // Description update
@@ -4066,15 +4087,6 @@
                                 }
                             }
                         }
-                    }
-                }
-
-                // ### remove unnecessary parent categories (Restaurant doesn't need food and drink)
-                if ( newCategories.indexOf('FOOD_AND_DRINK') > -1 ) {
-                    if (newCategories.indexOf('RESTAURANT') > -1 || newCategories.indexOf('FAST_FOOD') > -1 ) {
-                        newCategories.splice(newCategories.indexOf('FOOD_AND_DRINK'),1);  // remove Food/Drink Cat
-                        actions.push(new UpdateObject(item, { categories: newCategories }));
-                        _updatedFields.categories.updated = true;
                     }
                 }
             }
@@ -4341,10 +4353,7 @@
             // Post Office check
             if (_countryCode === 'USA' && newCategories.indexOf('PARKING_LOT') === -1) {
                 if (newCategories.indexOf('POST_OFFICE') === -1) {
-                    var USPSStrings = ['USPS','POSTOFFICE','USPOSTALSERVICE','UNITEDSTATESPOSTALSERVICE','USPO','USPOSTOFFICE','UNITEDSTATESPOSTOFFICE','UNITEDSTATESPOSTALOFFICE'];
-                    if ( USPSStrings.some(words => newName.toUpperCase().replace(/[ \/\-\.]/g,'').indexOf(words) > -1) ) {
-                        bannButt.isThisAPostOffice = new Flag.IsThisAPostOffice();
-                    }
+                    bannButt.isThisAPostOffice = Flag.IsThisAPostOffice.eval(item, newName).flag;
                 } else {
                     var re;
                     if (hpMode.harmFlag) {
@@ -4486,7 +4495,7 @@
 
         if (hasStreet && (!currentHN || currentHN.replace(/\D/g,'').length === 0)) {
             if ( 'BRIDGE|ISLAND|FOREST_GROVE|SEA_LAKE_POOL|RIVER_STREAM|CANAL|DAM|TUNNEL|JUNCTION_INTERCHANGE'.split('|').indexOf(item.attributes.categories[0]) === -1 ) {
-                bannButt.hnMissing = new Flag.HnMissing();
+                bannButt.hnMissing = new Flag.HnMissing(item);
                 if (state2L === 'PR') {
                     bannButt.hnMissing.severity = 0;
                 } else {
