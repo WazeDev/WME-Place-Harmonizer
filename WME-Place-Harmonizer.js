@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name        WME Place Harmonizer
 // @namespace   WazeUSA
-// @version     1.3.133
+// @version     1.3.134
 // @description Harmonizes, formats, and locks a selected place
 // @author      WMEPH Development Group
 // @include     /^https:\/\/(www|beta)\.waze\.com\/(?!user\/)(.{2,6}\/)?editor\/?.*$/
@@ -4412,7 +4412,6 @@
                         // not worth it since it would need to be verified by the user anyway.
                         //var coords = item.geometry.getCentroid().transform(W.map.getProjection(), W.map.displayProjection);
                         //var url = 'https://maps.googleapis.com/maps/api/geocode/json?latlng=' + coords.y + ',' + coords.x;
-
                     }
                     var descr = item.attributes.description;
                     var lines = descr.split('\n');
@@ -4443,7 +4442,11 @@
             // Some brands may have more than one acceptable name, or the brand listed in WME doesn't match what we want to see in the name.
             // Ideally, this would be addressed in the PNH spreadsheet somehow, but for now hardcoding is the only option.
             var compressedBrands = [brand.toUpperCase().replace(/[^a-zA-Z0-9]/g,'')];
-            if (brand === 'Diamond Gasoline') compressedBrands.push('DIAMONDOIL');
+            if (brand === 'Diamond Gasoline') {
+                compressedBrands.push('DIAMONDOIL');
+            } else if (brand === 'Murphy USA') {
+                compressedBrands.push('MURPHY');
+            }
             if (compressedBrands.every(compressedBrand => compressedName.indexOf(compressedBrand) === -1 && compressedNewName.indexOf(compressedBrand) === -1)) {
                 bannButt.gasMismatch = new Flag.GasMismatch();
                 if (_wl.gasMismatch) {
