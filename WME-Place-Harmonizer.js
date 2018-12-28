@@ -434,7 +434,7 @@
                 .replace(/$US /g, 'US Hwy ')
                 .trim();
 
-            seachName = encodeURIComponent(searchName + (address.length > 0 ? ', ' + address: ''));
+            searchName = encodeURIComponent(searchName + (address.length > 0 ? ', ' + address: ''));
             return 'http://www.google.com/search?q=' + searchName;
         }
 
