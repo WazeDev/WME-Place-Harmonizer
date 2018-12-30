@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name        WME Place Harmonizer Beta
 // @namespace   WazeUSA
-// @version     1.3.134
+// @version     1.3.135
 // @description Harmonizes, formats, and locks a selected place
 // @author      WMEPH Development Group
 // @include     /^https:\/\/(www|beta)\.waze\.com\/(?!user\/)(.{2,6}\/)?editor\/?.*$/
@@ -3390,7 +3390,8 @@
                     // no field HL
                 }
             }
-            if (item.is2D()) {
+            // NOTE: do not use is2D() function. It doesn't seem to be 100% reliable.
+            if (!item.isPoint()) {
                 bannButt.pointNotArea = new Flag.PointNotArea();
             }
         } else if (item.isParkingLot() || (newName && newName.trim().length > 0)) {  // for non-residential places
@@ -4093,7 +4094,8 @@
 
 
             var isPoint = item.isPoint();
-            var isArea = item.is2D();
+            // NOTE: do not use is2D() function. It doesn't seem to be 100% reliable.
+            var isArea = !isPoint;
             var maxPointSeverity = 0;
             var maxAreaSeverity = 3;
             var highestCategoryLock = -1;
