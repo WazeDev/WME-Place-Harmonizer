@@ -418,25 +418,24 @@
 
         function buildSearchUrl(searchName, address) {
             searchName = searchName
-                .replace(/&/g, '%26')
-                .replace(/[ \/]/g, '%20')
+                .replace(/[\/]/g, ' ')
                 .trim();
             address = address
                 .replace(/No street, /, '')
                 .replace(/No address/, '')
-                .replace(/ /g, '%20')
-                .replace(/CR-/g, 'County%20Rd%20')
-                .replace(/SR-/g, 'State%20Hwy%20')
-                .replace(/US-/g, 'US%20Hwy%20')
-                .replace(/ CR /g, '%20County%20Rd%20')
-                .replace(/ SR /g, '%20State%20Hwy%20')
-                .replace(/ US /g, '%20US%20Hwy%20')
-                .replace(/$CR /g, 'County%20Rd%20')
-                .replace(/$SR /g, 'State%20Hwy%20')
-                .replace(/$US /g, 'US%20Hwy%20')
+                .replace(/CR-/g, 'County Rd ')
+                .replace(/SR-/g, 'State Hwy ')
+                .replace(/US-/g, 'US Hwy ')
+                .replace(/ CR /g, ' County Rd ')
+                .replace(/ SR /g, ' State Hwy ')
+                .replace(/ US /g, ' US Hwy ')
+                .replace(/$CR /g, 'County Rd ')
+                .replace(/$SR /g, 'State Hwy ')
+                .replace(/$US /g, 'US Hwy ')
                 .trim();
 
-            return 'http://www.google.com/search?q=' + searchName + (address.length > 0 ? ',%20' + address: '');
+            searchName = encodeURIComponent(searchName + (address.length > 0 ? ', ' + address: ''));
+            return 'http://www.google.com/search?q=' + searchName;
         }
 
         function openWebSearch() {
@@ -6328,30 +6327,28 @@
     // Build a Google search url based on place name and address
     function buildGLink(searchName,addr,HN) {
         var searchHN = '', searchStreet = '', searchCity = '';
-        searchName = searchName.replace(/&/g, '%26');
-        searchName = searchName.replace(/[ \/]/g, '%20');
+        searchName = searchName.replace(/\//g, ' ');
         if ('string' === typeof addr.street.name && addr.street.name !== null && addr.street.name !== '') {
-            searchStreet = addr.street.name + ',%20';
+            searchStreet = addr.street.name + ', ';
         }
-        searchStreet = searchStreet.replace(/ /g, '%20');
-        searchStreet = searchStreet.replace(/CR-/g, 'County%20Rd%20');
-        searchStreet = searchStreet.replace(/SR-/g, 'State%20Hwy%20');
-        searchStreet = searchStreet.replace(/US-/g, 'US%20Hwy%20');
-        searchStreet = searchStreet.replace(/ CR /g, '%20County%20Rd%20');
-        searchStreet = searchStreet.replace(/ SR /g, '%20State%20Hwy%20');
-        searchStreet = searchStreet.replace(/ US /g, '%20US%20Hwy%20');
-        searchStreet = searchStreet.replace(/$CR /g, 'County%20Rd%20');
-        searchStreet = searchStreet.replace(/$SR /g, 'State%20Hwy%20');
-        searchStreet = searchStreet.replace(/$US /g, 'US%20Hwy%20');
+        searchStreet = searchStreet.replace(/CR-/g, 'County Rd ');
+        searchStreet = searchStreet.replace(/SR-/g, 'State Hwy ');
+        searchStreet = searchStreet.replace(/US-/g, 'US Hwy ');
+        searchStreet = searchStreet.replace(/ CR /g, ' County Rd ');
+        searchStreet = searchStreet.replace(/ SR /g, ' State Hwy ');
+        searchStreet = searchStreet.replace(/ US /g, ' US Hwy ');
+        searchStreet = searchStreet.replace(/$CR /g, 'County Rd ');
+        searchStreet = searchStreet.replace(/$SR /g, 'State Hwy ');
+        searchStreet = searchStreet.replace(/$US /g, 'US Hwy ');
         if ('string' === typeof HN && searchStreet !== '') {
-            searchHN = HN + '%20';
+            searchHN = HN + ' ';
         }
         if ('string' === typeof addr.city.attributes.name && addr.city.attributes.name !== '') {
-            searchCity = addr.city.attributes.name + ',%20';
+            searchCity = addr.city.attributes.name + ', ';
         }
-        searchCity = searchCity.replace(/ /g, '%20');
 
-        return 'http://www.google.com/search?q=' + searchName + (searchName ? ',%20' : '') + searchHN + searchStreet + searchCity + addr.state.name;
+        searchName = searchName + (searchName ? ', ' : '') + searchHN + searchStreet + searchCity + addr.state.name;
+        return 'http://www.google.com/search?q=' + encodeURIComponent(searchName);
     } // END buildGLink function
 
     // WME Category translation from Natural language to object language  (Bank / Financial --> BANK_FINANCIAL)
