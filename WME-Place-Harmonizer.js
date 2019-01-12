@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name        WME Place Harmonizer
 // @namespace   WazeUSA
-// @version     1.3.135
+// @version     1.3.136
 // @description Harmonizes, formats, and locks a selected place
 // @author      WMEPH Development Group
 // @include     /^https:\/\/(www|beta)\.waze\.com\/(?!user\/)(.{2,6}\/)?editor\/?.*$/
@@ -40,20 +40,7 @@
 
     // Script update info
     const _WHATS_NEW_LIST = [  // New in this version
-        '1.3.91: NEW - Added a "Google" button to search for place information so you don\'t have to click Run WMEPH first.',
-        '1.3.87: FIXED - X-ray mode doesn\'t stay disabled after refresh.',
-        '1.3.86: FIXED - X-ray mode not being restored after refresh.',
-        '1.3.85: NEW - Place will be green (not blue) for 6mo after locking with a missing a Google link.',
-        '1.3.84: FIXED - Address inference fails in some circumstances.',
-        '1.3.84: FIXED - WL of missing URL flag does not update banner color.',
-        '1.3.84: FIXED - ExtraMile not handled properly with Force Title Case.',
-        '1.3.84: NEW - Added more categories to ignore for missing Google link.',
-        '1.3.84: NEW - Darken the GIS Layers script\'s layer when X-ray mode is enabled.',
-        '1.3.83: FIXED - Disable "No Google link" flag for some natural feature categories.',
-        '1.3.82: NEW - Experimental "X-ray mode"!',
-        '1.3.81: FIXED - WL of "area code mismatch" and/or "HN out of range" doesn\'t update banner color.',
-        '1.3.79: FIXED - Optional category messages not displaying correctly.',
-        '1.3.78: FIXED - WL of "No Hours" and/or "No Ph#" doesn\'t update banner color.'
+        '1.3.136: FIXED - Alternate names not updated correctly in some cases.'
     ];
     const _CSS_ARRAY = [
         '#WMEPH_banner .wmeph-btn { background-color: #fbfbfb; box-shadow: 0 2px 0 #aaa; border: solid 1px #bbb; font-weight:normal; margin-bottom: 2px; margin-right:4px}',
@@ -3966,7 +3953,7 @@
 
                 // Update aliases
                 newAliases = removeSFAliases(newName, newAliases);
-                if (newAliases !== item.attributes.aliases && newAliases.length !== item.attributes.aliases.length) {
+                if (newAliases.some(alias => item.attributes.aliases.indexOf(alias) === -1) || newAliases.length !== item.attributes.aliases.length) {
                     phlogdev('Alt Names updated');
                     actions.push(new UpdateObject(item, { aliases: newAliases }));
                     _updatedFields.aliases.updated = true;
