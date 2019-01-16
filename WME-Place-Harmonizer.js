@@ -7167,29 +7167,23 @@
     const dec = s => atob(atob(s));
     const getSpreadsheetUrl = (id, range, key) => `https://sheets.googleapis.com/v4/spreadsheets/${id}/values/${range}?${dec(key)}`;
     const USA_SPREADSHEET_ID = '1U-mW3xkc_mtOxybE7KBTENZmk75Xpj4_4ovhR8lTC-c';
-    const USA_PNH_RANGE = 'WMEPH!B5:U';
-    const USA_CATEGORIES_RANGE = 'WMEPH_Categories!A5:AB';
+    const USA_PNH_RANGE = 'WMEPH USA Ajax Export!A2:A';
+    const USA_CATEGORIES_RANGE = 'WMEPH Cat Ajax Export!A2:A';
     const USA_API_KEY = 'YTJWNVBVRkplbUZUZVVKdVRYRXRkMVJmTURsbmRFdDBkRjlMYzFkSk1FcFllR1ZxU0RkNWRIRlBSUT09';
 
     function downloadPnhData() {
         let processData = (response, fieldName) => response.feed.entry.map(entry => entry[fieldName].$t);
         //TODO change the _PNH_DATA cache to use an object so we don't have to rely on ugly array index lookups.
-        let processData1 = (response, country, container) => {
-            const len = response.values[0].length;
-            _PNH_DATA[country][container] = response.values.map(row => {
-                for (let i = row.length; i < len; i++) {
-                    row.push('');
-                }
-                return row.join('|');
-            });
-        };
+        let processData1 = response => response.values.map(row => row[0]);
+
         Promise.all([
             $.getJSON(getSpreadsheetUrl(USA_SPREADSHEET_ID, USA_PNH_RANGE, USA_API_KEY)).done(response => {
-                processData1(response, 'USA', 'pnh');
+                debugger;
+                _PNH_DATA.USA.pnh = processData1(response);
                 _PNH_DATA.USA.pnhNames = makeNameCheckList(_PNH_DATA.USA.pnh);
             }),
             $.getJSON(getSpreadsheetUrl(USA_SPREADSHEET_ID, USA_CATEGORIES_RANGE, USA_API_KEY)).done(response => {
-                processData1(response, 'USA', 'categories');
+                _PNH_DATA.USA.categories = processData1(response);
                 _PNH_DATA.USA.categoryNames = makeCatCheckList(_PNH_DATA.USA.categories);
             }),
             callAjaxAsync('https://spreadsheets.google.com/feeds/list/1-f-JTWY5UnBx-rFTa4qhyGMYdHBZWNirUTOgn222zMY/os2g2ln/public/values').then(response => {
