@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name        WME Place Harmonizer Beta
 // @namespace   WazeUSA
-// @version     1.3.136
+// @version     1.3.137
 // @description Harmonizes, formats, and locks a selected place
 // @author      WMEPH Development Group
 // @include     /^https:\/\/(www|beta)\.waze\.com\/(?!user\/)(.{2,6}\/)?editor\/?.*$/
@@ -5484,9 +5484,6 @@
                 };
             } else {
                 setTimeout(bootstrapRunButton, 100);
-            }
-            if (venue.attributes.categories.length === 1 && venue.attributes.categories[0] === 'SHOPPING_AND_SERVICES') {
-                $('.suggested-categories').remove();
             }
             showOpenPlaceWebsiteButton();
             showSearchButton();
