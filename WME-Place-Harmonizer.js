@@ -7161,44 +7161,51 @@
         });
     }
 
-    const dec = s => atob(atob(s));
-    const getSpreadsheetUrl = (id, range, key) => `https://sheets.googleapis.com/v4/spreadsheets/${id}/values/${range}?${dec(key)}`;
-    const USA_SPREADSHEET_ID = '1U-mW3xkc_mtOxybE7KBTENZmk75Xpj4_4ovhR8lTC-c';
+    const USA_SPREADSHEET_ID = '1-f-JTWY5UnBx-rFTa4qhyGMYdHBZWNirUTOgn222zMY'; // TODO change this to the real PNH sheet ID
+    const CAN_SPREADSHEET_ID = '1TIxQZVLUbAJ8iH6LPTkJsvqFb_DstrHpKsJbv1W1FZs';
+    const NON_HOSPITAL_SCHOOL_TERMS_SPREADSHEET_ID = '1pDmenZA-3FOTvhlCq9yz1dnemTmS9l_njZQbu_jLVMI';
+    const USER_LIST_SPREADSHEET_ID = '1L82mM8Xg-MvKqK3WOfsMhFEGmVM46lA8BVcx8qwgmA8';
+    const NON_HOSPITAL_SCHOOL_TERMS_RANGE = 'WMEPH Ajax Export!A1:F2';
     const USA_PNH_RANGE = 'WMEPH USA Ajax Export!A2:A';
-    const USA_CATEGORIES_RANGE = 'WMEPH Cat Ajax Export!A2:A';
-    const USA_API_KEY = 'YTJWNVBVRkplbUZUZVVKdVRYRXRkMVJmTURsbmRFdDBkRjlMYzFkSk1FcFllR1ZxU0RkNWRIRlBSUT09';
+    const CAN_PNH_RANGE = 'WMEPH Ajax Export!A2:A';
+    const CATEGORIES_RANGE = 'WMEPH Cat Ajax Export!A2:A';
+    const API_KEY = 'YTJWNVBVRkplbUZUZVVOcU1FRm9jR0ZQWm5oUWVsaHpWRWd5Tldsb1lreFhVV1JwWmtkM2MzY3lkdz09';
 
     function downloadPnhData() {
+        const dec = s => atob(atob(s));
+        const getSpreadsheetUrl = (id, range, key) => `https://sheets.googleapis.com/v4/spreadsheets/${id}/values/${range}?${dec(key)}`;
         let processData = (response, fieldName) => response.feed.entry.map(entry => entry[fieldName].$t);
         //TODO change the _PNH_DATA cache to use an object so we don't have to rely on ugly array index lookups.
         let processData1 = response => response.values.map(row => row[0]);
 
         Promise.all([
-            $.getJSON(getSpreadsheetUrl(USA_SPREADSHEET_ID, USA_PNH_RANGE, USA_API_KEY)).done(response => {
-                debugger;
+            $.getJSON(getSpreadsheetUrl(USA_SPREADSHEET_ID, USA_PNH_RANGE, API_KEY)).done(response => {
                 _PNH_DATA.USA.pnh = processData1(response);
                 _PNH_DATA.USA.pnhNames = makeNameCheckList(_PNH_DATA.USA.pnh);
             }),
-            $.getJSON(getSpreadsheetUrl(USA_SPREADSHEET_ID, USA_CATEGORIES_RANGE, USA_API_KEY)).done(response => {
+            $.getJSON(getSpreadsheetUrl(USA_SPREADSHEET_ID, CATEGORIES_RANGE, API_KEY)).done(response => {
                 _PNH_DATA.USA.categories = processData1(response);
                 _PNH_DATA.USA.categoryNames = makeCatCheckList(_PNH_DATA.USA.categories);
             }),
             callAjaxAsync('https://spreadsheets.google.com/feeds/list/1-f-JTWY5UnBx-rFTa4qhyGMYdHBZWNirUTOgn222zMY/os2g2ln/public/values').then(response => {
                 _PNH_DATA.states = processData(response, 'gsx$psdata');
             }),
-            callAjaxAsync('https://spreadsheets.google.com/feeds/list/1TIxQZVLUbAJ8iH6LPTkJsvqFb_DstrHpKsJbv1W1FZs/o4ghhas/public/values').then(response => {
-                _PNH_DATA.CAN.pnh = processData(response, 'gsx$pnhdata');
+            $.getJSON(getSpreadsheetUrl(CAN_SPREADSHEET_ID, CAN_PNH_RANGE, API_KEY)).done(response => {
+                _PNH_DATA.CAN.pnh = processData1(response);
                 _PNH_DATA.CAN.pnhNames = makeNameCheckList(_PNH_DATA.CAN.pnh);
             }),
-            callAjaxAsync('https://spreadsheets.google.com/feeds/list/1pDmenZA-3FOTvhlCq9yz1dnemTmS9l_njZQbu_jLVMI/op17piq/public/values').then(response => {
-                let entry = response.feed.entry[0];
-                let processEntryField = entryField => entryField.$t.toLowerCase().replace(/ \|/g, '|').replace(/\| /g, '|').split('|');
-                hospitalPartMatch = processEntryField(entry.gsx$hmchp);
-                hospitalFullMatch = processEntryField(entry.gsx$hmchf);
-                animalPartMatch = processEntryField(entry.gsx$hmcap);
-                animalFullMatch = processEntryField(entry.gsx$hmcaf);
-                schoolPartMatch = processEntryField(entry.gsx$schp);
-                schoolFullMatch = processEntryField(entry.gsx$schf);
+            $.getJSON(getSpreadsheetUrl(NON_HOSPITAL_SCHOOL_TERMS_SPREADSHEET_ID, NON_HOSPITAL_SCHOOL_TERMS_RANGE, API_KEY)).done(response => {
+                let fieldNames = response.values[0];
+                let processEntryField = fieldName => {
+                    let fieldIdx = fieldNames.indexOf(fieldName);
+                    return response.values[1][fieldIdx].toLowerCase().split('|').map(value => value.trim());
+                }
+                hospitalPartMatch = processEntryField('hmchp');
+                hospitalFullMatch = processEntryField('hmchf');
+                animalPartMatch = processEntryField('hmcap');
+                animalFullMatch = processEntryField('hmcaf');
+                schoolPartMatch = processEntryField('schp');
+                schoolFullMatch = processEntryField('schf');
             }),
             callAjaxAsync('https://spreadsheets.google.com/feeds/list/1L82mM8Xg-MvKqK3WOfsMhFEGmVM46lA8BVcx8qwgmA8/ofblgob/public/values').then(response => {
                 var WMEPHuserList = response.feed.entry[0].gsx$phuserlist.$t.split('|');
@@ -7214,6 +7221,8 @@
             _PNH_DATA.CAN.categoryNames = _PNH_DATA.USA.categoryNames;
 
             placeHarmonizer_bootstrap();
+        }).catch(res => {
+            console.log('WMEPH failed to load spreadsheet:', JSON.stringify(res.responseJSON.error));
         }); // Start the script
     }
 
