@@ -7161,14 +7161,6 @@
         });
     }
 
-    const USA_SPREADSHEET_ID = '1-f-JTWY5UnBx-rFTa4qhyGMYdHBZWNirUTOgn222zMY'; // TODO change this to the real PNH sheet ID
-    const CAN_SPREADSHEET_ID = '1TIxQZVLUbAJ8iH6LPTkJsvqFb_DstrHpKsJbv1W1FZs';
-    const NON_HOSPITAL_SCHOOL_TERMS_SPREADSHEET_ID = '1pDmenZA-3FOTvhlCq9yz1dnemTmS9l_njZQbu_jLVMI';
-    const USER_LIST_SPREADSHEET_ID = '1L82mM8Xg-MvKqK3WOfsMhFEGmVM46lA8BVcx8qwgmA8';
-    const NON_HOSPITAL_SCHOOL_TERMS_RANGE = 'WMEPH Ajax Export!A1:F2';
-    const USA_PNH_RANGE = 'WMEPH USA Ajax Export!A2:A';
-    const CAN_PNH_RANGE = 'WMEPH Ajax Export!A2:A';
-    const CATEGORIES_RANGE = 'WMEPH Cat Ajax Export!A2:A';
     const SPREADSHEET_ID = '1pBz4l4cNapyGyzfMJKqA4ePEFLkmz2RryAt1UV39B4g';
     const SPREADSHEET_RANGE = '2019.01.20.001!A2:K';
     const API_KEY = 'YTJWNVBVRkplbUZUZVVObU1YVXpSRVZ3ZW5OaFRFSk1SbTR4VGxKblRURjJlRTFYY3pOQ2NXZElPQT09';
@@ -7180,9 +7172,7 @@
         //TODO change the _PNH_DATA cache to use an object so we don't have to rely on ugly array index lookups.
         let processData1 = (data, colIdx) => data.filter(row => row.length >= colIdx + 1).map(row => row[colIdx]);
 
-        const t0 = performance.now();
         $.getJSON(getSpreadsheetUrl(SPREADSHEET_ID, SPREADSHEET_RANGE, API_KEY)).done(res => {
-            console.log(performance.now() - t0)
             const { values } = res;
             if (values[0][0].toLowerCase() === 'obsolete') {
                 alert('You are using an outdated version of WMEPH that doesn\'t work anymore. Update or disable the script.');
@@ -7220,7 +7210,6 @@
             schoolPartMatch = processTermsCell(values, 9);
             schoolFullMatch = processTermsCell(values, 10);
 
-            console.log(performance.now() - t0)
             // Start the script
             placeHarmonizer_bootstrap();
         }).fail(res => {
