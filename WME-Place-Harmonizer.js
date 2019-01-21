@@ -7141,7 +7141,7 @@
     } // END placeHarmonizer_init function
 
     function placeHarmonizer_bootstrap() {
-        if (W && W.loginManager && W.loginManager.user && W.map && WazeWrap.Interface) {
+        if (W && W.loginManager && W.loginManager.user && W.map && WazeWrap.Interface && W.model.venues.categoryBrands.PARKING_LOT) {
             placeHarmonizer_init();
         } else {
             phlog('Waiting for WME map and login...');
@@ -7169,61 +7169,63 @@
     const USA_PNH_RANGE = 'WMEPH USA Ajax Export!A2:A';
     const CAN_PNH_RANGE = 'WMEPH Ajax Export!A2:A';
     const CATEGORIES_RANGE = 'WMEPH Cat Ajax Export!A2:A';
-    const API_KEY = 'YTJWNVBVRkplbUZUZVVOcU1FRm9jR0ZQWm5oUWVsaHpWRWd5Tldsb1lreFhVV1JwWmtkM2MzY3lkdz09';
+    const SPREADSHEET_ID = '1pBz4l4cNapyGyzfMJKqA4ePEFLkmz2RryAt1UV39B4g';
+    const SPREADSHEET_RANGE = '2019.01.20.001!A2:K';
+    const API_KEY = 'YTJWNVBVRkplbUZUZVVObU1YVXpSRVZ3ZW5OaFRFSk1SbTR4VGxKblRURjJlRTFYY3pOQ2NXZElPQT09';
 
     function downloadPnhData() {
         const dec = s => atob(atob(s));
         const getSpreadsheetUrl = (id, range, key) => `https://sheets.googleapis.com/v4/spreadsheets/${id}/values/${range}?${dec(key)}`;
         let processData = (response, fieldName) => response.feed.entry.map(entry => entry[fieldName].$t);
         //TODO change the _PNH_DATA cache to use an object so we don't have to rely on ugly array index lookups.
-        let processData1 = response => response.values.map(row => row[0]);
+        let processData1 = (data, colIdx) => data.filter(row => row.length >= colIdx + 1).map(row => row[colIdx]);
 
-        Promise.all([
-            $.getJSON(getSpreadsheetUrl(USA_SPREADSHEET_ID, USA_PNH_RANGE, API_KEY)).done(response => {
-                _PNH_DATA.USA.pnh = processData1(response);
-                _PNH_DATA.USA.pnhNames = makeNameCheckList(_PNH_DATA.USA.pnh);
-            }),
-            $.getJSON(getSpreadsheetUrl(USA_SPREADSHEET_ID, CATEGORIES_RANGE, API_KEY)).done(response => {
-                _PNH_DATA.USA.categories = processData1(response);
-                _PNH_DATA.USA.categoryNames = makeCatCheckList(_PNH_DATA.USA.categories);
-            }),
-            callAjaxAsync('https://spreadsheets.google.com/feeds/list/1-f-JTWY5UnBx-rFTa4qhyGMYdHBZWNirUTOgn222zMY/os2g2ln/public/values').then(response => {
-                _PNH_DATA.states = processData(response, 'gsx$psdata');
-            }),
-            $.getJSON(getSpreadsheetUrl(CAN_SPREADSHEET_ID, CAN_PNH_RANGE, API_KEY)).done(response => {
-                _PNH_DATA.CAN.pnh = processData1(response);
-                _PNH_DATA.CAN.pnhNames = makeNameCheckList(_PNH_DATA.CAN.pnh);
-            }),
-            $.getJSON(getSpreadsheetUrl(NON_HOSPITAL_SCHOOL_TERMS_SPREADSHEET_ID, NON_HOSPITAL_SCHOOL_TERMS_RANGE, API_KEY)).done(response => {
-                let fieldNames = response.values[0];
-                let processEntryField = fieldName => {
-                    let fieldIdx = fieldNames.indexOf(fieldName);
-                    return response.values[1][fieldIdx].toLowerCase().split('|').map(value => value.trim());
-                }
-                hospitalPartMatch = processEntryField('hmchp');
-                hospitalFullMatch = processEntryField('hmchf');
-                animalPartMatch = processEntryField('hmcap');
-                animalFullMatch = processEntryField('hmcaf');
-                schoolPartMatch = processEntryField('schp');
-                schoolFullMatch = processEntryField('schf');
-            }),
-            callAjaxAsync('https://spreadsheets.google.com/feeds/list/1L82mM8Xg-MvKqK3WOfsMhFEGmVM46lA8BVcx8qwgmA8/ofblgob/public/values').then(response => {
-                var WMEPHuserList = response.feed.entry[0].gsx$phuserlist.$t.split('|');
-                var betaix = WMEPHuserList.indexOf('BETAUSERS');
-                WMEPHdevList = [];
-                WMEPHbetaList = [];
-                for (var ulix = 1; ulix < betaix; ulix++) WMEPHdevList.push(WMEPHuserList[ulix].toLowerCase().trim());
-                for (ulix = betaix + 1; ulix < WMEPHuserList.length; ulix++) WMEPHbetaList.push(WMEPHuserList[ulix].toLowerCase().trim());
-            })
-        ]).then(() => {
+        const t0 = performance.now();
+        $.getJSON(getSpreadsheetUrl(SPREADSHEET_ID, SPREADSHEET_RANGE, API_KEY)).done(res => {
+            console.log(performance.now() - t0)
+            const { values } = res;
+            if (values[0][0].toLowerCase() === 'obsolete') {
+                alert('You are using an outdated version of WMEPH that doesn\'t work anymore. Update or disable the script.');
+                return;
+            }
+
+            _PNH_DATA.USA.pnh = processData1(values, 0);
+            _PNH_DATA.USA.pnhNames = makeNameCheckList(_PNH_DATA.USA.pnh);
+
+            _PNH_DATA.states = processData1(values, 1);
+
+            _PNH_DATA.CAN.pnh = processData1(values, 2);
+            _PNH_DATA.CAN.pnhNames = makeNameCheckList(_PNH_DATA.CAN.pnh);
+
+            _PNH_DATA.USA.categories = processData1(values, 3);
+            _PNH_DATA.USA.categoryNames = makeCatCheckList(_PNH_DATA.USA.categories);
+
             // For now, Canada uses some of the same settings as USA.
             _PNH_DATA.CAN.categories = _PNH_DATA.USA.categories;
             _PNH_DATA.CAN.categoryNames = _PNH_DATA.USA.categoryNames;
 
+            var WMEPHuserList = processData1(values, 4)[1].split('|');
+            var betaix = WMEPHuserList.indexOf('BETAUSERS');
+            WMEPHdevList = [];
+            WMEPHbetaList = [];
+            for (var ulix = 1; ulix < betaix; ulix++) WMEPHdevList.push(WMEPHuserList[ulix].toLowerCase().trim());
+            for (ulix = betaix + 1; ulix < WMEPHuserList.length; ulix++) WMEPHbetaList.push(WMEPHuserList[ulix].toLowerCase().trim());
+
+            let processTermsCell = (values, colIdx) => processData1(values, colIdx)[1]
+                .toLowerCase().split('|').map(value => value.trim());
+            hospitalPartMatch = processTermsCell(values, 5);
+            hospitalFullMatch = processTermsCell(values, 6);
+            animalPartMatch = processTermsCell(values, 7);
+            animalFullMatch = processTermsCell(values, 8);
+            schoolPartMatch = processTermsCell(values, 9);
+            schoolFullMatch = processTermsCell(values, 10);
+
+            console.log(performance.now() - t0)
+            // Start the script
             placeHarmonizer_bootstrap();
-        }).catch(res => {
+        }).fail(res => {
             console.log('WMEPH failed to load spreadsheet:', JSON.stringify(res.responseJSON.error));
-        }); // Start the script
+        });
     }
 
     // Start downloading the PNH spreadsheet data in the background.  Starts the script once data is ready.
