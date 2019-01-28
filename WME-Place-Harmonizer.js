@@ -7213,7 +7213,8 @@
             // Start the script
             placeHarmonizer_bootstrap();
         }).fail(res => {
-            console.log('WMEPH failed to load spreadsheet:', JSON.stringify(res.responseJSON.error));
+            const message = res.responseJSON && res.responseJSON.error ? res.responseJSON.error : 'See response error message above.';
+            console.error('WMEPH failed to load spreadsheet:', message);
         });
     }
 
