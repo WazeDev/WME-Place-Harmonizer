@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name        WME Place Harmonizer
 // @namespace   WazeUSA
-// @version     1.3.138
+// @version     1.3.140
 // @description Harmonizes, formats, and locks a selected place
 // @author      WMEPH Development Group
 // @include     /^https:\/\/(www|beta)\.waze\.com\/(?!user\/)(.{2,6}\/)?editor\/?.*$/
@@ -20,7 +20,6 @@
 /* global performance */
 /* global OL */
 /* global _ */
-/* global define */
 /* global Node */
 /* global WazeWrap */
 /* global unsafeWindow */
@@ -97,6 +96,7 @@
     var UpdateObject = require('Waze/Action/UpdateObject');
     var UpdateFeatureGeometry = require('Waze/Action/UpdateFeatureGeometry');
     var UpdateFeatureAddress = require('Waze/Action/UpdateFeatureAddress');
+    var OpeningHour = require("Waze/Model/Objects/OpeningHour");
     let _disableHighlightTest = false;  // Set to true to temporarily disable highlight checks immediately when venues change.
     let _wl = {};
     const _USER = {
@@ -376,8 +376,8 @@
     }
 
     function isAlwaysOpen(venue) {
-        var hours = venue.attributes.openingHours;
-        return hours.length === 1 && hours[0].days.length === 7 && hours[0].fromHour === '00:00' && hours[0].toHour === '00:00';
+        const hours = venue.attributes.openingHours;
+        return hours.length === 1 && hours[0].days.length === 7 && hours[0].isAllDay();
     }
 
     function isEmergencyRoom(venue) {
@@ -1705,7 +1705,7 @@
                 _updatedFields.categories.updated = true;
 
                 // make it 24/7
-                actions.push(new UpdateObject(venue, { openingHours: [{ days: [1, 2, 3, 4, 5, 6, 0], fromHour: '00:00', toHour: '00:00' }] }));
+                actions.push(new UpdateObject(venue, { openingHours: [new OpeningHour({ days: [1, 2, 3, 4, 5, 6, 0], fromHour: '00:00', toHour: '00:00' })] }));
                 _updatedFields.openingHours.updated = true;
 
                 bannServ.add247.checked = true;
@@ -2425,7 +2425,7 @@
                 let updateHours = false;
                 let flag = null;
                 for (let i = 0, len = hoursEntries.length; i < len; i++) {
-                    let newHoursEntry = { days: [].concat(hoursEntries[i].days), fromHour: hoursEntries[i].fromHour, toHour: hoursEntries[i].toHour };
+                    let newHoursEntry = new OpeningHour({ days: [].concat(hoursEntries[i].days), fromHour: hoursEntries[i].fromHour, toHour: hoursEntries[i].toHour });
                     if (newHoursEntry.toHour === '23:59' && /^0?0:00$/.test(newHoursEntry.fromHour)) {
                         if (hpMode.hlFlag) {
                             // Just return a "placeholder" flag to highlight the place.
@@ -3109,7 +3109,7 @@
                     action: function (actions) {
                         if (!bannServ.add247.checked) {
                             let venue = getSelectedVenue();
-                            addUpdateAction(venue, { openingHours: [{ days: [1, 2, 3, 4, 5, 6, 0], fromHour: '00:00', toHour: '00:00' }] }, actions);
+                            addUpdateAction(venue, { openingHours: [new OpeningHour({ days: [1, 2, 3, 4, 5, 6, 0], fromHour: '00:00', toHour: '00:00' })] }, actions);
                             bannServ.add247.checked = true;
                             bannButt.noHours = null;
                         }
@@ -4277,7 +4277,7 @@
                     if (tempHours[ohix].days.length === 2 && tempHours[ohix].days[0] === 1 && tempHours[ohix].days[1] === 0) {
                         // separate hours
                         phlogdev('Correcting M-S entry...');
-                        tempHours.push({ days: [0], fromHour: tempHours[ohix].fromHour, toHour: tempHours[ohix].toHour });
+                        tempHours.push(new OpeningHour({ days: [0], fromHour: tempHours[ohix].fromHour, toHour: tempHours[ohix].toHour }));
                         tempHours[ohix].days = [1];
                         actions.push(new UpdateObject(item, { openingHours: tempHours }));
                     }
@@ -4286,7 +4286,7 @@
 
             if (hpMode.harmFlag) {
                 // Highlight 24/7 button if hours are set that way, and add button for all places
-                if (item.attributes.openingHours.length === 1 && item.attributes.openingHours[0].days.length === 7 && item.attributes.openingHours[0].fromHour === '00:00' && item.attributes.openingHours[0].toHour === '00:00') {
+                if (isAlwaysOpen(item)) {
                     bannServ.add247.checked = true;
                 }
                 bannServ.add247.active = true;
@@ -5785,12 +5785,12 @@
     // Formats "hour object" into a string.
     function formatOpeningHour(hourEntry) {
         var dayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
-        var hours = hourEntry.attributes.fromHour + '-' + hourEntry.attributes.toHour;
-        return hourEntry.attributes.days.map(day => dayNames[day] + ' ' + hours).join(', ');
+        var hours = hourEntry.fromHour + '-' + hourEntry.toHour;
+        return hourEntry.days.map(day => dayNames[day] + ' ' + hours).join(', ');
     }
     // Pull natural text from opening hours
     function getOpeningHours(venue) {
-        return venue && venue.getOpeningHours && venue.getOpeningHours().map(formatOpeningHour);
+        return venue && venue.attributes.openingHours && venue.attributes.openingHours.map(formatOpeningHour);
     }
 
     // function to check overlapping hours
@@ -6874,7 +6874,7 @@
                 }
             }
             // Highlight 24/7 button if hours are set that way, and add button for all places
-            if (venue.attributes.openingHours.length === 1 && venue.attributes.openingHours[0].days.length === 7 && /^0?0:00$/.test(venue.attributes.openingHours[0].fromHour) && /^0?0:00$/.test(venue.attributes.openingHours[0].toHour)) {
+            if (isAlwaysOpen(venue)) {
                 bannServ.add247.checked = true;
             }
             bannServ.add247.active = true;
