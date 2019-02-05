@@ -41,7 +41,9 @@
 
     // Script update info
     const _WHATS_NEW_LIST = [  // New in this version
-        '1.3.136: FIXED - Alternate names not updated correctly in some cases.'
+        '1.3.138: NEW: Added "ramp" to list of recognized words for parking lots.',
+        '1.3.138: FIXED: "Is this a doctor/clinic" flag will only display if Office or Personal Care place was last edited before 3/28/2017',
+        '1.3.138: FIXED: Removed feature that would hide suggested category buttons for Shopping / Services (feature is now in PIE).'
     ];
     const _CSS_ARRAY = [
         '#WMEPH_banner .wmeph-btn { background-color: #fbfbfb; box-shadow: 0 2px 0 #aaa; border: solid 1px #bbb; font-weight:normal; margin-bottom: 2px; margin-right:4px}',
