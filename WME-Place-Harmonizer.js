@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name        WME Place Harmonizer Beta
 // @namespace   WazeUSA
-// @version     1.3.139
+// @version     1.3.140
 // @description Harmonizes, formats, and locks a selected place
 // @author      WMEPH Development Group
 // @include     /^https:\/\/(www|beta)\.waze\.com\/(?!user\/)(.{2,6}\/)?editor\/?.*$/
@@ -5785,8 +5785,8 @@
     // Formats "hour object" into a string.
     function formatOpeningHour(hourEntry) {
         var dayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
-        var hours = hourEntry.attributes.fromHour + '-' + hourEntry.attributes.toHour;
-        return hourEntry.attributes.days.map(day => dayNames[day] + ' ' + hours).join(', ');
+        var hours = hourEntry.fromHour + '-' + hourEntry.toHour;
+        return hourEntry.days.map(day => dayNames[day] + ' ' + hours).join(', ');
     }
     // Pull natural text from opening hours
     function getOpeningHours(venue) {
