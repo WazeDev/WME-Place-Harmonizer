@@ -4684,6 +4684,8 @@
         }
 
         // Show the Change To Doctor / Clinic button for places with PERSONAL_CARE or OFFICES category
+        // The date criteria was added because Doctor/Clinic category was added around then, and it's assumed if the 
+        // place has been edited since then, people would have already updated the category.
         if (hpMode.harmFlag && item.attributes.updatedOn < new Date('3/28/2017').getTime()
             && ((newCategories.indexOf('PERSONAL_CARE') > -1 && !PNHNameRegMatch) || newCategories.indexOf('OFFICES') > -1)) {
             bannButt.changeToDoctorClinic = new Flag.ChangeToDoctorClinic();
