@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name        WME Place Harmonizer
 // @namespace   WazeUSA
-// @version     1.3.140
+// @version     1.3.141
 // @description Harmonizes, formats, and locks a selected place
 // @author      WMEPH Development Group
 // @include     /^https:\/\/(www|beta)\.waze\.com\/(?!user\/)(.{2,6}\/)?editor\/?.*$/
@@ -40,6 +40,7 @@
 
     // Script update info
     const _WHATS_NEW_LIST = [  // New in this version
+        '1.3.141: FIXED: WMEPH will not run on places where it finds potential duplicate places.',
         '1.3.138: NEW: Added "ramp" to list of recognized words for parking lots.',
         '1.3.138: FIXED: "Is this a doctor/clinic" flag will only display if Office or Personal Care place was last edited before 3/28/2017',
         '1.3.138: FIXED: Removed feature that would hide suggested category buttons for Shopping / Services (feature is now in PIE).'
@@ -375,6 +376,11 @@
         return venue;
     }
 
+    function getVenueLonLat(venue) {
+        const pt = venue.geometry.getCentroid();
+        return new OL.LonLat(pt.x, pt.y);
+    }
+
     function isAlwaysOpen(venue) {
         const hours = venue.attributes.openingHours;
         return hours.length === 1 && hours[0].days.length === 7 && hours[0].isAllDay();
@@ -602,7 +608,7 @@
     function zoomPlace() {
         let venue = getSelectedVenue();
         if (venue) {
-            W.map.moveTo(venue.geometry.getCentroid().toLonLat(), 7);
+            W.map.moveTo(getVenueLonLat(venue), 7);
         } else {
             W.map.moveTo(WMEPHmousePosition, 5);
         }
@@ -1560,7 +1566,7 @@
                 if (!addr.state || !addr.country) {
                     if (W.map.getZoom() < 4) {
                         if ($('#WMEPH-EnableIAZoom').prop('checked')) {
-                            W.map.moveTo(venue.geometry.getCentroid().toLonLat(), 5);
+                            W.map.moveTo(getVenueLonLat(venue), 5);
                         } else {
                             alert('No address and the state cannot be determined. Please zoom in and rerun the script. You can enable autozoom for this type of case in the options.');
                         }
@@ -6035,17 +6041,26 @@
                                     }
                                 }
 
-                                pt = venueList[venix].geometry.getCentroid();
-                                if (!mapExtent.containsLonLat(pt.toLonLat())) {
+                                const lonLat = getVenueLonLat(venueList[venix])
+                                if (!mapExtent.containsLonLat(lonLat)) {
                                     outOfExtent = true;
                                 }
-                                minLat = Math.min(minLat, pt.y); minLon = Math.min(minLon, pt.x);
-                                maxLat = Math.max(maxLat, pt.y); maxLon = Math.max(maxLon, pt.x);
+                                minLat = Math.min(minLat, lonLat.lat);
+                                minLon = Math.min(minLon, lonLat.lon);
+                                maxLat = Math.max(maxLat, lonLat.lat);
+                                maxLon = Math.max(maxLon, lonLat.lon);
 
-                                textFeature = new OL.Feature.Vector(pt, {
-                                    labelText: labelTextReformat, fontColor: '#fff',
-                                    strokeColor: labelColorList[labelColorIX % labelColorList.length], labelAlign: 'cm', pointRadius: 25, dupeID: testVenueAtt.id
-                                });
+                                textFeature = new OL.Feature.Vector(
+                                    venueList[venix].geometry.getCentroid(),
+                                    {
+                                        labelText: labelTextReformat,
+                                        fontColor: '#fff',
+                                        strokeColor: labelColorList[labelColorIX % labelColorList.length],
+                                        labelAlign: 'cm',
+                                        pointRadius: 25,
+                                        dupeID: testVenueAtt.id
+                                    }
+                                );
                                 labelFeatures.push(textFeature);
                                 //_dupeLayer.addFeatures(labelFeatures);
                                 dupeNames.push(labelText);
@@ -6058,12 +6073,14 @@
         }
         // Add a marker for the working place point if any dupes were found
         if (dupeIDList.length > 1) {
-            pt = item.geometry.getCentroid();
-            if (!mapExtent.containsLonLat(pt.toLonLat())) {
+            const lonLat = getVenueLonLat(item);
+            if (!mapExtent.containsLonLat(lonLat)) {
                 outOfExtent = true;
             }
-            minLat = Math.min(minLat, pt.y); minLon = Math.min(minLon, pt.x);
-            maxLat = Math.max(maxLat, pt.y); maxLon = Math.max(maxLon, pt.x);
+            minLat = Math.min(minLat, lonLat.lat);
+            minLon = Math.min(minLon, lonLat.lon);
+            maxLat = Math.max(maxLat, lonLat.lat);
+            maxLon = Math.max(maxLon, lonLat.lon);
             // Add photo icons
             var currentLabel = 'Current';
             if (item.attributes.images.length > 0) {
@@ -6076,7 +6093,17 @@
                     currentLabel = currentLabel + '\u25A3';  // add photo icons
                 }
             }
-            textFeature = new OL.Feature.Vector(pt, { labelText: currentLabel, fontColor: '#fff', strokeColor: '#fff', labelAlign: 'cm', pointRadius: 25, dupeID: item.attributes.id });
+            textFeature = new OL.Feature.Vector(
+                item.geometry.getCentroid(),
+                {
+                    labelText: currentLabel,
+                    fontColor: '#fff',
+                    strokeColor: '#fff',
+                    labelAlign: 'cm',
+                    pointRadius: 25,
+                    dupeID: item.attributes.id
+                }
+            );
             labelFeatures.push(textFeature);
             _dupeLayer.addFeatures(labelFeatures);
         }
