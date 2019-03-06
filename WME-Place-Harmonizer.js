@@ -4455,6 +4455,8 @@
                 compressedBrands.push('DIAMONDOIL');
             } else if (brand === 'Murphy USA') {
                 compressedBrands.push('MURPHY');
+            } else if (brand === 'Mercury Fuel') {
+                compressedBrands.push('MERCURY', 'MERCURYPRICECUTTER');
             }
             if (compressedBrands.every(compressedBrand => compressedName.indexOf(compressedBrand) === -1 && compressedNewName.indexOf(compressedBrand) === -1)) {
                 bannButt.gasMismatch = new Flag.GasMismatch();
