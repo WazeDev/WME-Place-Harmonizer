@@ -381,6 +381,17 @@
         return new OL.LonLat(pt.x, pt.y);
     }
 
+    function nudgeVenue(venue) {
+        // Use an exact clone of the original geometry to force an edit without actually changing anything.
+        let originalGeometry = venue.geometry.clone();
+        if (venue.isPoint()) {
+            venue.geometry.x += 0.000000001;
+        } else {
+            venue.geometry.components[0].components[0].x += 0.000000001;
+        }
+        W.model.actionManager.add(new UpdateFeatureGeometry(venue, W.model.venues, originalGeometry, venue.geometry));
+    }
+
     function isAlwaysOpen(venue) {
         const hours = venue.attributes.openingHours;
         return hours.length === 1 && hours[0].days.length === 7 && hours[0].isAllDay();
@@ -1937,9 +1948,8 @@
             constructor() { super(true, 2, 'Edited last by an automated process. Please verify information is correct.', 'Nudge', 'If no other properties need to be updated, click to nudge the place (force an edit).'); }
             action() {
                 let venue = getSelectedVenue();
-                // Use an exact clone of the original geometry to force an edit without actually changing anything.
-                W.model.actionManager.add(new UpdateFeatureGeometry(venue, W.model.venues, venue.geometry, venue.geometry.clone()));
-                harmonizePlaceGo(venue, 'harmonize');  // Rerun the script to update fields and lock
+                nudgeVenue(venue);
+                harmonizePlaceGo(venue, 'harmonize');
             }
         },
         ParentCategory: class extends WLFlag {
@@ -2071,14 +2081,7 @@
             }
             action() {
                 let venue = getSelectedVenue();
-                // Use an exact clone of the original geometry to force an edit without actually changing anything.
-                let originalGeometry = venue.geometry.clone();
-                if (venue.isPoint()) {
-                    venue.geometry.x += 0.000000001;
-                } else {
-                    venue.geometry.components[0].components[0].x += 0.000000001;
-                }
-                W.model.actionManager.add(new UpdateFeatureGeometry(venue, W.model.venues, originalGeometry, venue.geometry));
+                nudgeVenue(venue);
                 harmonizePlaceGo(venue, 'harmonize');  // Rerun the script to update fields and lock
             }
             action2() {
