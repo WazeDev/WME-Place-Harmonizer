@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name        WME Place Harmonizer Beta
 // @namespace   WazeUSA
-// @version     1.3.141
+// @version     1.3.142
 // @description Harmonizes, formats, and locks a selected place
 // @author      WMEPH Development Group
 // @include     /^https:\/\/(www|beta)\.waze\.com\/(?!user\/)(.{2,6}\/)?editor\/?.*$/
@@ -379,6 +379,17 @@
     function getVenueLonLat(venue) {
         const pt = venue.geometry.getCentroid();
         return new OL.LonLat(pt.x, pt.y);
+    }
+
+    function nudgeVenue(venue) {
+        // Use an exact clone of the original geometry to force an edit without actually changing anything.
+        let originalGeometry = venue.geometry.clone();
+        if (venue.isPoint()) {
+            venue.geometry.x += 0.000000001;
+        } else {
+            venue.geometry.components[0].components[0].x += 0.000000001;
+        }
+        W.model.actionManager.add(new UpdateFeatureGeometry(venue, W.model.venues, originalGeometry, venue.geometry));
     }
 
     function isAlwaysOpen(venue) {
@@ -1948,7 +1959,7 @@
             action() {
                 let venue = getSelectedVenue();
                 nudgeVenue(venue);
-                harmonizePlaceGo(venue, 'harmonize');  // Rerun the script to update fields and lock
+                harmonizePlaceGo(venue, 'harmonize');
             }
         },
         ParentCategory: class extends WLFlag {
@@ -4463,6 +4474,10 @@
                 compressedBrands.push('DIAMONDOIL');
             } else if (brand === 'Murphy USA') {
                 compressedBrands.push('MURPHY');
+            } else if (brand === 'Mercury Fuel') {
+                compressedBrands.push('MERCURY', 'MERCURYPRICECUTTER');
+            } else if (brand === 'Carrollfuel') {
+                compressedBrands.push('CARROLLMOTORFUEL', 'CARROLLMOTORFUELS');
             }
             if (compressedBrands.every(compressedBrand => compressedName.indexOf(compressedBrand) === -1 && compressedNewName.indexOf(compressedBrand) === -1)) {
                 bannButt.gasMismatch = new Flag.GasMismatch();
