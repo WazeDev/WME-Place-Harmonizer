@@ -627,6 +627,16 @@
         }
     }
 
+    function nudgeVenue(venue) {
+        let originalGeometry = venue.geometry.clone();
+        if (venue.isPoint()) {
+            venue.geometry.x += 0.000000001;
+        } else {
+            venue.geometry.components[0].components[0].x += 0.000000001;
+        }
+        W.model.actionManager.add(new UpdateFeatureGeometry(venue, W.model.venues, originalGeometry, venue.geometry));
+    }
+
     function sortWithIndex(toSort) {
         for (var i = 0; i < toSort.length; i++) {
             toSort[i] = [toSort[i], i];
