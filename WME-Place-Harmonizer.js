@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name        WME Place Harmonizer Beta
 // @namespace   WazeUSA
-// @version     1.3.142
+// @version     1.3.143
 // @description Harmonizes, formats, and locks a selected place
 // @author      WMEPH Development Group
 // @include     /^https:\/\/(www|beta)\.waze\.com\/(?!user\/)(.{2,6}\/)?editor\/?.*$/
@@ -40,6 +40,8 @@
 
     // Script update info
     const _WHATS_NEW_LIST = [  // New in this version
+        '1.3.143: FIXED: HN entry field in WMEPH banner was not working. Replaced with "Edit Address" button.',
+        '1.3.143: FIXED: Adding external provider from WMEPH banner would sometimes go to the Category box.',
         '1.3.141: FIXED: WMEPH will not run on places where it finds potential duplicate places.',
         '1.3.138: NEW: Added "ramp" to list of recognized words for parking lots.',
         '1.3.138: FIXED: "Is this a doctor/clinic" flag will only display if Office or Personal Care place was last edited before 3/28/2017',
@@ -1843,28 +1845,40 @@
                 harmonizePlaceGo(venue, 'harmonize');
             }
         },
-        HnMissing: class extends WLActionFlag {
-            constructor(venue) {
-                super(true, 3, 'No HN: <input type="text" id="WMEPH-HNAdd" autocomplete="off" style="font-size:0.85em;width:100px;padding-left:2px;color:#000;">', 'Add', 'Add HN to place', true, 'Whitelist empty HN', 'HNWL');
-                this.venue = venue;
-                this.noBannerAssemble = true;
-                this.badInput = false;
-            }
-            action() {
-                let newHN = $('#WMEPH-HNAdd').val().replace(/ +/g, '');
-                phlogdev(newHN);
-                var hnTemp = newHN.replace(/[^\d]/g, '');
-                var hnTempDash = newHN.replace(/[^\d-]/g, '');
-                if (hnTemp > 0 && hnTemp < 1000000) {
-                    let action = new UpdateObject(this.venue, { houseNumber: hnTempDash });
-                    action.wmephDescription = 'Changed house # to: ' + hnTempDash;
-                    harmonizePlaceGo(this.venue, 'harmonize', [action]);  // Rerun the script to update fields and lock
-                    _updatedFields.address.updated = true;
-                } else {
-                    $('input#WMEPH-HNAdd').css({ backgroundColor: '#FDD' }).attr('title', 'Must be a number between 0 and 1000000');
-                    this.badInput = true;
-                }
+        // 2019-3-22 There's an issue in WME where it won't update the address displayed in the side panel
+        // when the underlying model is updated.  I'm commenting out the code to allow entering the HN in the 
+        // banner and replacing with an "Edit address" button.  If Waze addresses the issue, we can revert the
+        // change.
+        // HnMissing: class extends WLActionFlag {
+        //     constructor(venue) {
+        //         super(true, 3, 'No HN: <input type="text" id="WMEPH-HNAdd" autocomplete="off" style="font-size:0.85em;width:100px;padding-left:2px;color:#000;">', 'Add', 'Add HN to place', true, 'Whitelist empty HN', 'HNWL');
+        //         this.venue = venue;
+        //         this.noBannerAssemble = true;
+        //         this.badInput = false;
+        //     }
+        //     action() {
+        //         let newHN = $('#WMEPH-HNAdd').val().replace(/ +/g, '');
+        //         phlogdev(newHN);
+        //         var hnTemp = newHN.replace(/[^\d]/g, '');
+        //         var hnTempDash = newHN.replace(/[^\d-]/g, '');
+        //         if (hnTemp > 0 && hnTemp < 1000000) {
+        //             let action = new UpdateObject(this.venue, { houseNumber: hnTempDash });
+        //             action.wmephDescription = 'Changed house # to: ' + hnTempDash;
+        //             harmonizePlaceGo(this.venue, 'harmonize', [action]);  // Rerun the script to update fields and lock
+        //             _updatedFields.address.updated = true;
+        //         } else {
+        //             $('input#WMEPH-HNAdd').css({ backgroundColor: '#FDD' }).attr('title', 'Must be a number between 0 and 1000000');
+        //             this.badInput = true;
+        //         }
 
+        //     }
+        // },
+        HnMissing: class extends WLActionFlag {
+            constructor() { super(true, 3, 'No HN:', 'Edit address', 'Edit address to add HN.'); }
+            action() {
+                $('.nav-tabs a[href="#landmark-edit-general"]').trigger('click');
+                $('.landmark .full-address').click();
+                $('input.house-number').focus();
             }
         },
         HnNonStandard: class extends WLFlag {
@@ -2091,7 +2105,9 @@
                     $('a[href="#landmark-edit-general"]').click();
                     $('.external-providers-view a.add').focus().mousedown();
                     $('div.external-providers-view > div > ul > div > li > div > a').last().mousedown();
-                    $('.select2-input').last().focus().val(venue.attributes.name).trigger('input');
+                    setTimeout(() => {
+                        $('.select2-input').last().focus().val(venue.attributes.name).trigger('input');
+                    }, 100);
                 }, 100);
             }
         },
