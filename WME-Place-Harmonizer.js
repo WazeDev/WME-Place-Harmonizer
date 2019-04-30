@@ -29,7 +29,6 @@
 /* global LZString */
 /* global Promise */
 
-//$.getJSON('https://sheets.googleapis.com/v4/spreadsheets/1U-mW3xkc_mtOxybE7KBTENZmk75Xpj4_4ovhR8lTC-c/values/WMEPH!B5:U?key=AIzaSyBnMq-wT_09gtKtt_KsWI0JXxejH7ytqOE').done(res => console.log(res.values))
 (function () {
     'use strict';
 
