@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name        WME Place Harmonizer Beta
 // @namespace   WazeUSA
-// @version     1.3.143
+// @version     1.3.144
 // @description Harmonizes, formats, and locks a selected place
 // @author      WMEPH Development Group
 // @include     /^https:\/\/(www|beta)\.waze\.com\/(?!user\/)(.{2,6}\/)?editor\/?.*$/
@@ -7230,49 +7230,60 @@
         });
     }
 
+    const SPREADSHEET_ID = '1pBz4l4cNapyGyzfMJKqA4ePEFLkmz2RryAt1UV39B4g';
+    const SPREADSHEET_RANGE = '2019.01.20.001!A2:K';
+    const API_KEY = 'YTJWNVBVRkplbUZUZVVObU1YVXpSRVZ3ZW5OaFRFSk1SbTR4VGxKblRURjJlRTFYY3pOQ2NXZElPQT09';
+
     function downloadPnhData() {
+        const dec = s => atob(atob(s));
+        const getSpreadsheetUrl = (id, range, key) => `https://sheets.googleapis.com/v4/spreadsheets/${id}/values/${range}?${dec(key)}`;
         let processData = (response, fieldName) => response.feed.entry.map(entry => entry[fieldName].$t);
-        Promise.all([
-            callAjaxAsync('https://spreadsheets.google.com/feeds/list/1-f-JTWY5UnBx-rFTa4qhyGMYdHBZWNirUTOgn222zMY/o6q7kx/public/values').then(response => {
-                _PNH_DATA.USA.pnh = processData(response, 'gsx$pnhdata');
-                _PNH_DATA.USA.pnhNames = makeNameCheckList(_PNH_DATA.USA.pnh);
-            }),
-            callAjaxAsync('https://spreadsheets.google.com/feeds/list/1-f-JTWY5UnBx-rFTa4qhyGMYdHBZWNirUTOgn222zMY/ov3dubz/public/values').then(response => {
-                _PNH_DATA.USA.categories = processData(response, 'gsx$pcdata');
-                _PNH_DATA.USA.categoryNames = makeCatCheckList(_PNH_DATA.USA.categories);
-            }),
-            callAjaxAsync('https://spreadsheets.google.com/feeds/list/1-f-JTWY5UnBx-rFTa4qhyGMYdHBZWNirUTOgn222zMY/os2g2ln/public/values').then(response => {
-                _PNH_DATA.states = processData(response, 'gsx$psdata');
-            }),
-            callAjaxAsync('https://spreadsheets.google.com/feeds/list/1TIxQZVLUbAJ8iH6LPTkJsvqFb_DstrHpKsJbv1W1FZs/o4ghhas/public/values').then(response => {
-                _PNH_DATA.CAN.pnh = processData(response, 'gsx$pnhdata');
-                _PNH_DATA.CAN.pnhNames = makeNameCheckList(_PNH_DATA.CAN.pnh);
-            }),
-            callAjaxAsync('https://spreadsheets.google.com/feeds/list/1pDmenZA-3FOTvhlCq9yz1dnemTmS9l_njZQbu_jLVMI/op17piq/public/values').then(response => {
-                let entry = response.feed.entry[0];
-                let processEntryField = entryField => entryField.$t.toLowerCase().replace(/ \|/g, '|').replace(/\| /g, '|').split('|');
-                hospitalPartMatch = processEntryField(entry.gsx$hmchp);
-                hospitalFullMatch = processEntryField(entry.gsx$hmchf);
-                animalPartMatch = processEntryField(entry.gsx$hmcap);
-                animalFullMatch = processEntryField(entry.gsx$hmcaf);
-                schoolPartMatch = processEntryField(entry.gsx$schp);
-                schoolFullMatch = processEntryField(entry.gsx$schf);
-            }),
-            callAjaxAsync('https://spreadsheets.google.com/feeds/list/1L82mM8Xg-MvKqK3WOfsMhFEGmVM46lA8BVcx8qwgmA8/ofblgob/public/values').then(response => {
-                var WMEPHuserList = response.feed.entry[0].gsx$phuserlist.$t.split('|');
-                var betaix = WMEPHuserList.indexOf('BETAUSERS');
-                WMEPHdevList = [];
-                WMEPHbetaList = [];
-                for (var ulix = 1; ulix < betaix; ulix++) WMEPHdevList.push(WMEPHuserList[ulix].toLowerCase().trim());
-                for (ulix = betaix + 1; ulix < WMEPHuserList.length; ulix++) WMEPHbetaList.push(WMEPHuserList[ulix].toLowerCase().trim());
-            })
-        ]).then(() => {
+        //TODO change the _PNH_DATA cache to use an object so we don't have to rely on ugly array index lookups.
+        let processData1 = (data, colIdx) => data.filter(row => row.length >= colIdx + 1).map(row => row[colIdx]);
+
+        $.getJSON(getSpreadsheetUrl(SPREADSHEET_ID, SPREADSHEET_RANGE, API_KEY)).done(res => {
+            const { values } = res;
+            if (values[0][0].toLowerCase() === 'obsolete') {
+                alert('You are using an outdated version of WMEPH that doesn\'t work anymore. Update or disable the script.');
+                return;
+            }
+
+            _PNH_DATA.USA.pnh = processData1(values, 0);
+            _PNH_DATA.USA.pnhNames = makeNameCheckList(_PNH_DATA.USA.pnh);
+
+            _PNH_DATA.states = processData1(values, 1);
+
+            _PNH_DATA.CAN.pnh = processData1(values, 2);
+            _PNH_DATA.CAN.pnhNames = makeNameCheckList(_PNH_DATA.CAN.pnh);
+
+            _PNH_DATA.USA.categories = processData1(values, 3);
+            _PNH_DATA.USA.categoryNames = makeCatCheckList(_PNH_DATA.USA.categories);
+
             // For now, Canada uses some of the same settings as USA.
             _PNH_DATA.CAN.categories = _PNH_DATA.USA.categories;
             _PNH_DATA.CAN.categoryNames = _PNH_DATA.USA.categoryNames;
 
+            var WMEPHuserList = processData1(values, 4)[1].split('|');
+            var betaix = WMEPHuserList.indexOf('BETAUSERS');
+            WMEPHdevList = [];
+            WMEPHbetaList = [];
+            for (var ulix = 1; ulix < betaix; ulix++) WMEPHdevList.push(WMEPHuserList[ulix].toLowerCase().trim());
+            for (ulix = betaix + 1; ulix < WMEPHuserList.length; ulix++) WMEPHbetaList.push(WMEPHuserList[ulix].toLowerCase().trim());
+
+            let processTermsCell = (values, colIdx) => processData1(values, colIdx)[1]
+                .toLowerCase().split('|').map(value => value.trim());
+            hospitalPartMatch = processTermsCell(values, 5);
+            hospitalFullMatch = processTermsCell(values, 6);
+            animalPartMatch = processTermsCell(values, 7);
+            animalFullMatch = processTermsCell(values, 8);
+            schoolPartMatch = processTermsCell(values, 9);
+            schoolFullMatch = processTermsCell(values, 10);
+
             placeHarmonizer_bootstrap();
-        }); // Start the script
+        }).fail(res => {
+            const message = res.responseJSON && res.responseJSON.error ? res.responseJSON.error : 'See response error message above.';
+            console.error('WMEPH failed to load spreadsheet:', message);
+        });
     }
 
     // Start downloading the PNH spreadsheet data in the background.  Starts the script once data is ready.
