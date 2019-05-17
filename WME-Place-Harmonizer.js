@@ -6828,18 +6828,18 @@
         $wlToolsTab.append(phWLContentHtml);
 
         const pnhModerators = {
+            'ATR': ['cotero2002', 'nnote'],
             'GLR': ['JustinS83'],
             'HI': ['Nacron'],
             'MAR': ['jr1982jr', 'nzahn1', 'stephenr1966'],
             'NER': ['jaywazin', 'SNYOWL'],
             'NOR': ['Joyriding', 'PesachZ'],
             'NWR': ['SkyviewGuru'],
-            'PLN': ['bretmcvey', 'ehepner1977'],
+            'PLN': ['bretmcvey', 'dmee92', 'ehepner1977'],
             'SAT': ['crazycaveman', 'whathappened15', 'xanderb'],
             'SCR': ['jm6087'],
             'SER': ['driving79', 'fjsawicki', 'itzwolf'],
-            'SWR': ['tonestrtm'],
-            'ATR': ['cotero2002', 'nnote']
+            'SWR': ['tonestrtm']
         }
 
         $moderatorsTab.append(
