@@ -42,6 +42,7 @@
     const _WHATS_NEW_LIST = [  // New in this version
         '1.3.143: FIXED: HN entry field in WMEPH banner was not working. Replaced with "Edit Address" button.',
         '1.3.143: FIXED: Adding external provider from WMEPH banner would sometimes go to the Category box.',
+        '1.3.142: FIXED: The "Nudge" buttons do not work in some cases.  After saving, the place is not nudged.',
         '1.3.141: FIXED: WMEPH will not run on places where it finds potential duplicate places.',
         '1.3.138: NEW: Added "ramp" to list of recognized words for parking lots.',
         '1.3.138: FIXED: "Is this a doctor/clinic" flag will only display if Office or Personal Care place was last edited before 3/28/2017',
@@ -6777,12 +6778,14 @@
         var $container = $('<div id="wmephtab" class="active" style="padding-top: 5px;">');
         var $navTabs = $('<ul class="nav nav-tabs"><li class="active"><a data-toggle="tab" href="#sidepanel-harmonizer">Harmonize</a></li>' +
             '<li><a data-toggle="tab" href="#sidepanel-highlighter">HL \/ Scan</a></li>' +
-            '<li><a data-toggle="tab" href="#sidepanel-wltools">WL Tools</a></li></ul>');
+            '<li><a data-toggle="tab" href="#sidepanel-wltools">WL Tools</a></li>' +
+            '<li><a data-toggle="tab" href="#sidepanel-pnh-moderators">Moderators</a></li></ul>');
         var $tabContent = $('<div class="tab-content" style="padding:5px;">');
         var $harmonizerTab = $('<div class="tab-pane active" id="sidepanel-harmonizer"></div>');
         var $highlighterTab = $('<div class="tab-pane" id="sidepanel-highlighter"></div>');
         var $wlToolsTab = $('<div class="tab-pane" id="sidepanel-wltools"></div>');
-        $tabContent.append($harmonizerTab, $highlighterTab, $wlToolsTab);
+        var $moderatorsTab = $('<div class="tab-pane" id="sidepanel-pnh-moderators"></div>');
+        $tabContent.append($harmonizerTab, $highlighterTab, $wlToolsTab, $moderatorsTab);
         $container.append($navTabs, $tabContent);
 
         //Harmonizer settings
@@ -6854,6 +6857,31 @@
             '</div>' +
             '<div id="PlaceHarmonizerWLToolsMsg" style="margin-top:10px;"></div>');
         $wlToolsTab.append(phWLContentHtml);
+
+        const pnhModerators = {
+            'ATR': ['cotero2002', 'nnote'],
+            'GLR': ['JustinS83'],
+            'HI': ['Nacron'],
+            'MAR': ['jr1982jr', 'nzahn1', 'stephenr1966'],
+            'NER': ['jaywazin', 'SNYOWL'],
+            'NOR': ['Joyriding', 'PesachZ'],
+            'NWR': ['SkyviewGuru'],
+            'PLN': ['bretmcvey', 'dmee92', 'ehepner1977'],
+            'SAT': ['crazycaveman', 'whathappened15', 'xanderb'],
+            'SCR': ['jm6087'],
+            'SER': ['driving79', 'fjsawicki', 'itzwolf'],
+            'SWR': ['tonestrtm']
+        }
+
+        $moderatorsTab.append(
+            $('<div>', { style: 'margin-bottom: 10px;' }).text('Moderators are responsible for reviewing chain submissions for their region.'
+                + ' If you have questions or suggestions regarding a chain, please contact any of your regional moderators.'),
+            Object.keys(pnhModerators).map(region =>
+                $('<div>', { style: 'margin-bottom: 10px; font-weight: bold;' }).text(region).append(
+                    $('<div>', { style: 'font-weight: normal;' }).text(pnhModerators[region].join(', '))
+                )
+            )
+        );
 
         new WazeWrap.Interface.Tab('WMEPH' + (_IS_DEV_VERSION ? '-β' : ''), $container.html(), initWmephTab, null);
     }
