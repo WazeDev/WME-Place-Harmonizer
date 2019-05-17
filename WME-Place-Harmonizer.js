@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name        WME Place Harmonizer Beta
 // @namespace   WazeUSA
-// @version     1.3.144
+// @version     1.3.145
 // @description Harmonizes, formats, and locks a selected place
 // @author      WMEPH Development Group
 // @include     /^https:\/\/(www|beta)\.waze\.com\/(?!user\/)(.{2,6}\/)?editor\/?.*$/
@@ -40,6 +40,7 @@
 
     // Script update info
     const _WHATS_NEW_LIST = [  // New in this version
+        '1.3.145: NEW: Added a Moderators tab so people can bug moderators more, and me less :D',
         '1.3.143: FIXED: HN entry field in WMEPH banner was not working. Replaced with "Edit Address" button.',
         '1.3.143: FIXED: Adding external provider from WMEPH banner would sometimes go to the Category box.',
         '1.3.142: FIXED: The "Nudge" buttons do not work in some cases.  After saving, the place is not nudged.',
@@ -7238,7 +7239,7 @@
     } // END placeHarmonizer_init function
 
     function placeHarmonizer_bootstrap() {
-        if (W && W.loginManager && W.loginManager.user && W.map && WazeWrap.Interface) {
+        if (W && W.loginManager && W.loginManager.user && W.map && WazeWrap && WazeWrap.Ready && W.model.venues.categoryBrands.PARKING_LOT) {
             placeHarmonizer_init();
         } else {
             phlog('Waiting for WME map and login...');
