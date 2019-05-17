@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name        WME Place Harmonizer Beta
 // @namespace   WazeUSA
-// @version     1.3.145
+// @version     1.3.146
 // @description Harmonizes, formats, and locks a selected place
 // @author      WMEPH Development Group
 // @include     /^https:\/\/(www|beta)\.waze\.com\/(?!user\/)(.{2,6}\/)?editor\/?.*$/
@@ -40,6 +40,7 @@
 
     // Script update info
     const _WHATS_NEW_LIST = [  // New in this version
+        '1.3.146: FIXED: Moderator table mistakes, and updated its layout to be more compact.',
         '1.3.145: NEW: Added a Moderators tab so people can bug moderators more, and me less :D',
         '1.3.143: FIXED: HN entry field in WMEPH banner was not working. Replaced with "Edit Address" button.',
         '1.3.143: FIXED: Adding external provider from WMEPH banner would sometimes go to the Category box.',
@@ -6866,21 +6867,28 @@
             'MAR': ['jr1982jr', 'nzahn1', 'stephenr1966'],
             'NER': ['jaywazin', 'SNYOWL'],
             'NOR': ['Joyriding', 'PesachZ'],
-            'NWR': ['SkyviewGuru'],
+            'NWR': ['dmee92', 'SkyviewGuru'],
             'PLN': ['bretmcvey', 'dmee92', 'ehepner1977'],
             'SAT': ['crazycaveman', 'whathappened15', 'xanderb'],
             'SCR': ['jm6087'],
             'SER': ['driving79', 'fjsawicki', 'itzwolf'],
-            'SWR': ['tonestrtm']
+            'SWR': ['tonestertm']
         }
 
         $moderatorsTab.append(
             $('<div>', { style: 'margin-bottom: 10px;' }).text('Moderators are responsible for reviewing chain submissions for their region.'
                 + ' If you have questions or suggestions regarding a chain, please contact any of your regional moderators.'),
-            Object.keys(pnhModerators).map(region =>
-                $('<div>', { style: 'margin-bottom: 10px; font-weight: bold;' }).text(region).append(
-                    $('<div>', { style: 'font-weight: normal;' }).text(pnhModerators[region].join(', '))
-                )
+            $('<table>').append(
+                Object.keys(pnhModerators).map(region => {
+                    return $('<tr>').append(
+                        $('<td>', { class: 'wmeph-mods-table-cell title' }).append(
+                            $('<div>').text(region)
+                        ),
+                        $('<td>', { class: 'wmeph-mods-table-cell' }).append(
+                            $('<div>').text(pnhModerators[region].join(', '))
+                        )
+                    );
+                })
             )
         );
 
@@ -7069,6 +7077,13 @@
     }
 
     function placeHarmonizer_init() {
+        // Add CSS stuff here
+        const css = [
+            '.wmeph-mods-table-cell { border: solid 1px #bdbdbd; padding-left: 3px; padding-right: 3px; }',
+            '.wmeph-mods-table-cell.title { font-weight: bold; }'
+        ].join('\n');
+        $('head').append(`<style type="text/css">${css}</style>`);
+
         // For debugging purposes.  May be removed when no longer needed.
         unsafeWindow.PNH_DATA = _PNH_DATA;
 
