@@ -809,11 +809,10 @@ function destroyDupeLabels() {
 
 // When a dupe is deleted, delete the dupe label
 function deleteDupeLabel() {
-    //phlog('Clearing dupe label...');
     setTimeout(() => {
         const actionsList = W.model.actionManager.getActions();
         const lastAction = actionsList[actionsList.length - 1];
-        if ('undefined' !== typeof lastAction && lastAction.hasOwnProperty('object') && lastAction.object.hasOwnProperty('state') && lastAction.object.state === 'Delete') {
+        if (typeof lastAction !== 'undefined' && lastAction.hasOwnProperty('object') && lastAction.object.hasOwnProperty('state') && lastAction.object.state === 'Delete') {
             if (_dupeIDList.indexOf(lastAction.object.attributes.id) > -1) {
                 if (_dupeIDList.length === 2) {
                     _dupeLayer.destroyFeatures();
@@ -826,12 +825,6 @@ function deleteDupeLabel() {
                 phlog('Deleted a dupe');
             }
         }
-        /*
-        else if ('undefined' !== typeof lastAction && lastAction.hasOwnProperty('feature') && lastAction.feature.hasOwnProperty('state') && lastAction.object.state === 'Update' &&
-        lastAction.hasOwnProperty('newGeometry') ) {
- // update position of marker
-        }
-        */
     }, 20);
 }
 
