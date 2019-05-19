@@ -28,6 +28,7 @@
 /* global window */
 /* global MutationObserver */
 /* global document */
+/* global localStorage */
 
 // Script update info
 const _WHATS_NEW_LIST = [ // New in this version
@@ -728,7 +729,7 @@ function makeNameCheckList(pnhData) {
 } // END makeNameCheckList
 
 // Whitelist stringifying and parsing
-function saveWL_LS(compress) {
+function saveWhitelistToLS(compress) {
     _venueWhitelistStr = JSON.stringify(_venueWhitelist);
     if (compress) {
         if (_venueWhitelistStr.length < 4800000) { // Also save to regular storage as a back up
@@ -740,7 +741,7 @@ function saveWL_LS(compress) {
         localStorage.setItem(_WL_LOCAL_STORE_NAME, _venueWhitelistStr);
     }
 }
-function loadWL_LS(decompress) {
+function loadWhitelistFromLS(decompress) {
     if (decompress) {
         _venueWhitelistStr = localStorage.getItem(_WL_LOCAL_STORE_NAME_COMPRESSED);
         _venueWhitelistStr = LZString.decompressFromUTF16(_venueWhitelistStr);
@@ -749,7 +750,7 @@ function loadWL_LS(decompress) {
     }
     _venueWhitelist = JSON.parse(_venueWhitelistStr);
 }
-function backupWL_LS(compress) {
+function backupWhitelistToLS(compress) {
     _venueWhitelistStr = JSON.stringify(_venueWhitelist);
     if (compress) {
         _venueWhitelistStr = LZString.compressToUTF16(_venueWhitelistStr);
@@ -858,7 +859,7 @@ function whitelistAction(itemID, wlKeyName) {
     _venueWhitelist[itemID].state = addressTemp.state.name; // Store state for the venue
     _venueWhitelist[itemID].country = addressTemp.country.name; // Store country for the venue
     _venueWhitelist[itemID].gps = itemGPS; // Store GPS coords for the venue
-    saveWL_LS(true); // Save the WL to local storage
+    saveWhitelistToLS(true); // Save the WL to local storage
     WMEPH_WLCounter();
     _buttonBanner2.clearWL.active = true;
 }
@@ -1073,7 +1074,7 @@ function syncWL(newVenues) {
             delete _venueWhitelist[oldID];
         }
     });
-    saveWL_LS(true);
+    saveWhitelistToLS(true);
 }
 
 function toggleXrayMode(enable) {
@@ -3110,7 +3111,7 @@ function harmonizePlaceGo(item, useFlag, actions) {
                 action: function () {
                     if (confirm('Are you sure you want to clear all whitelisted fields for this place?')) { // misclick check
                         delete _venueWhitelist[_itemID];
-                        saveWL_LS(true);
+                        saveWhitelistToLS(true);
                         harmonizePlaceGo(item, 'harmonize'); // rerun the script to check all flags again
                     }
                 }
@@ -5205,7 +5206,7 @@ function harmonizePlaceGo(item, useFlag, actions) {
                     }
                     _venueWhitelist[dID].dupeWL.push(_itemID); // WL the id for the duplicate venue
                     _venueWhitelist[dID].dupeWL = uniq(_venueWhitelist[dID].dupeWL);
-                    saveWL_LS(true); // Save the WL to local storage
+                    saveWhitelistToLS(true); // Save the WL to local storage
                     WMEPH_WLCounter();
                     _buttonBanner2.clearWL.active = true;
                     _dupeBanner[dID].active = false;
@@ -6758,14 +6759,14 @@ function onWLMergeClick() {
     if ($wlInput.val() === 'resetWhitelist') {
         if (confirm('***Do you want to reset all Whitelist data?\nClick OK to erase.')) { // if the category doesn't translate, then pop an alert that will make a forum post to the thread
             _venueWhitelist = { '1.1.1': { Placeholder: {} } }; // Populate with a dummy place
-            saveWL_LS(true);
+            saveWhitelistToLS(true);
         }
     } else { // try to merge uncompressed WL data
         _WLSToMerge = validateWLS($('#WMEPH-WLInput').val());
         if (_WLSToMerge) {
             phlog('Whitelists merged!');
             _venueWhitelist = mergeWL(_venueWhitelist, _WLSToMerge);
-            saveWL_LS(true);
+            saveWhitelistToLS(true);
             $wlToolsMsg.append('<p style="color:green">Whitelist data merged<p>');
             $wlInput.val('');
         } else { // try compressed WL
@@ -6773,7 +6774,7 @@ function onWLMergeClick() {
             if (_WLSToMerge) {
                 phlog('Whitelists merged!');
                 _venueWhitelist = mergeWL(_venueWhitelist, _WLSToMerge);
-                saveWL_LS(true);
+                saveWhitelistToLS(true);
                 $wlToolsMsg.append('<p style="color:green">Whitelist data merged<p>');
                 $wlInput.val('');
             } else {
@@ -6836,11 +6837,11 @@ function onWLStateFilterClick() {
         if (venueToRemove.length > 0) {
             if (localStorage.WMEPH_WLAddCount === '1') {
                 if (confirm('Are you sure you want to clear all whitelist data for ' + stateToRemove + '? This CANNOT be undone. Press OK to delete, cancel to preserve the data.')) {
-                    backupWL_LS(true);
+                    backupWhitelistToLS(true);
                     for (let ixwl = 0; ixwl < venueToRemove.length; ixwl++) {
                         delete _venueWhitelist[venueToRemove[ixwl]];
                     }
-                    saveWL_LS(true);
+                    saveWhitelistToLS(true);
                     msg = '<p style="color:green">' + venueToRemove.length + ' items removed from WL<p>';
                     $wlInput.val('');
                 } else {
@@ -7285,16 +7286,16 @@ function placeHarmonizer_init() {
     if (validateWLS(LZString.decompressFromUTF16(localStorage.getItem(_WL_LOCAL_STORE_NAME_COMPRESSED))) === false) { // If no compressed WL string exists
         if (validateWLS(localStorage.getItem(_WL_LOCAL_STORE_NAME)) === false) { // If no regular WL exists
             _venueWhitelist = { '1.1.1': { Placeholder: {} } }; // Populate with a dummy place
-            saveWL_LS(false);
-            saveWL_LS(true);
+            saveWhitelistToLS(false);
+            saveWhitelistToLS(true);
         } else { // if regular WL string exists, then transfer to compressed version
             localStorage.setItem('WMEPH-OneTimeWLBU', localStorage.getItem(_WL_LOCAL_STORE_NAME));
-            loadWL_LS(false);
-            saveWL_LS(true);
+            loadWhitelistFromLS(false);
+            saveWhitelistToLS(true);
             alert('Whitelists are being converted to a compressed format.  If you have trouble with your WL, please submit an error report.');
         }
     } else {
-        loadWL_LS(true);
+        loadWhitelistFromLS(true);
     }
 
     if (_USER.name === 'ggrane') {
@@ -7345,7 +7346,7 @@ function placeHarmonizer_init() {
         }
     });
     if (removedWLCount > 0) {
-        saveWL_LS(true);
+        saveWhitelistToLS(true);
         phlogdev('Removed ' + removedWLCount + ' venues with temporary ID\'s from WL store');
     }
 
