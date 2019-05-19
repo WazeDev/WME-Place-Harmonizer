@@ -76,6 +76,7 @@
     const _CATEGORY_LOOKUP = {};
     const _DEFAULT_HOURS_TEXT = 'Paste Hours Here';
     const _MAX_CACHE_SIZE = 25000;
+    let _wordVariations;
     let _resultsCache = {};
     let _initAlreadyRun = false; // This is used to skip a couple things if already run once.  This could probably be handled better...
     let _countryCode;
@@ -481,6 +482,30 @@
         });
     } // END makeCatCheckList function
 
+    function addSpellingVariants(nameList, spellingVariantList) {
+        for (let spellingOneIdx = 0; spellingOneIdx < spellingVariantList.length; spellingOneIdx++) {
+            const spellingOne = spellingVariantList[spellingOneIdx];
+            const namesToCheck = nameList.filter(name => name.indexOf(spellingOne) > -1);
+            for (let spellingTwoIdx = 0; spellingTwoIdx < spellingVariantList.length; spellingTwoIdx++) {
+                if (spellingTwoIdx != spellingOneIdx) {
+                    const spellingTwo = spellingVariantList[spellingTwoIdx];
+                    namesToCheck.forEach(name => {
+                        const newName = name.replace(spellingOne, spellingTwo);
+                        if (nameList.indexOf(newName) === -1) nameList.push(newName);
+                    });
+                }
+            }
+        }
+        // nameList.filter(name => name.indexOf(spellingOne) > -1).forEach(name => {
+        //     const newName = name.replace(spellingOne, spellingTwo);
+        //     if (nameList.indexOf(newName) === -1) nameList.push(newName);
+        // });
+        // nameList.filter(name => name.indexOf(spellingTwo) > -1).forEach(name => {
+        //     const newName = name.replace(spellingTwo, spellingOne);
+        //     if (nameList.indexOf(newName) === -1) nameList.push(newName);
+        // });
+    }
+
     // This function runs at script load, and builds the search name dataset to compare the WME selected place name to.
     function makeNameCheckList(pnhData) {
         let headers = pnhData[0].split('|');
@@ -564,6 +589,10 @@
                     appendWords.push('RENTAL', 'RENTACAR', 'CARRENTAL', 'RENTALCAR');
                 }
                 appendWords.forEach(word => newNameList = newNameList.concat(newNameList.map(name => name + word)));
+
+                // Add entries for word/spelling variations
+                _wordVariations.forEach(variationsList => addSpellingVariants(newNameList, variationsList))
+
                 return _.uniq(newNameList).join('|').replace(/\|{2,}/g, '|').replace(/\|+$/g, '');
             } else { // END if valid line
                 return '00';
@@ -7275,7 +7304,7 @@
     }
 
     const SPREADSHEET_ID = '1pBz4l4cNapyGyzfMJKqA4ePEFLkmz2RryAt1UV39B4g';
-    const SPREADSHEET_RANGE = '2019.01.20.001!A2:K';
+    const SPREADSHEET_RANGE = '2019.01.20.001!A2:L';
     const API_KEY = 'YTJWNVBVRkplbUZUZVVObU1YVXpSRVZ3ZW5OaFRFSk1SbTR4VGxKblRURjJlRTFYY3pOQ2NXZElPQT09';
 
     function downloadPnhData() {
@@ -7291,6 +7320,9 @@
                 alert('You are using an outdated version of WMEPH that doesn\'t work anymore. Update or disable the script.');
                 return;
             }
+
+            // This needs to be performed before makeNameCheckList() is called.
+            _wordVariations = processData1(values, 11).slice(1).map(row => row.toUpperCase().replace(/[^A-z0-9,]/g, '').split(','));
 
             _PNH_DATA.USA.pnh = processData1(values, 0);
             _PNH_DATA.USA.pnhNames = makeNameCheckList(_PNH_DATA.USA.pnh);
