@@ -1356,20 +1356,31 @@ function initializeHighlights() {
 */
 function applyHighlightsTest(venues, force) {
     if (!_layer) return;
-    venues = venues ? _.isArray(venues) ? venues : [venues] : [];
-    const storedBannButt = _buttonBanner, storedBannServ = _servicesBanner, storedBannButt2 = _buttonBanner2;
+
+    // Make sure venues is an array, or convert it to one if not.
+    if (venues) {
+        if (!_.isArray(venues)) {
+            venues = [venues];
+        }
+    } else {
+        venues = [];
+    }
+
+    const storedBannButt = _buttonBanner;
+    const storedBannServ = _servicesBanner;
+    const storedBannButt2 = _buttonBanner2;
     const t0 = performance.now();
     const doHighlight = $('#WMEPH-ColorHighlighting').prop('checked');
     const disableRankHL = $('#WMEPH-DisableRankHL').prop('checked');
 
-    _.each(venues, venue => {
+    venues.forEach(venue => {
         if (venue && venue.type === 'venue' && venue.attributes) {
             // Highlighting logic would go here
             // Severity can be: 0, 'lock', 1, 2, 3, 4, or 'high'. Set to
             // anything else to use default WME style.
             if (doHighlight && !(disableRankHL && venue.attributes.lockRank > _USER.rank - 1)) {
                 try {
-                    const id = venue.attributes.id;
+                    const { id } = venue.attributes;
                     let severity;
                     let cachedResult;
                     if (force || !isNaN(id) || ((cachedResult = _resultsCache[id]) === undefined) || (venue.updatedOn > cachedResult.u)) {
@@ -1404,14 +1415,12 @@ function applyHighlightsTest(venues, force) {
         _servicesBanner = storedBannServ;
         _buttonBanner2 = storedBannButt2;
     }
-    phlogdev('Ran highlighter in ' + Math.round((performance.now() - t0) * 10) / 10 + ' milliseconds.');
-    //phlogdev('WMEPH cache size: ' + Object.keys(_resultsCache).length);
-
-    //layer.redraw();
+    phlogdev(`Ran highlighter in ${Math.round((performance.now() - t0) * 10) / 10} milliseconds.`);
+    phlogdev(`WMEPH cache size: ${Object.keys(_resultsCache).length}`);
 }
 
 // Set up CH loop
-function bootstrapWMEPH_CH() {
+function bootstrapWmephColorHighlights() {
     if (localStorage.getItem('WMEPH-ColorHighlighting') === '1') {
         // Add listeners
         W.model.venues.on('objectschanged', e => errorHandler(() => {
@@ -1421,7 +1430,6 @@ function bootstrapWMEPH_CH() {
             }
         }));
 
-        //W.model.venues.on('objectsadded', e => errorHandler(() => applyHighlightsTest(e)));
         W.map.landmarkLayer.events.register('beforefeaturesadded', null, e => errorHandler(() => applyHighlightsTest(e.features.map(f => f.model))));
 
         // Clear the cache (highlight severities may need to be updated).
@@ -6926,10 +6934,10 @@ function initWmephTab() {
     $('#WMEPH-WLShare').click(onWLShareClick);
 
     // Color highlighting
-    $('#WMEPH-ColorHighlighting').click(bootstrapWMEPH_CH);
-    $('#WMEPH-DisableHoursHL').click(bootstrapWMEPH_CH);
-    $('#WMEPH-DisableRankHL').click(bootstrapWMEPH_CH);
-    $('#WMEPH-DisableWLHL').click(bootstrapWMEPH_CH);
+    $('#WMEPH-ColorHighlighting').click(bootstrapWmephColorHighlights);
+    $('#WMEPH-DisableHoursHL').click(bootstrapWmephColorHighlights);
+    $('#WMEPH-DisableRankHL').click(bootstrapWmephColorHighlights);
+    $('#WMEPH-DisableWLHL').click(bootstrapWmephColorHighlights);
     $('#WMEPH-PLATypeFill').click(() => applyHighlightsTest(W.model.venues.getObjectArray()));
 
     _initAlreadyRun = true;
@@ -7412,7 +7420,7 @@ function placeHarmonizer_init() {
     }));
 
     phlog('Starting Highlighter');
-    bootstrapWMEPH_CH();
+    bootstrapWmephColorHighlights();
 } // END placeHarmonizer_init function
 
 function placeHarmonizer_bootstrap() {
