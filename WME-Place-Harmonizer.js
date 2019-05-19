@@ -903,132 +903,148 @@ function harmoList(itemName, state2L, region3L, country, itemCats, item, placePL
     if (country !== 'USA' && country !== 'CAN') {
         alert('No PNH data exists for this country.');
         return ['NoMatch'];
-    } else {
-        const pnhData = _PNH_DATA[country].pnh;
-        const pnhNames = _PNH_DATA[country].pnhNames;
-        const pnhHeaders = pnhData[0].split('|');
-        const ph_name_ix = pnhHeaders.indexOf('ph_name');
-        const ph_category1_ix = pnhHeaders.indexOf('ph_category1');
-        const ph_forcecat_ix = pnhHeaders.indexOf('ph_forcecat');
-        const ph_region_ix = pnhHeaders.indexOf('ph_region');
-        const ph_order_ix = pnhHeaders.indexOf('ph_order');
-        const ph_speccase_ix = pnhHeaders.indexOf('ph_speccase');
-        const ph_searchnameword_ix = pnhHeaders.indexOf('ph_searchnameword');
-        let PNHPriCat; // Primary category of PNH data
-        let PNHForceCat; // Primary category of PNH data
-        let approvedRegions; // filled with the regions that are approved for the place, when match is found
-        const matchPNHRegionData = []; // array of matched data with regional approval
-        let specCases, nmix, allowMultiMatch = false;
-        const PNHOrderNum = [];
-        const PNHNameTemp = [];
-        let PNHNameMatch = false; // tracks match status
+    }
+    const { pnhNames, pnh: pnhData } = _PNH_DATA[country];
+    const pnhHeaders = pnhData[0].split('|');
+    const phNameIdx = pnhHeaders.indexOf('ph_name');
+    const phCategory1Idx = pnhHeaders.indexOf('ph_category1');
+    const phForceCatIdx = pnhHeaders.indexOf('ph_forcecat');
+    const phRegionIdx = pnhHeaders.indexOf('ph_region');
+    const phOrderIdx = pnhHeaders.indexOf('ph_order');
+    const phSpecCaseIdx = pnhHeaders.indexOf('ph_speccase');
+    const phSearchNameWordIdx = pnhHeaders.indexOf('ph_searchnameword');
+    let approvedRegions; // filled with the regions that are approved for the place, when match is found
+    const matchPNHRegionData = []; // array of matched data with regional approval
+    let allowMultiMatch = false;
+    const pnhOrderNum = [];
+    const pnhNameTemp = [];
+    let pnhNameMatch = false; // tracks match status
 
-        itemName = itemName.toUpperCase().replace(/ AND /g, ' ').replace(/^THE /g, '');
-        const itemNameSpace = ' ' + itemName.replace(/[^A-Z0-9 ]/g, ' ').replace(/ {2,}/g, ' ') + ' ';
-        itemName = itemName.replace(/[^A-Z0-9]/g, ''); // Clear all non-letter and non-number characters ( HOLLYIVY PUB #23 -- > HOLLYIVYPUB23 )
+    itemName = itemName.toUpperCase().replace(/ AND /g, ' ').replace(/^THE /g, '');
+    const itemNameSpace = ` ${itemName.replace(/[^A-Z0-9 ]/g, ' ').replace(/ {2,}/g, ' ')} `;
+    itemName = itemName.replace(/[^A-Z0-9]/g, ''); // Clear all non-letter and non-number characters ( HOLLYIVY PUB #23 -- > HOLLYIVYPUB23 )
 
+    // for each place on the PNH list (skipping headers at index 0)
+    for (let pnhIdx = 1, len = pnhNames.length; pnhIdx < len; pnhIdx++) {
+        let PNHStringMatch = false;
+        const pnhEntry = pnhData[pnhIdx];
+        const pnhEntrySplits = pnhEntry.split('|'); // Split the PNH place data into string array
 
-        // for each place on the PNH list (skipping headers at index 0)
-        for (let pnhIdx = 1, len = pnhNames.length; pnhIdx < len; pnhIdx++) {
-            let PNHStringMatch = false;
-            const pnhEntry = pnhData[pnhIdx];
-            const pnhEntrySplits = pnhEntry.split('|'); // Split the PNH place data into string array
-
-            // Name Matching
-            specCases = pnhEntrySplits[ph_speccase_ix];
-            if (specCases.indexOf('regexNameMatch') > -1) {
-                // Check for regex name matching instead of "standard" name matching.
-                const match = specCases.match(/regexNameMatch<>(.+?)<>/i);
-                if (match !== null) {
-                    const reStr = match[1].replace(/\\/, '\\').replace(/<or>/g, '|');
-                    const re = new RegExp(reStr, 'i');
-                    PNHStringMatch = re.test(item.attributes.name);
+        // Name Matching
+        const specCases = pnhEntrySplits[phSpecCaseIdx];
+        if (specCases.indexOf('regexNameMatch') > -1) {
+            // Check for regex name matching instead of "standard" name matching.
+            const match = specCases.match(/regexNameMatch<>(.+?)<>/i);
+            if (match !== null) {
+                const reStr = match[1].replace(/\\/, '\\').replace(/<or>/g, '|');
+                const re = new RegExp(reStr, 'i');
+                PNHStringMatch = re.test(item.attributes.name);
+            }
+        } else if (specCases.indexOf('strMatchAny') > -1 || pnhEntrySplits[phCategory1Idx] === 'Hotel') {
+            // Match any part of WME name with either the PNH name or any spaced names
+            allowMultiMatch = true;
+            const spaceMatchList = [];
+            spaceMatchList.push(pnhEntrySplits[phNameIdx].toUpperCase().replace(/ AND /g, ' ').replace(/^THE /g, '').replace(/[^A-Z0-9 ]/g, ' ').replace(/ {2,}/g, ' '));
+            if (pnhEntrySplits[phSearchNameWordIdx] !== '') {
+                spaceMatchList.push(...pnhEntrySplits[phSearchNameWordIdx].toUpperCase().replace(/, /g, ',').split(','));
+            }
+            for (let nmix = 0; nmix < spaceMatchList.length; nmix++) {
+                if (itemNameSpace.includes(` ${spaceMatchList[nmix]} `)) {
+                    PNHStringMatch = true;
                 }
-            } else {
-                if (specCases.indexOf('strMatchAny') > -1 || pnhEntrySplits[ph_category1_ix] === 'Hotel') { // Match any part of WME name with either the PNH name or any spaced names
-                    allowMultiMatch = true;
-                    const spaceMatchList = [];
-                    spaceMatchList.push(pnhEntrySplits[ph_name_ix].toUpperCase().replace(/ AND /g, ' ').replace(/^THE /g, '').replace(/[^A-Z0-9 ]/g, ' ').replace(/ {2,}/g, ' '));
-                    if (pnhEntrySplits[ph_searchnameword_ix] !== '') {
-                        spaceMatchList.push.apply(spaceMatchList, pnhEntrySplits[ph_searchnameword_ix].toUpperCase().replace(/, /g, ',').split(','));
+            }
+        } else {
+            // Split all possible search names for the current PNH entry
+            const nameComps = pnhNames[pnhIdx].split('|');
+
+            // Clear non-letter characters for alternate match ( HOLLYIVYPUB23 --> HOLLYIVYPUB )
+            const itemNameNoNum = itemName.replace(/[^A-Z]/g, '');
+
+            if (specCases.indexOf('strMatchStart') > -1) {
+                //  Match the beginning part of WME name with any search term
+                for (let nmix = 0; nmix < nameComps.length; nmix++) {
+                    if (itemName.startsWith(nameComps[nmix]) || itemNameNoNum.startsWith(nameComps[nmix])) {
+                        PNHStringMatch = true;
                     }
-                    for (nmix = 0; nmix < spaceMatchList.length; nmix++) {
-                        if (itemNameSpace.includes(' ' + spaceMatchList[nmix] + ' ')) {
-                            PNHStringMatch = true;
-                        }
+                }
+            } else if (specCases.indexOf('strMatchEnd') > -1) {
+                //  Match the end part of WME name with any search term
+                for (let nmix = 0; nmix < nameComps.length; nmix++) {
+                    if (itemName.endsWith(nameComps[nmix]) || itemNameNoNum.endsWith(nameComps[nmix])) {
+                        PNHStringMatch = true;
+                    }
+                }
+            } else if (nameComps.indexOf(itemName) > -1 || nameComps.indexOf(itemNameNoNum) > -1) {
+                // full match of any term only
+                PNHStringMatch = true;
+            }
+        }
+
+        // if a match was found:
+        if (PNHStringMatch) { // Compare WME place name to PNH search name list
+            phlogdev(`Matched PNH Order No.: ${pnhEntrySplits[phOrderIdx]}`);
+
+            const PNHPriCat = catTranslate(pnhEntrySplits[phCategory1Idx]); // Primary category of PNH data
+            let PNHForceCat = pnhEntrySplits[phForceCatIdx]; // Primary category of PNH data
+
+            // Gas stations only harmonized if the WME place category is already gas station (prevents Costco Gas becoming Costco Store)
+            if (itemCats[0] === 'GAS_STATION') {
+                PNHForceCat = '1';
+            }
+
+            let PNHMatchProceed = false;
+            if (PNHForceCat === '1' && itemCats.indexOf(PNHPriCat) === 0) {
+                // Name and primary category match
+                PNHMatchProceed = true;
+            } else if (PNHForceCat === '2' && itemCats.indexOf(PNHPriCat) > -1) {
+                // Name and any category match
+                PNHMatchProceed = true;
+            } else if (PNHForceCat === '0' || PNHForceCat === '') {
+                // Name only match
+                PNHMatchProceed = true;
+            }
+
+            if (PNHMatchProceed) {
+                // remove spaces, upper case the approved regions, and split by commas
+                approvedRegions = pnhEntrySplits[phRegionIdx].replace(/ /g, '').toUpperCase().split(',');
+
+                if (approvedRegions.indexOf(state2L) > -1 || approvedRegions.indexOf(region3L) > -1 // if the WME-selected item matches the state, region
+                    || approvedRegions.indexOf(country) > -1 //  OR if the country code is in the data then it is approved for all regions therein
+                    || $('#WMEPH-RegionOverride').prop('checked')) { // OR if region override is selected (dev setting)
+                    matchPNHRegionData.push(pnhEntry);
+                    _buttonBanner.placeMatched = new Flag.PlaceMatched();
+                    if (!allowMultiMatch) {
+                        // Return the PNH data string array to the main script
+                        return matchPNHRegionData;
                     }
                 } else {
-                    const nameComps = pnhNames[pnhIdx].split('|'); // splits all possible search names for the current PNH entry
-                    const itemNameNoNum = itemName.replace(/[^A-Z]/g, ''); // Clear non-letter characters for alternate match ( HOLLYIVYPUB23 --> HOLLYIVYPUB )
-                    if (specCases.indexOf('strMatchStart') > -1) { //  Match the beginning part of WME name with any search term
-                        for (nmix = 0; nmix < nameComps.length; nmix++) {
-                            if (itemName.startsWith(nameComps[nmix]) || itemNameNoNum.startsWith(nameComps[nmix])) {
-                                PNHStringMatch = true;
-                            }
-                        }
-                    } else if (specCases.indexOf('strMatchEnd') > -1) { //  Match the end part of WME name with any search term
-                        for (nmix = 0; nmix < nameComps.length; nmix++) {
-                            if (itemName.endsWith(nameComps[nmix]) || itemNameNoNum.endsWith(nameComps[nmix])) {
-                                PNHStringMatch = true;
-                            }
-                        }
-                    } else { // full match of any term only
-                        if (nameComps.indexOf(itemName) > -1 || nameComps.indexOf(itemNameNoNum) > -1) {
-                            PNHStringMatch = true;
-                        }
-                    }
+                    // PNH match found (once true, stays true)
+                    pnhNameMatch = true;
+
+                    // Pull the data line from the PNH data table.  (**Set in array for future multimatch features)
+                    // matchPNHData.push(pnhEntry);
+
+                    // temp name for approval return
+                    pnhNameTemp.push(pnhEntrySplits[phNameIdx]);
+
+                    // temp order number for approval return
+                    pnhOrderNum.push(pnhEntrySplits[phOrderIdx]);
                 }
             }
-            // if a match was found:
-            if (PNHStringMatch) { // Compare WME place name to PNH search name list
-                phlogdev('Matched PNH Order No.: ' + pnhEntrySplits[ph_order_ix]);
-
-                PNHPriCat = catTranslate(pnhEntrySplits[ph_category1_ix]);
-                PNHForceCat = pnhEntrySplits[ph_forcecat_ix];
-                if (itemCats[0] === 'GAS_STATION') { // Gas stations only harmonized if the WME place category is already gas station (prevents Costco Gas becoming Costco Store)
-                    PNHForceCat = '1';
-                }
-
-                let PNHMatchProceed = false;
-                if (PNHForceCat === '1' && itemCats.indexOf(PNHPriCat) === 0) { // Name and primary category match
-                    PNHMatchProceed = true;
-                } else if (PNHForceCat === '2' && itemCats.indexOf(PNHPriCat) > -1) { // Name and any category match
-                    PNHMatchProceed = true;
-                } else if (PNHForceCat === '0' || PNHForceCat === '') { // Name only match
-                    PNHMatchProceed = true;
-                }
-
-                if (PNHMatchProceed) {
-                    approvedRegions = pnhEntrySplits[ph_region_ix].replace(/ /g, '').toUpperCase().split(','); // remove spaces, upper case the approved regions, and split by commas
-                    if (approvedRegions.indexOf(state2L) > -1 || approvedRegions.indexOf(region3L) > -1 || // if the WME-selected item matches the state, region
-                        approvedRegions.indexOf(country) > -1 || //  OR if the country code is in the data then it is approved for all regions therein
-                        $('#WMEPH-RegionOverride').prop('checked')) { // OR if region override is selected (dev setting
-                        matchPNHRegionData.push(pnhEntry);
-                        _buttonBanner.placeMatched = new Flag.PlaceMatched();
-                        if (!allowMultiMatch) {
-                            return matchPNHRegionData; // Return the PNH data string array to the main script
-                        }
-                    } else {
-                        PNHNameMatch = true; // PNH match found (once true, stays true)
-                        //matchPNHData.push(pnhEntry); // Pull the data line from the PNH data table.  (**Set in array for future multimatch features)
-                        PNHNameTemp.push(pnhEntrySplits[ph_name_ix]); // temp name for approval return
-                        PNHOrderNum.push(pnhEntrySplits[ph_order_ix]); // temp order number for approval return
-                    }
-                }
-            }
-        } // END loop through PNH places
-
-        // If NO (name & region) match was found:
-        if (_buttonBanner.placeMatched) {
-            return matchPNHRegionData;
-        } else if (PNHNameMatch) { // if a name match was found but not for region, prod the user to get it approved
-            _buttonBanner.ApprovalSubmit = new Flag.ApprovalSubmit(region3L, PNHOrderNum, PNHNameTemp, placePL);
-            return ['ApprovalNeeded', PNHNameTemp, PNHOrderNum];
-        } else { // if no match was found, suggest adding the place to the sheet if it's a chain
-            _buttonBanner.NewPlaceSubmit = new Flag.NewPlaceSubmit();
-            return ['NoMatch'];
         }
+    } // END loop through PNH places
+
+    // If NO (name & region) match was found:
+    if (_buttonBanner.placeMatched) {
+        return matchPNHRegionData;
     }
+    if (pnhNameMatch) { // if a name match was found but not for region, prod the user to get it approved
+        _buttonBanner.ApprovalSubmit = new Flag.ApprovalSubmit(region3L, pnhOrderNum, pnhNameTemp, placePL);
+        return ['ApprovalNeeded', pnhNameTemp, pnhOrderNum];
+    }
+    // if no match was found, suggest adding the place to the sheet if it's a chain
+    _buttonBanner.NewPlaceSubmit = new Flag.NewPlaceSubmit();
+    return ['NoMatch'];
 } // END harmoList function
 
 function onObjectsChanged() {
