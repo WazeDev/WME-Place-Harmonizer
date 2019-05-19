@@ -1086,14 +1086,14 @@ function toggleXrayMode(enable) {
     const gisLayer = W.map.getLayerByUniqueName('__wmeGISLayers');
     const commentRuleSymb = commentsLayer.styleMap.styles.default.rules[0].symbolizer;
     if (enable) {
-        _layer.styleMap.styles['default'].rules = _layer.styleMap.styles['default'].rules.filter(rule => rule.wmephDefault !== 'default');
+        _layer.styleMap.styles.default.rules = _layer.styleMap.styles.default.rules.filter(rule => rule.wmephDefault !== 'default');
         W.map.roadLayers[0].opacity = 0.25;
         W.map.baseLayer.opacity = 0.25;
         commentRuleSymb.Polygon.strokeColor = '#888';
         commentRuleSymb.Polygon.fillOpacity = 0.2;
         if (gisLayer) gisLayer.setOpacity(0.4);
     } else {
-        _layer.styleMap.styles['default'].rules = _layer.styleMap.styles['default'].rules.filter(rule => rule.wmephStyle !== 'xray');
+        _layer.styleMap.styles.default.rules = _layer.styleMap.styles.default.rules.filter(rule => rule.wmephStyle !== 'xray');
         W.map.roadLayers[0].opacity = 1;
         W.map.baseLayer.opacity = 1;
         commentRuleSymb.Polygon.strokeColor = '#fff';
@@ -1112,12 +1112,12 @@ function toggleXrayMode(enable) {
         return new W.Rule({
             filter: new OL.Filter.Comparison({
                 type: '==',
-                value: value,
-                evaluate: function (venue) {
+                value,
+                evaluate(venue) {
                     return venue && venue.model && venue.model.attributes.wmephSeverity === this.value;
                 }
             }),
-            symbolizer: symbolizer,
+            symbolizer,
             wmephStyle: 'xray'
         });
     };
@@ -1222,7 +1222,8 @@ function toggleXrayMode(enable) {
         strokeDashstyle: '4 2'
     });
 
-    Array.prototype.push.apply(_layer.styleMap.styles['default'].rules, [severity0, severityLock, severity1, severityLock1, severity2, severity3, severity4, severityHigh, severityAdLock]);
+    _layer.styleMap.styles.default.rules.push(...[severity0, severityLock, severity1,
+        severityLock1, severity2, severity3, severity4, severityHigh, severityAdLock]);
 
     _layer.redraw();
 }
