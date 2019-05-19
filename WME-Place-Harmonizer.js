@@ -760,12 +760,6 @@ function backupWhitelistToLS(compress) {
     }
 }
 
-// Removes duplicate strings from string array
-function uniq(a) {
-    const seen = {};
-    return a.filter(item => seen.hasOwnProperty(item) ? false : (seen[item] = true));
-} // END uniq function
-
 function phlog(m) {
     if ('object' === typeof m) {
         //m = JSON.stringify(m);
@@ -5196,7 +5190,7 @@ function harmonizePlaceGo(item, useFlag, actions) {
                         _venueWhitelist[_itemID][_wlKeyName] = [];
                     }
                     _venueWhitelist[_itemID].dupeWL.push(dID); // WL the id for the duplicate venue
-                    _venueWhitelist[_itemID].dupeWL = uniq(_venueWhitelist[_itemID].dupeWL);
+                    _venueWhitelist[_itemID].dupeWL = _.uniq(_venueWhitelist[_itemID].dupeWL);
                     // Make an entry for the opposite item
                     if (!_venueWhitelist.hasOwnProperty(dID)) { // If venue is NOT on WL, then add it.
                         _venueWhitelist[dID] = { dupeWL: [] };
@@ -5205,7 +5199,7 @@ function harmonizePlaceGo(item, useFlag, actions) {
                         _venueWhitelist[dID][_wlKeyName] = [];
                     }
                     _venueWhitelist[dID].dupeWL.push(_itemID); // WL the id for the duplicate venue
-                    _venueWhitelist[dID].dupeWL = uniq(_venueWhitelist[dID].dupeWL);
+                    _venueWhitelist[dID].dupeWL = _.uniq(_venueWhitelist[dID].dupeWL);
                     saveWhitelistToLS(true); // Save the WL to local storage
                     WMEPH_WLCounter();
                     _buttonBanner2.clearWL.active = true;
@@ -6081,7 +6075,7 @@ function findNearbyDuplicate(itemName, itemAliases, item, recenterOption) {
             }
         }
     }
-    currNameList = uniq(currNameList); //  remove duplicates
+    currNameList = _.uniq(currNameList); //  remove duplicates
 
     // Remove any previous search labels and move the layer above the places layer
     _dupeLayer.destroyFeatures();
@@ -6637,7 +6631,7 @@ function insertAtIX(array1, array2, ix) { // array1 is original string, array2 i
         arrayNew.push.apply(arrayNew, array2); // add the insert
         arrayNew.push.apply(arrayNew, arrayTemp); // add the tail end of original
     }
-    return uniq(arrayNew); // remove any duplicates (so the function can be used to move the position of a string)
+    return _.uniq(arrayNew); // remove any duplicates (so the function can be used to move the position of a string)
 }
 
 // Function to remove unnecessary aliases
