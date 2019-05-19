@@ -760,15 +760,12 @@ function backupWhitelistToLS(compress) {
     }
 }
 
-function phlog(m) {
-    if ('object' === typeof m) {
-        //m = JSON.stringify(m);
-    }
-    console.log('WMEPH' + (_IS_DEV_VERSION ? '-β' : '') + ': ' + m);
+function phlog(msg) {
+    console.log(`WMEPH${_IS_DEV_VERSION ? '-β' : ''}:`, msg);
 }
-function phlogdev(msg, obj) {
+function phlogdev(msg) {
     if (_USER.isDevUser) {
-        console.log('WMEPH' + (_IS_DEV_VERSION ? '-β' : '') + ': ' + msg, (obj ? obj : ''));
+        console.log(`WMEPH${_IS_DEV_VERSION ? '-β' : ''} (dev):`, msg);
     }
 }
 
@@ -795,10 +792,11 @@ function sortWithIndex(toSort) {
     for (let i = 0; i < toSort.length; i++) {
         toSort[i] = [toSort[i], i];
     }
-    toSort.sort((left, right) => left[0] < right[0] ? -1 : 1);
+    toSort.sort((left, right) => (left[0] < right[0] ? -1 : 1));
     toSort.sortIndices = [];
     for (let j = 0; j < toSort.length; j++) {
         toSort.sortIndices.push(toSort[j][1]);
+        // eslint-disable-next-line prefer-destructuring
         toSort[j] = toSort[j][0];
     }
     return toSort;
