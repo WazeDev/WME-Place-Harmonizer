@@ -1233,100 +1233,101 @@ function initializeHighlights() {
         return new W.Rule({
             filter: new OL.Filter.Comparison({
                 type: '==',
-                value: value,
-                evaluate: function (venue) {
+                value,
+                evaluate(venue) {
                     return venue && venue.model && venue.model.attributes.wmephSeverity === this.value;
                 }
             }),
-            symbolizer: symbolizer,
+            symbolizer,
             wmephStyle: 'default'
         });
     };
 
     const severity0 = ruleGenerator(0, {
-        'pointRadius': '5',
-        'strokeWidth': '4',
-        'strokeColor': '#24ff14'
+        pointRadius: 5,
+        strokeWidth: 4,
+        strokeColor: '#24ff14'
     });
 
     const severityLock = ruleGenerator('lock', {
-        'pointRadius': '5',
-        'strokeColor': '#24ff14',
-        'strokeLinecap': '1',
-        'strokeDashstyle': '7 2',
-        'strokeWidth': '5'
+        pointRadius: 5,
+        strokeColor: '#24ff14',
+        strokeLinecap: 1,
+        strokeDashstyle: '7 2',
+        strokeWidth: 5
     });
 
     const severity1 = ruleGenerator(1, {
-        'strokeColor': '#0055ff',
-        'strokeWidth': '4',
-        'pointRadius': '7'
+        strokeColor: '#0055ff',
+        strokeWidth: 4,
+        pointRadius: 7
     });
 
     const severityLock1 = ruleGenerator('lock1', {
-        'pointRadius': '5',
-        'strokeColor': '#0055ff',
-        'strokeLinecap': '1',
-        'strokeDashstyle': '7 2',
-        'strokeWidth': '5'
+        pointRadius: 5,
+        strokeColor: '#0055ff',
+        strokeLinecap: 1,
+        strokeDashstyle: '7 2',
+        strokeWidth: 5
     });
 
     const severity2 = ruleGenerator(2, {
-        'strokeColor': '#ff0',
-        'strokeWidth': '6',
-        'pointRadius': '8'
+        strokeColor: '#ff0',
+        strokeWidth: 6,
+        pointRadius: 8
     });
 
     const severity3 = ruleGenerator(3, {
-        'strokeColor': '#ff0000',
-        'strokeWidth': '4',
-        'pointRadius': '8'
+        strokeColor: '#ff0000',
+        strokeWidth: 4,
+        pointRadius: 8
     });
 
     const severity4 = ruleGenerator(4, {
-        'fillColor': 'black',
-        'fillOpacity': '0.35',
-        'strokeColor': '#f42',
-        'strokeLinecap': '1',
-        'strokeWidth': '13',
-        'strokeDashstyle': '4 2'
+        fillColor: 'black',
+        fillOpacity: 0.35,
+        strokeColor: '#f42',
+        strokeLinecap: 1,
+        strokeWidth: 13,
+        strokeDashstyle: '4 2'
     });
 
     const severityHigh = ruleGenerator(5, {
-        'pointRadius': '12',
-        'fillColor': 'black',
-        'fillOpacity': '0.4',
-        'strokeColor': '#f4a',
-        'strokeLinecap': '1',
-        'strokeWidth': '10',
-        'strokeDashstyle': '4 2'
+        pointRadius: 12,
+        fillColor: 'black',
+        fillOpacity: 0.4,
+        strokeColor: '#f4a',
+        strokeLinecap: 1,
+        strokeWidth: 10,
+        strokeDashstyle: '4 2'
     });
 
     const severityAdLock = ruleGenerator('adLock', {
-        'pointRadius': '12',
-        'fillColor': 'yellow',
-        'fillOpacity': '0.4',
-        'strokeColor': '#000',
-        'strokeLinecap': '1',
-        'strokeWidth': '10',
-        'strokeDashstyle': '4 2'
+        pointRadius: 1,
+        fillColor: 'yellow',
+        fillOpacity: 0.4,
+        strokeColor: '#000',
+        strokeLinecap: 1,
+        strokeWidth: 10,
+        strokeDashstyle: '4 2'
     });
 
     function plaTypeRuleGenerator(value, symbolizer) {
         return new W.Rule({
             filter: new OL.Filter.Comparison({
                 type: '==',
-                value: value,
-                evaluate: function (venue) {
-                    if ($('#WMEPH-PLATypeFill').prop('checked') && venue && venue.model && venue.model.attributes.categories &&
-                        venue.model.attributes.categoryAttributes && venue.model.attributes.categoryAttributes.PARKING_LOT &&
-                        venue.model.attributes.categories.indexOf('PARKING_LOT') > -1) {
+                value,
+                evaluate(venue) {
+                    if ($('#WMEPH-PLATypeFill').prop('checked') && venue && venue.model && venue.model.attributes.categories
+                        && venue.model.attributes.categoryAttributes && venue.model.attributes.categoryAttributes.PARKING_LOT
+                        && venue.model.attributes.categories.indexOf('PARKING_LOT') > -1) {
                         const type = venue.model.attributes.categoryAttributes.PARKING_LOT.parkingType;
                         return (!type && this.value === 'public') || (type && (type.toLowerCase() === this.value));
                     }
+                    return undefined;
                 }
             }),
-            symbolizer: symbolizer,
+            symbolizer,
             wmephStyle: 'default'
         });
     }
@@ -1344,7 +1345,8 @@ function initializeHighlights() {
         fillOpacity: '0.25'
     });
 
-    Array.prototype.push.apply(_layer.styleMap.styles['default'].rules, [severity0, severityLock, severity1, severityLock1, severity2, severity3, severity4, severityHigh, severityAdLock, publicPLA, restrictedPLA, privatePLA]);
+    _layer.styleMap.styles.default.rules.push(...[severity0, severityLock, severity1, severityLock1, severity2,
+        severity3, severity4, severityHigh, severityAdLock, publicPLA, restrictedPLA, privatePLA]);
 }
 
 /**
