@@ -29,6 +29,7 @@
 /* global MutationObserver */
 /* global document */
 /* global localStorage */
+/* global alert */
 
 // Script update info
 const _WHATS_NEW_LIST = [ // New in this version
@@ -845,13 +846,13 @@ function whitelistAction(itemID, wlKeyName) {
     _venueWhitelist[itemID].country = addressTemp.country.name; // Store country for the venue
     _venueWhitelist[itemID].gps = itemGPS; // Store GPS coords for the venue
     saveWhitelistToLS(true); // Save the WL to local storage
-    WMEPH_WLCounter();
+    wmephWhitelistCounter();
     _buttonBanner2.clearWL.active = true;
 }
 
 // Keep track of how many whitelists have been added since the last pull, alert if over a threshold (100?)
-function WMEPH_WLCounter() {
-    localStorage.WMEPH_WLAddCount = parseInt(localStorage.WMEPH_WLAddCount) + 1;
+function wmephWhitelistCounter() {
+    localStorage.WMEPH_WLAddCount = parseInt(localStorage.WMEPH_WLAddCount, 10) + 1;
     if (localStorage.WMEPH_WLAddCount > 50) {
         alert('Don\'t forget to periodically back up your Whitelist data using the Pull option in the WMEPH settings tab.');
         localStorage.WMEPH_WLAddCount = 2;
@@ -5192,7 +5193,7 @@ function harmonizePlaceGo(item, useFlag, actions) {
                     _venueWhitelist[dID].dupeWL.push(_itemID); // WL the id for the duplicate venue
                     _venueWhitelist[dID].dupeWL = _.uniq(_venueWhitelist[dID].dupeWL);
                     saveWhitelistToLS(true); // Save the WL to local storage
-                    WMEPH_WLCounter();
+                    wmephWhitelistCounter();
                     _buttonBanner2.clearWL.active = true;
                     _dupeBanner[dID].active = false;
                     harmonizePlaceGo(item, 'harmonize');
