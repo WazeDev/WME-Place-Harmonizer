@@ -162,7 +162,6 @@ const _PM_USER_LIST = { // user names and IDs for PM functions
 let _severityButt = 0; // error tracking to determine banner color (action buttons)
 let _duplicateName = '';
 let _catTransWaze2Lang; // pulls the category translations
-let _itemID;
 let _newName;
 let _optionalAlias;
 let _newURL;
@@ -3471,7 +3470,7 @@ function getServicesBanner() {
             }
         }
     };
-} // END servicesBanner definitions
+} // END getServicesBanner()
 
 function getButtonBanner2(item, addr, placePL) {
     return {
@@ -3503,7 +3502,7 @@ function getButtonBanner2(item, addr, placePL) {
             title: 'Clear all Whitelisted fields for this place',
             action() {
                 if (confirm('Are you sure you want to clear all whitelisted fields for this place?')) {
-                    delete _venueWhitelist[_itemID];
+                    delete _venueWhitelist[item.attributes.id];
                     saveWhitelistToLS(true);
                     harmonizePlaceGo(item, 'harmonize');
                 }
@@ -3533,6 +3532,7 @@ function harmonizePlaceGo(item, useFlag, actions) {
     let PNHNameTemp = '';
     let PNHNameTempWeb = '';
     let placePL;
+    const itemID = item.attributes.id;
 
     // Used for collecting all actions to be applied to the model.
     actions = actions || [];
@@ -3647,7 +3647,7 @@ function harmonizePlaceGo(item, useFlag, actions) {
     }
     _newPhone = item.attributes.phone;
 
-    let PNHNameRegMatch;
+    let pnhNameRegMatch;
 
     // Some user submitted places have no data in the country, state and address fields.
     let inferredAddress;
@@ -3666,17 +3666,22 @@ function harmonizePlaceGo(item, useFlag, actions) {
     let result;
     // Check parking lot attributes.
     if (hpMode.harmFlag && item.isParkingLot()) _servicesBanner.addDisabilityParking.active = true;
+
     result = Flag.PlaCostTypeMissing.eval(item, hpMode);
     _buttonBanner.plaCostTypeMissing = result.flag;
     if (result.noLock) lockOK = false;
+
     result = Flag.PlaLotElevationMissing.eval(item);
     _buttonBanner.plaLotElevationMissing = result.flag;
     if (result.noLock) lockOK = false;
+
     result = Flag.PlaSpaces.eval(item, hpMode);
     _buttonBanner.plaSpaces = result.flag;
+
     result = Flag.PlaLotTypeMissing.eval(item, hpMode);
     _buttonBanner.plaLotTypeMissing = result.flag;
     if (result.noLock) lockOK = false;
+
     _buttonBanner.noPlaStopPoint = Flag.NoPlaStopPoint.eval(item).flag;
     _buttonBanner.plaStopPointUnmoved = Flag.PlaStopPointUnmoved.eval(item).flag;
     _buttonBanner.plaCanExitWhileClosed = Flag.PlaCanExitWhileClosed.eval(item, hpMode).flag;
@@ -3687,35 +3692,38 @@ function harmonizePlaceGo(item, useFlag, actions) {
     _buttonBanner.changeToHospitalUrgentCare = Flag.ChangeToHospitalUrgentCare.eval(item, hpMode).flag;
 
     // Whitelist breakout if place exists on the Whitelist and the option is enabled
-    _itemID = item.attributes.id;
+
     let itemGPS;
-    if (_venueWhitelist.hasOwnProperty(_itemID) && (hpMode.harmFlag || (hpMode.hlFlag && !$('#WMEPH-DisableWLHL').prop('checked')))) {
+    if (_venueWhitelist.hasOwnProperty(itemID) && (hpMode.harmFlag || (hpMode.hlFlag && !$('#WMEPH-DisableWLHL').prop('checked')))) {
         // Enable the clear WL button if any property is true
-        for (const WLKey in _venueWhitelist[_itemID]) { // loop thru the venue WL keys
-            if (_venueWhitelist[_itemID].hasOwnProperty(WLKey) && (_venueWhitelist[_itemID][WLKey].active || false)) {
+        Object.keys(_venueWhitelist[itemID]).forEach(wlKey => { // loop thru the venue WL keys
+            if (_venueWhitelist[itemID].hasOwnProperty(wlKey) && (_venueWhitelist[itemID][wlKey].active || false)) {
                 if (hpMode.harmFlag) _buttonBanner2.clearWL.active = true;
-                _wl[WLKey] = _venueWhitelist[_itemID][WLKey];
+                _wl[wlKey] = _venueWhitelist[itemID][wlKey];
             }
-        }
-        if (_venueWhitelist[_itemID].hasOwnProperty('dupeWL') && _venueWhitelist[_itemID].dupeWL.length > 0) {
+        });
+        if (_venueWhitelist[itemID].hasOwnProperty('dupeWL') && _venueWhitelist[itemID].dupeWL.length > 0) {
             if (hpMode.harmFlag) _buttonBanner2.clearWL.active = true;
-            _wl.dupeWL = _venueWhitelist[_itemID].dupeWL;
+            _wl.dupeWL = _venueWhitelist[itemID].dupeWL;
         }
         // Update address and GPS info for the place
         if (hpMode.harmFlag) {
             // get GPS lat/long coords from place, call as itemGPS.lat, itemGPS.lon
-            if (!itemGPS) itemGPS = OL.Layer.SphericalMercator.inverseMercator(item.attributes.geometry.getCentroid().x, item.attributes.geometry.getCentroid().y);
-            _venueWhitelist[_itemID].city = addr.city.attributes.name; // Store city for the venue
-            _venueWhitelist[_itemID].state = addr.state.name; // Store state for the venue
-            _venueWhitelist[_itemID].country = addr.country.name; // Store country for the venue
-            _venueWhitelist[_itemID].gps = itemGPS; // Store GPS coords for the venue
+            if (!itemGPS) {
+                const centroid = item.attributes.geometry.getCentroid();
+                itemGPS = OL.Layer.SphericalMercator.inverseMercator(centroid.x, centroid.y);
+            }
+            _venueWhitelist[itemID].city = addr.city.attributes.name; // Store city for the venue
+            _venueWhitelist[itemID].state = addr.state.name; // Store state for the venue
+            _venueWhitelist[itemID].country = addr.country.name; // Store country for the venue
+            _venueWhitelist[itemID].gps = itemGPS; // Store GPS coords for the venue
         }
     }
 
     // Country restrictions
     if (hpMode.harmFlag && (addr.county === null || addr.state === null)) {
         alert('Country and/or state could not be determined.  Edit the place address and run WMEPH again.');
-        return;
+        return undefined;
     }
     const countryName = addr.country.name;
     const stateName = addr.state.name;
@@ -3752,14 +3760,12 @@ function harmonizePlaceGo(item, useFlag, actions) {
             gFormState = _stateDataTemp[_psGoogleFormStateIx];
             if (_stateDataTemp[_psDefaultLockLevelIx].match(/[1-5]{1}/) !== null) {
                 _defaultLockLevel = _stateDataTemp[_psDefaultLockLevelIx] - 1; // normalize by -1
-            } else {
-                if (hpMode.harmFlag) {
-                    alert('Lock level sheet data is not correct');
-                } else if (hpMode.hlFlag) {
-                    return 3;
-                }
+            } else if (hpMode.harmFlag) {
+                alert('Lock level sheet data is not correct');
+            } else if (hpMode.hlFlag) {
+                return 3;
             }
-            _areaCodeList = _areaCodeList + ',' + _stateDataTemp[_psAreaCodeIx];
+            _areaCodeList = `${_areaCodeList},${_stateDataTemp[_psAreaCodeIx]}`;
             break;
         }
         // If State is not found, then use the country
@@ -3769,29 +3775,26 @@ function harmonizePlaceGo(item, useFlag, actions) {
             gFormState = _stateDataTemp[_psGoogleFormStateIx];
             if (_stateDataTemp[_psDefaultLockLevelIx].match(/[1-5]{1}/) !== null) {
                 _defaultLockLevel = _stateDataTemp[_psDefaultLockLevelIx] - 1; // normalize by -1
-            } else {
-                if (hpMode.harmFlag) {
-                    alert('Lock level sheet data is not correct');
-                } else if (hpMode.hlFlag) {
-                    return 3;
-                }
+            } else if (hpMode.harmFlag) {
+                alert('Lock level sheet data is not correct');
+            } else if (hpMode.hlFlag) {
+                return 3;
             }
-            _areaCodeList = _areaCodeList + ',' + _stateDataTemp[_psAreaCodeIx];
+            _areaCodeList = `${_areaCodeList},${_stateDataTemp[_psAreaCodeIx]}`;
             break;
         }
-
     }
     if (state2L === 'Unknown' || region === 'Unknown') { // if nothing found:
         if (hpMode.harmFlag) {
             if (confirm('WMEPH: Localization Error!\nClick OK to report this error')) { // if the category doesn't translate, then pop an alert that will make a forum post to the thread
                 const data = {
                     subject: 'WMEPH Localization Error report',
-                    message: 'Error report: Localization match failed for "' + stateName + '".'
+                    message: `Error report: Localization match failed for "${stateName}".`
                 };
                 if (_PNH_DATA.states.length === 0) {
                     data.message += ' _PNH_DATA.states array is empty.';
                 } else {
-                    data.message += ' state2L = ' + _stateDataTemp[_psState2LetterIx] + '. region = ' + _stateDataTemp[_psRegionIx];
+                    data.message += ` state2L = ${_stateDataTemp[_psState2LetterIx]}. region = ${_stateDataTemp[_psRegionIx]}`;
                 }
                 reportError(data);
             }
@@ -3821,13 +3824,17 @@ function harmonizePlaceGo(item, useFlag, actions) {
 
     // Note for Indiana editors to check liquor store hours if Sunday hours haven't been added yet.
     const tempAddr = item.getAddress();
-    if (hpMode.harmFlag && tempAddr && tempAddr.getStateName() === 'Indiana' && !item.isResidential() &&
-        [/\bbeers?\b/, /\bwines?\b/, /\bliquor\b/, /\bspirits\b/].some(re => re.test(_newName)) && !item.attributes.openingHours.some(entry => entry.days.indexOf(0) > -1)) {
+    if (hpMode.harmFlag && tempAddr && tempAddr.getStateName() === 'Indiana' && !item.isResidential()
+        && [/\bbeers?\b/, /\bwines?\b/, /\bliquor\b/, /\bspirits\b/].some(re => re.test(_newName))
+        && !item.attributes.openingHours.some(entry => entry.days.indexOf(0) > -1)) {
         if (!_wl.indianaLiquorStoreHours) _buttonBanner.indianaLiquorStoreHours = new Flag.IndianaLiquorStoreHours();
     }
 
     const isLocked = item.attributes.lockRank >= (_pnhLockLevel > -1 ? _pnhLockLevel : _defaultLockLevel);
 
+    // Set up a variable (newBrand) to contain the brand. When harmonizing, it may be forced to a new value.
+    // Other brand flags should use it since it won't be updated on the actual venue until later.
+    let { brand: newBrand } = item.attributes;
     // Clear attributes from residential places
     if (item.attributes.residential) {
         if (hpMode.harmFlag) {
@@ -3873,7 +3880,14 @@ function harmonizePlaceGo(item, useFlag, actions) {
             if (!_newCategories.some(c => ['BRIDGE', 'TUNNEL', 'JUNCTION_INTERCHANGE', 'NATURAL_FEATURES', 'ISLAND', 'SEA_LAKE_POOL', 'RIVER_STREAM', 'CANAL', 'SWAMP_MARSH'].indexOf(c) > -1)) {
                 const provIDs = item.attributes.externalProviderIDs;
                 if (!provIDs || provIDs.length === 0) {
-                    const lastUpdated = item.isNew() ? Date.now() : item.attributes.updatedOn ? item.attributes.updatedOn : item.attributes.createdOn;
+                    let lastUpdated;
+                    if (item.isNew()) {
+                        lastUpdated = Date.now();
+                    } else if (item.attributes.updatedOn) {
+                        lastUpdated = item.attributes.updatedOn;
+                    } else {
+                        lastUpdated = item.attributes.createdOn;
+                    }
                     const weeksSinceLastUpdate = (Date.now() - lastUpdated) / 604800000;
                     _buttonBanner.extProviderMissing = new Flag.ExtProviderMissing();
                     if (isLocked && weeksSinceLastUpdate >= 26 && !item.isUpdated() && (!actions || actions.length === 0)) {
@@ -3883,164 +3897,179 @@ function harmonizePlaceGo(item, useFlag, actions) {
                         _buttonBanner.extProviderMissing.severity = 0; // This will be changed to 3 later if the user does not choose to lock the place.
                         _buttonBanner.extProviderMissing.message += ': ';
                         delete _buttonBanner.extProviderMissing.value;
-                        //delete bannButt.extProviderMissing.action;
                     } else {
                         _buttonBanner.extProviderMissing.severity = 0;
                         _buttonBanner.extProviderMissing.message += ': ';
                         delete _buttonBanner.extProviderMissing.value;
-                        //delete bannButt.extProviderMissing.action;
                     }
                 }
             }
         }
 
         // Place Harmonization
-        var PNHMatchData;
+        let pnhMatchData;
         if (hpMode.harmFlag) {
             if (item.isParkingLot()) {
-                PNHMatchData = ['NoMatch'];
+                pnhMatchData = ['NoMatch'];
             } else {
-                PNHMatchData = harmoList(_newName, state2L, region, _countryCode, _newCategories, item, placePL); // check against the PNH list
+                // check against the PNH list
+                pnhMatchData = harmoList(_newName, state2L, region, _countryCode, _newCategories, item, placePL);
             }
         } else if (hpMode.hlFlag) {
-            PNHMatchData = ['Highlight'];
+            pnhMatchData = ['Highlight'];
         }
 
-        PNHNameRegMatch = false;
-        if (PNHMatchData[0] !== 'NoMatch' && PNHMatchData[0] !== 'ApprovalNeeded' && PNHMatchData[0] !== 'Highlight') { // *** Replace place data with PNH data
-            PNHNameRegMatch = true;
+        pnhNameRegMatch = false;
+        if (pnhMatchData[0] !== 'NoMatch' && pnhMatchData[0] !== 'ApprovalNeeded' && pnhMatchData[0] !== 'Highlight') { // *** Replace place data with PNH data
+            pnhNameRegMatch = true;
             let showDispNote = true;
             let updatePNHName = true;
             // Break out the data headers
-            let _PNH_DATA_headers;
-            _PNH_DATA_headers = _PNH_DATA[_countryCode].pnh[0].split('|');
-            const ph_name_ix = _PNH_DATA_headers.indexOf('ph_name');
-            const ph_aliases_ix = _PNH_DATA_headers.indexOf('ph_aliases');
-            const ph_category1_ix = _PNH_DATA_headers.indexOf('ph_category1');
-            const ph_category2_ix = _PNH_DATA_headers.indexOf('ph_category2');
-            const ph_description_ix = _PNH_DATA_headers.indexOf('ph_description');
-            const ph_url_ix = _PNH_DATA_headers.indexOf('ph_url');
-            const ph_order_ix = _PNH_DATA_headers.indexOf('ph_order');
+            const pnhDataHeaders = _PNH_DATA[_countryCode].pnh[0].split('|');
+            const phNameIdx = pnhDataHeaders.indexOf('ph_name');
+            const phAliasesIdx = pnhDataHeaders.indexOf('ph_aliases');
+            const phCategory1Idx = pnhDataHeaders.indexOf('ph_category1');
+            const phCategory2Idx = pnhDataHeaders.indexOf('ph_category2');
+            const phDescriptionIdx = pnhDataHeaders.indexOf('ph_description');
+            const phUrlIdx = pnhDataHeaders.indexOf('ph_url');
+            const phOrderIdx = pnhDataHeaders.indexOf('ph_order');
             // var ph_notes_ix = _PNH_DATA_headers.indexOf('ph_notes');
-            var ph_speccase_ix = _PNH_DATA_headers.indexOf('ph_speccase');
-            const ph_sfurl_ix = _PNH_DATA_headers.indexOf('ph_sfurl');
-            const ph_sfurllocal_ix = _PNH_DATA_headers.indexOf('ph_sfurllocal');
+            const phSpecCaseIdx = pnhDataHeaders.indexOf('ph_speccase');
+            const phStoreFinderUrlIdx = pnhDataHeaders.indexOf('ph_sfurl');
+            const phStoreFinderUrlLocalIdx = pnhDataHeaders.indexOf('ph_sfurllocal');
             // var ph_forcecat_ix = _PNH_DATA_headers.indexOf('ph_forcecat');
-            const ph_displaynote_ix = _PNH_DATA_headers.indexOf('ph_displaynote');
+            const phDisplayNoteIdx = pnhDataHeaders.indexOf('ph_displaynote');
 
             // Retrieve the data from the PNH line(s)
-            let nsMultiMatch = false, orderList = [];
-            if (PNHMatchData.length > 1) { // If multiple matches, then
-                let brandParent = -1, pmdTemp, pmdSpecCases, PNHMatchDataHold = PNHMatchData[0].split('|');
-                for (let pmdix = 0; pmdix < PNHMatchData.length; pmdix++) { // For each of the matches,
-                    pmdTemp = PNHMatchData[pmdix].split('|'); // Split the PNH data line
-                    orderList.push(pmdTemp[ph_order_ix]); // Add Order number to a list
-                    if (pmdTemp[ph_speccase_ix].match(/brandParent(\d{1})/) !== null) { // If there is a brandParent flag, prioritize by highest match
-                        pmdSpecCases = pmdTemp[ph_speccase_ix].match(/brandParent(\d{1})/)[1];
+            let nsMultiMatch = false;
+            const orderList = [];
+            if (pnhMatchData.length > 1) { // If multiple matches, then
+                let brandParent = -1;
+                let pnhMatchDataHold = pnhMatchData[0].split('|');
+                for (let pmdix = 0; pmdix < pnhMatchData.length; pmdix++) { // For each of the matches,
+                    const pmdTemp = pnhMatchData[pmdix].split('|'); // Split the PNH data line
+                    orderList.push(pmdTemp[phOrderIdx]); // Add Order number to a list
+                    if (pmdTemp[phSpecCaseIdx].match(/brandParent(\d{1})/) !== null) { // If there is a brandParent flag, prioritize by highest match
+                        const [, pmdSpecCases] = pmdTemp[phSpecCaseIdx].match(/brandParent(\d{1})/);
                         if (pmdSpecCases > brandParent) { // if the match is more specific than the previous ones:
                             brandParent = pmdSpecCases; // Update the brandParent level
-                            PNHMatchDataHold = pmdTemp; // Update the PNH data line
+                            pnhMatchDataHold = pmdTemp; // Update the PNH data line
                         }
                     } else { // if any item has no brandParent structure, use highest brandParent match but post an error
                         nsMultiMatch = true;
                     }
                 }
-                PNHMatchData = PNHMatchDataHold;
+                pnhMatchData = pnhMatchDataHold;
             } else {
-                PNHMatchData = PNHMatchData[0].split('|'); // Single match just gets direct split
+                pnhMatchData = pnhMatchData[0].split('|'); // Single match just gets direct split
             }
 
-            const priPNHPlaceCat = catTranslate(PNHMatchData[ph_category1_ix]); // translate primary category to WME code
+            const priPNHPlaceCat = catTranslate(pnhMatchData[phCategory1Idx]); // translate primary category to WME code
 
             // if the location has multiple matches, then pop an alert that will make a forum post to the thread
             if (nsMultiMatch) {
                 if (confirm('WMEPH: Multiple matches found!\nDouble check the script changes.\nClick OK to report this situation.')) {
                     reportError({
-                        subject: 'Order Nos. "' + orderList.join(', ') + '" WMEPH Multiple match report',
-                        message: 'Error report: PNH Order Nos. "' + orderList.join(', ') + '" are ambiguous multiple matches.\n \nExample Permalink: ' + placePL + ''
+                        subject: `Order Nos. "${orderList.join(', ')}" WMEPH Multiple match report`,
+                        message: `Error report: PNH Order Nos. "${orderList.join(', ')}" are ambiguous multiple matches.\n \nExample Permalink: ${placePL}`
                     });
                 }
             }
 
             // Check special cases
-            let specCases, scFlag, localURLcheck = '';
-            if (ph_speccase_ix > -1) { // If the special cases column exists
-                specCases = PNHMatchData[ph_speccase_ix]; // pulls the speccases field from the PNH line
+            let specCases;
+            let localURLcheck = '';
+            if (phSpecCaseIdx > -1) { // If the special cases column exists
+                specCases = pnhMatchData[phSpecCaseIdx]; // pulls the speccases field from the PNH line
                 if (specCases !== '0' && specCases !== '') {
                     specCases = specCases.replace(/, /g, ',').split(','); // remove spaces after commas and split by comma
                 }
                 for (let scix = 0; scix < specCases.length; scix++) {
+                    let scFlag;
+                    const specCase = specCases[scix];
+                    let match;
+
+                    /* eslint-disable no-cond-assign */
                     // find any button/message flags in the special case (format: buttOn_xyzXyz, etc.)
-                    if (specCases[scix].match(/^buttOn_/g) !== null) {
-                        scFlag = specCases[scix].match(/^buttOn_(.+)/i)[1];
-                        if (scFlag !== 'addCat2' || item.attributes.categories.indexOf(catTranslate(PNHMatchData[ph_category2_ix])) === -1) {
+                    if (match = specCase.match(/^buttOn_(.+)/i)) {
+                        [, scFlag] = match;
+                        if (scFlag !== 'addCat2' || item.attributes.categories.indexOf(catTranslate(pnhMatchData[phCategory2Idx])) === -1) {
                             _buttonBanner[scFlag].active = true;
                         }
-                    } else if (specCases[scix].match(/^buttOff_/g) !== null) {
-                        scFlag = specCases[scix].match(/^buttOff_(.+)/i)[1];
+                    } else if (match = specCase.match(/^buttOff_(.+)/i)) {
+                        [, scFlag] = match;
                         _buttonBanner[scFlag].active = false;
-                    } else if (specCases[scix].match(/^messOn_/g) !== null) {
-                        scFlag = specCases[scix].match(/^messOn_(.+)/i)[1];
+                    } else if (match = specCase.match(/^messOn_(.+)/i)) {
+                        [, scFlag] = match;
                         _buttonBanner[scFlag].active = true;
-                    } else if (specCases[scix].match(/^messOff_/g) !== null) {
-                        scFlag = specCases[scix].match(/^messOff_(.+)/i)[1];
+                    } else if (match = specCase.match(/^messOff_(.+)/i)) {
+                        [, scFlag] = match;
                         _buttonBanner[scFlag].active = false;
-                    } else if (specCases[scix].match(/^psOn_/g) !== null) {
-                        scFlag = specCases[scix].match(/^psOn_(.+)/i)[1];
+                    } else if (match = specCase.match(/^psOn_(.+)/i)) {
+                        [, scFlag] = match;
                         _servicesBanner[scFlag].actionOn(actions);
                         _servicesBanner[scFlag].pnhOverride = true;
-                    } else if (specCases[scix].match(/^psOff_/g) !== null) {
-                        scFlag = specCases[scix].match(/^psOff_(.+)/i)[1];
+                    } else if (match = specCase.match(/^psOff_(.+)/i)) {
+                        [, scFlag] = match;
                         _servicesBanner[scFlag].actionOff(actions);
                         _servicesBanner[scFlag].pnhOverride = true;
                     }
-                    // parseout localURL data if exists (meaning place can have a URL distinct from the chain URL
-                    if (specCases[scix].match(/^localURL_/g) !== null) {
-                        localURLcheck = specCases[scix].match(/^localURL_(.+)/i)[1];
+
+                    // If brand is going to be forced, use that.  Otherwise, use existing brand.
+                    if (match = /forceBrand<>([^,<]+)/i.exec(pnhMatchData[phSpecCaseIdx])) {
+                        [, newBrand] = match;
                     }
+
+                    // parseout localURL data if exists (meaning place can have a URL distinct from the chain URL
+                    if (match = specCase.match(/^localURL_(.+)/i)) {
+                        [, localURLcheck] = match;
+                    }
+
                     // parse out optional alt-name
-                    if (specCases[scix].match(/^optionAltName<>(.+)/g) !== null) {
-                        _optionalAlias = specCases[scix].match(/^optionAltName<>(.+)/i)[1];
+                    if (match = specCase.match(/^optionAltName<>(.+)/i)) {
+                        [, _optionalAlias] = match;
                         if (_newAliases.indexOf(_optionalAlias) === -1) {
                             _buttonBanner.addAlias = new Flag.AddAlias(specCases);
                         }
                     }
+
                     // Gas Station forceBranding
-                    if (['GAS_STATION'].indexOf(priPNHPlaceCat) > -1 && specCases[scix].match(/^forceBrand<>(.+)/i) !== null) {
-                        const forceBrand = specCases[scix].match(/^forceBrand<>(.+)/i)[1];
+                    if (['GAS_STATION'].indexOf(priPNHPlaceCat) > -1 && (match = specCase.match(/^forceBrand<>(.+)/i))) {
+                        const [, forceBrand] = match;
                         if (item.attributes.brand !== forceBrand) {
                             actions.push(new UpdateObject(item, { brand: forceBrand }));
                             _UPDATED_FIELDS.brand.updated = true;
                             phlogdev('Gas brand updated from PNH');
                         }
                     }
+
                     // Check Localization
-                    if (specCases[scix].match(/^checkLocalization<>(.+)/i) !== null) {
+                    if (match = specCase.match(/^checkLocalization<>(.+)/i)) {
                         updatePNHName = false;
-                        const baseName = specCases[scix].match(/^checkLocalization<>(.+)/i)[1];
+                        const [, baseName] = specCase.match(/^checkLocalization<>(.+)/i);
                         const baseNameRE = new RegExp(baseName, 'g');
-                        if ((_newName + (newNameSuffix ? newNameSuffix : '')).match(baseNameRE) === null) {
+                        if ((_newName + (newNameSuffix || '')).match(baseNameRE) === null) {
                             _buttonBanner.localizedName = new Flag.LocalizedName();
                             if (_wl.localizedName) {
                                 _buttonBanner.localizedName.WLactive = false;
                             }
-                            //bannButt.PlaceWebsite.value = 'Place Website';
-                            if (ph_displaynote_ix > -1 && PNHMatchData[ph_displaynote_ix] !== '0' && PNHMatchData[ph_displaynote_ix] !== '') {
-                                _buttonBanner.localizedName.message = PNHMatchData[ph_displaynote_ix];
+                            if (phDisplayNoteIdx > -1 && pnhMatchData[phDisplayNoteIdx] !== '0' && pnhMatchData[phDisplayNoteIdx] !== '') {
+                                _buttonBanner.localizedName.message = pnhMatchData[phDisplayNoteIdx];
                             }
                         }
                         showDispNote = false;
                     }
+                    /* eslint-enable no-cond-assign */
 
                     // Prevent name change
-                    if (specCases[scix].match(/keepName/g) !== null) {
+                    if (specCase.match(/keepName/g) !== null) {
                         updatePNHName = false;
                     }
                 }
             }
 
             // If it's a place that also sells fuel, enable the button
-            if (PNHMatchData[ph_speccase_ix] === 'subFuel' && _newName.toUpperCase().indexOf('GAS') === -1 && _newName.toUpperCase().indexOf('FUEL') === -1) {
+            if (pnhMatchData[phSpecCaseIdx] === 'subFuel' && _newName.toUpperCase().indexOf('GAS') === -1 && _newName.toUpperCase().indexOf('FUEL') === -1) {
                 _buttonBanner.subFuel = new Flag.SubFuel();
                 if (_wl.subFuel) {
                     _buttonBanner.subFuel.WLactive = false;
@@ -4048,21 +4077,21 @@ function harmonizePlaceGo(item, useFlag, actions) {
             }
 
             // Display any notes for the specific place
-            if (showDispNote && ph_displaynote_ix > -1 && PNHMatchData[ph_displaynote_ix] !== '0' && PNHMatchData[ph_displaynote_ix] !== '') {
+            if (showDispNote && phDisplayNoteIdx > -1 && pnhMatchData[phDisplayNoteIdx] !== '0' && pnhMatchData[phDisplayNoteIdx] !== '') {
                 if (containsAny(specCases, ['pharmhours'])) {
                     if (item.attributes.description.toUpperCase().indexOf('PHARMACY') === -1 || (item.attributes.description.toUpperCase().indexOf('HOURS') === -1 && item.attributes.description.toUpperCase().indexOf('HRS') === -1)) {
-                        _buttonBanner.specCaseMessage = new Flag.SpecCaseMessage(PNHMatchData[ph_displaynote_ix]);
+                        _buttonBanner.specCaseMessage = new Flag.SpecCaseMessage(pnhMatchData[phDisplayNoteIdx]);
                     }
                 } else if (containsAny(specCases, ['drivethruhours'])) {
                     if (item.attributes.description.toUpperCase().indexOf('DRIVE') === -1 || (item.attributes.description.toUpperCase().indexOf('HOURS') === -1 && item.attributes.description.toUpperCase().indexOf('HRS') === -1)) {
                         if ($('#service-checkbox-' + 'DRIVETHROUGH').prop('checked')) {
-                            _buttonBanner.specCaseMessage = new Flag.SpecCaseMessage(PNHMatchData[ph_displaynote_ix]);
+                            _buttonBanner.specCaseMessage = new Flag.SpecCaseMessage(pnhMatchData[phDisplayNoteIdx]);
                         } else {
-                            _buttonBanner.specCaseMessageLow = new Flag.SpecCaseMessageLow(PNHMatchData[ph_displaynote_ix]);
+                            _buttonBanner.specCaseMessageLow = new Flag.SpecCaseMessageLow(pnhMatchData[phDisplayNoteIdx]);
                         }
                     }
                 } else {
-                    _buttonBanner.specCaseMessageLow = new Flag.SpecCaseMessageLow(PNHMatchData[ph_displaynote_ix]);
+                    _buttonBanner.specCaseMessageLow = new Flag.SpecCaseMessageLow(pnhMatchData[phDisplayNoteIdx]);
                 }
             }
 
@@ -4071,13 +4100,13 @@ function harmonizePlaceGo(item, useFlag, actions) {
             _customStoreFinderLocalURL = '';
             _customStoreFinder = false;
             _customStoreFinderURL = '';
-            if (ph_sfurl_ix > -1) { // if the sfurl column exists...
-                if (ph_sfurllocal_ix > -1 && PNHMatchData[ph_sfurllocal_ix] !== '' && PNHMatchData[ph_sfurllocal_ix] !== '0') {
+            if (phStoreFinderUrlIdx > -1) { // if the sfurl column exists...
+                if (phStoreFinderUrlLocalIdx > -1 && pnhMatchData[phStoreFinderUrlLocalIdx] !== '' && pnhMatchData[phStoreFinderUrlLocalIdx] !== '0') {
                     if (!_buttonBanner.localizedName) {
                         _buttonBanner.PlaceWebsite = new Flag.PlaceWebsite();
                         _buttonBanner.PlaceWebsite.value = 'Location Finder (L)';
                     }
-                    const tempLocalURL = PNHMatchData[ph_sfurllocal_ix].replace(/ /g, '').split('<>');
+                    const tempLocalURL = pnhMatchData[phStoreFinderUrlLocalIdx].replace(/ /g, '').split('<>');
                     let searchStreet = '', searchCity = '', searchState = '';
                     if ('string' === typeof addr.street.name) {
                         searchStreet = addr.street.name;
@@ -4142,11 +4171,11 @@ function harmonizePlaceGo(item, useFlag, actions) {
                         _customStoreFinderLocalURL = 'http:\/\/' + _customStoreFinderLocalURL;
                     }
                     _customStoreFinderLocal = true;
-                } else if (PNHMatchData[ph_sfurl_ix] !== '' && PNHMatchData[ph_sfurl_ix] !== '0') {
+                } else if (pnhMatchData[phStoreFinderUrlIdx] !== '' && pnhMatchData[phStoreFinderUrlIdx] !== '0') {
                     if (!_buttonBanner.localizedName) {
                         _buttonBanner.PlaceWebsite = new Flag.PlaceWebsite();
                     }
-                    _customStoreFinderURL = PNHMatchData[ph_sfurl_ix];
+                    _customStoreFinderURL = pnhMatchData[phStoreFinderUrlIdx];
                     if (_customStoreFinderURL.indexOf('http') !== 0) {
                         _customStoreFinderURL = 'http:\/\/' + _customStoreFinderURL;
                     }
@@ -4155,7 +4184,7 @@ function harmonizePlaceGo(item, useFlag, actions) {
             }
 
             // Category translations
-            let altCategories = PNHMatchData[ph_category2_ix];
+            let altCategories = pnhMatchData[phCategory2Idx];
             if (altCategories !== '0' && altCategories !== '') { //  translate alt-cats to WME code
                 altCategories = altCategories.replace(/,[^A-Za-z0-9]*/g, ',').split(','); // tighten and split by comma
                 for (let catix = 0; catix < altCategories.length; catix++) {
@@ -4172,21 +4201,21 @@ function harmonizePlaceGo(item, useFlag, actions) {
             // name parsing with category exceptions
             if (['HOTEL'].indexOf(priPNHPlaceCat) > -1) {
                 var nameToCheck = _newName + (newNameSuffix ? newNameSuffix : '');
-                if (nameToCheck.toUpperCase() === PNHMatchData[ph_name_ix].toUpperCase()) { // If no localization
-                    _buttonBanner.catHotel = new Flag.CatHotel(PNHMatchData[ph_name_ix]);
-                    _newName = PNHMatchData[ph_name_ix];
+                if (nameToCheck.toUpperCase() === pnhMatchData[phNameIdx].toUpperCase()) { // If no localization
+                    _buttonBanner.catHotel = new Flag.CatHotel(pnhMatchData[phNameIdx]);
+                    _newName = pnhMatchData[phNameIdx];
                 } else {
                     // Replace PNH part of name with PNH name
-                    const splix = _newName.toUpperCase().replace(/[-\/]/g, ' ').indexOf(PNHMatchData[ph_name_ix].toUpperCase().replace(/[-\/]/g, ' '));
+                    const splix = _newName.toUpperCase().replace(/[-\/]/g, ' ').indexOf(pnhMatchData[phNameIdx].toUpperCase().replace(/[-\/]/g, ' '));
                     if (splix > -1) {
                         const frontText = _newName.slice(0, splix);
-                        const backText = _newName.slice(splix + PNHMatchData[ph_name_ix].length);
-                        _newName = PNHMatchData[ph_name_ix];
+                        const backText = _newName.slice(splix + pnhMatchData[phNameIdx].length);
+                        _newName = pnhMatchData[phNameIdx];
                         if (frontText.length > 0) { _newName = frontText + ' ' + _newName; }
                         if (backText.length > 0) { _newName = _newName + ' ' + backText; }
                         _newName = _newName.replace(/ {2,}/g, ' ');
                     } else {
-                        _newName = PNHMatchData[ph_name_ix];
+                        _newName = pnhMatchData[phNameIdx];
                     }
                 }
                 if (altCategories !== '0' && altCategories !== '') { // if PNH alts exist
@@ -4207,14 +4236,14 @@ function harmonizePlaceGo(item, useFlag, actions) {
                     }
                 }
                 // If PNH match, set wifi service.
-                if (PNHMatchData && !_servicesBanner.addWiFi.checked) {
+                if (pnhMatchData && !_servicesBanner.addWiFi.checked) {
                     _servicesBanner.addWiFi.action();
                 }
                 // Set hotel hours to 24/7 for all hotels.
                 if (!_servicesBanner.add247.checked) {
                     _servicesBanner.add247.action();
                 }
-            } else if (_newCategories.indexOf('BANK_FINANCIAL') > -1 && PNHMatchData[ph_speccase_ix].indexOf('notABank') === -1) {
+            } else if (_newCategories.indexOf('BANK_FINANCIAL') > -1 && pnhMatchData[phSpecCaseIdx].indexOf('notABank') === -1) {
                 // PNH Bank treatment
                 _ixBank = item.attributes.categories.indexOf('BANK_FINANCIAL');
                 _ixATM = item.attributes.categories.indexOf('ATM');
@@ -4235,7 +4264,7 @@ function harmonizePlaceGo(item, useFlag, actions) {
                         _buttonBanner.bankBranch = new Flag.BankBranch();
                         _buttonBanner.standaloneATM = new Flag.StandaloneATM();
                     }
-                    _newName = PNHMatchData[ph_name_ix] + ' ATM';
+                    _newName = pnhMatchData[phNameIdx] + ' ATM';
                     _newCategories = insertAtIX(_newCategories, 'ATM', 0);
                     // Net result: If the place has ATM cat only and ATM in the name, then it will be green and renamed Bank Name ATM
                 } else if (_ixBank > -1 || _ixATM > -1) { // if no ATM in name but with a banking category:
@@ -4250,7 +4279,7 @@ function harmonizePlaceGo(item, useFlag, actions) {
                         _buttonBanner.bankBranch = new Flag.BankBranch();
                         _buttonBanner.standaloneATM = new Flag.StandaloneATM();
                     }
-                    _newName = PNHMatchData[ph_name_ix];
+                    _newName = pnhMatchData[phNameIdx];
                     // Net result: If the place has Bank category first, then it will be green with PNH name replaced
                 } else { // for PNH match with neither bank type category, make it a bank
                     _newCategories = insertAtIX(_newCategories, 'BANK_FINANCIAL', 1);
@@ -4265,10 +4294,10 @@ function harmonizePlaceGo(item, useFlag, actions) {
                     _buttonBanner.gasMkPrim = new Flag.GasMkPrim();
                     lockOK = false;
                 } else {
-                    _newName = PNHMatchData[ph_name_ix];
+                    _newName = pnhMatchData[phNameIdx];
                 }
             } else if (updatePNHName) { // if not a special category then update the name
-                _newName = PNHMatchData[ph_name_ix];
+                _newName = pnhMatchData[phNameIdx];
                 _newCategories = insertAtIX(_newCategories, priPNHPlaceCat, 0);
                 if (altCategories !== '0' && altCategories !== '' && specCases.indexOf('buttOn_addCat2') === -1 && specCases.indexOf('optionCat2') === -1) {
                     _newCategories = insertAtIX(_newCategories, altCategories, 1);
@@ -4294,18 +4323,18 @@ function harmonizePlaceGo(item, useFlag, actions) {
                     if (_newURL.match(localURLcheckRE) !== null) {
                         _newURL = normalizeURL(_newURL, false, true, item, region);
                     } else {
-                        _newURL = normalizeURL(PNHMatchData[ph_url_ix], false, true, item, region);
+                        _newURL = normalizeURL(pnhMatchData[phUrlIdx], false, true, item, region);
                         _buttonBanner.localURL = new Flag.LocalURL();
                     }
                 } else {
-                    _newURL = normalizeURL(PNHMatchData[ph_url_ix], false, true, item, region);
+                    _newURL = normalizeURL(pnhMatchData[phUrlIdx], false, true, item, region);
                     _buttonBanner.localURL = new Flag.LocalURL();
                 }
             } else {
-                _newURL = normalizeURL(PNHMatchData[ph_url_ix], false, true, item, region);
+                _newURL = normalizeURL(pnhMatchData[phUrlIdx], false, true, item, region);
             }
             // Parse PNH Aliases
-            _newAliasesTemp = PNHMatchData[ph_aliases_ix].match(/([^\(]*)/i)[0];
+            _newAliasesTemp = pnhMatchData[phAliasesIdx].match(/([^\(]*)/i)[0];
             if (_newAliasesTemp !== '0' && _newAliasesTemp !== '') { // make aliases array
                 _newAliasesTemp = _newAliasesTemp.replace(/,[^A-za-z0-9]*/g, ','); // tighten up commas if more than one alias.
                 _newAliasesTemp = _newAliasesTemp.split(','); // split by comma
@@ -4349,7 +4378,7 @@ function harmonizePlaceGo(item, useFlag, actions) {
             }
 
             // Description update
-            newDescripion = PNHMatchData[ph_description_ix];
+            newDescripion = pnhMatchData[phDescriptionIdx];
             if (newDescripion !== null && newDescripion !== '0' && item.attributes.description.toUpperCase().indexOf(newDescripion.toUpperCase()) === -1) {
                 if (item.attributes.description !== '' && item.attributes.description !== null && item.attributes.description !== ' ') {
                     _buttonBanner.checkDescription = new Flag.CheckDescription();
@@ -4366,11 +4395,11 @@ function harmonizePlaceGo(item, useFlag, actions) {
             }
 
         } else { // if no PNH match found
-            if (PNHMatchData[0] === 'ApprovalNeeded') {
+            if (pnhMatchData[0] === 'ApprovalNeeded') {
                 //PNHNameTemp = PNHMatchData[1].join(', ');
-                PNHNameTemp = PNHMatchData[1][0]; // Just do the first match
+                PNHNameTemp = pnhMatchData[1][0]; // Just do the first match
                 PNHNameTempWeb = encodeURIComponent(PNHNameTemp);
-                PNHOrderNum = PNHMatchData[2].join(',');
+                PNHOrderNum = pnhMatchData[2].join(',');
             }
 
             // Strong title case option for non-PNH places
@@ -4768,7 +4797,7 @@ function harmonizePlaceGo(item, useFlag, actions) {
         // URL updating
         _updateURL = true;
         if (_newURL !== item.attributes.url && _newURL !== '' && _newURL !== '0') {
-            if (PNHNameRegMatch && item.attributes.url !== null && item.attributes.url !== '' && _newURL !== 'badURL') { // for cases where there is an existing URL in the WME place, and there is a PNH url on queue:
+            if (pnhNameRegMatch && item.attributes.url !== null && item.attributes.url !== '' && _newURL !== 'badURL') { // for cases where there is an existing URL in the WME place, and there is a PNH url on queue:
                 let newURLTemp = normalizeURL(_newURL, true, false, item); // normalize
                 const itemURL = normalizeURL(item.attributes.url, true, false, item);
                 newURLTemp = newURLTemp.replace(/^www\.(.*)$/i, '$1'); // strip www
@@ -4899,17 +4928,9 @@ function harmonizePlaceGo(item, useFlag, actions) {
                 }
             }
         } // END Post Office check
+
     } // END if (!residential && has name)
 
-    let { brand: newBrand } = item.attributes;
-    // If brand is going to be forced, use that.  Otherwise, use existing brand.
-    if (PNHMatchData && PNHMatchData[ph_speccase_ix]) {
-        debugger;
-        const match = /forceBrand<>([^,<]+)/i.exec(PNHMatchData[ph_speccase_ix]);
-        if (match) {
-            [, newBrand] = match;
-        }
-    }
 
     // For gas stations, check to make sure brand exists somewhere in the place name.
     // Remove non - alphanumeric characters first, for more relaxed matching.
@@ -5176,7 +5197,7 @@ function harmonizePlaceGo(item, useFlag, actions) {
     // The date criteria was added because Doctor/Clinic category was added around then, and it's assumed if the 
     // place has been edited since then, people would have already updated the category.
     if (hpMode.harmFlag && item.attributes.updatedOn < new Date('3/28/2017').getTime()
-        && ((_newCategories.indexOf('PERSONAL_CARE') > -1 && !PNHNameRegMatch) || _newCategories.indexOf('OFFICES') > -1)) {
+        && ((_newCategories.indexOf('PERSONAL_CARE') > -1 && !pnhNameRegMatch) || _newCategories.indexOf('OFFICES') > -1)) {
         _buttonBanner.changeToDoctorClinic = new Flag.ChangeToDoctorClinic();
         _buttonBanner.changeToDoctorClinic.message = 'If this place provides non-emergency medical care: ';
         _buttonBanner.changeToDoctorClinic.severity = 0;
@@ -5383,7 +5404,7 @@ function harmonizePlaceGo(item, useFlag, actions) {
     if (!item.attributes.residential && _severityButt < 3) {
         const nameShortSpace = _newName.toUpperCase().replace(/[^A-Z \']/g, '');
         if (nameShortSpace.indexOf('\'S HOUSE') > -1 || nameShortSpace.indexOf('\'S HOME') > -1 || nameShortSpace.indexOf('\'S WORK') > -1) {
-            if (!containsAny(_newCategories, ['RESTAURANT', 'DESSERT', 'BAR']) && !PNHNameRegMatch) {
+            if (!containsAny(_newCategories, ['RESTAURANT', 'DESSERT', 'BAR']) && !pnhNameRegMatch) {
                 _buttonBanner.resiTypeNameSoft = new Flag.ResiTypeNameSoft();
             }
         }
@@ -5471,14 +5492,14 @@ function harmonizePlaceGo(item, useFlag, actions) {
             } else {
                 const wlAction = function (dID) {
                     _wlKeyName = 'dupeWL';
-                    if (!_venueWhitelist.hasOwnProperty(_itemID)) { // If venue is NOT on WL, then add it.
-                        _venueWhitelist[_itemID] = { dupeWL: [] };
+                    if (!_venueWhitelist.hasOwnProperty(itemID)) { // If venue is NOT on WL, then add it.
+                        _venueWhitelist[itemID] = { dupeWL: [] };
                     }
-                    if (!_venueWhitelist[_itemID].hasOwnProperty(_wlKeyName)) { // If dupeWL key is not in venue WL, then initialize it.
-                        _venueWhitelist[_itemID][_wlKeyName] = [];
+                    if (!_venueWhitelist[itemID].hasOwnProperty(_wlKeyName)) { // If dupeWL key is not in venue WL, then initialize it.
+                        _venueWhitelist[itemID][_wlKeyName] = [];
                     }
-                    _venueWhitelist[_itemID].dupeWL.push(dID); // WL the id for the duplicate venue
-                    _venueWhitelist[_itemID].dupeWL = _.uniq(_venueWhitelist[_itemID].dupeWL);
+                    _venueWhitelist[itemID].dupeWL.push(dID); // WL the id for the duplicate venue
+                    _venueWhitelist[itemID].dupeWL = _.uniq(_venueWhitelist[itemID].dupeWL);
                     // Make an entry for the opposite item
                     if (!_venueWhitelist.hasOwnProperty(dID)) { // If venue is NOT on WL, then add it.
                         _venueWhitelist[dID] = { dupeWL: [] };
@@ -5486,7 +5507,7 @@ function harmonizePlaceGo(item, useFlag, actions) {
                     if (!_venueWhitelist[dID].hasOwnProperty(_wlKeyName)) { // If dupeWL key is not in venue WL, then initialize it.
                         _venueWhitelist[dID][_wlKeyName] = [];
                     }
-                    _venueWhitelist[dID].dupeWL.push(_itemID); // WL the id for the duplicate venue
+                    _venueWhitelist[dID].dupeWL.push(itemID); // WL the id for the duplicate venue
                     _venueWhitelist[dID].dupeWL = _.uniq(_venueWhitelist[dID].dupeWL);
                     saveWhitelistToLS(true); // Save the WL to local storage
                     wmephWhitelistCounter();
@@ -5500,7 +5521,7 @@ function harmonizePlaceGo(item, useFlag, actions) {
                         WLactive: false, WLvalue: _WL_BUTTON_TEXT, WLtitle: 'Whitelist Duplicate',
                         WLaction: wlAction
                     };
-                    if (_venueWhitelist.hasOwnProperty(_itemID) && _venueWhitelist[_itemID].hasOwnProperty('dupeWL') && _venueWhitelist[_itemID].dupeWL.indexOf(_dupeIDList[ijx]) > -1) { // if the dupe is on the whitelist then remove it from the banner
+                    if (_venueWhitelist.hasOwnProperty(itemID) && _venueWhitelist[itemID].hasOwnProperty('dupeWL') && _venueWhitelist[itemID].dupeWL.indexOf(_dupeIDList[ijx]) > -1) { // if the dupe is on the whitelist then remove it from the banner
                         _dupeBanner[_dupeIDList[ijx]].active = false;
                     } else { // Otherwise, activate the WL button
                         _dupeBanner[_dupeIDList[ijx]].WLactive = true;
