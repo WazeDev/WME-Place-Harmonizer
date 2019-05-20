@@ -1574,11 +1574,11 @@ function replaceLetters(number) {
 // Add array of actions to a MultiAction to be executed at once (counts as one edit for redo/undo purposes)
 function executeMultiAction(actions, description) {
     if (actions.length > 0) {
-        const m_action = new MultiAction();
-        m_action.setModel(W.model);
-        m_action._description = description || m_action._description || 'Change(s) made by WMEPH';
-        actions.forEach(action => { m_action.doSubAction(action); });
-        W.model.actionManager.add(m_action);
+        const mAction = new MultiAction();
+        mAction.setModel(W.model);
+        mAction._description = description || mAction._description || 'Change(s) made by WMEPH';
+        actions.forEach(action => { mAction.doSubAction(action); });
+        W.model.actionManager.add(mAction);
     }
 }
 
@@ -1599,11 +1599,11 @@ function addUpdateAction(venue, updateObj, actions) {
 
 function setServiceChecked(servBtn, checked, actions) {
     const servID = _WME_SERVICES_ARRAY[servBtn.servIDIndex];
-    const checkboxChecked = $('#service-checkbox-' + servID).prop('checked');
+    const checkboxChecked = $(`#service-checkbox-${servID}`).prop('checked');
     const venue = getSelectedVenue();
 
     if (checkboxChecked !== checked) {
-        _UPDATED_FIELDS['services_' + servID].updated = true;
+        _UPDATED_FIELDS[`services_${servID}`].updated = true;
     }
     const toggle = typeof checked === 'undefined';
     let noAdd = false;
@@ -1615,7 +1615,7 @@ function setServiceChecked(servBtn, checked, actions) {
             for (let i = 0; i < actions.length; i++) {
                 const existingAction = actions[i];
                 if (existingAction.newAttributes && existingAction.newAttributes.services) {
-                    services = existingAction.newAttributes.services;
+                    ({ services } = existingAction.newAttributes);
                 }
             }
         }
@@ -1633,7 +1633,7 @@ function setServiceChecked(servBtn, checked, actions) {
             }
         }
         if (!noAdd) {
-            addUpdateAction(venue, { services: services }, actions);
+            addUpdateAction(venue, { services }, actions);
         }
     }
     updateServicesChecks(_servicesBanner);
