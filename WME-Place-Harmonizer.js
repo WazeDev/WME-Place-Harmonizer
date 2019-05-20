@@ -30,6 +30,8 @@
 /* global document */
 /* global localStorage */
 /* global alert */
+/* global confirm */
+/* global HoursParser */
 
 // Script update info
 const _WHATS_NEW_LIST = [ // New in this version
@@ -1789,6 +1791,7 @@ let Flag = {
             }
             return result;
         }
+
         static evalHL(venue, addr) {
             let result = null;
             if (!addr.state || !addr.country) {
@@ -1813,7 +1816,10 @@ let Flag = {
         constructor() { super(true, 3, 'Name is missing.'); }
     },
     PlaIsPublic: class extends FlagBase {
-        constructor() { super(true, 0, 'If this does not meet the requirements for a <a href="https://wazeopedia.waze.com/wiki/USA/Places/Parking_lot#Lot_Type" target="_blank" style="color:5a5a73">public parking lot</a>, change to:<br>'); }
+        constructor() {
+            super(true, 0, 'If this does not meet the requirements for a <a href="https://wazeopedia.waze.com/wiki/USA/Places/Parking_lot#Lot_Type" '
+                + 'target="_blank" style="color:5a5a73">public parking lot</a>, change to:<br>');
+        }
     },
     PlaNameMissing: class extends FlagBase {
         constructor() {
@@ -1825,10 +1831,11 @@ let Flag = {
         constructor() {
             super(true, 2, 'Parking lot names typically contain words like "Parking", "Lot", and/or "Garage"', true, 'Whitelist non-standard PLA name', 'plaNameNonStandard');
         }
+
         static eval(venue, wl) {
             const result = { flag: null };
             if (!wl.plaNameNonStandard) {
-                const name = venue.attributes.name;
+                const { name } = venue.attributes;
                 const state = venue.getAddress().getStateName();
                 const re = state === 'Quebec' ? /\b(parking|stationnement)\b/i : /\b((park[ -](and|&|'?n'?)[ -]ride)|parking|lot|garage|ramp)\b/i;
                 if (venue.isParkingLot() && name && !re.test(name)) {
@@ -1855,6 +1862,8 @@ let Flag = {
     },
     RestAreaNoTransportation: class extends ActionFlag {
         constructor() { super(true, 2, 'Rest areas should not use the Transportation category.', 'Remove it?'); }
+
+        // eslint-disable-next-line class-methods-use-this
         action() {
             const ix = _newCategories.indexOf('TRANSPORTATION');
             if (ix > -1) {
@@ -1874,6 +1883,8 @@ let Flag = {
             super(true, 0, 'Verify that the "Scenic Overlook" category is appropriate for this rest area.  If not: ',
                 'Remove it', 'Remove "Scenic Overlook" category.', true, 'Whitelist place', 'restAreaScenic');
         }
+
+        // eslint-disable-next-line class-methods-use-this
         action() {
             const ix = _newCategories.indexOf('SCENIC_LOOKOUT_VIEWPOINT');
             if (ix > -1) {
@@ -1890,6 +1901,8 @@ let Flag = {
             super(true, 3, 'Is this a rest area?',
                 'Yes', 'Update with proper categories and services.', true, 'Whitelist place', 'restAreaSpec');
         }
+
+        // eslint-disable-next-line class-methods-use-this
         action() {
             const venue = getSelectedVenue();
             const actions = [];
@@ -1923,6 +1936,7 @@ let Flag = {
     },
     GasUnbranded: class extends FlagBase {
         constructor() { super(true, 3, '"Unbranded" should not be used for the station brand. Change to correct brand or use the blank entry at the top of the brand list.'); }
+
         static eval(venue) {
             const result = { flag: null };
             if (venue.isGasStation() && venue.attributes.brand === 'Unbranded') { //  Unbranded is not used per wiki
@@ -1934,6 +1948,8 @@ let Flag = {
     },
     GasMkPrim: class extends ActionFlag {
         constructor() { super(true, 3, 'Gas Station is not the primary category', 'Fix', 'Make the Gas Station category the primary category.'); }
+
+        // eslint-disable-next-line class-methods-use-this
         action() {
             const venue = getSelectedVenue();
             _newCategories = insertAtIX(_newCategories, 'GAS_STATION', 0); // Insert/move Gas category in the first position
@@ -1944,8 +1960,9 @@ let Flag = {
     },
     IsThisAPilotTravelCenter: class extends ActionFlag {
         constructor() { super(true, 0, 'Is this a "Travel Center"?', 'Yes', ''); }
+
         static eval(venue, hpMode, state2L, newName, actions) {
-            const result = { flag: null, newName: newName };
+            const result = { flag: null, newName };
             if (hpMode.harmFlag && state2L === 'TN') {
                 if (result.newName.toLowerCase().trim() === 'pilot') {
                     result.newName = 'Pilot Food Mart';
@@ -1958,6 +1975,8 @@ let Flag = {
             }
             return result;
         }
+
+        // eslint-disable-next-line class-methods-use-this
         action() {
             const venue = getSelectedVenue();
             _UPDATED_FIELDS.name.updated = true;
@@ -1967,6 +1986,8 @@ let Flag = {
     },
     HotelMkPrim: class extends WLActionFlag {
         constructor() { super(true, 3, 'Hotel category is not first', 'Fix', 'Make the Hotel category the primary category.', true, 'Whitelist hotel as secondary category', 'hotelMkPrim'); }
+
+        // eslint-disable-next-line class-methods-use-this
         action() {
             const venue = getSelectedVenue();
             _newCategories = insertAtIX(_newCategories, 'HOTEL', 0); // Insert/move Hotel category in the first position
@@ -1977,6 +1998,8 @@ let Flag = {
     },
     ChangeToPetVet: class extends WLActionFlag {
         constructor() { super(true, 3, 'This looks like it should be a Pet/Veterinarian category. Change?', 'Yes', 'Change to Pet/Veterinarian Category', true, 'Whitelist PetVet category', 'changeHMC2PetVet'); }
+
+        // eslint-disable-next-line class-methods-use-this
         action() {
             const venue = getSelectedVenue();
             let idx = _newCategories[_newCategories.indexOf('HOSPITAL_MEDICAL_CARE')];
@@ -1991,6 +2014,8 @@ let Flag = {
     },
     ChangeSchool2Offices: class extends WLActionFlag {
         constructor() { super(true, 3, 'This doesn\'t look like it should be School category.', 'Change to Office', 'Change to Offices Category', true, 'Whitelist School category', 'changeSchool2Offices'); }
+
+        // eslint-disable-next-line class-methods-use-this
         action() {
             const venue = getSelectedVenue();
             _newCategories[_newCategories.indexOf('SCHOOL')] = 'OFFICES';
@@ -2001,6 +2026,8 @@ let Flag = {
     },
     PointNotArea: class extends WLActionFlag {
         constructor() { super(true, 3, 'This category should be a point place.', 'Change to point', 'Change to point place', true, 'Whitelist point (not area)', 'pointNotArea'); }
+
+        // eslint-disable-next-line class-methods-use-this
         action() {
             const venue = getSelectedVenue();
             if (venue.attributes.categories.indexOf('RESIDENCE_HOME') > -1) {
@@ -2014,6 +2041,8 @@ let Flag = {
     },
     AreaNotPoint: class extends WLActionFlag {
         constructor() { super(true, 3, 'This category should be an area place.', 'Change to area', 'Change to Area', true, 'Whitelist area (not point)', 'areaNotPoint'); }
+
+        // eslint-disable-next-line class-methods-use-this
         action() {
             const venue = getSelectedVenue();
             updateFeatureGeometry(venue, venue.getPolygonGeometry());
@@ -2021,12 +2050,14 @@ let Flag = {
         }
     },
     // 2019-3-22 There's an issue in WME where it won't update the address displayed in the side panel
-    // when the underlying model is updated.  I'm commenting out the code to allow entering the HN in the 
+    // when the underlying model is updated.  I'm commenting out the code to allow entering the HN in the
     // banner and replacing with an "Edit address" button.  If Waze addresses the issue, we can revert the
     // change.
     // HnMissing: class extends WLActionFlag {
     //     constructor(venue) {
-    //         super(true, 3, 'No HN: <input type="text" id="WMEPH-HNAdd" autocomplete="off" style="font-size:0.85em;width:100px;padding-left:2px;color:#000;">', 'Add', 'Add HN to place', true, 'Whitelist empty HN', 'HNWL');
+    //         super(true, 3,
+    //             'No HN: <input type="text" id="WMEPH-HNAdd" autocomplete="off" style="font-size:0.85em;width:100px;padding-left:2px;color:#000;" > ',
+    //             'Add', 'Add HN to place', true, 'Whitelist empty HN', 'HNWL');
     //         this.venue = venue;
     //         this.noBannerAssemble = true;
     //         this.badInput = false;
@@ -2045,11 +2076,12 @@ let Flag = {
     //             $('input#WMEPH-HNAdd').css({ backgroundColor: '#FDD' }).attr('title', 'Must be a number between 0 and 1000000');
     //             this.badInput = true;
     //         }
-
     //     }
     // },
     HnMissing: class extends WLActionFlag {
         constructor() { super(true, 3, 'No HN:', 'Edit address', 'Edit address to add HN.'); }
+
+        // eslint-disable-next-line class-methods-use-this
         action() {
             $('.nav-tabs a[href="#landmark-edit-general"]').trigger('click');
             $('.landmark .full-address').click();
@@ -2064,6 +2096,8 @@ let Flag = {
     },
     StreetMissing: class extends ActionFlag {
         constructor() { super(true, 3, 'No street:', 'Edit address', 'Edit address to add street.'); }
+
+        // eslint-disable-next-line class-methods-use-this
         action() {
             $('.nav-tabs a[href="#landmark-edit-general"]').trigger('click');
             $('.landmark .full-address').click();
@@ -2075,6 +2109,8 @@ let Flag = {
     },
     CityMissing: class extends ActionFlag {
         constructor() { super(true, 3, 'No city:', 'Edit address', 'Edit address to add city.'); }
+
+        // eslint-disable-next-line class-methods-use-this
         action() {
             $('.nav-tabs a[href="#landmark-edit-general"]').trigger('click');
             $('.landmark .full-address').click();
@@ -2089,6 +2125,8 @@ let Flag = {
     },
     BankBranch: class extends ActionFlag {
         constructor() { super(true, 1, 'Is this a bank branch office? ', 'Yes', 'Is this a bank branch?'); }
+
+        // eslint-disable-next-line class-methods-use-this
         action() {
             const venue = getSelectedVenue();
             _newCategories = ['BANK_FINANCIAL', 'ATM']; // Change to bank and atm cats
@@ -2102,10 +2140,12 @@ let Flag = {
     },
     StandaloneATM: class extends ActionFlag {
         constructor() { super(true, 2, 'Or is this a standalone ATM? ', 'Yes', 'Is this a standalone ATM with no bank branch?'); }
+
+        // eslint-disable-next-line class-methods-use-this
         action() {
             const venue = getSelectedVenue();
             if (_newName.indexOf('ATM') === -1) {
-                _newName = _newName + ' ATM';
+                _newName += ' ATM';
                 _UPDATED_FIELDS.name.updated = true;
             }
             _newCategories = ['ATM']; // Change to ATM only
@@ -2116,25 +2156,35 @@ let Flag = {
     },
     BankCorporate: class extends ActionFlag {
         constructor() { super(true, 1, 'Or is this the bank\'s corporate offices?', 'Yes', 'Is this the bank\'s corporate offices?'); }
+
+        // eslint-disable-next-line class-methods-use-this
         action() {
             const venue = getSelectedVenue();
             _newCategories = ['OFFICES']; // Change to offices category
             const tempName = _newName.replace(/[\- (]*atm[\- )]*/ig, ' ').replace(/^ /g, '').replace(/ $/g, '').replace(/ {2,}/g, ' '); // strip ATM from name if present
             _newName = tempName;
-            W.model.actionManager.add(new UpdateObject(venue, { name: _newName + ' - Corporate Offices', categories: _newCategories }));
+            W.model.actionManager.add(new UpdateObject(venue, { name: `${_newName} - Corporate Offices`, categories: _newCategories }));
             if (_newName !== tempName) _UPDATED_FIELDS.name.updated = true;
             _UPDATED_FIELDS.categories.updated = true;
             harmonizePlaceGo(venue, 'harmonize');
         }
     },
     CatPostOffice: class extends FlagBase {
-        constructor() { super(true, 0, 'The Post Office category is reserved for certain USPS locations. Please be sure to follow <a href="https://wazeopedia.waze.com/wiki/USA/Places/Post_Office" style="color:#3a3a3a;" target="_blank">the guidelines</a>.'); }
+        constructor() {
+            super(true, 0,
+                'The Post Office category is reserved for certain USPS locations. Please be sure to follow <a href="https://wazeopedia.waze.com/wiki/USA/Places/Post_Office" style="color:#3a3a3a;" target="_blank">the guidelines</a>.');
+        }
     },
     IgnEdited: class extends FlagBase {
         constructor() { super(true, 2, 'Last edited by an IGN editor'); }
     },
     WazeBot: class extends ActionFlag {
-        constructor() { super(true, 2, 'Edited last by an automated process. Please verify information is correct.', 'Nudge', 'If no other properties need to be updated, click to nudge the place (force an edit).'); }
+        constructor() {
+            super(true, 2,
+                'Edited last by an automated process. Please verify information is correct.', 'Nudge', 'If no other properties need to be updated, click to nudge the place (force an edit).');
+        }
+
+        // eslint-disable-next-line class-methods-use-this
         action() {
             const venue = getSelectedVenue();
             nudgeVenue(venue);
@@ -2142,10 +2192,16 @@ let Flag = {
         }
     },
     ParentCategory: class extends WLFlag {
-        constructor() { super(true, 2, 'This parent category is usually not mapped in this region.', true, 'Whitelist parent Category', 'parentCategory'); }
+        constructor() {
+            super(true, 2, 'This parent category is usually not mapped in this region.',
+                true, 'Whitelist parent Category', 'parentCategory');
+        }
     },
     CheckDescription: class extends FlagBase {
-        constructor() { super(true, 2, 'Description field already contained info; PNH description was added in front of existing. Check for inconsistency or duplicate info.'); }
+        constructor() {
+            super(true, 2,
+                'Description field already contained info; PNH description was added in front of existing. Check for inconsistency or duplicate info.');
+        }
     },
     Overlapping: class extends FlagBase {
         constructor() { super(true, 2, 'Place points are stacked up.'); }
@@ -2154,7 +2210,10 @@ let Flag = {
         constructor() { super(true, 2, 'Description field might contain copyrighted info.', true, 'Whitelist description', 'suspectDesc'); }
     },
     ResiTypeName: class extends WLFlag {
-        constructor() { super(true, 2, 'The place name suggests a residential place or personalized place of work.  Please verify.', true, 'Whitelist Residential-type name', 'resiTypeName'); }
+        constructor() {
+            super(true, 2, 'The place name suggests a residential place or personalized place of work.  Please verify.',
+                true, 'Whitelist Residential-type name', 'resiTypeName');
+        }
     },
     Mismatch247: class extends FlagBase {
         constructor() { super(true, 2, 'Hours of operation listed as open 24hrs but not for all 7 days.'); }
@@ -2163,13 +2222,24 @@ let Flag = {
         constructor() { super(true, 2, 'Phone invalid.'); }
     },
     AreaNotPointMid: class extends WLFlag {
-        constructor() { super(true, 2, 'This category is usually an area place, but can be a point in some cases. Verify if point is appropriate.', true, 'Whitelist area (not point)', 'areaNotPoint'); }
+        constructor() {
+            super(true, 2, 'This category is usually an area place, but can be a point in some cases. Verify if point is appropriate.',
+                true, 'Whitelist area (not point)', 'areaNotPoint');
+        }
     },
     PointNotAreaMid: class extends WLFlag {
-        constructor() { super(true, 2, 'This category is usually a point place, but can be an area in some cases. Verify if area is appropriate.', true, 'Whitelist point (not area)', 'pointNotArea'); }
+        constructor() {
+            super(true, 2, 'This category is usually a point place, but can be an area in some cases. Verify if area is appropriate.',
+                true, 'Whitelist point (not area)', 'pointNotArea');
+        }
     },
     LongURL: class extends WLActionFlag {
-        constructor() { super(true, 1, 'Existing URL doesn\'t match the suggested PNH URL. Use the Website button below to verify that existing URL is valid.  If not:', 'Use PNH URL', 'Change URL to the PNH standard', true, 'Whitelist existing URL', 'longURL'); }
+        constructor() {
+            super(true, 1, 'Existing URL doesn\'t match the suggested PNH URL. Use the Website button below to verify that existing URL is valid.  If not:',
+                'Use PNH URL', 'Change URL to the PNH standard', true, 'Whitelist existing URL', 'longURL');
+        }
+
+        // eslint-disable-next-line class-methods-use-this
         action() {
             const venue = getSelectedVenue();
             if (_tempPNHURL !== '') {
@@ -2177,18 +2247,18 @@ let Flag = {
                 _UPDATED_FIELDS.url.updated = true;
                 harmonizePlaceGo(venue, 'harmonize');
                 _updateURL = true;
-            } else {
-                if (confirm('WMEPH: URL Matching Error!\nClick OK to report this error')) { // if the category doesn't translate, then pop an alert that will make a forum post to the thread
-                    reportError({
-                        subject: 'WMEPH URL comparison Error report',
-                        message: 'Error report: URL comparison failed for "' + venue.attributes.name + '"\nPermalink: ' + placePL
-                    });
-                }
+            } else if (confirm('WMEPH: URL Matching Error!\nClick OK to report this error')) {
+                // if the category doesn't translate, then pop an alert that will make a forum post to the thread
+                reportError({
+                    subject: 'WMEPH URL comparison Error report',
+                    message: `Error report: URL comparison failed for "${venue.attributes.name}"\nPermalink: ${placePL}`
+                });
             }
         }
     },
     GasNoBrand: class extends FlagBase {
         constructor() { super(true, 1, 'Lock to region standards to verify no gas brand.'); }
+
         static eval(venue) {
             const result = { flag: null };
             if (venue.isGasStation() && !venue.attributes.brand) {
@@ -2199,13 +2269,22 @@ let Flag = {
         }
     },
     SubFuel: class extends WLFlag {
-        constructor() { super(true, 1, 'Make sure this place is for the gas station itself and not the main store building.  Otherwise undo and check the categories.', true, 'Whitelist no gas brand', 'subFuel'); }
+        constructor() {
+            super(true, 1, 'Make sure this place is for the gas station itself and not the main store building.  Otherwise undo and check the categories.',
+                true, 'Whitelist no gas brand', 'subFuel');
+        }
     },
     AreaNotPointLow: class extends WLFlag {
-        constructor() { super(true, 1, 'This category is usually an area place, but can be a point in some cases. Verify if point is appropriate.', true, 'Whitelist area (not point)', 'areaNotPoint'); }
+        constructor() {
+            super(true, 1, 'This category is usually an area place, but can be a point in some cases. Verify if point is appropriate.',
+                true, 'Whitelist area (not point)', 'areaNotPoint');
+        }
     },
     PointNotAreaLow: class extends WLFlag {
-        constructor() { super(true, 1, 'This category is usually a point place, but can be an area in some cases. Verify if area is appropriate.', true, 'Whitelist point (not area)', 'pointNotArea'); }
+        constructor() {
+            super(true, 1, 'This category is usually a point place, but can be an area in some cases. Verify if area is appropriate.',
+                true, 'Whitelist point (not area)', 'pointNotArea');
+        }
     },
     FormatUSPS: class extends FlagBase {
         constructor() { super(true, 1, 'Name the post office according to this region\'s <a href="https://wazeopedia.waze.com/wiki/USA/Places/Post_Office" style="color:#3232e6" target="_blank"> standards for USPS post offices</a>'); }
@@ -2215,11 +2294,13 @@ let Flag = {
     },
     MissingUSPSZipAlt: class extends WLActionFlag {
         constructor() {
-            super(true, 1, 'No <a href="https://wazeopedia.waze.com/wiki/USA/Places/Post_Office" style="color:#3232e6;" target="_blank">ZIP code alt name</a>: ' +
-                '<input type="text" id="WMEPH-zipAltNameAdd" autocomplete="off" style="font-size:0.85em;width:65px;padding-left:2px;color:#000;" title="Enter the ZIP code and click Add">',
+            super(true, 1,
+                'No <a href="https://wazeopedia.waze.com/wiki/USA/Places/Post_Office" style="color:#3232e6;" target="_blank">ZIP code alt name</a>: <input type="text" id="WMEPH-zipAltNameAdd" autocomplete="off" style="font-size:0.85em;width:65px;padding-left:2px;color:#000;" title="Enter the ZIP code and click Add">',
                 'Add', true, 'Whitelist missing USPS zip alt name', 'missingUSPSZipAlt');
             this.noBannerAssemble = true;
         }
+
+        // eslint-disable-next-line class-methods-use-this
         action() {
             const $input = $('input#WMEPH-zipAltNameAdd');
             const zip = $input.val().trim();
@@ -2248,7 +2329,7 @@ let Flag = {
         }
     },
     CatHotel: class extends FlagBase {
-        constructor(pnhName) { super(true, 0, 'Check hotel website for any name localization (e.g. ' + pnhName + ' - Tampa Airport).'); }
+        constructor(pnhName) { super(true, 0, `Check hotel website for any name localization (e.g. ${pnhName} - Tampa Airport).`); }
     },
     LocalizedName: class extends WLFlag {
         constructor() { super(true, 1, 'Place needs localization information', true, 'Whitelist localization', 'localizedName'); }
@@ -2268,21 +2349,23 @@ let Flag = {
             this.value2 = 'Add';
             this.title2 = 'Add a link to a Google place';
         }
+
+        // eslint-disable-next-line class-methods-use-this
         action() {
             const venue = getSelectedVenue();
             nudgeVenue(venue);
             harmonizePlaceGo(venue, 'harmonize'); // Rerun the script to update fields and lock
         }
+
+        // eslint-disable-next-line class-methods-use-this
         action2() {
             const venue = getSelectedVenue();
             $('div.external-providers-view a').focus().click();
-            setTimeout(function () {
+            setTimeout(() => {
                 $('a[href="#landmark-edit-general"]').click();
                 $('.external-providers-view a.add').focus().mousedown();
                 $('div.external-providers-view > div > ul > div > li > div > a').last().mousedown();
-                setTimeout(() => {
-                    $('.select2-input').last().focus().val(venue.attributes.name).trigger('input');
-                }, 100);
+                setTimeout(() => $('.select2-input').last().focus().val(venue.attributes.name).trigger('input'), 100);
             }, 100);
         }
     },
@@ -2292,12 +2375,14 @@ let Flag = {
             this.noBannerAssemble = true;
             this.badInput = false;
         }
+
+        // eslint-disable-next-line class-methods-use-this
         action() {
             const venue = getSelectedVenue();
             const newUrl = normalizeURL($('#WMEPH-UrlAdd').val(), true, false, venue);
             if ((!newUrl || newUrl.trim().length === 0) || newUrl === 'badURL') {
                 $('input#WMEPH-UrlAdd').css({ backgroundColor: '#FDD' }).attr('title', 'Invalid URL format');
-                //this.badInput = true;
+                // this.badInput = true;
             } else {
                 phlogdev(newUrl);
                 W.model.actionManager.add(new UpdateObject(venue, { url: newUrl }));
@@ -2308,10 +2393,12 @@ let Flag = {
     },
     BadAreaCode: class extends WLActionFlag {
         constructor(textValue, outputFormat) {
-            super(true, 1, 'Area Code mismatch:<br><input type="text" id="WMEPH-PhoneAdd" autocomplete="off" style="font-size:0.85em;width:100px;padding-left:2px;color:#000;" value="' + (textValue ? textValue : '') + '">', 'Update', 'Update phone #', true, 'Whitelist the area code', 'aCodeWL');
+            super(true, 1, `Area Code mismatch:<br><input type="text" id="WMEPH-PhoneAdd" autocomplete="off" style="font-size:0.85em;width:100px;padding-left:2px;color:#000;" value="${textValue ? textValue : ''}">`,
+                'Update', 'Update phone #', true, 'Whitelist the area code', 'aCodeWL');
             this.outputFormat = outputFormat;
             this.noBannerAssemble = true;
         }
+
         action() {
             const venue = getSelectedVenue();
             const newPhone = normalizePhone($('#WMEPH-PhoneAdd').val(), this.outputFormat, 'inputted', venue);
@@ -2329,7 +2416,8 @@ let Flag = {
     },
     PhoneMissing: class extends WLActionFlag {
         constructor(venue, hasOperator, wl, outputFormat, isPLA) {
-            super(true, 1, 'No ph#: <input type="text" id="WMEPH-PhoneAdd" autocomplete="off" style="font-size:0.85em;width:100px;padding-left:2px;color:#000;">', 'Add', 'Add phone to place', true, 'Whitelist empty phone', 'phoneWL');
+            super(true, 1, 'No ph#: <input type="text" id="WMEPH-PhoneAdd" autocomplete="off" style="font-size:0.85em;width:100px;padding-left:2px;color:#000;">',
+                'Add', 'Add phone to place', true, 'Whitelist empty phone', 'phoneWL');
             this.noBannerAssemble = true;
             this.badInput = false;
             this.outputFormat = outputFormat;
@@ -2339,7 +2427,9 @@ let Flag = {
                 this.WLactive = false;
             }
         }
+
         static get _regionsThatWantPlaPhones() { return ['SER']; }
+
         static eval(venue, wl, region, outputFormat) {
             const hasOperator = venue.attributes.brand && W.model.venues.categoryBrands.PARKING_LOT.indexOf(venue.attributes.brand) !== -1;
             const isPLA = venue.isParkingLot();
@@ -2349,6 +2439,7 @@ let Flag = {
             }
             return flag;
         }
+
         action() {
             const newPhone = normalizePhone($('#WMEPH-PhoneAdd').val(), this.outputFormat, 'inputted', this.venue);
             if (newPhone === 'badPhone') {
@@ -2365,6 +2456,8 @@ let Flag = {
     },
     NoHours: class extends WLFlag {
         constructor() { super(true, 1, getHoursHtml('No hours'), true, 'Whitelist "No hours"', 'noHours'); }
+
+        // eslint-disable-next-line class-methods-use-this
         getTitle(parseResult) {
             let title;
             if (parseResult.overlappingHours) {
@@ -2376,6 +2469,7 @@ let Flag = {
             }
             return title;
         }
+
         applyHours(replaceAllHours) {
             const venue = getSelectedVenue();
             let pasteHours = $('#WMEPH-HoursPaste').val();
@@ -2383,7 +2477,7 @@ let Flag = {
                 return;
             }
             phlogdev(pasteHours);
-            pasteHours += !replaceAllHours ? ',' + getOpeningHours(venue).join(',') : '';
+            pasteHours += !replaceAllHours ? `,${getOpeningHours(venue).join(',')}` : '';
             $('.nav-tabs a[href="#landmark-edit-more-info"]').tab('show');
             const parser = new HoursParser();
             const parseResult = parser.parseHours(pasteHours);
@@ -2400,15 +2494,18 @@ let Flag = {
                 $('#WMEPH-HoursPaste').css({ 'background-color': '#FDD' }).attr({ title: this.getTitle(parseResult) });
             }
         }
+
         addHoursAction() {
             this.applyHours();
         }
+
         replaceHoursAction() {
             this.applyHours(true);
         }
     },
     PlaLotTypeMissing: class extends FlagBase {
         constructor() { super(true, 3, 'Lot type: '); }
+
         static eval(venue, hpMode) {
             const result = { flag: null };
             if (venue.isParkingLot()) {
@@ -2419,11 +2516,12 @@ let Flag = {
                     if (hpMode.harmFlag) {
                         result.noLock = true;
                         [['PUBLIC', 'Public'], ['RESTRICTED', 'Restricted'], ['PRIVATE', 'Private']].forEach(btnInfo => {
-                            result.flag.message +=
-                                $('<button>', { class: 'wmeph-pla-lot-type-btn btn btn-default btn-xs wmeph-btn', 'data-lot-type': btnInfo[0] })
-                                    .text(btnInfo[1])
-                                    .css({ padding: '3px', height: '20px', lineHeight: '0px', marginRight: '2px', marginBottom: '1px' })
-                                    .prop('outerHTML');
+                            result.flag.message += $('<button>', { class: 'wmeph-pla-lot-type-btn btn btn-default btn-xs wmeph-btn', 'data-lot-type': btnInfo[0] })
+                                .text(btnInfo[1])
+                                .css({
+                                    padding: '3px', height: '20px', lineHeight: '0px', marginRight: '2px', marginBottom: '1px'
+                                })
+                                .prop('outerHTML');
                         });
                     }
                 }
@@ -2433,6 +2531,7 @@ let Flag = {
     },
     PlaCostTypeMissing: class extends FlagBase {
         constructor() { super(true, 1, 'Parking cost: '); }
+
         static eval(venue, hpMode) {
             const result = { flag: null };
             if (venue.isParkingLot()) {
@@ -2442,14 +2541,17 @@ let Flag = {
                     result.flag = new Flag.PlaCostTypeMissing();
                     if (hpMode.harmFlag) {
                         [['FREE', 'Free', 'Free'], ['LOW', '$', 'Low'], ['MODERATE', '$$', 'Moderate'], ['EXPENSIVE', '$$$', 'Expensive']].forEach(btnInfo => {
-                            result.flag.message +=
-                                $('<button>', { id: 'wmeph_' + btnInfo[0], class: 'wmeph-pla-cost-type-btn btn btn-default btn-xs wmeph-btn', title: btnInfo[2] })
-                                    .text(btnInfo[1])
-                                    .css({
-                                        padding: '3px', height: '20px', lineHeight: '0px', marginRight: '2px',
-                                        marginBottom: '1px', minWidth: '18px'
-                                    })
-                                    .prop('outerHTML');
+                            result.flag.message += $('<button>', { id: `wmeph_${btnInfo[0]}`, class: 'wmeph-pla-cost-type-btn btn btn-default btn-xs wmeph-btn', title: btnInfo[2] })
+                                .text(btnInfo[1])
+                                .css({
+                                    padding: '3px',
+                                    height: '20px',
+                                    lineHeight: '0px',
+                                    marginRight: '2px',
+                                    marginBottom: '1px',
+                                    minWidth: '18px'
+                                })
+                                .prop('outerHTML');
                         });
                         result.noLock = true;
                     }
@@ -2460,6 +2562,7 @@ let Flag = {
     },
     PlaPaymentTypeMissing: class extends ActionFlag {
         constructor() { super(true, 1, 'Parking isn\'t free.  Select payment type(s) from the "More info" tab. ', 'Go there'); }
+
         static eval(venue) {
             const result = { flag: null };
             if (venue.isParkingLot()) {
@@ -2471,6 +2574,8 @@ let Flag = {
             }
             return result;
         }
+
+        // eslint-disable-next-line class-methods-use-this
         action() {
             $('a[href="#landmark-edit-more-info"]').click();
             $('#payment-checkbox-ELECTRONIC_PASS').focus();
@@ -2478,6 +2583,7 @@ let Flag = {
     },
     PlaLotElevationMissing: class extends ActionFlag {
         constructor() { super(true, 1, 'No lot elevation. Is it street level?', 'Yes', 'Click if street level parking only, or select other option(s) in the More Info tab.'); }
+
         static eval(venue) {
             const result = { flag: null };
             if (venue.isParkingLot()) {
@@ -2490,19 +2596,21 @@ let Flag = {
             }
             return result;
         }
+
+        // eslint-disable-next-line class-methods-use-this
         action() {
             const venue = getSelectedVenue();
             const existingAttr = venue.attributes.categoryAttributes.PARKING_LOT;
             const newAttr = {};
             if (existingAttr) {
-                for (const prop in existingAttr) {
-                    let value = existingAttr[prop];
+                Object.keys(existingAttr).forEach(key => {
+                    let value = existingAttr[key];
                     if (Array.isArray(value)) value = [].concat(value);
-                    newAttr[prop] = value;
-                }
+                    newAttr[key] = value;
+                });
             }
             newAttr.lotType = ['STREET_LEVEL'];
-            W.model.actionManager.add(new UpdateObject(venue, { 'categoryAttributes': { PARKING_LOT: newAttr } }));
+            W.model.actionManager.add(new UpdateObject(venue, { categoryAttributes: { PARKING_LOT: newAttr } }));
             harmonizePlaceGo(venue, 'harmonize');
         }
     },
@@ -2511,21 +2619,29 @@ let Flag = {
             super(true, 0, '# of parking spaces is set to 1-10.<br><b><i>If appropriate</i></b>, select another option:');
             const $btnDiv = $('<div>');
             let btnIdx = 0;
-            [['R_11_TO_30', '11-30'], ['R_31_TO_60', '31-60'], ['R_61_TO_100', '61-100'],
-            ['R_101_TO_300', '101-300'], ['R_301_TO_600', '301-600'], ['R_600_PLUS', '601+']].forEach(btnInfo => {
+            [
+                ['R_11_TO_30', '11-30'], ['R_31_TO_60', '31-60'], ['R_61_TO_100', '61-100'],
+                ['R_101_TO_300', '101-300'], ['R_301_TO_600', '301-600'], ['R_600_PLUS', '601+']
+            ].forEach(btnInfo => {
                 if (btnIdx === 3) $btnDiv.append('<br>');
                 $btnDiv.append(
-                    $('<button>', { id: 'wmeph_' + btnInfo[0], class: 'wmeph-pla-spaces-btn btn btn-default btn-xs wmeph-btn' })
+                    $('<button>', { id: `wmeph_${btnInfo[0]}`, class: 'wmeph-pla-spaces-btn btn btn-default btn-xs wmeph-btn' })
                         .text(btnInfo[1])
                         .css({
-                            padding: '3px', height: '20px', lineHeight: '0px', marginTop: '2px', marginRight: '2px',
-                            marginBottom: '1px', width: '64px'
+                            padding: '3px',
+                            height: '20px',
+                            lineHeight: '0px',
+                            marginTop: '2px',
+                            marginRight: '2px',
+                            marginBottom: '1px',
+                            width: '64px'
                         })
                 );
                 btnIdx++;
             });
             this.suffixMessage = $btnDiv.prop('outerHTML');
         }
+
         static eval(venue, hpMode) {
             const result = { flag: null };
             if (hpMode.harmFlag && venue.isParkingLot()) {
@@ -2540,6 +2656,7 @@ let Flag = {
     },
     NoPlaStopPoint: class extends ActionFlag {
         constructor() { super(true, 1, 'Entry/exit point has not been created.', 'Add point', 'Add an entry/exit point'); }
+
         static eval(venue) {
             const result = { flag: null };
             if (venue.isParkingLot() && (!venue.attributes.entryExitPoints || !venue.attributes.entryExitPoints.length)) {
@@ -2547,6 +2664,8 @@ let Flag = {
             }
             return result;
         }
+
+        // eslint-disable-next-line class-methods-use-this
         action() {
             $('.navigation-point-view .add-button').click();
             harmonizePlaceGo(getSelectedVenue(), 'harmonize');
@@ -2554,6 +2673,7 @@ let Flag = {
     },
     PlaStopPointUnmoved: class extends FlagBase {
         constructor() { super(true, 1, 'Entry/exit point has not been moved.'); }
+
         static eval(venue) {
             const result = { flag: null };
             const attr = venue.attributes;
@@ -2569,6 +2689,7 @@ let Flag = {
     },
     PlaCanExitWhileClosed: class extends ActionFlag {
         constructor() { super(true, 0, 'Can cars exit when lot is closed? ', 'Yes', ''); }
+
         static eval(venue, hpMode) {
             const result = { flag: null };
             if (hpMode.harmFlag && venue.isParkingLot()) {
@@ -2580,58 +2701,65 @@ let Flag = {
             }
             return result;
         }
+
+        // eslint-disable-next-line class-methods-use-this
         action() {
             const venue = getSelectedVenue();
             const existingAttr = venue.attributes.categoryAttributes.PARKING_LOT;
             const newAttr = {};
             if (existingAttr) {
-                for (const prop in existingAttr) {
+                Object.keys(existingAttr).forEach(prop => {
                     let value = existingAttr[prop];
                     if (Array.isArray(value)) value = [].concat(value);
                     newAttr[prop] = value;
-                }
+                });
             }
             newAttr.canExitWhileClosed = true;
-            W.model.actionManager.add(new UpdateObject(venue, { 'categoryAttributes': { PARKING_LOT: newAttr } }));
+            W.model.actionManager.add(new UpdateObject(venue, { categoryAttributes: { PARKING_LOT: newAttr } }));
             harmonizePlaceGo(venue, 'harmonize');
         }
     },
     PlaHasAccessibleParking: class extends ActionFlag {
         constructor() { super(true, 0, 'Does this lot have disability parking? ', 'Yes', ''); }
+
         static eval(venue, hpMode) {
             const result = { flag: null };
             if (hpMode.harmFlag && venue.isParkingLot()) {
-                const services = venue.attributes.services;
+                const { services } = venue.attributes;
                 if (!(services && services.indexOf('DISABILITY_PARKING') > -1)) {
                     result.flag = new Flag.PlaHasAccessibleParking();
                 }
             }
             return result;
         }
+
+        // eslint-disable-next-line class-methods-use-this
         action() {
             const venue = getSelectedVenue();
-            let services = venue.attributes.services;
+            let { services } = venue.attributes;
             if (services) {
                 services = [].concat(services);
             } else {
                 services = [];
             }
             services.push('DISABILITY_PARKING');
-            //bannServ.addDisabilityParking.on();
-            W.model.actionManager.add(new UpdateObject(venue, { 'services': services }));
+            W.model.actionManager.add(new UpdateObject(venue, { services }));
             _UPDATED_FIELDS.services_DISABILITY_PARKING.updated = true;
             harmonizePlaceGo(venue, 'harmonize');
         }
     },
     AllDayHoursFixed: class extends FlagBase {
         constructor() { super(true, 0, 'Hours were changed from 00:00-23:59 to "All Day"'); }
+
         static eval(venue, hpMode, actions) {
             const hoursEntries = venue.attributes.openingHours;
             const newHoursEntries = [];
             let updateHours = false;
             let flag = null;
             for (let i = 0, len = hoursEntries.length; i < len; i++) {
-                const newHoursEntry = new OpeningHour({ days: [].concat(hoursEntries[i].days), fromHour: hoursEntries[i].fromHour, toHour: hoursEntries[i].toHour });
+                const newHoursEntry = new OpeningHour({
+                    days: [].concat(hoursEntries[i].days), fromHour: hoursEntries[i].fromHour, toHour: hoursEntries[i].toHour
+                });
                 if (newHoursEntry.toHour === '23:59' && /^0?0:00$/.test(newHoursEntry.fromHour)) {
                     if (hpMode.hlFlag) {
                         // Just return a "placeholder" flag to highlight the place.
@@ -2661,24 +2789,29 @@ let Flag = {
     },
     LockRPP: class extends ActionFlag {
         constructor() { super(true, 0, 'Lock this residential point?', 'Lock', 'Lock the residential point'); }
+
         action() {
             const venue = getSelectedVenue();
             let RPPlevelToLock = $('#RPPLockLevel :selected').val() || _defaultLockLevel + 1;
-            phlogdev('RPPlevelToLock: ' + RPPlevelToLock);
+            phlogdev(`RPPlevelToLock: ${RPPlevelToLock}`);
 
-            RPPlevelToLock = RPPlevelToLock - 1;
+            RPPlevelToLock -= 1;
             W.model.actionManager.add(new UpdateObject(venue, { lockRank: RPPlevelToLock }));
             // no field highlight here
-            this.message = 'Current lock: ' + (parseInt(venue.attributes.lockRank) + 1) + '. ' + _rppLockString + ' ?';
+            this.message = `Current lock: ${parseInt(venue.attributes.lockRank, 10) + 1}. ${_rppLockString} ?`;
         }
     },
     AddAlias: class extends ActionFlag {
-        constructor() { super(true, 0, 'Is ' + _optionalAlias + ' at this location?', 'Yes', 'Add ' + _optionalAlias); }
+        constructor(specCases) {
+            super(true, 0, `Is ${_optionalAlias} at this location?`, 'Yes', `Add ${_optionalAlias}`);
+            this._specCases = specCases;
+        }
+
         action() {
             const venue = getSelectedVenue();
             _newAliases = insertAtIX(_newAliases, _optionalAlias, 0);
-            if (specCases.indexOf('altName2Desc') > -1 && venue.attributes.description.toUpperCase().indexOf(_optionalAlias.toUpperCase()) === -1) {
-                newDescripion = _optionalAlias + '\n' + newDescripion;
+            if (this._specCases.indexOf('altName2Desc') > -1 && venue.attributes.description.toUpperCase().indexOf(_optionalAlias.toUpperCase()) === -1) {
+                const newDescripion = `${_optionalAlias}\n${newDescripion}`;
                 W.model.actionManager.add(new UpdateObject(venue, { description: newDescripion }));
                 _UPDATED_FIELDS.description.updated = true;
             }
@@ -2690,6 +2823,7 @@ let Flag = {
     },
     AddCat2: class extends ActionFlag {
         constructor() { super(false, 0, '', 'Yes', ''); }
+
         action() {
             const venue = getSelectedVenue();
             _newCategories.push(this.altCategory);
@@ -2700,6 +2834,8 @@ let Flag = {
     },
     AddPharm: class extends ActionFlag {
         constructor() { super(false, 0, 'Is there a Pharmacy at this location?', 'Yes', 'Add Pharmacy category'); }
+
+        // eslint-disable-next-line class-methods-use-this
         action() {
             const venue = getSelectedVenue();
             _newCategories = insertAtIX(_newCategories, 'PHARMACY', 1);
@@ -2710,6 +2846,8 @@ let Flag = {
     },
     AddSuper: class extends ActionFlag {
         constructor() { super(false, 0, 'Does this location have a supermarket?', 'Yes', 'Add Supermarket category'); }
+
+        // eslint-disable-next-line class-methods-use-this
         action() {
             const venue = getSelectedVenue();
             _newCategories = insertAtIX(_newCategories, 'SUPERMARKET_GROCERY', 1);
@@ -2720,6 +2858,8 @@ let Flag = {
     },
     AppendAMPM: class extends ActionFlag {
         constructor() { super(false, 0, 'Is there an ampm at this location?', 'Yes', 'Add ampm to the place'); }
+
+        // eslint-disable-next-line class-methods-use-this
         action() {
             const venue = getSelectedVenue();
             _newCategories = insertAtIX(_newCategories, 'CONVENIENCE_STORE', 1);
@@ -2735,6 +2875,8 @@ let Flag = {
     },
     AddATM: class extends ActionFlag {
         constructor() { super(false, 0, 'ATM at location? ', 'Yes', 'Add the ATM category to this place'); }
+
+        // eslint-disable-next-line class-methods-use-this
         action() {
             const venue = getSelectedVenue();
             _newCategories = insertAtIX(_newCategories, 'ATM', 1); // Insert ATM category in the second position
@@ -2745,6 +2887,8 @@ let Flag = {
     },
     AddConvStore: class extends ActionFlag {
         constructor() { super(false, 0, 'Add convenience store category? ', 'Yes', 'Add the Convenience Store category to this place'); }
+
+        // eslint-disable-next-line class-methods-use-this
         action() {
             const venue = getSelectedVenue();
             _newCategories = insertAtIX(_newCategories, 'CONVENIENCE_STORE', 1); // Insert C.S. category in the second position
@@ -2755,6 +2899,7 @@ let Flag = {
     },
     IsThisAPostOffice: class extends ActionFlag {
         constructor() { super(true, 0, 'Is this a <a href="https://wazeopedia.waze.com/wiki/USA/Places/Post_Office" target="_blank" style="color:#3a3a3a">USPS post office</a>? ', 'Yes', 'Is this a USPS location?'); }
+
         static eval(venue, newName) {
             const result = { flag: null };
             const cleanName = newName.toUpperCase().replace(/[\/\-\.]/g, '');
@@ -2763,6 +2908,8 @@ let Flag = {
             }
             return result;
         }
+
+        // eslint-disable-next-line class-methods-use-this
         action() {
             const venue = getSelectedVenue();
             _newCategories = insertAtIX(_newCategories, 'POST_OFFICE', 0);
@@ -2773,6 +2920,7 @@ let Flag = {
     },
     ChangeToHospitalUrgentCare: class extends WLActionFlag {
         constructor(severity, message) { super(true, severity, message, 'Change to Hospital / Urgent Care', 'Change category to Hospital / Urgent Care', false, 'Whitelist category', 'changetoHospitalUrgentCare'); }
+
         static eval(venue, hpMode) {
             const result = { flag: null };
             if (hpMode.harmFlag && venue.attributes.categories.indexOf('DOCTOR_CLINIC') > -1) {
@@ -2780,6 +2928,8 @@ let Flag = {
             }
             return result;
         }
+
+        // eslint-disable-next-line class-methods-use-this
         action() {
             let idx = _newCategories.indexOf('HOSPITAL_MEDICAL_CARE');
             const venue = getSelectedVenue();
@@ -2794,6 +2944,8 @@ let Flag = {
     },
     ChangeToDoctorClinic: class extends WLActionFlag {
         constructor() { super(true, 0, '', 'Change to Doctor / Clinic', 'Change category to Doctor / Clinic', false, 'Whitelist category', 'changeToDoctorClinic'); }
+
+        // eslint-disable-next-line class-methods-use-this
         action() {
             const venue = getSelectedVenue();
             let newCategories = _.clone(venue.attributes.categories);
@@ -2825,6 +2977,7 @@ let Flag = {
             this.confirmChange = false;
             this.noBannerAssemble = true;
         }
+
         action() {
             const venue = getSelectedVenue();
             let newName = venue.attributes.name;
@@ -2853,6 +3006,8 @@ let Flag = {
     },
     NewPlaceSubmit: class extends ActionFlag {
         constructor() { super(true, 0, 'No PNH match. If it\'s a chain: ', 'Submit new chain data', 'Submit info for a new chain through the linked form'); }
+
+        // eslint-disable-next-line class-methods-use-this
         action() {
             window.open(_newPlaceURL);
         }
@@ -2865,14 +3020,17 @@ let Flag = {
             this.pnhNameTemp = pnhNameTemp;
             this.placePL = placePL;
         }
+
         action() {
             if (_PM_USER_LIST.hasOwnProperty(this.region) && _PM_USER_LIST[this.region].approvalActive) {
                 const forumPMInputs = {
-                    subject: '' + this.pnhOrderNum + ' PNH approval for "' + this.pnhNameTemp + '"',
-                    message: 'Please approve "' + this.pnhNameTemp + '" for the ' + this.region + ' region.  Thanks\n \nPNH order number: ' + this.pnhOrderNum + '\n \nPermalink: ' + this.placePL + '\n \nPNH Link: ' + _URLS.usaPnh,
-                    preview: 'Preview', attach_sig: 'on'
+                    subject: `${this.pnhOrderNum} PNH approval for "${this.pnhNameTemp}"`,
+                    message: `Please approve "${this.pnhNameTemp}" for the ${this.region} region.  Thanks\n \nPNH order number: ${
+                        this.pnhOrderNum}\n \nPermalink: ${this.placePL}\n \nPNH Link: ${_URLS.usaPnh}`,
+                    preview: 'Preview',
+                    attach_sig: 'on'
                 };
-                forumPMInputs['address_list[u][' + _PM_USER_LIST[this.region].modID + ']'] = 'to'; // Sends a PM to the regional mod instead of the submission form
+                forumPMInputs[`address_list[u][${_PM_USER_LIST[this.region].modID}]`] = 'to'; // Sends a PM to the regional mod instead of the submission form
                 newForumPost('https://www.waze.com/forum/ucp.php?i=pm&mode=compose', forumPMInputs);
             } else {
                 window.open(_approveRegionURL);
@@ -2882,8 +3040,11 @@ let Flag = {
     PlaceWebsite: class extends ActionFlag {
         // NOTE: This class is now only used to display the store locator button.  It can be updated to remove/change anything that doesn't serve that purpose.
         constructor() { super(true, 0, '', 'Location Finder', 'Look up details about this location on the chain\'s finder web page'); }
+
+        // eslint-disable-next-line class-methods-use-this
         action() {
-            let openPlaceWebsiteURL, linkProceed = true;
+            let openPlaceWebsiteURL;
+            let linkProceed = true;
             if (_updateURL) {
                 // replace WME url with storefinder URLs if they are in the PNH data
                 if (_customStoreFinder) {
@@ -2900,8 +3061,8 @@ let Flag = {
                     }
                 }
             } else {
-                let url = getSelectedVenue().url;
-                if (!/^https?:\/\//.test(url)) url = 'http://' + url;
+                let { url } = getSelectedVenue();
+                if (!/^https?:\/\//.test(url)) url = `http://${url}`;
                 openPlaceWebsiteURL = url;
             }
             // open the link depending on new window setting
@@ -3735,7 +3896,7 @@ function harmonizePlaceGo(item, useFlag, actions) {
                     if (specCases[scix].match(/^optionAltName<>(.+)/g) !== null) {
                         _optionalAlias = specCases[scix].match(/^optionAltName<>(.+)/i)[1];
                         if (_newAliases.indexOf(_optionalAlias) === -1) {
-                            _buttonBanner.addAlias = new Flag.AddAlias();
+                            _buttonBanner.addAlias = new Flag.AddAlias(specCases);
                         }
                     }
                     // Gas Station forceBranding
