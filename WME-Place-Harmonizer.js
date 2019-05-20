@@ -1729,6 +1729,7 @@ class WLFlag extends FlagBase {
         this.WLtitle = WLtitle;
         this.WLkeyName = WLkeyName;
     }
+
     WLaction() {
         const venue = getSelectedVenue();
         whitelistAction(venue.attributes.id, this.WLkeyName);
@@ -1741,7 +1742,9 @@ class WLActionFlag extends WLFlag {
         this.value = value;
         this.title = title;
     }
-    action() { } // overwrite this
+
+    // 5/19/2019 (mapomatic) This base class action function doesn't seem to be necessary.
+    // action() { } // overwrite this
 }
 
 // Namespace to keep these grouped.
@@ -1751,6 +1754,7 @@ let Flag = {
     },
     FullAddressInference: class extends FlagBase {
         constructor() { super(true, 3, 'Missing address was inferred from nearby segments. Verify the address and run script again.'); }
+
         static eval(venue, addr, actions) {
             const result = {};
             if (!addr.state || !addr.country) {
@@ -1758,7 +1762,8 @@ let Flag = {
                     if ($('#WMEPH-EnableIAZoom').prop('checked')) {
                         W.map.moveTo(getVenueLonLat(venue), 5);
                     } else {
-                        alert('No address and the state cannot be determined. Please zoom in and rerun the script. You can enable autozoom for this type of case in the options.');
+                        alert('No address and the state cannot be determined. Please zoom in and rerun the script. '
+                            + 'You can enable autozoom for this type of case in the options.');
                     }
                     result.exit = true; //  don't run the rest of the script
                 } else {
@@ -1772,16 +1777,9 @@ let Flag = {
                             _UPDATED_FIELDS.address.updated = true;
                             result.flag = new Flag.FullAddressInference();
                             result.noLock = true;
-                            //                                 let hn = venue.attributes.houseNumber;
-                            //                                 if (hn && hn.replace(/[^0-9A-Za-z]/g,'').length > 0 ) {
-                            //                                     result.flag = new Flag.FullAddressInference();
-                            //                                     result.noLock = true;
-                            //                                 }
-                        } else {
-                            if (['JUNCTION_INTERCHANGE'].indexOf(_newCategories[0]) === -1) {
-                                _buttonBanner.cityMissing = new Flag.CityMissing();
-                                result.noLock = true;
-                            }
+                        } else if (['JUNCTION_INTERCHANGE'].indexOf(_newCategories[0]) === -1) {
+                            _buttonBanner.cityMissing = new Flag.CityMissing();
+                            result.noLock = true;
                         }
                     } else { //  if the inference doesn't work...
                         alert('This place has no address data and the address cannot be inferred from nearby segments. Please edit the address and run WMEPH again.');
