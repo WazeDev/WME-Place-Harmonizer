@@ -2234,9 +2234,10 @@ let Flag = {
         }
     },
     LongURL: class extends WLActionFlag {
-        constructor() {
+        constructor(placePL) {
             super(true, 1, 'Existing URL doesn\'t match the suggested PNH URL. Use the Website button below to verify that existing URL is valid.  If not:',
                 'Use PNH URL', 'Change URL to the PNH standard', true, 'Whitelist existing URL', 'longURL');
+            this.placePL = placePL;
         }
 
         // eslint-disable-next-line class-methods-use-this
@@ -2251,7 +2252,7 @@ let Flag = {
                 // if the category doesn't translate, then pop an alert that will make a forum post to the thread
                 reportError({
                     subject: 'WMEPH URL comparison Error report',
-                    message: `Error report: URL comparison failed for "${venue.attributes.name}"\nPermalink: ${placePL}`
+                    message: `Error report: URL comparison failed for "${venue.attributes.name}"\nPermalink: ${this.placePL}`
                 });
             }
         }
@@ -3082,7 +3083,7 @@ function getBannButt() {
         hnDashRemoved: null,
         fullAddressInference: null,
         nameMissing: null,
-        //The buttons are appended in the code...
+        // The buttons are appended in the code...
         plaIsPublic: null,
         plaNameMissing: null,
         plaNameNonStandard: null,
@@ -3199,7 +3200,6 @@ function harmonizePlaceGo(item, useFlag, actions) {
     }
 
     let placePL = getItemPL(); //  set up external post div and pull place PL
-    // https://www.waze.com/editor/?env=usa&lon=-80.60757&lat=28.17850&layers=1957&zoom=4&segments=86124344&update_requestsFilter=false&problemsFilter=false&mapProblemFilter=0&mapUpdateRequestFilter=0&venueFilter=1
     placePL = placePL.replace(/\&layers=[^\&]+(\&?)/g, '$1'); // remove Permalink Layers
     placePL = placePL.replace(/\&s=[^\&]+(\&?)/g, '$1'); // remove Permalink Layers
     placePL = placePL.replace(/\&update_requestsFilter=[^\&]+(\&?)/g, '$1'); // remove Permalink Layers
@@ -4668,12 +4668,11 @@ function harmonizePlaceGo(item, useFlag, actions) {
                 newURLTemp = newURLTemp.replace(/^www\.(.*)$/i, '$1'); // strip www
                 const itemURLTemp = itemURL.replace(/^www\.(.*)$/i, '$1'); // strip www
                 if (newURLTemp !== itemURLTemp) { // if formatted URLs don't match, then alert the editor to check the existing URL
-                    _buttonBanner.longURL = new Flag.LongURL();
+                    _buttonBanner.longURL = new Flag.LongURL(placePL);
                     if (_wl.longURL) {
                         _buttonBanner.longURL.severity = 0;
                         _buttonBanner.longURL.WLactive = false;
                     }
-                    //bannButt.PlaceWebsite.value = 'Place Website';
                     if (hpMode.harmFlag && _updateURL && itemURL !== item.attributes.url) { // Update the URL
                         phlogdev('URL formatted');
                         actions.push(new UpdateObject(item, { url: itemURL }));
