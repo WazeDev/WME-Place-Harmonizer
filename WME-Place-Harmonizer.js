@@ -1231,19 +1231,17 @@ function toggleXrayMode(enable) {
 }
 
 function initializeHighlights() {
-    const ruleGenerator = function (value, symbolizer) {
-        return new W.Rule({
-            filter: new OL.Filter.Comparison({
-                type: '==',
-                value,
-                evaluate(venue) {
-                    return venue && venue.model && venue.model.attributes.wmephSeverity === this.value;
-                }
-            }),
-            symbolizer,
-            wmephStyle: 'default'
-        });
-    };
+    const ruleGenerator = (value, symbolizer) => new W.Rule({
+        filter: new OL.Filter.Comparison({
+            type: '==',
+            value,
+            evaluate(venue) {
+                return venue && venue.model && venue.model.attributes.wmephSeverity === this.value;
+            }
+        }),
+        symbolizer,
+        wmephStyle: 'default'
+    });
 
     const severity0 = ruleGenerator(0, {
         pointRadius: 5,
@@ -1912,7 +1910,9 @@ let Flag = {
             _UPDATED_FIELDS.categories.updated = true;
 
             // make it 24/7
-            actions.push(new UpdateObject(venue, { openingHours: [new OpeningHour({ days: [1, 2, 3, 4, 5, 6, 0], fromHour: '00:00', toHour: '00:00' })] }));
+            actions.push(new UpdateObject(venue, {
+                openingHours: [new OpeningHour({ days: [1, 2, 3, 4, 5, 6, 0], fromHour: '00:00', toHour: '00:00' })]
+            }));
             _UPDATED_FIELDS.openingHours.updated = true;
 
             _servicesBanner.add247.checked = true;
@@ -1930,16 +1930,21 @@ let Flag = {
     },
     GasMismatch: class extends WLFlag {
         constructor() {
-            super(true, 3, '<a href="https://wazeopedia.waze.com/wiki/USA/Places/Gas_station#Name" target="_blank" class="red">Gas brand should typically be included in the place name.</a>',
+            super(true, 3, '<a href="https://wazeopedia.waze.com/wiki/USA/Places/Gas_station#Name" target="_blank" '
+                + 'class="red">Gas brand should typically be included in the place name.</a>',
                 true, 'Whitelist gas brand / name mismatch', 'gasMismatch');
         }
     },
     GasUnbranded: class extends FlagBase {
-        constructor() { super(true, 3, '"Unbranded" should not be used for the station brand. Change to correct brand or use the blank entry at the top of the brand list.'); }
+        //  Unbranded is not used per wiki
+        constructor() {
+            super(true, 3, '"Unbranded" should not be used for the station brand. Change to correct brand or '
+                + 'use the blank entry at the top of the brand list.');
+        }
 
-        static eval(venue) {
+        static eval(venue, brand) {
             const result = { flag: null };
-            if (venue.isGasStation() && venue.attributes.brand === 'Unbranded') { //  Unbranded is not used per wiki
+            if (venue.isGasStation() && brand === 'Unbranded') {
                 result.flag = new Flag.GasUnbranded();
                 result.noLock = true;
             }
@@ -1947,12 +1952,16 @@ let Flag = {
         }
     },
     GasMkPrim: class extends ActionFlag {
-        constructor() { super(true, 3, 'Gas Station is not the primary category', 'Fix', 'Make the Gas Station category the primary category.'); }
+        constructor() {
+            super(true, 3, 'Gas Station is not the primary category', 'Fix', 'Make the Gas Station '
+                + 'category the primary category.');
+        }
 
         // eslint-disable-next-line class-methods-use-this
         action() {
             const venue = getSelectedVenue();
-            _newCategories = insertAtIX(_newCategories, 'GAS_STATION', 0); // Insert/move Gas category in the first position
+            // Insert/move Gas category in the first position
+            _newCategories = insertAtIX(_newCategories, 'GAS_STATION', 0);
             _UPDATED_FIELDS.categories.updated = true;
             addUpdateAction(venue, { categories: _newCategories });
             harmonizePlaceGo(venue, 'harmonize');
@@ -2258,11 +2267,13 @@ let Flag = {
         }
     },
     GasNoBrand: class extends FlagBase {
-        constructor() { super(true, 1, 'Lock to region standards to verify no gas brand.'); }
+        constructor() {
+            super(true, 1, 'Lock to region standards to verify no gas brand.');
+        }
 
-        static eval(venue) {
+        static eval(venue, brand) {
             const result = { flag: null };
-            if (venue.isGasStation() && !venue.attributes.brand) {
+            if (venue.isGasStation() && !brand) {
                 result.flag = new Flag.GasNoBrand();
                 result.noLock = true;
             }
@@ -3583,6 +3594,11 @@ function harmonizePlaceGo(item, useFlag, actions) {
         extProviderMissing: false
     };
 
+    let addr = item.getAddress();
+    if (addr.hasOwnProperty('attributes')) {
+        addr = addr.attributes;
+    }
+
     _buttonBanner = getButtonBanner();
 
     if (hpMode.harmFlag) {
@@ -3619,13 +3635,13 @@ function harmonizePlaceGo(item, useFlag, actions) {
     _buttonBanner.allDayHoursFixed = Flag.AllDayHoursFixed.eval(item, hpMode, actions);
 
     let lockOK = true; // if nothing goes wrong, then place will be locked
-    const categories = item.attributes.categories;
+    const { categories } = item.attributes;
+
     _newCategories = categories.slice(0);
     const nameParts = getNameParts(item.attributes.name);
     let newNameSuffix = nameParts.suffix;
     _newName = nameParts.base;
     _newAliases = item.attributes.aliases.slice(0);
-    var brand = item.attributes.brand;
     let newDescripion = item.attributes.description;
     _newURL = item.attributes.url;
     let newURLSubmit = '';
@@ -3633,10 +3649,7 @@ function harmonizePlaceGo(item, useFlag, actions) {
         newURLSubmit = _newURL;
     }
     _newPhone = item.attributes.phone;
-    let addr = item.getAddress();
-    if (addr.hasOwnProperty('attributes')) {
-        addr = addr.attributes;
-    }
+
     let PNHNameRegMatch;
 
     // Some user submitted places have no data in the country, state and address fields.
@@ -3796,15 +3809,6 @@ function harmonizePlaceGo(item, useFlag, actions) {
     }
 
     // Gas station treatment (applies to all including PNH)
-
-    // Brand checking
-    result = Flag.GasNoBrand.eval(item);
-    _buttonBanner.gasNoBrand = result.flag;
-    if (result.noLock) lockOK = false;
-
-    result = Flag.GasUnbranded.eval(item);
-    _buttonBanner.gasUnbranded = result.flag;
-    if (result.noLock) lockOK = false;
 
     result = Flag.IsThisAPilotTravelCenter.eval(item, hpMode, state2L, _newName, actions);
     _buttonBanner.isThisAPilotTravelCenter = result.flag;
@@ -4904,31 +4908,33 @@ function harmonizePlaceGo(item, useFlag, actions) {
                 }
             }
         } // END Post Office check
-
     } // END if (!residential && has name)
 
-    //For gas stations, check to make sure brand exists somewhere in the place name.  Remove non-alphanumeric characters first, for more relaxed matching.
-    if (_newCategories[0] === 'GAS_STATION' && item.attributes.brand) {
-        var brand = item.attributes.brand; // If brand is going to be forced, use that.  Otherwise, use existing brand.
-        if (PNHMatchData && PNHMatchData[ph_speccase_ix]) {
-            var re = /forceBrand<>([^,<]+)/i;
-            const match = re.exec(PNHMatchData[ph_speccase_ix]);
-            if (match) {
-                brand = match[1];
-            }
+    let { brand: newBrand } = item.attributes;
+    // If brand is going to be forced, use that.  Otherwise, use existing brand.
+    if (PNHMatchData && PNHMatchData[ph_speccase_ix]) {
+        debugger;
+        const match = /forceBrand<>([^,<]+)/i.exec(PNHMatchData[ph_speccase_ix]);
+        if (match) {
+            [, newBrand] = match;
         }
+    }
+
+    // For gas stations, check to make sure brand exists somewhere in the place name.
+    // Remove non - alphanumeric characters first, for more relaxed matching.
+    if (_newCategories[0] === 'GAS_STATION' && item.attributes.brand) {
         const compressedName = item.attributes.name.toUpperCase().replace(/[^a-zA-Z0-9]/g, '');
         const compressedNewName = _newName.toUpperCase().replace(/[^a-zA-Z0-9]/g, '');
         // Some brands may have more than one acceptable name, or the brand listed in WME doesn't match what we want to see in the name.
         // Ideally, this would be addressed in the PNH spreadsheet somehow, but for now hardcoding is the only option.
-        const compressedBrands = [brand.toUpperCase().replace(/[^a-zA-Z0-9]/g, '')];
-        if (brand === 'Diamond Gasoline') {
+        const compressedBrands = [newBrand.toUpperCase().replace(/[^a-zA-Z0-9]/g, '')];
+        if (newBrand === 'Diamond Gasoline') {
             compressedBrands.push('DIAMONDOIL');
-        } else if (brand === 'Murphy USA') {
+        } else if (newBrand === 'Murphy USA') {
             compressedBrands.push('MURPHY');
-        } else if (brand === 'Mercury Fuel') {
+        } else if (newBrand === 'Mercury Fuel') {
             compressedBrands.push('MERCURY', 'MERCURYPRICECUTTER');
-        } else if (brand === 'Carrollfuel') {
+        } else if (newBrand === 'Carrollfuel') {
             compressedBrands.push('CARROLLMOTORFUEL', 'CARROLLMOTORFUELS');
         }
         if (compressedBrands.every(compressedBrand => compressedName.indexOf(compressedBrand) === -1 && compressedNewName.indexOf(compressedBrand) === -1)) {
@@ -4940,6 +4946,15 @@ function harmonizePlaceGo(item, useFlag, actions) {
             }
         }
     }
+
+    // Brand checking (be sure to check this after determining if brand will be forced, when harmonzing)
+    result = Flag.GasNoBrand.eval(item, newBrand);
+    _buttonBanner.gasNoBrand = result.flag;
+    if (result.noLock) lockOK = false;
+
+    result = Flag.GasUnbranded.eval(item, newBrand);
+    _buttonBanner.gasUnbranded = result.flag;
+    if (result.noLock) lockOK = false;
 
     // Name check
     if (!item.attributes.residential && (!_newName || _newName.replace(/[^A-Za-z0-9]/g, '').length === 0)) {
