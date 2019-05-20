@@ -1110,19 +1110,17 @@ function toggleXrayMode(enable) {
     if (!enable) return;
 
     const defaultPointRadius = 6;
-    const ruleGenerator = function (value, symbolizer) {
-        return new W.Rule({
-            filter: new OL.Filter.Comparison({
-                type: '==',
-                value,
-                evaluate(venue) {
-                    return venue && venue.model && venue.model.attributes.wmephSeverity === this.value;
-                }
-            }),
-            symbolizer,
-            wmephStyle: 'xray'
-        });
-    };
+    const ruleGenerator = (value, symbolizer) => new W.Rule({
+        filter: new OL.Filter.Comparison({
+            type: '==',
+            value,
+            evaluate(venue) {
+                return venue && venue.model && venue.model.attributes.wmephSeverity === this.value;
+            }
+        }),
+        symbolizer,
+        wmephStyle: 'xray'
+    });
 
     const severity0 = ruleGenerator(0, {
         Point: {
