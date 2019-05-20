@@ -1928,8 +1928,7 @@ let Flag = {
     },
     GasMismatch: class extends WLFlag {
         constructor() {
-            super(true, 3, '<a href="https://wazeopedia.waze.com/wiki/USA/Places/Gas_station#Name" target="_blank" '
-                + 'class="red">Gas brand should typically be included in the place name.</a>',
+            super(true, 3, '<a href="https://wazeopedia.waze.com/wiki/USA/Places/Gas_station#Name" target="_blank" class="red">Gas brand should typically be included in the place name.</a>',
                 true, 'Whitelist gas brand / name mismatch', 'gasMismatch');
         }
     },
@@ -2137,7 +2136,7 @@ let Flag = {
         action() {
             const venue = getSelectedVenue();
             _newCategories = ['BANK_FINANCIAL', 'ATM']; // Change to bank and atm cats
-            const tempName = _newName.replace(/[\- (]*ATM[\- )]*/g, ' ').replace(/^ /g, '').replace(/ $/g, ''); // strip ATM from name if present
+            const tempName = _newName.replace(/[- (]*ATM[- )]*/g, ' ').replace(/^ /g, '').replace(/ $/g, ''); // strip ATM from name if present
             _newName = tempName;
             W.model.actionManager.add(new UpdateObject(venue, { name: _newName, categories: _newCategories }));
             if (tempName !== _newName) _UPDATED_FIELDS.name.updated = true;
@@ -2168,7 +2167,7 @@ let Flag = {
         action() {
             const venue = getSelectedVenue();
             _newCategories = ['OFFICES']; // Change to offices category
-            const tempName = _newName.replace(/[\- (]*atm[\- )]*/ig, ' ').replace(/^ /g, '').replace(/ $/g, '').replace(/ {2,}/g, ' '); // strip ATM from name if present
+            const tempName = _newName.replace(/[- (]*atm[- )]*/ig, ' ').replace(/^ /g, '').replace(/ $/g, '').replace(/ {2,}/g, ' '); // strip ATM from name if present
             _newName = tempName;
             W.model.actionManager.add(new UpdateObject(venue, { name: `${_newName} - Corporate Offices`, categories: _newCategories }));
             if (_newName !== tempName) _UPDATED_FIELDS.name.updated = true;
@@ -2321,7 +2320,7 @@ let Flag = {
                     // Make sure zip hasn't already been added.
                     if (aliases.indexOf(zip) === -1) {
                         aliases.push(zip);
-                        W.model.actionManager.add(new UpdateObject(venue, { aliases: aliases }));
+                        W.model.actionManager.add(new UpdateObject(venue, { aliases }));
                         harmonizePlaceGo(venue, 'harmonize');
                     } else {
                         $input.css({ backgroundColor: '#FDD' }).attr('title', 'Zip code alt name already exists');
@@ -2403,7 +2402,7 @@ let Flag = {
     },
     BadAreaCode: class extends WLActionFlag {
         constructor(textValue, outputFormat) {
-            super(true, 1, `Area Code mismatch:<br><input type="text" id="WMEPH-PhoneAdd" autocomplete="off" style="font-size:0.85em;width:100px;padding-left:2px;color:#000;" value="${textValue ? textValue : ''}">`,
+            super(true, 1, `Area Code mismatch:<br><input type="text" id="WMEPH-PhoneAdd" autocomplete="off" style="font-size:0.85em;width:100px;padding-left:2px;color:#000;" value="${textValue || ''}">`,
                 'Update', 'Update phone #', true, 'Whitelist the area code', 'aCodeWL');
             this.outputFormat = outputFormat;
             this.noBannerAssemble = true;
@@ -3525,7 +3524,7 @@ function getButtonBanner2(item, addr, placePL) {
                 });
             }
         }
-    }
+    };
 } // END getButtonBanner2()
 
 // Main script
@@ -3654,9 +3653,9 @@ function harmonizePlaceGo(item, useFlag, actions) {
     let inferredAddress;
     if (hpMode.harmFlag) {
         const result = Flag.FullAddressInference.eval(item, addr, actions);
-        if (result.exit) return;
+        if (result.exit) return undefined;
         _buttonBanner.fullAddressInference = result.flag;
-        inferredAddress = result.inferredAddress;
+        ({ inferredAddress } = result);
         if (result.inferredAddress) addr = result.inferredAddress;
         if (result.noLock) lockOK = false;
     } else if (hpMode.hlFlag) {
@@ -3686,12 +3685,6 @@ function harmonizePlaceGo(item, useFlag, actions) {
 
     // Check categories that maybe should be Hospital / Urgent Care, or Doctor / Clinic.
     _buttonBanner.changeToHospitalUrgentCare = Flag.ChangeToHospitalUrgentCare.eval(item, hpMode).flag;
-
-    if (hpMode.harmFlag && item.attributes.categories.indexOf('HOSPITAL_URGENT_CARE') > -1) {
-        //bannButt.changeToDoctorClinic.active = true;
-        //bannButt.changeToDoctorClinic.severity = 0;
-    }
-
 
     // Whitelist breakout if place exists on the Whitelist and the option is enabled
     _itemID = item.attributes.id;
@@ -3763,7 +3756,7 @@ function harmonizePlaceGo(item, useFlag, actions) {
                 if (hpMode.harmFlag) {
                     alert('Lock level sheet data is not correct');
                 } else if (hpMode.hlFlag) {
-                    return '3';
+                    return 3;
                 }
             }
             _areaCodeList = _areaCodeList + ',' + _stateDataTemp[_psAreaCodeIx];
@@ -3780,7 +3773,7 @@ function harmonizePlaceGo(item, useFlag, actions) {
                 if (hpMode.harmFlag) {
                     alert('Lock level sheet data is not correct');
                 } else if (hpMode.hlFlag) {
-                    return '3';
+                    return 3;
                 }
             }
             _areaCodeList = _areaCodeList + ',' + _stateDataTemp[_psAreaCodeIx];
@@ -5564,6 +5557,10 @@ function harmonizePlaceGo(item, useFlag, actions) {
 
     showOpenPlaceWebsiteButton();
     showSearchButton();
+
+    // Highlighting will return a value, but no need to return a value here (for end of harmonization).
+    // Adding this line to satisfy eslint.
+    return undefined;
 } // END harmonizePlaceGo function
 
 // Set up banner messages
