@@ -1643,7 +1643,9 @@ function setServiceChecked(servBtn, checked, actions) {
 // Normalize url
 function normalizeURL(s, lc, skipBannerActivate, venue, region) {
     const regionsThatWantPLAUrls = ['SER'];
-    if ((!s || s.trim().length === 0) && !skipBannerActivate) { // Notify that url is missing and provide web search to find website and gather data (provided for all editors)
+
+    if ((!s || s.trim().length === 0) && !skipBannerActivate) {
+        // Notify that url is missing and provide web search to find website and gather data (provided for all editors)
         const hasOperator = venue.attributes.brand && W.model.venues.categoryBrands.PARKING_LOT.indexOf(venue.attributes.brand) !== -1;
         if (!venue.isParkingLot() || (venue.isParkingLot() && (regionsThatWantPLAUrls.indexOf(region) > -1 || hasOperator))) {
             _buttonBanner.urlMissing = new Flag.UrlMissing();
@@ -1652,26 +1654,23 @@ function normalizeURL(s, lc, skipBannerActivate, venue, region) {
                 _buttonBanner.urlMissing.WLactive = false;
             }
         }
-        //bannButt.webSearch.active = true; // Activate websearch button
         return s;
     }
 
     s = s.replace(/ \(.*/g, ''); // remove anything with parentheses after it
     s = s.replace(/ /g, ''); // remove any spaces
     let m = s.match(/^http:\/\/(.*)$/i); // remove http://
-    if (m) { s = m[1]; }
+    if (m) { [, s] = m; }
     if (lc) { // lowercase the entire domain
-        s = s.replace(/[^\/]+/i, function (txt) { // lowercase the domain
-            return (txt === txt.toLowerCase()) ? txt : txt.toLowerCase();
-        });
+        s = s.replace(/[^/]+/i, txt => ((txt === txt.toLowerCase()) ? txt : txt.toLowerCase()));
     } else { // lowercase only the www and com
         s = s.replace(/www\./i, 'www.');
         s = s.replace(/\.com/i, '.com');
     }
     m = s.match(/^(.*)\/pages\/welcome.aspx$/i); // remove unneeded terms
-    if (m) { s = m[1]; }
+    if (m) { [, s] = m; }
     m = s.match(/^(.*)\/pages\/default.aspx$/i); // remove unneeded terms
-    if (m) { s = m[1]; }
+    if (m) { [, s] = m; }
     // m = s.match(/^(.*)\/index.html$/i); // remove unneeded terms
     // if (m) { s = m[1]; }
     // m = s.match(/^(.*)\/index.htm$/i); // remove unneeded terms
@@ -1679,8 +1678,7 @@ function normalizeURL(s, lc, skipBannerActivate, venue, region) {
     // m = s.match(/^(.*)\/index.php$/i); // remove unneeded terms
     // if (m) { s = m[1]; }
     m = s.match(/^(.*)\/$/i); // remove final slash
-    if (m) { s = m[1]; }
-
+    if (m) { [, s] = m; }
     if (!s || s.trim().length === 0 || !/(^https?:\/\/)?\w+\.\w+/.test(s)) s = 'badURL';
     return s;
 } // END normalizeURL function
