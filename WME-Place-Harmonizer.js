@@ -1584,7 +1584,7 @@ function executeMultiAction(actions, description) {
 
 // Split localizer (suffix) part of names, like "SUBWAY - inside Walmart".
 function getNameParts(name) {
-    const splits = name.match(/(.*?)(\s+[-\(–].*)*$/);
+    const splits = name.match(/(.*?)(\s+[-(–].*)*$/);
     return { base: splits[1], suffix: splits[2] };
 }
 
@@ -1718,7 +1718,9 @@ class ActionFlag extends FlagBase {
         this.value = value;
         this.title = title;
     }
-    action() { } // overwrite this
+
+    // 5/19/2019 (mapomatic) This base class action function doesn't seem to be necessary.
+    // action() { } // overwrite this
 }
 class WLFlag extends FlagBase {
     constructor(active, severity, message, WLactive, WLtitle, WLkeyName) {
