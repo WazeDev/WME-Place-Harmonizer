@@ -1454,7 +1454,7 @@ function toTitleCaseStrong(str) {
     const parensParts = str.match(/\(.*?\)/g);
     if (parensParts) {
         for (let i = 0; i < parensParts.length; i++) {
-            str = str.replace(parensParts[i], '%' + i + '%');
+            str = str.replace(parensParts[i], `%${i}%`);
         }
     }
 
@@ -1468,7 +1468,7 @@ function toTitleCaseStrong(str) {
 
     const allCaps = (str === str.toUpperCase());
     // Cap first letter of each word
-    str = str.replace(/([A-Za-z\u00C0-\u017F][^\s-\/]*) */g, function (txt) {
+    str = str.replace(/([A-Za-z\u00C0-\u017F][^\s-/]*) */g, txt => {
         // If first letter is lower case, followed by a cap, then another lower case letter... ignore it.  Example: iPhone
         if (/^[a-z][A-Z0-9][a-z]/.test(txt)) {
             return txt;
@@ -1480,29 +1480,25 @@ function toTitleCaseStrong(str) {
         return ((txt === txt.toUpperCase()) && !allCaps) ? txt : txt.charAt(0).toUpperCase() + txt.substr(1).toLowerCase();
     })
         // Cap O'Reilley's, L'Amour, D'Artagnan as long as 5+ letters
-        .replace(/\b[oOlLdD]'[A-Za-z']{3,}/g, function (txt) {
-            return ((txt === txt.toUpperCase()) && !allCaps) ? txt : txt.charAt(0).toUpperCase() + txt.charAt(1) + txt.charAt(2).toUpperCase() + txt.substr(3).toLowerCase();
-        })
+        .replace(/\b[oOlLdD]'[A-Za-z']{3,}/g, txt => (((txt === txt.toUpperCase()) && !allCaps) ? txt : txt.charAt(0).toUpperCase()
+            + txt.charAt(1) + txt.charAt(2).toUpperCase() + txt.substr(3).toLowerCase()))
         // Cap McFarley's, as long as 5+ letters long
-        .replace(/\b[mM][cC][A-Za-z']{3,}/g, function (txt) {
-            return ((txt === txt.toUpperCase()) && !allCaps) ? txt : txt.charAt(0).toUpperCase() + txt.charAt(1).toLowerCase() + txt.charAt(2).toUpperCase() + txt.substr(3).toLowerCase();
-        })
+        .replace(/\b[mM][cC][A-Za-z']{3,}/g, txt => (((txt === txt.toUpperCase()) && !allCaps) ? txt : txt.charAt(0).toUpperCase()
+            + txt.charAt(1).toLowerCase() + txt.charAt(2).toUpperCase() + txt.substr(3).toLowerCase()))
         // anything with an "&" sign, cap the word after &
-        .replace(/&\w+/g, function (txt) {
-            return ((txt === txt.toUpperCase()) && !allCaps) ? txt : txt.charAt(0) + txt.charAt(1).toUpperCase() + txt.substr(2);
-        })
+        .replace(/&\w+/g, txt => (((txt === txt.toUpperCase()) && !allCaps) ? txt : txt.charAt(0) + txt.charAt(1).toUpperCase() + txt.substr(2)))
         // lowercase any from the ignoreWords list
-        .replace(/[^ ]+/g, function (txt) {
+        .replace(/[^ ]+/g, txt => {
             const txtLC = txt.toLowerCase();
             return (_TITLECASE_SETTINGS.ignoreWords.indexOf(txtLC) > -1) ? txtLC : txt;
         })
         // uppercase any from the capWords List
-        .replace(/[^ ]+/g, function (txt) {
+        .replace(/[^ ]+/g, txt => {
             const txtLC = txt.toUpperCase();
             return (_TITLECASE_SETTINGS.capWords.indexOf(txtLC) > -1) ? txtLC : txt;
         })
         // preserve any specific words
-        .replace(/[^ ]+/g, function (txt) {
+        .replace(/[^ ]+/g, txt => {
             const txtUC = txt.toUpperCase();
             return _TITLECASE_SETTINGS.specWords.find(specWord => specWord.toUpperCase() === txtUC) || txt;
         })
@@ -1516,7 +1512,7 @@ function toTitleCaseStrong(str) {
     if (!/^[a-z][A-Z0-9][a-z]/.test(str)) str = str.charAt(0).toUpperCase() + str.substr(1);
     if (parensParts) {
         for (let i = 0, len = parensParts.length; i < len; i++) {
-            str = str.replace('%' + i + '%', parensParts[i]);
+            str = str.replace(`%${i}%`, parensParts[i]);
         }
     }
 
@@ -1536,25 +1532,27 @@ function normalizePhone(s, outputFormat, returnType, item, region) {
     }
     s = s.replace(/(\d{3}.*)\W+(?:extension|ext|xt|x).*/i, '$1');
     let s1 = s.replace(/\D/g, ''); // remove non-number characters
-    let m = s1.match(/^1?([2-9]\d{2})([2-9]\d{2})(\d{4})$/); // Ignore leading 1, and also don't allow area code or exchange to start with 0 or 1 (***USA/CAN specific)
+
+    // Ignore leading 1, and also don't allow area code or exchange to start with 0 or 1 (***USA/CAN specific)
+    let m = s1.match(/^1?([2-9]\d{2})([2-9]\d{2})(\d{4})$/);
+
     if (!m) { // then try alphanumeric matching
         if (s) { s = s.toUpperCase(); }
         s1 = s.replace(/[^0-9A-Z]/g, '').replace(/^\D*(\d)/, '$1').replace(/^1?([2-9][0-9]{2}[0-9A-Z]{7,10})/g, '$1');
         s1 = replaceLetters(s1);
-        m = s1.match(/^([2-9]\d{2})([2-9]\d{2})(\d{4})(?:.{0,3})$/); // Ignore leading 1, and also don't allow area code or exchange to start with 0 or 1 (***USA/CAN specific)
+
+        // Ignore leading 1, and also don't allow area code or exchange to start with 0 or 1 (***USA/CAN specific)
+        m = s1.match(/^([2-9]\d{2})([2-9]\d{2})(\d{4})(?:.{0,3})$/);
+
         if (!m) {
             if (returnType === 'inputted') {
                 return 'badPhone';
-            } else {
-                _buttonBanner.phoneInvalid = new Flag.PhoneInvalid();
-                return s;
             }
-        } else {
-            return String.plFormat(outputFormat, m[1], m[2], m[3]);
+            _buttonBanner.phoneInvalid = new Flag.PhoneInvalid();
+            return s;
         }
-    } else {
-        return String.plFormat(outputFormat, m[1], m[2], m[3]);
     }
+    return String.plFormat(outputFormat, m[1], m[2], m[3]);
 }
 
 // Alphanumeric phone conversion
@@ -1570,11 +1568,7 @@ function replaceLetters(number) {
         9: /W|X|Y|Z/
     });
     number = typeof number === 'string' ? number.toUpperCase() : '';
-    return number.replace(/[A-Z]/g, function (match) {
-        return conversionMap.findKey(function (re) {
-            return re.test(match);
-        });
-    });
+    return number.replace(/[A-Z]/g, letter => conversionMap.findKey(re => re.test(letter)));
 }
 
 // Add array of actions to a MultiAction to be executed at once (counts as one edit for redo/undo purposes)
