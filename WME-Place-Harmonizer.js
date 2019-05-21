@@ -3528,9 +3528,9 @@ function getButtonBanner2(item, addr, placePL) {
 
 // Main script
 function harmonizePlaceGo(item, useFlag, actions) {
-    let PNHOrderNum = '';
-    let PNHNameTemp = '';
-    let PNHNameTempWeb = '';
+    let pnhOrderNum = '';
+    let pnhNameTemp = '';
+    let pnhNameTempWeb = '';
     let placePL;
     const itemID = item.attributes.id;
 
@@ -4084,7 +4084,7 @@ function harmonizePlaceGo(item, useFlag, actions) {
                     }
                 } else if (containsAny(specCases, ['drivethruhours'])) {
                     if (item.attributes.description.toUpperCase().indexOf('DRIVE') === -1 || (item.attributes.description.toUpperCase().indexOf('HOURS') === -1 && item.attributes.description.toUpperCase().indexOf('HRS') === -1)) {
-                        if ($('#service-checkbox-' + 'DRIVETHROUGH').prop('checked')) {
+                        if ($('#service-checkbox-DRIVETHROUGH').prop('checked')) {
                             _buttonBanner.specCaseMessage = new Flag.SpecCaseMessage(pnhMatchData[phDisplayNoteIdx]);
                         } else {
                             _buttonBanner.specCaseMessageLow = new Flag.SpecCaseMessageLow(pnhMatchData[phDisplayNoteIdx]);
@@ -4107,68 +4107,66 @@ function harmonizePlaceGo(item, useFlag, actions) {
                         _buttonBanner.PlaceWebsite.value = 'Location Finder (L)';
                     }
                     const tempLocalURL = pnhMatchData[phStoreFinderUrlLocalIdx].replace(/ /g, '').split('<>');
-                    let searchStreet = '', searchCity = '', searchState = '';
-                    if ('string' === typeof addr.street.name) {
+                    let searchStreet = '';
+                    let searchCity = '';
+                    let searchState = '';
+                    if (addr.street.name === 'string') {
                         searchStreet = addr.street.name;
                     }
                     const searchStreetPlus = searchStreet.replace(/ /g, '+');
                     searchStreet = searchStreet.replace(/ /g, '%20');
-                    if ('string' === typeof addr.city.attributes.name) {
+                    if (typeof addr.city.attributes.name === 'string') {
                         searchCity = addr.city.attributes.name;
                     }
                     const searchCityPlus = searchCity.replace(/ /g, '+');
                     searchCity = searchCity.replace(/ /g, '%20');
-                    if ('string' === typeof addr.state.name) {
+                    if (typeof addr.state.name === 'string') {
                         searchState = addr.state.name;
                     }
                     const searchStatePlus = searchState.replace(/ /g, '+');
                     searchState = searchState.replace(/ /g, '%20');
 
+                    const centroid = item.attributes.geometry.getCentroid();
+                    if (!itemGPS) itemGPS = OL.Layer.SphericalMercator.inverseMercator(centroid.x, centroid.y);
                     for (let tlix = 1; tlix < tempLocalURL.length; tlix++) {
                         if (tempLocalURL[tlix] === 'ph_streetName') {
-                            _customStoreFinderLocalURL = _customStoreFinderLocalURL + searchStreet;
+                            _customStoreFinderLocalURL += searchStreet;
                         } else if (tempLocalURL[tlix] === 'ph_streetNamePlus') {
-                            _customStoreFinderLocalURL = _customStoreFinderLocalURL + searchStreetPlus;
+                            _customStoreFinderLocalURL += searchStreetPlus;
                         } else if (tempLocalURL[tlix] === 'ph_cityName') {
-                            _customStoreFinderLocalURL = _customStoreFinderLocalURL + searchCity;
+                            _customStoreFinderLocalURL += searchCity;
                         } else if (tempLocalURL[tlix] === 'ph_cityNamePlus') {
-                            _customStoreFinderLocalURL = _customStoreFinderLocalURL + searchCityPlus;
+                            _customStoreFinderLocalURL += searchCityPlus;
                         } else if (tempLocalURL[tlix] === 'ph_stateName') {
-                            _customStoreFinderLocalURL = _customStoreFinderLocalURL + searchState;
+                            _customStoreFinderLocalURL += searchState;
                         } else if (tempLocalURL[tlix] === 'ph_stateNamePlus') {
-                            _customStoreFinderLocalURL = _customStoreFinderLocalURL + searchStatePlus;
+                            _customStoreFinderLocalURL += searchStatePlus;
                         } else if (tempLocalURL[tlix] === 'ph_state2L') {
-                            _customStoreFinderLocalURL = _customStoreFinderLocalURL + state2L;
+                            _customStoreFinderLocalURL += state2L;
                         } else if (tempLocalURL[tlix] === 'ph_latitudeEW') {
-                            //customStoreFinderLocalURL = customStoreFinderLocalURL + itemGPS[0];
+                            // customStoreFinderLocalURL = customStoreFinderLocalURL + itemGPS[0];
                         } else if (tempLocalURL[tlix] === 'ph_longitudeNS') {
-                            //customStoreFinderLocalURL = customStoreFinderLocalURL + itemGPS[1];
+                            // customStoreFinderLocalURL = customStoreFinderLocalURL + itemGPS[1];
                         } else if (tempLocalURL[tlix] === 'ph_latitudePM') {
-                            if (!itemGPS) itemGPS = OL.Layer.SphericalMercator.inverseMercator(item.attributes.geometry.getCentroid().x, item.attributes.geometry.getCentroid().y);
-                            _customStoreFinderLocalURL = _customStoreFinderLocalURL + itemGPS.lat;
+                            _customStoreFinderLocalURL += itemGPS.lat;
                         } else if (tempLocalURL[tlix] === 'ph_longitudePM') {
-                            if (!itemGPS) itemGPS = OL.Layer.SphericalMercator.inverseMercator(item.attributes.geometry.getCentroid().x, item.attributes.geometry.getCentroid().y);
-                            _customStoreFinderLocalURL = _customStoreFinderLocalURL + itemGPS.lon;
+                            _customStoreFinderLocalURL += itemGPS.lon;
                         } else if (tempLocalURL[tlix] === 'ph_latitudePMBuffMin') {
-                            if (!itemGPS) itemGPS = OL.Layer.SphericalMercator.inverseMercator(item.attributes.geometry.getCentroid().x, item.attributes.geometry.getCentroid().y);
-                            _customStoreFinderLocalURL = _customStoreFinderLocalURL + (itemGPS.lat - 0.15).toString();
+                            _customStoreFinderLocalURL += (itemGPS.lat - 0.15).toString();
                         } else if (tempLocalURL[tlix] === 'ph_longitudePMBuffMin') {
-                            if (!itemGPS) itemGPS = OL.Layer.SphericalMercator.inverseMercator(item.attributes.geometry.getCentroid().x, item.attributes.geometry.getCentroid().y);
-                            _customStoreFinderLocalURL = _customStoreFinderLocalURL + (itemGPS.lon - 0.15).toString();
+                            _customStoreFinderLocalURL += (itemGPS.lon - 0.15).toString();
                         } else if (tempLocalURL[tlix] === 'ph_latitudePMBuffMax') {
-                            if (!itemGPS) itemGPS = OL.Layer.SphericalMercator.inverseMercator(item.attributes.geometry.getCentroid().x, item.attributes.geometry.getCentroid().y);
-                            _customStoreFinderLocalURL = _customStoreFinderLocalURL + (itemGPS.lat + 0.15).toString();
+                            _customStoreFinderLocalURL += (itemGPS.lat + 0.15).toString();
                         } else if (tempLocalURL[tlix] === 'ph_longitudePMBuffMax') {
-                            if (!itemGPS) itemGPS = OL.Layer.SphericalMercator.inverseMercator(item.attributes.geometry.getCentroid().x, item.attributes.geometry.getCentroid().y);
-                            _customStoreFinderLocalURL = _customStoreFinderLocalURL + (itemGPS.lon + 0.15).toString();
+                            _customStoreFinderLocalURL += (itemGPS.lon + 0.15).toString();
                         } else if (tempLocalURL[tlix] === 'ph_houseNumber') {
-                            _customStoreFinderLocalURL = _customStoreFinderLocalURL + (item.attributes.houseNumber ? item.attributes.houseNumber : '');
+                            _customStoreFinderLocalURL += (item.attributes.houseNumber ? item.attributes.houseNumber : '');
                         } else {
-                            _customStoreFinderLocalURL = _customStoreFinderLocalURL + tempLocalURL[tlix];
+                            _customStoreFinderLocalURL += tempLocalURL[tlix];
                         }
                     }
                     if (_customStoreFinderLocalURL.indexOf('http') !== 0) {
-                        _customStoreFinderLocalURL = 'http:\/\/' + _customStoreFinderLocalURL;
+                        _customStoreFinderLocalURL = `http://${_customStoreFinderLocalURL}`;
                     }
                     _customStoreFinderLocal = true;
                 } else if (pnhMatchData[phStoreFinderUrlIdx] !== '' && pnhMatchData[phStoreFinderUrlIdx] !== '0') {
@@ -4177,7 +4175,7 @@ function harmonizePlaceGo(item, useFlag, actions) {
                     }
                     _customStoreFinderURL = pnhMatchData[phStoreFinderUrlIdx];
                     if (_customStoreFinderURL.indexOf('http') !== 0) {
-                        _customStoreFinderURL = 'http:\/\/' + _customStoreFinderURL;
+                        _customStoreFinderURL = `http://${_customStoreFinderURL}`;
                     }
                     _customStoreFinder = true;
                 }
@@ -4190,29 +4188,28 @@ function harmonizePlaceGo(item, useFlag, actions) {
                 for (let catix = 0; catix < altCategories.length; catix++) {
                     const newAltTemp = catTranslate(altCategories[catix]); // translate altCats into WME cat codes
                     if (newAltTemp === 'ERROR') { // if no translation, quit the loop
-                        phlog('Category ' + altCategories[catix] + 'cannot be translated.');
-                        return;
-                    } else {
-                        altCategories[catix] = newAltTemp; // replace with translated element
+                        phlog(`Category ${altCategories[catix]} cannot be translated.`);
+                        return undefined;
                     }
+                    altCategories[catix] = newAltTemp; // replace with translated element
                 }
             }
 
             // name parsing with category exceptions
             if (['HOTEL'].indexOf(priPNHPlaceCat) > -1) {
-                var nameToCheck = _newName + (newNameSuffix ? newNameSuffix : '');
+                const nameToCheck = _newName + (newNameSuffix || '');
                 if (nameToCheck.toUpperCase() === pnhMatchData[phNameIdx].toUpperCase()) { // If no localization
                     _buttonBanner.catHotel = new Flag.CatHotel(pnhMatchData[phNameIdx]);
                     _newName = pnhMatchData[phNameIdx];
                 } else {
                     // Replace PNH part of name with PNH name
-                    const splix = _newName.toUpperCase().replace(/[-\/]/g, ' ').indexOf(pnhMatchData[phNameIdx].toUpperCase().replace(/[-\/]/g, ' '));
+                    const splix = _newName.toUpperCase().replace(/[-/]/g, ' ').indexOf(pnhMatchData[phNameIdx].toUpperCase().replace(/[-/]/g, ' '));
                     if (splix > -1) {
                         const frontText = _newName.slice(0, splix);
                         const backText = _newName.slice(splix + pnhMatchData[phNameIdx].length);
                         _newName = pnhMatchData[phNameIdx];
-                        if (frontText.length > 0) { _newName = frontText + ' ' + _newName; }
-                        if (backText.length > 0) { _newName = _newName + ' ' + backText; }
+                        if (frontText.length > 0) { _newName = `${frontText} ${_newName}`; }
+                        if (backText.length > 0) { _newName = `${_newName} ${backText}`; }
                         _newName = _newName.replace(/ {2,}/g, ' ');
                     } else {
                         _newName = pnhMatchData[phNameIdx];
@@ -4249,7 +4246,7 @@ function harmonizePlaceGo(item, useFlag, actions) {
                 _ixATM = item.attributes.categories.indexOf('ATM');
                 _ixOffices = item.attributes.categories.indexOf('OFFICES');
                 // if the name contains ATM in it
-                if (_newName.match(/\batm\b/ig) !== null) {
+                if (/\batm\b/ig.test(_newName)) {
                     if (_ixOffices === 0) {
                         _buttonBanner.bankType1 = new Flag.BankType1();
                         _buttonBanner.bankBranch = new Flag.BankBranch();
@@ -4264,7 +4261,7 @@ function harmonizePlaceGo(item, useFlag, actions) {
                         _buttonBanner.bankBranch = new Flag.BankBranch();
                         _buttonBanner.standaloneATM = new Flag.StandaloneATM();
                     }
-                    _newName = pnhMatchData[phNameIdx] + ' ATM';
+                    _newName = `${pnhMatchData[phNameIdx]} ATM`;
                     _newCategories = insertAtIX(_newCategories, 'ATM', 0);
                     // Net result: If the place has ATM cat only and ATM in the name, then it will be green and renamed Bank Name ATM
                 } else if (_ixBank > -1 || _ixATM > -1) { // if no ATM in name but with a banking category:
@@ -4304,10 +4301,10 @@ function harmonizePlaceGo(item, useFlag, actions) {
                 }
             } else if (!updatePNHName) {
                 // Strong title case option for non-PNH places
-                var titleCaseName = toTitleCaseStrong(_newName);
+                const titleCaseName = toTitleCaseStrong(_newName);
                 if (_newName !== titleCaseName) {
                     _buttonBanner.STC = new Flag.STC();
-                    _buttonBanner.STC.suffixMessage = '<span style="margin-left: 4px;font-size: 14px">&bull; ' + titleCaseName + (newNameSuffix || '') + '</span>';
+                    _buttonBanner.STC.suffixMessage = `<span style="margin-left: 4px;font-size: 14px">&bull; ${titleCaseName}${newNameSuffix || ''}</span>`;
                     _buttonBanner.STC.title += titleCaseName;
                     _buttonBanner.STC.originalName = _newName + (newNameSuffix || '');
                 }
@@ -4334,36 +4331,38 @@ function harmonizePlaceGo(item, useFlag, actions) {
                 _newURL = normalizeURL(pnhMatchData[phUrlIdx], false, true, item, region);
             }
             // Parse PNH Aliases
-            _newAliasesTemp = pnhMatchData[phAliasesIdx].match(/([^\(]*)/i)[0];
+            [_newAliasesTemp] = pnhMatchData[phAliasesIdx].match(/([^(]*)/i);
             if (_newAliasesTemp !== '0' && _newAliasesTemp !== '') { // make aliases array
                 _newAliasesTemp = _newAliasesTemp.replace(/,[^A-za-z0-9]*/g, ','); // tighten up commas if more than one alias.
                 _newAliasesTemp = _newAliasesTemp.split(','); // split by comma
             }
-            if (specCases.indexOf('noUpdateAlias') === -1 && (!containsAll(_newAliases, _newAliasesTemp) && _newAliasesTemp !== '0' && _newAliasesTemp !== '' && specCases.indexOf('optionName2') === -1)) {
+            if (specCases.indexOf('noUpdateAlias') === -1 && (!containsAll(_newAliases, _newAliasesTemp)
+                && _newAliasesTemp !== '0' && _newAliasesTemp !== '' && specCases.indexOf('optionName2') === -1)) {
                 _newAliases = insertAtIX(_newAliases, _newAliasesTemp, 0);
             }
             // Enable optional alt-name button
             if (_buttonBanner.addAlias) {
-                _buttonBanner.addAlias.message = 'Is there a ' + _optionalAlias + ' at this location?';
-                _buttonBanner.addAlias.title = 'Add ' + _optionalAlias;
+                _buttonBanner.addAlias.message = `Is there a ${_optionalAlias} at this location?`;
+                _buttonBanner.addAlias.title = `Add ${_optionalAlias}`;
             }
 
             // Remove unnecessary parent categories
             const catData = _PNH_DATA.USA.categories.map(cat => cat.split('|'));
             const catParentIdx = catData[0].indexOf('pc_catparent');
             const catNameIdx = catData[0].indexOf('pc_wmecat');
-            const parentCats = _.uniq(_newCategories.map(catName => catData.find(cat => cat[catNameIdx] === catName)[catParentIdx])).filter(parent => parent.trim(' ').length > 0);
+            const parentCats = _.uniq(_newCategories.map(catName => catData.find(cat => cat[catNameIdx] === catName)[catParentIdx]))
+                .filter(parent => parent.trim(' ').length > 0);
             _newCategories = _newCategories.filter(cat => parentCats.findIndex(parentCat => cat === parentCat) === -1);
 
             // update categories if different and no Cat2 option
             if (!matchSets(_.uniq(item.attributes.categories), _.uniq(_newCategories))) {
                 if (specCases.indexOf('optionCat2') === -1 && specCases.indexOf('buttOn_addCat2') === -1) {
-                    phlogdev('Categories updated with ' + _newCategories);
+                    phlogdev(`Categories updated with ${_newCategories}`);
                     actions.push(new UpdateObject(item, { categories: _newCategories }));
-                    //W.model.actionManager.add(new UpdateObject(item, { categories: newCategories }));
+                    // W.model.actionManager.add(new UpdateObject(item, { categories: newCategories }));
                     _UPDATED_FIELDS.categories.updated = true;
                 } else { // if second cat is optional
-                    phlogdev('Primary category updated with ' + priPNHPlaceCat);
+                    phlogdev(`Primary category updated with ${priPNHPlaceCat}`);
                     _newCategories = insertAtIX(_newCategories, priPNHPlaceCat, 0);
                     actions.push(new UpdateObject(item, { categories: _newCategories }));
                     _UPDATED_FIELDS.categories.updated = true;
@@ -4372,8 +4371,8 @@ function harmonizePlaceGo(item, useFlag, actions) {
             // Enable optional 2nd category button
             if (specCases.indexOf('buttOn_addCat2') > -1 && _newCategories.indexOf(_catTransWaze2Lang[altCategories[0]]) === -1) {
                 const altCat = altCategories[0];
-                _buttonBanner.addCat2.message = 'Is there a ' + _catTransWaze2Lang[altCat] + ' at this location?';
-                _buttonBanner.addCat2.title = 'Add ' + _catTransWaze2Lang[altCat];
+                _buttonBanner.addCat2.message = `Is there a ${_catTransWaze2Lang[altCat]} at this location?`;
+                _buttonBanner.addCat2.title = `Add ${_catTransWaze2Lang[altCat]}`;
                 _buttonBanner.addCat2.altCategory = altCat;
             }
 
@@ -4384,7 +4383,7 @@ function harmonizePlaceGo(item, useFlag, actions) {
                     _buttonBanner.checkDescription = new Flag.CheckDescription();
                 }
                 phlogdev('Description updated');
-                newDescripion = newDescripion + '\n' + item.attributes.description;
+                newDescripion = `${newDescripion}\n${item.attributes.description}`;
                 actions.push(new UpdateObject(item, { description: newDescripion }));
                 _UPDATED_FIELDS.description.updated = true;
             }
@@ -4393,20 +4392,19 @@ function harmonizePlaceGo(item, useFlag, actions) {
             if (specCases.indexOf('lockAt5') > -1) {
                 _pnhLockLevel = 4;
             }
-
         } else { // if no PNH match found
             if (pnhMatchData[0] === 'ApprovalNeeded') {
-                //PNHNameTemp = PNHMatchData[1].join(', ');
-                PNHNameTemp = pnhMatchData[1][0]; // Just do the first match
-                PNHNameTempWeb = encodeURIComponent(PNHNameTemp);
-                PNHOrderNum = pnhMatchData[2].join(',');
+                // PNHNameTemp = PNHMatchData[1].join(', ');
+                [, [pnhNameTemp]] = pnhMatchData; // Just do the first match
+                pnhNameTempWeb = encodeURIComponent(pnhNameTemp);
+                pnhOrderNum = pnhMatchData[2].join(',');
             }
 
             // Strong title case option for non-PNH places
-            var titleCaseName = toTitleCaseStrong(_newName);
+            const titleCaseName = toTitleCaseStrong(_newName);
             if (_newName !== titleCaseName) {
                 _buttonBanner.STC = new Flag.STC();
-                _buttonBanner.STC.suffixMessage = '<span style="margin-left: 4px;font-size: 14px">&bull; ' + titleCaseName + (newNameSuffix || '') + '</span>';
+                _buttonBanner.STC.suffixMessage = `<span style="margin-left: 4px;font-size: 14px">&bull; ${titleCaseName}${newNameSuffix || ''}</span>`;
                 _buttonBanner.STC.title += titleCaseName;
                 _buttonBanner.STC.originalName = _newName + (newNameSuffix || '');
             }
@@ -4448,23 +4446,21 @@ function harmonizePlaceGo(item, useFlag, actions) {
                 }
                 // Net result: If the place has Bank category first, then it will be green
             } // END generic bank treatment
-
         } // END PNH match/no-match updates
 
         // Category/Name-based Services, added to any existing services:
-        const CH_DATA = _PNH_DATA[_countryCode].categories;
-        const CH_NAMES = _PNH_DATA[_countryCode].categoryNames;
-        const CH_DATA_headers = CH_DATA[0].split('|');
-        const CH_DATA_keys = CH_DATA[1].split('|');
-        const CH_DATA_list = CH_DATA[2].split('|');
-        let CH_DATA_Temp;
+        const catData = _PNH_DATA[_countryCode].categories;
+        const catNames = _PNH_DATA[_countryCode].categoryNames;
+        const catDataHeaders = catData[0].split('|');
+        const catDataKeys = catData[1].split('|');
+        let catDataTemp;
 
         if (hpMode.harmFlag) {
             // Update name:
-            if ((_newName + (newNameSuffix ? newNameSuffix : '')) !== item.attributes.name) {
+            if ((_newName + (newNameSuffix || '')) !== item.attributes.name) {
                 phlogdev('Name updated');
-                actions.push(new UpdateObject(item, { name: _newName + (newNameSuffix ? newNameSuffix : '') }));
-                //actions.push(new UpdateObject(item, { name: newName }));
+                actions.push(new UpdateObject(item, { name: _newName + (newNameSuffix || '') }));
+                // actions.push(new UpdateObject(item, { name: newName }));
                 _UPDATED_FIELDS.name.updated = true;
             }
 
@@ -4480,71 +4476,75 @@ function harmonizePlaceGo(item, useFlag, actions) {
             let regionFormURL = '';
             let newPlaceAddon = '';
             let approvalAddon = '';
-            const approvalMessage = 'Submitted via WMEPH. PNH order number ' + PNHOrderNum;
-            const tempSubmitName_encoded = encodeURIComponent(_newName);
-            const placePL_encoded = encodeURIComponent(placePL);
-            const newURLSubmit_encoded = encodeURIComponent(newURLSubmit);
+            const approvalMessage = `Submitted via WMEPH. PNH order number ${pnhOrderNum}`;
+            const encodedTempSubmitName = encodeURIComponent(_newName);
+            const encodedPlacePL = encodeURIComponent(placePL);
+            const encodedUrlSubmit = encodeURIComponent(newURLSubmit);
             const suffix = _USER.name + gFormState;
             switch (region) {
                 case 'NWR': regionFormURL = 'https://docs.google.com/forms/d/1hv5hXBlGr1pTMmo4n3frUx1DovUODbZodfDBwwTc7HE/viewform';
-                    newPlaceAddon = '?entry.925969794=' + tempSubmitName_encoded + '&entry.1970139752=' + newURLSubmit_encoded + '&entry.1749047694=' + suffix;
-                    approvalAddon = '?entry.925969794=' + PNHNameTempWeb + '&entry.50214576=' + approvalMessage + '&entry.1749047694=' + suffix;
+                    newPlaceAddon = `?entry.925969794=${encodedTempSubmitName}&entry.1970139752=${encodedUrlSubmit}&entry.1749047694=${suffix}`;
+                    approvalAddon = `?entry.925969794=${pnhNameTempWeb}&entry.50214576=${approvalMessage}&entry.1749047694=${suffix}`;
                     break;
                 case 'SWR': regionFormURL = 'https://docs.google.com/forms/d/1Qf2N4fSkNzhVuXJwPBJMQBmW0suNuy8W9itCo1qgJL4/viewform';
-                    newPlaceAddon = '?entry.1497446659=' + tempSubmitName_encoded + '&entry.1970139752=' + newURLSubmit_encoded + '&entry.1749047694=' + suffix;
-                    approvalAddon = '?entry.1497446659=' + PNHNameTempWeb + '&entry.50214576=' + approvalMessage + '&entry.1749047694=' + suffix;
+                    newPlaceAddon = `?entry.1497446659=${encodedTempSubmitName}&entry.1970139752=${encodedUrlSubmit}&entry.1749047694=${suffix}`;
+                    approvalAddon = `?entry.1497446659=${pnhNameTempWeb}&entry.50214576=${approvalMessage}&entry.1749047694=${suffix}`;
                     break;
                 case 'HI': regionFormURL = 'https://docs.google.com/forms/d/1K7Dohm8eamIKry3KwMTVnpMdJLaMIyDGMt7Bw6iqH_A/viewform';
-                    newPlaceAddon = '?entry.1497446659=' + tempSubmitName_encoded + '&entry.1970139752=' + newURLSubmit_encoded + '&entry.1749047694=' + suffix;
-                    approvalAddon = '?entry.1497446659=' + PNHNameTempWeb + '&entry.50214576=' + approvalMessage + '&entry.1749047694=' + suffix;
+                    newPlaceAddon = `?entry.1497446659=${encodedTempSubmitName}&entry.1970139752=${encodedUrlSubmit}&entry.1749047694=${suffix}`;
+                    approvalAddon = `?entry.1497446659=${pnhNameTempWeb}&entry.50214576=${approvalMessage}&entry.1749047694=${suffix}`;
                     break;
                 case 'PLN': regionFormURL = 'https://docs.google.com/forms/d/1ycXtAppoR5eEydFBwnghhu1hkHq26uabjUu8yAlIQuI/viewform';
-                    newPlaceAddon = '?entry.925969794=' + tempSubmitName_encoded + '&entry.1970139752=' + newURLSubmit_encoded + '&entry.1749047694=' + suffix;
-                    approvalAddon = '?entry.925969794=' + PNHNameTempWeb + '&entry.50214576=' + approvalMessage + '&entry.1749047694=' + suffix;
+                    newPlaceAddon = `?entry.925969794=${encodedTempSubmitName}&entry.1970139752=${encodedUrlSubmit}&entry.1749047694=${suffix}`;
+                    approvalAddon = `?entry.925969794=${pnhNameTempWeb}&entry.50214576=${approvalMessage}&entry.1749047694=${suffix}`;
                     break;
                 case 'SCR': regionFormURL = 'https://docs.google.com/forms/d/1KZzLdlX0HLxED5Bv0wFB-rWccxUp2Mclih5QJIQFKSQ/viewform';
-                    newPlaceAddon = '?entry.925969794=' + tempSubmitName_encoded + '&entry.1970139752=' + newURLSubmit_encoded + '&entry.1749047694=' + suffix;
-                    approvalAddon = '?entry.925969794=' + PNHNameTempWeb + '&entry.50214576=' + approvalMessage + '&entry.1749047694=' + suffix;
+                    newPlaceAddon = `?entry.925969794=${encodedTempSubmitName}&entry.1970139752=${encodedUrlSubmit}&entry.1749047694=${suffix}`;
+                    approvalAddon = `?entry.925969794=${pnhNameTempWeb}&entry.50214576=${approvalMessage}&entry.1749047694=${suffix}`;
                     break;
                 case 'TX': regionFormURL = 'https://docs.google.com/forms/d/1x7VM7ofPOKVnWOaX7d70OWXpnVKf6Mkadn4dgYxx4ic/viewform';
-                    newPlaceAddon = '?entry.925969794=' + tempSubmitName_encoded + '&entry.1970139752=' + newURLSubmit_encoded + '&entry.1749047694=' + suffix;
-                    approvalAddon = '?entry.925969794=' + PNHNameTempWeb + '&entry.50214576=' + approvalMessage + '&entry.1749047694=' + suffix;
+                    newPlaceAddon = `?entry.925969794=${encodedTempSubmitName}&entry.1970139752=${encodedUrlSubmit}&entry.1749047694=${suffix}`;
+                    approvalAddon = `?entry.925969794=${pnhNameTempWeb}&entry.50214576=${approvalMessage}&entry.1749047694=${suffix}`;
                     break;
                 case 'GLR': regionFormURL = 'https://docs.google.com/forms/d/19btj-Qt2-_TCRlcS49fl6AeUT95Wnmu7Um53qzjj9BA/viewform';
-                    newPlaceAddon = '?entry.925969794=' + tempSubmitName_encoded + '&entry.1970139752=' + newURLSubmit_encoded + '&entry.1749047694=' + suffix;
-                    approvalAddon = '?entry.925969794=' + PNHNameTempWeb + '&entry.50214576=' + approvalMessage + '&entry.1749047694=' + suffix;
+                    newPlaceAddon = `?entry.925969794=${encodedTempSubmitName}&entry.1970139752=${encodedUrlSubmit}&entry.1749047694=${suffix}`;
+                    approvalAddon = `?entry.925969794=${pnhNameTempWeb}&entry.50214576=${approvalMessage}&entry.1749047694=${suffix}`;
                     break;
                 case 'SAT': regionFormURL = 'https://docs.google.com/forms/d/1bxgK_20Jix2ahbmUvY1qcY0-RmzUBT6KbE5kjDEObF8/viewform';
-                    newPlaceAddon = '?entry.2063110249=' + tempSubmitName_encoded + '&entry.2018912633=' + newURLSubmit_encoded + '&entry.1924826395=' + suffix;
-                    approvalAddon = '?entry.2063110249=' + PNHNameTempWeb + '&entry.123778794=' + approvalMessage + '&entry.1924826395=' + suffix;
+                    newPlaceAddon = `?entry.2063110249=${encodedTempSubmitName}&entry.2018912633=${encodedUrlSubmit}&entry.1924826395=${suffix}`;
+                    approvalAddon = `?entry.2063110249=${pnhNameTempWeb}&entry.123778794=${approvalMessage}&entry.1924826395=${suffix}`;
                     break;
                 case 'SER': regionFormURL = 'https://docs.google.com/forms/d/1jYBcxT3jycrkttK5BxhvPXR240KUHnoFMtkZAXzPg34/viewform';
-                    newPlaceAddon = '?entry.822075961=' + tempSubmitName_encoded + '&entry.1422079728=' + newURLSubmit_encoded + '&entry.1891389966=' + suffix;
-                    approvalAddon = '?entry.822075961=' + PNHNameTempWeb + '&entry.607048307=' + approvalMessage + '&entry.1891389966=' + suffix;
+                    newPlaceAddon = `?entry.822075961=${encodedTempSubmitName}&entry.1422079728=${encodedUrlSubmit}&entry.1891389966=${suffix}`;
+                    approvalAddon = `?entry.822075961=${pnhNameTempWeb}&entry.607048307=${approvalMessage}&entry.1891389966=${suffix}`;
                     break;
                 case 'ATR': regionFormURL = 'https://docs.google.com/forms/d/1v7JhffTfr62aPSOp8qZHA_5ARkBPldWWJwDeDzEioR0/viewform';
-                    newPlaceAddon = '?entry.925969794=' + tempSubmitName_encoded + '&entry.1970139752=' + newURLSubmit_encoded + '&entry.1749047694=' + suffix;
-                    approvalAddon = '?entry.925969794=' + PNHNameTempWeb + '&entry.50214576=' + approvalMessage + '&entry.1749047694=' + suffix;
+                    newPlaceAddon = `?entry.925969794=${encodedTempSubmitName}&entry.1970139752=${encodedUrlSubmit}&entry.1749047694=${suffix}`;
+                    approvalAddon = `?entry.925969794=${pnhNameTempWeb}&entry.50214576=${approvalMessage}&entry.1749047694=${suffix}`;
                     break;
                 case 'NER': regionFormURL = 'https://docs.google.com/forms/d/1UgFAMdSQuJAySHR0D86frvphp81l7qhEdJXZpyBZU6c/viewform';
-                    newPlaceAddon = '?entry.925969794=' + tempSubmitName_encoded + '&entry.1970139752=' + newURLSubmit_encoded + '&entry.1749047694=' + suffix;
-                    approvalAddon = '?entry.925969794=' + PNHNameTempWeb + '&entry.50214576=' + approvalMessage + '&entry.1749047694=' + suffix;
+                    newPlaceAddon = `?entry.925969794=${encodedTempSubmitName}&entry.1970139752=${encodedUrlSubmit}&entry.1749047694=${suffix}`;
+                    approvalAddon = `?entry.925969794=${pnhNameTempWeb}&entry.50214576=${approvalMessage}&entry.1749047694=${suffix}`;
                     break;
                 case 'NOR': regionFormURL = 'https://docs.google.com/forms/d/1iYq2rd9HRd-RBsKqmbHDIEBGuyWBSyrIHC6QLESfm4c/viewform';
-                    newPlaceAddon = '?entry.925969794=' + tempSubmitName_encoded + '&entry.1970139752=' + newURLSubmit_encoded + '&entry.1749047694=' + suffix;
-                    approvalAddon = '?entry.925969794=' + PNHNameTempWeb + '&entry.50214576=' + approvalMessage + '&entry.1749047694=' + suffix;
+                    newPlaceAddon = `?entry.925969794=${encodedTempSubmitName}&entry.1970139752=${encodedUrlSubmit}&entry.1749047694=${suffix}`;
+                    approvalAddon = `?entry.925969794=${pnhNameTempWeb}&entry.50214576=${approvalMessage}&entry.1749047694=${suffix}`;
                     break;
                 case 'MAR': regionFormURL = 'https://docs.google.com/forms/d/1PhL1iaugbRMc3W-yGdqESoooeOz-TJIbjdLBRScJYOk/viewform';
-                    newPlaceAddon = '?entry.925969794=' + tempSubmitName_encoded + '&entry.1970139752=' + newURLSubmit_encoded + '&entry.1749047694=' + suffix;
-                    approvalAddon = '?entry.925969794=' + PNHNameTempWeb + '&entry.50214576=' + approvalMessage + '&entry.1749047694=' + suffix;
+                    newPlaceAddon = `?entry.925969794=${encodedTempSubmitName}&entry.1970139752=${encodedUrlSubmit}&entry.1749047694=${suffix}`;
+                    approvalAddon = `?entry.925969794=${pnhNameTempWeb}&entry.50214576=${approvalMessage}&entry.1749047694=${suffix}`;
                     break;
                 case 'CA_EN': regionFormURL = 'https://docs.google.com/forms/d/13JwXsrWPNmCdfGR5OVr5jnGZw-uNGohwgjim-JYbSws/viewform';
-                    newPlaceAddon = '?entry_839085807=' + tempSubmitName_encoded + '&entry_1067461077=' + newURLSubmit_encoded + '&entry_318793106=' + _USER.name + '&entry_1149649663=' + placePL_encoded;
-                    approvalAddon = '?entry_839085807=' + PNHNameTempWeb + '&entry_1125435193=' + approvalMessage + '&entry_318793106=' + _USER.name + '&entry_1149649663=' + placePL_encoded;
+                    newPlaceAddon = `?entry_839085807=${encodedTempSubmitName}&entry_1067461077=${encodedUrlSubmit}&entry_318793106=${
+                        _USER.name}&entry_1149649663=${encodedPlacePL}`;
+                    approvalAddon = `?entry_839085807=${pnhNameTempWeb}&entry_1125435193=${approvalMessage}&entry_318793106=${
+                        _USER.name}&entry_1149649663=${encodedPlacePL}`;
                     break;
                 case 'QC': regionFormURL = 'https://docs.google.com/forms/d/13JwXsrWPNmCdfGR5OVr5jnGZw-uNGohwgjim-JYbSws/viewform';
-                    newPlaceAddon = '?entry_839085807=' + tempSubmitName_encoded + '&entry_1067461077=' + newURLSubmit_encoded + '&entry_318793106=' + _USER.name + '&entry_1149649663=' + placePL_encoded;
-                    approvalAddon = '?entry_839085807=' + PNHNameTempWeb + '&entry_1125435193=' + approvalMessage + '&entry_318793106=' + _USER.name + '&entry_1149649663=' + placePL_encoded;
+                    newPlaceAddon = `?entry_839085807=${encodedTempSubmitName}&entry_1067461077=${encodedUrlSubmit}&entry_318793106=${
+                        _USER.name}&entry_1149649663=${encodedPlacePL}`;
+                    approvalAddon = `?entry_839085807=${pnhNameTempWeb}&entry_1125435193=${approvalMessage}&entry_318793106=${
+                        _USER.name}&entry_1149649663=${encodedPlacePL}`;
                     break;
                 default: regionFormURL = '';
             }
@@ -4554,36 +4554,37 @@ function harmonizePlaceGo(item, useFlag, actions) {
 
             // PNH specific Services:
 
-            let servHeaders = [], servKeys = [], servList = [], servHeaderCheck;
-            for (let jjj = 0; jjj < CH_DATA_headers.length; jjj++) {
-                servHeaderCheck = CH_DATA_headers[jjj].match(/^ps_/i); // if it's a service header
+            const servHeaders = [];
+            const servKeys = [];
+            for (let jjj = 0; jjj < catDataHeaders.length; jjj++) {
+                const servHeaderCheck = catDataHeaders[jjj].match(/^ps_/i); // if it's a service header
                 if (servHeaderCheck) {
                     servHeaders.push(jjj);
-                    servKeys.push(CH_DATA_keys[jjj]);
-                    servList.push(CH_DATA_list[jjj]);
+                    servKeys.push(catDataKeys[jjj]);
                 }
             }
 
             if (_newCategories.length > 0) {
-                for (let iii = 0; iii < CH_NAMES.length; iii++) {
-                    if (_newCategories.indexOf(CH_NAMES[iii]) > -1) {
-                        CH_DATA_Temp = CH_DATA[iii].split('|');
+                for (let iii = 0; iii < catNames.length; iii++) {
+                    if (_newCategories.indexOf(catNames[iii]) > -1) {
+                        catDataTemp = catData[iii].split('|');
                         for (let psix = 0; psix < servHeaders.length; psix++) {
                             if (!_servicesBanner[servKeys[psix]].pnhOverride) {
-                                if (CH_DATA_Temp[servHeaders[psix]] === '1') { // These are automatically added to all countries/regions (if auto setting is on)
+                                if (catDataTemp[servHeaders[psix]] === '1') { // These are automatically added to all countries/regions (if auto setting is on)
                                     _servicesBanner[servKeys[psix]].active = true;
                                     if ($('#WMEPH-EnableServices').prop('checked')) {
                                         // Automatically enable new services
                                         _servicesBanner[servKeys[psix]].actionOn(actions);
                                     }
-                                } else if (CH_DATA_Temp[servHeaders[psix]] === '2') { // these are never automatically added but shown
+                                } else if (catDataTemp[servHeaders[psix]] === '2') { // these are never automatically added but shown
                                     _servicesBanner[servKeys[psix]].active = true;
-                                } else if (CH_DATA_Temp[servHeaders[psix]] !== '') { // check for state/region auto add
+                                } else if (catDataTemp[servHeaders[psix]] !== '') { // check for state/region auto add
                                     _servicesBanner[servKeys[psix]].active = true;
                                     if ($('#WMEPH-EnableServices').prop('checked')) {
-                                        const servAutoRegion = CH_DATA_Temp[servHeaders[psix]].replace(/,[^A-za-z0-9]*/g, ',').split(',');
+                                        const servAutoRegion = catDataTemp[servHeaders[psix]].replace(/,[^A-za-z0-9]*/g, ',').split(',');
                                         // if the sheet data matches the state, region, or username then auto add
-                                        if (servAutoRegion.indexOf(state2L) > -1 || servAutoRegion.indexOf(region) > -1 || servAutoRegion.indexOf(_USER.name) > -1) {
+                                        if (servAutoRegion.indexOf(state2L) > -1 || servAutoRegion.indexOf(region) > -1
+                                            || servAutoRegion.indexOf(_USER.name) > -1) {
                                             _servicesBanner[servKeys[psix]].actionOn(actions);
                                         }
                                     }
@@ -4605,15 +4606,15 @@ function harmonizePlaceGo(item, useFlag, actions) {
 
         for (let ixPlaceCat = 0; ixPlaceCat < _newCategories.length; ixPlaceCat++) {
             const category = _newCategories[ixPlaceCat];
-            const ixPNHCat = CH_NAMES.indexOf(category);
+            const ixPNHCat = catNames.indexOf(category);
             if (ixPNHCat > -1) {
-                CH_DATA_Temp = CH_DATA[ixPNHCat].split('|');
+                catDataTemp = catData[ixPNHCat].split('|');
                 // CH_DATA_headers
-                //pc_point    pc_area    pc_regpoint    pc_regarea    pc_lock1    pc_lock2    pc_lock3    pc_lock4    pc_lock5    pc_rare    pc_parent    pc_message
-                let pvaPoint = CH_DATA_Temp[CH_DATA_headers.indexOf('pc_point')];
-                let pvaArea = CH_DATA_Temp[CH_DATA_headers.indexOf('pc_area')];
-                const regPoint = CH_DATA_Temp[CH_DATA_headers.indexOf('pc_regpoint')].replace(/,[^A-za-z0-9]*/g, ',').split(',');
-                const regArea = CH_DATA_Temp[CH_DATA_headers.indexOf('pc_regarea')].replace(/,[^A-za-z0-9]*/g, ',').split(',');
+                // pc_area    pc_regpoint    pc_regarea    pc_lock1    pc_lock2    pc_lock3    pc_lock4    pc_lock5    pc_rare    pc_parent    pc_message
+                let pvaPoint = catDataTemp[catDataHeaders.indexOf('pc_point')];
+                let pvaArea = catDataTemp[catDataHeaders.indexOf('pc_area')];
+                const regPoint = catDataTemp[catDataHeaders.indexOf('pc_regpoint')].replace(/,[^A-za-z0-9]*/g, ',').split(',');
+                const regArea = catDataTemp[catDataHeaders.indexOf('pc_regarea')].replace(/,[^A-za-z0-9]*/g, ',').split(',');
                 if (regPoint.indexOf(state2L) > -1 || regPoint.indexOf(region) > -1 || regPoint.indexOf(_countryCode) > -1) {
                     pvaPoint = '1';
                     pvaArea = '';
@@ -4637,18 +4638,18 @@ function harmonizePlaceGo(item, useFlag, actions) {
                     maxAreaSeverity = Math.min(areaSeverity, maxAreaSeverity);
                 }
 
-                // display any messaged regarding the category
-                let pc_message = '';
+                // display any messages regarding the category
+                let catMessage = '';
                 if (_newCategories.indexOf('HOSPITAL_MEDICAL_CARE') === -1) {
-                    pc_message = CH_DATA_Temp[CH_DATA_headers.indexOf('pc_message')];
+                    catMessage = catDataTemp[catDataHeaders.indexOf('pc_message')];
                 }
-                if (pc_message && pc_message !== '0' && pc_message !== '') {
-                    _buttonBanner.pnhCatMess = new Flag.PnhCatMess(pc_message);
+                if (catMessage && catMessage !== '0' && catMessage !== '') {
+                    _buttonBanner.pnhCatMess = new Flag.PnhCatMess(catMessage);
                 }
                 // Unmapped categories
-                const pc_rare = CH_DATA_Temp[CH_DATA_headers.indexOf('pc_rare')].replace(/,[^A-Za-z0-9}]+/g, ',').split(',');
-                if (pc_rare.indexOf(state2L) > -1 || pc_rare.indexOf(region) > -1 || pc_rare.indexOf(_countryCode) > -1) {
-                    if (CH_DATA_Temp[0] === 'OTHER' && ['GLR', 'NER', 'NWR', 'PLN', 'SCR', 'SER', 'NOR', 'HI', 'SAT'].indexOf(region) > -1) {
+                const catRare = catDataTemp[catDataHeaders.indexOf('pc_rare')].replace(/,[^A-Za-z0-9}]+/g, ',').split(',');
+                if (catRare.indexOf(state2L) > -1 || catRare.indexOf(region) > -1 || catRare.indexOf(_countryCode) > -1) {
+                    if (catDataTemp[0] === 'OTHER' && ['GLR', 'NER', 'NWR', 'PLN', 'SCR', 'SER', 'NOR', 'HI', 'SAT'].indexOf(region) > -1) {
                         if (!isLocked) {
                             _buttonBanner.unmappedRegion = new Flag.UnmappedRegion();
                             _buttonBanner.unmappedRegion.WLactive = false;
@@ -4667,8 +4668,8 @@ function harmonizePlaceGo(item, useFlag, actions) {
                     }
                 }
                 // Parent Category
-                const pc_parent = CH_DATA_Temp[CH_DATA_headers.indexOf('pc_parent')].replace(/,[^A-Za-z0-9}]+/g, ',').split(',');
-                if (pc_parent.indexOf(state2L) > -1 || pc_parent.indexOf(region) > -1 || pc_parent.indexOf(_countryCode) > -1) {
+                const catParent = catDataTemp[catDataHeaders.indexOf('pc_parent')].replace(/,[^A-Za-z0-9}]+/g, ',').split(',');
+                if (catParent.indexOf(state2L) > -1 || catParent.indexOf(region) > -1 || catParent.indexOf(_countryCode) > -1) {
                     _buttonBanner.parentCategory = new Flag.ParentCategory();
                     if (_wl.parentCategory) {
                         _buttonBanner.parentCategory.WLactive = false;
@@ -4676,8 +4677,9 @@ function harmonizePlaceGo(item, useFlag, actions) {
                 }
                 // Set lock level
                 for (let lockix = 1; lockix < 6; lockix++) {
-                    const pc_lockTemp = CH_DATA_Temp[CH_DATA_headers.indexOf('pc_lock' + lockix)].replace(/,[^A-Za-z0-9}]+/g, ',').split(',');
-                    if (lockix - 1 > highestCategoryLock && (pc_lockTemp.indexOf(state2L) > -1 || pc_lockTemp.indexOf(region) > -1 || pc_lockTemp.indexOf(_countryCode) > -1)) {
+                    const catLockTemp = catDataTemp[catDataHeaders.indexOf(`pc_lock${lockix}`)].replace(/,[^A-Za-z0-9}]+/g, ',').split(',');
+                    if (lockix - 1 > highestCategoryLock && (catLockTemp.indexOf(state2L) > -1 || catLockTemp.indexOf(region) > -1
+                        || catLockTemp.indexOf(_countryCode) > -1)) {
                         highestCategoryLock = lockix - 1; // Offset by 1 since lock ranks start at 0
                     }
                 }
@@ -4712,35 +4714,33 @@ function harmonizePlaceGo(item, useFlag, actions) {
                     _buttonBanner.areaNotPointLow.severity = 0;
                 }
             }
-        } else {
-            if (maxAreaSeverity === 3) {
-                _buttonBanner.pointNotArea = new Flag.PointNotArea();
-                if (_wl.pointNotArea || item.attributes.lockRank >= _defaultLockLevel) {
-                    _buttonBanner.pointNotArea.WLactive = false;
-                    _buttonBanner.pointNotArea.severity = 0;
-                } else {
-                    lockOK = false;
-                }
-            } else if (maxAreaSeverity === 2) {
-                _buttonBanner.pointNotAreaMid = new Flag.PointNotAreaMid();
-                if (_wl.pointNotArea || item.attributes.lockRank >= _defaultLockLevel) {
-                    _buttonBanner.pointNotAreaMid.WLactive = false;
-                    _buttonBanner.pointNotAreaMid.severity = 0;
-                } else {
-                    lockOK = false;
-                }
-            } else if (maxAreaSeverity === 1) {
-                _buttonBanner.pointNotAreaLow = new Flag.PointNotAreaLow();
-                if (_wl.pointNotArea || item.attributes.lockRank >= _defaultLockLevel) {
-                    _buttonBanner.pointNotAreaLow.WLactive = false;
-                    _buttonBanner.pointNotAreaLow.severity = 0;
-                }
+        } else if (maxAreaSeverity === 3) {
+            _buttonBanner.pointNotArea = new Flag.PointNotArea();
+            if (_wl.pointNotArea || item.attributes.lockRank >= _defaultLockLevel) {
+                _buttonBanner.pointNotArea.WLactive = false;
+                _buttonBanner.pointNotArea.severity = 0;
+            } else {
+                lockOK = false;
+            }
+        } else if (maxAreaSeverity === 2) {
+            _buttonBanner.pointNotAreaMid = new Flag.PointNotAreaMid();
+            if (_wl.pointNotArea || item.attributes.lockRank >= _defaultLockLevel) {
+                _buttonBanner.pointNotAreaMid.WLactive = false;
+                _buttonBanner.pointNotAreaMid.severity = 0;
+            } else {
+                lockOK = false;
+            }
+        } else if (maxAreaSeverity === 1) {
+            _buttonBanner.pointNotAreaLow = new Flag.PointNotAreaLow();
+            if (_wl.pointNotArea || item.attributes.lockRank >= _defaultLockLevel) {
+                _buttonBanner.pointNotAreaLow.WLactive = false;
+                _buttonBanner.pointNotAreaLow.severity = 0;
             }
         }
 
-        let anpNone = _COLLEGE_ABBREVIATIONS.split('|'), anpNoneRE;
+        const anpNone = _COLLEGE_ABBREVIATIONS.split('|');
         for (let cii = 0; cii < anpNone.length; cii++) {
-            anpNoneRE = new RegExp('\\b' + anpNone[cii] + '\\b', 'g');
+            const anpNoneRE = new RegExp(`\\b${anpNone[cii]}\\b`, 'g');
             if (_newName.match(anpNoneRE) !== null && _buttonBanner.areaNotPointLow) {
                 _buttonBanner.areaNotPointLow.severity = 0;
                 _buttonBanner.areaNotPointLow.WLactive = false;
@@ -4752,7 +4752,10 @@ function harmonizePlaceGo(item, useFlag, actions) {
             if (!containsAny(_newCategories, ['STADIUM_ARENA', 'CEMETERY', 'TRANSPORTATION', 'FERRY_PIER', 'SUBWAY_STATION',
                 'BRIDGE', 'TUNNEL', 'JUNCTION_INTERCHANGE', 'ISLAND', 'SEA_LAKE_POOL', 'RIVER_STREAM', 'FOREST_GROVE', 'CANAL', 'SWAMP_MARSH', 'DAM'])) {
                 _buttonBanner.noHours = new Flag.NoHours();
-                if (_wl.noHours || $('#WMEPH-DisableHoursHL').prop('checked') || containsAny(_newCategories, ['SCHOOL', 'CONVENTIONS_EVENT_CENTER', 'CAMPING_TRAILER_PARK', 'COTTAGE_CABIN', 'COLLEGE_UNIVERSITY', 'GOLF_COURSE', 'SPORTS_COURT', 'MOVIE_THEATER', 'SHOPPING_CENTER', 'RELIGIOUS_CENTER', 'PARKING_LOT', 'PARK', 'PLAYGROUND', 'AIRPORT', 'FIRE_DEPARTMENT', 'POLICE_STATION', 'SEAPORT_MARINA_HARBOR', 'FARM'])) {
+                if (_wl.noHours || $('#WMEPH-DisableHoursHL').prop('checked') || containsAny(_newCategories, ['SCHOOL', 'CONVENTIONS_EVENT_CENTER',
+                    'CAMPING_TRAILER_PARK', 'COTTAGE_CABIN', 'COLLEGE_UNIVERSITY', 'GOLF_COURSE', 'SPORTS_COURT', 'MOVIE_THEATER',
+                    'SHOPPING_CENTER', 'RELIGIOUS_CENTER', 'PARKING_LOT', 'PARK', 'PLAYGROUND', 'AIRPORT', 'FIRE_DEPARTMENT', 'POLICE_STATION',
+                    'SEAPORT_MARINA_HARBOR', 'FARM'])) {
                     _buttonBanner.noHours.WLactive = false;
                     _buttonBanner.noHours.severity = 0;
                 }
@@ -5208,10 +5211,8 @@ function harmonizePlaceGo(item, useFlag, actions) {
     // check rest area name against standard formats or if has the right categories
     const restAreaCatIndex = categories.indexOf('REST_AREAS');
     const oldName = item.attributes.name;
-    if (/rest area/i.test(oldName) || /rest stop/i.test(oldName) || /service plaza/i.test(oldName) ||
-        (restAreaCatIndex > -1)) {
+    if (/rest area/i.test(oldName) || /rest stop/i.test(oldName) || /service plaza/i.test(oldName) || (restAreaCatIndex > -1)) {
         if (restAreaCatIndex > -1) {
-
             if (categories.indexOf('SCENIC_LOOKOUT_VIEWPOINT') > -1) {
                 if (!_wl.restAreaScenic) _buttonBanner.restAreaScenic = new Flag.RestAreaScenic();
             }
@@ -5288,13 +5289,13 @@ function harmonizePlaceGo(item, useFlag, actions) {
     }
 
     if (hpMode.harmFlag) {
-        phlogdev('Severity: ' + _severityButt + '; lockOK: ' + lockOK);
+        phlogdev(`Severity: ${_severityButt}; lockOK: ${lockOK}`);
     }
     // Place locking
     // final formatting of desired lock levels
     let hlLockFlag = false, levelToLock;
     if (_pnhLockLevel !== -1 && hpMode.harmFlag) {
-        phlogdev('PNHLockLevel: ' + _pnhLockLevel);
+        phlogdev(`PNHLockLevel: ${_pnhLockLevel}`);
         levelToLock = _pnhLockLevel;
     } else {
         levelToLock = _defaultLockLevel;
@@ -5314,7 +5315,7 @@ function harmonizePlaceGo(item, useFlag, actions) {
         if (item.attributes.lockRank >= levelToLock) {
             _buttonBanner.gasNoBrand = null;
         } else {
-            _buttonBanner.gasNoBrand.message = 'Lock to L' + (levelToLock + 1) + '+ to verify no gas brand.';
+            _buttonBanner.gasNoBrand.message = `Lock to L${levelToLock + 1}+ to verify no gas brand.`;
         }
     }
 
@@ -5323,7 +5324,7 @@ function harmonizePlaceGo(item, useFlag, actions) {
         _buttonBanner.extProviderMissing.severity = 3;
         _severityButt = 3;
         if (lockOK) {
-            _buttonBanner.extProviderMissing.value = 'Lock anyway? (' + (levelToLock + 1) + ')';
+            _buttonBanner.extProviderMissing.value = `Lock anyway? (${levelToLock + 1})`;
             _buttonBanner.extProviderMissing.title = 'If no Google link exists, lock this place.\nIf there is still no Google link after 6 months from the last update date, it will turn red as a reminder to search again.';
             _buttonBanner.extProviderMissing.action = function () {
                 const action = new UpdateObject(item, { 'lockRank': levelToLock });
@@ -5348,13 +5349,13 @@ function harmonizePlaceGo(item, useFlag, actions) {
         _buttonBanner.placeLocked = new Flag.PlaceLocked();
     }
 
-    //IGN check
+    // IGN check
     if (!item.attributes.residential && item.attributes.updatedBy && W.model.users.getObjectById(item.attributes.updatedBy) &&
         W.model.users.getObjectById(item.attributes.updatedBy).userName && W.model.users.getObjectById(item.attributes.updatedBy).userName.match(/^ign_/i) !== null) {
         _buttonBanner.ignEdited = new Flag.IgnEdited();
     }
 
-    //waze_maint_bot check
+    // waze_maint_bot check
     const updatedById = item.attributes.updatedBy ? item.attributes.updatedBy : item.attributes.createdBy;
     const updatedBy = W.model.users.getObjectById(updatedById);
     const updatedByName = updatedBy ? updatedBy.userName : null;
@@ -5379,16 +5380,16 @@ function harmonizePlaceGo(item, useFlag, actions) {
             for (let llix = 1; llix < 6; llix++) {
                 if (llix < _USER.rank + 1) {
                     if (!ddlSelected && (_defaultLockLevel === llix - 1 || llix === _USER.rank)) {
-                        _rppLockString += '<option value="' + llix + '" selected="selected">' + llix + '</option>';
+                        _rppLockString += `<option value="${llix}" selected="selected">${llix}</option>`;
                         ddlSelected = true;
                     } else {
-                        _rppLockString += '<option value="' + llix + '">' + llix + '</option>';
+                        _rppLockString += `<option value="${llix}">${llix}</option>`;
                     }
                 }
             }
             _rppLockString += '</select>';
             _buttonBanner.lockRPP = new Flag.LockRPP();
-            _buttonBanner.lockRPP.message = 'Current lock: ' + (parseInt(item.attributes.lockRank) + 1) + '. ' + _rppLockString + ' ?';
+            _buttonBanner.lockRPP.message = `Current lock: ${parseInt(item.attributes.lockRank) + 1}. ${_rppLockString} ?`;
         }
     }
 
@@ -5486,7 +5487,7 @@ function harmonizePlaceGo(item, useFlag, actions) {
                 if (confirm('WMEPH: Dupefinder Error!\nClick OK to report this')) { // if the category doesn't translate, then pop an alert that will make a forum post to the thread
                     reportError({
                         subject: 'WMEPH Bug report DupeID',
-                        message: 'Script version: ' + _SCRIPT_VERSION + _DEV_VERSION_STR + '\nPermalink: ' + placePL + '\nPlace name: ' + item.attributes.name + '\nCountry: ' + addr.country.name + '\n--------\nDescribe the error:\nDupeID mismatch with dupeName list'
+                        message: `Script version: ${_SCRIPT_VERSION}${_DEV_VERSION_STR}\nPermalink: ${placePL}\nPlace name: ${item.attributes.name}\nCountry: ${addr.country.name}\n--------\nDescribe the error:\nDupeID mismatch with dupeName list`
                     });
                 }
             } else {
@@ -5557,10 +5558,10 @@ function harmonizePlaceGo(item, useFlag, actions) {
                 _buttonBanner.HNRange.severity = 3;
             }
             // show stats if HN out of range
-            phlogdev('HNs: ' + dupeHNRangeListSorted);
-            phlogdev('Distances: ' + _dupeHNRangeDistList);
-            phlogdev('arrayHNRatio: ' + arrayHNRatio);
-            phlogdev('HN Ratio Score: ' + arrayHNRatio[Math.round(arrayHNRatio.length / 2)]);
+            phlogdev(`HNs: ${dupeHNRangeListSorted}`);
+            phlogdev(`Distances: ${_dupeHNRangeDistList}`);
+            phlogdev(`arrayHNRatio: ${arrayHNRatio}`);
+            phlogdev(`HN Ratio Score: ${arrayHNRatio[Math.round(arrayHNRatio.length / 2)]}`);
         }
     }
 
@@ -5571,7 +5572,7 @@ function harmonizePlaceGo(item, useFlag, actions) {
         updateServicesChecks(_servicesBanner);
     }
 
-    if (_buttonBanner.lockRPP) _buttonBanner.lockRPP.message = 'Current lock: ' + (parseInt(item.attributes.lockRank) + 1) + '. ' + _rppLockString + ' ?';
+    if (_buttonBanner.lockRPP) _buttonBanner.lockRPP.message = `Current lock: ${parseInt(item.attributes.lockRank) + 1}. ${_rppLockString} ?`;
 
     // Assemble the banners
     assembleBanner(); // Make Messaging banners
@@ -5606,18 +5607,18 @@ function assembleBanner() {
         if (rowData.active) {
             dupesFound += 1;
             const $dupeDiv = $('<div class="dupe">').appendTo($rowDiv);
-            $dupeDiv.append($('<span style="margin-right:4px">').html('&bull; ' + rowData.message));
+            $dupeDiv.append($('<span style="margin-right:4px">').html(`&bull; ${rowData.message}`));
             if (rowData.value) {
                 // Nothing happening here yet.
             }
             if (rowData.WLactive && rowData.WLaction) { // If there's a WL option, enable it
                 _severityButt = Math.max(rowData.severity, _severityButt);
-                $dupeDiv.append($('<button>', { class: 'btn btn-success btn-xs wmephwl-btn', id: 'WMEPH_WL' + tempKey, title: rowData.WLtitle }).text(rowData.WLvalue));
+                $dupeDiv.append($('<button>', { class: 'btn btn-success btn-xs wmephwl-btn', id: `WMEPH_WL${tempKey}`, title: rowData.WLtitle }).text(rowData.WLvalue));
             }
         }
     });
     if (dupesFound) { // if at least 1 dupe
-        $rowDiv.prepend('Possible duplicate' + (dupesFound > 1 ? 's' : '') + ':');
+        $rowDiv.prepend(`Possible duplicate${dupesFound > 1 ? 's' : ''}:`);
         rowDivs.push($rowDiv);
     }
 
@@ -5639,19 +5640,19 @@ function assembleBanner() {
                 $rowDiv.attr('id', rowData.divId);
             }
             if (rowData.message && rowData.message.length) {
-                $rowDiv.append($('<span>').css({ 'margin-right': '4px' }).append('&bull; ' + rowData.message));
+                $rowDiv.append($('<span>').css({ 'margin-right': '4px' }).append(`&bull; ${rowData.message}`));
             }
             if (rowData.value) {
-                $rowDiv.append($('<button>', { class: 'btn btn-default btn-xs wmeph-btn', id: 'WMEPH_' + tempKey, title: rowData.title || '' }).css({ 'margin-right': '4px' }).html(rowData.value));
+                $rowDiv.append($('<button>', { class: 'btn btn-default btn-xs wmeph-btn', id: `WMEPH_${tempKey}`, title: rowData.title || '' }).css({ 'margin-right': '4px' }).html(rowData.value));
             }
             if (rowData.value2) {
-                $rowDiv.append($('<button>', { class: 'btn btn-default btn-xs wmeph-btn', id: 'WMEPH_' + tempKey + '_2', title: rowData.title2 || '' }).css({ 'margin-right': '4px' }).html(rowData.value2));
+                $rowDiv.append($('<button>', { class: 'btn btn-default btn-xs wmeph-btn', id: `WMEPH_${tempKey}_2`, title: rowData.title2 || '' }).css({ 'margin-right': '4px' }).html(rowData.value2));
             }
             if (rowData.WLactive) {
                 if (rowData.WLaction) { // If there's a WL option, enable it
                     _severityButt = Math.max(rowData.severity, _severityButt);
                     $rowDiv.append(
-                        $('<button>', { class: 'btn btn-success btn-xs wmephwl-btn', id: 'WMEPH_WL' + tempKey, title: rowData.WLtitle }).text('WL')
+                        $('<button>', { class: 'btn btn-success btn-xs wmephwl-btn', id: `WMEPH_WL${tempKey}`, title: rowData.WLtitle }).text('WL')
                     );
                 }
             } else {
@@ -5701,7 +5702,7 @@ function assembleBanner() {
             $rowDiv = $('<div>');
             $rowDiv.append(rowData.message);
             if (rowData.action) {
-                $rowDiv.append(' <input class="btn btn-info btn-xs wmeph-btn" id="WMEPH_' + tempKey + '" title="' + rowData.title + '" style="" type="button" value="' + rowData.value + '">');
+                $rowDiv.append(` <input class="btn btn-info btn-xs wmeph-btn" id="WMEPH_${tempKey}" title="${rowData.title}" style="" type="button" value="${rowData.value}">`);
             }
             rowDivs.push($rowDiv);
             _severityButt = Math.max(_buttonBanner2[tempKey].severity, _severityButt);
@@ -5827,7 +5828,7 @@ function assembleBanner() {
             const elem = $sel[0];
             const lineCount = (text.match(/\n/g) || []).length + 1;
             const height = lineCount * 18 + 6 + (elem.scrollWidth > elem.clientWidth ? 20 : 0);
-            $sel.css({ height: height + 'px' });
+            $sel.css({ height: `${height}px` });
 
         }, 100);
     }
@@ -5849,7 +5850,7 @@ function assembleBanner() {
                 // Simulate a newline event (shift + enter)
                 const text = this.value;
                 const selStart = this.selectionStart;
-                this.value = text.substr(0, selStart) + '\n' + text.substr(this.selectionEnd, text.length - 1);
+                this.value = `${text.substr(0, selStart)}\n${text.substr(this.selectionEnd, text.length - 1)}`;
                 this.selectionStart = selStart + 1;
                 this.selectionEnd = selStart + 1;
                 return true;
@@ -5885,7 +5886,7 @@ function assembleBanner() {
     }
 
     if (_textEntryValues) {
-        _textEntryValues.forEach(entry => $('#' + entry.id).val(entry.val));
+        _textEntryValues.forEach(entry => $(`#${entry.id}`).val(entry.val));
     }
 } // END assemble Banner function
 
@@ -5901,8 +5902,8 @@ function assembleServicesBanner() {
             Object.keys(_servicesBanner).forEach(tempKey => {
                 const rowData = _servicesBanner[tempKey];
                 if (rowData.active) { //  If the particular service is active
-                    const $input = $('<input>', { class: rowData.icon, id: 'WMEPH_' + tempKey, type: 'button', 'title': rowData.title }).css(
-                        { border: 0, 'background-size': 'contain', height: '27px', width: Math.ceil(servButtHeight * rowData.w2hratio).toString() + 'px' }
+                    const $input = $('<input>', { class: rowData.icon, id: `WMEPH_${tempKey}`, type: 'button', 'title': rowData.title }).css(
+                        { border: 0, 'background-size': 'contain', height: '27px', width: `${Math.ceil(servButtHeight * rowData.w2hratio).toString()}px` }
                     );
                     buttons.push($input);
                     if (!rowData.checked) {
@@ -5949,7 +5950,7 @@ function setupButtons(b) {
 } // END setupButtons function
 
 function buttonAction(b, bKey) {
-    const button = document.getElementById('WMEPH_' + bKey);
+    const button = document.getElementById(`WMEPH_${bKey}`);
     button.onclick = function () {
         b[bKey].action();
         if (!b[bKey].noBannerAssemble) assembleBanner();
@@ -5957,7 +5958,7 @@ function buttonAction(b, bKey) {
     return button;
 }
 function buttonAction2(b, bKey) {
-    const button = document.getElementById('WMEPH_' + bKey + '_2');
+    const button = document.getElementById(`WMEPH_${bKey}_2`);
     button.onclick = function () {
         b[bKey].action2();
         if (!b[bKey].noBannerAssemble) assembleBanner();
@@ -5965,7 +5966,7 @@ function buttonAction2(b, bKey) {
     return button;
 }
 function buttonWhitelist(b, bKey) {
-    const button = document.getElementById('WMEPH_WL' + bKey);
+    const button = document.getElementById(`WMEPH_WL${bKey}`);
     button.onclick = function () {
         if (bKey.match(/^\d{5,}/) !== null) {
             b[bKey].WLaction(bKey);
@@ -5989,7 +5990,7 @@ function displayRunButton() {
         }
         if ($('#runWMEPH').length === 0) {
             const devVersSuffix = _IS_DEV_VERSION ? '-β' : '';
-            const strButt1 = '<input class="btn btn-primary wmeph-fat-btn" id="runWMEPH" title="Run WMEPH' + devVersSuffix + ' on Place" type="button" value="Run WMEPH' + devVersSuffix + '">';
+            const strButt1 = `<input class="btn btn-primary wmeph-fat-btn" id="runWMEPH" title="Run WMEPH${devVersSuffix} on Place" type="button" value="Run WMEPH${devVersSuffix}">`;
             $('#WMEPH_runButton').append(strButt1);
         }
         const btn = document.getElementById('runWMEPH');
@@ -6019,7 +6020,7 @@ function showOpenPlaceWebsiteButton() {
                     btn.onclick = function () {
                         openPlaceWebsiteURL = venue.attributes.url;
                         if (openPlaceWebsiteURL.match(/^http/i) === null) {
-                            openPlaceWebsiteURL = 'http:\/\/' + openPlaceWebsiteURL;
+                            openPlaceWebsiteURL = `http:\/\/${openPlaceWebsiteURL}`;
                         }
                         if ($('#WMEPH-WebSearchNewTab').prop('checked')) {
                             window.open(openPlaceWebsiteURL);
@@ -6297,8 +6298,8 @@ function clonePlace() {
 // Formats "hour object" into a string.
 function formatOpeningHour(hourEntry) {
     const dayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
-    const hours = hourEntry.fromHour + '-' + hourEntry.toHour;
-    return hourEntry.days.map(day => dayNames[day] + ' ' + hours).join(', ');
+    const hours = `${hourEntry.fromHour}-${hourEntry.toHour}`;
+    return hourEntry.days.map(day => `${dayNames[day]} ${hours}`).join(', ');
 }
 // Pull natural text from opening hours
 function getOpeningHours(venue) {
@@ -6353,7 +6354,7 @@ function findNearbyDuplicate(itemName, itemAliases, item, recenterOption) {
     let maxLon = minLon, maxLat = minLat;
     // genericterms to skip if it's all that remains after stripping numbers
     let noNumSkip = 'BANK|ATM|HOTEL|MOTEL|STORE|MARKET|SUPERMARKET|GYM|GAS|GASOLINE|GASSTATION|CAFE|OFFICE|OFFICES|CARRENTAL|RENTALCAR|RENTAL|SALON|BAR|BUILDING|LOT';
-    noNumSkip = noNumSkip + '|' + _COLLEGE_ABBREVIATIONS;
+    noNumSkip = `${noNumSkip}|${_COLLEGE_ABBREVIATIONS}`;
     noNumSkip = noNumSkip.split('|');
     // Make the padded extent
     mapExtent.left = mapExtent.left + padFrac * (mapExtent.right - mapExtent.left);
@@ -6464,7 +6465,7 @@ function findNearbyDuplicate(itemName, itemAliases, item, recenterOption) {
                         if ((testName.length > 2 && noNumSkip.indexOf(testName) === -1) || allowedTwoLetters.indexOf(testName) > -1) {
                             testNameList = [testName];
                         } else {
-                            testNameList = ['TESTNAMETOOSHORTQZJXS' + randInt];
+                            testNameList = [`TESTNAMETOOSHORTQZJXS${randInt}`];
                             randInt++;
                         }
 
@@ -6489,14 +6490,14 @@ function findNearbyDuplicate(itemName, itemAliases, item, recenterOption) {
                                 if ((aliasNameRF.length > 2 && noNumSkip.indexOf(aliasNameRF) === -1) || allowedTwoLetters.indexOf(aliasNameRF) > -1) {
                                     testNameList = [aliasNameRF];
                                 } else {
-                                    testNameList = ['ALIASNAMETOOSHORTQOFUH' + randInt];
+                                    testNameList = [`ALIASNAMETOOSHORTQOFUH${randInt}`];
                                     randInt++;
                                 }
                                 aliasNameNoNum = aliasNameRF.replace(/[^A-Z]/g, ''); // Clear non-letter characters for alternate match ( HOLLYIVYPUB23 --> HOLLYIVYPUB )
                                 if (((aliasNameNoNum.length > 2 && noNumSkip.indexOf(aliasNameNoNum) === -1) || allowedTwoLetters.indexOf(aliasNameNoNum) > -1) && testVenueAtt.categories.indexOf('PARKING_LOT') === -1) { //  only add de-numbered name if at least 2 characters remain
                                     testNameList.push(aliasNameNoNum);
                                 } else {
-                                    testNameList.push('111231643239' + randInt); //  just to keep track of the alias in question, always add something.
+                                    testNameList.push(`111231643239${randInt}`); //  just to keep track of the alias in question, always add something.
                                     randInt++;
                                 }
                             }
@@ -6518,9 +6519,9 @@ function findNearbyDuplicate(itemName, itemAliases, item, recenterOption) {
                             if (nameMatch) {
                                 labelText = testVenueAtt.name; // Pull duplicate name
                             } else {
-                                labelText = testVenueAtt.aliases[altNameMatch] + ' (Alt)'; // Pull duplicate alt name
+                                labelText = `${testVenueAtt.aliases[altNameMatch]} (Alt)`; // Pull duplicate alt name
                             }
-                            phlogdev('Possible duplicate found. WME place: ' + itemName + ' / Nearby place: ' + labelText);
+                            phlogdev(`Possible duplicate found. WME place: ${itemName} / Nearby place: ${labelText}`);
 
                             // Reformat the name into multiple lines based on length
                             let startIX = 0, endIX = 0, labelTextBuild = [], maxLettersPerLine = Math.round(2 * Math.sqrt(labelText.replace(/ /g, '').length / 2));
@@ -6536,14 +6537,14 @@ function findNearbyDuplicate(itemName, itemAliases, item, recenterOption) {
                             labelTextReformat = labelTextBuild.join('\n');
                             // Add photo icons
                             if (testVenueAtt.images.length > 0) {
-                                labelTextReformat = labelTextReformat + ' ';
+                                labelTextReformat = `${labelTextReformat} `;
                                 for (let phix = 0; phix < testVenueAtt.images.length; phix++) {
                                     if (phix === 3) {
-                                        labelTextReformat = labelTextReformat + '+';
+                                        labelTextReformat = `${labelTextReformat}+`;
                                         break;
                                     }
                                     //labelTextReformat = labelTextReformat + '\u25A3'; // add photo icons
-                                    labelTextReformat = labelTextReformat + '\u25A3'; // add photo icons
+                                    labelTextReformat = `${labelTextReformat}\u25A3`; // add photo icons
                                 }
                             }
 
@@ -6591,12 +6592,12 @@ function findNearbyDuplicate(itemName, itemAliases, item, recenterOption) {
         let currentLabel = 'Current';
         if (item.attributes.images.length > 0) {
             for (let ciix = 0; ciix < item.attributes.images.length; ciix++) {
-                currentLabel = currentLabel + ' ';
+                currentLabel = `${currentLabel} `;
                 if (ciix === 3) {
-                    currentLabel = currentLabel + '+';
+                    currentLabel = `${currentLabel}+`;
                     break;
                 }
-                currentLabel = currentLabel + '\u25A3'; // add photo icons
+                currentLabel = `${currentLabel}\u25A3`; // add photo icons
             }
         }
         textFeature = new OL.Feature.Vector(
@@ -6866,7 +6867,7 @@ function buildGLink(searchName, addr, HN) {
     let searchHN = '', searchStreet = '', searchCity = '';
     searchName = searchName.replace(/\//g, ' ');
     if ('string' === typeof addr.street.name && addr.street.name !== null && addr.street.name !== '') {
-        searchStreet = addr.street.name + ', ';
+        searchStreet = `${addr.street.name}, `;
     }
     searchStreet = searchStreet.replace(/CR-/g, 'County Rd ');
     searchStreet = searchStreet.replace(/SR-/g, 'State Hwy ');
@@ -6878,14 +6879,14 @@ function buildGLink(searchName, addr, HN) {
     searchStreet = searchStreet.replace(/$SR /g, 'State Hwy ');
     searchStreet = searchStreet.replace(/$US /g, 'US Hwy ');
     if ('string' === typeof HN && searchStreet !== '') {
-        searchHN = HN + ' ';
+        searchHN = `${HN} `;
     }
     if ('string' === typeof addr.city.attributes.name && addr.city.attributes.name !== '') {
-        searchCity = addr.city.attributes.name + ', ';
+        searchCity = `${addr.city.attributes.name}, `;
     }
 
     searchName = searchName + (searchName ? ', ' : '') + searchHN + searchStreet + searchCity + addr.state.name;
-    return 'http://www.google.com/search?q=' + encodeURIComponent(searchName);
+    return `http://www.google.com/search?q=${encodeURIComponent(searchName)}`;
 } // END buildGLink function
 
 // WME Category translation from Natural language to object language  (Bank / Financial --> BANK_FINANCIAL)
@@ -6900,7 +6901,7 @@ function catTranslate(natCategories) {
     if (confirm('WMEPH: Category Error!\nClick OK to report this error')) {
         reportError({
             subject: 'WMEPH Bug report: no tns',
-            message: 'Error report: Category "' + natCategories + '" was not found in the PNH categories sheet.'
+            message: `Error report: Category "${natCategories}" was not found in the PNH categories sheet.`
         });
     }
     return 'ERROR';
@@ -6963,13 +6964,13 @@ function removeSFAliases(nName, nAliases) {
 
 function initSettingsCheckbox(settingID) {
     //Associate click event of new checkbox to call saveSettingToLocalStorage with proper ID
-    $('#' + settingID).click(function () { saveSettingToLocalStorage(settingID); });
+    $(`#${settingID}`).click(function () { saveSettingToLocalStorage(settingID); });
     //Load Setting for Local Storage, if it doesn't exist set it to NOT checked.
     //If previously set to 1, then trigger "click" event.
     if (!localStorage.getItem(settingID)) {
         //phlogdev(settingID + ' not found.');
     } else if (localStorage.getItem(settingID) === '1') {
-        $('#' + settingID).prop('checked', true);
+        $(`#${settingID}`).prop('checked', true);
     }
 }
 
@@ -6999,13 +7000,13 @@ function onKBShortcutModifierKeyClick() {
     _SHORTCUT.remove(_modifKey + _shortcutParse);
     _modifKey = modifKeyNew;
     _SHORTCUT.add(_modifKey + _shortcutParse, function () { harmonizePlace(); });
-    $('#PlaceHarmonizerKBCurrent').empty().append('<span style="font-weight:bold">Current shortcut: ' + _modifKey + _shortcutParse + '</span>');
+    $('#PlaceHarmonizerKBCurrent').empty().append(`<span style="font-weight:bold">Current shortcut: ${_modifKey}${_shortcutParse}</span>`);
 }
 
 function onKBShortcutChange() {
     const keyId = 'WMEPH-KeyboardShortcut';
     const $warn = $('#PlaceHarmonizerKBWarn');
-    const $key = $('#' + keyId);
+    const $key = $(`#${keyId}`);
     const oldKey = localStorage.getItem(keyId);
     const newKey = $key.val();
 
@@ -7017,7 +7018,7 @@ function onKBShortcutChange() {
         _shortcutParse = shortcutParseNew;
         _SHORTCUT.add(_modifKey + _shortcutParse, function () { harmonizePlace(); });
         $(localStorage.setItem(keyId, newKey));
-        $('#PlaceHarmonizerKBCurrent').empty().append('<span style="font-weight:bold">Current shortcut: ' + _modifKey + _shortcutParse + '</span>');
+        $('#PlaceHarmonizerKBCurrent').empty().append(`<span style="font-weight:bold">Current shortcut: ${_modifKey}${_shortcutParse}</span>`);
     } else { // if not a letter then reset and flag
         $key.val(oldKey);
         $warn.append('<p style="color:red">Only letters are allowed<p>');
@@ -7036,7 +7037,7 @@ function initShortcutKey() {
     const defaultShortcutKey = _IS_DEV_VERSION ? 'S' : 'A';
     const shortcutID = 'WMEPH-KeyboardShortcut';
     let shortcutKey = localStorage.getItem(shortcutID);
-    const $shortcutInput = $('#' + shortcutID);
+    const $shortcutInput = $(`#${shortcutID}`);
 
     // Set local storage to default if none
     if (shortcutKey === null || !/^[a-z]{1}$/i.test(shortcutKey)) {
@@ -7050,7 +7051,7 @@ function initShortcutKey() {
     }
     _shortcutParse = parseKBSShift(shortcutKey);
     if (!_initAlreadyRun) _SHORTCUT.add(_modifKey + _shortcutParse, function () { harmonizePlace(); });
-    $current.empty().append('<span style="font-weight:bold">Current shortcut: ' + _modifKey + _shortcutParse + '</span>');
+    $current.empty().append(`<span style="font-weight:bold">Current shortcut: ${_modifKey}${_shortcutParse}</span>`);
 
     $('#WMEPH-KBSModifierKey').click(onKBShortcutModifierKeyClick);
 
@@ -7113,14 +7114,14 @@ function onWLStatsClick() {
 
     let countryString = '';
     for (const countryKey in countryWL) {
-        countryString = countryString + '<br>' + countryKey + ': ' + countryWL[countryKey];
+        countryString = `${countryString}<br>${countryKey}: ${countryWL[countryKey]}`;
     }
     let stateString = '';
     for (const stateKey in stateWL) {
-        stateString = stateString + '<br>' + stateKey + ': ' + stateWL[stateKey];
+        stateString = `${stateString}<br>${stateKey}: ${stateWL[stateKey]}`;
     }
 
-    $('#PlaceHarmonizerWLToolsMsg').empty().append('<p style="color:black">Number of WL places: ' + entries.length + '</p><p><span style="font-weight:bold;"><u>States</u></span>' + stateString + '</p><p><span style="font-weight:bold;"><u>Countries</u></span>' + countryString + '<p>');
+    $('#PlaceHarmonizerWLToolsMsg').empty().append(`<p style="color:black">Number of WL places: ${entries.length}</p><p><span style="font-weight:bold;"><u>States</u></span>${stateString}</p><p><span style="font-weight:bold;"><u>Countries</u></span>${countryString}<p>`);
     //localStorage.setItem('WMEPH_WLAddCount', 1);
 }
 
@@ -7143,13 +7144,13 @@ function onWLStateFilterClick() {
         });
         if (venueToRemove.length > 0) {
             if (localStorage.WMEPH_WLAddCount === '1') {
-                if (confirm('Are you sure you want to clear all whitelist data for ' + stateToRemove + '? This CANNOT be undone. Press OK to delete, cancel to preserve the data.')) {
+                if (confirm(`Are you sure you want to clear all whitelist data for ${stateToRemove}? This CANNOT be undone. Press OK to delete, cancel to preserve the data.`)) {
                     backupWhitelistToLS(true);
                     for (let ixwl = 0; ixwl < venueToRemove.length; ixwl++) {
                         delete _venueWhitelist[venueToRemove[ixwl]];
                     }
                     saveWhitelistToLS(true);
-                    msg = '<p style="color:green">' + venueToRemove.length + ' items removed from WL<p>';
+                    msg = `<p style="color:green">${venueToRemove.length} items removed from WL<p>`;
                     $wlInput.val('');
                 } else {
                     msg = '<p style="color:blue">No changes made<p>';
@@ -7165,7 +7166,7 @@ function onWLStateFilterClick() {
 }
 
 function onWLShareClick() {
-    window.open('https://docs.google.com/forms/d/1k_5RyOq81Fv4IRHzltC34kW3IUbXnQqDVMogwJKFNbE/viewform?entry.1173700072=' + _USER.name);
+    window.open(`https://docs.google.com/forms/d/1k_5RyOq81Fv4IRHzltC34kW3IUbXnQqDVMogwJKFNbE/viewform?entry.1173700072=${_USER.name}`);
 }
 
 // settings tab
@@ -7287,10 +7288,10 @@ function addWmephTab() {
 
     $harmonizerTab.append($phShortcutDiv);
 
-    $harmonizerTab.append('<hr align="center" width="95%"><p><a href="' +
-        _URLS.placesWiki + '" target="_blank">Open the WME Places Wiki page</a><p><a href="' +
-        _URLS.forum + '" target="_blank">Submit script feedback & suggestions</a></p><hr align="center" width="95%">Recent updates:<ul>' +
-        _WHATS_NEW_LIST.map(i => '<li>' + i + '</li>').join('') + '</ul>');
+    $harmonizerTab.append(`<hr align="center" width="95%"><p><a href="${
+        _URLS.placesWiki}" target="_blank">Open the WME Places Wiki page</a><p><a href="${
+        _URLS.forum}" target="_blank">Submit script feedback & suggestions</a></p><hr align="center" width="95%">Recent updates:<ul>${
+        _WHATS_NEW_LIST.map(i => '<li>' + i + '</li>').join('')}</ul>`);
 
     // Highlighter settings
     $highlighterTab.append('<p>Highlighter Settings:</p>');
@@ -7356,14 +7357,14 @@ function addWmephTab() {
         )
     );
 
-    new WazeWrap.Interface.Tab('WMEPH' + (_IS_DEV_VERSION ? '-β' : ''), $container.html(), initWmephTab, null);
+    new WazeWrap.Interface.Tab(`WMEPH${_IS_DEV_VERSION ? '-β' : ''}`, $container.html(), initWmephTab, null);
 }
 
 function createCloneCheckbox(divID, settingID, textDescription) {
-    $('#' + divID).append('<input type="checkbox" id="' + settingID + '">' + textDescription + '</input>&nbsp&nbsp');
-    $('#' + settingID).click(() => saveSettingToLocalStorage(settingID));
+    $(`#${divID}`).append(`<input type="checkbox" id="${settingID}">${textDescription}</input>&nbsp&nbsp`);
+    $(`#${settingID}`).click(() => saveSettingToLocalStorage(settingID));
     if (localStorage.getItem(settingID) === '1') {
-        $('#' + settingID).trigger('click');
+        $(`#${settingID}`).trigger('click');
     }
 }
 
@@ -7374,7 +7375,7 @@ function parseKBSShift(kbs) {
 
 // Save settings prefs
 function saveSettingToLocalStorage(settingID) {
-    localStorage.setItem(settingID, $('#' + settingID).prop('checked') ? '1' : '0');
+    localStorage.setItem(settingID, $(`#${settingID}`).prop('checked') ? '1' : '0');
 }
 
 // This function validates that the inputted text is a JSON
@@ -7484,12 +7485,12 @@ function reportError(data) {
     data.preview = 'Preview';
     data.attach_sig = 'on';
     if (_PM_USER_LIST.hasOwnProperty('WMEPH') && _PM_USER_LIST.WMEPH.approvalActive) {
-        data['address_list[u][' + _PM_USER_LIST.WMEPH.modID + ']'] = 'to';
+        data[`address_list[u][${_PM_USER_LIST.WMEPH.modID}]`] = 'to';
         newForumPost('https://www.waze.com/forum/ucp.php?i=pm&mode=compose', data);
     } else {
         data.addbbcode20 = 'to';
         data.notify = 'on';
-        newForumPost(_URLS.forum + '#preview', data);
+        newForumPost(`${_URLS.forum}#preview`, data);
     }
 } // END reportError function
 
@@ -7606,7 +7607,7 @@ function placeHarmonizer_init() {
     }
 
     if (_USER.name === 'ggrane') {
-        _searchResultsWindowSpecs = '"resizable=yes, top=' + Math.round(window.screen.height * 0.1) + ', left=' + Math.round(window.screen.width * 0.3) + ', width=' + Math.round(window.screen.width * 0.86) + ', height=' + Math.round(window.screen.height * 0.8) + '"';
+        _searchResultsWindowSpecs = `"resizable=yes, top=${Math.round(window.screen.height * 0.1)}, left=${Math.round(window.screen.width * 0.3)}, width=${Math.round(window.screen.width * 0.86)}, height=${Math.round(window.screen.height * 0.8)}"`;
     }
 
     // Settings setup
@@ -7654,7 +7655,7 @@ function placeHarmonizer_init() {
     });
     if (removedWLCount > 0) {
         saveWhitelistToLS(true);
-        phlogdev('Removed ' + removedWLCount + ' venues with temporary ID\'s from WL store');
+        phlogdev(`Removed ${removedWLCount} venues with temporary ID's from WL store`);
     }
 
     if (_wmephBetaList.length === 0 || 'undefined' === typeof _wmephBetaList) {
