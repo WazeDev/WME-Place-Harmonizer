@@ -5946,8 +5946,18 @@ function assembleServicesBanner() {
             Object.keys(_servicesBanner).forEach(tempKey => {
                 const rowData = _servicesBanner[tempKey];
                 if (rowData.active) { //  If the particular service is active
-                    const $input = $('<input>', { class: rowData.icon, id: `WMEPH_${tempKey}`, type: 'button', 'title': rowData.title }).css(
-                        { border: 0, 'background-size': 'contain', height: '27px', width: `${Math.ceil(servButtHeight * rowData.w2hratio).toString()}px` }
+                    const $input = $('<input>', {
+                        class: rowData.icon,
+                        id: `WMEPH_${tempKey}`,
+                        type: 'button',
+                        title: rowData.title
+                    }).css(
+                        {
+                            border: 0,
+                            'background-size': 'contain',
+                            height: '27px',
+                            width: `${Math.ceil(servButtHeight * rowData.w2hratio).toString()}px`
+                        }
                     );
                     buttons.push($input);
                     if (!rowData.checked) {
@@ -5962,7 +5972,14 @@ function assembleServicesBanner() {
             rowDivs.push($rowDiv);
         }
         if ($('#WMEPH_services').length === 0) {
-            $('#WMEPH_banner').after($('<div id="WMEPH_services">').css({ 'background-color': '#eee', 'color': 'black', 'font-size': '15px', 'padding': '4px', 'margin-left': '4px', 'margin-right': 'auto' }));
+            $('#WMEPH_banner').after($('<div id="WMEPH_services">').css({
+                'background-color': '#eee',
+                color: 'black',
+                'font-size': '15px',
+                padding: '4px',
+                'margin-left': '4px',
+                'margin-right': 'auto'
+            }));
         } else {
             $('#WMEPH_services').empty();
         }
@@ -5977,7 +5994,7 @@ function assembleServicesBanner() {
 
 // Button onclick event handler
 function setupButtons(b) {
-    for (const tempKey in b) { // Loop through the banner possibilities
+    Object.keys(b).forEach(tempKey => { // Loop through the banner possibilities
         if (b[tempKey] && b[tempKey].active) { //  If the particular message is active
             if (b[tempKey].action && b[tempKey].value) { // If there is an action, set onclick
                 buttonAction(b, tempKey);
@@ -5990,12 +6007,12 @@ function setupButtons(b) {
                 buttonWhitelist(b, tempKey);
             }
         }
-    }
-} // END setupButtons function
+    });
+}
 
 function buttonAction(b, bKey) {
     const button = document.getElementById(`WMEPH_${bKey}`);
-    button.onclick = function () {
+    button.onclick = () => {
         b[bKey].action();
         if (!b[bKey].noBannerAssemble) assembleBanner();
     };
@@ -6003,7 +6020,7 @@ function buttonAction(b, bKey) {
 }
 function buttonAction2(b, bKey) {
     const button = document.getElementById(`WMEPH_${bKey}_2`);
-    button.onclick = function () {
+    button.onclick = () => {
         b[bKey].action2();
         if (!b[bKey].noBannerAssemble) assembleBanner();
     };
@@ -6011,7 +6028,7 @@ function buttonAction2(b, bKey) {
 }
 function buttonWhitelist(b, bKey) {
     const button = document.getElementById(`WMEPH_WL${bKey}`);
-    button.onclick = function () {
+    button.onclick = () => {
         if (bKey.match(/^\d{5,}/) !== null) {
             b[bKey].WLaction(bKey);
         } else {
@@ -6028,18 +6045,18 @@ function buttonWhitelist(b, bKey) {
 function displayRunButton() {
     const betaDelay = 100;
     setTimeout(() => {
-        const venue = getSelectedVenue();
         if ($('#WMEPH_runButton').length === 0) {
             $('<div id="WMEPH_runButton">').prependTo('.contents');
         }
         if ($('#runWMEPH').length === 0) {
             const devVersSuffix = _IS_DEV_VERSION ? '-β' : '';
-            const strButt1 = `<input class="btn btn-primary wmeph-fat-btn" id="runWMEPH" title="Run WMEPH${devVersSuffix} on Place" type="button" value="Run WMEPH${devVersSuffix}">`;
+            const strButt1 = `<input class="btn btn-primary wmeph-fat-btn" id="runWMEPH" title="Run WMEPH${
+                devVersSuffix} on Place" type="button" value="Run WMEPH${devVersSuffix}">`;
             $('#WMEPH_runButton').append(strButt1);
         }
         const btn = document.getElementById('runWMEPH');
         if (btn !== null) {
-            btn.onclick = function () {
+            btn.onclick = () => {
                 harmonizePlace();
             };
         } else {
@@ -6048,7 +6065,7 @@ function displayRunButton() {
         showOpenPlaceWebsiteButton();
         showSearchButton();
     }, betaDelay);
-} // END displayRunButton funtion
+}
 
 // Displays the Open Place Website button.
 function showOpenPlaceWebsiteButton() {
@@ -6056,15 +6073,15 @@ function showOpenPlaceWebsiteButton() {
     if (venue) {
         let openPlaceWebsiteURL = venue.attributes.url;
         if (openPlaceWebsiteURL && openPlaceWebsiteURL.replace(/[^A-Za-z0-9]/g, '').length > 2) {
-            if ($('#WMEPHurl').length === 0) {
+            if (!$('#WMEPHurl').length) {
                 const strButt1 = '<input class="btn btn-success btn-xs wmeph-fat-btn" id="WMEPHurl" title="Open place URL" type="button" value="Website">';
                 $('#runWMEPH').after(strButt1);
                 const btn = document.getElementById('WMEPHurl');
                 if (btn !== null) {
-                    btn.onclick = function () {
+                    btn.onclick = () => {
                         openPlaceWebsiteURL = venue.attributes.url;
                         if (openPlaceWebsiteURL.match(/^http/i) === null) {
-                            openPlaceWebsiteURL = `http:\/\/${openPlaceWebsiteURL}`;
+                            openPlaceWebsiteURL = `http://${openPlaceWebsiteURL}`;
                         }
                         if ($('#WMEPH-WebSearchNewTab').prop('checked')) {
                             window.open(openPlaceWebsiteURL);
@@ -6076,10 +6093,8 @@ function showOpenPlaceWebsiteButton() {
                     setTimeout(bootstrapRunButton, 100);
                 }
             }
-        } else {
-            if ($('#WMEPHurl').length > 0) {
-                $('#WMEPHurl').remove();
-            }
+        } else if ($('#WMEPHurl').length) {
+            $('#WMEPHurl').remove();
         }
     }
 }
@@ -6091,7 +6106,7 @@ function showSearchButton() {
         $('#WMEPH_runButton').append(strButt1);
         const btn = document.getElementById('wmephSearch');
         if (btn !== null) {
-            btn.onclick = function () {
+            btn.onclick = () => {
                 const addr = venue.getAddress();
                 if (addr.hasState()) {
                     const url = buildGLink(venue.attributes.name, addr.attributes, venue.attributes.houseNumber);
@@ -6110,6 +6125,20 @@ function showSearchButton() {
     }
 }
 
+// Helper functions for getting/setting checkbox checked state.
+function isChecked(id) {
+    // We could use jquery here, but I assume native is faster.
+    return document.getElementById(id).checked;
+}
+function setCheckbox(id, checkedState) {
+    if (isChecked(id) !== checkedState) { $(`#${id}`).click(); }
+}
+function setCheckboxes(ids, checkedState) {
+    ids.forEach(id => {
+        setCheckbox(id, checkedState);
+    });
+}
+
 // WMEPH Clone Tool
 function displayCloneButton() {
     let betaDelay = 80;
@@ -6118,13 +6147,14 @@ function displayCloneButton() {
         if ($('#WMEPH_runButton').length === 0) {
             $('<div id="WMEPH_runButton">').prependTo('.contents');
         }
-        let strButt1, btn;
         const venue = getSelectedVenue();
         if (venue) {
             showOpenPlaceWebsiteButton();
             if ($('#clonePlace').length === 0) {
-                strButt1 = '<div style="margin-bottom: 3px;"></div><input class="btn btn-warning btn-xs wmeph-btn" id="clonePlace" title="Copy place info" type="button" value="Copy" style="font-weight:normal">' +
-                    ' <input class="btn btn-warning btn-xs wmeph-btn" id="pasteClone" title="Apply the Place info. (Ctrl-Alt-O)" type="button" value="Paste (for checked boxes):" style="font-weight:normal"><br>';
+                let strButt1 = '<div style="margin-bottom: 3px;"></div><input class="btn btn-warning btn-xs wmeph-btn" '
+                    + 'id="clonePlace" title="Copy place info" type="button" value="Copy" style="font-weight:normal">'
+                    + ' <input class="btn btn-warning btn-xs wmeph-btn" id="pasteClone" title="Apply the Place info. '
+                    + '(Ctrl-Alt-O)" type="button" value="Paste (for checked boxes):" style="font-weight:normal"><br>';
                 $('#WMEPH_runButton').append(strButt1);
                 createCloneCheckbox('WMEPH_runButton', 'WMEPH_CPhn', 'HN');
                 createCloneCheckbox('WMEPH_runButton', 'WMEPH_CPstr', 'Str');
@@ -6135,14 +6165,16 @@ function displayCloneButton() {
                 createCloneCheckbox('WMEPH_runButton', 'WMEPH_CPdesc', 'Desc');
                 createCloneCheckbox('WMEPH_runButton', 'WMEPH_CPserv', 'Serv');
                 createCloneCheckbox('WMEPH_runButton', 'WMEPH_CPhrs', 'Hrs');
-                strButt1 = '<input class="btn btn-info btn-xs wmeph-btn" id="checkAllClone" title="Check all" type="button" value="All" style="font-weight:normal">' +
-                    ' <input class="btn btn-info btn-xs wmeph-btn" id="checkAddrClone" title="Check Address" type="button" value="Addr" style="font-weight:normal">' +
-                    ' <input class="btn btn-info btn-xs wmeph-btn" id="checkNoneClone" title="Check none" type="button" value="None" style="font-weight:normal"><br>';
+                strButt1 = '<input class="btn btn-info btn-xs wmeph-btn" id="checkAllClone" title="Check all" '
+                    + 'type="button" value="All" style="font-weight:normal"> <input class="btn btn-info btn-xs '
+                    + 'wmeph-btn" id="checkAddrClone" title="Check Address" type="button" value="Addr" style="font-weight:normal">'
+                    + ' <input class="btn btn-info btn-xs wmeph-btn" id="checkNoneClone" title="Check none" '
+                    + 'type="button" value="None" style="font-weight:normal"><br>';
                 $('#WMEPH_runButton').append(strButt1);
             }
-            btn = document.getElementById('clonePlace');
+            let btn = document.getElementById('clonePlace');
             if (btn !== null) {
-                btn.onclick = function () {
+                btn.onclick = () => {
                     _cloneMaster = {};
                     _cloneMaster.addr = venue.getAddress();
                     if (_cloneMaster.addr.hasOwnProperty('attributes')) {
@@ -6163,53 +6195,36 @@ function displayCloneButton() {
             }
             btn = document.getElementById('pasteClone');
             if (btn !== null) {
-                btn.onclick = function () {
+                btn.onclick = () => {
                     clonePlace(getSelectedVenue());
                 };
             } else {
                 setTimeout(bootstrapRunButton, 100);
             }
             btn = document.getElementById('checkAllClone');
+
             if (btn !== null) {
-                btn.onclick = function () {
-                    if (!$('#WMEPH_CPhn').prop('checked')) { $('#WMEPH_CPhn').trigger('click'); }
-                    if (!$('#WMEPH_CPstr').prop('checked')) { $('#WMEPH_CPstr').trigger('click'); }
-                    if (!$('#WMEPH_CPcity').prop('checked')) { $('#WMEPH_CPcity').trigger('click'); }
-                    if (!$('#WMEPH_CPurl').prop('checked')) { $('#WMEPH_CPurl').trigger('click'); }
-                    if (!$('#WMEPH_CPph').prop('checked')) { $('#WMEPH_CPph').trigger('click'); }
-                    if (!$('#WMEPH_CPserv').prop('checked')) { $('#WMEPH_CPserv').trigger('click'); }
-                    if (!$('#WMEPH_CPdesc').prop('checked')) { $('#WMEPH_CPdesc').trigger('click'); }
-                    if (!$('#WMEPH_CPhrs').prop('checked')) { $('#WMEPH_CPhrs').trigger('click'); }
+                btn.onclick = () => {
+                    setCheckboxes(['WMEPH_CPhn', 'WMEPH_CPstr', 'WMEPH_CPcity', 'WMEPH_CPurl', 'WMEPH_CPph', 'WMEPH_CPserv',
+                        'WMEPH_CPdesc', 'WMEPH_CPhrs'], true);
                 };
             } else {
                 setTimeout(bootstrapRunButton, 100);
             }
             btn = document.getElementById('checkAddrClone');
             if (btn !== null) {
-                btn.onclick = function () {
-                    if (!$('#WMEPH_CPhn').prop('checked')) { $('#WMEPH_CPhn').trigger('click'); }
-                    if (!$('#WMEPH_CPstr').prop('checked')) { $('#WMEPH_CPstr').trigger('click'); }
-                    if (!$('#WMEPH_CPcity').prop('checked')) { $('#WMEPH_CPcity').trigger('click'); }
-                    if ($('#WMEPH_CPurl').prop('checked')) { $('#WMEPH_CPurl').trigger('click'); }
-                    if ($('#WMEPH_CPph').prop('checked')) { $('#WMEPH_CPph').trigger('click'); }
-                    if ($('#WMEPH_CPserv').prop('checked')) { $('#WMEPH_CPserv').trigger('click'); }
-                    if ($('#WMEPH_CPdesc').prop('checked')) { $('#WMEPH_CPdesc').trigger('click'); }
-                    if ($('#WMEPH_CPhrs').prop('checked')) { $('#WMEPH_CPhrs').trigger('click'); }
+                btn.onclick = () => {
+                    setCheckboxes(['WMEPH_CPhn', 'WMEPH_CPstr', 'WMEPH_CPcity'], true);
+                    setCheckboxes(['WMEPH_CPurl', 'WMEPH_CPph', 'WMEPH_CPserv', 'WMEPH_CPdesc', 'WMEPH_CPhrs'], false);
                 };
             } else {
                 setTimeout(bootstrapRunButton, 100);
             }
             btn = document.getElementById('checkNoneClone');
             if (btn !== null) {
-                btn.onclick = function () {
-                    if ($('#WMEPH_CPhn').prop('checked')) { $('#WMEPH_CPhn').trigger('click'); }
-                    if ($('#WMEPH_CPstr').prop('checked')) { $('#WMEPH_CPstr').trigger('click'); }
-                    if ($('#WMEPH_CPcity').prop('checked')) { $('#WMEPH_CPcity').trigger('click'); }
-                    if ($('#WMEPH_CPurl').prop('checked')) { $('#WMEPH_CPurl').trigger('click'); }
-                    if ($('#WMEPH_CPph').prop('checked')) { $('#WMEPH_CPph').trigger('click'); }
-                    if ($('#WMEPH_CPserv').prop('checked')) { $('#WMEPH_CPserv').trigger('click'); }
-                    if ($('#WMEPH_CPdesc').prop('checked')) { $('#WMEPH_CPdesc').trigger('click'); }
-                    if ($('#WMEPH_CPhrs').prop('checked')) { $('#WMEPH_CPhrs').trigger('click'); }
+                btn.onclick = () => {
+                    setCheckboxes(['WMEPH_CPhn', 'WMEPH_CPstr', 'WMEPH_CPcity', 'WMEPH_CPurl', 'WMEPH_CPph', 'WMEPH_CPserv',
+                        'WMEPH_CPdesc', 'WMEPH_CPhrs'], false);
                 };
             } else {
                 setTimeout(bootstrapRunButton, 100);
@@ -6242,9 +6257,9 @@ function bootstrapRunButton(numAttempts) {
 
 // Find field divs
 function getPanelFields() {
-    let panelFieldsList = $('.form-control'), pfa;
-    for (var pfix = 0; pfix < panelFieldsList.length; pfix++) {
-        pfa = panelFieldsList[pfix].name;
+    let panelFieldsList = $('.form-control');
+    for (let pfix = 0; pfix < panelFieldsList.length; pfix++) {
+        const pfa = panelFieldsList[pfix].name;
         if (pfa === 'name') {
             _PANEL_FIELDS.name = pfix;
         }
@@ -6265,16 +6280,16 @@ function getPanelFields() {
         }
     }
     const placeNavTabs = $('.nav');
-    for (pfix = 0; pfix < placeNavTabs.length; pfix++) {
-        pfa = placeNavTabs[pfix].innerHTML;
+    for (let pfix = 0; pfix < placeNavTabs.length; pfix++) {
+        const pfa = placeNavTabs[pfix].innerHTML;
         if (pfa.includes('landmark-edit')) {
             panelFieldsList = placeNavTabs[pfix].children;
             _PANEL_FIELDS.navTabsIX = pfix;
             break;
         }
     }
-    for (pfix = 0; pfix < panelFieldsList.length; pfix++) {
-        pfa = panelFieldsList[pfix].innerHTML;
+    for (let pfix = 0; pfix < panelFieldsList.length; pfix++) {
+        const pfa = panelFieldsList[pfix].innerHTML;
         if (pfa.includes('landmark-edit-general')) {
             _PANEL_FIELDS.navTabGeneral = pfix;
         }
@@ -6291,27 +6306,27 @@ function clonePlace() {
         const venue = getSelectedVenue();
         const cloneItems = {};
         let updateItem = false;
-        if ($('#WMEPH_CPhn').prop('checked')) {
+        if (isChecked('WMEPH_CPhn')) {
             cloneItems.houseNumber = _cloneMaster.houseNumber;
             updateItem = true;
         }
-        if ($('#WMEPH_CPurl').prop('checked')) {
+        if (isChecked('WMEPH_CPurl')) {
             cloneItems.url = _cloneMaster.url;
             updateItem = true;
         }
-        if ($('#WMEPH_CPph').prop('checked')) {
+        if (isChecked('WMEPH_CPph')) {
             cloneItems.phone = _cloneMaster.phone;
             updateItem = true;
         }
-        if ($('#WMEPH_CPdesc').prop('checked')) {
+        if (isChecked('WMEPH_CPdesc')) {
             cloneItems.description = _cloneMaster.description;
             updateItem = true;
         }
-        if ($('#WMEPH_CPserv').prop('checked') && venue.isParkingLot() === _cloneMaster.isPLA) {
+        if (isChecked('WMEPH_CPserv') && venue.isParkingLot() === _cloneMaster.isPLA) {
             cloneItems.services = _cloneMaster.services;
             updateItem = true;
         }
-        if ($('#WMEPH_CPhrs').prop('checked')) {
+        if (isChecked('WMEPH_CPhrs')) {
             cloneItems.openingHours = _cloneMaster.openingHours;
             updateItem = true;
         }
@@ -6320,8 +6335,8 @@ function clonePlace() {
             phlogdev('Item details cloned');
         }
 
-        const copyStreet = $('#WMEPH_CPstr').prop('checked');
-        const copyCity = $('#WMEPH_CPcity').prop('checked');
+        const copyStreet = isChecked('WMEPH_CPstr');
+        const copyCity = isChecked('WMEPH_CPcity');
 
         if (copyStreet || copyCity) {
             const originalAddress = venue.getAddress();
@@ -6355,15 +6370,15 @@ function checkHours(hoursObj) {
     if (hoursObj.length === 1) {
         return true;
     }
-    let daysObj, fromHourTemp, toHourTemp;
+
     for (let day2Ch = 0; day2Ch < 7; day2Ch++) { // Go thru each day of the week
-        daysObj = [];
+        const daysObj = [];
         for (let hourSet = 0; hourSet < hoursObj.length; hourSet++) { // For each set of hours
             if (hoursObj[hourSet].days.includes(day2Ch)) { // pull out hours that are for the current day, add 2400 if it goes past midnight, and store
-                fromHourTemp = hoursObj[hourSet].fromHour.replace(/\:/g, '');
-                toHourTemp = hoursObj[hourSet].toHour.replace(/\:/g, '');
+                const fromHourTemp = hoursObj[hourSet].fromHour.replace(/:/g, '');
+                let toHourTemp = hoursObj[hourSet].toHour.replace(/:/g, '');
                 if (toHourTemp <= fromHourTemp) {
-                    toHourTemp = parseInt(toHourTemp) + 2400;
+                    toHourTemp = parseInt(toHourTemp, 10) + 2400;
                 }
                 daysObj.push([fromHourTemp, toHourTemp]);
             }
