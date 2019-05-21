@@ -6400,57 +6400,74 @@ function checkHours(hoursObj) {
 }
 
 // Duplicate place finder  ###bmtg
-function findNearbyDuplicate(itemName, itemAliases, item, recenterOption) {
-    _dupeIDList = [item.attributes.id];
-    _dupeHNRangeList = [];
-    // const dupeHNRangeIDList = [];
-    _dupeHNRangeDistList = [];
-    let venueList = W.model.venues.objects, currNameList = [], testNameList = [], testVenueAtt, testName, testNameNoNum, itemNameRF, aliasNameRF, aliasNameNoNum;
-    let wlDupeMatch = false, wlDupeList = [], nameMatch = false, altNameMatch = -1, aliix, cnlix, tnlix, randInt = 100;
-    let outOfExtent = false, mapExtent = W.map.getExtent(), padFrac = 0.15; // how much to pad the zoomed window
-    // Initialize the cooridnate extents for duplicates
-    let minLon = item.geometry.getCentroid().x, minLat = item.geometry.getCentroid().y;
-    let maxLon = minLon, maxLat = minLat;
-    // genericterms to skip if it's all that remains after stripping numbers
-    let noNumSkip = 'BANK|ATM|HOTEL|MOTEL|STORE|MARKET|SUPERMARKET|GYM|GAS|GASOLINE|GASSTATION|CAFE|OFFICE|OFFICES|CARRENTAL|RENTALCAR|RENTAL|SALON|BAR|BUILDING|LOT';
-    noNumSkip = `${noNumSkip}|${_COLLEGE_ABBREVIATIONS}`;
-    noNumSkip = noNumSkip.split('|');
-    // Make the padded extent
-    mapExtent.left = mapExtent.left + padFrac * (mapExtent.right - mapExtent.left);
-    mapExtent.right = mapExtent.right - padFrac * (mapExtent.right - mapExtent.left);
-    mapExtent.bottom = mapExtent.bottom + padFrac * (mapExtent.top - mapExtent.bottom);
-    mapExtent.top = mapExtent.top - padFrac * (mapExtent.top - mapExtent.bottom);
+function findNearbyDuplicate(selectedVenueName, selectedVenueAliases, selectedVenue, recenterOption) {
+    // Helper function to prep a name for comparisons.
+    const formatName = name => name.toUpperCase().replace(/ AND /g, '').replace(/^THE /g, '').replace(/[^A-Z0-9]/g, '');
 
+    // Remove any previous search labels
+    _dupeLayer.destroyFeatures();
+
+    const mapExtent = W.map.getExtent();
+    const padFrac = 0.15; // how much to pad the zoomed window
+
+    // generic terms to skip if it's all that remains after stripping numbers
+    let noNumSkip = 'BANK|ATM|HOTEL|MOTEL|STORE|MARKET|SUPERMARKET|GYM|GAS|GASOLINE|GASSTATION|CAFE|OFFICE|OFFICES'
+        + '|CARRENTAL|RENTALCAR|RENTAL|SALON|BAR|BUILDING|LOT';
+    noNumSkip = `${noNumSkip}|${_COLLEGE_ABBREVIATIONS}`.split('|');
     const allowedTwoLetters = ['BP', 'DQ', 'BK', 'BW', 'LQ', 'QT', 'DB', 'PO'];
 
-    let labelFeatures = [], dupeNames = [], labelText, labelTextReformat, pt, textFeature, labelColorIX = 0;
+    // Make the padded extent
+    mapExtent.left += padFrac * (mapExtent.right - mapExtent.left);
+    mapExtent.right -= padFrac * (mapExtent.right - mapExtent.left);
+    mapExtent.bottom += padFrac * (mapExtent.top - mapExtent.bottom);
+    mapExtent.top -= padFrac * (mapExtent.top - mapExtent.bottom);
+    let outOfExtent = false;
+    let overlappingFlag = false;
+
+    // Initialize the coordinate extents for duplicates
+    const selectedCentroid = selectedVenue.geometry.getCentroid();
+    let minLon = selectedCentroid.x;
+    let minLat = selectedCentroid.y;
+    let maxLon = minLon;
+    let maxLat = minLat;
+
+    // Label stuff for display
+    const labelFeatures = [];
+    const dupeNames = [];
+    let labelColorIX = 0;
     const labelColorList = ['#3F3'];
+
     // Name formatting for the WME place name
-    itemNameRF = itemName.toUpperCase().replace(/ AND /g, '').replace(/^THE /g, '').replace(/[^A-Z0-9]/g, ''); // Format name
-    if (itemNameRF.length > 2 || allowedTwoLetters.includes(itemNameRF)) {
-        currNameList.push(itemNameRF);
+    const selectedVenueNameRF = formatName(selectedVenueName);
+    let currNameList = [];
+    if (selectedVenueNameRF.length > 2 || allowedTwoLetters.includes(selectedVenueNameRF)) {
+        currNameList.push(selectedVenueNameRF);
     } else {
         currNameList.push('PRIMNAMETOOSHORT_PJZWX');
     }
+
+    const selectedVenueAttr = selectedVenue.attributes;
+
     // Clear non-letter characters for alternate match ( HOLLYIVYPUB23 --> HOLLYIVYPUB )
-    const itemNameNoNum = itemNameRF.replace(/[^A-Z]/g, '');
+    const itemNameNoNum = selectedVenueNameRF.replace(/[^A-Z]/g, '');
     if (((itemNameNoNum.length > 2 && !noNumSkip.includes(itemNameNoNum)) || allowedTwoLetters.includes(itemNameNoNum))
-        && !item.attributes.categories.includes('PARKING_LOT')) {
+        && !selectedVenueAttr.categories.includes('PARKING_LOT')) {
         // only add de-numbered name if anything remains
         currNameList.push(itemNameNoNum);
     }
-    if (itemAliases.length > 0) {
-        for (aliix = 0; aliix < itemAliases.length; aliix++) {
+
+    if (selectedVenueAliases.length > 0) {
+        for (let aliix = 0; aliix < selectedVenueAliases.length; aliix++) {
             // Format name
-            aliasNameRF = itemAliases[aliix].toUpperCase().replace(/ AND /g, '').replace(/^THE /g, '').replace(/[^A-Z0-9]/g, '');
+            const aliasNameRF = formatName(selectedVenueAliases[aliix]);
             if ((aliasNameRF.length > 2 && !noNumSkip.includes(aliasNameRF)) || allowedTwoLetters.includes(aliasNameRF)) {
                 // only add de-numbered name if anything remains
                 currNameList.push(aliasNameRF);
             }
             // Clear non-letter characters for alternate match ( HOLLYIVYPUB23 --> HOLLYIVYPUB )
-            aliasNameNoNum = aliasNameRF.replace(/[^A-Z]/g, '');
+            const aliasNameNoNum = aliasNameRF.replace(/[^A-Z]/g, '');
             if (((aliasNameNoNum.length > 2 && !noNumSkip.includes(aliasNameNoNum)) || allowedTwoLetters.includes(aliasNameNoNum))
-                && !item.attributes.categories.includes('PARKING_LOT')) {
+                && !selectedVenueAttr.categories.includes('PARKING_LOT')) {
                 // only add de-numbered name if anything remains
                 currNameList.push(aliasNameNoNum);
             }
@@ -6458,198 +6475,198 @@ function findNearbyDuplicate(itemName, itemAliases, item, recenterOption) {
     }
     currNameList = _.uniq(currNameList); //  remove duplicates
 
-    // Remove any previous search labels and move the layer above the places layer
-    _dupeLayer.destroyFeatures();
-    //var vecLyrPlaces = W.map.getLayersBy('uniqueName','landmarks')[0];
-    //W.map.setLayerZIndex(_dupeLayer, 70);
-    //_dupeLayer.setZIndex(parseInt(vecLyrPlaces.getZIndex())+3); // Move layer to just on top of Places layer
+    let selectedVenueAddr = selectedVenue.getAddress();
+    selectedVenueAddr = selectedVenueAddr.attributes || selectedVenueAddr;
+    const selectedVenueHN = selectedVenueAttr.houseNumber;
 
-    if (_venueWhitelist.hasOwnProperty(item.attributes.id)) {
-        if (_venueWhitelist[item.attributes.id].hasOwnProperty('dupeWL')) {
-            wlDupeList = _venueWhitelist[item.attributes.id].dupeWL;
-        }
-    }
+    const selectedVenueAddrIsComplete = selectedVenueAddr.street !== null && selectedVenueAddr.street.name !== null
+        && selectedVenueHN && selectedVenueHN.match(/\d/g) !== null;
 
-    let overlappingFlag = false;
-    let addrItem = item.getAddress(), itemCompAddr = false;
-    if (addrItem.hasOwnProperty('attributes')) {
-        addrItem = addrItem.attributes;
-    }
-    if (addrItem.street !== null && addrItem.street.name !== null && item.attributes.houseNumber && item.attributes.houseNumber.match(/\d/g) !== null) {
-        itemCompAddr = true;
-    }
+    const venues = W.model.venues.getObjectArray();
+    const selectedVenueId = selectedVenueAttr.id;
 
-    for (const venix in venueList) { // for each place on the map:
-        if (venueList.hasOwnProperty(venix)) { // hOP filter
-            nameMatch = false;
-            altNameMatch = -1;
-            testVenueAtt = venueList[venix].attributes;
-            const excludePLADupes = $('#WMEPH-ExcludePLADupes').prop('checked');
-            if ((!excludePLADupes || (excludePLADupes && !(item.isParkingLot() || venueList[venix].isParkingLot()))) && !isEmergencyRoom(venueList[venix])) {
+    _dupeIDList = [selectedVenueId];
+    _dupeHNRangeList = [];
+    _dupeHNRangeDistList = [];
 
-                const pt2ptDistance = item.geometry.getCentroid().distanceTo(venueList[venix].geometry.getCentroid());
-                if (item.isPoint() && venueList[venix].isPoint() && pt2ptDistance < 2 && item.attributes.id !== testVenueAtt.id) {
-                    overlappingFlag = true;
-                }
-                wlDupeMatch = false;
-                if (wlDupeList.length && wlDupeList.includes(testVenueAtt.id)) {
-                    wlDupeMatch = true;
-                }
+    // Get the list of dupes that have been whitelisted.
+    const selectedVenueWL = _venueWhitelist[selectedVenueId];
+    const whitelistedDupes = selectedVenueWL && selectedVenueWL.dupeWL ? selectedVenueWL.dupeWL : [];
 
-                // get HNs for places on same street
-                let addrDupe = venueList[venix].getAddress();
-                if (addrDupe.hasOwnProperty('attributes')) {
-                    addrDupe = addrDupe.attributes;
-                }
-                if (itemCompAddr && addrDupe.street !== null && addrDupe.street.name !== null && testVenueAtt.houseNumber && testVenueAtt.houseNumber !== '' &&
-                    venix !== item.attributes.id && addrItem.street.name === addrDupe.street.name && testVenueAtt.houseNumber < 1000000) {
-                    _dupeHNRangeList.push(parseInt(testVenueAtt.houseNumber));
-                    //dupeHNRangeIDList.push(testVenueAtt.id);
-                    _dupeHNRangeDistList.push(pt2ptDistance);
-                }
+    const excludePLADupes = $('#WMEPH-ExcludePLADupes').prop('checked');
+    let randInt = 100;
+    // For each place on the map:
+    venues.forEach(testVenue => {
+        if ((!excludePLADupes || (excludePLADupes && !(selectedVenue.isParkingLot() || testVenue.isParkingLot())))
+            && !isEmergencyRoom(testVenue)) {
+            // Check for overlapping PP's
+            const testCentroid = testVenue.geometry.getCentroid();
+            const pt2ptDistance = selectedCentroid.distanceTo(testCentroid);
+            if (selectedVenue.isPoint() && testVenue.isPoint() && pt2ptDistance < 2 && selectedVenueId !== testVenueId) {
+                overlappingFlag = true;
+            }
 
+            const testVenueAttr = testVenue.attributes;
+            const testVenueId = testVenueAttr.id;
+            const testVenueHN = testVenueAttr.houseNumber;
+            let testVenueAddr = testVenue.getAddress();
+            testVenueAddr = testVenueAddr.attributes || testVenueAddr;
 
-                // Check for duplicates
-                if (!wlDupeMatch && _dupeIDList.length < 6 && pt2ptDistance < 800 && !testVenueAtt.residential && venix !== item.attributes.id && 'string' === typeof testVenueAtt.id && testVenueAtt.name !== null && testVenueAtt.name.length > 1) { // don't do res, the point itself, new points or no name
-                    // If item has a complete address and test venue does, and they are different, then no dupe
-                    let suppressMatch = false;
-                    if (itemCompAddr && addrDupe.street !== null && addrDupe.street.name !== null && testVenueAtt.houseNumber && testVenueAtt.houseNumber.match(/\d/g) !== null) {
-                        if (item.attributes.lockRank > 0 && testVenueAtt.lockRank > 0) {
-                            if (item.attributes.houseNumber !== testVenueAtt.houseNumber || addrItem.street.name !== addrDupe.street.name) {
-                                suppressMatch = true;
-                            }
-                        } else {
-                            if (item.attributes.houseNumber !== testVenueAtt.houseNumber && addrItem.street.name !== addrDupe.street.name) {
-                                suppressMatch = true;
-                            }
+            // get HNs for places on same street
+            if (selectedVenueAddrIsComplete && testVenueAddr.street !== null && testVenueAddr.street.name !== null
+                && testVenueHN && testVenueHN !== '' && testVenueId !== selectedVenueId
+                && selectedVenueAddr.street.name === testVenueAddr.street.name && testVenueHN < 1000000) {
+                _dupeHNRangeList.push(parseInt(testVenueHN, 10));
+                _dupeHNRangeDistList.push(pt2ptDistance);
+            }
+
+            // Check for duplicates
+            // don't do res, the point itself, new points or no name
+            if (!whitelistedDupes.includes(testVenueId) && _dupeIDList.length < 6 && pt2ptDistance < 800
+                && !testVenue.isResidential() && testVenueId !== selectedVenueId && !testVenue.isNew()
+                && testVenueAttr.name !== null && testVenueAttr.name.length > 1) {
+                // If item has a complete address and test venue does, and they are different, then no dupe
+                let suppressMatch = false;
+                if (selectedVenueAddrIsComplete && testVenueAddr.street !== null && testVenueAddr.street.name !== null
+                    && testVenueHN && testVenueHN.match(/\d/g) !== null) {
+                    if (selectedVenueAttr.lockRank > 0 && testVenueAttr.lockRank > 0) {
+                        if (selectedVenueAttr.houseNumber !== testVenueHN
+                            || selectedVenueAddr.street.name !== testVenueAddr.street.name) {
+                            suppressMatch = true;
                         }
+                    } else if (selectedVenueHN !== testVenueHN
+                        && selectedVenueAddr.street.name !== testVenueAddr.street.name) {
+                        suppressMatch = true;
+                    }
+                }
+
+                if (!suppressMatch) {
+                    let testNameList;
+                    // Reformat the testPlace name
+                    const strippedTestName = formatName(testVenueAttr.name)
+                        .replace(/\s+[-(].*$/, ''); // Remove localization text
+                    if ((strippedTestName.length > 2 && !noNumSkip.includes(strippedTestName))
+                        || allowedTwoLetters.includes(strippedTestName)) {
+                        testNameList = [strippedTestName];
+                    } else {
+                        testNameList = [`TESTNAMETOOSHORTQZJXS${randInt}`];
+                        randInt++;
                     }
 
+                    const testNameNoNum = strippedTestName.replace(/[^A-Z]/g, ''); // Clear non-letter characters for alternate match
+                    if (((testNameNoNum.length > 2 && !noNumSkip.includes(testNameNoNum)) || allowedTwoLetters.includes(testNameNoNum))
+                        && !testVenueAttr.categories.includes('PARKING_LOT')) { //  only add de-numbered name if at least 2 chars remain
+                        testNameList.push(testNameNoNum);
+                    }
 
-                    if (!suppressMatch) {
-                        //Reformat the testPlace name
-                        testName = testVenueAtt.name.toUpperCase().replace(/\s+[-\(].*$/, '').replace(/ AND /g, '').replace(/^THE /g, '').replace(/[^A-Z0-9]/g, ''); // Format test name
-                        if ((testName.length > 2 && !noNumSkip.includes(testName)) || allowedTwoLetters.includes(testName)) {
-                            testNameList = [testName];
-                        } else {
-                            testNameList = [`TESTNAMETOOSHORTQZJXS${randInt}`];
-                            randInt++;
+                    // primary name matching loop
+                    let nameMatch = false;
+                    for (let tnlix = 0; tnlix < testNameList.length; tnlix++) {
+                        for (let cnlix = 0; cnlix < currNameList.length; cnlix++) {
+                            if ((testNameList[tnlix].includes(currNameList[cnlix]) || currNameList[cnlix].includes(testNameList[tnlix]))) {
+                                nameMatch = true;
+                                break;
+                            }
                         }
+                        if (nameMatch) { break; } // break if a match found
+                    }
 
-                        testNameNoNum = testName.replace(/[^A-Z]/g, ''); // Clear non-letter characters for alternate match
-                        if (((testNameNoNum.length > 2 && !noNumSkip.includes(testNameNoNum)) || allowedTwoLetters.includes(testNameNoNum))
-                            && !testVenueAtt.categories.includes('PARKING_LOT')) { //  only add de-numbered name if at least 2 chars remain
-                            testNameList.push(testNameNoNum);
+                    let altNameMatch = -1;
+                    if (!nameMatch && testVenueAttr.aliases.length > 0) {
+                        for (let aliix = 0; aliix < testVenueAttr.aliases.length; aliix++) {
+                            const aliasNameRF = formatName(testVenueAttr.aliases[aliix]);
+                            if ((aliasNameRF.length > 2 && !noNumSkip.includes(aliasNameRF)) || allowedTwoLetters.includes(aliasNameRF)) {
+                                testNameList = [aliasNameRF];
+                            } else {
+                                testNameList = [`ALIASNAMETOOSHORTQOFUH${randInt}`];
+                                randInt++;
+                            }
+                            const aliasNameNoNum = aliasNameRF.replace(/[^A-Z]/g, ''); // Clear non-letter characters for alternate match ( HOLLYIVYPUB23 --> HOLLYIVYPUB )
+                            if (((aliasNameNoNum.length > 2 && !noNumSkip.includes(aliasNameNoNum)) || allowedTwoLetters.includes(aliasNameNoNum))
+                                && !testVenueAttr.categories.includes('PARKING_LOT')) { //  only add de-numbered name if at least 2 characters remain
+                                testNameList.push(aliasNameNoNum);
+                            } else {
+                                testNameList.push(`111231643239${randInt}`); //  just to keep track of the alias in question, always add something.
+                                randInt++;
+                            }
                         }
-                        // primary name matching loop
-
-                        for (tnlix = 0; tnlix < testNameList.length; tnlix++) {
-                            for (cnlix = 0; cnlix < currNameList.length; cnlix++) {
+                        for (let tnlix = 0; tnlix < testNameList.length; tnlix++) {
+                            for (let cnlix = 0; cnlix < currNameList.length; cnlix++) {
                                 if ((testNameList[tnlix].includes(currNameList[cnlix]) || currNameList[cnlix].includes(testNameList[tnlix]))) {
-                                    nameMatch = true;
+                                    // get index of that match (half of the array index with floor)
+                                    altNameMatch = Math.floor(tnlix / 2);
                                     break;
                                 }
                             }
-                            if (nameMatch) { break; } // break if a match found
+                            if (altNameMatch > -1) { break; } // break from the rest of the alts if a match found
                         }
-                        if (!nameMatch && testVenueAtt.aliases.length > 0) {
-                            for (aliix = 0; aliix < testVenueAtt.aliases.length; aliix++) {
-                                aliasNameRF = testVenueAtt.aliases[aliix].toUpperCase().replace(/ AND /g, '').replace(/^THE /g, '').replace(/[^A-Z0-9]/g, ''); // Format name
-                                if ((aliasNameRF.length > 2 && !noNumSkip.includes(aliasNameRF)) || allowedTwoLetters.includes(aliasNameRF)) {
-                                    testNameList = [aliasNameRF];
-                                } else {
-                                    testNameList = [`ALIASNAMETOOSHORTQOFUH${randInt}`];
-                                    randInt++;
-                                }
-                                aliasNameNoNum = aliasNameRF.replace(/[^A-Z]/g, ''); // Clear non-letter characters for alternate match ( HOLLYIVYPUB23 --> HOLLYIVYPUB )
-                                if (((aliasNameNoNum.length > 2 && !noNumSkip.includes(aliasNameNoNum)) || allowedTwoLetters.includes(aliasNameNoNum))
-                                    && !testVenueAtt.categories.includes('PARKING_LOT')) { //  only add de-numbered name if at least 2 characters remain
-                                    testNameList.push(aliasNameNoNum);
-                                } else {
-                                    testNameList.push(`111231643239${randInt}`); //  just to keep track of the alias in question, always add something.
-                                    randInt++;
-                                }
-                            }
-                            for (tnlix = 0; tnlix < testNameList.length; tnlix++) {
-                                for (cnlix = 0; cnlix < currNameList.length; cnlix++) {
-                                    if ((testNameList[tnlix].includes(currNameList[cnlix]) || currNameList[cnlix].includes(testNameList[tnlix]))) {
-                                        // get index of that match (half of the array index with floor)
-                                        altNameMatch = Math.floor(tnlix / 2);
-                                        break;
-                                    }
-                                }
-                                if (altNameMatch > -1) { break; } // break from the rest of the alts if a match found
-                            }
-                        }
-                        // If a match was found:
-                        if (nameMatch || altNameMatch > -1) {
-                            _dupeIDList.push(testVenueAtt.id); // Add the item to the list of matches
-                            _dupeLayer.setVisibility(true); // If anything found, make visible the dupe layer
-                            if (nameMatch) {
-                                labelText = testVenueAtt.name; // Pull duplicate name
-                            } else {
-                                labelText = `${testVenueAtt.aliases[altNameMatch]} (Alt)`; // Pull duplicate alt name
-                            }
-                            phlogdev(`Possible duplicate found. WME place: ${itemName} / Nearby place: ${labelText}`);
-
-                            // Reformat the name into multiple lines based on length
-                            let startIX = 0, endIX = 0, labelTextBuild = [], maxLettersPerLine = Math.round(2 * Math.sqrt(labelText.replace(/ /g, '').length / 2));
-                            maxLettersPerLine = Math.max(maxLettersPerLine, 4);
-                            while (endIX !== -1) {
-                                endIX = labelText.indexOf(' ', endIX + 1);
-                                if (endIX - startIX > maxLettersPerLine) {
-                                    labelTextBuild.push(labelText.substr(startIX, endIX - startIX));
-                                    startIX = endIX + 1;
-                                }
-                            }
-                            labelTextBuild.push(labelText.substr(startIX)); // Add last line
-                            labelTextReformat = labelTextBuild.join('\n');
-                            // Add photo icons
-                            if (testVenueAtt.images.length > 0) {
-                                labelTextReformat = `${labelTextReformat} `;
-                                for (let phix = 0; phix < testVenueAtt.images.length; phix++) {
-                                    if (phix === 3) {
-                                        labelTextReformat = `${labelTextReformat}+`;
-                                        break;
-                                    }
-                                    //labelTextReformat = labelTextReformat + '\u25A3'; // add photo icons
-                                    labelTextReformat = `${labelTextReformat}\u25A3`; // add photo icons
-                                }
-                            }
-
-                            const lonLat = getVenueLonLat(venueList[venix])
-                            if (!mapExtent.containsLonLat(lonLat)) {
-                                outOfExtent = true;
-                            }
-                            minLat = Math.min(minLat, lonLat.lat);
-                            minLon = Math.min(minLon, lonLat.lon);
-                            maxLat = Math.max(maxLat, lonLat.lat);
-                            maxLon = Math.max(maxLon, lonLat.lon);
-
-                            textFeature = new OL.Feature.Vector(
-                                venueList[venix].geometry.getCentroid(),
-                                {
-                                    labelText: labelTextReformat,
-                                    fontColor: '#fff',
-                                    strokeColor: labelColorList[labelColorIX % labelColorList.length],
-                                    labelAlign: 'cm',
-                                    pointRadius: 25,
-                                    dupeID: testVenueAtt.id
-                                }
-                            );
-                            labelFeatures.push(textFeature);
-                            //_dupeLayer.addFeatures(labelFeatures);
-                            dupeNames.push(labelText);
-                        }
-                        labelColorIX++;
                     }
+                    // If a match was found:
+                    if (nameMatch || altNameMatch > -1) {
+                        _dupeIDList.push(testVenueAttr.id); // Add the item to the list of matches
+                        _dupeLayer.setVisibility(true); // If anything found, make visible the dupe layer
+
+                        const labelText = nameMatch ? testVenueAttr.name : `${testVenueAttr.aliases[altNameMatch]} (Alt)`;
+                        phlogdev(`Possible duplicate found. WME place: ${selectedVenueName} / Nearby place: ${labelText}`);
+
+                        // Reformat the name into multiple lines based on length
+                        const labelTextBuild = [];
+                        let maxLettersPerLine = Math.round(2 * Math.sqrt(labelText.replace(/ /g, '').length / 2));
+                        maxLettersPerLine = Math.max(maxLettersPerLine, 4);
+                        let startIX = 0;
+                        let endIX = 0;
+                        while (endIX !== -1) {
+                            endIX = labelText.indexOf(' ', endIX + 1);
+                            if (endIX - startIX > maxLettersPerLine) {
+                                labelTextBuild.push(labelText.substr(startIX, endIX - startIX));
+                                startIX = endIX + 1;
+                            }
+                        }
+                        labelTextBuild.push(labelText.substr(startIX)); // Add last line
+                        let labelTextReformat = labelTextBuild.join('\n');
+                        // Add photo icons
+                        if (testVenueAttr.images.length) {
+                            labelTextReformat = `${labelTextReformat} `;
+                            for (let phix = 0; phix < testVenueAttr.images.length; phix++) {
+                                if (phix === 3) {
+                                    labelTextReformat = `${labelTextReformat}+`;
+                                    break;
+                                }
+                                labelTextReformat = `${labelTextReformat}\u25A3`; // add photo icons
+                            }
+                        }
+
+                        const lonLat = getVenueLonLat(testVenue);
+                        if (!mapExtent.containsLonLat(lonLat)) {
+                            outOfExtent = true;
+                        }
+                        minLat = Math.min(minLat, lonLat.lat);
+                        minLon = Math.min(minLon, lonLat.lon);
+                        maxLat = Math.max(maxLat, lonLat.lat);
+                        maxLon = Math.max(maxLon, lonLat.lon);
+
+                        labelFeatures.push(new OL.Feature.Vector(
+                            testCentroid,
+                            {
+                                labelText: labelTextReformat,
+                                fontColor: '#fff',
+                                strokeColor: labelColorList[labelColorIX % labelColorList.length],
+                                labelAlign: 'cm',
+                                pointRadius: 25,
+                                dupeID: testVenueId
+                            }
+                        ));
+                        dupeNames.push(labelText);
+                    }
+                    labelColorIX++;
                 }
             }
         }
-    }
+    });
+
     // Add a marker for the working place point if any dupes were found
     if (_dupeIDList.length > 1) {
-        const lonLat = getVenueLonLat(item);
+        const lonLat = getVenueLonLat(selectedVenue);
         if (!mapExtent.containsLonLat(lonLat)) {
             outOfExtent = true;
         }
@@ -6659,8 +6676,8 @@ function findNearbyDuplicate(itemName, itemAliases, item, recenterOption) {
         maxLon = Math.max(maxLon, lonLat.lon);
         // Add photo icons
         let currentLabel = 'Current';
-        if (item.attributes.images.length > 0) {
-            for (let ciix = 0; ciix < item.attributes.images.length; ciix++) {
+        if (selectedVenueAttr.images.length > 0) {
+            for (let ciix = 0; ciix < selectedVenueAttr.images.length; ciix++) {
                 currentLabel = `${currentLabel} `;
                 if (ciix === 3) {
                     currentLabel = `${currentLabel}+`;
@@ -6669,18 +6686,17 @@ function findNearbyDuplicate(itemName, itemAliases, item, recenterOption) {
                 currentLabel = `${currentLabel}\u25A3`; // add photo icons
             }
         }
-        textFeature = new OL.Feature.Vector(
-            item.geometry.getCentroid(),
+        labelFeatures.push(new OL.Feature.Vector(
+            selectedCentroid,
             {
                 labelText: currentLabel,
                 fontColor: '#fff',
                 strokeColor: '#fff',
                 labelAlign: 'cm',
                 pointRadius: 25,
-                dupeID: item.attributes.id
+                dupeID: selectedVenueId
             }
-        );
-        labelFeatures.push(textFeature);
+        ));
         _dupeLayer.addFeatures(labelFeatures);
     }
 
