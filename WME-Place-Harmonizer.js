@@ -830,12 +830,16 @@ function deleteDupeLabel() {
     }, 20);
 }
 
-//  Whitelist an item
+//  Whitelist an item. Returns true if successful. False if not.
 function whitelistAction(itemID, wlKeyName) {
     const venue = getSelectedVenue();
     let addressTemp = venue.getAddress();
     if (addressTemp.hasOwnProperty('attributes')) {
         addressTemp = addressTemp.attributes;
+    }
+    if (!addressTemp.country) {
+        alert('Whitelisting requires an address. Enter the place\'s address and try again.');
+        return false;
     }
     const itemGPS = OL.Layer.SphericalMercator.inverseMercator(venue.attributes.geometry.getCentroid().x, venue.attributes.geometry.getCentroid().y);
     if (!_venueWhitelist.hasOwnProperty(itemID)) { // If venue is NOT on WL, then add it.
@@ -849,6 +853,7 @@ function whitelistAction(itemID, wlKeyName) {
     saveWhitelistToLS(true); // Save the WL to local storage
     wmephWhitelistCounter();
     _buttonBanner2.clearWL.active = true;
+    return true;
 }
 
 // Keep track of how many whitelists have been added since the last pull, alert if over a threshold (100?)
@@ -1729,8 +1734,9 @@ class WLFlag extends FlagBase {
 
     WLaction() {
         const venue = getSelectedVenue();
-        whitelistAction(venue.attributes.id, this.WLkeyName);
-        harmonizePlaceGo(venue, 'harmonize');
+        if (whitelistAction(venue.attributes.id, this.WLkeyName)) {
+            harmonizePlaceGo(venue, 'harmonize');
+        }
     }
 }
 class WLActionFlag extends WLFlag {
@@ -5610,7 +5616,7 @@ function assembleBanner() {
     let rowDivs = [];
     _severityButt = 0;
 
-    const func = elem => { return { id: elem.getAttribute('id'), val: elem.value }; };
+    const func = elem => ({ id: elem.getAttribute('id'), val: elem.value });
     _textEntryValues = $('#WMEPH_banner input[type="text"]').toArray().map(func);
     _textEntryValues = _textEntryValues.concat($('#WMEPH_banner textarea').toArray().map(func));
 
@@ -5627,7 +5633,11 @@ function assembleBanner() {
             }
             if (rowData.WLactive && rowData.WLaction) { // If there's a WL option, enable it
                 _severityButt = Math.max(rowData.severity, _severityButt);
-                $dupeDiv.append($('<button>', { class: 'btn btn-success btn-xs wmephwl-btn', id: `WMEPH_WL${tempKey}`, title: rowData.WLtitle }).text(rowData.WLvalue));
+                $dupeDiv.append($('<button>', {
+                    class: 'btn btn-success btn-xs wmephwl-btn',
+                    id: `WMEPH_WL${tempKey}`,
+                    title: rowData.WLtitle
+                }).text(rowData.WLvalue));
             }
         }
     });
@@ -5657,16 +5667,25 @@ function assembleBanner() {
                 $rowDiv.append($('<span>').css({ 'margin-right': '4px' }).append(`&bull; ${rowData.message}`));
             }
             if (rowData.value) {
-                $rowDiv.append($('<button>', { class: 'btn btn-default btn-xs wmeph-btn', id: `WMEPH_${tempKey}`, title: rowData.title || '' }).css({ 'margin-right': '4px' }).html(rowData.value));
+                $rowDiv.append($('<button>', {
+                    class: 'btn btn-default btn-xs wmeph-btn',
+                    id: `WMEPH_${tempKey}`,
+                    title: rowData.title || ''
+                }).css({ 'margin-right': '4px' }).html(rowData.value));
             }
             if (rowData.value2) {
-                $rowDiv.append($('<button>', { class: 'btn btn-default btn-xs wmeph-btn', id: `WMEPH_${tempKey}_2`, title: rowData.title2 || '' }).css({ 'margin-right': '4px' }).html(rowData.value2));
+                $rowDiv.append($('<button>', {
+                    class: 'btn btn-default btn-xs wmeph-btn',
+                    id: `WMEPH_${tempKey}_2`,
+                    title: rowData.title2 || ''
+                }).css({ 'margin-right': '4px' }).html(rowData.value2));
             }
             if (rowData.WLactive) {
                 if (rowData.WLaction) { // If there's a WL option, enable it
                     _severityButt = Math.max(rowData.severity, _severityButt);
                     $rowDiv.append(
-                        $('<button>', { class: 'btn btn-success btn-xs wmephwl-btn', id: `WMEPH_WL${tempKey}`, title: rowData.WLtitle }).text('WL')
+                        $('<button>', { class: 'btn btn-success btn-xs wmephwl-btn', id: `WMEPH_WL${tempKey}`, title: rowData.WLtitle })
+                            .text('WL')
                     );
                 }
             } else {
@@ -5704,19 +5723,19 @@ function assembleBanner() {
             bgColor = 'rgb(36, 172, 36)'; // green
     }
     $('#WMEPH_banner').css({ 'background-color': bgColor }).append(rowDivs);
-    //$('#select2-drop').css({display:'none'});
 
     assembleServicesBanner();
 
     //  Build general banners (below the Services)
     rowDivs = [];
     Object.keys(_buttonBanner2).forEach(tempKey => {
-        const rowData = _buttonBanner2[tempKey];
-        if (rowData.active) { //  If the particular message is active
+        const banner2RowData = _buttonBanner2[tempKey];
+        if (banner2RowData.active) { //  If the particular message is active
             $rowDiv = $('<div>');
-            $rowDiv.append(rowData.message);
-            if (rowData.action) {
-                $rowDiv.append(` <input class="btn btn-info btn-xs wmeph-btn" id="WMEPH_${tempKey}" title="${rowData.title}" style="" type="button" value="${rowData.value}">`);
+            $rowDiv.append(banner2RowData.message);
+            if (banner2RowData.action) {
+                $rowDiv.append(` <input class="btn btn-info btn-xs wmeph-btn" id="WMEPH_${tempKey}" title="${
+                    banner2RowData.title}" style="" type="button" value="${banner2RowData.value}">`);
             }
             rowDivs.push($rowDiv);
             _severityButt = Math.max(_buttonBanner2[tempKey].severity, _severityButt);
@@ -5724,13 +5743,18 @@ function assembleBanner() {
     });
 
     if ($('#WMEPH_tools').length === 0) {
-        $('#WMEPH_services').after($('<div id="WMEPH_tools">').css({ 'background-color': '#eee', 'color': 'black', 'font-size': '15px', 'padding': '0px 4px 4px 4px', 'margin-left': '4px', 'margin-right': 'auto' }));
+        $('#WMEPH_services').after($('<div id="WMEPH_tools">').css({
+            'background-color': '#eee',
+            color: 'black',
+            'font-size': '15px',
+            padding: '0px 4px 4px 4px',
+            'margin-left': '4px',
+            'margin-right': 'auto'
+        }));
     } else {
         $('#WMEPH_tools').empty();
     }
     $('#WMEPH_tools').append(rowDivs);
-    //$('#select2-drop').css({display:'none'});
-
 
     // Set up Duplicate onclicks
     if (dupesFound) {
@@ -5748,81 +5772,82 @@ function assembleBanner() {
     }
 
     // Add click handlers for parking lot helper buttons.
-    $('.wmeph-pla-spaces-btn').click(function () {
-        const venue = getSelectedVenue();
-        const selectedValue = $(this).attr('id').replace('wmeph_', '');
-        const existingAttr = venue.attributes.categoryAttributes.PARKING_LOT;
+    $('.wmeph-pla-spaces-btn').click(evt => {
+        const selectedVenue = getSelectedVenue();
+        const selectedValue = $(evt.currentTarget).attr('id').replace('wmeph_', '');
+        const existingAttr = selectedVenue.attributes.categoryAttributes.PARKING_LOT;
         const newAttr = {};
         if (existingAttr) {
-            for (const prop in existingAttr) {
+            Object.keys(existingAttr).forEach(prop => {
                 let value = existingAttr[prop];
                 if (Array.isArray(value)) value = [].concat(value);
                 newAttr[prop] = value;
-            }
+            });
         }
         newAttr.estimatedNumberOfSpots = selectedValue;
-        W.model.actionManager.add(new UpdateObject(venue, { 'categoryAttributes': { PARKING_LOT: newAttr } }));
-        harmonizePlaceGo(venue, 'harmonize');
-    });
-    $('.wmeph-pla-lot-type-btn').click(function () {
-        const venue = getSelectedVenue();
-        const selectedValue = $(this).data('lot-type');
-        const existingAttr = venue.attributes.categoryAttributes.PARKING_LOT;
-        const newAttr = {};
-        if (existingAttr) {
-            for (const prop in existingAttr) {
-                let value = existingAttr[prop];
-                if (Array.isArray(value)) value = [].concat(value);
-                newAttr[prop] = value;
-            }
-        }
-        newAttr.parkingType = selectedValue;
-        W.model.actionManager.add(new UpdateObject(venue, { 'categoryAttributes': { PARKING_LOT: newAttr } }));
-        harmonizePlaceGo(venue, 'harmonize');
+        W.model.actionManager.add(new UpdateObject(selectedVenue, { categoryAttributes: { PARKING_LOT: newAttr } }));
+        harmonizePlaceGo(selectedVenue, 'harmonize');
     });
 
-    $('.wmeph-pla-cost-type-btn').click(function () {
-        const venue = getSelectedVenue();
-        const selectedValue = $(this).attr('id').replace('wmeph_', '');
-        const existingAttr = venue.attributes.categoryAttributes.PARKING_LOT;
+    $('.wmeph-pla-lot-type-btn').click(evt => {
+        const selectedVenue = getSelectedVenue();
+        const selectedValue = $(evt.currentTarget).data('lot-type');
+        const existingAttr = selectedVenue.attributes.categoryAttributes.PARKING_LOT;
         const newAttr = {};
         if (existingAttr) {
-            for (const prop in existingAttr) {
+            Object.keys(existingAttr).forEach(prop => {
                 let value = existingAttr[prop];
                 if (Array.isArray(value)) value = [].concat(value);
                 newAttr[prop] = value;
-            }
+            });
+        }
+        newAttr.parkingType = selectedValue;
+        W.model.actionManager.add(new UpdateObject(selectedVenue, { categoryAttributes: { PARKING_LOT: newAttr } }));
+        harmonizePlaceGo(selectedVenue, 'harmonize');
+    });
+
+    $('.wmeph-pla-cost-type-btn').click(evt => {
+        const selectedVenue = getSelectedVenue();
+        const selectedValue = $(evt.currentTarget).attr('id').replace('wmeph_', '');
+        const existingAttr = selectedVenue.attributes.categoryAttributes.PARKING_LOT;
+        const newAttr = {};
+        if (existingAttr) {
+            Object.keys(existingAttr).forEach(prop => {
+                let value = existingAttr[prop];
+                if (Array.isArray(value)) value = [].concat(value);
+                newAttr[prop] = value;
+            });
         }
         newAttr.costType = selectedValue;
-        W.model.actionManager.add(new UpdateObject(venue, { 'categoryAttributes': { PARKING_LOT: newAttr } }));
-        harmonizePlaceGo(venue, 'harmonize');
+        W.model.actionManager.add(new UpdateObject(selectedVenue, { categoryAttributes: { PARKING_LOT: newAttr } }));
+        harmonizePlaceGo(selectedVenue, 'harmonize');
     });
 
     // If pressing enter in the HN entry box, add the HN
-    $('#WMEPH-HNAdd').keyup(function (event) {
-        if (event.keyCode === 13 && $('#WMEPH-HNAdd').val() !== '') {
+    $('#WMEPH-HNAdd').keyup(evt => {
+        if (evt.keyCode === 13 && $('#WMEPH-HNAdd').val() !== '') {
             $('#WMEPH_hnMissing').click();
         }
     });
 
     // If pressing enter in the phone entry box, add the phone
-    $('#WMEPH-PhoneAdd').keyup(function (event) {
-        if (event.keyCode === 13 && $('#WMEPH-PhoneAdd').val() !== '') {
+    $('#WMEPH-PhoneAdd').keyup(evt => {
+        if (evt.keyCode === 13 && $('#WMEPH-PhoneAdd').val() !== '') {
             $('#WMEPH_phoneMissing').click();
             $('#WMEPH_badAreaCode').click();
         }
     });
 
     // If pressing enter in the URL entry box, add the URL
-    $('#WMEPH-UrlAdd').keyup(function (event) {
-        if (event.keyCode === 13 && $('#WMEPH-UrlAdd').val() !== '') {
+    $('#WMEPH-UrlAdd').keyup(evt => {
+        if (evt.keyCode === 13 && $('#WMEPH-UrlAdd').val() !== '') {
             $('#WMEPH_urlMissing').click();
         }
     });
 
     // If pressing enter in the USPS zip code alt entry box...
-    $('#WMEPH-zipAltNameAdd').keyup(function (event) {
-        if (event.keyCode === 13 && $(this).val() !== '') {
+    $('#WMEPH-zipAltNameAdd').keyup(evt => {
+        if (evt.keyCode === 13 && $(evt.currentTarget).val() !== '') {
             $('#WMEPH_missingUSPSZipAlt').click();
         }
     });
@@ -5843,52 +5868,57 @@ function assembleBanner() {
             const lineCount = (text.match(/\n/g) || []).length + 1;
             const height = lineCount * 18 + 6 + (elem.scrollWidth > elem.clientWidth ? 20 : 0);
             $sel.css({ height: `${height}px` });
-
         }, 100);
     }
     $('#WMEPH-HoursPaste')
         .bind('paste', resetHoursEntryHeight)
         .bind('drop', resetHoursEntryHeight)
-        .keydown(resetHoursEntryHeight)
-        .bind('dragenter', function () {
-            const text = $('#WMEPH-HoursPaste').val();
+        .bind('dragenter', evt => {
+            const $control = $(evt.currentTarget);
+            const text = $control.val();
             if (text === _DEFAULT_HOURS_TEXT) {
-                $('#WMEPH-HoursPaste').val('');
+                $control.val('');
+            }
+        })
+        .keydown(evt => {
+            // If pressing enter in the hours entry box then parse the entry, or newline if CTRL or SHIFT.
+            resetHoursEntryHeight();
+            if (evt.keyCode === 13) {
+                if (evt.ctrlKey) {
+                    // Simulate a newline event (shift + enter)
+                    const target = evt.currentTarget;
+                    const text = target.value;
+                    const selStart = target.selectionStart;
+                    target.value = `${text.substr(0, selStart)}\n${text.substr(target.selectionEnd, text.length - 1)}`;
+                    target.selectionStart = selStart + 1;
+                    target.selectionEnd = selStart + 1;
+                    return true;
+                }
+                if (!(evt.shiftKey || evt.ctrlKey) && $(evt.currentTarget).val().length) {
+                    evt.stopPropagation();
+                    evt.preventDefault();
+                    evt.returnValue = false;
+                    evt.cancelBubble = true;
+                    $('#WMEPH_noHours').click();
+                    return false;
+                }
+            }
+            return true;
+        })
+        .focus(evt => {
+            const target = evt.currentTarget;
+            if (target.value === _DEFAULT_HOURS_TEXT) {
+                target.value = '';
+            }
+            target.style.color = 'black';
+        })
+        .blur(evt => {
+            const target = evt.currentTarget;
+            if (target.value === '') {
+                target.value = _DEFAULT_HOURS_TEXT;
+                target.style.color = '#999';
             }
         });
-
-    // If pressing enter in the hours entry box, parse the entry
-    $('#WMEPH-HoursPaste').keydown(function (event) {
-        if (event.keyCode === 13) {
-            if (event.ctrlKey) {
-                // Simulate a newline event (shift + enter)
-                const text = this.value;
-                const selStart = this.selectionStart;
-                this.value = `${text.substr(0, selStart)}\n${text.substr(this.selectionEnd, text.length - 1)}`;
-                this.selectionStart = selStart + 1;
-                this.selectionEnd = selStart + 1;
-                return true;
-            } else if (!(event.shiftKey || event.ctrlKey) && $('#WMEPH-HoursPaste').val() !== '') {
-                event.stopPropagation();
-                event.preventDefault();
-                event.returnValue = false;
-                event.cancelBubble = true;
-                $('#WMEPH_noHours').click();
-                return false;
-            }
-        }
-    });
-    $('#WMEPH-HoursPaste').focus(function () {
-        if (this.value === _DEFAULT_HOURS_TEXT) {
-            this.value = '';
-        }
-        this.style.color = 'black';
-    }).blur(function () {
-        if (this.value === '') {
-            this.value = _DEFAULT_HOURS_TEXT;
-            this.style.color = '#999';
-        }
-    });
 
     // Format "no hours" section and hook up button events.
     $('#WMEPH_WLnoHours').css({ 'vertical-align': 'top' });
@@ -6671,7 +6701,6 @@ function checkSelection() {
     // If the selection is anything else, clear the labels
     _dupeLayer.destroyFeatures();
     _dupeLayer.setVisibility(false);
-
 } // END checkSelection function
 
 // Functions to infer address from nearby segments
