@@ -7124,7 +7124,7 @@ function initShortcutKey() {
         _modifKey = 'Ctrl+';
     }
     _shortcutParse = parseKBSShift(shortcutKey);
-    if (!_initAlreadyRun) _SHORTCUT.add(_modifKey + _shortcutParse, function () { harmonizePlace(); });
+    if (!_initAlreadyRun) _SHORTCUT.add(_modifKey + _shortcutParse, harmonizePlace);
     $current.empty().append(`<span style="font-weight:bold">Current shortcut: ${_modifKey}${_shortcutParse}</span>`);
 
     $('#WMEPH-KBSModifierKey').click(onKBShortcutModifierKeyClick);
