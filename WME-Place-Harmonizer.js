@@ -7030,12 +7030,12 @@ function removeSFAliases(nName, nAliases) {
 }
 
 function initSettingsCheckbox(settingID) {
-    //Associate click event of new checkbox to call saveSettingToLocalStorage with proper ID
-    $(`#${settingID}`).click(function () { saveSettingToLocalStorage(settingID); });
-    //Load Setting for Local Storage, if it doesn't exist set it to NOT checked.
-    //If previously set to 1, then trigger "click" event.
+    // Associate click event of new checkbox to call saveSettingToLocalStorage with proper ID
+    $(`#${settingID}`).click(() => { saveSettingToLocalStorage(settingID); });
+    // Load Setting for Local Storage, if it doesn't exist set it to NOT checked.
+    // If previously set to 1, then trigger "click" event.
     if (!localStorage.getItem(settingID)) {
-        //phlogdev(settingID + ' not found.');
+        // phlogdev(settingID + ' not found.');
     } else if (localStorage.getItem(settingID) === '1') {
         $(`#${settingID}`).prop('checked', true);
     }
