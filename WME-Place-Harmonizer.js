@@ -509,7 +509,10 @@ function getHoursHtml(label, defaultText) {
 }
 
 function getSelectedVenue() {
-    return WazeWrap.hasPlaceSelected() ? WazeWrap.getSelectedFeatures()[0].model : undefined;
+    const features = WazeWrap.getSelectedFeatures();
+    // Be sure to check for features.length === 1, in case multiple venues are currently selected.
+    return features.length === 1 && features[0].model.type === 'venue'
+        ? features[0].model : undefined;
 }
 
 function getVenueLonLat(venue) {
@@ -6724,6 +6727,9 @@ function checkSelection() {
                 return;
             }
         }
+    } else {
+        // Remove the run button div if it's being displayed.
+        $('#WMEPH_runButton').remove();
     }
     // If the selection is anything else, clear the labels
     _dupeLayer.destroyFeatures();
@@ -7059,15 +7065,16 @@ function onKBShortcutModifierKeyClick() {
     const $modifKeyCheckbox = $('#WMEPH-KBSModifierKey');
     const $shortcutInput = $('#WMEPH-KeyboardShortcut');
     const $warn = $('#PlaceHarmonizerKBWarn');
-    let modifKeyNew;
+    const modifKeyNew = $modifKeyCheckbox.prop('checked') ? 'Ctrl+' : 'Alt+';
 
-    modifKeyNew = $modifKeyCheckbox.prop('checked') ? 'Ctrl+' : 'Alt+';
     _shortcutParse = parseKBSShift($shortcutInput.val());
     $warn.empty(); // remove any warning
     _SHORTCUT.remove(_modifKey + _shortcutParse);
     _modifKey = modifKeyNew;
-    _SHORTCUT.add(_modifKey + _shortcutParse, function () { harmonizePlace(); });
-    $('#PlaceHarmonizerKBCurrent').empty().append(`<span style="font-weight:bold">Current shortcut: ${_modifKey}${_shortcutParse}</span>`);
+    _SHORTCUT.add(_modifKey + _shortcutParse, harmonizePlace);
+    $('#PlaceHarmonizerKBCurrent').empty().append(
+        `<span style="font-weight:bold">Current shortcut: ${_modifKey}${_shortcutParse}</span>`
+    );
 }
 
 function onKBShortcutChange() {
@@ -7083,7 +7090,7 @@ function onKBShortcutChange() {
         const shortcutParseNew = parseKBSShift(newKey);
         _SHORTCUT.remove(_modifKey + _shortcutParse);
         _shortcutParse = shortcutParseNew;
-        _SHORTCUT.add(_modifKey + _shortcutParse, function () { harmonizePlace(); });
+        _SHORTCUT.add(_modifKey + _shortcutParse, harmonizePlace);
         $(localStorage.setItem(keyId, newKey));
         $('#PlaceHarmonizerKBCurrent').empty().append(`<span style="font-weight:bold">Current shortcut: ${_modifKey}${_shortcutParse}</span>`);
     } else { // if not a letter then reset and flag
