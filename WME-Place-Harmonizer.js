@@ -509,12 +509,7 @@ function getHoursHtml(label, defaultText) {
 }
 
 function getSelectedVenue() {
-    let venue;
-    const features = W.selectionManager.getSelectedFeatures();
-    if (features.length && features[0].model.type === 'venue') {
-        venue = features[0].model;
-    }
-    return venue;
+    return WazeWrap.hasPlaceSelected() ? WazeWrap.getSelectedFeatures()[0].model : undefined;
 }
 
 function getVenueLonLat(venue) {
@@ -1770,7 +1765,7 @@ let Flag = {
                     }
                     result.exit = true; //  don't run the rest of the script
                 } else {
-                    let inferredAddress = WMEPH_inferAddress(7); // Pull address info from nearby segments
+                    let inferredAddress = inferAddress(7); // Pull address info from nearby segments
                     if (inferredAddress && inferredAddress.attributes) inferredAddress = inferredAddress.attributes;
 
                     if (inferredAddress && inferredAddress.state && inferredAddress.country) {
@@ -2060,45 +2055,45 @@ let Flag = {
             harmonizePlaceGo(venue, 'harmonize');
         }
     },
-    // 2019-3-22 There's an issue in WME where it won't update the address displayed in the side panel
-    // when the underlying model is updated.  I'm commenting out the code to allow entering the HN in the
-    // banner and replacing with an "Edit address" button.  If Waze addresses the issue, we can revert the
-    // change.
-    // HnMissing: class extends WLActionFlag {
-    //     constructor(venue) {
-    //         super(true, 3,
-    //             'No HN: <input type="text" id="WMEPH-HNAdd" autocomplete="off" style="font-size:0.85em;width:100px;padding-left:2px;color:#000;" > ',
-    //             'Add', 'Add HN to place', true, 'Whitelist empty HN', 'HNWL');
-    //         this.venue = venue;
-    //         this.noBannerAssemble = true;
-    //         this.badInput = false;
-    //     }
-    //     action() {
-    //         let newHN = $('#WMEPH-HNAdd').val().replace(/ +/g, '');
-    //         phlogdev(newHN);
-    //         var hnTemp = newHN.replace(/[^\d]/g, '');
-    //         var hnTempDash = newHN.replace(/[^\d-]/g, '');
-    //         if (hnTemp > 0 && hnTemp < 1000000) {
-    //             let action = new UpdateObject(this.venue, { houseNumber: hnTempDash });
-    //             action.wmephDescription = 'Changed house # to: ' + hnTempDash;
-    //             harmonizePlaceGo(this.venue, 'harmonize', [action]); // Rerun the script to update fields and lock
-    //             _updatedFields.address.updated = true;
-    //         } else {
-    //             $('input#WMEPH-HNAdd').css({ backgroundColor: '#FDD' }).attr('title', 'Must be a number between 0 and 1000000');
-    //             this.badInput = true;
-    //         }
-    //     }
-    // },
     HnMissing: class extends WLActionFlag {
-        constructor() { super(true, 3, 'No HN:', 'Edit address', 'Edit address to add HN.'); }
+        constructor(venue) {
+            super(true, 3,
+                'No HN: <input type="text" id="WMEPH-HNAdd" autocomplete="off" style="font-size:0.85em;width:100px;padding-left:2px;color:#000;" > ',
+                'Add', 'Add HN to place', true, 'Whitelist empty HN', 'HNWL');
+            this.venue = venue;
+            this.noBannerAssemble = true;
+            this.badInput = false;
+        }
 
-        // eslint-disable-next-line class-methods-use-this
         action() {
-            $('.nav-tabs a[href="#landmark-edit-general"]').trigger('click');
-            $('.landmark .full-address').click();
-            $('input.house-number').focus();
+            const newHN = $('#WMEPH-HNAdd').val().replace(/\s+/g, '');
+            phlogdev(newHN);
+            const hnTemp = newHN.replace(/[^\d]/g, '');
+            const hnTempDash = newHN.replace(/[^\d-]/g, '');
+            if (hnTemp > 0 && hnTemp < 1000000) {
+                const action = new UpdateObject(this.venue, { houseNumber: hnTempDash });
+                action.wmephDescription = `Changed house # to: ${hnTempDash}`;
+                harmonizePlaceGo(this.venue, 'harmonize', [action]); // Rerun the script to update fields and lock
+                _UPDATED_FIELDS.address.updated = true;
+            } else {
+                $('input#WMEPH-HNAdd').css({ backgroundColor: '#FDD' }).attr('title', 'Must be a number between 0 and 1000000');
+                this.badInput = true;
+            }
         }
     },
+    // 2019-5-22 There's an issue in WME where it won't update the address displayed in the side panel
+    // when the underlying model is updated.  I changed to the code below for a while, but we've
+    // come up with a temporary fix using WW, so using the textbox entry should be OK now.
+    // HnMissing: class extends WLActionFlag {
+    //     constructor() { super(true, 3, 'No HN:', 'Edit address', 'Edit address to add HN.'); }
+
+    //     // eslint-disable-next-line class-methods-use-this
+    //     action() {
+    //         $('.nav-tabs a[href="#landmark-edit-general"]').trigger('click');
+    //         $('.landmark .full-address').click();
+    //         $('input.house-number').focus();
+    //     }
+    // },
     HnNonStandard: class extends WLFlag {
         constructor() { super(true, 3, 'House number is non-standard.', true, 'Whitelist non-standard HN', 'hnNonStandard'); }
     },
@@ -6109,7 +6104,7 @@ function showSearchButton() {
             btn.onclick = () => {
                 const addr = venue.getAddress();
                 if (addr.hasState()) {
-                    const url = buildGLink(venue.attributes.name, addr.attributes, venue.attributes.houseNumber);
+                    const url = buildGLink(venue.attributes.name, addr, venue.attributes.houseNumber);
                     if ($('#WMEPH-WebSearchNewTab').prop('checked')) {
                         window.open(url);
                     } else {
@@ -6499,6 +6494,9 @@ function findNearbyDuplicate(selectedVenueName, selectedVenueAliases, selectedVe
     venues.forEach(testVenue => {
         if ((!excludePLADupes || (excludePLADupes && !(selectedVenue.isParkingLot() || testVenue.isParkingLot())))
             && !isEmergencyRoom(testVenue)) {
+            const testVenueAttr = testVenue.attributes;
+            const testVenueId = testVenueAttr.id;
+
             // Check for overlapping PP's
             const testCentroid = testVenue.geometry.getCentroid();
             const pt2ptDistance = selectedCentroid.distanceTo(testCentroid);
@@ -6506,8 +6504,6 @@ function findNearbyDuplicate(selectedVenueName, selectedVenueAliases, selectedVe
                 overlappingFlag = true;
             }
 
-            const testVenueAttr = testVenue.attributes;
-            const testVenueId = testVenueAttr.id;
             const testVenueHN = testVenueAttr.houseNumber;
             let testVenueAddr = testVenue.getAddress();
             testVenueAddr = testVenueAddr.attributes || testVenueAddr;
@@ -6709,7 +6705,7 @@ function findNearbyDuplicate(selectedVenueName, selectedVenueAliases, selectedVe
         W.map.zoomToExtent(mapExtent);
     }
     return [dupeNames, overlappingFlag];
-} // END Dupefinder function
+} // END findNearbyDuplicate function
 
 // On selection of new item:
 function checkSelection() {
@@ -6732,52 +6728,73 @@ function checkSelection() {
     // If the selection is anything else, clear the labels
     _dupeLayer.destroyFeatures();
     _dupeLayer.setVisibility(false);
-} // END checkSelection function
+}
 
 // Functions to infer address from nearby segments
-function WMEPH_inferAddress(MAX_RECURSION_DEPTH) {
-    let distanceToSegment,
-        foundAddresses = [],
-        i,
-        // Ignore pedestrian boardwalk, stairways, runways, and railroads
-        IGNORE_ROAD_TYPES = [10, 16, 18, 19],
-        inferredAddress = {
-            country: null,
-            city: null,
-            state: null,
-            street: null
-        },
-        //MAX_RECURSION_DEPTH = 8,
-        n,
-        orderedSegments = [],
-        segments = W.model.segments.getObjectArray(),
-        stopPoint;
+function inferAddress(maxRecursionDepth) {
+    let distanceToSegment;
+    let foundAddresses = [];
+    let i;
+    // Ignore pedestrian boardwalk, stairways, runways, and railroads
+    const IGNORE_ROAD_TYPES = [10, 16, 18, 19];
+    let inferredAddress = {
+        country: null,
+        city: null,
+        state: null,
+        street: null
+    };
+    let n;
+    let orderedSegments = [];
+    const segments = W.model.segments.getObjectArray();
+    let stopPoint;
 
     const venue = getSelectedVenue();
 
-    const findClosestNode = function () {
-        let closestSegment = orderedSegments[0].segment,
-            distanceA,
-            distanceB,
-            nodeA = W.model.nodes.getObjectById(closestSegment.attributes.fromNodeID),
-            nodeB = W.model.nodes.getObjectById(closestSegment.attributes.toNodeID);
+    // Make sure a place is selected and segments are loaded.
+    if (!(venue && segments.length)) {
+        return undefined;
+    }
+
+    const getFCRank = FC => {
+        const typeToFCRank = {
+            3: 0, // freeway
+            6: 1, // major
+            7: 2, // minor
+            2: 3, // primary
+            1: 4, // street
+            20: 5, // PLR
+            8: 6 // dirt
+        };
+        return typeToFCRank[FC] || 100;
+    };
+
+    const hasStreetName = segment => {
+        if (!segment || segment.type !== 'segment') return false;
+        const addr = segment.getAddress();
+        return !(addr.isEmpty() || addr.isEmptyStreet());
+    };
+
+    const findClosestNode = () => {
+        const closestSegment = orderedSegments[0].segment;
+        let distanceA;
+        let distanceB;
+        const nodeA = W.model.nodes.getObjectById(closestSegment.attributes.fromNodeID);
+        const nodeB = W.model.nodes.getObjectById(closestSegment.attributes.toNodeID);
         if (nodeA && nodeB) {
             const pt = stopPoint.getPoint ? stopPoint.getPoint() : stopPoint;
             distanceA = pt.distanceTo(nodeA.attributes.geometry);
             distanceB = pt.distanceTo(nodeB.attributes.geometry);
-            return distanceA < distanceB ?
-                nodeA.attributes.id : nodeB.attributes.id;
+            return distanceA < distanceB ? nodeA.attributes.id : nodeB.attributes.id;
         }
+        return undefined;
     };
 
-    var findConnections = function (startingNodeID, recursionDepth) {
-        let connectedSegments,
-            k,
-            newNode;
+    const findConnections = (startingNodeID, recursionDepth) => {
+        let connectedSegments;
+        let newNode;
 
         // Limit search depth to avoid problems.
-        if (recursionDepth > MAX_RECURSION_DEPTH) {
-            //console.debug('Max recursion depth reached');
+        if (recursionDepth > maxRecursionDepth) {
             return;
         }
 
@@ -6789,71 +6806,34 @@ function WMEPH_inferAddress(MAX_RECURSION_DEPTH) {
             toNodeID: startingNodeID
         }));
 
-        //console.debug('Looking for connections at node ' + startingNodeID);
-
         // Check connected segments for address info.
-        for (k in connectedSegments) {
-            if (connectedSegments.hasOwnProperty(k)) {
-                if (hasStreetName(connectedSegments[k].segment)) {
-                    // Address found, push to array.
-                    /*
-                        console.debug('Address found on connnected segment ' +
-                        connectedSegments[k].segment.attributes.id +
-                        '. Recursion depth: ' + recursionDepth);
-                        */
-                    foundAddresses.push({
-                        depth: recursionDepth,
-                        distance: connectedSegments[k].distance,
-                        segment: connectedSegments[k].segment
-                    });
-                    break;
-                } else {
-                    // If not found, call function again starting from the other node on this segment.
-                    //console.debug('Address not found on connected segment ' + connectedSegments[k].segment.attributes.id);
-                    newNode = connectedSegments[k].segment.attributes.fromNodeID === startingNodeID ?
-                        connectedSegments[k].segment.attributes.toNodeID :
-                        connectedSegments[k].segment.attributes.fromNodeID;
-                    findConnections(newNode, recursionDepth + 1);
-                }
+        const keys = Object.keys(connectedSegments);
+        for (let idx = 0; idx < keys.length; idx++) {
+            const k = keys[idx];
+            if (hasStreetName(connectedSegments[k].segment)) {
+                // Address found, push to array.
+                foundAddresses.push({
+                    depth: recursionDepth,
+                    distance: connectedSegments[k].distance,
+                    segment: connectedSegments[k].segment
+                });
+                break;
+            } else {
+                // If not found, call function again starting from the other node on this segment.
+                const attr = connectedSegments[k].segment.attributes;
+                newNode = attr.fromNodeID === startingNodeID ? attr.toNodeID : attr.fromNodeID;
+                findConnections(newNode, recursionDepth + 1);
             }
         }
     };
 
-    const getFCRank = function (FC) {
-        const typeToFCRank = {
-            3: 0, // freeway
-            6: 1, // major
-            7: 2, // minor
-            2: 3, // primary
-            1: 4, // street
-            20: 5, // PLR
-            8: 6 // dirt
-        };
-        if (FC && !isNaN(FC)) {
-            return typeToFCRank[FC] || 100;
-        }
-    };
-
-    var hasStreetName = function (segment) {
-        return segment && segment.type === 'segment' && segment.getAddress().getStreetName() !== 'No street';
-    };
-
-    // phlogdev('No address data, gathering ', 2);
-
-    // Make sure a place is selected and segments are loaded.
-    if (!(venue && segments.length)) {
-        return;
-    }
-
-    if (venue.isPoint()) {
-        stopPoint = venue.geometry;
+    const { entryExitPoints } = venue.attributes;
+    if (entryExitPoints.length) {
+        // Get the primary stop point, if one exists.  If none, get the first point.
+        stopPoint = entryExitPoints.find(pt => pt.isPrimary()) || entryExitPoints[0];
     } else {
-        const entryExitPoints = venue.attributes.entryExitPoints;
-        if (entryExitPoints.length) {
-            stopPoint = entryExitPoints[0];
-        } else {
-            stopPoint = venue.geometry.getCentroid();
-        }
+        // If no stop points, just use the venue's centroid.
+        stopPoint = venue.geometry.getCentroid();
     }
 
     // Go through segment array and calculate distances to segments.
@@ -6883,9 +6863,8 @@ function WMEPH_inferAddress(MAX_RECURSION_DEPTH) {
         if (foundAddresses.length > 0) {
             // If more than one address found at same recursion depth, look at FC of segments.
             if (foundAddresses.length > 1) {
-                _.each(foundAddresses, function (element) {
-                    element.fcRank = getFCRank(
-                        element.segment.attributes.roadType);
+                foundAddresses.forEach(element => {
+                    element.fcRank = getFCRank(element.segment.attributes.roadType);
                 });
                 foundAddresses = _.sortBy(foundAddresses, 'fcRank');
                 foundAddresses = _.filter(foundAddresses, {
@@ -6911,7 +6890,7 @@ function WMEPH_inferAddress(MAX_RECURSION_DEPTH) {
         } else {
             // Default to closest if branching method fails.
             // Go through sorted segment array until a country, state, and city have been found.
-            const closestElem = _.find(orderedSegments, function (element) { return hasStreetName(element.segment); });
+            const closestElem = orderedSegments.find(element => hasStreetName(element.segment));
             inferredAddress = closestElem ? closestElem.segment.getAddress() || inferredAddress : inferredAddress;
         }
     }
@@ -6948,30 +6927,34 @@ function updateAddress(feature, address, actions) {
 
 // Build a Google search url based on place name and address
 function buildGLink(searchName, addr, HN) {
-    let searchHN = '', searchStreet = '', searchCity = '';
+    let searchHN = '';
+    let searchStreet = '';
+    let searchCity = '';
     searchName = searchName.replace(/\//g, ' ');
-    if ('string' === typeof addr.street.name && addr.street.name !== null && addr.street.name !== '') {
-        searchStreet = `${addr.street.name}, `;
+    if (!addr.isEmptyStreet()) {
+        searchStreet = `${addr.getStreetName()}, `
+            .replace(/CR-/g, 'County Rd ')
+            .replace(/SR-/g, 'State Hwy ')
+            .replace(/US-/g, 'US Hwy ')
+            .replace(/ CR /g, ' County Rd ')
+            .replace(/ SR /g, ' State Hwy ')
+            .replace(/ US /g, ' US Hwy ')
+            .replace(/$CR /g, 'County Rd ')
+            .replace(/$SR /g, 'State Hwy ')
+            .replace(/$US /g, 'US Hwy ');
+        if (HN && searchStreet !== '') {
+            searchHN = `${HN} `;
+        }
     }
-    searchStreet = searchStreet.replace(/CR-/g, 'County Rd ');
-    searchStreet = searchStreet.replace(/SR-/g, 'State Hwy ');
-    searchStreet = searchStreet.replace(/US-/g, 'US Hwy ');
-    searchStreet = searchStreet.replace(/ CR /g, ' County Rd ');
-    searchStreet = searchStreet.replace(/ SR /g, ' State Hwy ');
-    searchStreet = searchStreet.replace(/ US /g, ' US Hwy ');
-    searchStreet = searchStreet.replace(/$CR /g, 'County Rd ');
-    searchStreet = searchStreet.replace(/$SR /g, 'State Hwy ');
-    searchStreet = searchStreet.replace(/$US /g, 'US Hwy ');
-    if ('string' === typeof HN && searchStreet !== '') {
-        searchHN = `${HN} `;
-    }
-    if ('string' === typeof addr.city.attributes.name && addr.city.attributes.name !== '') {
-        searchCity = `${addr.city.attributes.name}, `;
+    const city = addr.getCity();
+    if (city && !city.isEmpty()) {
+        searchCity = `${city.getName()}, `;
     }
 
-    searchName = searchName + (searchName ? ', ' : '') + searchHN + searchStreet + searchCity + addr.state.name;
+    searchName = searchName + (searchName ? ', ' : '') + searchHN + searchStreet
+        + searchCity + addr.getStateName();
     return `http://www.google.com/search?q=${encodeURIComponent(searchName)}`;
-} // END buildGLink function
+}
 
 // WME Category translation from Natural language to object language  (Bank / Financial --> BANK_FINANCIAL)
 function catTranslate(natCategories) {
@@ -7626,6 +7609,8 @@ function updateFeatureGeometry(place, newGeometry) {
 }
 
 function placeHarmonizer_init() {
+    _layer = W.map.landmarkLayer;
+
     // Add CSS stuff here
     const css = [
         '.wmeph-mods-table-cell { border: solid 1px #bdbdbd; padding-left: 3px; padding-right: 3px; }',
@@ -7772,11 +7757,6 @@ function placeHarmonizer_init() {
 
     // Set up Run WMEPH button once place is selected
     bootstrapRunButton();
-
-    /**
-     * Generates highlighting rules and applies them to the map.
-     */
-    _layer = W.map.landmarkLayer;
 
     // Setup highlight colors
     initializeHighlights();
