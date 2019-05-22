@@ -7167,13 +7167,23 @@ function onWLMergeClick() {
 }
 
 function onWLPullClick() {
-    $('#WMEPH-WLInput').val(LZString.decompressFromUTF16(localStorage.getItem(_WL_LOCAL_STORE_NAME_COMPRESSED)));
-    $('#PlaceHarmonizerWLToolsMsg').empty().append('<p style="color:green">To backup the data, copy & paste the text in the box to a safe location.<p>');
+    $('#WMEPH-WLInput').val(
+        LZString.decompressFromUTF16(
+            localStorage.getItem(_WL_LOCAL_STORE_NAME_COMPRESSED)
+        )
+    );
+    $('#PlaceHarmonizerWLToolsMsg').empty().append(
+        '<p style="color:green">To backup the data, copy & paste the text in the box to a safe location.<p>'
+    );
     localStorage.setItem('WMEPH_WLAddCount', 1);
 }
 
 function onWLStatsClick() {
-    const currWLData = JSON.parse(LZString.decompressFromUTF16(localStorage.getItem(_WL_LOCAL_STORE_NAME_COMPRESSED)));
+    const currWLData = JSON.parse(
+        LZString.decompressFromUTF16(
+            localStorage.getItem(_WL_LOCAL_STORE_NAME_COMPRESSED)
+        )
+    );
     const countryWL = {};
     const stateWL = {};
     const entries = Object.keys(currWLData).filter(key => key !== '1.1.1');
@@ -7186,17 +7196,16 @@ function onWLStatsClick() {
         stateWL[state] = stateWL[state] + 1 || 1;
     });
 
-    let countryString = '';
-    for (const countryKey in countryWL) {
-        countryString = `${countryString}<br>${countryKey}: ${countryWL[countryKey]}`;
-    }
-    let stateString = '';
-    for (const stateKey in stateWL) {
-        stateString = `${stateString}<br>${stateKey}: ${stateWL[stateKey]}`;
-    }
+    const getSectionDiv = (title, list) => $('<div>', { style: 'margin-bottom: 10px;' }).append(
+        $('<div>', { style: 'font-weight: bold; text-decoration: underline' }).text(title),
+        Object.keys(list).map(key => $('<div>').text(`${key}: ${list[key]}`))
+    );
 
-    $('#PlaceHarmonizerWLToolsMsg').empty().append(`<p style="color:black">Number of WL places: ${entries.length}</p><p><span style="font-weight:bold;"><u>States</u></span>${stateString}</p><p><span style="font-weight:bold;"><u>Countries</u></span>${countryString}<p>`);
-    //localStorage.setItem('WMEPH_WLAddCount', 1);
+    $('#PlaceHarmonizerWLToolsMsg').empty().append(
+        $('<div>', { style: 'margin-bottom: 10px;' }).text(`Number of WL places: ${entries.length}`),
+        getSectionDiv('States', stateWL),
+        getSectionDiv('Countries', countryWL)
+    );
 }
 
 function onWLStateFilterClick() {
@@ -7209,7 +7218,11 @@ function onWLStateFilterClick() {
         msg = '<p style="color:red">Invalid state. Enter the state name in the "Whitelist string" box above, exactly as it appears in the Stats output.<p>';
     } else {
         let currWLData, venueToRemove = [];
-        currWLData = JSON.parse(LZString.decompressFromUTF16(localStorage.getItem(_WL_LOCAL_STORE_NAME_COMPRESSED)));
+        currWLData = JSON.parse(
+            LZString.decompressFromUTF16(
+                localStorage.getItem(_WL_LOCAL_STORE_NAME_COMPRESSED)
+            )
+        );
 
         Object.keys(currWLData).filter(venueKey => venueKey !== '1.1.1').forEach(venueKey => {
             if (currWLData[venueKey].state === stateToRemove || (!currWLData[venueKey].state && stateToRemove === 'None')) {
