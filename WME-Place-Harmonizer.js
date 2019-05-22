@@ -7009,8 +7009,8 @@ function insertAtIX(array1, array2, ix) { // array1 is original string, array2 i
     if (typeof (array2) === 'string') { array2 = [array2]; } // if a single string, convert to an array
     if (typeof (array2) === 'object') { // only apply to inserted arrays
         const arrayTemp = arrayNew.splice(ix); // split and hold the first part
-        arrayNew.push.apply(arrayNew, array2); // add the insert
-        arrayNew.push.apply(arrayNew, arrayTemp); // add the tail end of original
+        arrayNew.push(...array2); // add the insert
+        arrayNew.push(...arrayTemp); // add the tail end of original
     }
     return _.uniq(arrayNew); // remove any duplicates (so the function can be used to move the position of a string)
 }
