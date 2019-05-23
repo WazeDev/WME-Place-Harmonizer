@@ -7561,14 +7561,23 @@ function blurAll() {
 // Pulls the item PL
 function getCurrentPL() {
     // Return the current PL
-    if ($('.WazeControlPermalink').length === 0) {
-        phlog('Waiting for PL div');
-        setTimeout(getCurrentPL, 500);
-        return;
-    }
+
+    // 5/22/2019 (mapomatic) 
+    // I'm not sure what this was supposed to do.  Maybe an attempt to wait until the PL
+    // was available when loading WME from PL with a place pre-selected and auto-run WMEPH
+    // is turned on?  Whatever the purpose was, it won't work properly because it'll return 
+    // undefined, and the calling code is expecting a value.
+
+    // if ($('.WazeControlPermalink').length === 0) {
+    //     phlog('Waiting for PL div');
+    //     setTimeout(getCurrentPL, 500);
+    //     return;
+    // }
+
     if ($('.WazeControlPermalink .permalink').attr('href').length > 0) {
         return $('.WazeControlPermalink .permalink').attr('href');
-    } else if ($('.WazeControlPermalink').children('.fa-link').length > 0) {
+    }
+    if ($('.WazeControlPermalink').children('.fa-link').length > 0) {
         return $('.WazeControlPermalink').children('.fa-link')[0].href;
     }
     return '';
