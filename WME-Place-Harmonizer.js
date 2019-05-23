@@ -3488,7 +3488,7 @@ function getServicesBanner() {
     };
 } // END getServicesBanner()
 
-function getButtonBanner2(item, addr, placePL) {
+function getButtonBanner2(venue, placePL) {
     return {
         placesWiki: {
             active: true,
@@ -3518,9 +3518,9 @@ function getButtonBanner2(item, addr, placePL) {
             title: 'Clear all Whitelisted fields for this place',
             action() {
                 if (confirm('Are you sure you want to clear all whitelisted fields for this place?')) {
-                    delete _venueWhitelist[item.attributes.id];
+                    delete _venueWhitelist[venue.attributes.id];
                     saveWhitelistToLS(true);
-                    harmonizePlaceGo(item, 'harmonize');
+                    harmonizePlaceGo(venue, 'harmonize');
                 }
             }
         },
@@ -3534,8 +3534,8 @@ function getButtonBanner2(item, addr, placePL) {
                 reportError({
                     subject: 'WMEPH Bug report: Script Error',
                     message: `Script version: ${_SCRIPT_VERSION}${_DEV_VERSION_STR}\nPermalink: ${
-                        placePL}\nPlace name: ${item.attributes.name}\nCountry: ${
-                        addr.country.name}\n--------\nDescribe the error:  \n `
+                        placePL}\nPlace name: ${venue.attributes.name}\nCountry: ${
+                        venue.getAddress().getCountry().name}\n--------\nDescribe the error:  \n `
                 });
             }
         }
@@ -3617,7 +3617,7 @@ function harmonizePlaceGo(item, useFlag, actions) {
 
     if (hpMode.harmFlag) {
         // The placePL should only be needed when harmonizing, not when highlighting.
-        placePL = getItemPL() //  set up external post div and pull place PL
+        placePL = getCurrentPL() //  set up external post div and pull place PL
             .replace(/&layers=[^&]+(&?)/g, '$1') // remove Permalink Layers
             .replace(/&s=[^&]+(&?)/g, '$1') // remove Permalink Layers
             .replace(/&update_requestsFilter=[^&]+(&?)/g, '$1') // remove Permalink Layers
@@ -3626,7 +3626,7 @@ function harmonizePlaceGo(item, useFlag, actions) {
             .replace(/&mapUpdateRequestFilter=[^&]+(&?)/g, '$1') // remove Permalink Layers
             .replace(/&venueFilter=[^&]+(&?)/g, '$1'); // remove Permalink Layers
 
-        _buttonBanner2 = getButtonBanner2(item, addr, placePL);
+        _buttonBanner2 = getButtonBanner2(item, placePL);
         _servicesBanner = getServicesBanner();
 
         // Update icons to reflect current WME place services
@@ -7559,18 +7559,11 @@ function blurAll() {
 }
 
 // Pulls the item PL
-function getItemPL() {
-    // Append a form div if it doesn't exist yet:
-    if ($('#WMEPH_formDiv').length === 0) {
-        const tempDiv = document.createElement('div');
-        tempDiv.id = 'WMEPH_formDiv';
-        tempDiv.style.display = 'inline';
-        $('.WazeControlPermalink').append(tempDiv);
-    }
+function getCurrentPL() {
     // Return the current PL
     if ($('.WazeControlPermalink').length === 0) {
         phlog('Waiting for PL div');
-        setTimeout(getItemPL, 500);
+        setTimeout(getCurrentPL, 500);
         return;
     }
     if ($('.WazeControlPermalink .permalink').attr('href').length > 0) {
@@ -7654,6 +7647,14 @@ function placeHarmonizer_init() {
 
     // For debugging purposes.  May be removed when no longer needed.
     unsafeWindow.PNH_DATA = _PNH_DATA;
+
+    // Append a form div for submitting to the forum, if it doesn't exist yet:
+    //if ($('#WMEPH_formDiv').length === 0) {
+    const tempDiv = document.createElement('div');
+    tempDiv.id = 'WMEPH_formDiv';
+    tempDiv.style.display = 'none';
+    $('body').append(tempDiv);
+    //}
 
     _USER.ref = W.loginManager.user;
     _USER.name = _USER.ref.userName;
