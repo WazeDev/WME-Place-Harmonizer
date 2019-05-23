@@ -7209,47 +7209,51 @@ function onWLStatsClick() {
 }
 
 function onWLStateFilterClick() {
-    const $wlToolsMsg = $('#PlaceHarmonizerWLToolsMsg');
     const $wlInput = $('#WMEPH-WLInput');
     const stateToRemove = $wlInput.val().trim();
-    let msg = '';
+    let msgColor;
+    let msgText;
 
     if (stateToRemove.length < 2) {
-        msg = '<p style="color:red">Invalid state. Enter the state name in the "Whitelist string" box above, exactly as it appears in the Stats output.<p>';
+        msgColor = 'red';
+        msgText = 'Invalid state. Enter the state name in the "Whitelist string" box above, '
+            + 'exactly as it appears in the Stats output.';
     } else {
-        let currWLData, venueToRemove = [];
-        currWLData = JSON.parse(
+        const currWLData = JSON.parse(
             LZString.decompressFromUTF16(
                 localStorage.getItem(_WL_LOCAL_STORE_NAME_COMPRESSED)
             )
         );
-
-        Object.keys(currWLData).filter(venueKey => venueKey !== '1.1.1').forEach(venueKey => {
-            if (currWLData[venueKey].state === stateToRemove || (!currWLData[venueKey].state && stateToRemove === 'None')) {
-                venueToRemove.push(venueKey);
-            }
-        });
-        if (venueToRemove.length > 0) {
+        const venuesToRemove = Object.keys(currWLData).filter(
+            venueKey => venueKey !== '1.1.1' && (currWLData[venueKey].state === stateToRemove
+                || (!currWLData[venueKey].state && stateToRemove === 'None'))
+        );
+        if (venuesToRemove.length > 0) {
             if (localStorage.WMEPH_WLAddCount === '1') {
-                if (confirm(`Are you sure you want to clear all whitelist data for ${stateToRemove}? This CANNOT be undone. Press OK to delete, cancel to preserve the data.`)) {
+                if (confirm(`Are you sure you want to clear all whitelist data for ${
+                    stateToRemove}? This CANNOT be undone. Press OK to delete, cancel to preserve the data.`)) {
                     backupWhitelistToLS(true);
-                    for (let ixwl = 0; ixwl < venueToRemove.length; ixwl++) {
-                        delete _venueWhitelist[venueToRemove[ixwl]];
-                    }
+                    venuesToRemove.forEach(venueKey => {
+                        delete _venueWhitelist[venueKey];
+                    });
                     saveWhitelistToLS(true);
-                    msg = `<p style="color:green">${venueToRemove.length} items removed from WL<p>`;
+                    msgColor = 'green';
+                    msgText = `${venuesToRemove.length} items removed from WL`;
                     $wlInput.val('');
                 } else {
-                    msg = '<p style="color:blue">No changes made<p>';
+                    msgColor = 'blue';
+                    msgText = 'No changes made';
                 }
             } else {
-                msg = '<p style="color:red">Please backup your WL using the Pull button before removing state data<p>';
+                msgColor = 'red';
+                msgText = 'Please backup your WL using the Pull button before removing state data';
             }
         } else {
-            msg = '<p style="color:red">No data for that state. Use the state name exactly as listed in the Stats<p>';
+            msgColor = 'red';
+            msgText = `No data for "${stateToRemove}". Use the state name exactly as listed in the Stats`;
         }
     }
-    $wlToolsMsg.empty().append(msg);
+    $('#PlaceHarmonizerWLToolsMsg').empty().append($('<p>').css({ color: msgColor }).text(msgText));
 }
 
 function onWLShareClick() {
