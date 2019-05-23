@@ -32,6 +32,7 @@
 /* global alert */
 /* global confirm */
 /* global HoursParser */
+/* global GM_addStyle */
 
 // Script update info
 const _WHATS_NEW_LIST = [ // New in this version
@@ -62,7 +63,8 @@ const _CSS_ARRAY = [
     '#WMEPH_runButton { padding-bottom: 6px; padding-top: 3px; width: 290; color: black; font-size: 15px; margin-right: auto; margin-left: 4px; }',
     '#WMEPH_tools div { padding-bottom: 2px !important; }',
     '.wmeph-fat-btn { padding-left:8px; padding-right:8px; padding-top:4px; margin-right:3px; display:inline-block; font-weight:normal; height:24px; }',
-    '.ui-autocomplete { max-height: 300px;overflow-y: auto;overflow-x: hidden;} '
+    '.ui-autocomplete { max-height: 300px;overflow-y: auto;overflow-x: hidden;} ',
+    '.wmeph-hr { border-color: #ccc; }'
 ];
 
 const MultiAction = require('Waze/Action/MultiAction');
@@ -7333,12 +7335,14 @@ function addWmephTab() {
     // Set up the CSS
     GM_addStyle(_CSS_ARRAY.join('\n'));
 
-    const $container = $('<div id="wmephtab" class="active" style="padding-top: 5px;">');
-    const $navTabs = $('<ul class="nav nav-tabs"><li class="active"><a data-toggle="tab" href="#sidepanel-harmonizer">Harmonize</a></li>' +
-        '<li><a data-toggle="tab" href="#sidepanel-highlighter">HL \/ Scan</a></li>' +
-        '<li><a data-toggle="tab" href="#sidepanel-wltools">WL Tools</a></li>' +
-        '<li><a data-toggle="tab" href="#sidepanel-pnh-moderators">Moderators</a></li></ul>');
-    const $tabContent = $('<div class="tab-content" style="padding:5px;">');
+    const $container = $('<div class="active">');
+    const $navTabs = $(
+        '<ul class="nav nav-tabs"><li class="active"><a data-toggle="tab" href="#sidepanel-harmonizer">Harmonize</a></li>'
+        + '<li><a data-toggle="tab" href="#sidepanel-highlighter">HL / Scan</a></li>'
+        + '<li><a data-toggle="tab" href="#sidepanel-wltools">WL Tools</a></li>'
+        + '<li><a data-toggle="tab" href="#sidepanel-pnh-moderators">Moderators</a></li></ul>'
+    );
+    const $tabContent = $('<div class="tab-content">');
     const $harmonizerTab = $('<div class="tab-pane active" id="sidepanel-harmonizer"></div>');
     const $highlighterTab = $('<div class="tab-pane" id="sidepanel-highlighter"></div>');
     const $wlToolsTab = $('<div class="tab-pane" id="sidepanel-wltools"></div>');
@@ -7346,7 +7350,7 @@ function addWmephTab() {
     $tabContent.append($harmonizerTab, $highlighterTab, $wlToolsTab, $moderatorsTab);
     $container.append($navTabs, $tabContent);
 
-    //Harmonizer settings
+    // Harmonizer settings
     createSettingsCheckbox($harmonizerTab, 'WMEPH-WebSearchNewTab', 'Open URL & Search Results in new tab instead of new window');
     createSettingsCheckbox($harmonizerTab, 'WMEPH-DisableDFZoom', 'Disable zoom & center for duplicates');
     createSettingsCheckbox($harmonizerTab, 'WMEPH-EnableIAZoom', 'Enable zoom & center for places with no address');
@@ -7365,7 +7369,7 @@ function addWmephTab() {
         createSettingsCheckbox($harmonizerTab, 'WMEPH-AutoRunOnSelect', 'Automatically run the script when selecting a place');
     }
 
-    $harmonizerTab.append('<hr align="center" width="90%">');
+    $harmonizerTab.append('<hr class="wmeph-hr" align="center" width="100%">');
 
     // Add Letter input box
     const $phShortcutDiv = $('<div id="PlaceHarmonizerKB">');
@@ -7373,16 +7377,16 @@ function addWmephTab() {
     createSettingsCheckbox($phShortcutDiv, 'WMEPH-KBSModifierKey', 'Use Ctrl instead of Alt'); // Add Alt-->Ctrl checkbox
 
     if (_USER.isDevUser) { // Override script regionality (devs only)
-        $phShortcutDiv.append('<hr align="center" width="90%"><p>Dev Only Settings:</p>');
+        $phShortcutDiv.append('<hr class="wmeph-hr" align="center" width="100%"><p>Dev Only Settings:</p>');
         createSettingsCheckbox($phShortcutDiv, 'WMEPH-RegionOverride', 'Disable Region Specificity');
     }
 
     $harmonizerTab.append($phShortcutDiv);
 
-    $harmonizerTab.append(`<hr align="center" width="95%"><p><a href="${
+    $harmonizerTab.append(`<hr class="wmeph-hr" align="center" width="100%"><p><a href="${
         _URLS.placesWiki}" target="_blank">Open the WME Places Wiki page</a><p><a href="${
-        _URLS.forum}" target="_blank">Submit script feedback & suggestions</a></p><hr align="center" width="95%">Recent updates:<ul>${
-        _WHATS_NEW_LIST.map(i => '<li>' + i + '</li>').join('')}</ul>`);
+        _URLS.forum}" target="_blank">Submit script feedback & suggestions</a></p><hr class="wmeph-hr" align="center" width="95%">Recent updates:<ul>${
+        _WHATS_NEW_LIST.map(i => `<li>${i}</li>`).join('')}</ul>`);
 
     // Highlighter settings
     $highlighterTab.append('<p>Highlighter Settings:</p>');
@@ -7392,59 +7396,59 @@ function addWmephTab() {
     createSettingsCheckbox($highlighterTab, 'WMEPH-DisableWLHL', 'Disable Whitelist highlighting (shows all missing info regardless of WL)');
     createSettingsCheckbox($highlighterTab, 'WMEPH-PLATypeFill', 'Fill parking lots based on type (public=blue, restricted=yellow, private=red)');
     if (_USER.isDevUser || _USER.isBetaUser || _USER.rank >= 3) {
-        //createSettingsCheckbox($highlighterTab 'WMEPH-UnlockedRPPs','Highlight unlocked residential place points');
+        // createSettingsCheckbox($highlighterTab 'WMEPH-UnlockedRPPs','Highlight unlocked residential place points');
     }
 
     // Scanner settings
-    //$highlighterTab.append('<hr align="center" width="90%">');
-    //$highlighterTab.append('<p>Scanner Settings (coming !soon)</p>');
-    //createSettingsCheckbox($highlighterTab, 'WMEPH-PlaceScanner','Placeholder, under development!');
+    // $highlighterTab.append('<hr align="center" width="90%">');
+    // $highlighterTab.append('<p>Scanner Settings (coming !soon)</p>');
+    // createSettingsCheckbox($highlighterTab, 'WMEPH-PlaceScanner','Placeholder, under development!');
 
 
     // Whitelisting settings
-    const phWLContentHtml = $('<div id="PlaceHarmonizerWLTools">Whitelist string: <input onClick="this.select();" type="text" id="WMEPH-WLInput" style="width:100%;padding-left:1px;display:block">' +
-        '<div style="margin-top:3px;">' +
-        '<input class="btn btn-success btn-xs wmeph-fat-btn" id="WMEPH-WLMerge" title="Merge the string into your existing Whitelist" type="button" value="Merge">' +
-        '<input class="btn btn-success btn-xs wmeph-fat-btn" id="WMEPH-WLPull" title="Pull your existing Whitelist for backup or sharing" type="button" value="Pull">' +
-        '<input class="btn btn-success btn-xs wmeph-fat-btn" id="WMEPH-WLShare" title="Share your Whitelist to a public Google sheet" type="button" value="Share your WL">' +
-        '</div>' +
-        '<div style="margin-top:12px;">' +
-        '<input class="btn btn-info btn-xs wmeph-fat-btn" id="WMEPH-WLStats" title="Display WL stats" type="button" value="Stats">' +
-        '<input class="btn btn-danger btn-xs wmeph-fat-btn" id="WMEPH-WLStateFilter" title="Remove all WL items for a state.  Enter the state in the \'Whitelist string\' box." type="button" value="Remove data for 1 State">' +
-        '</div>' +
-        '</div>' +
-        '<div id="PlaceHarmonizerWLToolsMsg" style="margin-top:10px;"></div>');
+    const phWLContentHtml = $(
+        '<div id="PlaceHarmonizerWLTools">Whitelist string: <input onClick="this.select();" type="text" id="WMEPH-WLInput" style="width:100%;padding-left:1px;display:block">'
+        + '<div style="margin-top:3px;">'
+        + '<input class="btn btn-success btn-xs wmeph-fat-btn" id="WMEPH-WLMerge" title="Merge the string into your existing Whitelist" type="button" value="Merge">'
+        + '<input class="btn btn-success btn-xs wmeph-fat-btn" id="WMEPH-WLPull" title="Pull your existing Whitelist for backup or sharing" type="button" value="Pull">'
+        + '<input class="btn btn-success btn-xs wmeph-fat-btn" id="WMEPH-WLShare" title="Share your Whitelist to a public Google sheet" type="button" value="Share your WL">'
+        + '</div>'
+        + '<div style="margin-top:12px;">'
+        + '<input class="btn btn-info btn-xs wmeph-fat-btn" id="WMEPH-WLStats" title="Display WL stats" type="button" value="Stats">'
+        + '<input class="btn btn-danger btn-xs wmeph-fat-btn" id="WMEPH-WLStateFilter" title="Remove all WL items for a state.  Enter the state in the \'Whitelist string\' box." type="button" value="Remove data for 1 State">'
+        + '</div>'
+        + '</div>'
+        + '<div id="PlaceHarmonizerWLToolsMsg" style="margin-top:10px;"></div>'
+    );
     $wlToolsTab.append(phWLContentHtml);
 
     const pnhModerators = {
-        'ATR': ['cotero2002', 'nnote'],
-        'GLR': ['JustinS83'],
-        'HI': ['Nacron'],
-        'MAR': ['jr1982jr', 'nzahn1', 'stephenr1966'],
-        'NER': ['jaywazin', 'SNYOWL'],
-        'NOR': ['Joyriding', 'PesachZ'],
-        'NWR': ['dmee92', 'SkyviewGuru'],
-        'PLN': ['bretmcvey', 'dmee92', 'ehepner1977'],
-        'SAT': ['crazycaveman', 'whathappened15', 'xanderb'],
-        'SCR': ['jm6087'],
-        'SER': ['driving79', 'fjsawicki', 'itzwolf'],
-        'SWR': ['tonestertm']
-    }
+        ATR: ['cotero2002', 'nnote'],
+        GLR: ['JustinS83'],
+        HI: ['Nacron'],
+        MAR: ['jr1982jr', 'nzahn1', 'stephenr1966'],
+        NER: ['jaywazin', 'SNYOWL'],
+        NOR: ['Joyriding', 'PesachZ'],
+        NWR: ['dmee92', 'SkyviewGuru'],
+        PLN: ['bretmcvey', 'dmee92', 'ehepner1977'],
+        SAT: ['crazycaveman', 'whathappened15', 'xanderb'],
+        SCR: ['jm6087'],
+        SER: ['driving79', 'fjsawicki', 'itzwolf'],
+        SWR: ['tonestertm']
+    };
 
     $moderatorsTab.append(
         $('<div>', { style: 'margin-bottom: 10px;' }).text('Moderators are responsible for reviewing chain submissions for their region.'
             + ' If you have questions or suggestions regarding a chain, please contact any of your regional moderators.'),
         $('<table>').append(
-            Object.keys(pnhModerators).map(region => {
-                return $('<tr>').append(
-                    $('<td>', { class: 'wmeph-mods-table-cell title' }).append(
-                        $('<div>').text(region)
-                    ),
-                    $('<td>', { class: 'wmeph-mods-table-cell' }).append(
-                        $('<div>').text(pnhModerators[region].join(', '))
-                    )
-                );
-            })
+            Object.keys(pnhModerators).map(region => $('<tr>').append(
+                $('<td>', { class: 'wmeph-mods-table-cell title' }).append(
+                    $('<div>').text(region)
+                ),
+                $('<td>', { class: 'wmeph-mods-table-cell' }).append(
+                    $('<div>').text(pnhModerators[region].join(', '))
+                )
+            ))
         )
     );
 
