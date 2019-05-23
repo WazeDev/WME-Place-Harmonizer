@@ -7533,14 +7533,15 @@ function updateServicesChecks() {
     const venue = getSelectedVenue();
     if (venue) {
         if (!_servicesBanner) return;
-        let servArrayCheck = getServicesChecks(venue), wsix = 0;
-        for (const keys in _servicesBanner) {
+        const servArrayCheck = getServicesChecks(venue);
+        let wsix = 0;
+        Object.keys(_servicesBanner).forEach(keys => {
             if (_servicesBanner.hasOwnProperty(keys)) {
                 _servicesBanner[keys].checked = servArrayCheck[wsix]; // reset all icons to match any checked changes
                 _servicesBanner[keys].active = _servicesBanner[keys].active || servArrayCheck[wsix]; // display any manually checked non-active icons
                 wsix++;
             }
-        }
+        });
         // Highlight 24/7 button if hours are set that way, and add button for all places
         if (isAlwaysOpen(venue)) {
             _servicesBanner.add247.checked = true;
