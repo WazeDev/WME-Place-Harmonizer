@@ -7463,7 +7463,7 @@ function createCloneCheckbox(divID, settingID, textDescription) {
     }
 }
 
-//Function to add Shift+ to upper case KBS
+// Function to add Shift+ to upper case KBS
 function parseKBSShift(kbs) {
     return (/^[A-Z]{1}$/g.test(kbs) ? 'Shift+' : '') + kbs;
 }
@@ -7480,35 +7480,40 @@ function validateWLS(jsonString) {
         if (objTry && typeof objTry === 'object' && objTry !== null) {
             return objTry;
         }
-    } catch (e) { }
+    } catch (e) {
+        // do nothing
+    }
     return false;
 }
 
-// This function merges and updates venues from object vWL_2 into vWL_1
-function mergeWL(vWL_1, vWL_2) {
-    let venueKey, WLKey, vWL_1_Venue, vWL_2_Venue;
-    for (venueKey in vWL_2) {
-        if (vWL_2.hasOwnProperty(venueKey)) { // basic filter
-            if (vWL_1.hasOwnProperty(venueKey)) { // if the vWL_2 venue is in vWL_1, then update any keys
-                vWL_1_Venue = vWL_1[venueKey];
-                vWL_2_Venue = vWL_2[venueKey];
-                for (WLKey in vWL_2_Venue) { // loop thru the venue WL keys
-                    if (vWL_2_Venue.hasOwnProperty(WLKey) && vWL_2_Venue[WLKey].active) { // Only update if the vWL_2 key is active
-                        if (vWL_1_Venue.hasOwnProperty(WLKey) && vWL_1_Venue[WLKey].active) { // if the key is in the vWL_1 venue and it is active, then push any array data onto the key
-                            if (vWL_1_Venue[WLKey].hasOwnProperty('WLKeyArray')) {
-                                vWL_1[venueKey][WLKey].WLKeyArray = insertAtIX(vWL_1[venueKey][WLKey].WLKeyArray, vWL_2[venueKey][WLKey].WLKeyArray, 100);
-                            }
-                        } else { // if the key isn't in the vWL_1 venue, or if it's inactive, then copy the vWL_2 key across
-                            vWL_1[venueKey][WLKey] = vWL_2[venueKey][WLKey];
+// This function merges and updates venues from object wl2 into wl1
+function mergeWL(wl1, wl2) {
+    let wlVenue1;
+    let wlVenue2;
+    Object.keys(wl2).forEach(venueKey => {
+        if (wl1.hasOwnProperty(venueKey)) { // if the wl2 venue is in wl1, then update any keys
+            wlVenue1 = wl1[venueKey];
+            wlVenue2 = wl2[venueKey];
+            // loop thru the venue WL keys
+            Object.keys(wlVenue2).forEach(wlKey => {
+                // Only update if the wl2 key is active
+                if (wlVenue2.hasOwnProperty(wlKey) && wlVenue2[wlKey].active) {
+                    // if the key is in the wl1 venue and it is active, then push any array data onto the key
+                    if (wlVenue1.hasOwnProperty(wlKey) && wlVenue1[wlKey].active) {
+                        if (wlVenue1[wlKey].hasOwnProperty('WLKeyArray')) {
+                            wl1[venueKey][wlKey].WLKeyArray = insertAtIX(wl1[venueKey][wlKey].WLKeyArray, wl2[venueKey][wlKey].WLKeyArray, 100);
                         }
+                    } else {
+                        // if the key isn't in the wl1 venue, or if it's inactive, then copy the wl2 key across
+                        wl1[venueKey][wlKey] = wl2[venueKey][wlKey];
                     }
-                } // END subLoop for venue keys
-            } else { // if the venue doesn't exist in vWL_1, then add it
-                vWL_1[venueKey] = vWL_2[venueKey];
-            }
+                }
+            }); // END subLoop for venue keys
+        } else { // if the venue doesn't exist in wl1, then add it
+            wl1[venueKey] = wl2[venueKey];
         }
-    }
-    return vWL_1;
+    });
+    return wl1;
 }
 
 // Get services checkbox status
