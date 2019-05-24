@@ -25,19 +25,33 @@
 /* global I18n */
 
 // Script update info
-const _WHATS_NEW_LIST = [ // New in this version
-    '2019.05.24.001: Removed "auto-run on select" option.',
-    '2019.05.24.001: Loosen requirements for Scenic Overlook category.',
-    '2019.05.23.001: Don\'t display WMEPH buttons when multiple places are selected.',
-    '2019.05.23.001: A lot of code maintenance/cleanup',
-    '2019.05.23.001: New version # format :)',
-    '1.3.146: FIXED: Moderator table mistakes, and updated its layout to be more compact.',
-    '1.3.145: NEW: Added a Moderators tab so people can bug moderators more, and me less :D',
-    '1.3.143: FIXED: HN entry field in WMEPH banner was not working. Replaced with "Edit Address" button.',
-    '1.3.143: FIXED: Adding external provider from WMEPH banner would sometimes go to the Category box.',
-    '1.3.142: FIXED: The "Nudge" buttons do not work in some cases.  After saving, the place is not nudged.',
-    '1.3.141: FIXED: WMEPH will not run on places where it finds potential duplicate places.'
-];
+const _WHATS_NEW_LIST = { // New in this version
+    '2019.05.24.001': [
+        'Fix green highlighting of WMEPH-modified fields in the edit panel.',
+        'Remove "auto-run on select" option.',
+        'Loosen requirements for Scenic Overlook category.'
+    ],
+    '2019.05.23.001': [
+        'Don\'t display WMEPH buttons when multiple places are selected.',
+        'A lot of code maintenance/cleanup',
+        'New version # format :)'
+    ],
+    '1.3.146': [
+        'FIXED: Moderator table mistakes, and updated its layout to be more compact.'],
+    '1.3.145': [
+        'NEW: Added a Moderators tab so people can bug moderators more, and me less :D'],
+    '1.3.143': [
+        'FIXED: HN entry field in WMEPH banner was not working. Replaced with "Edit Address" button.',
+        'FIXED: Adding external provider from WMEPH banner would sometimes go to the Category box.'
+    ],
+    '1.3.142': [
+        'FIXED: The "Nudge" buttons do not work in some cases.  After saving, the place is not nudged.'
+    ],
+    '1.3.141': [
+        'FIXED: WMEPH will not run on places where it finds potential duplicate places.'
+    ]
+};
+
 const _CSS_ARRAY = [
     '#WMEPH_banner .wmeph-btn { background-color: #fbfbfb; box-shadow: 0 2px 0 #aaa; border: solid 1px #bbb; font-weight:normal; margin-bottom: 2px; margin-right:4px}',
     '.wmeph-btn, .wmephwl-btn { height:19px; }',
@@ -218,29 +232,27 @@ const _UPDATED_FIELDS = {
     lotElevation: { updated: false, selector: '.landmark .lot-checkbox', tab: 'more-info' },
 
     getFieldProperties() {
-        return Object.keys(this).filter(key => this[key] && this[key].updated);
+        return Object.keys(this)
+            .filter(key => this[key].hasOwnProperty('updated'))
+            .map(key => this[key]);
     },
-    getUpdatedTabs() {
-        const tabs = [];
-        this.getFieldProperties().forEach(propName => {
-            const prop = this[propName];
-            if (prop.updated && !tabs.includes(prop.tab)) {
-                tabs.push(prop.tab);
-            }
-        });
-        return tabs;
+    getUpdatedTabNames() {
+        return _.uniq(this.getFieldProperties()
+            .filter(prop => prop.updated)
+            .map(prop => prop.tab));
     },
-    checkAddedNode(addedNode) {
-        this.getFieldProperties().forEach(propName => {
-            const prop = this[propName];
-            if (prop.updated && addedNode.querySelector(prop.selector)) {
-                $(prop.selector).css({ 'background-color': '#dfd' });
-                $(`a[href="#landmark-edit-${prop.tab}"]`).css({ 'background-color': '#dfd' });
-            }
-        });
-    },
+    // checkAddedNode(addedNode) {
+    //     this.getFieldProperties()
+    //         .filter(prop => prop.updated && addedNode.querySelector(prop.selector))
+    //         .forEach(prop => {
+    //             $(prop.selector).css({ 'background-color': '#dfd' });
+    //             $(`a[href="#landmark-edit-${prop.tab}"]`).css({ 'background-color': '#dfd' });
+    //         });
+    // },
     reset() {
-        this.getFieldProperties().forEach(propName => { this[propName].updated = false; });
+        this.getFieldProperties().forEach(prop => {
+            prop.updated = false;
+        });
     },
     init() {
         ['VALLET_SERVICE', 'DRIVETHROUGH', 'WI_FI', 'RESTROOMS', 'CREDIT_CARDS', 'RESERVATIONS', 'OUTSIDE_SEATING', 'AIR_CONDITIONING',
@@ -251,21 +263,31 @@ const _UPDATED_FIELDS = {
                 this[propName] = { updated: false, selector: `.landmark label[for="service-checkbox-${service}"]`, tab: 'more-info' };
             });
 
-        const observer = new MutationObserver(mutations => {
-            mutations.forEach(mutation => {
-                // Mutation is a NodeList and doesn't support forEach like an array
-                for (let i = 0; i < mutation.addedNodes.length; i++) {
-                    const addedNode = mutation.addedNodes[i];
-                    // Only fire up if it's a node
-                    if (addedNode.nodeType === Node.ELEMENT_NODE) {
-                        _UPDATED_FIELDS.checkAddedNode(addedNode);
-                    }
-                }
-            });
-        });
-        observer.observe(document.getElementById('edit-panel'), { childList: true, subtree: true });
+        // 5/24/2019 (mapomatic) This observer doesn't seem to work anymore.  I've added the updateEditPanelHighlights
+        // function that can be called after harmonizePlaceGo runs.
+
+        // const observer = new MutationObserver(mutations => {
+        //     mutations.forEach(mutation => {
+        //         // Mutation is a NodeList and doesn't support forEach like an array
+        //         for (let i = 0; i < mutation.addedNodes.length; i++) {
+        //             const addedNode = mutation.addedNodes[i];
+        //             // Only fire up if it's a node
+        //             if (addedNode.nodeType === Node.ELEMENT_NODE) {
+        //                 _UPDATED_FIELDS.checkAddedNode(addedNode);
+        //             }
+        //         }
+        //     });
+        // });
+        // observer.observe(document.getElementById('edit-panel'), { childList: true, subtree: true });
 
         W.selectionManager.events.register('selectionchanged', null, () => errorHandler(() => this.reset()));
+    },
+    updateEditPanelHighlights() {
+        // Highlight fields in the editor panel that have been updated by WMEPH.
+        this.getFieldProperties().filter(prop => prop.updated).forEach(prop => {
+            $(prop.selector).css({ 'background-color': '#dfd' });
+            $(`a[href="#landmark-edit-${prop.tab}"]`).css({ 'background-color': '#dfd' });
+        });
     }
 };
 
@@ -5588,6 +5610,9 @@ function harmonizePlaceGo(item, useFlag, actions) {
     if (hpMode.harmFlag) {
         // Update icons to reflect current WME place services
         updateServicesChecks(_servicesBanner);
+
+        // Add green highlighting to edit panel fields that have been updated by WMEPH
+        _UPDATED_FIELDS.updateEditPanelHighlights();
     }
 
     if (_buttonBanner.lockRPP) _buttonBanner.lockRPP.message = `Current lock: ${parseInt(item.attributes.lockRank, 10) + 1}. ${_rppLockString} ?`;
@@ -7379,12 +7404,27 @@ function addWmephTab() {
         createSettingsCheckbox($phShortcutDiv, 'WMEPH-RegionOverride', 'Disable Region Specificity');
     }
 
-    $harmonizerTab.append($phShortcutDiv);
+    $harmonizerTab.append(
+        $phShortcutDiv,
+        '<hr class="wmeph-hr" align="center" width="100%">',
+        `<div><a href="${_URLS.placesWiki}" target="_blank">Open the WME Places Wiki page</a></div>`,
+        `<div><a href="${_URLS.forum}" target="_blank">Submit script feedback & suggestions</a></div>`,
+        '<hr class="wmeph-hr" align="center" width="95%">',
+    );
 
-    $harmonizerTab.append(`<hr class="wmeph-hr" align="center" width="100%"><p><a href="${
-        _URLS.placesWiki}" target="_blank">Open the WME Places Wiki page</a><p><a href="${
-        _URLS.forum}" target="_blank">Submit script feedback & suggestions</a></p><hr class="wmeph-hr" align="center" width="95%">Recent updates:<ul>${
-        _WHATS_NEW_LIST.map(i => `<li>${i}</li>`).join('')}</ul>`);
+    $harmonizerTab.append(
+        $('<div>').append(
+            $('<div>', { style: 'font-weight: bold; margin-bottom: 6px;' }).text('Recent updates'),
+            Object.keys(_WHATS_NEW_LIST).map(
+                version => $('<div>').append(
+                    $('<div>').text(version),
+                    $('<ul>', { style: 'margin-left: -23px;' }).append(
+                        _WHATS_NEW_LIST[version].map(textLine => $('<li>').text(textLine))
+                    )
+                )
+            )
+        )
+    );
 
     // Highlighter settings
     $highlighterTab.append('<p>Highlighter Settings:</p>');
