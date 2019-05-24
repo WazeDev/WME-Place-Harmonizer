@@ -26,6 +26,7 @@
 
 // Script update info
 const _WHATS_NEW_LIST = [ // New in this version
+    '2019.05.24.001: Removed "auto-run on select" option.',
     '2019.05.24.001: Loosen requirements for Scenic Overlook category.',
     '2019.05.23.001: Don\'t display WMEPH buttons when multiple places are selected.',
     '2019.05.23.001: A lot of code maintenance/cleanup',
@@ -6718,9 +6719,6 @@ function checkSelection() {
         if ($('#WMEPH-EnableCloneMode').prop('checked')) {
             displayCloneButton();
         }
-        if ((localStorage.getItem('WMEPH-AutoRunOnSelect') === '1') && venue.arePropertiesEditable()) {
-            setTimeout(harmonizePlace, 200);
-        }
         for (let dvtix = 0; dvtix < _dupeIDList.length; dvtix++) {
             if (venue.attributes.id === _dupeIDList[dvtix]) { // If the user selects a place in the dupe list, don't clear the labels yet
                 return;
@@ -7287,7 +7285,6 @@ function initWmephTab() {
         initSettingsCheckbox('WMEPH-AddAddresses');
         initSettingsCheckbox('WMEPH-EnableCloneMode');
         initSettingsCheckbox('WMEPH-AutoLockRPPs');
-        initSettingsCheckbox('WMEPH-AutoRunOnSelect');
     }
     initSettingsCheckbox('WMEPH-ColorHighlighting');
     initSettingsCheckbox('WMEPH-DisableHoursHL');
@@ -7368,7 +7365,6 @@ function addWmephTab() {
         createSettingsCheckbox($harmonizerTab, 'WMEPH-AddAddresses', 'Add detected address fields to places with no address');
         createSettingsCheckbox($harmonizerTab, 'WMEPH-EnableCloneMode', 'Enable place cloning tools');
         createSettingsCheckbox($harmonizerTab, 'WMEPH-AutoLockRPPs', 'Lock residential place points to region default');
-        createSettingsCheckbox($harmonizerTab, 'WMEPH-AutoRunOnSelect', 'Automatically run the script when selecting a place');
     }
 
     $harmonizerTab.append('<hr class="wmeph-hr" align="center" width="100%">');
@@ -7753,13 +7749,6 @@ function placeHarmonizerInit() {
     _SHORTCUT.add('Control+Alt+h', () => {
         $('#WMEPH-ColorHighlighting').trigger('click');
     });
-
-    // Add Autorun shortcut
-    if (_USER.name === 'bmtg') {
-        _SHORTCUT.add('Control+Alt+u', () => {
-            $('#WMEPH-AutoRunOnSelect').trigger('click');
-        });
-    }
 
     addWmephTab(); // initialize the settings tab
 
