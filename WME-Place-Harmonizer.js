@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name        WME Place Harmonizer Beta
 // @namespace   WazeUSA
-// @version     1.3.146
+// @version     2019.05.23.001
 // @description Harmonizes, formats, and locks a selected place
 // @author      WMEPH Development Group
 // @include     /^https:\/\/(www|beta)\.waze\.com\/(?!user\/)(.{2,6}\/)?editor\/?.*$/
@@ -12,39 +12,29 @@
 // @grant       GM_addStyle
 // ==/UserScript==
 
-/* global I18n */
 /* global $ */
 /* global W */
 /* global GM_info */
-/* global require */
-/* global performance */
 /* global OL */
 /* global _ */
-/* global Node */
 /* global WazeWrap */
-/* global unsafeWindow */
 /* global LZString */
-/* global Promise */
-/* global window */
-/* global MutationObserver */
-/* global document */
-/* global localStorage */
-/* global alert */
-/* global confirm */
 /* global HoursParser */
 /* global GM_addStyle */
+/* global unsafeWindow */
+/* global I18n */
 
 // Script update info
 const _WHATS_NEW_LIST = [ // New in this version
+    '2019.05.23.001: Don\'t display WMEPH buttons when multiple places are selected.',
+    '2019.05.23.001: A lot of code maintenance/cleanup',
+    '2019.05.23.001: New version # format :)',
     '1.3.146: FIXED: Moderator table mistakes, and updated its layout to be more compact.',
     '1.3.145: NEW: Added a Moderators tab so people can bug moderators more, and me less :D',
     '1.3.143: FIXED: HN entry field in WMEPH banner was not working. Replaced with "Edit Address" button.',
     '1.3.143: FIXED: Adding external provider from WMEPH banner would sometimes go to the Category box.',
     '1.3.142: FIXED: The "Nudge" buttons do not work in some cases.  After saving, the place is not nudged.',
     '1.3.141: FIXED: WMEPH will not run on places where it finds potential duplicate places.',
-    '1.3.138: NEW: Added "ramp" to list of recognized words for parking lots.',
-    '1.3.138: FIXED: "Is this a doctor/clinic" flag will only display if Office or Personal Care place was last edited before 3/28/2017',
-    '1.3.138: FIXED: Removed feature that would hide suggested category buttons for Shopping / Services (feature is now in PIE).'
 ];
 const _CSS_ARRAY = [
     '#WMEPH_banner .wmeph-btn { background-color: #fbfbfb; box-shadow: 0 2px 0 #aaa; border: solid 1px #bbb; font-weight:normal; margin-bottom: 2px; margin-right:4px}',
@@ -1554,7 +1544,7 @@ function normalizePhone(s, outputFormat, returnType, item, region) {
             return s;
         }
     }
-    return String.plFormat(outputFormat, m[1], m[2], m[3]);
+    return phoneFormat(outputFormat, m[1], m[2], m[3]);
 }
 
 // Alphanumeric phone conversion
@@ -7037,6 +7027,11 @@ function removeSFAliases(nName, nAliases) {
     return newAliasesUpdate;
 }
 
+// used for phone reformatting
+function phoneFormat(format, ...rest) {
+    return format.replace(/{(\d+)}/g, (name, number) => (typeof rest[number] !== 'undefined' ? rest[number] : null));
+}
+
 function initSettingsCheckbox(settingID) {
     // Associate click event of new checkbox to call saveSettingToLocalStorage with proper ID
     $(`#${settingID}`).click(() => { saveSettingToLocalStorage(settingID); });
@@ -7562,10 +7557,10 @@ function blurAll() {
 function getCurrentPL() {
     // Return the current PL
 
-    // 5/22/2019 (mapomatic) 
+    // 5/22/2019 (mapomatic)
     // I'm not sure what this was supposed to do.  Maybe an attempt to wait until the PL
     // was available when loading WME from PL with a place pre-selected and auto-run WMEPH
-    // is turned on?  Whatever the purpose was, it won't work properly because it'll return 
+    // is turned on?  Whatever the purpose was, it won't work properly because it'll return
     // undefined, and the calling code is expecting a value.
 
     // if ($('.WazeControlPermalink').length === 0) {
@@ -7604,22 +7599,20 @@ function newForumPost(url, data) {
     form.action = url;
     form.method = 'post';
     form.style.display = 'none';
-    for (const k in data) {
-        if (data.hasOwnProperty(k)) {
-            var input;
-            if (k === 'message') {
-                input = document.createElement('textarea');
-            } else if (k === 'username') {
-                input = document.createElement('username_list');
-            } else {
-                input = document.createElement('input');
-            }
-            input.name = k;
-            input.value = data[k];
-            //input.type = 'hidden'; // 2018-07/10 (mapomatic) Not sure if this is required, but was causing an error when setting on the textarea object.
-            form.appendChild(input);
+    Object.keys(data).forEach(k => {
+        let input;
+        if (k === 'message') {
+            input = document.createElement('textarea');
+        } else if (k === 'username') {
+            input = document.createElement('username_list');
+        } else {
+            input = document.createElement('input');
         }
-    }
+        input.name = k;
+        input.value = data[k];
+        // input.type = 'hidden'; // 2018-07/10 (mapomatic) Not sure if this is required, but was causing an error when setting on the textarea object.
+        form.appendChild(input);
+    });
     document.getElementById('WMEPH_formDiv').appendChild(form);
     form.submit();
     document.getElementById('WMEPH_formDiv').removeChild(form);
@@ -7627,24 +7620,21 @@ function newForumPost(url, data) {
 } // END newForumPost function
 
 /**
-     * Updates the geometry of a place.
-     * @param place {Waze venue object} The place to update.
-     * @param newGeometry {OL.Geometry} The new geometry for the place.
-     */
+ * Updates the geometry of a place.
+ * @param place {Waze venue object} The place to update.
+ * @param newGeometry {OL.Geometry} The new geometry for the place.
+ */
 function updateFeatureGeometry(place, newGeometry) {
-    let oldGeometry,
-        model = W.model.venues,
-        wmeUpdateFeatureGeometry = require('Waze/Action/UpdateFeatureGeometry');
-    if (place && place.CLASS_NAME === 'Waze.Feature.Vector.Landmark' &&
-        newGeometry && (newGeometry instanceof OL.Geometry.Point ||
-            newGeometry instanceof OL.Geometry.Polygon)) {
+    let oldGeometry;
+    const model = W.model.venues;
+    if (place && place.CLASS_NAME === 'Waze.Feature.Vector.Landmark' && newGeometry && (newGeometry instanceof OL.Geometry.Point
+        || newGeometry instanceof OL.Geometry.Polygon)) {
         oldGeometry = place.attributes.geometry;
-        W.model.actionManager.add(
-            new wmeUpdateFeatureGeometry(place, model, oldGeometry, newGeometry));
+        W.model.actionManager.add(new UpdateFeatureGeometry(place, model, oldGeometry, newGeometry));
     }
 }
 
-function placeHarmonizer_init() {
+function placeHarmonizerInit() {
     _layer = W.map.landmarkLayer;
 
     // Add CSS stuff here
@@ -7658,12 +7648,10 @@ function placeHarmonizer_init() {
     unsafeWindow.PNH_DATA = _PNH_DATA;
 
     // Append a form div for submitting to the forum, if it doesn't exist yet:
-    //if ($('#WMEPH_formDiv').length === 0) {
     const tempDiv = document.createElement('div');
     tempDiv.id = 'WMEPH_formDiv';
     tempDiv.style.display = 'none';
     $('body').append(tempDiv);
-    //}
 
     _USER.ref = W.loginManager.user;
     _USER.name = _USER.ref.userName;
@@ -7671,9 +7659,10 @@ function placeHarmonizer_init() {
     _userLanguage = I18n.locale;
 
     // Array prototype extensions (for Firefox fix)
-    Array.prototype.toSet = function () { return this.reduce(function (e, t) { return e[t] = !0, e; }, {}); };
-    Array.prototype.first = function () { return this[0]; };
-    Array.prototype.isEmpty = function () { return 0 === this.length; };
+    // 5/22/2019 (mapomatic) I'm guessing these aren't necessary anymore.  If no one reports any errors after a while, these lines may be deleted.
+    // Array.prototype.toSet = function () { return this.reduce(function (e, t) { return e[t] = !0, e; }, {}); };
+    // Array.prototype.first = function () { return this[0]; };
+    // Array.prototype.isEmpty = function () { return 0 === this.length; };
 
     appendServiceButtonIconCss();
     _UPDATED_FIELDS.init();
@@ -7684,9 +7673,20 @@ function placeHarmonizer_init() {
     if (!_dupeLayer) {
         const lname = 'WMEPH Duplicate Names';
         const style = new OL.Style({
-            label: '${labelText}', labelOutlineColor: '#333', labelOutlineWidth: 3, labelAlign: '${labelAlign}',
-            fontColor: '${fontColor}', fontOpacity: 1.0, fontSize: '20px', labelYOffset: -30, labelXOffset: 0, fontWeight: 'bold',
-            fill: false, strokeColor: '${strokeColor}', strokeWidth: 10, pointRadius: '${pointRadius}'
+            label: '${labelText}',
+            labelOutlineColor: '#333',
+            labelOutlineWidth: 3,
+            labelAlign: '${labelAlign}',
+            fontColor: '${fontColor}',
+            fontOpacity: 1.0,
+            fontSize: '20px',
+            fontWeight: 'bold',
+            labelYOffset: -30,
+            labelXOffset: 0,
+            fill: false,
+            strokeColor: '${strokeColor}',
+            strokeWidth: 10,
+            pointRadius: '${pointRadius}'
         });
         _dupeLayer = new OL.Layer.Vector(lname, { displayInLayerSwitcher: false, uniqueName: '__DuplicatePlaceNames', styleMap: new OL.StyleMap(style) });
         _dupeLayer.setVisibility(false);
@@ -7699,7 +7699,7 @@ function placeHarmonizer_init() {
 
     createObserver();
 
-    const xrayMode = localStorage.getItem('WMEPH_xrayMode_enabled') === 'true' ? true : false;
+    const xrayMode = localStorage.getItem('WMEPH_xrayMode_enabled') === 'true';
     WazeWrap.Interface.AddLayerCheckbox('Display', 'WMEPH x-ray mode', xrayMode, toggleXrayMode);
     if (xrayMode) setTimeout(() => toggleXrayMode(true), 2000); // Give other layers time to load before enabling.
 
@@ -7720,7 +7720,11 @@ function placeHarmonizer_init() {
     }
 
     if (_USER.name === 'ggrane') {
-        _searchResultsWindowSpecs = `"resizable=yes, top=${Math.round(window.screen.height * 0.1)}, left=${Math.round(window.screen.width * 0.3)}, width=${Math.round(window.screen.width * 0.86)}, height=${Math.round(window.screen.height * 0.8)}"`;
+        _searchResultsWindowSpecs = `"resizable=yes, top=${
+            Math.round(window.screen.height * 0.1)}, left=${
+            Math.round(window.screen.width * 0.3)}, width=${
+            Math.round(window.screen.width * 0.86)}, height=${
+            Math.round(window.screen.height * 0.8)}"`;
     }
 
     // Settings setup
@@ -7736,16 +7740,16 @@ function placeHarmonizer_init() {
     }));
 
     // Add zoom shortcut
-    _SHORTCUT.add('Control+Alt+Z', () => zoomPlace());
+    _SHORTCUT.add('Control+Alt+Z', zoomPlace);
 
     // Add Color Highlighting shortcut
-    _SHORTCUT.add('Control+Alt+h', function () {
+    _SHORTCUT.add('Control+Alt+h', () => {
         $('#WMEPH-ColorHighlighting').trigger('click');
     });
 
     // Add Autorun shortcut
     if (_USER.name === 'bmtg') {
-        _SHORTCUT.add('Control+Alt+u', function () {
+        _SHORTCUT.add('Control+Alt+u', () => {
             $('#WMEPH-AutoRunOnSelect').trigger('click');
         });
     }
@@ -7771,7 +7775,7 @@ function placeHarmonizer_init() {
         phlogdev(`Removed ${removedWLCount} venues with temporary ID's from WL store`);
     }
 
-    if (_wmephBetaList.length === 0 || 'undefined' === typeof _wmephBetaList) {
+    if (!_wmephBetaList || _wmephBetaList.length === 0) {
         if (_IS_DEV_VERSION) {
             alert('Beta user list access issue.  Please post in the GHO or PM/DM MapOMatic about this message.  Script should still work.');
         }
@@ -7795,8 +7799,8 @@ function placeHarmonizer_init() {
     _psRegionIx = _stateHeaders.indexOf('ps_region');
     _psGoogleFormStateIx = _stateHeaders.indexOf('ps_gFormState');
     _psDefaultLockLevelIx = _stateHeaders.indexOf('ps_defaultLockLevel');
-    //ps_requirePhone_ix = _stateHeaders.indexOf('ps_requirePhone');
-    //ps_requireURL_ix = _stateHeaders.indexOf('ps_requireURL');
+    // ps_requirePhone_ix = _stateHeaders.indexOf('ps_requirePhone');
+    // ps_requireURL_ix = _stateHeaders.indexOf('ps_requireURL');
     _psAreaCodeIx = _stateHeaders.indexOf('ps_areacode');
 
     // Set up Run WMEPH button once place is selected
@@ -7804,16 +7808,6 @@ function placeHarmonizer_init() {
 
     // Setup highlight colors
     initializeHighlights();
-
-    // used for phone reformatting
-    if (!String.plFormat) {
-        String.plFormat = function (format) {
-            const args = Array.prototype.slice.call(arguments, 1);
-            return format.replace(/{(\d+)}/g, function (name, number) {
-                return typeof args[number] !== 'undefined' ? args[number] : null;
-            });
-        };
-    }
 
     W.model.venues.on('objectschanged', () => errorHandler(() => {
         if ($('#WMEPH_banner').length > 0) {
@@ -7826,25 +7820,13 @@ function placeHarmonizer_init() {
     bootstrapWmephColorHighlights();
 } // END placeHarmonizer_init function
 
-function placeHarmonizer_bootstrap() {
+function placeHarmonizerBootstrap() {
     if (W && W.loginManager && W.loginManager.user && W.map && WazeWrap && WazeWrap.Ready && W.model.venues.categoryBrands.PARKING_LOT) {
-        placeHarmonizer_init();
+        placeHarmonizerInit();
     } else {
         phlog('Waiting for WME map and login...');
-        setTimeout(function () { placeHarmonizer_bootstrap(); }, 200);
+        setTimeout(placeHarmonizerBootstrap, 200);
     }
-}
-
-function callAjaxAsync(url) {
-    return new Promise((resolve, reject) => {
-        $.ajax({
-            type: 'GET',
-            url: url,
-            jsonp: 'callback', data: { alt: 'json-in-script' }, dataType: 'jsonp',
-            success: resolve,
-            error: reject
-        });
-    });
 }
 
 const SPREADSHEET_ID = '1pBz4l4cNapyGyzfMJKqA4ePEFLkmz2RryAt1UV39B4g';
@@ -7854,8 +7836,8 @@ const API_KEY = 'YTJWNVBVRkplbUZUZVVObU1YVXpSRVZ3ZW5OaFRFSk1SbTR4VGxKblRURjJlRTF
 function downloadPnhData() {
     const dec = s => atob(atob(s));
     const getSpreadsheetUrl = (id, range, key) => `https://sheets.googleapis.com/v4/spreadsheets/${id}/values/${range}?${dec(key)}`;
-    const processData = (response, fieldName) => response.feed.entry.map(entry => entry[fieldName].$t);
-    //TODO change the _PNH_DATA cache to use an object so we don't have to rely on ugly array index lookups.
+
+    // TODO change the _PNH_DATA cache to use an object so we don't have to rely on ugly array index lookups.
     const processData1 = (data, colIdx) => data.filter(row => row.length >= colIdx + 1).map(row => row[colIdx]);
 
     $.getJSON(getSpreadsheetUrl(SPREADSHEET_ID, SPREADSHEET_RANGE, API_KEY)).done(res => {
@@ -7887,10 +7869,10 @@ function downloadPnhData() {
         const betaix = WMEPHuserList.indexOf('BETAUSERS');
         _wmephDevList = [];
         _wmephBetaList = [];
-        for (var ulix = 1; ulix < betaix; ulix++) _wmephDevList.push(WMEPHuserList[ulix].toLowerCase().trim());
-        for (ulix = betaix + 1; ulix < WMEPHuserList.length; ulix++) _wmephBetaList.push(WMEPHuserList[ulix].toLowerCase().trim());
+        for (let ulix = 1; ulix < betaix; ulix++) _wmephDevList.push(WMEPHuserList[ulix].toLowerCase().trim());
+        for (let ulix = betaix + 1; ulix < WMEPHuserList.length; ulix++) _wmephBetaList.push(WMEPHuserList[ulix].toLowerCase().trim());
 
-        const processTermsCell = (values, colIdx) => processData1(values, colIdx)[1]
+        const processTermsCell = (termsValues, colIdx) => processData1(termsValues, colIdx)[1]
             .toLowerCase().split('|').map(value => value.trim());
         _hospitalPartMatch = processTermsCell(values, 5);
         _hospitalFullMatch = processTermsCell(values, 6);
@@ -7899,7 +7881,7 @@ function downloadPnhData() {
         _schoolPartMatch = processTermsCell(values, 9);
         _schoolFullMatch = processTermsCell(values, 10);
 
-        placeHarmonizer_bootstrap();
+        placeHarmonizerBootstrap();
     }).fail(res => {
         const message = res.responseJSON && res.responseJSON.error ? res.responseJSON.error : 'See response error message above.';
         console.error('WMEPH failed to load spreadsheet:', message);
@@ -7911,10 +7893,8 @@ function bootstrap() {
     if (unsafeWindow.wmephRunning) {
         alert('Multiple versions of Place Harmonizer are turned on.  Only one will be enabled.');
         return;
-    } else {
-        unsafeWindow.wmephRunning = 1;
     }
-
+    unsafeWindow.wmephRunning = 1;
     // Start downloading the PNH spreadsheet data in the background.  Starts the script once data is ready.
     downloadPnhData();
 }
