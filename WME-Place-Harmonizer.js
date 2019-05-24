@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name        WME Place Harmonizer Beta
 // @namespace   WazeUSA
-// @version     2019.05.23.001
+// @version     2019.05.24.001
 // @description Harmonizes, formats, and locks a selected place
 // @author      WMEPH Development Group
 // @include     /^https:\/\/(www|beta)\.waze\.com\/(?!user\/)(.{2,6}\/)?editor\/?.*$/
@@ -26,6 +26,7 @@
 
 // Script update info
 const _WHATS_NEW_LIST = [ // New in this version
+    '2019.05.24.001: Loosen requirements for Scenic Overlook category.',
     '2019.05.23.001: Don\'t display WMEPH buttons when multiple places are selected.',
     '2019.05.23.001: A lot of code maintenance/cleanup',
     '2019.05.23.001: New version # format :)',
@@ -34,7 +35,7 @@ const _WHATS_NEW_LIST = [ // New in this version
     '1.3.143: FIXED: HN entry field in WMEPH banner was not working. Replaced with "Edit Address" button.',
     '1.3.143: FIXED: Adding external provider from WMEPH banner would sometimes go to the Category box.',
     '1.3.142: FIXED: The "Nudge" buttons do not work in some cases.  After saving, the place is not nudged.',
-    '1.3.141: FIXED: WMEPH will not run on places where it finds potential duplicate places.',
+    '1.3.141: FIXED: WMEPH will not run on places where it finds potential duplicate places.'
 ];
 const _CSS_ARRAY = [
     '#WMEPH_banner .wmeph-btn { background-color: #fbfbfb; box-shadow: 0 2px 0 #aaa; border: solid 1px #bbb; font-weight:normal; margin-bottom: 2px; margin-right:4px}',
@@ -4760,12 +4761,13 @@ function harmonizePlaceGo(item, useFlag, actions) {
         // Check for missing hours field
         if (item.attributes.openingHours.length === 0) { // if no hours...
             if (!containsAny(_newCategories, ['STADIUM_ARENA', 'CEMETERY', 'TRANSPORTATION', 'FERRY_PIER', 'SUBWAY_STATION',
-                'BRIDGE', 'TUNNEL', 'JUNCTION_INTERCHANGE', 'ISLAND', 'SEA_LAKE_POOL', 'RIVER_STREAM', 'FOREST_GROVE', 'CANAL', 'SWAMP_MARSH', 'DAM'])) {
+                'BRIDGE', 'TUNNEL', 'JUNCTION_INTERCHANGE', 'ISLAND', 'SEA_LAKE_POOL', 'RIVER_STREAM', 'FOREST_GROVE', 'CANAL',
+                'SWAMP_MARSH', 'DAM'])) {
                 _buttonBanner.noHours = new Flag.NoHours();
                 if (_wl.noHours || $('#WMEPH-DisableHoursHL').prop('checked') || containsAny(_newCategories, ['SCHOOL', 'CONVENTIONS_EVENT_CENTER',
                     'CAMPING_TRAILER_PARK', 'COTTAGE_CABIN', 'COLLEGE_UNIVERSITY', 'GOLF_COURSE', 'SPORTS_COURT', 'MOVIE_THEATER',
                     'SHOPPING_CENTER', 'RELIGIOUS_CENTER', 'PARKING_LOT', 'PARK', 'PLAYGROUND', 'AIRPORT', 'FIRE_DEPARTMENT', 'POLICE_STATION',
-                    'SEAPORT_MARINA_HARBOR', 'FARM'])) {
+                    'SEAPORT_MARINA_HARBOR', 'FARM', 'SCENIC_LOOKOUT_VIEWPOINT'])) {
                     _buttonBanner.noHours.WLactive = false;
                     _buttonBanner.noHours.severity = 0;
                 }
@@ -5017,8 +5019,9 @@ function harmonizePlaceGo(item, useFlag, actions) {
     if (hasStreet && (!currentHN || currentHN.replace(/\D/g, '').length === 0)) {
         if (!'BRIDGE|ISLAND|FOREST_GROVE|SEA_LAKE_POOL|RIVER_STREAM|CANAL|DAM|TUNNEL|JUNCTION_INTERCHANGE'.split('|').includes(item.attributes.categories[0])) {
             _buttonBanner.hnMissing = new Flag.HnMissing(item);
-            if (state2L === 'PR') {
+            if (state2L === 'PR' || ['SCENIC_LOOKOUT_VIEWPOINT'].includes(item.attributes.categories[0])) {
                 _buttonBanner.hnMissing.severity = 0;
+                _buttonBanner.hnMissing.WLactive = false;
             } else if (item.isParkingLot()) {
                 _buttonBanner.hnMissing.WLactive = false;
                 if (item.attributes.lockRank < 2) {
@@ -5094,7 +5097,11 @@ function harmonizePlaceGo(item, useFlag, actions) {
     if (addr.city && (!addr.street || addr.street.isEmpty)
         && !'BRIDGE|ISLAND|FOREST_GROVE|SEA_LAKE_POOL|RIVER_STREAM|CANAL|DAM|TUNNEL|JUNCTION_INTERCHANGE'.split('|').includes(item.attributes.categories[0])) {
         _buttonBanner.streetMissing = new Flag.StreetMissing();
-        lockOK = false;
+        if (['SCENIC_LOOKOUT_VIEWPOINT'].includes(item.attributes.categories[0])) {
+            _buttonBanner.streetMissing.severity = 1;
+        } else {
+            lockOK = false;
+        }
     }
 
     // CATEGORY vs. NAME checks
@@ -5194,7 +5201,7 @@ function harmonizePlaceGo(item, useFlag, actions) {
             _buttonBanner.urlMissing.severity = 0;
             _buttonBanner.urlMissing.WLactive = false;
         }
-    } else if (['ISLAND', 'SEA_LAKE_POOL', 'RIVER_STREAM', 'CANAL', 'JUNCTION_INTERCHANGE'].includes(item.attributes.categories[0])) {
+    } else if (['ISLAND', 'SEA_LAKE_POOL', 'RIVER_STREAM', 'CANAL', 'JUNCTION_INTERCHANGE', 'SCENIC_LOOKOUT_VIEWPOINT'].includes(item.attributes.categories[0])) {
         // Some cats don't need PNH messages and url/phone messages
         _buttonBanner.NewPlaceSubmit = null;
         _buttonBanner.phoneMissing = null;
