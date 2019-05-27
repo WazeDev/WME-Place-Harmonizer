@@ -677,7 +677,7 @@ function makeNameCheckList(pnhData) {
             if (splits[disableIdx] !== 'altName') {
                 // Add any aliases
                 const tempAliases = splits[aliasesIdx];
-                if (tempAliases !== '' && tempAliases !== '0' && tempAliases !== '') {
+                if (!isNullOrWhitespace(tempAliases)) {
                     newNameList = newNameList.concat(tempAliases.replace(/,[^A-Za-z0-9]*/g, ',').split(',').map(alias => tighten(alias)));
                 }
             }
@@ -688,11 +688,11 @@ function makeNameCheckList(pnhData) {
             // Multiple M terms are applied singly and in pairs (B1M2M1E2).  Multiple B and E terms are applied singly (e.g B1B2M1 not used).
             // Any doubles like B1E2=P are purged at the end to eliminate redundancy.
             const nameBaseStr = splits[searchNameBaseIdx];
-            if (nameBaseStr !== '0' && nameBaseStr !== '') { // If base terms exist, otherwise only the primary name is matched
+            if (!isNullOrWhitespace(nameBaseStr)) { // If base terms exist, otherwise only the primary name is matched
                 newNameList = newNameList.concat(stripNonAlphaKeepCommas(nameBaseStr).split(','));
 
                 const nameMidStr = splits[searchNameMidIdx];
-                if (nameMidStr !== '0' && nameMidStr !== '') {
+                if (!isNullOrWhitespace(nameMidStr)) {
                     let pnhSearchNameMid = stripNonAlphaKeepCommas(nameMidStr).split(',');
                     if (pnhSearchNameMid.length > 1) { // if there are more than one mid terms, it adds a permutation of the first 2
                         pnhSearchNameMid = pnhSearchNameMid.concat([pnhSearchNameMid[0] + pnhSearchNameMid[1], pnhSearchNameMid[1] + pnhSearchNameMid[0]]);
@@ -706,7 +706,7 @@ function makeNameCheckList(pnhData) {
                 }
 
                 const nameEndStr = splits[searchNameEndIdx];
-                if (nameEndStr !== '0' && nameEndStr !== '') {
+                if (!isNullOrWhitespace(nameEndStr)) {
                     const pnhSearchNameEnd = stripNonAlphaKeepCommas(nameEndStr).split(',');
                     const endLen = pnhSearchNameEnd.length;
                     // extend the list by adding End terms onto all the SearchNameBase & Base+Mid names
@@ -2458,7 +2458,7 @@ let Flag = {
 
         static eval(message, categories, hpMode) {
             const result = { flag: null };
-            if (hpMode.harmFlag && message && message !== '0' && message.trim().length) {
+            if (hpMode.harmFlag && !isNullOrWhitespace(message)) {
                 result.flag = new Flag.PnhCatMess(message);
                 if (categories.includes('HOSPITAL_URGENT_CARE')) {
                     result.flag.value = 'Change to Doctor/Clinic';
@@ -4208,7 +4208,7 @@ function harmonizePlaceGo(item, useFlag, actions) {
             let localURLcheck = '';
             if (phSpecCaseIdx > -1) { // If the special cases column exists
                 specCases = pnhMatchData[phSpecCaseIdx]; // pulls the speccases field from the PNH line
-                if (specCases !== '0' && specCases !== '') {
+                if (!isNullOrWhitespace(specCases)) {
                     specCases = specCases.replace(/, /g, ',').split(','); // remove spaces after commas and split by comma
                 }
                 for (let scix = 0; scix < specCases.length; scix++) {
@@ -4217,6 +4217,7 @@ function harmonizePlaceGo(item, useFlag, actions) {
                     let match;
 
                     /* eslint-disable no-cond-assign */
+
                     // find any button/message flags in the special case (format: buttOn_xyzXyz, etc.)
                     if (match = specCase.match(/^buttOn_(.+)/i)) {
                         [, scFlag] = match;
@@ -4291,7 +4292,7 @@ function harmonizePlaceGo(item, useFlag, actions) {
 
                     // Check Localization
                     let displayNote;
-                    if (phDisplayNoteIdx > -1 && pnhMatchData[phDisplayNoteIdx] !== '0' && pnhMatchData[phDisplayNoteIdx].trim().length) {
+                    if (phDisplayNoteIdx > -1 && !isNullOrWhitespace(pnhMatchData[phDisplayNoteIdx])) {
                         displayNote = pnhMatchData[phDisplayNoteIdx];
                     }
                     result = Flag.LocalizedName.eval(_newName, newNameSuffix, specCase, displayNote);
@@ -4303,21 +4304,6 @@ function harmonizePlaceGo(item, useFlag, actions) {
                         _buttonBanner.localizedName = result.flag;
                     }
 
-                    // if (match = specCase.match(/^checkLocalization<>(.+)/i)) {
-                    //     updatePNHName = false;
-                    //     const [, baseName] = specCase.match(/^checkLocalization<>(.+)/i);
-                    //     const baseNameRE = new RegExp(baseName, 'g');
-                    //     if ((_newName + (newNameSuffix || '')).match(baseNameRE) === null) {
-                    //         _buttonBanner.localizedName = new Flag.LocalizedName();
-                    //         if (_wl.localizedName) {
-                    //             _buttonBanner.localizedName.WLactive = false;
-                    //         }
-                    //         if (phDisplayNoteIdx > -1 && pnhMatchData[phDisplayNoteIdx] !== '0' && pnhMatchData[phDisplayNoteIdx] !== '') {
-                    //             _buttonBanner.localizedName.message = pnhMatchData[phDisplayNoteIdx];
-                    //         }
-                    //     }
-                    //     showDispNote = false;
-                    // }
                     /* eslint-enable no-cond-assign */
 
                     // Prevent name change
@@ -4336,7 +4322,7 @@ function harmonizePlaceGo(item, useFlag, actions) {
             }
 
             // Display any notes for the specific place
-            if (showDispNote && phDisplayNoteIdx > -1 && pnhMatchData[phDisplayNoteIdx] !== '0' && pnhMatchData[phDisplayNoteIdx] !== '') {
+            if (showDispNote && phDisplayNoteIdx > -1 && !isNullOrWhitespace(pnhMatchData[phDisplayNoteIdx])) {
                 if (containsAny(specCases, ['pharmhours'])) {
                     if (!item.attributes.description.toUpperCase().includes('PHARMACY') || (!item.attributes.description.toUpperCase().includes('HOURS')
                         && !item.attributes.description.toUpperCase().includes('HRS'))) {
@@ -4362,7 +4348,7 @@ function harmonizePlaceGo(item, useFlag, actions) {
             _customStoreFinder = false;
             _customStoreFinderURL = '';
             if (phStoreFinderUrlIdx > -1) { // if the sfurl column exists...
-                if (phStoreFinderUrlLocalIdx > -1 && pnhMatchData[phStoreFinderUrlLocalIdx] !== '' && pnhMatchData[phStoreFinderUrlLocalIdx] !== '0') {
+                if (phStoreFinderUrlLocalIdx > -1 && !isNullOrWhitespace(pnhMatchData[phStoreFinderUrlLocalIdx])) {
                     if (!_buttonBanner.localizedName) {
                         _buttonBanner.PlaceWebsite = new Flag.PlaceWebsite();
                         _buttonBanner.PlaceWebsite.value = 'Location Finder (L)';
@@ -4430,7 +4416,7 @@ function harmonizePlaceGo(item, useFlag, actions) {
                         _customStoreFinderLocalURL = `http://${_customStoreFinderLocalURL}`;
                     }
                     _customStoreFinderLocal = true;
-                } else if (pnhMatchData[phStoreFinderUrlIdx] !== '' && pnhMatchData[phStoreFinderUrlIdx] !== '0') {
+                } else if (!isNullOrWhitespace(pnhMatchData[phStoreFinderUrlIdx])) {
                     if (!_buttonBanner.localizedName) {
                         _buttonBanner.PlaceWebsite = new Flag.PlaceWebsite();
                     }
@@ -4444,7 +4430,7 @@ function harmonizePlaceGo(item, useFlag, actions) {
 
             // Category translations
             let altCategories = pnhMatchData[phCategory2Idx];
-            if (altCategories !== '0' && altCategories !== '') { //  translate alt-cats to WME code
+            if (!isNullOrWhitespace(altCategories)) { //  translate alt-cats to WME code
                 altCategories = altCategories.replace(/,[^A-Za-z0-9]*/g, ',').split(','); // tighten and split by comma
                 for (let catix = 0; catix < altCategories.length; catix++) {
                     const newAltTemp = catTranslate(altCategories[catix]); // translate altCats into WME cat codes
@@ -4476,7 +4462,7 @@ function harmonizePlaceGo(item, useFlag, actions) {
                         _newName = pnhMatchData[phNameIdx];
                     }
                 }
-                if (altCategories !== '0' && altCategories !== '') { // if PNH alts exist
+                if (!isNullOrWhitespace(altCategories)) { // if PNH alts exist
                     insertAtIX(_newCategories, altCategories, 1); //  then insert the alts into the existing category array after the GS category
                 }
                 if (_newCategories.indexOf('HOTEL') !== 0) { // If no HOTEL category in the primary, flag it
@@ -4545,7 +4531,7 @@ function harmonizePlaceGo(item, useFlag, actions) {
                     _buttonBanner.bankCorporate = new Flag.BankCorporate();
                 }// END PNH bank treatment
             } else if (['GAS_STATION'].includes(priPNHPlaceCat)) { // for PNH gas stations, don't replace existing sub-categories
-                if (altCategories !== '0' && altCategories !== '') { // if PNH alts exist
+                if (!isNullOrWhitespace(altCategories)) { // if PNH alts exist
                     insertAtIX(_newCategories, altCategories, 1); //  then insert the alts into the existing category array after the GS category
                 }
                 if (_newCategories.indexOf('GAS_STATION') !== 0) { // If no GS category in the primary, flag it
@@ -4557,7 +4543,7 @@ function harmonizePlaceGo(item, useFlag, actions) {
             } else if (updatePNHName) { // if not a special category then update the name
                 _newName = pnhMatchData[phNameIdx];
                 _newCategories = insertAtIX(_newCategories, priPNHPlaceCat, 0);
-                if (altCategories !== '0' && altCategories !== '' && !specCases.includes('buttOn_addCat2') && !specCases.includes('optionCat2')) {
+                if (!isNullOrWhitespace(altCategories) && !specCases.includes('buttOn_addCat2') && !specCases.includes('optionCat2')) {
                     _newCategories = insertAtIX(_newCategories, altCategories, 1);
                 }
             } else if (!updatePNHName) {
@@ -4593,12 +4579,12 @@ function harmonizePlaceGo(item, useFlag, actions) {
             }
             // Parse PNH Aliases
             [_newAliasesTemp] = pnhMatchData[phAliasesIdx].match(/([^(]*)/i);
-            if (_newAliasesTemp !== '0' && _newAliasesTemp !== '') { // make aliases array
+            if (!isNullOrWhitespace(_newAliasesTemp)) { // make aliases array
                 _newAliasesTemp = _newAliasesTemp.replace(/,[^A-za-z0-9]*/g, ','); // tighten up commas if more than one alias.
                 _newAliasesTemp = _newAliasesTemp.split(','); // split by comma
             }
             if (!specCases.includes('noUpdateAlias') && (!containsAll(_newAliases, _newAliasesTemp)
-                && _newAliasesTemp !== '0' && _newAliasesTemp !== '' && !specCases.includes('optionName2'))) {
+                && !isNullOrWhitespace(_newAliasesTemp) && !specCases.includes('optionName2'))) {
                 _newAliases = insertAtIX(_newAliases, _newAliasesTemp, 0);
             }
 
@@ -4636,7 +4622,7 @@ function harmonizePlaceGo(item, useFlag, actions) {
 
             // Description update
             newDescripion = pnhMatchData[phDescriptionIdx];
-            if (newDescripion !== null && newDescripion !== '0' && !item.attributes.description.toUpperCase().includes(newDescripion.toUpperCase())) {
+            if (!isNullOrWhitespace(newDescripion) && !item.attributes.description.toUpperCase().includes(newDescripion.toUpperCase())) {
                 if (item.attributes.description !== '' && item.attributes.description !== null && item.attributes.description !== ' ') {
                     _buttonBanner.checkDescription = new Flag.CheckDescription();
                 }
@@ -5053,7 +5039,7 @@ function harmonizePlaceGo(item, useFlag, actions) {
 
         // URL updating
         _updateURL = true;
-        if (_newURL !== item.attributes.url && _newURL !== '' && _newURL !== '0') {
+        if (_newURL !== item.attributes.url && !isNullOrWhitespace(_newURL)) {
             if (pnhNameRegMatch && item.attributes.url !== null && item.attributes.url !== '' && _newURL !== 'badURL') { // for cases where there is an existing URL in the WME place, and there is a PNH url on queue:
                 let newURLTemp = normalizeURL(_newURL, true, false, item); // normalize
                 const itemURL = normalizeURL(item.attributes.url, true, false, item);
