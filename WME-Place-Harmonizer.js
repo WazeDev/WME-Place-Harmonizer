@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name        WME Place Harmonizer Beta
 // @namespace   WazeUSA
-// @version     2019.05.24.001
+// @version     2019.05.28.001
 // @description Harmonizes, formats, and locks a selected place
 // @author      WMEPH Development Group
 // @include     /^https:\/\/(www|beta)\.waze\.com\/(?!user\/)(.{2,6}\/)?editor\/?.*$/
@@ -26,6 +26,9 @@
 
 // Script update info
 const _WHATS_NEW_LIST = { // New in this version
+    '2019.05.28.001': [
+        'Some code optimizations.'
+    ],
     '2019.05.24.001': [
         'Fix green highlighting of WMEPH-modified fields in the edit panel.',
         'Remove "auto-run on select" option.',
