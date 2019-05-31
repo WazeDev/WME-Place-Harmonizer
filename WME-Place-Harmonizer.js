@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name        WME Place Harmonizer Beta
 // @namespace   WazeUSA
-// @version     2019.05.28.001
+// @version     2019.05.31.001
 // @description Harmonizes, formats, and locks a selected place
 // @author      WMEPH Development Group
 // @include     /^https:\/\/(www|beta)\.waze\.com\/(?!user\/)(.{2,6}\/)?editor\/?.*$/
@@ -26,6 +26,9 @@
 
 // Script update info
 const _WHATS_NEW_LIST = { // New in this version
+    '2019.05.31.001': [
+        'Fixed an issue that was preventing WMEPH from running on some places.'
+    ],
     '2019.05.28.001': [
         'Some code optimizations.'
     ],
@@ -4433,7 +4436,7 @@ function harmonizePlaceGo(item, useFlag, actions) {
 
             // Category translations
             let altCategories = pnhMatchData[phCategory2Idx];
-            if (!isNullOrWhitespace(altCategories)) { //  translate alt-cats to WME code
+            if (altCategories && altCategories.length) { //  translate alt-cats to WME code
                 altCategories = altCategories.replace(/,[^A-Za-z0-9]*/g, ',').split(','); // tighten and split by comma
                 for (let catix = 0; catix < altCategories.length; catix++) {
                     const newAltTemp = catTranslate(altCategories[catix]); // translate altCats into WME cat codes
@@ -4465,7 +4468,7 @@ function harmonizePlaceGo(item, useFlag, actions) {
                         _newName = pnhMatchData[phNameIdx];
                     }
                 }
-                if (!isNullOrWhitespace(altCategories)) { // if PNH alts exist
+                if (altCategories && altCategories.length) { // if PNH alts exist
                     insertAtIX(_newCategories, altCategories, 1); //  then insert the alts into the existing category array after the GS category
                 }
                 if (_newCategories.indexOf('HOTEL') !== 0) { // If no HOTEL category in the primary, flag it
@@ -4534,7 +4537,7 @@ function harmonizePlaceGo(item, useFlag, actions) {
                     _buttonBanner.bankCorporate = new Flag.BankCorporate();
                 }// END PNH bank treatment
             } else if (['GAS_STATION'].includes(priPNHPlaceCat)) { // for PNH gas stations, don't replace existing sub-categories
-                if (!isNullOrWhitespace(altCategories)) { // if PNH alts exist
+                if (altCategories && altCategories.length) { // if PNH alts exist
                     insertAtIX(_newCategories, altCategories, 1); //  then insert the alts into the existing category array after the GS category
                 }
                 if (_newCategories.indexOf('GAS_STATION') !== 0) { // If no GS category in the primary, flag it
@@ -4546,7 +4549,7 @@ function harmonizePlaceGo(item, useFlag, actions) {
             } else if (updatePNHName) { // if not a special category then update the name
                 _newName = pnhMatchData[phNameIdx];
                 _newCategories = insertAtIX(_newCategories, priPNHPlaceCat, 0);
-                if (!isNullOrWhitespace(altCategories) && !specCases.includes('buttOn_addCat2') && !specCases.includes('optionCat2')) {
+                if (altCategories && altCategories.length && !specCases.includes('buttOn_addCat2') && !specCases.includes('optionCat2')) {
                     _newCategories = insertAtIX(_newCategories, altCategories, 1);
                 }
             } else if (!updatePNHName) {
@@ -4587,7 +4590,7 @@ function harmonizePlaceGo(item, useFlag, actions) {
                 _newAliasesTemp = _newAliasesTemp.split(','); // split by comma
             }
             if (!specCases.includes('noUpdateAlias') && (!containsAll(_newAliases, _newAliasesTemp)
-                && !isNullOrWhitespace(_newAliasesTemp) && !specCases.includes('optionName2'))) {
+                && _newAliasesTemp && _newAliasesTemp.length && !specCases.includes('optionName2'))) {
                 _newAliases = insertAtIX(_newAliases, _newAliasesTemp, 0);
             }
 
