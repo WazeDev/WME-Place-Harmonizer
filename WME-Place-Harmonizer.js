@@ -87,7 +87,6 @@ const _SCRIPT_NAME = GM_info.script.name;
 const _IS_DEV_VERSION = /Beta/i.test(_SCRIPT_NAME); //  enables dev messages and unique DOM options if the script is called "... Beta"
 const _DEV_VERSION_STR = _IS_DEV_VERSION ? 'Beta' : ''; // strings to differentiate DOM elements between regular and beta script
 const _PNH_DATA = { USA: {}, CAN: {} };
-const _CATEGORY_LOOKUP = {};
 const _DEFAULT_HOURS_TEXT = 'Paste Hours Here';
 const _MAX_CACHE_SIZE = 25000;
 let _wordVariations;
@@ -558,11 +557,11 @@ function isRestArea(venue) {
 function getPvaSeverity(pvaValue, venue) {
     const isER = pvaValue === 'hosp' && isEmergencyRoom(venue);
     let severity;
-    if (pvaValue === '' || pvaValue === '0' || (pvaValue === 'hosp' && !isER)) {
+    if (!pvaValue || (pvaValue === 'hosp' && !isER)) {
         severity = 3;
-    } else if (pvaValue === '2') {
+    } else if (pvaValue === 2) {
         severity = 1;
-    } else if (pvaValue === '3') {
+    } else if (pvaValue === 3) {
         severity = 2;
     } else {
         severity = 0;
@@ -623,22 +622,6 @@ function addPURWebSearchButton() {
         }
     }
 }
-
-// This function runs at script load, and splits the category dataset into the searchable categories.
-function makeCatCheckList(categoryData) {
-    const headers = categoryData[0].split('|');
-    const idIndex = headers.indexOf('pc_wmecat');
-    const nameIndex = headers.indexOf('pc_transcat');
-
-    return categoryData.map(entry => {
-        const splits = entry.split('|');
-        const id = splits[idIndex].trim();
-        if (id.length) {
-            _CATEGORY_LOOKUP[splits[nameIndex].trim().toUpperCase()] = id;
-        }
-        return id;
-    });
-} // END makeCatCheckList function
 
 function addSpellingVariants(nameList, spellingVariantList) {
     for (let spellingOneIdx = 0; spellingOneIdx < spellingVariantList.length; spellingOneIdx++) {
@@ -1010,7 +993,7 @@ function harmoList(itemName, state2L, region3L, country, itemCats, item, placePL
         if (PNHStringMatch) { // Compare WME place name to PNH search name list
             phlogdev(`Matched PNH Order No.: ${pnhEntrySplits[phOrderIdx]}`);
 
-            const PNHPriCat = catTranslate(pnhEntrySplits[phCategory1Idx]); // Primary category of PNH data
+            const PNHPriCat = _PNH_DATA[_countryCode].categories.getIdFromTranslatedName(pnhEntrySplits[phCategory1Idx]); // Primary category of PNH data
             let PNHForceCat = pnhEntrySplits[phForceCatIdx]; // Primary category of PNH data
 
             // Gas stations only harmonized if the WME place category is already gas station (prevents Costco Gas becoming Costco Store)
@@ -4194,7 +4177,7 @@ function harmonizePlaceGo(item, useFlag, actions) {
                 pnhMatchData = pnhMatchData[0].split('|'); // Single match just gets direct split
             }
 
-            const priPNHPlaceCat = catTranslate(pnhMatchData[phCategory1Idx]); // translate primary category to WME code
+            const priPNHPlaceCat = _PNH_DATA[_countryCode].categories.getIdFromTranslatedName(pnhMatchData[phCategory1Idx]);
 
             // if the location has multiple matches, then pop an alert that will make a forum post to the thread
             if (nsMultiMatch) {
@@ -4436,7 +4419,7 @@ function harmonizePlaceGo(item, useFlag, actions) {
             if (!isNullOrWhitespace(altCategories)) { //  translate alt-cats to WME code
                 altCategories = altCategories.replace(/,[^A-Za-z0-9]*/g, ',').split(','); // tighten and split by comma
                 for (let catix = 0; catix < altCategories.length; catix++) {
-                    const newAltTemp = catTranslate(altCategories[catix]); // translate altCats into WME cat codes
+                    const newAltTemp = _PNH_DATA[_countryCode].categories.getIdFromTranslatedName(altCategories[catix]); // translate altCats into WME cat codes
                     if (newAltTemp === 'ERROR') { // if no translation, quit the loop
                         phlog(`Category ${altCategories[catix]} cannot be translated.`);
                         return undefined;
@@ -4592,11 +4575,8 @@ function harmonizePlaceGo(item, useFlag, actions) {
             }
 
             // Remove unnecessary parent categories
-            const catData = _PNH_DATA.USA.categories.map(cat => cat.split('|'));
-            const catParentIdx = catData[0].indexOf('pc_catparent');
-            const catNameIdx = catData[0].indexOf('pc_wmecat');
-            const parentCats = _.uniq(_newCategories.map(catName => catData.find(cat => cat[catNameIdx] === catName)[catParentIdx]))
-                .filter(parent => parent.trim(' ').length > 0);
+            const catData = _PNH_DATA[_countryCode].categories;
+            const parentCats = _.uniq(_newCategories.filter(catId => catData[catId].parentCategory).map(catId => catData[catId].parentCategory));
             _newCategories = _newCategories.filter(cat => !parentCats.includes(cat));
 
             // update categories if different and no Cat2 option
@@ -4694,13 +4674,6 @@ function harmonizePlaceGo(item, useFlag, actions) {
                 // Net result: If the place has Bank category first, then it will be green
             } // END generic bank treatment
         } // END PNH match/no-match updates
-
-        // Category/Name-based Services, added to any existing services:
-        const catData = _PNH_DATA[_countryCode].categories;
-        const catNames = _PNH_DATA[_countryCode].categoryNames;
-        const catDataHeaders = catData[0].split('|');
-        const catDataKeys = catData[1].split('|');
-        let catDataTemp;
 
         if (hpMode.harmFlag) {
             // Update name:
@@ -4801,46 +4774,28 @@ function harmonizePlaceGo(item, useFlag, actions) {
 
             // PNH specific Services:
 
-            const servHeaders = [];
-            const servKeys = [];
-            for (let jjj = 0; jjj < catDataHeaders.length; jjj++) {
-                const servHeaderCheck = catDataHeaders[jjj].match(/^ps_/i); // if it's a service header
-                if (servHeaderCheck) {
-                    servHeaders.push(jjj);
-                    servKeys.push(catDataKeys[jjj]);
-                }
-            }
-
-            if (_newCategories.length > 0) {
-                for (let iii = 0; iii < catNames.length; iii++) {
-                    if (_newCategories.includes(catNames[iii])) {
-                        catDataTemp = catData[iii].split('|');
-                        for (let psix = 0; psix < servHeaders.length; psix++) {
-                            if (!_servicesBanner[servKeys[psix]].pnhOverride) {
-                                if (catDataTemp[servHeaders[psix]] === '1') { // These are automatically added to all countries/regions (if auto setting is on)
-                                    _servicesBanner[servKeys[psix]].active = true;
-                                    if ($('#WMEPH-EnableServices').prop('checked')) {
-                                        // Automatically enable new services
-                                        _servicesBanner[servKeys[psix]].actionOn(actions);
-                                    }
-                                } else if (catDataTemp[servHeaders[psix]] === '2') { // these are never automatically added but shown
-                                    _servicesBanner[servKeys[psix]].active = true;
-                                } else if (catDataTemp[servHeaders[psix]] !== '') { // check for state/region auto add
-                                    _servicesBanner[servKeys[psix]].active = true;
-                                    if ($('#WMEPH-EnableServices').prop('checked')) {
-                                        const servAutoRegion = catDataTemp[servHeaders[psix]].replace(/,[^A-za-z0-9]*/g, ',').split(',');
-                                        // if the sheet data matches the state, region, or username then auto add
-                                        if (servAutoRegion.includes(state2L) || servAutoRegion.includes(region)
-                                            || servAutoRegion.includes(_USER.name)) {
-                                            _servicesBanner[servKeys[psix]].actionOn(actions);
-                                        }
-                                    }
-                                }
+            const autoEnableServices = $('#WMEPH-EnableServices').prop('checked');
+            _newCategories.forEach(catId => {
+                const catData = _PNH_DATA[_countryCode].categories[catId];
+                Object.keys(catData.services).forEach(serviceId => {
+                    const service = catData.services[serviceId];
+                    const bannerItem = _servicesBanner[service.key];
+                    if (!bannerItem.pnhOverride) {
+                        if (service.default === 1) {
+                            bannerItem.active = true;
+                            if (autoEnableServices) {
+                                bannerItem.actionOn(actions);
+                            }
+                        } else if (service.default === 2) {
+                            bannerItem.active = true;
+                        } else if (service.geos.includes(state2L) || service.geos.includes(region)) {
+                            if (autoEnableServices) {
+                                bannerItem.actionOn(actions);
                             }
                         }
                     }
-                }
-            }
+                });
+            });
         }
 
 
@@ -4851,29 +4806,27 @@ function harmonizePlaceGo(item, useFlag, actions) {
         let maxAreaSeverity = 3;
         let highestCategoryLock = -1;
 
-        for (let ixPlaceCat = 0; ixPlaceCat < _newCategories.length; ixPlaceCat++) {
-            const category = _newCategories[ixPlaceCat];
-            const ixPNHCat = catNames.indexOf(category);
-            if (ixPNHCat > -1) {
-                catDataTemp = catData[ixPNHCat].split('|');
-                // CH_DATA_headers
-                // pc_area    pc_regpoint    pc_regarea    pc_lock1    pc_lock2    pc_lock3    pc_lock4    pc_lock5    pc_rare    pc_parent    pc_message
-                let pvaPoint = catDataTemp[catDataHeaders.indexOf('pc_point')];
-                let pvaArea = catDataTemp[catDataHeaders.indexOf('pc_area')];
-                const regPoint = catDataTemp[catDataHeaders.indexOf('pc_regpoint')].replace(/,[^A-za-z0-9]*/g, ',').split(',');
-                const regArea = catDataTemp[catDataHeaders.indexOf('pc_regarea')].replace(/,[^A-za-z0-9]*/g, ',').split(',');
-                if (regPoint.includes(state2L) || regPoint.includes(region) || regPoint.includes(_countryCode)) {
-                    pvaPoint = '1';
-                    pvaArea = '';
-                } else if (regArea.includes(state2L) || regArea.includes(region) || regArea.includes(_countryCode)) {
-                    pvaPoint = '';
-                    pvaArea = '1';
+        _newCategories.forEach(catId => {
+            const catData = _PNH_DATA[_countryCode].categories[catId];
+            if (catData) {
+                let pvaPoint = catData.point;
+                let pvaArea = catData.area;
+                if (catData.regionsRequiringPoint.includes(state2L)
+                    || catData.regionsRequiringPoint.includes(region)
+                    || catData.regionsRequiringPoint.includes(_countryCode)) {
+                    pvaPoint = 1;
+                    pvaPoint = null;
+                } else if (catData.regionsRequiringArea.includes(state2L)
+                    || catData.regionsRequiringArea.includes(region)
+                    || catData.regionsRequiringArea.includes(_countryCode)) {
+                    pvaPoint = null;
+                    pvaArea = 1;
                 }
 
                 // If Post Office and VPO or CPU is in the name, always a point.
                 if (_newCategories.includes('POST_OFFICE') && /\b(?:cpu|vpo)\b/i.test(item.attributes.name)) {
-                    pvaPoint = '1';
-                    pvaArea = '';
+                    pvaPoint = 1;
+                    pvaArea = null;
                 }
 
                 const pointSeverity = getPvaSeverity(pvaPoint, item);
@@ -4886,12 +4839,12 @@ function harmonizePlaceGo(item, useFlag, actions) {
                 }
 
                 // display any messages regarding the category
-                const catMessage = catDataTemp[catDataHeaders.indexOf('pc_message')];
-                _buttonBanner.pnhCatMess = Flag.PnhCatMess.eval(catMessage, _newCategories, hpMode).flag;
+                _buttonBanner.pnhCatMess = Flag.PnhCatMess.eval(catData.message, _newCategories, hpMode).flag;
                 // Unmapped categories
-                const catRare = catDataTemp[catDataHeaders.indexOf('pc_rare')].replace(/,[^A-Za-z0-9}]+/g, ',').split(',');
-                if (catRare.includes(state2L) || catRare.includes(region) || catRare.includes(_countryCode)) {
-                    if (catDataTemp[0] === 'OTHER' && ['GLR', 'NER', 'NWR', 'PLN', 'SCR', 'SER', 'NOR', 'HI', 'SAT'].includes(region)) {
+                if (catData.rareRegions.includes(state2L)
+                    || catData.rareRegions.includes(region)
+                    || catData.rareRegions.includes(_countryCode)) {
+                    if (catId === 'OTHER' && ['GLR', 'NER', 'NWR', 'PLN', 'SCR', 'SER', 'NOR', 'HI'].includes(region)) {
                         if (!isLocked) {
                             _buttonBanner.unmappedRegion = new Flag.UnmappedRegion();
                             _buttonBanner.unmappedRegion.WLactive = false;
@@ -4910,23 +4863,26 @@ function harmonizePlaceGo(item, useFlag, actions) {
                     }
                 }
                 // Parent Category
-                const catParent = catDataTemp[catDataHeaders.indexOf('pc_parent')].replace(/,[^A-Za-z0-9}]+/g, ',').split(',');
-                if (catParent.includes(state2L) || catParent.includes(region) || catParent.includes(_countryCode)) {
+                if (catData.parentNotMappedRegions.includes(state2L)
+                    || catData.parentNotMappedRegions.includes(region)
+                    || catData.parentNotMappedRegions.includes(_countryCode)) {
                     _buttonBanner.parentCategory = new Flag.ParentCategory();
                     if (_wl.parentCategory) {
                         _buttonBanner.parentCategory.WLactive = false;
                     }
                 }
                 // Set lock level
-                for (let lockix = 1; lockix < 6; lockix++) {
-                    const catLockTemp = catDataTemp[catDataHeaders.indexOf(`pc_lock${lockix}`)].replace(/,[^A-Za-z0-9}]+/g, ',').split(',');
-                    if (lockix - 1 > highestCategoryLock && (catLockTemp.includes(state2L) || catLockTemp.includes(region)
-                        || catLockTemp.includes(_countryCode))) {
-                        highestCategoryLock = lockix - 1; // Offset by 1 since lock ranks start at 0
-                    }
+                let regionalLock = null;
+                if (catData.lockLevels[state2L]) {
+                    regionalLock = catData.lockLevels[state2L];
+                } else if (catData.lockLevels[region]) {
+                    regionalLock = catData.lockLevels[region];
+                } else if (catData.lockLevels[_countryCode]) {
+                    regionalLock = catData.lockLevels[_countryCode];
                 }
+                highestCategoryLock = Math.max(highestCategoryLock, regionalLock - 1);
             }
-        }
+        });
 
         if (highestCategoryLock > -1) {
             _defaultLockLevel = highestCategoryLock;
@@ -7115,24 +7071,6 @@ function buildGLink(searchName, addr, HN) {
     return `http://www.google.com/search?q=${encodeURIComponent(searchName)}`;
 }
 
-// WME Category translation from Natural language to object language  (Bank / Financial --> BANK_FINANCIAL)
-function catTranslate(natCategories) {
-    const catNameUpper = natCategories.trim().toUpperCase();
-    if (_CATEGORY_LOOKUP.hasOwnProperty(catNameUpper)) {
-        return _CATEGORY_LOOKUP[catNameUpper];
-    }
-
-    // if the category doesn't translate, then pop an alert that will make a forum post to the thread
-    // Generally this means the category used in the PNH sheet is not close enough to the natural language categories used inside the WME translations
-    if (confirm('WMEPH: Category Error!\nClick OK to report this error')) {
-        reportError({
-            subject: 'WMEPH Bug report: no tns',
-            message: `Error report: Category "${natCategories}" was not found in the PNH categories sheet.`
-        });
-    }
-    return 'ERROR';
-} // END catTranslate function
-
 // compares two arrays to see if equal, regardless of order
 function matchSets(array1, array2) {
     if (array1.length !== array2.length) { return false; } // compare lengths
@@ -7996,6 +7934,104 @@ function placeHarmonizerBootstrap() {
     }
 }
 
+function processPnhCategories(catData) {
+    const headerRow = catData[0];
+    const servicesHeaderRow = catData[2];
+    const servicesKeyRow = catData[1];
+    const idxCategory = headerRow.indexOf('pc_wmecat');
+    const idxTranslation = headerRow.indexOf('pc_transcat');
+    const idxParentCategory = headerRow.indexOf('pc_catparent');
+    const idxPoint = headerRow.indexOf('pc_point');
+    const idxArea = headerRow.indexOf('pc_area');
+    const idxRegionsRequiringPoint = headerRow.indexOf('pc_regpoint');
+    const idxRegionsRequiringArea = headerRow.indexOf('pc_regarea');
+    const idxRare = headerRow.indexOf('pc_rare');
+    const idxParentMotMappedRegions = headerRow.indexOf('pc_parent');
+    const idxMessage = headerRow.indexOf('pc_message');
+
+    // Helper functions
+    const cellToText = value => value.trim() || null;
+    const cellToArray = value => value.split(',').map(v => v.trim()).filter(v => v.length);
+
+    // The main categories object where PNH category-specific info is stored.
+    const categories = {
+        // The nameToIdMap and getIdFromTranslatedName function are used to quickly find the category ID given the
+        // natural/translated category name that is used in the master list of the PNH sheet.
+        _nameToIdMap: {},
+        getIdFromTranslatedName(translatedCategoryName) {
+            const catNameUpper = translatedCategoryName.trim().toUpperCase();
+            if (this._nameToIdMap.hasOwnProperty(catNameUpper)) {
+                return this._nameToIdMap[catNameUpper];
+            }
+
+            // if the category doesn't translate, then pop an alert that will make a forum post to the thread
+            // Generally this means the category used in the PNH sheet is not close enough to the natural language categories used inside the WME translations
+            if (confirm('WMEPH: Category Error!\nClick OK to report this error')) {
+                reportError({
+                    subject: 'WMEPH Bug report: no tns',
+                    message: `Error report: Category "${translatedCategoryName}" was not found in the PNH categories sheet.`
+                });
+            }
+            return 'ERROR';
+        }
+    };
+
+    // Step through each category row from the PNH data and process it.
+    for (let idxCatRow = 3; idxCatRow < catData.length; idxCatRow++) {
+        const catRow = catData[idxCatRow];
+        const catId = catRow[idxCategory];
+        const catObj = {
+            translation: cellToText(catRow[idxTranslation]),
+            parentCategory: cellToText(catRow[idxParentCategory]),
+            point: cellToText(catRow[idxPoint]),
+            area: cellToText(catRow[idxArea]),
+            message: cellToText(catRow[idxMessage]),
+            regionsRequiringPoint: cellToArray(catRow[idxRegionsRequiringPoint]),
+            regionsRequiringArea: cellToArray(catRow[idxRegionsRequiringArea]),
+            parentNotMappedRegions: cellToArray(catRow[idxParentMotMappedRegions]),
+            rareRegions: cellToArray(catRow[idxRare]),
+            lockLevels: {}
+        };
+        catObj.services = {};
+        for (let idxServiceCol = idxMessage + 1; idxServiceCol < headerRow.length; idxServiceCol++) {
+            const serviceId = cellToText(servicesHeaderRow[idxServiceCol]);
+            if (serviceId) {
+                const serviceKey = cellToText(servicesKeyRow[idxServiceCol]);
+                const cellValues = cellToArray(catRow[idxServiceCol]);
+                const obj = {
+                    id: serviceId, key: serviceKey, default: null, geos: []
+                };
+                catObj.services[servicesHeaderRow[idxServiceCol]] = obj;
+                cellValues.forEach(value => {
+                    if (value === '1') {
+                        obj.default = 1;
+                    } else if (value === '2') {
+                        obj.default = 2;
+                    } else {
+                        obj.geos.push(value);
+                    }
+                });
+            }
+        }
+        for (let lockLevel = 1; lockLevel <= 5; lockLevel++) {
+            const headerName = `pc_lock${lockLevel}`;
+            const idxCol = headerRow.indexOf(headerName);
+            const regions = cellToArray(catRow[idxCol]);
+            regions.forEach(region => {
+                catObj.lockLevels[region] = lockLevel;
+            });
+        }
+
+        // Assign the category to the categories object.
+        categories[catId] = catObj;
+
+        // Add the translated name to the fast-lookup variable.
+        categories._nameToIdMap[catObj.translation.toUpperCase()] = catId;
+    }
+
+    return categories;
+}
+
 const SPREADSHEET_ID = '1pBz4l4cNapyGyzfMJKqA4ePEFLkmz2RryAt1UV39B4g';
 const SPREADSHEET_RANGE = '2019.01.20.001!A2:L';
 const API_KEY = 'YTJWNVBVRkplbUZUZVVObU1YVXpSRVZ3ZW5OaFRFSk1SbTR4VGxKblRURjJlRTFYY3pOQ2NXZElPQT09';
@@ -8010,6 +8046,7 @@ function downloadPnhData() {
     $.getJSON(getSpreadsheetUrl(SPREADSHEET_ID, SPREADSHEET_RANGE, API_KEY)).done(res => {
         const { values } = res;
         if (values[0][0].toLowerCase() === 'obsolete') {
+            // Can't use WazeWrap.Alerts here because the Ready check hasn't been performed yet. Could add a bootstrap first...
             alert('You are using an outdated version of WMEPH that doesn\'t work anymore. Update or disable the script.');
             return;
         }
@@ -8025,12 +8062,11 @@ function downloadPnhData() {
         _PNH_DATA.CAN.pnh = processData1(values, 2);
         _PNH_DATA.CAN.pnhNames = makeNameCheckList(_PNH_DATA.CAN.pnh);
 
-        _PNH_DATA.USA.categories = processData1(values, 3);
-        _PNH_DATA.USA.categoryNames = makeCatCheckList(_PNH_DATA.USA.categories);
+        const catData = processData1(values, 3).map(row => row.split('|').map(value => value.trim()));
+        _PNH_DATA.USA.categories = processPnhCategories(catData);
 
         // For now, Canada uses some of the same settings as USA.
         _PNH_DATA.CAN.categories = _PNH_DATA.USA.categories;
-        _PNH_DATA.CAN.categoryNames = _PNH_DATA.USA.categoryNames;
 
         const WMEPHuserList = processData1(values, 4)[1].split('|');
         const betaix = WMEPHuserList.indexOf('BETAUSERS');
