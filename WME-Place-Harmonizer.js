@@ -3777,6 +3777,7 @@ function harmonizePlaceGo(item, useFlag, actions) {
     let pnhNameTemp = '';
     let pnhNameTempWeb = '';
     let placePL;
+    let hoursAdded = false;
     const itemID = item.attributes.id;
 
     // Used for collecting all actions to be applied to the model.
@@ -4242,6 +4243,7 @@ function harmonizePlaceGo(item, useFlag, actions) {
                         _buttonBanner[scFlag].active = false;
                     } else if (match = specCase.match(/^psOn_(.+)/i)) {
                         [, scFlag] = match;
+                        if (scFlag === 'add247') hoursAdded = true;
                         _servicesBanner[scFlag].actionOn(actions);
                         _servicesBanner[scFlag].pnhOverride = true;
                     } else if (match = specCase.match(/^psOff_(.+)/i)) {
@@ -4951,12 +4953,13 @@ function harmonizePlaceGo(item, useFlag, actions) {
                 'BRIDGE', 'TUNNEL', 'JUNCTION_INTERCHANGE', 'ISLAND', 'SEA_LAKE_POOL', 'RIVER_STREAM', 'FOREST_GROVE', 'CANAL',
                 'SWAMP_MARSH', 'DAM'])) {
                 _buttonBanner.noHours = new Flag.NoHours();
-                if (_wl.noHours || $('#WMEPH-DisableHoursHL').prop('checked') || containsAny(_newCategories, ['SCHOOL', 'CONVENTIONS_EVENT_CENTER',
+                if (hoursAdded || _wl.noHours || $('#WMEPH-DisableHoursHL').prop('checked') || containsAny(_newCategories, ['SCHOOL', 'CONVENTIONS_EVENT_CENTER',
                     'CAMPING_TRAILER_PARK', 'COTTAGE_CABIN', 'COLLEGE_UNIVERSITY', 'GOLF_COURSE', 'SPORTS_COURT', 'MOVIE_THEATER',
                     'SHOPPING_CENTER', 'RELIGIOUS_CENTER', 'PARKING_LOT', 'PARK', 'PLAYGROUND', 'AIRPORT', 'FIRE_DEPARTMENT', 'POLICE_STATION',
                     'SEAPORT_MARINA_HARBOR', 'FARM', 'SCENIC_LOOKOUT_VIEWPOINT'])) {
                     _buttonBanner.noHours.WLactive = false;
                     _buttonBanner.noHours.severity = 0;
+                    if (hoursAdded) _buttonBanner.noHours.message = getHoursHtml('Hours');
                 }
             }
         } else {
@@ -7934,24 +7937,27 @@ function placeHarmonizerBootstrap() {
     }
 }
 
+// Helper functions
+const cellToText = value => value.trim() || null;
+const cellToArray = value => value.split(',').map(v => v.trim()).filter(v => v.length);
+const tighten = str => str.toUpperCase().replace(/ AND /g, '').replace(/^THE /g, '').replace(/[^A-Z0-9]/g, '');
+const stripNonAlpha = strArray => strArray.map(str => str.toUpperCase().replace(/[^A-Z0-9]/g, ''));
+
 function processPnhCategories(catData) {
     const headerRow = catData[0];
     const servicesHeaderRow = catData[2];
     const servicesKeyRow = catData[1];
-    const idxCategory = headerRow.indexOf('pc_wmecat');
-    const idxTranslation = headerRow.indexOf('pc_transcat');
-    const idxParentCategory = headerRow.indexOf('pc_catparent');
-    const idxPoint = headerRow.indexOf('pc_point');
-    const idxArea = headerRow.indexOf('pc_area');
-    const idxRegionsRequiringPoint = headerRow.indexOf('pc_regpoint');
-    const idxRegionsRequiringArea = headerRow.indexOf('pc_regarea');
-    const idxRare = headerRow.indexOf('pc_rare');
-    const idxParentMotMappedRegions = headerRow.indexOf('pc_parent');
-    const idxMessage = headerRow.indexOf('pc_message');
-
-    // Helper functions
-    const cellToText = value => value.trim() || null;
-    const cellToArray = value => value.split(',').map(v => v.trim()).filter(v => v.length);
+    const getColIndex = id => headerRow.indexOf(id);
+    const idxCategory = getColIndex('pc_wmecat');
+    const idxTranslation = getColIndex('pc_transcat');
+    const idxParentCategory = getColIndex('pc_catparent');
+    const idxPoint = getColIndex('pc_point');
+    const idxArea = getColIndex('pc_area');
+    const idxRegionsRequiringPoint = getColIndex('pc_regpoint');
+    const idxRegionsRequiringArea = getColIndex('pc_regarea');
+    const idxRare = getColIndex('pc_rare');
+    const idxParentMotMappedRegions = getColIndex('pc_parent');
+    const idxMessage = getColIndex('pc_message');
 
     // The main categories object where PNH category-specific info is stored.
     const categories = {
@@ -8032,6 +8038,268 @@ function processPnhCategories(catData) {
     return categories;
 }
 
+function processPnhChains(chainData) {
+    const headerRow = chainData[0];
+    const getColIndex = id => headerRow.indexOf(id);
+    const idxOrder = getColIndex('ph_order');
+    const idxName = getColIndex('ph_name');
+    const idxAliases = getColIndex('ph_aliases');
+    const idxCategory1 = getColIndex('ph_category1');
+    const idxCategory2 = getColIndex('ph_category2');
+    const idxDescription = getColIndex('ph_description');
+    const idxUrl = getColIndex('ph_url');
+    const idxRegions = getColIndex('ph_region');
+    const idxDisable = getColIndex('ph_disable');
+    const idxForceCategory = getColIndex('ph_forcecat');
+    const idxDisplayNote = getColIndex('ph_displaynote');
+    const idxSpecialCase = getColIndex('ph_speccase');
+    const idxSearchNameBase = getColIndex('ph_searchnamebase');
+    const idxSearchNameMid = getColIndex('ph_searchnamemid');
+    const idxSearchNameEnd = getColIndex('ph_searchnameend');
+    const idxSearchNameWord = getColIndex('ph_searchnameword');
+    const idxStoreFinderUrl = getColIndex('ph_sfurl');
+    const idxStoreFinderLocalizedUrl = getColIndex('ph_sfurllocal');
+    const chains = [];
+    chainData.slice(1).forEach(chainRow => {
+        const chainCellToText = id => cellToText(chainRow[id]);
+        const chainCellToArray = id => cellToArray(chainRow[id]);
+        const chainObj = {
+            order: chainCellToText(idxOrder),
+            name: chainCellToText(idxName),
+            aliases: chainCellToArray(idxAliases),
+            category1: chainCellToText(idxCategory1),
+            category2: chainCellToText(idxCategory2),
+            description: chainCellToText(idxDescription),
+            url: chainCellToText(idxUrl),
+            regions: chainCellToArray(idxRegions),
+            disable: chainCellToText(idxDisable),
+            forceCategory: chainCellToText(idxForceCategory),
+            displayNote: chainCellToText(idxDisplayNote),
+            specialCase: chainCellToArray(idxSpecialCase),
+            searchNameWord: chainCellToArray(idxSearchNameWord),
+            storeFinderUrl: chainCellToText(idxStoreFinderUrl),
+            storeFinderLocalizedUrl: chainCellToText(idxStoreFinderLocalizedUrl)
+        };
+        chains.push(chainObj);
+
+        // Process ph_speccase column (special case settings)
+        const specialCases = chainCellToArray(idxSpecialCase);
+        specialCases.forEach(specialCase => {
+            const specialCaseUpper = specialCase.toUpperCase();
+            let found = false;
+            switch (specialCaseUpper) {
+                case 'BETAENABLE':
+                    found = true;
+                    chainObj.betaEnable = true;
+                    break;
+                case 'NOTABANK':
+                    found = true;
+                    chainObj.notABank = true;
+                    break;
+                case 'STRMATCHANY':
+                    found = true;
+                    chainObj.strMatchAny = true;
+                    break;
+                case 'STRMATCHSTART':
+                    found = true;
+                    chainObj.strMatchStart = true;
+                    break;
+                case 'STRMATCHEND':
+                    found = true;
+                    chainObj.strMatchEnd = true;
+                    break;
+                case 'ALTNAME2DESC':
+                    found = true;
+                    chainObj.altName2Desc = true;
+                    break;
+                case 'KEEPNAME':
+                    found = true;
+                    chainObj.keepName = true;
+                    break;
+                case 'SUBFUEL':
+                    found = true;
+                    chainObj.subFuel = true;
+                    break;
+                case 'PHARMHOURS':
+                    found = true;
+                    chainObj.pharmHours = true;
+                    break;
+                case 'DRIVETHRUHOURS':
+                    found = true;
+                    chainObj.driveThruHours = true;
+                    break;
+                case 'OPTIONCAT2':
+                    found = true;
+                    chainObj.optionCat2 = true;
+                    break;
+                case 'OPTIONNAME2':
+                    found = true;
+                    chainObj.optionName2 = true;
+                    break;
+                case 'LOCKAT5':
+                    found = true;
+                    chainObj.lockAt5 = true;
+                    break;
+                case 'NOUPDATEALIAS':
+                    found = true;
+                    chainObj.noUpdateAlias = true;
+                    break;
+                default:
+                // do nothing
+            }
+            if (!found) {
+                const match = specialCase.match(/regexNameMatch<>(.+)<>/i);
+                if (match) {
+                    found = true;
+                    chainObj.regexNameMatch = new RegExp(match[1].replace(/\\/, '\\').replace(/<or>/g, '|'));
+                }
+            }
+            if (!found) {
+                const match = specialCase.match(/checkLocalization<>(.+)/i);
+                if (match) {
+                    found = true;
+                    chainObj.checkLocalization = new RegExp(match[1].replace(/\\/, '\\').replace(/<or>/g, '|'));
+                }
+            }
+            if (!found) {
+                const match = specialCase.match(/optionAltName<>(.+)/i);
+                if (match) {
+                    found = true;
+                    chainObj.optionAltName = match[1];
+                }
+            }
+            if (!found) {
+                const match = specialCase.match(/buttOn_(.+)/i);
+                if (match) {
+                    found = true;
+                    if (!chainObj.buttOn) chainObj.buttOn = {};
+                    chainObj.buttOn[match[1]] = true;
+                }
+            }
+            if (!found) {
+                const match = specialCase.match(/buttOff_(.+)/i);
+                if (match) {
+                    found = true;
+                    if (!chainObj.buttOff) chainObj.buttOff = {};
+                    chainObj.buttOff[match[1]] = true;
+                }
+            }
+            if (!found) {
+                const match = specialCase.match(/psOn_(.+)/i);
+                if (match) {
+                    found = true;
+                    if (!chainObj.psOn) chainObj.psOn = {};
+                    chainObj.psOn[match[1]] = true;
+                }
+            }
+            if (!found) {
+                const match = specialCase.match(/psOff_(.+)/i);
+                if (match) {
+                    found = true;
+                    if (!chainObj.psOff) chainObj.psOff = {};
+                    chainObj.psOff[match[1]] = true;
+                }
+            }
+            if (!found) {
+                const match = specialCase.match(/brandParent(\d{1})/i);
+                if (match) {
+                    found = true;
+                    chainObj.brandParent = parseInt(match[1], 10);
+                }
+            }
+            if (!found) {
+                const match = specialCase.match(/forceBrand<>(.+)/i);
+                if (match) {
+                    found = true;
+                    chainObj.forceBrand = match[1];
+                }
+            }
+            if (!found) {
+                console.warn(`WMEPH special case setting "${specialCase}" was not recognized for this chain entry. It may not harmonize correctly:`, chainObj);
+            }
+        });
+
+        // The code below here used to be in a separate function, but for whatever reason it was
+        // causing a ~6x-10x lag in performance compared to running it directly here.
+        const baseWords = chainCellToArray(idxSearchNameBase);
+        const midWords = chainCellToArray(idxSearchNameMid);
+        const endWords = chainCellToArray(idxSearchNameEnd);
+        let searchString;
+        if (chainObj.disable !== '1' || chainObj.specialCase.includes('betaEnable')) {
+            let newNameList = [tighten(chainObj.name)];
+
+            if (chainObj.disable !== 'altName') {
+                // Add any aliases
+                newNameList = newNameList.concat(chainObj.aliases.map(alias => tighten(alias)));
+            }
+
+            // The following code sets up alternate search names as outlined in the PNH dataset.
+            // Formula, with P = PNH primary; A1, A2 = PNH aliases; B1, B2 = base terms; M1, M2 = mid terms; E1, E2 = end terms
+            // Search list will build: P, A, B, PM, AM, BM, PE, AE, BE, PME, AME, BME.
+            // Multiple M terms are applied singly and in pairs (B1M2M1E2).  Multiple B and E terms are applied singly (e.g B1B2M1 not used).
+            // Any doubles like B1E2=P are purged at the end to eliminate redundancy.
+            if (baseWords.length) { // If base terms exist, otherwise only the primary name is matched
+                newNameList = newNameList.concat(stripNonAlpha(baseWords));
+
+                if (midWords.length) {
+                    let pnhSearchNameMid = stripNonAlpha(midWords);
+                    if (pnhSearchNameMid.length > 1) { // if there are more than one mid terms, it adds a permutation of the first 2
+                        pnhSearchNameMid = pnhSearchNameMid.concat([pnhSearchNameMid[0] + pnhSearchNameMid[1], pnhSearchNameMid[1] + pnhSearchNameMid[0]]);
+                    }
+                    const midLen = pnhSearchNameMid.length;
+                    for (let extix = 1, len = newNameList.length; extix < len; extix++) { // extend the list by adding Mid terms onto the SearchNameBase names
+                        for (let midix = 0; midix < midLen; midix++) {
+                            newNameList.push(newNameList[extix] + pnhSearchNameMid[midix]);
+                        }
+                    }
+                }
+
+                if (endWords.length) {
+                    const pnhSearchNameEnd = stripNonAlpha(endWords);
+                    const endLen = pnhSearchNameEnd.length;
+                    // extend the list by adding End terms onto all the SearchNameBase & Base+Mid names
+                    for (let extix = 1, len = newNameList.length; extix < len; extix++) {
+                        for (let endix = 0; endix < endLen; endix++) {
+                            newNameList.push(newNameList[extix] + pnhSearchNameEnd[endix]);
+                        }
+                    }
+                }
+            }
+            // Clear out any empty entries
+            newNameList = newNameList.filter(name => name.length > 1);
+
+            // Next, add extensions to the search names based on the WME place category
+            if (chainObj.category1) {
+                const category = chainObj.category1.toUpperCase().replace(/[^A-Z0-9]/g, '');
+                let appendWords;
+                if (category === 'HOTEL') {
+                    appendWords = ['HOTEL'];
+                } else if (category === 'BANKFINANCIAL' && !chainObj.specialCase.includes('notABank')) {
+                    appendWords = ['BANK', 'ATM'];
+                } else if (category === 'SUPERMARKETGROCERY') {
+                    appendWords = ['SUPERMARKET'];
+                } else if (category === 'GYMFITNESS') {
+                    appendWords = ['GYM'];
+                } else if (category === 'GASSTATION') {
+                    appendWords = ['GAS', 'GASOLINE', 'FUEL', 'STATION', 'GASSTATION'];
+                } else if (category === 'CARRENTAL') {
+                    appendWords = ['RENTAL', 'RENTACAR', 'CARRENTAL', 'RENTALCAR'];
+                }
+                if (appendWords) appendWords.forEach(word => { newNameList = newNameList.concat(newNameList.map(name => name + word)); });
+            }
+            // Add entries for word/spelling variations
+            _wordVariations.forEach(variationsList => addSpellingVariants(newNameList, variationsList));
+
+            searchString = _.uniq(newNameList).join('|').replace(/\|{2,}/g, '|').replace(/\|+$/g, '');
+        } else {
+            searchString = '00';
+        }
+        chainObj.searchString = searchString;
+    });
+    return chains;
+}
+
+
 const SPREADSHEET_ID = '1pBz4l4cNapyGyzfMJKqA4ePEFLkmz2RryAt1UV39B4g';
 const SPREADSHEET_RANGE = '2019.01.20.001!A2:L';
 const API_KEY = 'YTJWNVBVRkplbUZUZVVObU1YVXpSRVZ3ZW5OaFRFSk1SbTR4VGxKblRURjJlRTFYY3pOQ2NXZElPQT09';
@@ -8054,8 +8322,15 @@ function downloadPnhData() {
         // This needs to be performed before makeNameCheckList() is called.
         _wordVariations = processData1(values, 11).slice(1).map(row => row.toUpperCase().replace(/[^A-z0-9,]/g, '').split(','));
 
+        var t0 = performance.now();
         _PNH_DATA.USA.pnh = processData1(values, 0);
         _PNH_DATA.USA.pnhNames = makeNameCheckList(_PNH_DATA.USA.pnh);
+        console.log(performance.now() - t0);
+
+        t0 = performance.now();
+        const chainData = processData1(values, 0).map(row => row.split('|').map(value => value.trim()));
+        _PNH_DATA.USA.newPnh = processPnhChains(chainData);
+        console.log(performance.now() - t0);
 
         _PNH_DATA.states = processData1(values, 1);
 
