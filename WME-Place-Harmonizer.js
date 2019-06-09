@@ -4197,106 +4197,106 @@ function harmonizePlaceGo(item, useFlag, actions) {
                 specCases = pnhMatchData[phSpecCaseIdx]; // pulls the speccases field from the PNH line
                 if (!isNullOrWhitespace(specCases)) {
                     specCases = specCases.replace(/, /g, ',').split(','); // remove spaces after commas and split by comma
-                }
-                for (let scix = 0; scix < specCases.length; scix++) {
-                    let scFlag;
-                    const specCase = specCases[scix];
-                    let match;
+                    for (let scix = 0; scix < specCases.length; scix++) {
+                        let scFlag;
+                        const specCase = specCases[scix];
+                        let match;
 
-                    /* eslint-disable no-cond-assign */
+                        /* eslint-disable no-cond-assign */
 
-                    // find any button/message flags in the special case (format: buttOn_xyzXyz, etc.)
-                    if (match = specCase.match(/^buttOn_(.+)/i)) {
-                        [, scFlag] = match;
-                        let flag = null;
-                        switch (scFlag) {
-                            case 'addCat2':
-                                // flag = new Flag.AddCat2();
-                                break;
-                            case 'addPharm':
-                                flag = new Flag.AddPharm();
-                                break;
-                            case 'addSuper':
-                                flag = new Flag.AddSuper();
-                                break;
-                            case 'appendAMPM':
-                                flag = new Flag.AppendAMPM();
-                                break;
-                            case 'addATM':
-                                flag = new Flag.AddATM();
-                                break;
-                            case 'addConvStore':
-                                flag = new Flag.AddConvStore();
-                                break;
-                            default:
-                                console.error('WMEPH:', `Could not process specCase value: buttOn_${scFlag}`);
+                        // find any button/message flags in the special case (format: buttOn_xyzXyz, etc.)
+                        if (match = specCase.match(/^buttOn_(.+)/i)) {
+                            [, scFlag] = match;
+                            let flag = null;
+                            switch (scFlag) {
+                                case 'addCat2':
+                                    // flag = new Flag.AddCat2();
+                                    break;
+                                case 'addPharm':
+                                    flag = new Flag.AddPharm();
+                                    break;
+                                case 'addSuper':
+                                    flag = new Flag.AddSuper();
+                                    break;
+                                case 'appendAMPM':
+                                    flag = new Flag.AppendAMPM();
+                                    break;
+                                case 'addATM':
+                                    flag = new Flag.AddATM();
+                                    break;
+                                case 'addConvStore':
+                                    flag = new Flag.AddConvStore();
+                                    break;
+                                default:
+                                    console.error('WMEPH:', `Could not process specCase value: buttOn_${scFlag}`);
+                            }
+                            _buttonBanner[scFlag] = flag;
+                        } else if (match = specCase.match(/^buttOff_(.+)/i)) {
+                            [, scFlag] = match;
+                            _buttonBanner[scFlag] = null;
+                        } else if (match = specCase.match(/^messOn_(.+)/i)) {
+                            [, scFlag] = match;
+                            _buttonBanner[scFlag].active = true;
+                        } else if (match = specCase.match(/^messOff_(.+)/i)) {
+                            [, scFlag] = match;
+                            _buttonBanner[scFlag].active = false;
+                        } else if (match = specCase.match(/^psOn_(.+)/i)) {
+                            [, scFlag] = match;
+                            if (scFlag === 'add247') hoursAdded = true;
+                            _servicesBanner[scFlag].actionOn(actions);
+                            _servicesBanner[scFlag].pnhOverride = true;
+                        } else if (match = specCase.match(/^psOff_(.+)/i)) {
+                            [, scFlag] = match;
+                            _servicesBanner[scFlag].actionOff(actions);
+                            _servicesBanner[scFlag].pnhOverride = true;
                         }
-                        _buttonBanner[scFlag] = flag;
-                    } else if (match = specCase.match(/^buttOff_(.+)/i)) {
-                        [, scFlag] = match;
-                        _buttonBanner[scFlag] = null;
-                    } else if (match = specCase.match(/^messOn_(.+)/i)) {
-                        [, scFlag] = match;
-                        _buttonBanner[scFlag].active = true;
-                    } else if (match = specCase.match(/^messOff_(.+)/i)) {
-                        [, scFlag] = match;
-                        _buttonBanner[scFlag].active = false;
-                    } else if (match = specCase.match(/^psOn_(.+)/i)) {
-                        [, scFlag] = match;
-                        if (scFlag === 'add247') hoursAdded = true;
-                        _servicesBanner[scFlag].actionOn(actions);
-                        _servicesBanner[scFlag].pnhOverride = true;
-                    } else if (match = specCase.match(/^psOff_(.+)/i)) {
-                        [, scFlag] = match;
-                        _servicesBanner[scFlag].actionOff(actions);
-                        _servicesBanner[scFlag].pnhOverride = true;
-                    }
 
-                    // If brand is going to be forced, use that.  Otherwise, use existing brand.
-                    if (match = /forceBrand<>([^,<]+)/i.exec(pnhMatchData[phSpecCaseIdx])) {
-                        [, newBrand] = match;
-                    }
-
-                    // parseout localURL data if exists (meaning place can have a URL distinct from the chain URL
-                    if (match = specCase.match(/^localURL_(.+)/i)) {
-                        [, localURLcheck] = match;
-                    }
-
-                    // parse out optional alt-name
-                    result = Flag.AddAlias.eval(specCase, specCases, _newAliases);
-                    if (result.flag) {
-                        _buttonBanner.addAlias = result.flag;
-                    }
-
-                    // Gas Station forceBranding
-                    if (['GAS_STATION'].includes(priPNHPlaceCat) && (match = specCase.match(/^forceBrand<>(.+)/i))) {
-                        const [, forceBrand] = match;
-                        if (item.attributes.brand !== forceBrand) {
-                            actions.push(new UpdateObject(item, { brand: forceBrand }));
-                            _UPDATED_FIELDS.brand.updated = true;
-                            phlogdev('Gas brand updated from PNH');
+                        // If brand is going to be forced, use that.  Otherwise, use existing brand.
+                        if (match = /forceBrand<>([^,<]+)/i.exec(pnhMatchData[phSpecCaseIdx])) {
+                            [, newBrand] = match;
                         }
-                    }
 
-                    // Check Localization
-                    let displayNote;
-                    if (phDisplayNoteIdx > -1 && !isNullOrWhitespace(pnhMatchData[phDisplayNoteIdx])) {
-                        displayNote = pnhMatchData[phDisplayNoteIdx];
-                    }
-                    result = Flag.LocalizedName.eval(_newName, newNameSuffix, specCase, displayNote);
-                    if (result.flag) {
-                        if (!result.updatePnhName) {
+                        // parseout localURL data if exists (meaning place can have a URL distinct from the chain URL
+                        if (match = specCase.match(/^localURL_(.+)/i)) {
+                            [, localURLcheck] = match;
+                        }
+
+                        // parse out optional alt-name
+                        result = Flag.AddAlias.eval(specCase, specCases, _newAliases);
+                        if (result.flag) {
+                            _buttonBanner.addAlias = result.flag;
+                        }
+
+                        // Gas Station forceBranding
+                        if (['GAS_STATION'].includes(priPNHPlaceCat) && (match = specCase.match(/^forceBrand<>(.+)/i))) {
+                            const [, forceBrand] = match;
+                            if (item.attributes.brand !== forceBrand) {
+                                actions.push(new UpdateObject(item, { brand: forceBrand }));
+                                _UPDATED_FIELDS.brand.updated = true;
+                                phlogdev('Gas brand updated from PNH');
+                            }
+                        }
+
+                        // Check Localization
+                        let displayNote;
+                        if (phDisplayNoteIdx > -1 && !isNullOrWhitespace(pnhMatchData[phDisplayNoteIdx])) {
+                            displayNote = pnhMatchData[phDisplayNoteIdx];
+                        }
+                        result = Flag.LocalizedName.eval(_newName, newNameSuffix, specCase, displayNote);
+                        if (result.flag) {
+                            if (!result.updatePnhName) {
+                                updatePNHName = false;
+                                showDispNote = false;
+                            }
+                            _buttonBanner.localizedName = result.flag;
+                        }
+
+                        /* eslint-enable no-cond-assign */
+
+                        // Prevent name change
+                        if (specCase.match(/keepName/g) !== null) {
                             updatePNHName = false;
-                            showDispNote = false;
                         }
-                        _buttonBanner.localizedName = result.flag;
-                    }
-
-                    /* eslint-enable no-cond-assign */
-
-                    // Prevent name change
-                    if (specCase.match(/keepName/g) !== null) {
-                        updatePNHName = false;
                     }
                 }
             }
@@ -4418,7 +4418,7 @@ function harmonizePlaceGo(item, useFlag, actions) {
 
             // Category translations
             let altCategories = pnhMatchData[phCategory2Idx];
-            if (!isNullOrWhitespace(altCategories)) { //  translate alt-cats to WME code
+            if (altCategories && altCategories.length) { //  translate alt-cats to WME code
                 altCategories = altCategories.replace(/,[^A-Za-z0-9]*/g, ',').split(','); // tighten and split by comma
                 for (let catix = 0; catix < altCategories.length; catix++) {
                     const newAltTemp = _PNH_DATA[_countryCode].categories.getIdFromTranslatedName(altCategories[catix]); // translate altCats into WME cat codes
@@ -4450,7 +4450,7 @@ function harmonizePlaceGo(item, useFlag, actions) {
                         _newName = pnhMatchData[phNameIdx];
                     }
                 }
-                if (!isNullOrWhitespace(altCategories)) { // if PNH alts exist
+                if (altCategories && altCategories.length) { // if PNH alts exist
                     insertAtIX(_newCategories, altCategories, 1); //  then insert the alts into the existing category array after the GS category
                 }
                 if (_newCategories.indexOf('HOTEL') !== 0) { // If no HOTEL category in the primary, flag it
@@ -4519,7 +4519,7 @@ function harmonizePlaceGo(item, useFlag, actions) {
                     _buttonBanner.bankCorporate = new Flag.BankCorporate();
                 }// END PNH bank treatment
             } else if (['GAS_STATION'].includes(priPNHPlaceCat)) { // for PNH gas stations, don't replace existing sub-categories
-                if (!isNullOrWhitespace(altCategories)) { // if PNH alts exist
+                if (altCategories && altCategories.length) { // if PNH alts exist
                     insertAtIX(_newCategories, altCategories, 1); //  then insert the alts into the existing category array after the GS category
                 }
                 if (_newCategories.indexOf('GAS_STATION') !== 0) { // If no GS category in the primary, flag it
@@ -4531,7 +4531,7 @@ function harmonizePlaceGo(item, useFlag, actions) {
             } else if (updatePNHName) { // if not a special category then update the name
                 _newName = pnhMatchData[phNameIdx];
                 _newCategories = insertAtIX(_newCategories, priPNHPlaceCat, 0);
-                if (!isNullOrWhitespace(altCategories) && !specCases.includes('buttOn_addCat2') && !specCases.includes('optionCat2')) {
+                if (altCategories && altCategories.length && !specCases.includes('buttOn_addCat2') && !specCases.includes('optionCat2')) {
                     _newCategories = insertAtIX(_newCategories, altCategories, 1);
                 }
             } else if (!updatePNHName) {
@@ -4572,7 +4572,7 @@ function harmonizePlaceGo(item, useFlag, actions) {
                 _newAliasesTemp = _newAliasesTemp.split(','); // split by comma
             }
             if (!specCases.includes('noUpdateAlias') && (!containsAll(_newAliases, _newAliasesTemp)
-                && !isNullOrWhitespace(_newAliasesTemp) && !specCases.includes('optionName2'))) {
+                && _newAliasesTemp && _newAliasesTemp.length && !specCases.includes('optionName2'))) {
                 _newAliases = insertAtIX(_newAliases, _newAliasesTemp, 0);
             }
 
@@ -7939,7 +7939,7 @@ function placeHarmonizerBootstrap() {
 
 // Helper functions
 const cellToText = value => value.trim() || null;
-const cellToArray = value => value.split(',').map(v => v.trim()).filter(v => v.length);
+const cellToArray = value => value.split(',').map(v => v.trim().replace(/\\"/g, '"')).filter(v => v.length);
 const tighten = str => str.toUpperCase().replace(/ AND /g, '').replace(/^THE /g, '').replace(/[^A-Z0-9]/g, '');
 const stripNonAlpha = strArray => strArray.map(str => str.toUpperCase().replace(/[^A-Z0-9]/g, ''));
 
@@ -8038,6 +8038,21 @@ function processPnhCategories(catData) {
     return categories;
 }
 
+function parseSpecialCase(specialCase) {
+    const match = specialCase.match(/^([a-z0-9]+)(?:_|<>)?(.*)/i);
+    const result = { command: null, arg: null };
+    if (match) {
+        result.command = match[1];
+        result.arg = match[2].replace(/<>$/, '');
+        // result.command = match[1];
+        // const argsRegex = /"(.*)"/g;
+        // while ((match = argsRegex.exec(specialCase))) {
+        //     result.args.push(match[1]);
+        // }
+    }
+    return result;
+}
+
 function processPnhChains(chainData) {
     const headerRow = chainData[0];
     const getColIndex = id => headerRow.indexOf(id);
@@ -8085,135 +8100,133 @@ function processPnhChains(chainData) {
         // Process ph_speccase column (special case settings)
         const specialCases = chainCellToArray(idxSpecialCase);
         specialCases.forEach(specialCase => {
-            const specialCaseUpper = specialCase.toUpperCase();
+            const result = parseSpecialCase(specialCase);
             let found = false;
-            switch (specialCaseUpper) {
-                case 'BETAENABLE':
+            switch (result.command) {
+                case 'betaEnable':
                     found = true;
                     chainObj.betaEnable = true;
                     break;
-                case 'NOTABANK':
+                case 'notABank':
                     found = true;
                     chainObj.notABank = true;
                     break;
-                case 'STRMATCHANY':
+                case 'strMatchAny':
                     found = true;
                     chainObj.strMatchAny = true;
                     break;
-                case 'STRMATCHSTART':
+                case 'strMatchStart':
                     found = true;
                     chainObj.strMatchStart = true;
                     break;
-                case 'STRMATCHEND':
+                case 'strMatchEnd':
                     found = true;
                     chainObj.strMatchEnd = true;
                     break;
-                case 'ALTNAME2DESC':
+                case 'altName2Desc':
                     found = true;
                     chainObj.altName2Desc = true;
                     break;
-                case 'KEEPNAME':
+                case 'keepName':
                     found = true;
                     chainObj.keepName = true;
                     break;
-                case 'SUBFUEL':
+                case 'subFuel':
                     found = true;
                     chainObj.subFuel = true;
                     break;
-                case 'PHARMHOURS':
+                case 'pharmhours':
                     found = true;
                     chainObj.pharmHours = true;
                     break;
-                case 'DRIVETHRUHOURS':
+                case 'drivethruhours':
                     found = true;
                     chainObj.driveThruHours = true;
                     break;
-                case 'OPTIONCAT2':
+                case 'optionCat2':
                     found = true;
                     chainObj.optionCat2 = true;
                     break;
-                case 'OPTIONNAME2':
+                case 'optionName2':
                     found = true;
                     chainObj.optionName2 = true;
                     break;
-                case 'LOCKAT5':
+                case 'lockAt5':
                     found = true;
                     chainObj.lockAt5 = true;
                     break;
-                case 'NOUPDATEALIAS':
+                case 'noUpdateAlias':
                     found = true;
                     chainObj.noUpdateAlias = true;
+                    break;
+                case 'regexNameMatch':
+                    if (result.arg) {
+                        found = true;
+                        chainObj.regexNameMatch = new RegExp(result.arg.replace(/\\/g, '\\').replace(/<or>/g, '|'), 'i');
+                    }
+                    break;
+                case 'checkLocalization':
+                    if (result.arg) {
+                        found = true;
+                        chainObj.checkLocalization = new RegExp(result.arg.replace(/\\/g, '\\').replace(/<or>/g, '|'), 'i');
+                    }
+                    break;
+                case 'optionAltName':
+                    if (result.arg) {
+                        found = true;
+                        chainObj.optionAltName = result.arg;
+                    }
+                    break;
+                case 'buttOn':
+                    if (result.arg) {
+                        found = true;
+                        if (!chainObj.buttOn) chainObj.buttOn = {};
+                        chainObj.buttOn[result.arg] = true;
+                    }
+                    break;
+                case 'buttOff':
+                    if (result.arg) {
+                        found = true;
+                        if (!chainObj.buttOff) chainObj.buttOff = {};
+                        chainObj.buttOff[result.arg] = true;
+                    }
+                    break;
+                case 'psOn':
+                    if (result.arg) {
+                        found = true;
+                        if (!chainObj.serviceOn) chainObj.serviceOn = {};
+                        chainObj.serviceOn[result.arg] = true;
+                    }
+                    break;
+                case 'psOff':
+                    if (result.arg) {
+                        found = true;
+                        if (!chainObj.serviceOff) chainObj.serviceOff = {};
+                        chainObj.serviceOff[result.arg] = true;
+                    }
+                    break;
+                case 'forceBrand':
+                    if (result.arg) {
+                        found = true;
+                        chainObj.forceBrand = result.arg;
+                    }
+                    break;
+                case 'brandParent0':
+                    found = true;
+                    chainObj.brandParent = 0;
+                    break;
+                case 'brandParent1':
+                    found = true;
+                    chainObj.brandParent = 1;
+                    break;
+                case 'brandParent2':
+                    found = true;
+                    chainObj.brandParent = 2;
                     break;
                 default:
                 // do nothing
             }
-            if (!found) {
-                const match = specialCase.match(/regexNameMatch<>(.+)<>/i);
-                if (match) {
-                    found = true;
-                    chainObj.regexNameMatch = new RegExp(match[1].replace(/\\/, '\\').replace(/<or>/g, '|'));
-                }
-            }
-            if (!found) {
-                const match = specialCase.match(/checkLocalization<>(.+)/i);
-                if (match) {
-                    found = true;
-                    chainObj.checkLocalization = new RegExp(match[1].replace(/\\/, '\\').replace(/<or>/g, '|'));
-                }
-            }
-            if (!found) {
-                const match = specialCase.match(/optionAltName<>(.+)/i);
-                if (match) {
-                    found = true;
-                    chainObj.optionAltName = match[1];
-                }
-            }
-            if (!found) {
-                const match = specialCase.match(/buttOn_(.+)/i);
-                if (match) {
-                    found = true;
-                    if (!chainObj.buttOn) chainObj.buttOn = {};
-                    chainObj.buttOn[match[1]] = true;
-                }
-            }
-            if (!found) {
-                const match = specialCase.match(/buttOff_(.+)/i);
-                if (match) {
-                    found = true;
-                    if (!chainObj.buttOff) chainObj.buttOff = {};
-                    chainObj.buttOff[match[1]] = true;
-                }
-            }
-            if (!found) {
-                const match = specialCase.match(/psOn_(.+)/i);
-                if (match) {
-                    found = true;
-                    if (!chainObj.psOn) chainObj.psOn = {};
-                    chainObj.psOn[match[1]] = true;
-                }
-            }
-            if (!found) {
-                const match = specialCase.match(/psOff_(.+)/i);
-                if (match) {
-                    found = true;
-                    if (!chainObj.psOff) chainObj.psOff = {};
-                    chainObj.psOff[match[1]] = true;
-                }
-            }
-            if (!found) {
-                const match = specialCase.match(/brandParent(\d{1})/i);
-                if (match) {
-                    found = true;
-                    chainObj.brandParent = parseInt(match[1], 10);
-                }
-            }
-            if (!found) {
-                const match = specialCase.match(/forceBrand<>(.+)/i);
-                if (match) {
-                    found = true;
-                    chainObj.forceBrand = match[1];
-                }
-            }
+
             if (!found) {
                 console.warn(`WMEPH special case setting "${specialCase}" was not recognized for this chain entry. It may not harmonize correctly:`, chainObj);
             }
@@ -8300,7 +8313,9 @@ function processPnhChains(chainData) {
 }
 
 
+// THIS IS THE OFFICIAL SPREADSHEET ID
 const SPREADSHEET_ID = '1pBz4l4cNapyGyzfMJKqA4ePEFLkmz2RryAt1UV39B4g';
+
 const SPREADSHEET_RANGE = '2019.01.20.001!A2:L';
 const API_KEY = 'YTJWNVBVRkplbUZUZVVObU1YVXpSRVZ3ZW5OaFRFSk1SbTR4VGxKblRURjJlRTFYY3pOQ2NXZElPQT09';
 
