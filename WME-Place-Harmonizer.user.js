@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name        WME Place Harmonizer Beta (pnh-update)
 // @namespace   WazeUSA
-// @version     2019.06.14.001
+// @version     2019.06.15.001
 // @description Harmonizes, formats, and locks a selected place
 // @author      WMEPH Development Group
 // @include     /^https:\/\/(www|beta)\.waze\.com\/(?!user\/)(.{2,6}\/)?editor\/?.*$/
@@ -4318,7 +4318,7 @@ function harmonizePlaceGo(item, useFlag, actions) {
             } else if (updatePnhName) { // if not a special category then update the name
                 _newName = pnhMatchData.name;
                 _newCategories = insertAtIX(_newCategories, priPNHPlaceCat, 0);
-                if (pnhMatchData.altCategories.length && !pnhMatchData.buttOn.includes('addCat2') && !pnhMatchData.optionCat2) {
+                if (pnhMatchData.altCategories.length && !(pnhMatchData.buttOn && pnhMatchData.buttOn.includes('addCat2')) && !pnhMatchData.optionCat2) {
                     _newCategories = insertAtIX(_newCategories, pnhMatchData.altCategories, 1);
                 }
             } else if (!updatePnhName) {
@@ -7343,7 +7343,9 @@ function addWmephTab() {
         )
     );
 
-    new WazeWrap.Interface.Tab(`WMEPH${_IS_DEV_VERSION ? '-β' : ''}`, $container.html(), initWmephTab, null);
+    //TEMPORARY, FOR ALPHA TESTING
+    new WazeWrap.Interface.Tab(`WMEPH${_IS_DEV_VERSION ? '-α' : ''}`, $container.html(), initWmephTab, null);
+    //new WazeWrap.Interface.Tab(`WMEPH${_IS_DEV_VERSION ? '-β' : ''}`, $container.html(), initWmephTab, null);
 }
 
 function createCloneCheckbox(divID, settingID, textDescription) {
