@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name        WME Place Harmonizer Beta (pnh-update)
 // @namespace   WazeUSA
-// @version     2019.06.16.001
+// @version     2019.06.17.001
 // @description Harmonizes, formats, and locks a selected place
 // @author      WMEPH Development Group
 // @include     /^https:\/\/(www|beta)\.waze\.com\/(?!user\/)(.{2,6}\/)?editor\/?.*$/
@@ -558,9 +558,9 @@ function getPvaSeverity(pvaValue, venue) {
     let severity;
     if (!pvaValue || (pvaValue === 'hosp' && !isER)) {
         severity = 3;
-    } else if (pvaValue === 2) {
+    } else if (pvaValue === '2') {
         severity = 1;
-    } else if (pvaValue === 3) {
+    } else if (pvaValue === '3') {
         severity = 2;
     } else {
         severity = 0;
@@ -4591,18 +4591,18 @@ function harmonizePlaceGo(item, useFlag, actions) {
                 if (catData.regionsRequiringPoint.includes(state2L)
                     || catData.regionsRequiringPoint.includes(region)
                     || catData.regionsRequiringPoint.includes(_countryCode)) {
-                    pvaPoint = 1;
-                    pvaPoint = null;
+                    pvaPoint = '1';
+                    pvaArea = null;
                 } else if (catData.regionsRequiringArea.includes(state2L)
                     || catData.regionsRequiringArea.includes(region)
                     || catData.regionsRequiringArea.includes(_countryCode)) {
                     pvaPoint = null;
-                    pvaArea = 1;
+                    pvaArea = '1';
                 }
 
                 // If Post Office and VPO or CPU is in the name, always a point.
                 if (_newCategories.includes('POST_OFFICE') && /\b(?:cpu|vpo)\b/i.test(item.attributes.name)) {
-                    pvaPoint = 1;
+                    pvaPoint = '1';
                     pvaArea = null;
                 }
 
