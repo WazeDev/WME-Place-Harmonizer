@@ -180,12 +180,17 @@ let _newAliases = [];
 let _newCategories = [];
 const _WME_SERVICES_ARRAY = ['VALLET_SERVICE', 'DRIVETHROUGH', 'WI_FI', 'RESTROOMS', 'CREDIT_CARDS', 'RESERVATIONS', 'OUTSIDE_SEATING',
     'AIR_CONDITIONING', 'PARKING_FOR_CUSTOMERS', 'DELIVERIES', 'TAKE_AWAY', 'WHEELCHAIR_ACCESSIBLE', 'DISABILITY_PARKING'];
-const _COLLEGE_ABBREVIATIONS = 'USF|USFSP|UF|UCF|UA|UGA|FSU|UM|SCP|FAU|FIU';
+const COLLEGE_ABBREVIATIONS = ['USF', 'USFSP', 'UF', 'UCF', 'UA', 'UGA', 'FSU', 'UM', 'SCP', 'FAU', 'FIU'];
 // Change place.name to title case
 const _TITLECASE_SETTINGS = {
-    ignoreWords: 'an|and|as|at|by|for|from|hhgregg|in|into|of|on|or|the|to|with'.split('|'),
-    capWords: '3M|AAA|AMC|AOL|AT&T|ATM|BBC|BLT|BMV|BMW|BP|CBS|CCS|CGI|CISCO|CJ|CNG|CNN|CVS|DHL|DKNY|DMV|DSW|EMS|ER|ESPN|FCU|FCUK|FDNY|GNC|H&M|HP|HSBC|IBM|IHOP|IKEA|IRS|JBL|JCPenney|KFC|LLC|MBNA|MCA|MCI|NBC|NYPD|PDQ|PNC|TCBY|TNT|TV|UPS|USA|USPS|VW|XYZ|ZZZ'.split('|'),
-    specWords: 'd\'Bronx|iFix|ExtraMile'.split('|')
+    ignoreWords: ['an', 'and', 'as', 'at', 'by', 'for', 'from', 'hhgregg', 'in', 'into', 'of', 'on',
+        'or', 'the', 'to', 'with'],
+    capWords: ['3M', 'AAA', 'AMC', 'AOL', 'AT&T', 'ATM', 'BBC', 'BLT', 'BMV', 'BMW', 'BP', 'CBS',
+        'CCS', 'CGI', 'CISCO', 'CJ', 'CNG', 'CNN', 'CVS', 'DHL', 'DKNY', 'DMV', 'DSW', 'EMS', 'ER',
+        'ESPN', 'FCU', 'FCUK', 'FDNY', 'GNC', 'H&M', 'HP', 'HSBC', 'IBM', 'IHOP', 'IKEA', 'IRS',
+        'JBL', 'JCPenney', 'KFC', 'LLC', 'MBNA', 'MCA', 'MCI', 'NBC', 'NYPD', 'PDQ', 'PNC', 'TCBY',
+        'TNT', 'TV', 'UPS', 'USA', 'USPS', 'VW', 'XYZ', 'ZZZ'],
+    specWords: ['d\'Bronx', 'iFix', 'ExtraMile']
 };
 let _newPlaceURL;
 let _approveRegionURL;
@@ -4713,14 +4718,13 @@ function harmonizePlaceGo(item, useFlag, actions) {
             }
         }
 
-        const anpNone = _COLLEGE_ABBREVIATIONS.split('|');
-        for (let cii = 0; cii < anpNone.length; cii++) {
-            const anpNoneRE = new RegExp(`\\b${anpNone[cii]}\\b`, 'g');
-            if (_newName.match(anpNoneRE) !== null && _buttonBanner.areaNotPointLow) {
+        COLLEGE_ABBREVIATIONS.forEach(abbr => {
+            const anpNoneRE = new RegExp(`\\b${abbr}\\b`, 'g');
+            if (anpNoneRE.test(_newName) && _buttonBanner.areaNotPointLow) {
                 _buttonBanner.areaNotPointLow.severity = 0;
                 _buttonBanner.areaNotPointLow.WLactive = false;
             }
-        }
+        });
 
         // Check for missing hours field
         if (item.attributes.openingHours.length === 0) { // if no hours...
@@ -4981,7 +4985,8 @@ function harmonizePlaceGo(item, useFlag, actions) {
     const hasStreet = item.attributes.streetID || (inferredAddress && inferredAddress.street);
 
     if (hasStreet && (!currentHN || currentHN.replace(/\D/g, '').length === 0)) {
-        if (!'BRIDGE|ISLAND|FOREST_GROVE|SEA_LAKE_POOL|RIVER_STREAM|CANAL|DAM|TUNNEL|JUNCTION_INTERCHANGE'.split('|').includes(item.attributes.categories[0])) {
+        if (!['BRIDGE', 'ISLAND', 'FOREST_GROVE', 'SEA_LAKE_POOL', 'RIVER_STREAM', 'CANAL', 'DAM',
+            'TUNNEL', 'JUNCTION_INTERCHANGE'].includes(item.attributes.categories[0])) {
             _buttonBanner.hnMissing = new Flag.HnMissing(item);
             if (state2L === 'PR' || ['SCENIC_LOOKOUT_VIEWPOINT'].includes(item.attributes.categories[0])) {
                 _buttonBanner.hnMissing.severity = 0;
@@ -5050,8 +5055,10 @@ function harmonizePlaceGo(item, useFlag, actions) {
         }
     }
 
+    const excludeFromMissingAddressFlags = ['BRIDGE', 'ISLAND', 'FOREST_GROVE', 'SEA_LAKE_POOL',
+        'RIVER_STREAM', 'CANAL', 'DAM', 'TUNNEL', 'JUNCTION_INTERCHANGE'];
     if ((!addr.city || addr.city.attributes.isEmpty)
-        && !'BRIDGE|ISLAND|FOREST_GROVE|SEA_LAKE_POOL|RIVER_STREAM|CANAL|DAM|TUNNEL|JUNCTION_INTERCHANGE'.split('|').includes(item.attributes.categories[0])) {
+        && !excludeFromMissingAddressFlags.includes(item.attributes.categories[0])) {
         _buttonBanner.cityMissing = new Flag.CityMissing();
         if (item.attributes.residential && hpMode.hlFlag) {
             _buttonBanner.cityMissing.severity = 1;
@@ -5059,7 +5066,7 @@ function harmonizePlaceGo(item, useFlag, actions) {
         lockOK = false;
     }
     if (addr.city && (!addr.street || addr.street.isEmpty)
-        && !'BRIDGE|ISLAND|FOREST_GROVE|SEA_LAKE_POOL|RIVER_STREAM|CANAL|DAM|TUNNEL|JUNCTION_INTERCHANGE'.split('|').includes(item.attributes.categories[0])) {
+        && !excludeFromMissingAddressFlags.includes(item.attributes.categories[0])) {
         _buttonBanner.streetMissing = new Flag.StreetMissing();
         if (['SCENIC_LOOKOUT_VIEWPOINT'].includes(item.attributes.categories[0])) {
             _buttonBanner.streetMissing.severity = 1;
@@ -6299,9 +6306,10 @@ function findNearbyDuplicate(selectedVenueName, selectedVenueAliases, selectedVe
     const padFrac = 0.15; // how much to pad the zoomed window
 
     // generic terms to skip if it's all that remains after stripping numbers
-    let noNumSkip = 'BANK|ATM|HOTEL|MOTEL|STORE|MARKET|SUPERMARKET|GYM|GAS|GASOLINE|GASSTATION|CAFE|OFFICE|OFFICES'
-        + '|CARRENTAL|RENTALCAR|RENTAL|SALON|BAR|BUILDING|LOT';
-    noNumSkip = `${noNumSkip}|${_COLLEGE_ABBREVIATIONS}`.split('|');
+    let noNumSkip = ['BANK', 'ATM', 'HOTEL', 'MOTEL', 'STORE', 'MARKET', 'SUPERMARKET',
+        'GYM', 'GAS', 'GASOLINE', 'GASSTATION', 'CAFE', 'OFFICE', 'OFFICES', 'CARRENTAL',
+        'RENTALCAR', 'RENTAL', 'SALON', 'BAR', 'BUILDING', 'LOT'];
+    noNumSkip = noNumSkip.concat(COLLEGE_ABBREVIATIONS);
     const allowedTwoLetters = ['BP', 'DQ', 'BK', 'BW', 'LQ', 'QT', 'DB', 'PO'];
 
     // Make the padded extent
