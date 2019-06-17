@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name        WME Place Harmonizer Beta (pnh-update)
 // @namespace   WazeUSA
-// @version     2019.06.15.001
+// @version     2019.06.16.001
 // @description Harmonizes, formats, and locks a selected place
 // @author      WMEPH Development Group
 // @include     /^https:\/\/(www|beta)\.waze\.com\/(?!user\/)(.{2,6}\/)?editor\/?.*$/
@@ -76,11 +76,11 @@ const _CSS_ARRAY = [
     '.wmeph-hr { border-color: #ccc; }'
 ];
 
-const MultiAction = require('Waze/Action/MultiAction');
-const UpdateObject = require('Waze/Action/UpdateObject');
-const UpdateFeatureGeometry = require('Waze/Action/UpdateFeatureGeometry');
-const UpdateFeatureAddress = require('Waze/Action/UpdateFeatureAddress');
-const OpeningHour = require('Waze/Model/Objects/OpeningHour');
+let MultiAction;
+let UpdateObject;
+let UpdateFeatureGeometry;
+let UpdateFeatureAddress;
+let OpeningHour;
 
 const _SCRIPT_VERSION = GM_info.script.version.toString(); // pull version from header
 const _SCRIPT_NAME = GM_info.script.name;
@@ -1276,34 +1276,20 @@ function applyHighlightsTest(venues, force) {
         _servicesBanner = storedBannServ;
         _buttonBanner2 = storedBannButt2;
     }
-    phlogdev(`Ran highlighter in ${Math.round((performance.now() - t0) * 10) / 10} milliseconds.`);
+    phlogdev(`Ran highlighter on ${venues.length} places in ${Math.round((performance.now() - t0) * 10) / 10} milliseconds.`);
     phlogdev(`WMEPH cache size: ${Object.keys(_resultsCache).length}`);
 }
 
 // Set up CH loop
 function bootstrapWmephColorHighlights() {
     if (localStorage.getItem('WMEPH-ColorHighlighting') === '1') {
-        // Add listeners
-        W.model.venues.on('objectschanged', e => errorHandler(() => {
-            if (!_disableHighlightTest) {
-                applyHighlightsTest(e, true);
-                _layer.redraw();
-            }
-        }));
-
-        W.map.landmarkLayer.events.register('beforefeaturesadded', null, e => errorHandler(() => applyHighlightsTest(e.features.map(f => f.model))));
-
         // Clear the cache (highlight severities may need to be updated).
         _resultsCache = {};
-
-        // Apply the colors
-        applyHighlightsTest(W.model.venues.getObjectArray());
-        _layer.redraw();
-    } else {
-        // reset the colors to default
-        applyHighlightsTest(W.model.venues.getObjectArray());
-        _layer.redraw();
     }
+
+    // Apply the colors
+    applyHighlightsTest(W.model.venues.getObjectArray());
+    _layer.redraw();
 }
 
 // Change place.name to title case
@@ -2207,6 +2193,17 @@ let Flag = {
         constructor() {
             super(true, 1, 'Make sure this place is for the gas station itself and not the main store building.  Otherwise undo and check the categories.',
                 true, 'Whitelist no gas brand', 'subFuel');
+        }
+
+        static eval(pnhMatch, newName) {
+            const result = { flag: null };
+            if (pnhMatch.subFuel && !['GAS', 'FUEL'].some(word => newName.toUpperCase().includes(word))) {
+                result.flag = new Flag.SubFuel();
+                if (_wl.subFuel) {
+                    result.flag.WLactive = false;
+                }
+            }
+            return result;
         }
     },
     AreaNotPointLow: class extends WLFlag {
@@ -3905,11 +3902,6 @@ function harmonizePlaceGo(item, useFlag, actions) {
             actions.push(new UpdateObject(item, { name: _newName }));
             _UPDATED_FIELDS.name.updated = true;
         }
-
-        // Add convenience store category to station
-        if (!_newCategories.includes('CONVENIENCE_STORE') && !_buttonBanner.subFuel) {
-            _buttonBanner.addConvStore = new Flag.AddConvStore();
-        }
     } // END Gas Station Checks
 
     // Note for Indiana editors to check liquor store hours if Sunday hours haven't been added yet.
@@ -4090,25 +4082,27 @@ function harmonizePlaceGo(item, useFlag, actions) {
             }
 
             // Check Localization
-            // TODO - verify this works as expected
+            // TODO - I don't really like how this works. Should be a separate text value for the checkLocalization flag,
+            // not use the ph_displayNote field value.
             if (pnhMatchData.checkLocalization) {
+                // It's assumed the user will need to match some non-standard naming pattern, so don't update the place name.
+                updatePnhName = false;
+                // Disable displaying of the note later. It's assumed the note will be displayed with the localization flag, if needed.
+                showDispNote = false;
                 result = Flag.LocalizedName.eval(_newName, newNameSuffix, pnhMatchData.checkLocalization, pnhMatchData.displayNote);
                 if (result.flag) {
-                    updatePnhName = false;
-                    showDispNote = false;
                     _buttonBanner.localizedName = result.flag;
                 }
             }
 
             if (pnhMatchData.keepName) updatePnhName = false;
 
-            // TODO convert to Flag eval
             // If it's a place that also sells fuel, enable the button
-            if (pnhMatchData.subFuel && !['GAS', 'FUEL'].some(word => _newName.toUpperCase().includes(word))) {
-                _buttonBanner.subFuel = new Flag.SubFuel();
-                if (_wl.subFuel) {
-                    _buttonBanner.subFuel.WLactive = false;
-                }
+            _buttonBanner.subFuel = Flag.SubFuel.eval(pnhMatchData, _newName).flag;
+
+            // Add convenience store category to station
+            if (_newCategories[0] === 'GAS_STATION' && !_newCategories.includes('CONVENIENCE_STORE') && !pnhMatchData.subFuel) {
+                _buttonBanner.addConvStore = new Flag.AddConvStore();
             }
 
             // TODO convert to Flag eval
@@ -7533,6 +7527,12 @@ function updateFeatureGeometry(place, newGeometry) {
 }
 
 function placeHarmonizerInit() {
+    MultiAction = require('Waze/Action/MultiAction');
+    UpdateObject = require('Waze/Action/UpdateObject');
+    UpdateFeatureGeometry = require('Waze/Action/UpdateFeatureGeometry');
+    UpdateFeatureAddress = require('Waze/Action/UpdateFeatureAddress');
+    OpeningHour = require('Waze/Model/Objects/OpeningHour');
+
     _layer = W.map.landmarkLayer;
 
     // Add CSS stuff here
@@ -7708,14 +7708,34 @@ function placeHarmonizerInit() {
     }));
 
     phlog('Starting Highlighter');
+
+    // Add listeners
+    W.model.venues.on('objectschanged', e => errorHandler(() => {
+        if (!_disableHighlightTest) {
+            applyHighlightsTest(e, true);
+            _layer.redraw();
+        }
+    }));
+    W.map.landmarkLayer.events.register('beforefeaturesadded', null, e => errorHandler(() => applyHighlightsTest(e.features.map(f => f.model))));
+
     bootstrapWmephColorHighlights();
 } // END placeHarmonizer_init function
 
 function placeHarmonizerBootstrap() {
-    if (W && W.loginManager && W.loginManager.user && W.map && WazeWrap && WazeWrap.Ready && W.model.venues.categoryBrands.PARKING_LOT) {
+    if (require && W && W.loginManager && W.loginManager.user && W.map && WazeWrap && WazeWrap.Ready && W.model.venues.categoryBrands.PARKING_LOT) {
         placeHarmonizerInit();
     } else {
-        phlog('Waiting for WME map and login...');
+        if (!require) {
+            phlog('Waiting for "require"...');
+        } else if (!W || !W.loginManager || !W.loginManager.user) {
+            phlog('Waiting for W.loginMangager.user...');
+        } else if (!W.map) {
+            phlog('Waiting for W.map...');
+        } else if (!WazeWrap || !WazeWrap.Ready) {
+            phlog('Waiting for WazeWrap...');
+        } else if (!W.model.venues.categoryBrands.PARKING_LOT) {
+            phlog('Waiting for W.model.venues.categoryBrands.PARKING_LOT...');
+        }
         setTimeout(placeHarmonizerBootstrap, 200);
     }
 }
@@ -8031,6 +8051,7 @@ function processPnhChains(chainData, categories) {
         const baseWords = chainCellToArray(idxSearchNameBase);
         const midWords = chainCellToArray(idxSearchNameMid);
         const endWords = chainCellToArray(idxSearchNameEnd);
+
         let nameVariations;
         if (chainObj.disable !== '1' || chainObj.specialCase.includes('betaEnable')) {
             let newNameList = [tighten(chainObj.name)];
@@ -8074,6 +8095,10 @@ function processPnhChains(chainData, categories) {
             }
             // Clear out any empty entries
             newNameList = newNameList.filter(name => name.length > 1);
+
+            if (chainObj.subFuel && !chainObj.regexNameMatch && newNameList.every(name => name.includes('FUEL') || name.includes('GAS'))) {
+                console.warn('WMEPH special case setting "subFuel" is set, but there is no possibility of matching a place without "GAS" or "FUEL" in the name.', chainObj);
+            }
 
             // Next, add extensions to the search names based on the WME place category
             if (chainObj.category1) {
