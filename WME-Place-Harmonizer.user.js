@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name        WME Place Harmonizer Beta (pnh-update)
 // @namespace   WazeUSA
-// @version     2019.06.17.001
+// @version     2019.06.19.001
 // @description Harmonizes, formats, and locks a selected place
 // @author      WMEPH Development Group
 // @include     /^https:\/\/(www|beta)\.waze\.com\/(?!user\/)(.{2,6}\/)?editor\/?.*$/
@@ -194,10 +194,6 @@ const _TITLECASE_SETTINGS = {
 };
 let _newPlaceURL;
 let _approveRegionURL;
-let _customStoreFinder = false; // switch indicating place-specific custom store finder url
-let _customStoreFinderLocal = false; // switch indicating place-specific custom store finder url with localization option (GPS/addr)
-let _customStoreFinderURL = ''; // switch indicating place-specific custom store finder url
-let _customStoreFinderLocalURL = ''; // switch indicating place-specific custom store finder url with localization option (GPS/addr)
 let _updateURL;
 
 // Split out state-based data
@@ -819,9 +815,10 @@ function appendServiceButtonIconCss() {
 
 // Function that checks current place against the Harmonization Data.  Returns place data or "NoMatch"
 function harmoList(itemName, state2L, region3L, country, itemCats, item, placePL) {
+    const result = { matches: [], status: 'NoMatch' };
     if (country !== 'USA' && country !== 'CAN') {
         alert('No PNH data exists for this country.');
-        return ['NoMatch'];
+        return result;
     }
     const matchPNHRegionData = []; // array of matched data with regional approval
     const pnhOrderNum = [];
@@ -906,15 +903,20 @@ function harmoList(itemName, state2L, region3L, country, itemCats, item, placePL
     // If name & region match was found:
     if (matchPNHRegionData.length) {
         _buttonBanner.placeMatched = new Flag.PlaceMatched();
-        return matchPNHRegionData;
+        result.matches = matchPNHRegionData;
+        result.status = 'Match';
+        return result;
     }
     if (pnhNameMatch) { // if a name match was found but not for region, prod the user to get it approved
         _buttonBanner.ApprovalSubmit = new Flag.ApprovalSubmit(region3L, pnhOrderNum, pnhNameTemp, placePL);
-        return ['ApprovalNeeded', pnhNameTemp, pnhOrderNum];
+        result.status = 'ApprovalNeeded';
+        result.pnhNameTemp = pnhNameTemp;
+        result.pnhOrderNum = pnhOrderNum;
+        return result;
     }
     // if no match was found, suggest adding the place to the sheet if it's a chain
     _buttonBanner.NewPlaceSubmit = new Flag.NewPlaceSubmit();
-    return ['NoMatch'];
+    return result;
 } // END harmoList function
 
 function onObjectsChanged() {
@@ -2273,16 +2275,16 @@ let Flag = {
             super(true, 1, 'Place needs localization information', true, 'Whitelist localization', 'localizedName');
         }
 
-        static eval(name, nameSuffix, localizationRegEx, displayNote) {
+        static eval(name, nameSuffix, pnhMatch) {
             const result = { flag: null };
-            if ((name + (nameSuffix || '')).match(localizationRegEx) === null) {
+            if ((name + (nameSuffix || '')).match(pnhMatch.checkLocalization) === null) {
                 result.flag = new Flag.LocalizedName();
                 if (_wl.localizedName) {
                     result.flag.WLactive = false;
                     result.flag.severity = 0;
                 }
-                if (displayNote) {
-                    result.flag.message = displayNote;
+                if (pnhMatch.displayNote) {
+                    result.flag.message = pnhMatch.displayNote;
                 }
             }
             return result;
@@ -2290,6 +2292,24 @@ let Flag = {
     },
     SpecCaseMessage: class extends FlagBase {
         constructor(message) { super(true, 0, message); }
+
+        static eval(venue, pnhMatch) {
+            const result = { flag: null };
+            if (!pnhMatch.checkLocalization && pnhMatch.displayNote) {
+                if (pnhMatch.pharmHours
+                    && (!venue.attributes.description.toUpperCase().includes('PHARMACY')
+                        || ['HOURS', 'HRS'].some(word => !venue.attributes.description.toUpperCase().includes(word)))) {
+                    result.flag = new Flag.SpecCaseMessage(pnhMatch.displayNote);
+                } else if (pnhMatch.driveThruHours
+                    && (!venue.attributes.description.toUpperCase().includes('DRIVE')
+                        || ['HOURS', 'HRS'].somee(word => !venue.attributes.description.toUpperCase().includes(word)))) {
+                    result.flag = new Flag.SpecCaseMessage(pnhMatch.displayNote);
+                } else {
+                    result.flag = new Flag.SpecCaseMessage(pnhMatch.displayNote);
+                }
+            }
+            return result;
+        }
     },
     PnhCatMess: class extends ActionFlag {
         constructor(message) { super(true, 0, message, null, null); }
@@ -2319,9 +2339,6 @@ let Flag = {
                 }
             }
         }
-    },
-    SpecCaseMessageLow: class extends FlagBase {
-        constructor(message) { super(true, 0, message); }
     },
     ExtProviderMissing: class extends ActionFlag {
         constructor() {
@@ -2928,6 +2945,14 @@ let Flag = {
             _UPDATED_FIELDS.categories.updated = true;
             harmonizePlaceGo(venue, 'harmonize');
         }
+
+        static eval(newCategories, pnhMatch) {
+            const result = { flag: null };
+            if (newCategories[0] === 'GAS_STATION' && !newCategories.includes('CONVENIENCE_STORE') && !pnhMatch.subFuel) {
+                result.flag = new Flag.AddConvStore();
+            }
+            return result;
+        }
     },
     IsThisAPostOffice: class extends ActionFlag {
         constructor() {
@@ -3138,42 +3163,123 @@ let Flag = {
             }
         }
     },
-    PlaceWebsite: class extends ActionFlag {
+    StoreFinder: class extends ActionFlag {
         // NOTE: This class is now only used to display the store locator button.  It can be updated to remove/change anything that doesn't serve that purpose.
-        constructor() { super(true, 0, '', 'Location Finder', 'Look up details about this location on the chain\'s finder web page'); }
+        constructor(url, isLocalizedUrl) {
+            super(true, 0, '', 'Location Finder', 'Look up details about this location on the chain\'s finder web page');
+            this.url = url;
+            this.isLocalizedUrl = isLocalizedUrl;
+            if (isLocalizedUrl) this.value += ' (L)';
+        }
 
         // eslint-disable-next-line class-methods-use-this
         action() {
-            let openPlaceWebsiteURL;
             let linkProceed = true;
-            if (_updateURL) {
-                // replace WME url with storefinder URLs if they are in the PNH data
-                if (_customStoreFinder) {
-                    openPlaceWebsiteURL = _customStoreFinderURL;
-                } else if (_customStoreFinderLocal) {
-                    openPlaceWebsiteURL = _customStoreFinderLocalURL;
+            // replace WME url with storefinder URLs if they are in the PNH data
+            // If the user has 'never' opened a localized store finder URL, then warn them (just once)
+            if (localStorage.getItem(_SETTING_IDS.sfUrlWarning) === '0' && this.isLocalizedUrl) {
+                linkProceed = false;
+                if (confirm('***Localized store finder sites often show multiple nearby results. Please make sure you pick the right location.\nClick OK to agree and continue.')) { // if the category doesn't translate, then pop an alert that will make a forum post to the thread
+                    localStorage.setItem(_SETTING_IDS.sfUrlWarning, '1'); // prevent future warnings
+                    linkProceed = true;
                 }
-                // If the user has 'never' opened a localized store finder URL, then warn them (just once)
-                if (localStorage.getItem(_SETTING_IDS.sfUrlWarning) === '0' && _customStoreFinderLocal) {
-                    linkProceed = false;
-                    if (confirm('***Localized store finder sites often show multiple nearby results. Please make sure you pick the right location.\nClick OK to agree and continue.')) { // if the category doesn't translate, then pop an alert that will make a forum post to the thread
-                        localStorage.setItem(_SETTING_IDS.sfUrlWarning, '1'); // prevent future warnings
-                        linkProceed = true;
-                    }
-                }
-            } else {
-                let { url } = getSelectedVenue();
-                if (!/^https?:\/\//.test(url)) url = `http://${url}`;
-                openPlaceWebsiteURL = url;
             }
             // open the link depending on new window setting
             if (linkProceed) {
                 if ($('#WMEPH-WebSearchNewTab').prop('checked')) {
-                    window.open(openPlaceWebsiteURL);
+                    window.open(this.url);
                 } else {
-                    window.open(openPlaceWebsiteURL, _SEARCH_RESULTS_WINDOW_NAME, _searchResultsWindowSpecs);
+                    window.open(this.url, _SEARCH_RESULTS_WINDOW_NAME, _searchResultsWindowSpecs);
                 }
             }
+        }
+
+        static eval(venue, address, itemGps, countryCode, state2L, pnhMatch = null) {
+            const result = { flag: null };
+            if (countryCode === 'USA' && venue.attributes.categories.includes('POST_OFFICE')) {
+                result.flag = new Flag.StoreFinder('https://tools.usps.com/go/POLocatorAction.action');
+            } else if (pnhMatch) {
+                if (pnhMatch.storeFinderLocalizedUrl) {
+                    const tempLocalURL = pnhMatch.storeFinderLocalizedUrl.replace(/ /g, '').split('<>');
+                    let searchStreet = '';
+                    let searchCity = '';
+                    let searchState = '';
+                    if (address.street.name === 'string') {
+                        searchStreet = address.street.name;
+                    }
+                    const searchStreetPlus = searchStreet.replace(/ /g, '+');
+                    searchStreet = searchStreet.replace(/ /g, '%20');
+                    if (typeof address.city.attributes.name === 'string') {
+                        searchCity = address.city.attributes.name;
+                    }
+                    const searchCityPlus = searchCity.replace(/ /g, '+');
+                    searchCity = searchCity.replace(/ /g, '%20');
+                    if (typeof address.state.name === 'string') {
+                        searchState = address.state.name;
+                    }
+                    const searchStatePlus = searchState.replace(/ /g, '+');
+                    searchState = searchState.replace(/ /g, '%20');
+
+                    const centroid = venue.attributes.geometry.getCentroid();
+                    if (!itemGps) itemGps = OL.Layer.SphericalMercator.inverseMercator(centroid.x, centroid.y);
+
+                    let url = '';
+                    for (let tlix = 1; tlix < tempLocalURL.length; tlix++) {
+                        if (tempLocalURL[tlix] === 'ph_streetName') {
+                            url += searchStreet;
+                        } else if (tempLocalURL[tlix] === 'ph_streetNamePlus') {
+                            url += searchStreetPlus;
+                        } else if (tempLocalURL[tlix] === 'ph_cityName') {
+                            url += searchCity;
+                        } else if (tempLocalURL[tlix] === 'ph_cityNamePlus') {
+                            url += searchCityPlus;
+                        } else if (tempLocalURL[tlix] === 'ph_stateName') {
+                            url += searchState;
+                        } else if (tempLocalURL[tlix] === 'ph_stateNamePlus') {
+                            url += searchStatePlus;
+                        } else if (tempLocalURL[tlix] === 'ph_state2L') {
+                            url += state2L;
+                        } else if (tempLocalURL[tlix] === 'ph_latitudeEW') {
+                            // customStoreFinderLocalURL = customStoreFinderLocalURL + itemGPS[0];
+                        } else if (tempLocalURL[tlix] === 'ph_longitudeNS') {
+                            // customStoreFinderLocalURL = customStoreFinderLocalURL + itemGPS[1];
+                        } else if (tempLocalURL[tlix] === 'ph_latitudePM') {
+                            url += itemGps.lat;
+                        } else if (tempLocalURL[tlix] === 'ph_longitudePM') {
+                            url += itemGps.lon;
+                        } else if (tempLocalURL[tlix] === 'ph_latitudePMBuffMin') {
+                            url += (itemGps.lat - 0.15).toString();
+                        } else if (tempLocalURL[tlix] === 'ph_longitudePMBuffMin') {
+                            url += (itemGps.lon - 0.15).toString();
+                        } else if (tempLocalURL[tlix] === 'ph_latitudePMBuffMax') {
+                            url += (itemGps.lat + 0.15).toString();
+                        } else if (tempLocalURL[tlix] === 'ph_longitudePMBuffMax') {
+                            url += (itemGps.lon + 0.15).toString();
+                        } else if (tempLocalURL[tlix] === 'ph_houseNumber') {
+                            url += (venue.attributes.houseNumber ? venue.attributes.houseNumber : '');
+                        } else {
+                            url += tempLocalURL[tlix];
+                        }
+                    }
+                    if (url.indexOf('http') !== 0) {
+                        url = `http://${url}`;
+                    }
+                    // TODO - determine if the check for localizedName is really needed (?)
+                    // if (!_buttonBanner.localizedName) {
+                    result.flag = new Flag.StoreFinder(url, true);
+                    // }
+                } else if (pnhMatch.storeFinderUrl) {
+                    let url = pnhMatch.storeFinderUrl;
+                    if (url.indexOf('http') !== 0) {
+                        url = `http://${url}`;
+                    }
+                    // TODO - determine if the check for localizedName is really needed (?)
+                    // if (!_buttonBanner.localizedName) {
+                    result.flag = new Flag.StoreFinder(url);
+                    // }
+                }
+            }
+            return result;
         }
     }
 }; // END Flag namespace
@@ -3282,7 +3388,7 @@ function getButtonBanner() {
         placeLocked: null,
         NewPlaceSubmit: null,
         ApprovalSubmit: null,
-        PlaceWebsite: null
+        StoreFinder: null
     };
 }
 
@@ -3961,22 +4067,19 @@ function harmonizePlaceGo(item, useFlag, actions) {
         _buttonBanner.extProviderMissing = Flag.ExtProviderMissing.eval(item, isLocked, _newCategories, _USER.rank, $('#WMEPH-DisablePLAExtProviderCheck').prop('checked'), actions).flag;
 
         // Place Harmonization
+        let matchResult = { matches: [], status: 'NoMatch' };
         let pnhMatchData;
         if (hpMode.harmFlag) {
-            if (item.isParkingLot()) {
-                pnhMatchData = ['NoMatch'];
-            } else {
+            if (!item.isParkingLot()) {
                 // check against the PNH list
-                pnhMatchData = harmoList(_newName, state2L, region, _countryCode, _newCategories, item, placePL);
+                matchResult = harmoList(_newName, state2L, region, _countryCode, _newCategories, item, placePL);
+                pnhMatchData = matchResult.matches;
             }
-        } else if (hpMode.hlFlag) {
-            pnhMatchData = ['Highlight'];
         }
 
         pnhNameRegMatch = false;
-        if (pnhMatchData[0] !== 'NoMatch' && pnhMatchData[0] !== 'ApprovalNeeded' && pnhMatchData[0] !== 'Highlight') { // *** Replace place data with PNH data
+        if (!hpMode.hlFlag && matchResult.status === 'Match') { // *** Replace place data with PNH data
             pnhNameRegMatch = true;
-            let showDispNote = true;
             let updatePnhName = true;
 
             // Retrieve the data from the PNH line(s)
@@ -4092,12 +4195,7 @@ function harmonizePlaceGo(item, useFlag, actions) {
             if (pnhMatchData.checkLocalization) {
                 // It's assumed the user will need to match some non-standard naming pattern, so don't update the place name.
                 updatePnhName = false;
-                // Disable displaying of the note later. It's assumed the note will be displayed with the localization flag, if needed.
-                showDispNote = false;
-                result = Flag.LocalizedName.eval(_newName, newNameSuffix, pnhMatchData.checkLocalization, pnhMatchData.displayNote);
-                if (result.flag) {
-                    _buttonBanner.localizedName = result.flag;
-                }
+                _buttonBanner.localizedName = Flag.LocalizedName.eval(_newName, newNameSuffix, pnhMatchData).flag;
             }
 
             if (pnhMatchData.keepName) updatePnhName = false;
@@ -4106,115 +4204,10 @@ function harmonizePlaceGo(item, useFlag, actions) {
             _buttonBanner.subFuel = Flag.SubFuel.eval(pnhMatchData, _newName).flag;
 
             // Add convenience store category to station
-            if (_newCategories[0] === 'GAS_STATION' && !_newCategories.includes('CONVENIENCE_STORE') && !pnhMatchData.subFuel) {
-                _buttonBanner.addConvStore = new Flag.AddConvStore();
-            }
+            _buttonBanner.addConvStore = Flag.AddConvStore.eval(_newCategories, pnhMatchData).flag;
 
-            // TODO convert to Flag eval
             // Display any notes for the specific place
-            if (showDispNote && pnhMatchData.displayNote) {
-                if (pnhMatchData.pharmHours
-                    && (!item.attributes.description.toUpperCase().includes('PHARMACY')
-                        || ['HOURS', 'HRS'].some(word => !item.attributes.description.toUpperCase().includes(word)))) {
-                    _buttonBanner.specCaseMessage = new Flag.SpecCaseMessage(pnhMatchData.displayNote);
-                }
-                if (pnhMatchData.driveThruHours
-                    && (!item.attributes.description.toUpperCase().includes('DRIVE')
-                        || ['HOURS', 'HRS'].somee(word => !item.attributes.description.toUpperCase().includes(word)))) {
-                    if ($('#service-checkbox-DRIVETHROUGH').prop('checked')) {
-                        _buttonBanner.specCaseMessage = new Flag.SpecCaseMessage(pnhMatchData.displayNote);
-                    } else {
-                        _buttonBanner.specCaseMessageLow = new Flag.SpecCaseMessageLow(pnhMatchData.displayNote);
-                    }
-                } else {
-                    _buttonBanner.specCaseMessageLow = new Flag.SpecCaseMessageLow(pnhMatchData.displayNote);
-                }
-            }
-
-            // Localized Storefinder code:
-            _customStoreFinderLocal = false;
-            _customStoreFinderLocalURL = '';
-            _customStoreFinder = false;
-            _customStoreFinderURL = '';
-
-            if (pnhMatchData.storeFinderLocalizedUrl) {
-                if (!_buttonBanner.localizedName) {
-                    _buttonBanner.PlaceWebsite = new Flag.PlaceWebsite();
-                    _buttonBanner.PlaceWebsite.value = 'Location Finder (L)';
-                }
-                const tempLocalURL = pnhMatchData.storeFinderLocalizedUrl.replace(/ /g, '').split('<>');
-                let searchStreet = '';
-                let searchCity = '';
-                let searchState = '';
-                if (addr.street.name === 'string') {
-                    searchStreet = addr.street.name;
-                }
-                const searchStreetPlus = searchStreet.replace(/ /g, '+');
-                searchStreet = searchStreet.replace(/ /g, '%20');
-                if (typeof addr.city.attributes.name === 'string') {
-                    searchCity = addr.city.attributes.name;
-                }
-                const searchCityPlus = searchCity.replace(/ /g, '+');
-                searchCity = searchCity.replace(/ /g, '%20');
-                if (typeof addr.state.name === 'string') {
-                    searchState = addr.state.name;
-                }
-                const searchStatePlus = searchState.replace(/ /g, '+');
-                searchState = searchState.replace(/ /g, '%20');
-
-                const centroid = item.attributes.geometry.getCentroid();
-                if (!itemGPS) itemGPS = OL.Layer.SphericalMercator.inverseMercator(centroid.x, centroid.y);
-                for (let tlix = 1; tlix < tempLocalURL.length; tlix++) {
-                    if (tempLocalURL[tlix] === 'ph_streetName') {
-                        _customStoreFinderLocalURL += searchStreet;
-                    } else if (tempLocalURL[tlix] === 'ph_streetNamePlus') {
-                        _customStoreFinderLocalURL += searchStreetPlus;
-                    } else if (tempLocalURL[tlix] === 'ph_cityName') {
-                        _customStoreFinderLocalURL += searchCity;
-                    } else if (tempLocalURL[tlix] === 'ph_cityNamePlus') {
-                        _customStoreFinderLocalURL += searchCityPlus;
-                    } else if (tempLocalURL[tlix] === 'ph_stateName') {
-                        _customStoreFinderLocalURL += searchState;
-                    } else if (tempLocalURL[tlix] === 'ph_stateNamePlus') {
-                        _customStoreFinderLocalURL += searchStatePlus;
-                    } else if (tempLocalURL[tlix] === 'ph_state2L') {
-                        _customStoreFinderLocalURL += state2L;
-                    } else if (tempLocalURL[tlix] === 'ph_latitudeEW') {
-                        // customStoreFinderLocalURL = customStoreFinderLocalURL + itemGPS[0];
-                    } else if (tempLocalURL[tlix] === 'ph_longitudeNS') {
-                        // customStoreFinderLocalURL = customStoreFinderLocalURL + itemGPS[1];
-                    } else if (tempLocalURL[tlix] === 'ph_latitudePM') {
-                        _customStoreFinderLocalURL += itemGPS.lat;
-                    } else if (tempLocalURL[tlix] === 'ph_longitudePM') {
-                        _customStoreFinderLocalURL += itemGPS.lon;
-                    } else if (tempLocalURL[tlix] === 'ph_latitudePMBuffMin') {
-                        _customStoreFinderLocalURL += (itemGPS.lat - 0.15).toString();
-                    } else if (tempLocalURL[tlix] === 'ph_longitudePMBuffMin') {
-                        _customStoreFinderLocalURL += (itemGPS.lon - 0.15).toString();
-                    } else if (tempLocalURL[tlix] === 'ph_latitudePMBuffMax') {
-                        _customStoreFinderLocalURL += (itemGPS.lat + 0.15).toString();
-                    } else if (tempLocalURL[tlix] === 'ph_longitudePMBuffMax') {
-                        _customStoreFinderLocalURL += (itemGPS.lon + 0.15).toString();
-                    } else if (tempLocalURL[tlix] === 'ph_houseNumber') {
-                        _customStoreFinderLocalURL += (item.attributes.houseNumber ? item.attributes.houseNumber : '');
-                    } else {
-                        _customStoreFinderLocalURL += tempLocalURL[tlix];
-                    }
-                }
-                if (_customStoreFinderLocalURL.indexOf('http') !== 0) {
-                    _customStoreFinderLocalURL = `http://${_customStoreFinderLocalURL}`;
-                }
-                _customStoreFinderLocal = true;
-            } else if (pnhMatchData.storeFinderUrl) {
-                if (!_buttonBanner.localizedName) {
-                    _buttonBanner.PlaceWebsite = new Flag.PlaceWebsite();
-                }
-                _customStoreFinderURL = pnhMatchData.storeFinderUrl;
-                if (_customStoreFinderURL.indexOf('http') !== 0) {
-                    _customStoreFinderURL = `http://${_customStoreFinderURL}`;
-                }
-                _customStoreFinder = true;
-            }
+            _buttonBanner.specCaseMessage = Flag.SpecCaseMessage.eval(item, pnhMatchData).flag;
 
             // name parsing with category exceptions
             if (priPNHPlaceCat === 'HOTEL') {
@@ -4402,7 +4395,7 @@ function harmonizePlaceGo(item, useFlag, actions) {
                 _pnhLockLevel = 4;
             }
         } else { // if no PNH match found
-            if (pnhMatchData[0] === 'ApprovalNeeded') {
+            if (matchResult.status === 'ApprovalNeeded') {
                 // PNHNameTemp = PNHMatchData[1].join(', ');
                 [, [pnhNameTemp]] = pnhMatchData; // Just do the first match
                 pnhNameTempWeb = encodeURIComponent(pnhNameTemp);
@@ -4473,6 +4466,10 @@ function harmonizePlaceGo(item, useFlag, actions) {
                 actions.push(new UpdateObject(item, { aliases: _newAliases }));
                 _UPDATED_FIELDS.aliases.updated = true;
             }
+
+            // Localized Storefinder code:
+            // NOTE: This needs to be called regardless of whether or not a PNH match was found, to handle USPS store finder.
+            _buttonBanner.StoreFinder = Flag.StoreFinder.eval(item, addr, itemGPS, _countryCode, state2L, pnhMatchData).flag;
 
             // Make PNH submission links
             let regionFormURL = '';
@@ -4844,9 +4841,6 @@ function harmonizePlaceGo(item, useFlag, actions) {
                 _buttonBanner.isThisAPostOffice = Flag.IsThisAPostOffice.eval(item, _newName).flag;
             } else {
                 if (hpMode.harmFlag) {
-                    _customStoreFinderURL = 'https://tools.usps.com/go/POLocatorAction.action';
-                    _customStoreFinder = true;
-                    _buttonBanner.PlaceWebsite = new Flag.PlaceWebsite();
                     _buttonBanner.NewPlaceSubmit = null;
                     if (item.attributes.url !== 'usps.com') {
                         actions.push(new UpdateObject(item, { url: 'usps.com' }));
