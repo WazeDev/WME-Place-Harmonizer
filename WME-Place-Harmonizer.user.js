@@ -1562,15 +1562,16 @@ function harmonizePlace() {
 
 // Abstract flag classes.  Must be declared outside the "Flag" namespace.
 class FlagBase {
-    constructor(active, severity, message) {
+    constructor(active, severity, message, noLock = false) {
         this.active = active;
         this.severity = severity;
         this.message = message;
+        this.noLock = noLock;
     }
 }
 class ActionFlag extends FlagBase {
-    constructor(active, severity, message, value, title) {
-        super(active, severity, message);
+    constructor(active, severity, message, value, title, noLock = false) {
+        super(active, severity, message, noLock);
         this.value = value;
         this.title = title;
     }
@@ -1579,8 +1580,8 @@ class ActionFlag extends FlagBase {
     // action() { } // overwrite this
 }
 class WLFlag extends FlagBase {
-    constructor(active, severity, message, WLactive, WLtitle, WLkeyName) {
-        super(active, severity, message);
+    constructor(active, severity, message, WLactive, WLtitle, WLkeyName, noLock = false) {
+        super(active, severity, message, noLock);
         this.WLactive = WLactive;
         this.WLtitle = WLtitle;
         this.WLkeyName = WLkeyName;
@@ -1594,8 +1595,8 @@ class WLFlag extends FlagBase {
     }
 }
 class WLActionFlag extends WLFlag {
-    constructor(active, severity, message, value, title, WLactive, WLtitle, WLkeyName) {
-        super(active, severity, message, WLactive, WLtitle, WLkeyName);
+    constructor(active, severity, message, value, title, WLactive, WLtitle, WLkeyName, noLock = false) {
+        super(active, severity, message, WLactive, WLtitle, WLkeyName, noLock);
         this.value = value;
         this.title = title;
     }
@@ -1610,10 +1611,10 @@ let Flag = {
         constructor() { super(true, 0, 'Dash removed from house number. Verify'); }
     },
     FullAddressInference: class extends FlagBase {
-        constructor() { super(true, 3, 'Missing address was inferred from nearby segments. Verify the address and run script again.'); }
+        constructor() { super(true, 3, 'Missing address was inferred from nearby segments. Verify the address and run script again.', true); }
 
         static eval(venue, addr, actions) {
-            const result = {};
+            const result = { flag: null };
             if (!addr.state || !addr.country) {
                 if (W.map.getZoom() < 4) {
                     if ($('#WMEPH-EnableIAZoom').prop('checked')) {
@@ -1633,7 +1634,6 @@ let Flag = {
                             result.inferredAddress = inferredAddress;
                             _UPDATED_FIELDS.address.updated = true;
                             result.flag = new Flag.FullAddressInference();
-                            result.noLock = true;
                         }
                     } else { //  if the inference doesn't work...
                         alert('This place has no address data and the address cannot be inferred from nearby segments. Please edit the address and run WMEPH again.');
@@ -1806,14 +1806,13 @@ let Flag = {
         //  Unbranded is not used per wiki
         constructor() {
             super(true, 3, '"Unbranded" should not be used for the station brand. Change to correct brand or '
-                + 'use the blank entry at the top of the brand list.');
+                + 'use the blank entry at the top of the brand list.', true);
         }
 
         static eval(venue, brand) {
             const result = { flag: null };
             if (venue.isGasStation() && brand === 'Unbranded') {
                 result.flag = new Flag.GasUnbranded();
-                result.noLock = true;
             }
             return result;
         }
@@ -1879,18 +1878,17 @@ let Flag = {
     ChangeToPetVet: class extends WLActionFlag {
         constructor() {
             super(true, 3, 'Key words suggest this should be a Pet/Veterinarian category. Change?', 'Yes', 'Change to Pet/Veterinarian Category',
-                true, 'Whitelist Pet/Vet category', 'changeHMC2PetVet');
+                true, 'Whitelist Pet/Vet category', 'changeHMC2PetVet', true);
         }
 
         static eval(name, categories) {
             const testName = name.toLowerCase().replace(/[^a-z]/g, ' ');
             const testNameWords = testName.split(' ');
-            const result = { flag: null, lockOK: true };
+            const result = { flag: null };
             if ((categories.includes('HOSPITAL_URGENT_CARE') || categories.includes('DOCTOR_CLINIC'))
                 && (containsAny(testNameWords, _animalFullMatch) || _animalPartMatch.some(match => testName.includes(match)))) {
                 if (!_wl.changeHMC2PetVet) {
                     result.flag = new Flag.ChangeToPetVet();
-                    result.lockOK = false;
                 }
             }
             return result;
@@ -1918,11 +1916,11 @@ let Flag = {
     NotASchool: class extends WLFlag {
         constructor() {
             super(true, 3, 'Key words suggest this should not be School category.',
-                true, 'Whitelist School category', 'changeSchool2Offices');
+                true, 'Whitelist School category', 'changeSchool2Offices', true);
         }
 
         static eval(name, categories) {
-            const result = { flag: null, lockOK: true };
+            const result = { flag: null };
             const testName = name.toLowerCase().replace(/[^a-z]/g, ' ');
             const testNameWords = testName.split(' ');
 
@@ -1930,7 +1928,6 @@ let Flag = {
                 && (containsAny(testNameWords, _schoolFullMatch) || _schoolPartMatch.some(match => testName.includes(match)))) {
                 if (!_wl.changeSchool2Offices) {
                     result.flag = new Flag.NotASchool();
-                    result.lockOK = false;
                 }
             }
             return result;
@@ -2019,7 +2016,7 @@ let Flag = {
         }
     },
     StreetMissing: class extends ActionFlag {
-        constructor() { super(true, 3, 'No street:', 'Edit address', 'Edit address to add street.'); }
+        constructor() { super(true, 3, 'No street:', 'Edit address', 'Edit address to add street.', true); }
 
         // eslint-disable-next-line class-methods-use-this
         action() {
@@ -2030,9 +2027,22 @@ let Flag = {
             }
             $('.street-name').focus();
         }
+
+        static eval(venue, address) {
+            const result = { flag: null };
+            if (address.city && (!address.street || address.street.isEmpty)
+                && !EXCLUDE_FROM_MISSING_ADDRESS_FLAGS.includes(venue.attributes.categories[0])) {
+                result.flag = new Flag.StreetMissing();
+                if (['SCENIC_LOOKOUT_VIEWPOINT'].includes(venue.attributes.categories[0])) {
+                    result.flag.severity = 1;
+                    result.flag.noLock = false;
+                }
+            }
+            return result;
+        }
     },
     CityMissing: class extends ActionFlag {
-        constructor() { super(true, 3, 'No city:', 'Edit address', 'Edit address to add city.'); }
+        constructor() { super(true, 3, 'No city:', 'Edit address', 'Edit address to add city.', true); }
 
         // eslint-disable-next-line class-methods-use-this
         action() {
@@ -2045,11 +2055,10 @@ let Flag = {
         }
 
         static eval(venue, address, highlightOnly) {
-            const result = { flag: null, lockOK: true };
+            const result = { flag: null };
             if ((!address.city || address.city.attributes.isEmpty)
                 && !EXCLUDE_FROM_MISSING_ADDRESS_FLAGS.includes(venue.attributes.categories[0])) {
                 result.flag = new Flag.CityMissing();
-                result.lockOK = false;
 
                 // TODO - check if this is necessary, or even working at all
                 if (venue.attributes.residential && highlightOnly) {
@@ -2116,6 +2125,15 @@ let Flag = {
     },
     IgnEdited: class extends FlagBase {
         constructor() { super(true, 2, 'Last edited by an IGN editor'); }
+
+        static eval(venue) {
+            if (!venue.attributes.residential) {
+                const updatedBy = W.model.users.getObjectById(venue.attributes.updatedBy);
+                if (updatedBy && /^ign_/i.test(updatedBy.userName)) {
+                    _buttonBanner.ignEdited = new Flag.IgnEdited();
+                }
+            }
+        }
     },
     WazeBot: class extends ActionFlag {
         constructor() {
@@ -2198,14 +2216,13 @@ let Flag = {
     },
     GasNoBrand: class extends FlagBase {
         constructor() {
-            super(true, 1, 'Lock to region standards to verify no gas brand.');
+            super(true, 1, 'Lock to region standards to verify no gas brand.', true);
         }
 
         static eval(venue, brand) {
             const result = { flag: null };
             if (venue.isGasStation() && !brand) {
                 result.flag = new Flag.GasNoBrand();
-                result.noLock = true;
             }
             return result;
         }
@@ -2553,7 +2570,7 @@ let Flag = {
         }
     },
     PlaLotTypeMissing: class extends FlagBase {
-        constructor() { super(true, 3, 'Lot type: '); }
+        constructor() { super(true, 3, 'Lot type: ', true); }
 
         static eval(venue, highlightOnly) {
             const result = { flag: null };
@@ -2563,7 +2580,6 @@ let Flag = {
                 if (!parkAttr || !parkAttr.parkingType) {
                     result.flag = new Flag.PlaLotTypeMissing();
                     if (!highlightOnly) {
-                        result.noLock = true;
                         result.flag.message += [['PUBLIC', 'Public'], ['RESTRICTED', 'Restricted'], ['PRIVATE', 'Private']].map(
                             btnInfo => $('<button>', { class: 'wmeph-pla-lot-type-btn btn btn-default btn-xs wmeph-btn', 'data-lot-type': btnInfo[0] })
                                 .text(btnInfo[1])
@@ -2579,7 +2595,7 @@ let Flag = {
         }
     },
     PlaCostTypeMissing: class extends FlagBase {
-        constructor() { super(true, 1, 'Parking cost: '); }
+        constructor() { super(true, 1, 'Parking cost: ', true); }
 
         static eval(venue, highlightOnly) {
             const result = { flag: null };
@@ -2602,7 +2618,6 @@ let Flag = {
                                 })
                                 .prop('outerHTML');
                         });
-                        result.noLock = true;
                     }
                 }
             }
@@ -2631,7 +2646,10 @@ let Flag = {
         }
     },
     PlaLotElevationMissing: class extends ActionFlag {
-        constructor() { super(true, 1, 'No lot elevation. Is it street level?', 'Yes', 'Click if street level parking only, or select other option(s) in the More Info tab.'); }
+        constructor() {
+            super(true, 1, 'No lot elevation. Is it street level?', 'Yes',
+                'Click if street level parking only, or select other option(s) in the More Info tab.', true);
+        }
 
         static eval(venue) {
             const result = { flag: null };
@@ -2640,7 +2658,6 @@ let Flag = {
                 const parkAttr = catAttr ? catAttr.PARKING_LOT : undefined;
                 if (!parkAttr || !parkAttr.lotType || parkAttr.lotType.length === 0) {
                     result.flag = new Flag.PlaLotElevationMissing();
-                    result.noLock = true;
                 }
             }
             return result;
@@ -3022,18 +3039,17 @@ let Flag = {
     NotAHospital: class extends WLActionFlag {
         constructor() {
             super(true, 3, 'Key words suggest this location may not be a hospital or urgent care location.', 'Change to Doctor / Clinic', 'Change category to Doctor / Clinic',
-                true, 'Whitelist category', 'notAHospital');
+                true, 'Whitelist category', 'notAHospital', true);
         }
 
         static eval(categories) {
-            const result = { flag: null, lockOK: true };
+            const result = { flag: null };
             if (categories.includes('HOSPITAL_URGENT_CARE')) {
                 const testName = _newName.toLowerCase().replace(/[^a-z]/g, ' ');
                 const testNameWords = testName.split(' ');
                 if (containsAny(testNameWords, _hospitalFullMatch) || _hospitalPartMatch.some(match => testName.includes(match))) {
                     if (!_wl.notAHospital) {
                         result.flag = new Flag.NotAHospital();
-                        result.lockOK = false;
                     }
                 }
             }
@@ -3070,7 +3086,7 @@ let Flag = {
         }
 
         static eval(venue, categories, highlightOnly, pnhNameRegMatch) {
-            const result = { flag: null, lockOK: true };
+            const result = { flag: null };
             if (!highlightOnly && venue.attributes.updatedOn < new Date('3/28/2017').getTime()
                 && ((categories.includes('PERSONAL_CARE') && !pnhNameRegMatch) || _newCategories.includes('OFFICES'))) {
                 // Show the Change To Doctor / Clinic button for places with PERSONAL_CARE or OFFICES category
@@ -3827,7 +3843,7 @@ function harmonizePlaceGo(item, highlightOnly = false, actions = null) {
     // If place has hours of 0:00-23:59, highlight yellow or if harmonizing, convert to All Day.
     _buttonBanner.allDayHoursFixed = Flag.AllDayHoursFixed.eval(item, highlightOnly, actions);
 
-    let lockOK = true; // if nothing goes wrong, then place will be locked
+    let noLock = false; // if nothing goes wrong, then place will be locked
 
     _newCategories = item.attributes.categories.slice();
     const nameParts = getNameParts(item.attributes.name);
@@ -3850,8 +3866,7 @@ function harmonizePlaceGo(item, highlightOnly = false, actions = null) {
         if (result.exit) return undefined;
         _buttonBanner.fullAddressInference = result.flag;
         ({ inferredAddress } = result);
-        if (result.inferredAddress) addr = result.inferredAddress;
-        if (result.noLock) lockOK = false;
+        if (inferredAddress) addr = inferredAddress;
     } else {
         const result = Flag.FullAddressInference.evalHL(item, addr);
         if (result) return result;
@@ -3861,21 +3876,10 @@ function harmonizePlaceGo(item, highlightOnly = false, actions = null) {
     // Check parking lot attributes.
     if (!highlightOnly && item.isParkingLot()) _servicesBanner.addDisabilityParking.active = true;
 
-    result = Flag.PlaCostTypeMissing.eval(item, highlightOnly);
-    _buttonBanner.plaCostTypeMissing = result.flag;
-    if (result.noLock) lockOK = false;
-
-    result = Flag.PlaLotElevationMissing.eval(item);
-    _buttonBanner.plaLotElevationMissing = result.flag;
-    if (result.noLock) lockOK = false;
-
-    result = Flag.PlaSpaces.eval(item, highlightOnly);
-    _buttonBanner.plaSpaces = result.flag;
-
-    result = Flag.PlaLotTypeMissing.eval(item, highlightOnly);
-    _buttonBanner.plaLotTypeMissing = result.flag;
-    if (result.noLock) lockOK = false;
-
+    _buttonBanner.plaCostTypeMissing = Flag.PlaCostTypeMissing.eval(item, highlightOnly).flag;
+    _buttonBanner.plaLotElevationMissing = Flag.PlaLotElevationMissing.eval(item).flag;
+    _buttonBanner.plaSpaces = Flag.PlaSpaces.eval(item, highlightOnly).flag;
+    _buttonBanner.plaLotTypeMissing = Flag.PlaLotTypeMissing.eval(item, highlightOnly).flag;
     _buttonBanner.noPlaStopPoint = Flag.NoPlaStopPoint.eval(item).flag;
     _buttonBanner.plaStopPointUnmoved = Flag.PlaStopPointUnmoved.eval(item).flag;
     _buttonBanner.plaCanExitWhileClosed = Flag.PlaCanExitWhileClosed.eval(item, highlightOnly).flag;
@@ -4023,7 +4027,7 @@ function harmonizePlaceGo(item, highlightOnly = false, actions = null) {
     if (item.attributes.residential) {
         if (!highlightOnly) {
             if (!$('#WMEPH-AutoLockRPPs').prop('checked')) {
-                lockOK = false;
+                noLock = true;
             }
             if (item.attributes.name !== '') { // Set the residential place name to the address (to clear any personal info)
                 phlogdev('Residential Name reset');
@@ -4228,12 +4232,13 @@ function harmonizePlaceGo(item, highlightOnly = false, actions = null) {
                 if (pnhMatchData.altCategories.length) { // if PNH alts exist
                     insertAtIX(_newCategories, pnhMatchData.altCategories, 1); //  then insert the alts into the existing category array after the GS category
                 }
+                // TODO eval function
                 if (_newCategories.indexOf('HOTEL') !== 0) { // If no HOTEL category in the primary, flag it
                     _buttonBanner.hotelMkPrim = new Flag.HotelMkPrim();
                     if (_wl.hotelMkPrim) {
                         _buttonBanner.hotelMkPrim.WLactive = false;
                     } else {
-                        lockOK = false;
+                        noLock = true;
                     }
                 } else if (_newCategories.includes('HOTEL')) {
                     // Remove LODGING if it exists
@@ -4297,9 +4302,10 @@ function harmonizePlaceGo(item, highlightOnly = false, actions = null) {
                 if (pnhMatchData.altCategories.length) { // if PNH alts exist
                     insertAtIX(_newCategories, pnhMatchData.altCategories, 1); //  then insert the alts into the existing category array after the GS category
                 }
+                // TODO eval function
                 if (_newCategories.indexOf('GAS_STATION') !== 0) { // If no GS category in the primary, flag it
                     _buttonBanner.gasMkPrim = new Flag.GasMkPrim();
-                    lockOK = false;
+                    noLock = true;
                 } else {
                     _newName = pnhMatchData.name;
                 }
@@ -4615,6 +4621,8 @@ function harmonizePlaceGo(item, highlightOnly = false, actions = null) {
 
                 // display any messages regarding the category
                 _buttonBanner.pnhCatMess = Flag.PnhCatMess.eval(catData.message, _newCategories, highlightOnly).flag;
+
+                // TODO eval function
                 // Unmapped categories
                 if (catData.rareRegions.includes(state2L)
                     || catData.rareRegions.includes(region)
@@ -4625,7 +4633,7 @@ function harmonizePlaceGo(item, highlightOnly = false, actions = null) {
                             _buttonBanner.unmappedRegion.WLactive = false;
                             _buttonBanner.unmappedRegion.severity = 1;
                             _buttonBanner.unmappedRegion.message = 'The "Other" category should only be used if no other category applies.  Manually lock the place to override this flag.';
-                            lockOK = false;
+                            noLock = true;
                         }
                     } else {
                         _buttonBanner.unmappedRegion = new Flag.UnmappedRegion();
@@ -4633,10 +4641,12 @@ function harmonizePlaceGo(item, highlightOnly = false, actions = null) {
                             _buttonBanner.unmappedRegion.WLactive = false;
                             _buttonBanner.unmappedRegion.severity = 0;
                         } else {
-                            lockOK = false;
+                            noLock = true;
                         }
                     }
                 }
+
+                // TODO eval function
                 // Parent Category
                 if (catData.parentNotMappedRegions.includes(state2L)
                     || catData.parentNotMappedRegions.includes(region)
@@ -4646,6 +4656,7 @@ function harmonizePlaceGo(item, highlightOnly = false, actions = null) {
                         _buttonBanner.parentCategory.WLactive = false;
                     }
                 }
+
                 // Set lock level
                 let regionalLock = null;
                 if (catData.lockLevels[state2L]) {
@@ -4670,7 +4681,7 @@ function harmonizePlaceGo(item, highlightOnly = false, actions = null) {
                     _buttonBanner.areaNotPoint.WLactive = false;
                     _buttonBanner.areaNotPoint.severity = 0;
                 } else {
-                    lockOK = false;
+                    noLock = true;
                 }
             } else if (maxPointSeverity === 2) {
                 _buttonBanner.areaNotPointMid = new Flag.AreaNotPointMid();
@@ -4678,7 +4689,7 @@ function harmonizePlaceGo(item, highlightOnly = false, actions = null) {
                     _buttonBanner.areaNotPointMid.WLactive = false;
                     _buttonBanner.areaNotPointMid.severity = 0;
                 } else {
-                    lockOK = false;
+                    noLock = true;
                 }
             } else if (maxPointSeverity === 1) {
                 _buttonBanner.areaNotPointLow = new Flag.AreaNotPointLow();
@@ -4693,7 +4704,7 @@ function harmonizePlaceGo(item, highlightOnly = false, actions = null) {
                 _buttonBanner.pointNotArea.WLactive = false;
                 _buttonBanner.pointNotArea.severity = 0;
             } else {
-                lockOK = false;
+                noLock = true;
             }
         } else if (maxAreaSeverity === 2) {
             _buttonBanner.pointNotAreaMid = new Flag.PointNotAreaMid();
@@ -4701,7 +4712,7 @@ function harmonizePlaceGo(item, highlightOnly = false, actions = null) {
                 _buttonBanner.pointNotAreaMid.WLactive = false;
                 _buttonBanner.pointNotAreaMid.severity = 0;
             } else {
-                lockOK = false;
+                noLock = true;
             }
         } else if (maxAreaSeverity === 1) {
             _buttonBanner.pointNotAreaLow = new Flag.PointNotAreaLow();
@@ -4856,9 +4867,10 @@ function harmonizePlaceGo(item, highlightOnly = false, actions = null) {
                     newNameSuffix = newNameSuffix.trimRight().replace(/\bvpo\b/i, 'VPO').replace(/\bcpu\b/i, 'CPU').replace(/ {2,}/, ' ');
                 }
                 const nameToCheck = _newName + (newNameSuffix || '');
+                // TODO eval function
                 if (!postOfficeRegEx.test(nameToCheck)) {
                     _buttonBanner.formatUSPS = new Flag.FormatUSPS();
-                    lockOK = false;
+                    noLock = true;
                 } else if (!highlightOnly) {
                     if (nameToCheck !== item.attributes.name) {
                         actions.push(new UpdateObject(item, { name: nameToCheck }));
@@ -4899,6 +4911,7 @@ function harmonizePlaceGo(item, highlightOnly = false, actions = null) {
         } // END Post Office check
     } // END if (!residential && has name)
 
+    // TODO eval function
     // For gas stations, check to make sure brand exists somewhere in the place name.
     // Remove non - alphanumeric characters first, for more relaxed matching.
     if (_newCategories[0] === 'GAS_STATION' && item.attributes.brand) {
@@ -4921,31 +4934,27 @@ function harmonizePlaceGo(item, highlightOnly = false, actions = null) {
             if (_wl.gasMismatch) {
                 _buttonBanner.gasMismatch.WLactive = false;
             } else {
-                lockOK = false;
+                noLock = true;
             }
         }
     }
 
     // Brand checking (be sure to check this after determining if brand will be forced, when harmonzing)
-    result = Flag.GasNoBrand.eval(item, newBrand);
-    _buttonBanner.gasNoBrand = result.flag;
-    if (result.noLock) lockOK = false;
+    _buttonBanner.gasNoBrand = Flag.GasNoBrand.eval(item, newBrand).flag;
+    _buttonBanner.gasUnbranded = Flag.GasUnbranded.eval(item, newBrand).flag;
 
-    result = Flag.GasUnbranded.eval(item, newBrand);
-    _buttonBanner.gasUnbranded = result.flag;
-    if (result.noLock) lockOK = false;
-
+    // TODO eval function
     // Name check
     if (!item.attributes.residential && (!_newName || _newName.replace(/[^A-Za-z0-9]/g, '').length === 0)) {
         if (item.isParkingLot()) {
             // If it's a parking lot and not locked to R3...
             if (item.attributes.lockRank < 2) {
-                lockOK = false;
+                noLock = true;
                 _buttonBanner.plaNameMissing = new Flag.PlaNameMissing();
             }
         } else if (!['ISLAND', 'FOREST_GROVE', 'SEA_LAKE_POOL', 'RIVER_STREAM', 'CANAL'].includes(item.attributes.categories[0])) {
             _buttonBanner.nameMissing = new Flag.NameMissing();
-            lockOK = false;
+            noLock = true;
         }
     }
 
@@ -4966,6 +4975,7 @@ function harmonizePlaceGo(item, highlightOnly = false, actions = null) {
         ).join('');
     }
 
+    // TODO eval function
     // House number / HN check
     let currentHN = item.attributes.houseNumber;
     // Check to see if there's an action that is currently updating the house number.
@@ -4984,7 +4994,7 @@ function harmonizePlaceGo(item, highlightOnly = false, actions = null) {
             } else if (item.isParkingLot()) {
                 _buttonBanner.hnMissing.WLactive = false;
                 if (item.attributes.lockRank < 2) {
-                    lockOK = false;
+                    noLock = true;
                     let msgAdd;
                     if (_USER.rank < 3) {
                         msgAdd = 'Request an R3+ lock to confirm no HN.';
@@ -5000,7 +5010,7 @@ function harmonizePlaceGo(item, highlightOnly = false, actions = null) {
                 _buttonBanner.hnMissing.severity = 0;
                 _buttonBanner.hnMissing.WLactive = false;
             } else {
-                lockOK = false;
+                noLock = true;
             }
         }
     } else if (currentHN) {
@@ -5021,13 +5031,14 @@ function harmonizePlaceGo(item, highlightOnly = false, actions = null) {
             }
         }
 
+        // TODO eval function
         if (!hnOK) {
             _buttonBanner.hnNonStandard = new Flag.HnNonStandard();
             if (_wl.hnNonStandard) {
                 _buttonBanner.hnNonStandard.WLactive = false;
                 _buttonBanner.hnNonStandard.severity = 0;
             } else {
-                lockOK = false;
+                noLock = true;
             }
         }
 
@@ -5045,40 +5056,15 @@ function harmonizePlaceGo(item, highlightOnly = false, actions = null) {
         }
     }
 
-    result = Flag.CityMissing.eval(item, addr, highlightOnly);
-    _buttonBanner.cityMissing = result.flag;
-    if (!result.lockOK) lockOK = false;
-
-    if (addr.city && (!addr.street || addr.street.isEmpty)
-        && !EXCLUDE_FROM_MISSING_ADDRESS_FLAGS.includes(item.attributes.categories[0])) {
-        _buttonBanner.streetMissing = new Flag.StreetMissing();
-        if (['SCENIC_LOOKOUT_VIEWPOINT'].includes(item.attributes.categories[0])) {
-            _buttonBanner.streetMissing.severity = 1;
-        } else {
-            lockOK = false;
-        }
-    }
+    _buttonBanner.cityMissing = Flag.CityMissing.eval(item, addr, highlightOnly).flag;
+    _buttonBanner.streetMissing = Flag.StreetMissing.eval(item, addr).flag;
 
     _buttonBanner.notAHospital = Flag.NotAHospital.eval(_newCategories).flag;
 
     // CATEGORY vs. NAME checks
-    result = Flag.ChangeToPetVet.eval(_newName, _newCategories);
-    if (result.flag) {
-        _buttonBanner.changeToPetVet = result.flag;
-        if (!result.lockOK) lockOK = false;
-    }
-
-    result = Flag.ChangeToDoctorClinic.eval(item, _newCategories, highlightOnly, pnhNameRegMatch);
-    if (result.flag) {
-        _buttonBanner.changeToPetVet = result.flag;
-        if (!result.lockOK) lockOK = false;
-    }
-
-    result = Flag.NotASchool.eval(_newName, _newCategories);
-    if (result.flag) {
-        _buttonBanner.notASchool = result.flag;
-        if (!result.lockOK) lockOK = false;
-    }
+    _buttonBanner.changeToPetVet = Flag.ChangeToPetVet.eval(_newName, _newCategories).flag;
+    _buttonBanner.changeToPetVet = Flag.ChangeToDoctorClinic.eval(item, _newCategories, highlightOnly, pnhNameRegMatch).flag;
+    _buttonBanner.notASchool = Flag.NotASchool.eval(_newName, _newCategories).flag;
 
     // Some cats don't need PNH messages and url/phone severities
     if (['BRIDGE', 'FOREST_GROVE', 'DAM', 'TUNNEL', 'CEMETERY'].includes(item.attributes.categories[0])) {
@@ -5177,7 +5163,7 @@ function harmonizePlaceGo(item, highlightOnly = false, actions = null) {
     });
 
     if (!highlightOnly) {
-        phlogdev(`Severity: ${_severityButt}; lockOK: ${lockOK}`);
+        phlogdev(`Severity: ${_severityButt}; lockOK: ${!noLock}`);
     }
     // Place locking
     // final formatting of desired lock levels
@@ -5208,11 +5194,17 @@ function harmonizePlaceGo(item, highlightOnly = false, actions = null) {
         }
     }
 
+    // Is auto-locking permitted?
+    noLock = noLock || Object.keys(_buttonBanner).some(key => {
+        const flag = _buttonBanner[key];
+        return flag && flag.noLock;
+    });
+
     // If no Google link and severity would otherwise allow locking, ask if user wants to lock anyway.
     if (!isLocked && _buttonBanner.extProviderMissing && _buttonBanner.extProviderMissing.active && _buttonBanner.extProviderMissing.severity <= 2) {
         _buttonBanner.extProviderMissing.severity = 3;
         _severityButt = 3;
-        if (lockOK) {
+        if (!highlightOnly && !noLock) {
             _buttonBanner.extProviderMissing.value = `Lock anyway? (${levelToLock + 1})`;
             _buttonBanner.extProviderMissing.title = 'If no Google link exists, lock this place.\nIf there is still no Google link after '
                 + '6 months from the last update date, it will turn red as a reminder to search again.';
@@ -5226,7 +5218,7 @@ function harmonizePlaceGo(item, highlightOnly = false, actions = null) {
     }
 
     let hlLockFlag = false;
-    if (lockOK && _severityButt < 2) {
+    if (!noLock && _severityButt < 2) {
         if (item.attributes.lockRank < levelToLock) {
             if (!highlightOnly) {
                 phlogdev('Venue locked!');
@@ -5239,14 +5231,11 @@ function harmonizePlaceGo(item, highlightOnly = false, actions = null) {
         _buttonBanner.placeLocked = new Flag.PlaceLocked();
     }
 
+    // TODO eval function
     // IGN check
-    if (!item.attributes.residential) {
-        const updatedBy = W.model.users.getObjectById(item.attributes.updatedBy);
-        if (updatedBy && /^ign_/i.test(updatedBy.userName)) {
-            _buttonBanner.ignEdited = new Flag.IgnEdited();
-        }
-    }
+    _buttonBanner.ignEdited = Flag.IgnEdited.eval(item).flag;
 
+    // TODO eval function
     // waze_maint_bot check
     const updatedById = item.attributes.updatedBy ? item.attributes.updatedBy : item.attributes.createdBy;
     const updatedBy = W.model.users.getObjectById(updatedById);
@@ -5258,13 +5247,14 @@ function harmonizePlaceGo(item, highlightOnly = false, actions = null) {
         '^admin$', '^-1$',
         '^avsus$', '^107668852$'
     ];
-
     const botRegEx = new RegExp(botNamesAndIDs.join('|'), 'i');
     if (item.isUnchanged() && !item.attributes.residential && updatedById && (botRegEx.test(updatedById.toString())
         || (updatedByName && botRegEx.test(updatedByName)))) {
         _buttonBanner.wazeBot = new Flag.WazeBot();
     }
 
+    // TODO eval function
+    // TODO is this needed anymore?
     // RPP Locking option for R3+
     if (item.attributes.residential) {
         if (_USER.isDevUser || _USER.isBetaUser || _USER.rank >= 3) { // Allow residential point locking by R3+
@@ -5294,6 +5284,7 @@ function harmonizePlaceGo(item, highlightOnly = false, actions = null) {
         if (_buttonBanner.addSuper) _buttonBanner.addSuper = null;
     }
 
+    // TODO eval function
     // Final alerts for non-severe locations
     if (!item.attributes.residential && _severityButt < 3) {
         const nameShortSpace = _newName.toUpperCase().replace(/[^A-Z ']/g, '');
