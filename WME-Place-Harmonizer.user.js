@@ -192,6 +192,8 @@ const _TITLECASE_SETTINGS = {
         'TNT', 'TV', 'UPS', 'USA', 'USPS', 'VW', 'XYZ', 'ZZZ'],
     specWords: ['d\'Bronx', 'iFix', 'ExtraMile']
 };
+const EXCLUDE_FROM_MISSING_ADDRESS_FLAGS = ['BRIDGE', 'ISLAND', 'FOREST_GROVE', 'SEA_LAKE_POOL',
+    'RIVER_STREAM', 'CANAL', 'DAM', 'TUNNEL', 'JUNCTION_INTERCHANGE'];
 let _newPlaceURL;
 let _approveRegionURL;
 let _updateURL;
@@ -1632,9 +1634,6 @@ let Flag = {
                             _UPDATED_FIELDS.address.updated = true;
                             result.flag = new Flag.FullAddressInference();
                             result.noLock = true;
-                        } else if (!['JUNCTION_INTERCHANGE'].includes(_newCategories[0])) {
-                            _buttonBanner.cityMissing = new Flag.CityMissing();
-                            result.noLock = true;
                         }
                     } else { //  if the inference doesn't work...
                         alert('This place has no address data and the address cannot be inferred from nearby segments. Please edit the address and run WMEPH again.');
@@ -2043,6 +2042,21 @@ let Flag = {
                 $('.empty-city').click();
             }
             $('.city-name').focus();
+        }
+
+        static eval(venue, address, highlightOnly) {
+            const result = { flag: null, lockOK: true };
+            if ((!address.city || address.city.attributes.isEmpty)
+                && !EXCLUDE_FROM_MISSING_ADDRESS_FLAGS.includes(venue.attributes.categories[0])) {
+                result.flag = new Flag.CityMissing();
+                result.lockOK = false;
+
+                // TODO - check if this is necessary, or even working at all
+                if (venue.attributes.residential && highlightOnly) {
+                    result.flag.severity = 1;
+                }
+            }
+            return result;
         }
     },
     BankType1: class extends FlagBase {
@@ -5031,20 +5045,12 @@ function harmonizePlaceGo(item, highlightOnly = false, actions = null) {
         }
     }
 
-    const excludeFromMissingAddressFlags = ['BRIDGE', 'ISLAND', 'FOREST_GROVE', 'SEA_LAKE_POOL',
-        'RIVER_STREAM', 'CANAL', 'DAM', 'TUNNEL', 'JUNCTION_INTERCHANGE'];
-    if ((!addr.city || addr.city.attributes.isEmpty)
-        && !excludeFromMissingAddressFlags.includes(item.attributes.categories[0])) {
-        _buttonBanner.cityMissing = new Flag.CityMissing();
+    result = Flag.CityMissing.eval(item, addr, highlightOnly);
+    _buttonBanner.cityMissing = result.flag;
+    if (!result.lockOK) lockOK = false;
 
-        // TODO - check if this is necessary, or even working at all
-        if (item.attributes.residential && highlightOnly) {
-            _buttonBanner.cityMissing.severity = 1;
-        }
-        lockOK = false;
-    }
     if (addr.city && (!addr.street || addr.street.isEmpty)
-        && !excludeFromMissingAddressFlags.includes(item.attributes.categories[0])) {
+        && !EXCLUDE_FROM_MISSING_ADDRESS_FLAGS.includes(item.attributes.categories[0])) {
         _buttonBanner.streetMissing = new Flag.StreetMissing();
         if (['SCENIC_LOOKOUT_VIEWPOINT'].includes(item.attributes.categories[0])) {
             _buttonBanner.streetMissing.severity = 1;
