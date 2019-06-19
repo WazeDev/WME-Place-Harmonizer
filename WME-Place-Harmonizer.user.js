@@ -2018,16 +2018,6 @@ let Flag = {
     StreetMissing: class extends ActionFlag {
         constructor() { super(true, 3, 'No street:', 'Edit address', 'Edit address to add street.', true); }
 
-        // eslint-disable-next-line class-methods-use-this
-        action() {
-            $('.nav-tabs a[href="#landmark-edit-general"]').trigger('click');
-            $('.landmark .full-address').click();
-            if ($('.empty-street').prop('checked')) {
-                $('.empty-street').click();
-            }
-            $('.street-name').focus();
-        }
-
         static eval(venue, address) {
             const result = { flag: null };
             if (address.city && (!address.street || address.street.isEmpty)
@@ -2040,19 +2030,19 @@ let Flag = {
             }
             return result;
         }
-    },
-    CityMissing: class extends ActionFlag {
-        constructor() { super(true, 3, 'No city:', 'Edit address', 'Edit address to add city.', true); }
 
         // eslint-disable-next-line class-methods-use-this
         action() {
             $('.nav-tabs a[href="#landmark-edit-general"]').trigger('click');
             $('.landmark .full-address').click();
-            if ($('.empty-city').prop('checked')) {
-                $('.empty-city').click();
+            if ($('.empty-street').prop('checked')) {
+                $('.empty-street').click();
             }
-            $('.city-name').focus();
+            $('.street-name').focus();
         }
+    },
+    CityMissing: class extends ActionFlag {
+        constructor() { super(true, 3, 'No city:', 'Edit address', 'Edit address to add city.', true); }
 
         static eval(venue, address, highlightOnly) {
             const result = { flag: null };
@@ -2066,6 +2056,16 @@ let Flag = {
                 }
             }
             return result;
+        }
+
+        // eslint-disable-next-line class-methods-use-this
+        action() {
+            $('.nav-tabs a[href="#landmark-edit-general"]').trigger('click');
+            $('.landmark .full-address').click();
+            if ($('.empty-city').prop('checked')) {
+                $('.empty-city').click();
+            }
+            $('.city-name').focus();
         }
     },
     BankType1: class extends FlagBase {
@@ -2970,6 +2970,14 @@ let Flag = {
     AddConvStore: class extends ActionFlag {
         constructor() { super(true, 0, 'Add convenience store category? ', 'Yes', 'Add the Convenience Store category to this place'); }
 
+        static eval(newCategories, pnhMatch) {
+            const result = { flag: null };
+            if (newCategories[0] === 'GAS_STATION' && !newCategories.includes('CONVENIENCE_STORE') && !pnhMatch.subFuel) {
+                result.flag = new Flag.AddConvStore();
+            }
+            return result;
+        }
+
         // eslint-disable-next-line class-methods-use-this
         action() {
             const venue = getSelectedVenue();
@@ -2977,14 +2985,6 @@ let Flag = {
             W.model.actionManager.add(new UpdateObject(venue, { categories: _newCategories }));
             _UPDATED_FIELDS.categories.updated = true;
             harmonizePlaceGo(venue);
-        }
-
-        static eval(newCategories, pnhMatch) {
-            const result = { flag: null };
-            if (newCategories[0] === 'GAS_STATION' && !newCategories.includes('CONVENIENCE_STORE') && !pnhMatch.subFuel) {
-                result.flag = new Flag.AddConvStore();
-            }
-            return result;
         }
     },
     IsThisAPostOffice: class extends ActionFlag {
@@ -3204,28 +3204,6 @@ let Flag = {
             if (isLocalizedUrl) this.value += ' (L)';
         }
 
-        // eslint-disable-next-line class-methods-use-this
-        action() {
-            let linkProceed = true;
-            // replace WME url with storefinder URLs if they are in the PNH data
-            // If the user has 'never' opened a localized store finder URL, then warn them (just once)
-            if (localStorage.getItem(_SETTING_IDS.sfUrlWarning) === '0' && this.isLocalizedUrl) {
-                linkProceed = false;
-                if (confirm('***Localized store finder sites often show multiple nearby results. Please make sure you pick the right location.\nClick OK to agree and continue.')) { // if the category doesn't translate, then pop an alert that will make a forum post to the thread
-                    localStorage.setItem(_SETTING_IDS.sfUrlWarning, '1'); // prevent future warnings
-                    linkProceed = true;
-                }
-            }
-            // open the link depending on new window setting
-            if (linkProceed) {
-                if ($('#WMEPH-WebSearchNewTab').prop('checked')) {
-                    window.open(this.url);
-                } else {
-                    window.open(this.url, _SEARCH_RESULTS_WINDOW_NAME, _searchResultsWindowSpecs);
-                }
-            }
-        }
-
         static eval(venue, address, itemGps, countryCode, state2L, pnhMatch = null) {
             const result = { flag: null };
             if (countryCode === 'USA' && venue.attributes.categories.includes('POST_OFFICE')) {
@@ -3312,6 +3290,28 @@ let Flag = {
                 }
             }
             return result;
+        }
+
+        // eslint-disable-next-line class-methods-use-this
+        action() {
+            let linkProceed = true;
+            // replace WME url with storefinder URLs if they are in the PNH data
+            // If the user has 'never' opened a localized store finder URL, then warn them (just once)
+            if (localStorage.getItem(_SETTING_IDS.sfUrlWarning) === '0' && this.isLocalizedUrl) {
+                linkProceed = false;
+                if (confirm('***Localized store finder sites often show multiple nearby results. Please make sure you pick the right location.\nClick OK to agree and continue.')) { // if the category doesn't translate, then pop an alert that will make a forum post to the thread
+                    localStorage.setItem(_SETTING_IDS.sfUrlWarning, '1'); // prevent future warnings
+                    linkProceed = true;
+                }
+            }
+            // open the link depending on new window setting
+            if (linkProceed) {
+                if ($('#WMEPH-WebSearchNewTab').prop('checked')) {
+                    window.open(this.url);
+                } else {
+                    window.open(this.url, _SEARCH_RESULTS_WINDOW_NAME, _searchResultsWindowSpecs);
+                }
+            }
         }
     }
 }; // END Flag namespace
