@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name        WME Place Harmonizer Beta (pnh-update)
 // @namespace   WazeUSA
-// @version     2019.06.19.002
+// @version     2019.06.19.003
 // @description Harmonizes, formats, and locks a selected place
 // @author      WMEPH Development Group
 // @include     /^https:\/\/(www|beta)\.waze\.com\/(?!user\/)(.{2,6}\/)?editor\/?.*$/
@@ -3759,7 +3759,6 @@ function getButtonBanner2(venue, placePL) {
 // Main script
 function harmonizePlaceGo(item, highlightOnly = false, actions = null) {
     let pnhOrderNum = '';
-    let pnhNameTemp = '';
     let pnhNameTempWeb = '';
     let placePL;
     let hoursAdded = false;
@@ -4398,10 +4397,8 @@ function harmonizePlaceGo(item, highlightOnly = false, actions = null) {
             }
         } else { // if no PNH match found
             if (matchResult.status === 'ApprovalNeeded') {
-                // PNHNameTemp = PNHMatchData[1].join(', ');
-                [, [pnhNameTemp]] = pnhMatchData; // Just do the first match
-                pnhNameTempWeb = encodeURIComponent(pnhNameTemp);
-                pnhOrderNum = pnhMatchData[2].join(',');
+                pnhNameTempWeb = encodeURIComponent(matchResult.pnhNameTemp[0]);
+                pnhOrderNum = matchResult.pnhOrderNum.join(',');
             }
 
             // Strong title case option for non-PNH places
