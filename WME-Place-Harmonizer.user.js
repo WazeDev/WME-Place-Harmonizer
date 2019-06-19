@@ -2127,12 +2127,14 @@ let Flag = {
         constructor() { super(true, 2, 'Last edited by an IGN editor'); }
 
         static eval(venue) {
+            const result = { flag: null };
             if (!venue.attributes.residential) {
                 const updatedBy = W.model.users.getObjectById(venue.attributes.updatedBy);
                 if (updatedBy && /^ign_/i.test(updatedBy.userName)) {
-                    _buttonBanner.ignEdited = new Flag.IgnEdited();
+                    result.flag = new Flag.IgnEdited();
                 }
             }
+            return result;
         }
     },
     WazeBot: class extends ActionFlag {
