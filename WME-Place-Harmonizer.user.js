@@ -1837,14 +1837,14 @@ let Flag = {
         constructor() { super(true, 0, 'Is this a "Travel Center"?', 'Yes', ''); }
 
         static eval(venue, highlightOnly, state2L, newName, actions) {
-            const result = { flag: null, newName };
+            const result = { flag: null };
             if (!highlightOnly && state2L === 'TN') {
-                if (result.newName.toLowerCase().trim() === 'pilot') {
-                    result.newName = 'Pilot Food Mart';
+                if (newName.toLowerCase().trim() === 'pilot') {
+                    result.flag.newName = 'Pilot Food Mart';
                     actions.push(new UpdateObject(venue, { name: result.newName }));
                     _UPDATED_FIELDS.name.updated = true;
                 }
-                if (result.newName.toLowerCase().trim() === 'pilot food mart') {
+                if (newName.toLowerCase().trim() === 'pilot food mart') {
                     result.flag = new Flag.IsThisAPilotTravelCenter();
                 }
             }
@@ -3872,7 +3872,6 @@ function harmonizePlaceGo(item, highlightOnly = false, actions = null) {
         if (result) return result;
     }
 
-    let result;
     // Check parking lot attributes.
     if (!highlightOnly && item.isParkingLot()) _servicesBanner.addDisabilityParking.active = true;
 
@@ -4001,10 +4000,9 @@ function harmonizePlaceGo(item, highlightOnly = false, actions = null) {
     }
 
     // Gas station treatment (applies to all including PNH)
-
-    result = Flag.IsThisAPilotTravelCenter.eval(item, highlightOnly, state2L, _newName, actions);
-    _buttonBanner.isThisAPilotTravelCenter = result.flag;
-    _newName = result.newName;
+    const flag = Flag.IsThisAPilotTravelCenter.eval(item, highlightOnly, state2L, _newName, actions).flag;
+    _buttonBanner.isThisAPilotTravelCenter = flag;
+    if (flag && flag.newName) _newName = flag.newName;
 
     if (item.isGasStation()) {
         // If no gas station name, replace with brand name
@@ -4121,30 +4119,30 @@ function harmonizePlaceGo(item, highlightOnly = false, actions = null) {
 
             if (pnhMatchData.buttOn) {
                 pnhMatchData.buttOn.forEach(buttOnValue => {
-                    let flag = null;
+                    let tempFlag = null;
                     switch (buttOnValue) {
                         case 'addCat2':
                             // flag = new Flag.AddCat2();
                             break;
                         case 'addPharm':
-                            flag = new Flag.AddPharm();
+                            tempFlag = new Flag.AddPharm();
                             break;
                         case 'addSuper':
-                            flag = new Flag.AddSuper();
+                            tempFlag = new Flag.AddSuper();
                             break;
                         case 'appendAMPM':
-                            flag = new Flag.AppendAMPM();
+                            tempFlag = new Flag.AppendAMPM();
                             break;
                         case 'addATM':
-                            flag = new Flag.AddATM();
+                            tempFlag = new Flag.AddATM();
                             break;
                         case 'addConvStore':
-                            flag = new Flag.AddConvStore();
+                            tempFlag = new Flag.AddConvStore();
                             break;
                         default:
                             console.error('WMEPH:', `Could not process specCase value: buttOn_${buttOnValue}`);
                     }
-                    if (_buttonBanner[buttOnValue]) _buttonBanner[buttOnValue] = flag;
+                    if (_buttonBanner[buttOnValue]) _buttonBanner[buttOnValue] = tempFlag;
                 });
             }
 
@@ -5196,8 +5194,8 @@ function harmonizePlaceGo(item, highlightOnly = false, actions = null) {
 
     // Is auto-locking permitted?
     noLock = noLock || Object.keys(_buttonBanner).some(key => {
-        const flag = _buttonBanner[key];
-        return flag && flag.noLock;
+        const tempFlag = _buttonBanner[key];
+        return tempFlag && tempFlag.noLock;
     });
 
     // If no Google link and severity would otherwise allow locking, ask if user wants to lock anyway.
