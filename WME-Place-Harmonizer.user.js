@@ -929,7 +929,7 @@ function onObjectsChanged() {
         const lastAction = actions[actions.length - 1];
         if (lastAction && lastAction.object && lastAction.object.type === 'venue' && lastAction.attributes && lastAction.attributes.id === venue.attributes.id) {
             if (lastAction.newAttributes && lastAction.newAttributes.entryExitPoints) {
-                harmonizePlaceGo(venue, 'harmonize');
+                harmonizePlaceGo(venue);
             }
         }
     }
@@ -1252,7 +1252,7 @@ function applyHighlightsTest(venues, force) {
                     let severity;
                     let cachedResult;
                     if (force || !isNaN(id) || ((cachedResult = _resultsCache[id]) === undefined) || (venue.updatedOn > cachedResult.u)) {
-                        severity = harmonizePlaceGo(venue, 'highlight');
+                        severity = harmonizePlaceGo(venue, true);
                         if (isNaN(id)) _resultsCache[id] = { s: severity, u: venue.updatedOn || -1 };
                     } else {
                         severity = cachedResult.s;
@@ -1278,7 +1278,7 @@ function applyHighlightsTest(venues, force) {
 
     const venue = getSelectedVenue();
     if (venue) {
-        venue.attributes.wmephSeverity = harmonizePlaceGo(venue, 'highlight');
+        venue.attributes.wmephSeverity = harmonizePlaceGo(venue, true);
         _buttonBanner = storedBannButt;
         _servicesBanner = storedBannServ;
         _buttonBanner2 = storedBannButt2;
@@ -1550,7 +1550,7 @@ function harmonizePlace() {
         _UPDATED_FIELDS.reset();
         blurAll(); // focus away from current cursor position
         _disableHighlightTest = true;
-        harmonizePlaceGo(venue, 'harmonize');
+        harmonizePlaceGo(venue);
         _disableHighlightTest = false;
         applyHighlightsTest(venue);
     } else { // Remove duplicate labels
@@ -1587,7 +1587,7 @@ class WLFlag extends FlagBase {
     WLaction() {
         const venue = getSelectedVenue();
         if (whitelistAction(venue.attributes.id, this.WLkeyName)) {
-            harmonizePlaceGo(venue, 'harmonize');
+            harmonizePlaceGo(venue);
         }
     }
 }
@@ -1704,9 +1704,9 @@ let Flag = {
                 true, 'Whitelist Indiana liquor store hours', 'indianaLiquorStoreHours');
         }
 
-        static eval(venue, name, hpMode) {
+        static eval(venue, name, highlightOnly) {
             const result = { flag: null };
-            if (hpMode.harmFlag && !_wl.indianaLiquorStoreHours
+            if (!highlightOnly && !_wl.indianaLiquorStoreHours
                 && [/\bbeers?\b/, /\bwines?\b/, /\bliquor\b/, /\bspirits\b/].some(re => re.test(name))
                 && !venue.attributes.openingHours.some(entry => entry.days.includes(0))
                 && !venue.isResidential()) {
@@ -1738,7 +1738,7 @@ let Flag = {
                 _newCategories.splice(ix, 1);
                 _UPDATED_FIELDS.categories.updated = true;
                 addUpdateAction(venue, { categories: _newCategories });
-                harmonizePlaceGo(venue, 'harmonize');
+                harmonizePlaceGo(venue);
             }
         }
     },
@@ -1759,7 +1759,7 @@ let Flag = {
                 _newCategories.splice(ix, 1);
                 _UPDATED_FIELDS.categories.updated = true;
                 addUpdateAction(venue, { categories: _newCategories });
-                harmonizePlaceGo(venue, 'harmonize');
+                harmonizePlaceGo(venue);
             }
         }
     },
@@ -1792,7 +1792,7 @@ let Flag = {
             executeMultiAction(actions);
 
             _disableHighlightTest = true;
-            harmonizePlaceGo(venue, 'harmonize');
+            harmonizePlaceGo(venue);
             _disableHighlightTest = false;
             applyHighlightsTest(venue);
         }
@@ -1832,15 +1832,15 @@ let Flag = {
             _newCategories = insertAtIX(_newCategories, 'GAS_STATION', 0);
             _UPDATED_FIELDS.categories.updated = true;
             addUpdateAction(venue, { categories: _newCategories });
-            harmonizePlaceGo(venue, 'harmonize');
+            harmonizePlaceGo(venue);
         }
     },
     IsThisAPilotTravelCenter: class extends ActionFlag {
         constructor() { super(true, 0, 'Is this a "Travel Center"?', 'Yes', ''); }
 
-        static eval(venue, hpMode, state2L, newName, actions) {
+        static eval(venue, highlightOnly, state2L, newName, actions) {
             const result = { flag: null, newName };
-            if (hpMode.harmFlag && state2L === 'TN') {
+            if (!highlightOnly && state2L === 'TN') {
                 if (result.newName.toLowerCase().trim() === 'pilot') {
                     result.newName = 'Pilot Food Mart';
                     actions.push(new UpdateObject(venue, { name: result.newName }));
@@ -1858,7 +1858,7 @@ let Flag = {
             const venue = getSelectedVenue();
             _UPDATED_FIELDS.name.updated = true;
             addUpdateAction(venue, { name: 'Pilot Travel Center' });
-            harmonizePlaceGo(venue, 'harmonize');
+            harmonizePlaceGo(venue);
         }
     },
     HotelMkPrim: class extends WLActionFlag {
@@ -1874,7 +1874,7 @@ let Flag = {
             const categories = insertAtIX(venue.attributes.categories.slice(), 'HOTEL', 0);
             _UPDATED_FIELDS.categories.updated = true;
             addUpdateAction(venue, { categories });
-            harmonizePlaceGo(venue, 'harmonize');
+            harmonizePlaceGo(venue);
         }
     },
     ChangeToPetVet: class extends WLActionFlag {
@@ -1913,7 +1913,7 @@ let Flag = {
                 _UPDATED_FIELDS.categories.updated = true;
                 addUpdateAction(venue, { categories });
             }
-            harmonizePlaceGo(venue, 'harmonize'); // Rerun the script to update fields and lock
+            harmonizePlaceGo(venue); // Rerun the script to update fields and lock
         }
     },
     NotASchool: class extends WLFlag {
@@ -1952,7 +1952,7 @@ let Flag = {
             } else {
                 $('.landmark label.point-btn').click();
             }
-            harmonizePlaceGo(venue, 'harmonize'); // Rerun the script to update fields and lock
+            harmonizePlaceGo(venue);
         }
     },
     AreaNotPoint: class extends WLActionFlag {
@@ -1965,7 +1965,7 @@ let Flag = {
         action() {
             const venue = getSelectedVenue();
             updateFeatureGeometry(venue, venue.getPolygonGeometry());
-            harmonizePlaceGo(venue, 'harmonize');
+            harmonizePlaceGo(venue);
         }
     },
     HnMissing: class extends WLActionFlag {
@@ -1986,7 +1986,7 @@ let Flag = {
             if (hnTemp > 0 && hnTemp < 1000000) {
                 const action = new UpdateObject(this.venue, { houseNumber: hnTempDash });
                 action.wmephDescription = `Changed house # to: ${hnTempDash}`;
-                harmonizePlaceGo(this.venue, 'harmonize', [action]); // Rerun the script to update fields and lock
+                harmonizePlaceGo(this.venue, false, [action]);
                 _UPDATED_FIELDS.address.updated = true;
             } else {
                 $('input#WMEPH-HNAdd').css({ backgroundColor: '#FDD' }).attr('title', 'Must be a number between 0 and 1000000');
@@ -2060,7 +2060,7 @@ let Flag = {
             W.model.actionManager.add(new UpdateObject(venue, { name: _newName, categories: _newCategories }));
             if (tempName !== _newName) _UPDATED_FIELDS.name.updated = true;
             _UPDATED_FIELDS.categories.updated = true;
-            harmonizePlaceGo(venue, 'harmonize');
+            harmonizePlaceGo(venue);
         }
     },
     StandaloneATM: class extends ActionFlag {
@@ -2076,7 +2076,7 @@ let Flag = {
             _newCategories = ['ATM']; // Change to ATM only
             W.model.actionManager.add(new UpdateObject(venue, { name: _newName, categories: _newCategories }));
             _UPDATED_FIELDS.categories.updated = true;
-            harmonizePlaceGo(venue, 'harmonize');
+            harmonizePlaceGo(venue);
         }
     },
     BankCorporate: class extends ActionFlag {
@@ -2091,7 +2091,7 @@ let Flag = {
             W.model.actionManager.add(new UpdateObject(venue, { name: `${_newName} - Corporate Offices`, categories: _newCategories }));
             if (_newName !== tempName) _UPDATED_FIELDS.name.updated = true;
             _UPDATED_FIELDS.categories.updated = true;
-            harmonizePlaceGo(venue, 'harmonize');
+            harmonizePlaceGo(venue);
         }
     },
     CatPostOffice: class extends FlagBase {
@@ -2113,7 +2113,7 @@ let Flag = {
         action() {
             const venue = getSelectedVenue();
             nudgeVenue(venue);
-            harmonizePlaceGo(venue, 'harmonize');
+            harmonizePlaceGo(venue);
         }
     },
     ParentCategory: class extends WLFlag {
@@ -2171,7 +2171,7 @@ let Flag = {
             if (_tempPNHURL !== '') {
                 W.model.actionManager.add(new UpdateObject(venue, { url: _tempPNHURL }));
                 _UPDATED_FIELDS.url.updated = true;
-                harmonizePlaceGo(venue, 'harmonize');
+                harmonizePlaceGo(venue);
                 _updateURL = true;
             } else if (confirm('WMEPH: URL Matching Error!\nClick OK to report this error')) {
                 // if the category doesn't translate, then pop an alert that will make a forum post to the thread
@@ -2251,7 +2251,7 @@ let Flag = {
                     if (!aliases.includes(zip)) {
                         aliases.push(zip);
                         W.model.actionManager.add(new UpdateObject(venue, { aliases }));
-                        harmonizePlaceGo(venue, 'harmonize');
+                        harmonizePlaceGo(venue);
                     } else {
                         $input.css({ backgroundColor: '#FDD' }).attr('title', 'Zip code alt name already exists');
                     }
@@ -2314,9 +2314,9 @@ let Flag = {
     PnhCatMess: class extends ActionFlag {
         constructor(message) { super(true, 0, message, null, null); }
 
-        static eval(message, categories, hpMode) {
+        static eval(message, categories, highlightOnly) {
             const result = { flag: null };
-            if (hpMode.harmFlag && !isNullOrWhitespace(message)) {
+            if (!highlightOnly && !isNullOrWhitespace(message)) {
                 result.flag = new Flag.PnhCatMess(message);
                 if (categories.includes('HOSPITAL_URGENT_CARE')) {
                     result.flag.value = 'Change to Doctor/Clinic';
@@ -2335,7 +2335,7 @@ let Flag = {
                     categories[idx] = 'DOCTOR_CLINIC';
                     _UPDATED_FIELDS.categories.updated = true;
                     addUpdateAction(venue, { categories });
-                    harmonizePlaceGo(venue, 'harmonize');
+                    harmonizePlaceGo(venue);
                 }
             }
         }
@@ -2389,7 +2389,7 @@ let Flag = {
         action() {
             const venue = getSelectedVenue();
             nudgeVenue(venue);
-            harmonizePlaceGo(venue, 'harmonize'); // Rerun the script to update fields and lock
+            harmonizePlaceGo(venue); // Rerun the script to update fields and lock
         }
 
         // eslint-disable-next-line class-methods-use-this
@@ -2422,7 +2422,7 @@ let Flag = {
                 phlogdev(newUrl);
                 W.model.actionManager.add(new UpdateObject(venue, { url: newUrl }));
                 _UPDATED_FIELDS.url.updated = true;
-                harmonizePlaceGo(venue, 'harmonize');
+                harmonizePlaceGo(venue);
             }
         }
     },
@@ -2445,7 +2445,7 @@ let Flag = {
                 phlogdev(newPhone);
                 W.model.actionManager.add(new UpdateObject(venue, { phone: newPhone }));
                 _UPDATED_FIELDS.phone.updated = true;
-                harmonizePlaceGo(venue, 'harmonize');
+                harmonizePlaceGo(venue);
             }
         }
     },
@@ -2485,7 +2485,7 @@ let Flag = {
                 phlogdev(newPhone);
                 W.model.actionManager.add(new UpdateObject(this.venue, { phone: newPhone }));
                 _UPDATED_FIELDS.phone.updated = true;
-                harmonizePlaceGo(this.venue, 'harmonize');
+                harmonizePlaceGo(this.venue);
             }
         }
     },
@@ -2521,7 +2521,7 @@ let Flag = {
                 W.model.actionManager.add(new UpdateObject(venue, { openingHours: parseResult.hours }));
                 _UPDATED_FIELDS.openingHours.updated = true;
                 $('#WMEPH-HoursPaste').val(_DEFAULT_HOURS_TEXT);
-                harmonizePlaceGo(venue, 'harmonize');
+                harmonizePlaceGo(venue);
             } else {
                 phlog('Can\'t parse those hours');
                 this.severity = 1;
@@ -2541,14 +2541,14 @@ let Flag = {
     PlaLotTypeMissing: class extends FlagBase {
         constructor() { super(true, 3, 'Lot type: '); }
 
-        static eval(venue, hpMode) {
+        static eval(venue, highlightOnly) {
             const result = { flag: null };
             if (venue.isParkingLot()) {
                 const catAttr = venue.attributes.categoryAttributes;
                 const parkAttr = catAttr ? catAttr.PARKING_LOT : undefined;
                 if (!parkAttr || !parkAttr.parkingType) {
                     result.flag = new Flag.PlaLotTypeMissing();
-                    if (hpMode.harmFlag) {
+                    if (!highlightOnly) {
                         result.noLock = true;
                         result.flag.message += [['PUBLIC', 'Public'], ['RESTRICTED', 'Restricted'], ['PRIVATE', 'Private']].map(
                             btnInfo => $('<button>', { class: 'wmeph-pla-lot-type-btn btn btn-default btn-xs wmeph-btn', 'data-lot-type': btnInfo[0] })
@@ -2567,14 +2567,14 @@ let Flag = {
     PlaCostTypeMissing: class extends FlagBase {
         constructor() { super(true, 1, 'Parking cost: '); }
 
-        static eval(venue, hpMode) {
+        static eval(venue, highlightOnly) {
             const result = { flag: null };
             if (venue.isParkingLot()) {
                 const catAttr = venue.attributes.categoryAttributes;
                 const parkAttr = catAttr ? catAttr.PARKING_LOT : undefined;
                 if (!parkAttr || !parkAttr.costType || parkAttr.costType === 'UNKNOWN') {
                     result.flag = new Flag.PlaCostTypeMissing();
-                    if (hpMode.harmFlag) {
+                    if (!highlightOnly) {
                         [['FREE', 'Free', 'Free'], ['LOW', '$', 'Low'], ['MODERATE', '$$', 'Moderate'], ['EXPENSIVE', '$$$', 'Expensive']].forEach(btnInfo => {
                             result.flag.message += $('<button>', { id: `wmeph_${btnInfo[0]}`, class: 'wmeph-pla-cost-type-btn btn btn-default btn-xs wmeph-btn', title: btnInfo[2] })
                                 .text(btnInfo[1])
@@ -2646,7 +2646,7 @@ let Flag = {
             }
             newAttr.lotType = ['STREET_LEVEL'];
             W.model.actionManager.add(new UpdateObject(venue, { categoryAttributes: { PARKING_LOT: newAttr } }));
-            harmonizePlaceGo(venue, 'harmonize');
+            harmonizePlaceGo(venue);
         }
     },
     PlaSpaces: class extends FlagBase {
@@ -2677,9 +2677,9 @@ let Flag = {
             this.suffixMessage = $btnDiv.prop('outerHTML');
         }
 
-        static eval(venue, hpMode) {
+        static eval(venue, highlightOnly) {
             const result = { flag: null };
-            if (hpMode.harmFlag && venue.isParkingLot()) {
+            if (!highlightOnly && venue.isParkingLot()) {
                 const catAttr = venue.attributes.categoryAttributes;
                 const parkAttr = catAttr ? catAttr.PARKING_LOT : undefined;
                 if (!parkAttr || !parkAttr.estimatedNumberOfSpots || parkAttr.estimatedNumberOfSpots === 'R_1_TO_10') {
@@ -2703,7 +2703,7 @@ let Flag = {
         // eslint-disable-next-line class-methods-use-this
         action() {
             $('.navigation-point-view .add-button').click();
-            harmonizePlaceGo(getSelectedVenue(), 'harmonize');
+            harmonizePlaceGo(getSelectedVenue());
         }
     },
     PlaStopPointUnmoved: class extends FlagBase {
@@ -2725,9 +2725,9 @@ let Flag = {
     PlaCanExitWhileClosed: class extends ActionFlag {
         constructor() { super(true, 0, 'Can cars exit when lot is closed? ', 'Yes', ''); }
 
-        static eval(venue, hpMode) {
+        static eval(venue, highlightOnly) {
             const result = { flag: null };
-            if (hpMode.harmFlag && venue.isParkingLot()) {
+            if (!highlightOnly && venue.isParkingLot()) {
                 const catAttr = venue.attributes.categoryAttributes;
                 const parkAttr = catAttr ? catAttr.PARKING_LOT : undefined;
                 if (parkAttr && !parkAttr.canExitWhileClosed && ($('#WMEPH-ShowPLAExitWhileClosed').prop('checked') || !(isAlwaysOpen(venue) || venue.attributes.openingHours.length === 0))) {
@@ -2751,15 +2751,15 @@ let Flag = {
             }
             newAttr.canExitWhileClosed = true;
             W.model.actionManager.add(new UpdateObject(venue, { categoryAttributes: { PARKING_LOT: newAttr } }));
-            harmonizePlaceGo(venue, 'harmonize');
+            harmonizePlaceGo(venue);
         }
     },
     PlaHasAccessibleParking: class extends ActionFlag {
         constructor() { super(true, 0, 'Does this lot have disability parking? ', 'Yes', ''); }
 
-        static eval(venue, hpMode) {
+        static eval(venue, highlightOnly) {
             const result = { flag: null };
-            if (hpMode.harmFlag && venue.isParkingLot()) {
+            if (!highlightOnly && venue.isParkingLot()) {
                 const { services } = venue.attributes;
                 if (!(services && services.includes('DISABILITY_PARKING'))) {
                     result.flag = new Flag.PlaHasAccessibleParking();
@@ -2780,13 +2780,13 @@ let Flag = {
             services.push('DISABILITY_PARKING');
             W.model.actionManager.add(new UpdateObject(venue, { services }));
             _UPDATED_FIELDS.services_DISABILITY_PARKING.updated = true;
-            harmonizePlaceGo(venue, 'harmonize');
+            harmonizePlaceGo(venue);
         }
     },
     AllDayHoursFixed: class extends FlagBase {
         constructor() { super(true, 0, 'Hours were changed from 00:00-23:59 to "All Day"'); }
 
-        static eval(venue, hpMode, actions) {
+        static eval(venue, highlightOnly, actions) {
             const hoursEntries = venue.attributes.openingHours;
             const newHoursEntries = [];
             let updateHours = false;
@@ -2796,11 +2796,11 @@ let Flag = {
                     days: [].concat(hoursEntries[i].days), fromHour: hoursEntries[i].fromHour, toHour: hoursEntries[i].toHour
                 });
                 if (newHoursEntry.toHour === '23:59' && /^0?0:00$/.test(newHoursEntry.fromHour)) {
-                    if (hpMode.hlFlag) {
+                    if (highlightOnly) {
                         // Just return a "placeholder" flag to highlight the place.
                         flag = new FlagBase(true, 2, 'invalid all day hours');
                         break;
-                    } else if (hpMode.harmFlag) {
+                    } else {
                         updateHours = true;
                         newHoursEntry.toHour = '00:00';
                         newHoursEntry.fromHour = '00:00';
@@ -2861,7 +2861,7 @@ let Flag = {
             aliases = removeSFAliases(name, aliases);
             addUpdateAction(venue, { aliases });
             _UPDATED_FIELDS.aliases.updated = true;
-            harmonizePlaceGo(venue, 'harmonize');
+            harmonizePlaceGo(venue);
         }
     },
     AddCat2: class extends ActionFlag {
@@ -2878,7 +2878,7 @@ let Flag = {
             _newCategories.push(this.altCategory);
             W.model.actionManager.add(new UpdateObject(venue, { categories: _newCategories }));
             _UPDATED_FIELDS.categories.updated = true;
-            harmonizePlaceGo(venue, 'harmonize');
+            harmonizePlaceGo(venue);
         }
     },
     AddPharm: class extends ActionFlag {
@@ -2890,7 +2890,7 @@ let Flag = {
             _newCategories = insertAtIX(_newCategories, 'PHARMACY', 1);
             W.model.actionManager.add(new UpdateObject(venue, { categories: _newCategories }));
             _UPDATED_FIELDS.categories.updated = true;
-            harmonizePlaceGo(venue, 'harmonize');
+            harmonizePlaceGo(venue);
         }
     },
     AddSuper: class extends ActionFlag {
@@ -2902,7 +2902,7 @@ let Flag = {
             _newCategories = insertAtIX(_newCategories, 'SUPERMARKET_GROCERY', 1);
             W.model.actionManager.add(new UpdateObject(venue, { categories: _newCategories }));
             _UPDATED_FIELDS.categories.updated = true;
-            harmonizePlaceGo(venue, 'harmonize');
+            harmonizePlaceGo(venue);
         }
     },
     AppendAMPM: class extends ActionFlag {
@@ -2919,7 +2919,7 @@ let Flag = {
             _UPDATED_FIELDS.url.updated = true;
             _UPDATED_FIELDS.categories.updated = true;
             _buttonBanner.appendAMPM.active = false; // reset the display flag
-            harmonizePlaceGo(venue, 'harmonize');
+            harmonizePlaceGo(venue);
         }
     },
     AddATM: class extends ActionFlag {
@@ -2931,7 +2931,7 @@ let Flag = {
             _newCategories = insertAtIX(_newCategories, 'ATM', 1); // Insert ATM category in the second position
             W.model.actionManager.add(new UpdateObject(venue, { categories: _newCategories }));
             _UPDATED_FIELDS.categories.updated = true;
-            harmonizePlaceGo(venue, 'harmonize');
+            harmonizePlaceGo(venue);
         }
     },
     AddConvStore: class extends ActionFlag {
@@ -2943,7 +2943,7 @@ let Flag = {
             _newCategories = insertAtIX(_newCategories, 'CONVENIENCE_STORE', 1); // Insert C.S. category in the second position
             W.model.actionManager.add(new UpdateObject(venue, { categories: _newCategories }));
             _UPDATED_FIELDS.categories.updated = true;
-            harmonizePlaceGo(venue, 'harmonize');
+            harmonizePlaceGo(venue);
         }
 
         static eval(newCategories, pnhMatch) {
@@ -2975,7 +2975,7 @@ let Flag = {
             _newCategories = insertAtIX(_newCategories, 'POST_OFFICE', 0);
             W.model.actionManager.add(new UpdateObject(venue, { categories: _newCategories }));
             _UPDATED_FIELDS.categories.updated = true;
-            harmonizePlaceGo(venue, 'harmonize');
+            harmonizePlaceGo(venue);
         }
     },
     ChangeToHospitalUrgentCare: class extends WLActionFlag {
@@ -2984,9 +2984,9 @@ let Flag = {
                 false, 'Whitelist category', 'changetoHospitalUrgentCare');
         }
 
-        static eval(venue, hpMode) {
+        static eval(venue, highlightOnly) {
             const result = { flag: null };
-            if (hpMode.harmFlag && venue.attributes.categories.includes('DOCTOR_CLINIC')) {
+            if (!highlightOnly && venue.attributes.categories.includes('DOCTOR_CLINIC')) {
                 result.flag = new Flag.ChangeToHospitalUrgentCare(0, 'If this place provides emergency medical care:');
             }
             return result;
@@ -3002,7 +3002,7 @@ let Flag = {
                 _UPDATED_FIELDS.categories.updated = true;
                 addUpdateAction(venue, { categories: _newCategories });
             }
-            harmonizePlaceGo(venue, 'harmonize'); // Rerun the script to update fields and lock
+            harmonizePlaceGo(venue); // Rerun the script to update fields and lock
         }
     },
     NotAHospital: class extends WLActionFlag {
@@ -3046,7 +3046,7 @@ let Flag = {
                 _UPDATED_FIELDS.categories.updated = true;
                 W.model.actionManager.add(new UpdateObject(venue, { categories }));
             }
-            harmonizePlaceGo(venue, 'harmonize'); // Rerun the script to update fields and lock
+            harmonizePlaceGo(venue); // Rerun the script to update fields and lock
         }
     },
     ChangeToDoctorClinic: class extends WLActionFlag {
@@ -3055,9 +3055,9 @@ let Flag = {
                 'Whitelist category', 'changeToDoctorClinic');
         }
 
-        static eval(venue, categories, hpMode, pnhNameRegMatch) {
+        static eval(venue, categories, highlightOnly, pnhNameRegMatch) {
             const result = { flag: null, lockOK: true };
-            if (hpMode.harmFlag && venue.attributes.updatedOn < new Date('3/28/2017').getTime()
+            if (!highlightOnly && venue.attributes.updatedOn < new Date('3/28/2017').getTime()
                 && ((categories.includes('PERSONAL_CARE') && !pnhNameRegMatch) || _newCategories.includes('OFFICES'))) {
                 // Show the Change To Doctor / Clinic button for places with PERSONAL_CARE or OFFICES category
                 // The date criteria was added because Doctor/Clinic category was added around then, and it's assumed if the
@@ -3091,7 +3091,7 @@ let Flag = {
                 _UPDATED_FIELDS.categories.updated = true;
                 W.model.actionManager.add(new UpdateObject(venue, { categories }));
             }
-            harmonizePlaceGo(venue, 'harmonize'); // Rerun the script to update fields and lock
+            harmonizePlaceGo(venue); // Rerun the script to update fields and lock
         }
     },
     STC: class extends ActionFlag {
@@ -3112,7 +3112,7 @@ let Flag = {
                     W.model.actionManager.add(new UpdateObject(venue, { name: newName + (parts.suffix || '') }));
                     _UPDATED_FIELDS.name.updated = true;
                 }
-                harmonizePlaceGo(venue, 'harmonize');
+                harmonizePlaceGo(venue);
             } else {
                 $('button#WMEPH_STC').text('Are you sure?').after(' The name has changed.  This will overwrite the new name.');
                 _buttonBanner.STC.confirmChange = true;
@@ -3702,7 +3702,7 @@ function getButtonBanner2(venue, placePL) {
                 if (confirm('Are you sure you want to clear all whitelisted fields for this place?')) {
                     delete _venueWhitelist[venue.attributes.id];
                     saveWhitelistToLS(true);
-                    harmonizePlaceGo(venue, 'harmonize');
+                    harmonizePlaceGo(venue);
                 }
             }
         },
@@ -3725,7 +3725,7 @@ function getButtonBanner2(venue, placePL) {
 } // END getButtonBanner2()
 
 // Main script
-function harmonizePlaceGo(item, useFlag, actions) {
+function harmonizePlaceGo(item, highlightOnly = false, actions = null) {
     let pnhOrderNum = '';
     let pnhNameTemp = '';
     let pnhNameTempWeb = '';
@@ -3735,24 +3735,6 @@ function harmonizePlaceGo(item, useFlag, actions) {
 
     // Used for collecting all actions to be applied to the model.
     actions = actions || [];
-
-    const hpMode = {
-        harmFlag: false,
-        hlFlag: false,
-        scanFlag: false
-    };
-
-    if (useFlag.includes('harmonize')) {
-        hpMode.harmFlag = true;
-        phlog('Running script on selected place...');
-    }
-    if (useFlag.includes('highlight')) {
-        hpMode.hlFlag = true;
-    }
-    // NOTE: scan is not used yet
-    // if (useFlag.includes('scan')) {
-    //     hpMode.scanFlag = true;
-    // }
 
     _severityButt = 0;
 
@@ -3798,7 +3780,7 @@ function harmonizePlaceGo(item, useFlag, actions) {
 
     _buttonBanner = getButtonBanner();
 
-    if (hpMode.harmFlag) {
+    if (!highlightOnly) {
         // The placePL should only be needed when harmonizing, not when highlighting.
         placePL = getCurrentPL() //  set up external post div and pull place PL
             .replace(/&layers=[^&]+(&?)/g, '$1') // remove Permalink Layers
@@ -3829,7 +3811,7 @@ function harmonizePlaceGo(item, useFlag, actions) {
     }
 
     // If place has hours of 0:00-23:59, highlight yellow or if harmonizing, convert to All Day.
-    _buttonBanner.allDayHoursFixed = Flag.AllDayHoursFixed.eval(item, hpMode, actions);
+    _buttonBanner.allDayHoursFixed = Flag.AllDayHoursFixed.eval(item, highlightOnly, actions);
 
     let lockOK = true; // if nothing goes wrong, then place will be locked
 
@@ -3849,23 +3831,23 @@ function harmonizePlaceGo(item, useFlag, actions) {
 
     // Some user submitted places have no data in the country, state and address fields.
     let inferredAddress;
-    if (hpMode.harmFlag) {
+    if (!highlightOnly) {
         const result = Flag.FullAddressInference.eval(item, addr, actions);
         if (result.exit) return undefined;
         _buttonBanner.fullAddressInference = result.flag;
         ({ inferredAddress } = result);
         if (result.inferredAddress) addr = result.inferredAddress;
         if (result.noLock) lockOK = false;
-    } else if (hpMode.hlFlag) {
+    } else {
         const result = Flag.FullAddressInference.evalHL(item, addr);
         if (result) return result;
     }
 
     let result;
     // Check parking lot attributes.
-    if (hpMode.harmFlag && item.isParkingLot()) _servicesBanner.addDisabilityParking.active = true;
+    if (!highlightOnly && item.isParkingLot()) _servicesBanner.addDisabilityParking.active = true;
 
-    result = Flag.PlaCostTypeMissing.eval(item, hpMode);
+    result = Flag.PlaCostTypeMissing.eval(item, highlightOnly);
     _buttonBanner.plaCostTypeMissing = result.flag;
     if (result.noLock) lockOK = false;
 
@@ -3873,39 +3855,39 @@ function harmonizePlaceGo(item, useFlag, actions) {
     _buttonBanner.plaLotElevationMissing = result.flag;
     if (result.noLock) lockOK = false;
 
-    result = Flag.PlaSpaces.eval(item, hpMode);
+    result = Flag.PlaSpaces.eval(item, highlightOnly);
     _buttonBanner.plaSpaces = result.flag;
 
-    result = Flag.PlaLotTypeMissing.eval(item, hpMode);
+    result = Flag.PlaLotTypeMissing.eval(item, highlightOnly);
     _buttonBanner.plaLotTypeMissing = result.flag;
     if (result.noLock) lockOK = false;
 
     _buttonBanner.noPlaStopPoint = Flag.NoPlaStopPoint.eval(item).flag;
     _buttonBanner.plaStopPointUnmoved = Flag.PlaStopPointUnmoved.eval(item).flag;
-    _buttonBanner.plaCanExitWhileClosed = Flag.PlaCanExitWhileClosed.eval(item, hpMode).flag;
+    _buttonBanner.plaCanExitWhileClosed = Flag.PlaCanExitWhileClosed.eval(item, highlightOnly).flag;
     _buttonBanner.plaPaymentTypeMissing = Flag.PlaPaymentTypeMissing.eval(item).flag;
-    _buttonBanner.plaHasAccessibleParking = Flag.PlaHasAccessibleParking.eval(item, hpMode).flag;
+    _buttonBanner.plaHasAccessibleParking = Flag.PlaHasAccessibleParking.eval(item, highlightOnly).flag;
 
     // Check categories that maybe should be Hospital / Urgent Care, or Doctor / Clinic.
-    _buttonBanner.changeToHospitalUrgentCare = Flag.ChangeToHospitalUrgentCare.eval(item, hpMode).flag;
+    _buttonBanner.changeToHospitalUrgentCare = Flag.ChangeToHospitalUrgentCare.eval(item, highlightOnly).flag;
 
     // Whitelist breakout if place exists on the Whitelist and the option is enabled
 
     let itemGPS;
-    if (_venueWhitelist.hasOwnProperty(itemID) && (hpMode.harmFlag || (hpMode.hlFlag && !$('#WMEPH-DisableWLHL').prop('checked')))) {
+    if (_venueWhitelist.hasOwnProperty(itemID) && (!highlightOnly || (highlightOnly && !$('#WMEPH-DisableWLHL').prop('checked')))) {
         // Enable the clear WL button if any property is true
         Object.keys(_venueWhitelist[itemID]).forEach(wlKey => { // loop thru the venue WL keys
             if (_venueWhitelist[itemID].hasOwnProperty(wlKey) && (_venueWhitelist[itemID][wlKey].active || false)) {
-                if (hpMode.harmFlag) _buttonBanner2.clearWL.active = true;
+                if (!highlightOnly) _buttonBanner2.clearWL.active = true;
                 _wl[wlKey] = _venueWhitelist[itemID][wlKey];
             }
         });
         if (_venueWhitelist[itemID].hasOwnProperty('dupeWL') && _venueWhitelist[itemID].dupeWL.length > 0) {
-            if (hpMode.harmFlag) _buttonBanner2.clearWL.active = true;
+            if (!highlightOnly) _buttonBanner2.clearWL.active = true;
             _wl.dupeWL = _venueWhitelist[itemID].dupeWL;
         }
         // Update address and GPS info for the place
-        if (hpMode.harmFlag) {
+        if (!highlightOnly) {
             // get GPS lat/long coords from place, call as itemGPS.lat, itemGPS.lon
             if (!itemGPS) {
                 const centroid = item.attributes.geometry.getCentroid();
@@ -3919,7 +3901,7 @@ function harmonizePlaceGo(item, useFlag, actions) {
     }
 
     // Country restrictions
-    if (hpMode.harmFlag && (addr.county === null || addr.state === null)) {
+    if (!highlightOnly && (addr.county === null || addr.state === null)) {
         alert('Country and/or state could not be determined.  Edit the place address and run WMEPH again.');
         return undefined;
     }
@@ -3940,7 +3922,7 @@ function harmonizePlaceGo(item, useFlag, actions) {
     } else if (countryName === 'Virgin Islands (U.S.)') {
         _countryCode = 'USA';
     } else {
-        if (hpMode.harmFlag) {
+        if (!highlightOnly) {
             alert('At present this script is not supported in this country.');
         }
         return 3;
@@ -3958,9 +3940,9 @@ function harmonizePlaceGo(item, useFlag, actions) {
             gFormState = _stateDataTemp[_psGoogleFormStateIx];
             if (_stateDataTemp[_psDefaultLockLevelIx].match(/[1-5]{1}/) !== null) {
                 _defaultLockLevel = _stateDataTemp[_psDefaultLockLevelIx] - 1; // normalize by -1
-            } else if (hpMode.harmFlag) {
+            } else if (!highlightOnly) {
                 alert('Lock level sheet data is not correct');
-            } else if (hpMode.hlFlag) {
+            } else {
                 return 3;
             }
             _areaCodeList = `${_areaCodeList},${_stateDataTemp[_psAreaCodeIx]}`;
@@ -3973,9 +3955,9 @@ function harmonizePlaceGo(item, useFlag, actions) {
             gFormState = _stateDataTemp[_psGoogleFormStateIx];
             if (_stateDataTemp[_psDefaultLockLevelIx].match(/[1-5]{1}/) !== null) {
                 _defaultLockLevel = _stateDataTemp[_psDefaultLockLevelIx] - 1; // normalize by -1
-            } else if (hpMode.harmFlag) {
+            } else if (!highlightOnly) {
                 alert('Lock level sheet data is not correct');
-            } else if (hpMode.hlFlag) {
+            } else {
                 return 3;
             }
             _areaCodeList = `${_areaCodeList},${_stateDataTemp[_psAreaCodeIx]}`;
@@ -3983,7 +3965,7 @@ function harmonizePlaceGo(item, useFlag, actions) {
         }
     }
     if (state2L === 'Unknown' || region === 'Unknown') { // if nothing found:
-        if (hpMode.harmFlag) {
+        if (!highlightOnly) {
             if (confirm('WMEPH: Localization Error!\nClick OK to report this error')) { // if the category doesn't translate, then pop an alert that will make a forum post to the thread
                 const data = {
                     subject: 'WMEPH Localization Error report',
@@ -4002,13 +3984,13 @@ function harmonizePlaceGo(item, useFlag, actions) {
 
     // Gas station treatment (applies to all including PNH)
 
-    result = Flag.IsThisAPilotTravelCenter.eval(item, hpMode, state2L, _newName, actions);
+    result = Flag.IsThisAPilotTravelCenter.eval(item, highlightOnly, state2L, _newName, actions);
     _buttonBanner.isThisAPilotTravelCenter = result.flag;
     _newName = result.newName;
 
     if (item.isGasStation()) {
         // If no gas station name, replace with brand name
-        if (hpMode.harmFlag && (!_newName || _newName.trim().length === 0) && item.attributes.brand) {
+        if (!highlightOnly && (!_newName || _newName.trim().length === 0) && item.attributes.brand) {
             _newName = item.attributes.brand;
             actions.push(new UpdateObject(item, { name: _newName }));
             _UPDATED_FIELDS.name.updated = true;
@@ -4016,7 +3998,7 @@ function harmonizePlaceGo(item, useFlag, actions) {
     } // END Gas Station Checks
 
     // Note for Indiana editors to check liquor store hours if Sunday hours haven't been added yet.
-    _buttonBanner.indianaLiquorStoreHours = Flag.IndianaLiquorStoreHours.eval(item, _newName, hpMode).flag;
+    _buttonBanner.indianaLiquorStoreHours = Flag.IndianaLiquorStoreHours.eval(item, _newName, highlightOnly).flag;
 
     const isLocked = item.attributes.lockRank >= (_pnhLockLevel > -1 ? _pnhLockLevel : _defaultLockLevel);
 
@@ -4025,7 +4007,7 @@ function harmonizePlaceGo(item, useFlag, actions) {
     let { brand: newBrand } = item.attributes;
     // Clear attributes from residential places
     if (item.attributes.residential) {
-        if (hpMode.harmFlag) {
+        if (!highlightOnly) {
             if (!$('#WMEPH-AutoLockRPPs').prop('checked')) {
                 lockOK = false;
             }
@@ -4069,7 +4051,7 @@ function harmonizePlaceGo(item, useFlag, actions) {
         // Place Harmonization
         let matchResult = { matches: [], status: 'NoMatch' };
         let pnhMatchData;
-        if (hpMode.harmFlag) {
+        if (!highlightOnly) {
             if (!item.isParkingLot()) {
                 // check against the PNH list
                 matchResult = harmoList(_newName, state2L, region, _countryCode, _newCategories, item, placePL);
@@ -4078,7 +4060,7 @@ function harmonizePlaceGo(item, useFlag, actions) {
         }
 
         pnhNameRegMatch = false;
-        if (!hpMode.hlFlag && matchResult.status === 'Match') { // *** Replace place data with PNH data
+        if (!highlightOnly && matchResult.status === 'Match') { // *** Replace place data with PNH data
             pnhNameRegMatch = true;
             let updatePnhName = true;
 
@@ -4450,7 +4432,7 @@ function harmonizePlaceGo(item, useFlag, actions) {
             } // END generic bank treatment
         } // END PNH match/no-match updates
 
-        if (hpMode.harmFlag) {
+        if (!highlightOnly) {
             // Update name:
             if ((_newName + (newNameSuffix || '')) !== item.attributes.name) {
                 phlogdev('Name updated');
@@ -4618,7 +4600,7 @@ function harmonizePlaceGo(item, useFlag, actions) {
                 }
 
                 // display any messages regarding the category
-                _buttonBanner.pnhCatMess = Flag.PnhCatMess.eval(catData.message, _newCategories, hpMode).flag;
+                _buttonBanner.pnhCatMess = Flag.PnhCatMess.eval(catData.message, _newCategories, highlightOnly).flag;
                 // Unmapped categories
                 if (catData.rareRegions.includes(state2L)
                     || catData.rareRegions.includes(region)
@@ -4767,7 +4749,7 @@ function harmonizePlaceGo(item, useFlag, actions) {
             }
         }
 
-        if (hpMode.harmFlag) {
+        if (!highlightOnly) {
             // Highlight 24/7 button if hours are set that way, and add button for all places
             if (isAlwaysOpen(item)) {
                 _servicesBanner.add247.checked = true;
@@ -4789,7 +4771,7 @@ function harmonizePlaceGo(item, useFlag, actions) {
                         _buttonBanner.longURL.severity = 0;
                         _buttonBanner.longURL.WLactive = false;
                     }
-                    if (hpMode.harmFlag && _updateURL && itemURL !== item.attributes.url) { // Update the URL
+                    if (!highlightOnly && _updateURL && itemURL !== item.attributes.url) { // Update the URL
                         phlogdev('URL formatted');
                         actions.push(new UpdateObject(item, { url: itemURL }));
                         _UPDATED_FIELDS.url.updated = true;
@@ -4798,7 +4780,7 @@ function harmonizePlaceGo(item, useFlag, actions) {
                     _tempPNHURL = _newURL;
                 }
             }
-            if (hpMode.harmFlag && _updateURL && _newURL !== 'badURL' && _newURL !== item.attributes.url) { // Update the URL
+            if (!highlightOnly && _updateURL && _newURL !== 'badURL' && _newURL !== item.attributes.url) { // Update the URL
                 phlogdev('URL updated');
                 actions.push(new UpdateObject(item, { url: _newURL }));
                 _UPDATED_FIELDS.url.updated = true;
@@ -4829,7 +4811,7 @@ function harmonizePlaceGo(item, useFlag, actions) {
                 }
             }
         }
-        if (hpMode.harmFlag && _newPhone !== item.attributes.phone) {
+        if (!highlightOnly && _newPhone !== item.attributes.phone) {
             phlogdev('Phone updated');
             actions.push(new UpdateObject(item, { phone: _newPhone }));
             _UPDATED_FIELDS.phone.updated = true;
@@ -4840,7 +4822,7 @@ function harmonizePlaceGo(item, useFlag, actions) {
             if (!_newCategories.includes('POST_OFFICE')) {
                 _buttonBanner.isThisAPostOffice = Flag.IsThisAPostOffice.eval(item, _newName).flag;
             } else {
-                if (hpMode.harmFlag) {
+                if (!highlightOnly) {
                     _buttonBanner.NewPlaceSubmit = null;
                     if (item.attributes.url !== 'usps.com') {
                         actions.push(new UpdateObject(item, { url: 'usps.com' }));
@@ -4863,14 +4845,14 @@ function harmonizePlaceGo(item, useFlag, actions) {
                 if (!postOfficeRegEx.test(nameToCheck)) {
                     _buttonBanner.formatUSPS = new Flag.FormatUSPS();
                     lockOK = false;
-                } else if (hpMode.harmFlag) {
+                } else if (!highlightOnly) {
                     if (nameToCheck !== item.attributes.name) {
                         actions.push(new UpdateObject(item, { name: nameToCheck }));
                     }
                     _buttonBanner.catPostOffice = new Flag.CatPostOffice();
                 }
                 if (!_newAliases.some(alias => alias.toUpperCase() === 'USPS')) {
-                    if (hpMode.harmFlag) {
+                    if (!highlightOnly) {
                         _newAliases.push('USPS');
                         actions.push(new UpdateObject(item, { aliases: _newAliases }));
                         _UPDATED_FIELDS.aliases.updated = true;
@@ -5034,17 +5016,17 @@ function harmonizePlaceGo(item, useFlag, actions) {
                 lockOK = false;
             }
         }
+
+        // TODO - verify HN dash removal is still needed.
         if (updateHNflag) {
             _buttonBanner.hnDashRemoved = new Flag.HnDashRemoved();
-            if (hpMode.harmFlag) {
+            if (!highlightOnly) {
                 actions.push(new UpdateObject(item, { houseNumber: hnTemp }));
                 _UPDATED_FIELDS.address.updated = true;
-            } else if (hpMode.hlFlag) {
-                if (item.attributes.residential) {
-                    _buttonBanner.hnDashRemoved.severity = 3;
-                } else {
-                    _buttonBanner.hnDashRemoved.severity = 1;
-                }
+            } else if (item.attributes.residential) {
+                _buttonBanner.hnDashRemoved.severity = 3;
+            } else {
+                _buttonBanner.hnDashRemoved.severity = 1;
             }
         }
     }
@@ -5054,7 +5036,9 @@ function harmonizePlaceGo(item, useFlag, actions) {
     if ((!addr.city || addr.city.attributes.isEmpty)
         && !excludeFromMissingAddressFlags.includes(item.attributes.categories[0])) {
         _buttonBanner.cityMissing = new Flag.CityMissing();
-        if (item.attributes.residential && hpMode.hlFlag) {
+
+        // TODO - check if this is necessary, or even working at all
+        if (item.attributes.residential && highlightOnly) {
             _buttonBanner.cityMissing.severity = 1;
         }
         lockOK = false;
@@ -5078,7 +5062,7 @@ function harmonizePlaceGo(item, useFlag, actions) {
         if (!result.lockOK) lockOK = false;
     }
 
-    result = Flag.ChangeToDoctorClinic.eval(item, _newCategories, hpMode, pnhNameRegMatch);
+    result = Flag.ChangeToDoctorClinic.eval(item, _newCategories, highlightOnly, pnhNameRegMatch);
     if (result.flag) {
         _buttonBanner.changeToPetVet = result.flag;
         if (!result.lockOK) lockOK = false;
@@ -5135,7 +5119,7 @@ function harmonizePlaceGo(item, useFlag, actions) {
                 if (_wl.restAreaName) {
                     _buttonBanner.restAreaName.WLactive = false;
                 }
-            } else if (hpMode.harmFlag) {
+            } else if (!highlightOnly) {
                 const newSuffix = newNameSuffix.replace(/Mile/i, 'mile');
                 if (_newName + newSuffix !== item.attributes.name) {
                     actions.push(new UpdateObject(item, { name: _newName + newSuffix }));
@@ -5157,7 +5141,7 @@ function harmonizePlaceGo(item, useFlag, actions) {
             }
 
             // switch to rest area wiki button
-            if (hpMode.harmFlag) {
+            if (!highlightOnly) {
                 _buttonBanner2.restAreaWiki.active = true;
                 _buttonBanner2.placesWiki.active = false;
             }
@@ -5186,13 +5170,13 @@ function harmonizePlaceGo(item, useFlag, actions) {
         }
     });
 
-    if (hpMode.harmFlag) {
+    if (!highlightOnly) {
         phlogdev(`Severity: ${_severityButt}; lockOK: ${lockOK}`);
     }
     // Place locking
     // final formatting of desired lock levels
     let levelToLock;
-    if (_pnhLockLevel !== -1 && hpMode.harmFlag) {
+    if (_pnhLockLevel !== -1 && !highlightOnly) {
         phlogdev(`PNHLockLevel: ${_pnhLockLevel}`);
         levelToLock = _pnhLockLevel;
     } else {
@@ -5230,7 +5214,7 @@ function harmonizePlaceGo(item, useFlag, actions) {
                 const action = new UpdateObject(item, { lockRank: levelToLock });
                 W.model.actionManager.add(action);
                 _UPDATED_FIELDS.lock.updated = true;
-                harmonizePlaceGo(item, 'harmonize');
+                harmonizePlaceGo(item);
             };
         }
     }
@@ -5238,11 +5222,11 @@ function harmonizePlaceGo(item, useFlag, actions) {
     let hlLockFlag = false;
     if (lockOK && _severityButt < 2) {
         if (item.attributes.lockRank < levelToLock) {
-            if (hpMode.harmFlag) {
+            if (!highlightOnly) {
                 phlogdev('Venue locked!');
                 actions.push(new UpdateObject(item, { lockRank: levelToLock }));
                 _UPDATED_FIELDS.lock.updated = true;
-            } else if (hpMode.hlFlag) {
+            } else {
                 hlLockFlag = true;
             }
         }
@@ -5329,7 +5313,7 @@ function harmonizePlaceGo(item, useFlag, actions) {
     }
 
     // Return severity for highlighter (no dupe run))
-    if (hpMode.hlFlag) {
+    if (highlightOnly) {
         // get severities from the banners
         _severityButt = 0;
         Object.keys(_buttonBanner).forEach(tempKey => {
@@ -5412,7 +5396,7 @@ function harmonizePlaceGo(item, useFlag, actions) {
                     wmephWhitelistCounter();
                     _buttonBanner2.clearWL.active = true;
                     _dupeBanner[dID].active = false;
-                    harmonizePlaceGo(item, 'harmonize');
+                    harmonizePlaceGo(item);
                 };
                 for (let ijx = 1; ijx < _duplicateName.length + 1; ijx++) {
                     _dupeBanner[_dupeIDList[ijx]] = {
@@ -5473,7 +5457,7 @@ function harmonizePlaceGo(item, useFlag, actions) {
 
     executeMultiAction(actions);
 
-    if (hpMode.harmFlag) {
+    if (!highlightOnly) {
         // Update icons to reflect current WME place services
         updateServicesChecks(_servicesBanner);
 
@@ -5675,7 +5659,7 @@ function assembleBanner() {
         }
         newAttr.estimatedNumberOfSpots = selectedValue;
         W.model.actionManager.add(new UpdateObject(selectedVenue, { categoryAttributes: { PARKING_LOT: newAttr } }));
-        harmonizePlaceGo(selectedVenue, 'harmonize');
+        harmonizePlaceGo(selectedVenue);
     });
 
     $('.wmeph-pla-lot-type-btn').click(evt => {
@@ -5692,7 +5676,7 @@ function assembleBanner() {
         }
         newAttr.parkingType = selectedValue;
         W.model.actionManager.add(new UpdateObject(selectedVenue, { categoryAttributes: { PARKING_LOT: newAttr } }));
-        harmonizePlaceGo(selectedVenue, 'harmonize');
+        harmonizePlaceGo(selectedVenue);
     });
 
     $('.wmeph-pla-cost-type-btn').click(evt => {
@@ -5709,7 +5693,7 @@ function assembleBanner() {
         }
         newAttr.costType = selectedValue;
         W.model.actionManager.add(new UpdateObject(selectedVenue, { categoryAttributes: { PARKING_LOT: newAttr } }));
-        harmonizePlaceGo(selectedVenue, 'harmonize');
+        harmonizePlaceGo(selectedVenue);
     });
 
     // If pressing enter in the HN entry box, add the HN
