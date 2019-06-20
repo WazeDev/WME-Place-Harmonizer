@@ -2155,6 +2155,19 @@ let Flag = {
             super(true, 2, 'This parent category is usually not mapped in this region.',
                 true, 'Whitelist parent Category', 'parentCategory');
         }
+
+        static eval(pnhCategories, state2L, region, countryCode) {
+            const result = { flag: null };
+            if (pnhCategories.parentNotMappedRegions.includes(state2L)
+                || pnhCategories.parentNotMappedRegions.includes(region)
+                || pnhCategories.parentNotMappedRegions.includes(countryCode)) {
+                result.flag = new Flag.ParentCategory();
+                if (_wl.parentCategory) {
+                    _buttonBanner.parentCategory.WLactive = false;
+                }
+            }
+            return result;
+        }
     },
     CheckDescription: class extends FlagBase {
         constructor() {
@@ -4645,14 +4658,7 @@ function harmonizePlaceGo(item, highlightOnly = false, actions = null) {
 
                 // TODO eval function
                 // Parent Category
-                if (catData.parentNotMappedRegions.includes(state2L)
-                    || catData.parentNotMappedRegions.includes(region)
-                    || catData.parentNotMappedRegions.includes(_countryCode)) {
-                    _buttonBanner.parentCategory = new Flag.ParentCategory();
-                    if (_wl.parentCategory) {
-                        _buttonBanner.parentCategory.WLactive = false;
-                    }
-                }
+                _buttonBanner.parentCategory = Flag.ParentCategory.eval(catData, state2L, region, _countryCode).flag;
 
                 // Set lock level
                 let regionalLock = null;
