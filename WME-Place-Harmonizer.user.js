@@ -1562,16 +1562,16 @@ function harmonizePlace() {
 
 // Abstract flag classes.  Must be declared outside the "Flag" namespace.
 class FlagBase {
-    constructor(active, severity, message, noLock = false) {
-        this.active = active;
+    constructor(severity, message, noLock = false) {
+        this.active = true;
         this.severity = severity;
         this.message = message;
         this.noLock = noLock;
     }
 }
 class ActionFlag extends FlagBase {
-    constructor(active, severity, message, value, title, noLock = false) {
-        super(active, severity, message, noLock);
+    constructor(severity, message, value, title, noLock = false) {
+        super(severity, message, noLock);
         this.value = value;
         this.title = title;
     }
@@ -1580,8 +1580,8 @@ class ActionFlag extends FlagBase {
     // action() { } // overwrite this
 }
 class WLFlag extends FlagBase {
-    constructor(active, severity, message, WLactive, WLtitle, WLkeyName, noLock = false) {
-        super(active, severity, message, noLock);
+    constructor(severity, message, WLactive, WLtitle, WLkeyName, noLock = false) {
+        super(severity, message, noLock);
         this.WLactive = WLactive;
         this.WLtitle = WLtitle;
         this.WLkeyName = WLkeyName;
@@ -1595,8 +1595,8 @@ class WLFlag extends FlagBase {
     }
 }
 class WLActionFlag extends WLFlag {
-    constructor(active, severity, message, value, title, WLactive, WLtitle, WLkeyName, noLock = false) {
-        super(active, severity, message, WLactive, WLtitle, WLkeyName, noLock);
+    constructor(severity, message, value, title, WLactive, WLtitle, WLkeyName, noLock = false) {
+        super(severity, message, WLactive, WLtitle, WLkeyName, noLock);
         this.value = value;
         this.title = title;
     }
@@ -1608,10 +1608,10 @@ class WLActionFlag extends WLFlag {
 // Namespace to keep these grouped.
 let Flag = {
     HnDashRemoved: class extends FlagBase {
-        constructor() { super(true, 0, 'Dash removed from house number. Verify'); }
+        constructor() { super(0, 'Dash removed from house number. Verify'); }
     },
     FullAddressInference: class extends FlagBase {
-        constructor() { super(true, 3, 'Missing address was inferred from nearby segments. Verify the address and run script again.', true); }
+        constructor() { super(3, 'Missing address was inferred from nearby segments. Verify the address and run script again.', true); }
 
         static eval(venue, addr, actions) {
             const result = { flag: null };
@@ -1665,23 +1665,23 @@ let Flag = {
         }
     },
     NameMissing: class extends FlagBase {
-        constructor() { super(true, 3, 'Name is missing.'); }
+        constructor() { super(3, 'Name is missing.'); }
     },
     PlaIsPublic: class extends FlagBase {
         constructor() {
-            super(true, 0, 'If this does not meet the requirements for a <a href="https://wazeopedia.waze.com/wiki/USA/Places/Parking_lot#Lot_Type" '
+            super(0, 'If this does not meet the requirements for a <a href="https://wazeopedia.waze.com/wiki/USA/Places/Parking_lot#Lot_Type" '
                 + 'target="_blank" style="color:5a5a73">public parking lot</a>, change to:<br>');
         }
     },
     PlaNameMissing: class extends FlagBase {
         constructor() {
-            super(true, 1, 'Name is missing.');
+            super(1, 'Name is missing.');
             this.message += _USER.rank < 3 ? ' Request an R3+ lock to confirm unnamed parking lot.' : ' Lock to 3+ to confirm unnamed parking lot.';
         }
     },
     PlaNameNonStandard: class extends WLFlag {
         constructor() {
-            super(true, 2, 'Parking lot names typically contain words like "Parking", "Lot", and/or "Garage"', true, 'Whitelist non-standard PLA name', 'plaNameNonStandard');
+            super(2, 'Parking lot names typically contain words like "Parking", "Lot", and/or "Garage"', true, 'Whitelist non-standard PLA name', 'plaNameNonStandard');
         }
 
         static eval(venue, wl) {
@@ -1699,7 +1699,7 @@ let Flag = {
     },
     IndianaLiquorStoreHours: class extends WLFlag {
         constructor() {
-            super(true, 0, 'If this is a liquor store, check the hours.  As of Feb 2018, liquor stores in Indiana are allowed to be open between noon and 8 pm on Sunday.',
+            super(0, 'If this is a liquor store, check the hours.  As of Feb 2018, liquor stores in Indiana are allowed to be open between noon and 8 pm on Sunday.',
                 true, 'Whitelist Indiana liquor store hours', 'indianaLiquorStoreHours');
         }
 
@@ -1718,16 +1718,16 @@ let Flag = {
         }
     },
     HoursOverlap: class extends FlagBase {
-        constructor() { super(true, 3, 'Overlapping hours of operation. Place might not save.'); }
+        constructor() { super(3, 'Overlapping hours of operation. Place might not save.'); }
     },
     UnmappedRegion: class extends WLFlag {
-        constructor() { super(true, 3, 'This category is usually not mapped in this region.', true, 'Whitelist unmapped category', 'unmappedRegion'); }
+        constructor() { super(3, 'This category is usually not mapped in this region.', true, 'Whitelist unmapped category', 'unmappedRegion'); }
     },
     RestAreaName: class extends WLFlag {
-        constructor() { super(true, 3, 'Rest area name is out of spec. Use the Rest Area wiki button below to view formats.', true, 'Whitelist rest area name', 'restAreaName'); }
+        constructor() { super(3, 'Rest area name is out of spec. Use the Rest Area wiki button below to view formats.', true, 'Whitelist rest area name', 'restAreaName'); }
     },
     RestAreaNoTransportation: class extends ActionFlag {
-        constructor() { super(true, 2, 'Rest areas should not use the Transportation category.', 'Remove it?'); }
+        constructor() { super(2, 'Rest areas should not use the Transportation category.', 'Remove it?'); }
 
         // eslint-disable-next-line class-methods-use-this
         action() {
@@ -1742,11 +1742,11 @@ let Flag = {
         }
     },
     RestAreaGas: class extends FlagBase {
-        constructor() { super(true, 3, 'Gas stations at Rest Areas should be separate area places.'); }
+        constructor() { super(3, 'Gas stations at Rest Areas should be separate area places.'); }
     },
     RestAreaScenic: class extends WLActionFlag {
         constructor() {
-            super(true, 0, 'Verify that the "Scenic Overlook" category is appropriate for this rest area.  If not: ',
+            super(0, 'Verify that the "Scenic Overlook" category is appropriate for this rest area.  If not: ',
                 'Remove it', 'Remove "Scenic Overlook" category.', true, 'Whitelist place', 'restAreaScenic');
         }
 
@@ -1764,7 +1764,7 @@ let Flag = {
     },
     RestAreaSpec: class extends WLActionFlag {
         constructor() {
-            super(true, 3, 'Is this a rest area?',
+            super(3, 'Is this a rest area?',
                 'Yes', 'Update with proper categories and services.', true, 'Whitelist place', 'restAreaSpec');
         }
 
@@ -1798,14 +1798,14 @@ let Flag = {
     },
     GasMismatch: class extends WLFlag {
         constructor() {
-            super(true, 3, '<a href="https://wazeopedia.waze.com/wiki/USA/Places/Gas_station#Name" target="_blank" class="red">Gas brand should typically be included in the place name.</a>',
+            super(3, '<a href="https://wazeopedia.waze.com/wiki/USA/Places/Gas_station#Name" target="_blank" class="red">Gas brand should typically be included in the place name.</a>',
                 true, 'Whitelist gas brand / name mismatch', 'gasMismatch');
         }
     },
     GasUnbranded: class extends FlagBase {
         //  Unbranded is not used per wiki
         constructor() {
-            super(true, 3, '"Unbranded" should not be used for the station brand. Change to correct brand or '
+            super(3, '"Unbranded" should not be used for the station brand. Change to correct brand or '
                 + 'use the blank entry at the top of the brand list.', true);
         }
 
@@ -1819,7 +1819,7 @@ let Flag = {
     },
     GasMkPrim: class extends ActionFlag {
         constructor() {
-            super(true, 3, 'Gas Station is not the primary category', 'Fix', 'Make the Gas Station '
+            super(3, 'Gas Station is not the primary category', 'Fix', 'Make the Gas Station '
                 + 'category the primary category.');
         }
 
@@ -1834,7 +1834,7 @@ let Flag = {
         }
     },
     IsThisAPilotTravelCenter: class extends ActionFlag {
-        constructor() { super(true, 0, 'Is this a "Travel Center"?', 'Yes', ''); }
+        constructor() { super(0, 'Is this a "Travel Center"?', 'Yes', ''); }
 
         static eval(venue, highlightOnly, state2L, newName, actions) {
             const result = { flag: null };
@@ -1861,7 +1861,7 @@ let Flag = {
     },
     HotelMkPrim: class extends WLActionFlag {
         constructor() {
-            super(true, 3, 'Hotel category is not first', 'Fix', 'Make the Hotel category the primary category.',
+            super(3, 'Hotel category is not first', 'Fix', 'Make the Hotel category the primary category.',
                 true, 'Whitelist hotel as secondary category', 'hotelMkPrim');
         }
 
@@ -1877,7 +1877,7 @@ let Flag = {
     },
     ChangeToPetVet: class extends WLActionFlag {
         constructor() {
-            super(true, 3, 'Key words suggest this should be a Pet/Veterinarian category. Change?', 'Yes', 'Change to Pet/Veterinarian Category',
+            super(3, 'Key words suggest this should be a Pet/Veterinarian category. Change?', 'Yes', 'Change to Pet/Veterinarian Category',
                 true, 'Whitelist Pet/Vet category', 'changeHMC2PetVet', true);
         }
 
@@ -1915,7 +1915,7 @@ let Flag = {
     },
     NotASchool: class extends WLFlag {
         constructor() {
-            super(true, 3, 'Key words suggest this should not be School category.',
+            super(3, 'Key words suggest this should not be School category.',
                 true, 'Whitelist School category', 'changeSchool2Offices', true);
         }
 
@@ -1935,7 +1935,7 @@ let Flag = {
     },
     PointNotArea: class extends WLActionFlag {
         constructor() {
-            super(true, 3, 'This category should be a point place.', 'Change to point', 'Change to point place',
+            super(3, 'This category should be a point place.', 'Change to point', 'Change to point place',
                 true, 'Whitelist point (not area)', 'pointNotArea');
         }
 
@@ -1953,7 +1953,7 @@ let Flag = {
     },
     AreaNotPoint: class extends WLActionFlag {
         constructor() {
-            super(true, 3, 'This category should be an area place.', 'Change to area', 'Change to Area',
+            super(3, 'This category should be an area place.', 'Change to area', 'Change to Area',
                 true, 'Whitelist area (not point)', 'areaNotPoint');
         }
 
@@ -1966,7 +1966,7 @@ let Flag = {
     },
     HnMissing: class extends WLActionFlag {
         constructor(venue) {
-            super(true, 3,
+            super(3,
                 'No HN: <input type="text" id="WMEPH-HNAdd" autocomplete="off" style="font-size:0.85em;width:100px;padding-left:2px;color:#000;" > ',
                 'Add', 'Add HN to place', true, 'Whitelist empty HN', 'HNWL');
             this.venue = venue;
@@ -1994,7 +1994,7 @@ let Flag = {
     // when the underlying model is updated.  I changed to the code below for a while, but we've
     // come up with a temporary fix using WW, so using the textbox entry should be OK now.
     // HnMissing: class extends WLActionFlag {
-    //     constructor() { super(true, 3, 'No HN:', 'Edit address', 'Edit address to add HN.'); }
+    //     constructor() { super(3, 'No HN:', 'Edit address', 'Edit address to add HN.'); }
 
     //     // eslint-disable-next-line class-methods-use-this
     //     action() {
@@ -2005,18 +2005,18 @@ let Flag = {
     // },
     HnNonStandard: class extends WLFlag {
         constructor() {
-            super(true, 3, 'House number is non-standard.', true,
+            super(3, 'House number is non-standard.', true,
                 'Whitelist non-standard HN', 'hnNonStandard');
         }
     },
     HNRange: class extends WLFlag {
         constructor() {
-            super(true, 2, 'House number seems out of range for the street name. Verify.', true,
+            super(2, 'House number seems out of range for the street name. Verify.', true,
                 'Whitelist HN range', 'HNRange');
         }
     },
     StreetMissing: class extends ActionFlag {
-        constructor() { super(true, 3, 'No street:', 'Edit address', 'Edit address to add street.', true); }
+        constructor() { super(3, 'No street:', 'Edit address', 'Edit address to add street.', true); }
 
         static eval(venue, address) {
             const result = { flag: null };
@@ -2042,7 +2042,7 @@ let Flag = {
         }
     },
     CityMissing: class extends ActionFlag {
-        constructor() { super(true, 3, 'No city:', 'Edit address', 'Edit address to add city.', true); }
+        constructor() { super(3, 'No city:', 'Edit address', 'Edit address to add city.', true); }
 
         static eval(venue, address, highlightOnly) {
             const result = { flag: null };
@@ -2069,10 +2069,10 @@ let Flag = {
         }
     },
     BankType1: class extends FlagBase {
-        constructor() { super(true, 3, 'Clarify the type of bank: the name has ATM but the primary category is Offices'); }
+        constructor() { super(3, 'Clarify the type of bank: the name has ATM but the primary category is Offices'); }
     },
     BankBranch: class extends ActionFlag {
-        constructor() { super(true, 1, 'Is this a bank branch office? ', 'Yes', 'Is this a bank branch?'); }
+        constructor() { super(1, 'Is this a bank branch office? ', 'Yes', 'Is this a bank branch?'); }
 
         // eslint-disable-next-line class-methods-use-this
         action() {
@@ -2087,7 +2087,7 @@ let Flag = {
         }
     },
     StandaloneATM: class extends ActionFlag {
-        constructor() { super(true, 2, 'Or is this a standalone ATM? ', 'Yes', 'Is this a standalone ATM with no bank branch?'); }
+        constructor() { super(2, 'Or is this a standalone ATM? ', 'Yes', 'Is this a standalone ATM with no bank branch?'); }
 
         // eslint-disable-next-line class-methods-use-this
         action() {
@@ -2103,7 +2103,7 @@ let Flag = {
         }
     },
     BankCorporate: class extends ActionFlag {
-        constructor() { super(true, 1, 'Or is this the bank\'s corporate offices?', 'Yes', 'Is this the bank\'s corporate offices?'); }
+        constructor() { super(1, 'Or is this the bank\'s corporate offices?', 'Yes', 'Is this the bank\'s corporate offices?'); }
 
         // eslint-disable-next-line class-methods-use-this
         action() {
@@ -2119,12 +2119,12 @@ let Flag = {
     },
     CatPostOffice: class extends FlagBase {
         constructor() {
-            super(true, 0,
+            super(0,
                 'The Post Office category is reserved for certain USPS locations. Please be sure to follow <a href="https://wazeopedia.waze.com/wiki/USA/Places/Post_Office" style="color:#3a3a3a;" target="_blank">the guidelines</a>.');
         }
     },
     IgnEdited: class extends FlagBase {
-        constructor() { super(true, 2, 'Last edited by an IGN editor'); }
+        constructor() { super(2, 'Last edited by an IGN editor'); }
 
         static eval(venue) {
             const result = { flag: null };
@@ -2139,7 +2139,7 @@ let Flag = {
     },
     WazeBot: class extends ActionFlag {
         constructor() {
-            super(true, 2,
+            super(2,
                 'Edited last by an automated process. Please verify information is correct.', 'Nudge', 'If no other properties need to be updated, click to nudge the place (force an edit).');
         }
 
@@ -2152,7 +2152,7 @@ let Flag = {
     },
     ParentCategory: class extends WLFlag {
         constructor() {
-            super(true, 2, 'This parent category is usually not mapped in this region.',
+            super(2, 'This parent category is usually not mapped in this region.',
                 true, 'Whitelist parent Category', 'parentCategory');
         }
 
@@ -2171,43 +2171,43 @@ let Flag = {
     },
     CheckDescription: class extends FlagBase {
         constructor() {
-            super(true, 2,
+            super(2,
                 'Description field already contained info; PNH description was added in front of existing. Check for inconsistency or duplicate info.');
         }
     },
     Overlapping: class extends FlagBase {
-        constructor() { super(true, 2, 'Place points are stacked up.'); }
+        constructor() { super(2, 'Place points are stacked up.'); }
     },
     SuspectDesc: class extends WLFlag {
-        constructor() { super(true, 2, 'Description field might contain copyrighted info.', true, 'Whitelist description', 'suspectDesc'); }
+        constructor() { super(2, 'Description field might contain copyrighted info.', true, 'Whitelist description', 'suspectDesc'); }
     },
     ResiTypeName: class extends WLFlag {
         constructor() {
-            super(true, 2, 'The place name suggests a residential place or personalized place of work.  Please verify.',
+            super(2, 'The place name suggests a residential place or personalized place of work.  Please verify.',
                 true, 'Whitelist Residential-type name', 'resiTypeName');
         }
     },
     Mismatch247: class extends FlagBase {
-        constructor() { super(true, 2, 'Hours of operation listed as open 24hrs but not for all 7 days.'); }
+        constructor() { super(2, 'Hours of operation listed as open 24hrs but not for all 7 days.'); }
     },
     PhoneInvalid: class extends FlagBase {
-        constructor() { super(true, 2, 'Phone invalid.'); }
+        constructor() { super(2, 'Phone invalid.'); }
     },
     AreaNotPointMid: class extends WLFlag {
         constructor() {
-            super(true, 2, 'This category is usually an area place, but can be a point in some cases. Verify if point is appropriate.',
+            super(2, 'This category is usually an area place, but can be a point in some cases. Verify if point is appropriate.',
                 true, 'Whitelist area (not point)', 'areaNotPoint');
         }
     },
     PointNotAreaMid: class extends WLFlag {
         constructor() {
-            super(true, 2, 'This category is usually a point place, but can be an area in some cases. Verify if area is appropriate.',
+            super(2, 'This category is usually a point place, but can be an area in some cases. Verify if area is appropriate.',
                 true, 'Whitelist point (not area)', 'pointNotArea');
         }
     },
     LongURL: class extends WLActionFlag {
         constructor(placePL) {
-            super(true, 1, 'Existing URL doesn\'t match the suggested PNH URL. Use the Website button below to verify that existing URL is valid.  If not:',
+            super(1, 'Existing URL doesn\'t match the suggested PNH URL. Use the Website button below to verify that existing URL is valid.  If not:',
                 'Use PNH URL', 'Change URL to the PNH standard', true, 'Whitelist existing URL', 'longURL');
             this.placePL = placePL;
         }
@@ -2231,7 +2231,7 @@ let Flag = {
     },
     GasNoBrand: class extends FlagBase {
         constructor() {
-            super(true, 1, 'Lock to region standards to verify no gas brand.', true);
+            super(1, 'Lock to region standards to verify no gas brand.', true);
         }
 
         static eval(venue, brand) {
@@ -2244,7 +2244,7 @@ let Flag = {
     },
     SubFuel: class extends WLFlag {
         constructor() {
-            super(true, 1, 'Make sure this place is for the gas station itself and not the main store building.  Otherwise undo and check the categories.',
+            super(1, 'Make sure this place is for the gas station itself and not the main store building.  Otherwise undo and check the categories.',
                 true, 'Whitelist no gas brand', 'subFuel');
         }
 
@@ -2261,25 +2261,25 @@ let Flag = {
     },
     AreaNotPointLow: class extends WLFlag {
         constructor() {
-            super(true, 1, 'This category is usually an area place, but can be a point in some cases. Verify if point is appropriate.',
+            super(1, 'This category is usually an area place, but can be a point in some cases. Verify if point is appropriate.',
                 true, 'Whitelist area (not point)', 'areaNotPoint');
         }
     },
     PointNotAreaLow: class extends WLFlag {
         constructor() {
-            super(true, 1, 'This category is usually a point place, but can be an area in some cases. Verify if area is appropriate.',
+            super(1, 'This category is usually a point place, but can be an area in some cases. Verify if area is appropriate.',
                 true, 'Whitelist point (not area)', 'pointNotArea');
         }
     },
     FormatUSPS: class extends FlagBase {
-        constructor() { super(true, 1, 'Name the post office according to this region\'s <a href="https://wazeopedia.waze.com/wiki/USA/Places/Post_Office" style="color:#3232e6" target="_blank"> standards for USPS post offices</a>'); }
+        constructor() { super(1, 'Name the post office according to this region\'s <a href="https://wazeopedia.waze.com/wiki/USA/Places/Post_Office" style="color:#3232e6" target="_blank"> standards for USPS post offices</a>'); }
     },
     MissingUSPSAlt: class extends FlagBase {
-        constructor() { super(true, 1, 'USPS post offices must have an alternate name of "USPS".'); }
+        constructor() { super(1, 'USPS post offices must have an alternate name of "USPS".'); }
     },
     MissingUSPSZipAlt: class extends WLActionFlag {
         constructor() {
-            super(true, 1,
+            super(1,
                 'No <a href="https://wazeopedia.waze.com/wiki/USA/Places/Post_Office" style="color:#3232e6;" target="_blank">ZIP code alt name</a>: <input type="text" id="WMEPH-zipAltNameAdd" autocomplete="off" style="font-size:0.85em;width:65px;padding-left:2px;color:#000;" title="Enter the ZIP code and click Add">',
                 'Add', true, 'Whitelist missing USPS zip alt name', 'missingUSPSZipAlt');
             this.noBannerAssemble = true;
@@ -2309,16 +2309,16 @@ let Flag = {
     },
     MissingUSPSDescription: class extends WLFlag {
         constructor() {
-            super(true, 1, 'The first line of the description for a <a href="https://wazeopedia.waze.com/wiki/USA/Places/Post_Office" style="color:#3232e6" target="_blank">USPS post office</a> must be CITY, STATE ZIP, e.g. "Lexington, KY 40511"',
+            super(1, 'The first line of the description for a <a href="https://wazeopedia.waze.com/wiki/USA/Places/Post_Office" style="color:#3232e6" target="_blank">USPS post office</a> must be CITY, STATE ZIP, e.g. "Lexington, KY 40511"',
                 true, 'Whitelist missing USPS address line in description', 'missingUSPSDescription');
         }
     },
     CatHotel: class extends FlagBase {
-        constructor(pnhName) { super(true, 0, `Check hotel website for any name localization (e.g. ${pnhName} - Tampa Airport).`); }
+        constructor(pnhName) { super(0, `Check hotel website for any name localization (e.g. ${pnhName} - Tampa Airport).`); }
     },
     LocalizedName: class extends WLFlag {
         constructor() {
-            super(true, 1, 'Place needs localization information', true, 'Whitelist localization', 'localizedName');
+            super(1, 'Place needs localization information', true, 'Whitelist localization', 'localizedName');
         }
 
         static eval(name, nameSuffix, pnhMatch) {
@@ -2337,7 +2337,7 @@ let Flag = {
         }
     },
     SpecCaseMessage: class extends FlagBase {
-        constructor(message) { super(true, 0, message); }
+        constructor(message) { super(0, message); }
 
         static eval(venue, pnhMatch) {
             const result = { flag: null };
@@ -2358,7 +2358,7 @@ let Flag = {
         }
     },
     PnhCatMess: class extends ActionFlag {
-        constructor(message) { super(true, 0, message, null, null); }
+        constructor(message) { super(0, message, null, null); }
 
         static eval(message, categories, highlightOnly) {
             const result = { flag: null };
@@ -2388,7 +2388,7 @@ let Flag = {
     },
     ExtProviderMissing: class extends ActionFlag {
         constructor() {
-            super(true, 3, 'No Google link', 'Nudge', 'If no other properties need to be updated, click to nudge the place (force an edit).');
+            super(3, 'No Google link', 'Nudge', 'If no other properties need to be updated, click to nudge the place (force an edit).');
             this.value2 = 'Add';
             this.title2 = 'Add a link to a Google place';
         }
@@ -2452,7 +2452,7 @@ let Flag = {
     },
     UrlMissing: class extends WLActionFlag {
         constructor() {
-            super(true, 1, 'No URL: <input type="text" id="WMEPH-UrlAdd" autocomplete="off" style="font-size:0.85em;width:100px;padding-left:2px;color:#000;">', 'Add', 'Add URL to place', true, 'Whitelist empty URL', 'urlWL');
+            super(1, 'No URL: <input type="text" id="WMEPH-UrlAdd" autocomplete="off" style="font-size:0.85em;width:100px;padding-left:2px;color:#000;">', 'Add', 'Add URL to place', true, 'Whitelist empty URL', 'urlWL');
             this.noBannerAssemble = true;
             this.badInput = false;
         }
@@ -2474,7 +2474,7 @@ let Flag = {
     },
     BadAreaCode: class extends WLActionFlag {
         constructor(textValue, outputFormat) {
-            super(true, 1, `Area Code mismatch:<br><input type="text" id="WMEPH-PhoneAdd" autocomplete="off" style="font-size:0.85em;width:100px;padding-left:2px;color:#000;" value="${textValue || ''}">`,
+            super(1, `Area Code mismatch:<br><input type="text" id="WMEPH-PhoneAdd" autocomplete="off" style="font-size:0.85em;width:100px;padding-left:2px;color:#000;" value="${textValue || ''}">`,
                 'Update', 'Update phone #', true, 'Whitelist the area code', 'aCodeWL');
             this.outputFormat = outputFormat;
             this.noBannerAssemble = true;
@@ -2497,7 +2497,7 @@ let Flag = {
     },
     PhoneMissing: class extends WLActionFlag {
         constructor(venue, hasOperator, wl, outputFormat, isPLA) {
-            super(true, 1, 'No ph#: <input type="text" id="WMEPH-PhoneAdd" autocomplete="off" style="font-size:0.85em;width:100px;padding-left:2px;color:#000;">',
+            super(1, 'No ph#: <input type="text" id="WMEPH-PhoneAdd" autocomplete="off" style="font-size:0.85em;width:100px;padding-left:2px;color:#000;">',
                 'Add', 'Add phone to place', true, 'Whitelist empty phone', 'phoneWL');
             this.noBannerAssemble = true;
             this.badInput = false;
@@ -2536,7 +2536,7 @@ let Flag = {
         }
     },
     NoHours: class extends WLFlag {
-        constructor() { super(true, 1, getHoursHtml('No hours'), true, 'Whitelist "No hours"', 'noHours'); }
+        constructor() { super(1, getHoursHtml('No hours'), true, 'Whitelist "No hours"', 'noHours'); }
 
         // eslint-disable-next-line class-methods-use-this
         getTitle(parseResult) {
@@ -2585,7 +2585,7 @@ let Flag = {
         }
     },
     PlaLotTypeMissing: class extends FlagBase {
-        constructor() { super(true, 3, 'Lot type: ', true); }
+        constructor() { super(3, 'Lot type: ', true); }
 
         static eval(venue, highlightOnly) {
             const result = { flag: null };
@@ -2610,7 +2610,7 @@ let Flag = {
         }
     },
     PlaCostTypeMissing: class extends FlagBase {
-        constructor() { super(true, 1, 'Parking cost: ', true); }
+        constructor() { super(1, 'Parking cost: ', true); }
 
         static eval(venue, highlightOnly) {
             const result = { flag: null };
@@ -2640,7 +2640,7 @@ let Flag = {
         }
     },
     PlaPaymentTypeMissing: class extends ActionFlag {
-        constructor() { super(true, 1, 'Parking isn\'t free.  Select payment type(s) from the "More info" tab. ', 'Go there'); }
+        constructor() { super(1, 'Parking isn\'t free.  Select payment type(s) from the "More info" tab. ', 'Go there'); }
 
         static eval(venue) {
             const result = { flag: null };
@@ -2662,7 +2662,7 @@ let Flag = {
     },
     PlaLotElevationMissing: class extends ActionFlag {
         constructor() {
-            super(true, 1, 'No lot elevation. Is it street level?', 'Yes',
+            super(1, 'No lot elevation. Is it street level?', 'Yes',
                 'Click if street level parking only, or select other option(s) in the More Info tab.', true);
         }
 
@@ -2697,7 +2697,7 @@ let Flag = {
     },
     PlaSpaces: class extends FlagBase {
         constructor() {
-            super(true, 0, '# of parking spaces is set to 1-10.<br><b><i>If appropriate</i></b>, select another option:');
+            super(0, '# of parking spaces is set to 1-10.<br><b><i>If appropriate</i></b>, select another option:');
             const $btnDiv = $('<div>');
             let btnIdx = 0;
             [
@@ -2736,7 +2736,7 @@ let Flag = {
         }
     },
     NoPlaStopPoint: class extends ActionFlag {
-        constructor() { super(true, 1, 'Entry/exit point has not been created.', 'Add point', 'Add an entry/exit point'); }
+        constructor() { super(1, 'Entry/exit point has not been created.', 'Add point', 'Add an entry/exit point'); }
 
         static eval(venue) {
             const result = { flag: null };
@@ -2753,7 +2753,7 @@ let Flag = {
         }
     },
     PlaStopPointUnmoved: class extends FlagBase {
-        constructor() { super(true, 1, 'Entry/exit point has not been moved.'); }
+        constructor() { super(1, 'Entry/exit point has not been moved.'); }
 
         static eval(venue) {
             const result = { flag: null };
@@ -2769,7 +2769,7 @@ let Flag = {
         }
     },
     PlaCanExitWhileClosed: class extends ActionFlag {
-        constructor() { super(true, 0, 'Can cars exit when lot is closed? ', 'Yes', ''); }
+        constructor() { super(0, 'Can cars exit when lot is closed? ', 'Yes', ''); }
 
         static eval(venue, highlightOnly) {
             const result = { flag: null };
@@ -2801,7 +2801,7 @@ let Flag = {
         }
     },
     PlaHasAccessibleParking: class extends ActionFlag {
-        constructor() { super(true, 0, 'Does this lot have disability parking? ', 'Yes', ''); }
+        constructor() { super(0, 'Does this lot have disability parking? ', 'Yes', ''); }
 
         static eval(venue, highlightOnly) {
             const result = { flag: null };
@@ -2830,7 +2830,7 @@ let Flag = {
         }
     },
     AllDayHoursFixed: class extends FlagBase {
-        constructor() { super(true, 0, 'Hours were changed from 00:00-23:59 to "All Day"'); }
+        constructor() { super(0, 'Hours were changed from 00:00-23:59 to "All Day"'); }
 
         static eval(venue, highlightOnly, actions) {
             const hoursEntries = venue.attributes.openingHours;
@@ -2844,7 +2844,7 @@ let Flag = {
                 if (newHoursEntry.toHour === '23:59' && /^0?0:00$/.test(newHoursEntry.fromHour)) {
                     if (highlightOnly) {
                         // Just return a "placeholder" flag to highlight the place.
-                        flag = new FlagBase(true, 2, 'invalid all day hours');
+                        flag = new FlagBase(2, 'invalid all day hours');
                         break;
                     } else {
                         updateHours = true;
@@ -2863,13 +2863,13 @@ let Flag = {
         }
     },
     ResiTypeNameSoft: class extends FlagBase {
-        constructor() { super(true, 0, 'The place name suggests a residential place or personalized place of work.  Please verify.'); }
+        constructor() { super(0, 'The place name suggests a residential place or personalized place of work.  Please verify.'); }
     },
     LocalURL: class extends FlagBase {
-        constructor() { super(true, 0, 'Some locations for this business have localized URLs, while others use the primary corporate site. Check if a local URL applies to this location.'); }
+        constructor() { super(0, 'Some locations for this business have localized URLs, while others use the primary corporate site. Check if a local URL applies to this location.'); }
     },
     LockRPP: class extends ActionFlag {
-        constructor() { super(true, 0, 'Lock this residential point?', 'Lock', 'Lock the residential point'); }
+        constructor() { super(0, 'Lock this residential point?', 'Lock', 'Lock the residential point'); }
 
         action() {
             const venue = getSelectedVenue();
@@ -2884,7 +2884,7 @@ let Flag = {
     },
     AddAlias: class extends ActionFlag {
         constructor(optionalAlias) {
-            super(true, 0, `Is there a ${optionalAlias} at this location?`, 'Yes', `Add ${optionalAlias}`);
+            super(0, `Is there a ${optionalAlias} at this location?`, 'Yes', `Add ${optionalAlias}`);
             this.optionalAlias = optionalAlias;
         }
 
@@ -2911,7 +2911,7 @@ let Flag = {
         }
     },
     AddCat2: class extends ActionFlag {
-        constructor() { super(true, 0, '', 'Yes', ''); }
+        constructor() { super(0, '', 'Yes', ''); }
 
         static eval() {
             const result = { flag: null };
@@ -2928,7 +2928,7 @@ let Flag = {
         }
     },
     AddPharm: class extends ActionFlag {
-        constructor() { super(true, 0, 'Is there a Pharmacy at this location?', 'Yes', 'Add Pharmacy category'); }
+        constructor() { super(0, 'Is there a Pharmacy at this location?', 'Yes', 'Add Pharmacy category'); }
 
         // eslint-disable-next-line class-methods-use-this
         action() {
@@ -2940,7 +2940,7 @@ let Flag = {
         }
     },
     AddSuper: class extends ActionFlag {
-        constructor() { super(true, 0, 'Does this location have a supermarket?', 'Yes', 'Add Supermarket category'); }
+        constructor() { super(0, 'Does this location have a supermarket?', 'Yes', 'Add Supermarket category'); }
 
         // eslint-disable-next-line class-methods-use-this
         action() {
@@ -2952,7 +2952,7 @@ let Flag = {
         }
     },
     AppendAMPM: class extends ActionFlag {
-        constructor() { super(true, 0, 'Is there an ampm at this location?', 'Yes', 'Add ampm to the place'); }
+        constructor() { super(0, 'Is there an ampm at this location?', 'Yes', 'Add ampm to the place'); }
 
         // eslint-disable-next-line class-methods-use-this
         action() {
@@ -2969,7 +2969,7 @@ let Flag = {
         }
     },
     AddATM: class extends ActionFlag {
-        constructor() { super(true, 0, 'ATM at location? ', 'Yes', 'Add the ATM category to this place'); }
+        constructor() { super(0, 'ATM at location? ', 'Yes', 'Add the ATM category to this place'); }
 
         // eslint-disable-next-line class-methods-use-this
         action() {
@@ -2981,7 +2981,7 @@ let Flag = {
         }
     },
     AddConvStore: class extends ActionFlag {
-        constructor() { super(true, 0, 'Add convenience store category? ', 'Yes', 'Add the Convenience Store category to this place'); }
+        constructor() { super(0, 'Add convenience store category? ', 'Yes', 'Add the Convenience Store category to this place'); }
 
         static eval(newCategories, pnhMatch) {
             const result = { flag: null };
@@ -3002,7 +3002,7 @@ let Flag = {
     },
     IsThisAPostOffice: class extends ActionFlag {
         constructor() {
-            super(true, 0, 'Is this a <a href="https://wazeopedia.waze.com/wiki/USA/Places/Post_Office" target="_blank" style="color:#3a3a3a">USPS post office</a>? ',
+            super(0, 'Is this a <a href="https://wazeopedia.waze.com/wiki/USA/Places/Post_Office" target="_blank" style="color:#3a3a3a">USPS post office</a>? ',
                 'Yes', 'Is this a USPS location?');
         }
 
@@ -3026,7 +3026,7 @@ let Flag = {
     },
     ChangeToHospitalUrgentCare: class extends WLActionFlag {
         constructor(severity, message) {
-            super(true, severity, message, 'Change to Hospital / Urgent Care', 'Change category to Hospital / Urgent Care',
+            super(severity, message, 'Change to Hospital / Urgent Care', 'Change category to Hospital / Urgent Care',
                 false, 'Whitelist category', 'changetoHospitalUrgentCare');
         }
 
@@ -3053,7 +3053,7 @@ let Flag = {
     },
     NotAHospital: class extends WLActionFlag {
         constructor() {
-            super(true, 3, 'Key words suggest this location may not be a hospital or urgent care location.', 'Change to Doctor / Clinic', 'Change category to Doctor / Clinic',
+            super(3, 'Key words suggest this location may not be a hospital or urgent care location.', 'Change to Doctor / Clinic', 'Change category to Doctor / Clinic',
                 true, 'Whitelist category', 'notAHospital', true);
         }
 
@@ -3096,7 +3096,7 @@ let Flag = {
     },
     ChangeToDoctorClinic: class extends WLActionFlag {
         constructor() {
-            super(true, 0, 'If this place provides non-emergency medical care: ', 'Change to Doctor / Clinic', 'Change category to Doctor / Clinic', false,
+            super(0, 'If this place provides non-emergency medical care: ', 'Change to Doctor / Clinic', 'Change category to Doctor / Clinic', false,
                 'Whitelist category', 'changeToDoctorClinic');
         }
 
@@ -3141,7 +3141,7 @@ let Flag = {
     },
     STC: class extends ActionFlag {
         constructor() {
-            super(true, 0, '', 'Force Title Case?', 'Force title case to: ');
+            super(0, '', 'Force Title Case?', 'Force title case to: ');
             this.originalName = null;
             this.confirmChange = false;
             this.noBannerAssemble = true;
@@ -3165,17 +3165,17 @@ let Flag = {
         }
     },
     SFAliases: class extends FlagBase {
-        constructor() { super(true, 0, 'Unnecessary aliases were removed.'); }
+        constructor() { super(0, 'Unnecessary aliases were removed.'); }
     },
     PlaceMatched: class extends FlagBase {
-        constructor() { super(true, 0, 'Place matched from PNH data.'); }
+        constructor() { super(0, 'Place matched from PNH data.'); }
     },
     PlaceLocked: class extends FlagBase {
-        constructor() { super(true, 0, 'Place locked.'); }
+        constructor() { super(0, 'Place locked.'); }
     },
     NewPlaceSubmit: class extends ActionFlag {
         constructor() {
-            super(true, 0, 'No PNH match. If it\'s a chain: ', 'Submit new chain data', 'Submit info for a new chain through the linked form');
+            super(0, 'No PNH match. If it\'s a chain: ', 'Submit new chain data', 'Submit info for a new chain through the linked form');
         }
 
         // eslint-disable-next-line class-methods-use-this
@@ -3185,7 +3185,7 @@ let Flag = {
     },
     ApprovalSubmit: class extends ActionFlag {
         constructor(region, pnhOrderNum, pnhNameTemp, placePL) {
-            super(true, 0, 'PNH data exists but is not approved for this region: ', 'Request approval', 'Request region/country approval of this place');
+            super(0, 'PNH data exists but is not approved for this region: ', 'Request approval', 'Request region/country approval of this place');
             this.region = region;
             this.pnhOrderNum = pnhOrderNum;
             this.pnhNameTemp = pnhNameTemp;
@@ -3211,7 +3211,7 @@ let Flag = {
     StoreFinder: class extends ActionFlag {
         // NOTE: This class is now only used to display the store locator button.  It can be updated to remove/change anything that doesn't serve that purpose.
         constructor(url, isLocalizedUrl) {
-            super(true, 0, '', 'Location Finder', 'Look up details about this location on the chain\'s finder web page');
+            super(0, '', 'Location Finder', 'Look up details about this location on the chain\'s finder web page');
             this.url = url;
             this.isLocalizedUrl = isLocalizedUrl;
             if (isLocalizedUrl) this.value += ' (L)';
