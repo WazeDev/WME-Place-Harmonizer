@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name        WME Place Harmonizer Beta (pnh-update)
 // @namespace   WazeUSA
-// @version     2019.06.20.002
+// @version     2019.06.20.003
 // @description Harmonizes, formats, and locks a selected place
 // @author      WMEPH Development Group
 // @include     /^https:\/\/(www|beta)\.waze\.com\/(?!user\/)(.{2,6}\/)?editor\/?.*$/
@@ -3124,18 +3124,20 @@ let Flag = {
         // eslint-disable-next-line class-methods-use-this
         action() {
             const venue = getSelectedVenue();
-            _newCategories = insertAtIX(_newCategories, 'ATM', 1); // Insert ATM category in the second position
-            W.model.actionManager.add(new UpdateObject(venue, { categories: _newCategories }));
-            _UPDATED_FIELDS.categories.updated = true;
+            if (!venue.attributes.categories.includes('ATM')) {
+                const categories = insertAtIX(venue.attributes.categories, 'ATM', 1);
+                addUpdateAction(venue, { categories });
+                _UPDATED_FIELDS.categories.updated = true;
+            }
             harmonizePlaceGo(venue);
         }
     },
     AddConvStore: class extends ActionFlag {
         constructor() { super(0, 'Add convenience store category? ', 'Yes', 'Add the Convenience Store category to this place'); }
 
-        static eval(newCategories, pnhMatch) {
+        static eval(categories, pnhMatch) {
             const result = { flag: null };
-            if (newCategories[0] === 'GAS_STATION' && !newCategories.includes('CONVENIENCE_STORE') && !pnhMatch.subFuel) {
+            if (categories[0] === 'GAS_STATION' && !categories.includes('CONVENIENCE_STORE') && !pnhMatch.subFuel) {
                 result.flag = new Flag.AddConvStore();
             }
             return result;
@@ -3144,9 +3146,11 @@ let Flag = {
         // eslint-disable-next-line class-methods-use-this
         action() {
             const venue = getSelectedVenue();
-            _newCategories = insertAtIX(_newCategories, 'CONVENIENCE_STORE', 1); // Insert C.S. category in the second position
-            W.model.actionManager.add(new UpdateObject(venue, { categories: _newCategories }));
-            _UPDATED_FIELDS.categories.updated = true;
+            if (!venue.attributes.categories.includes('CONVENIENCE_STORE')) {
+                const categories = insertAtIX(venue.attributes.categories, 'CONVENIENCE_STORE', 1);
+                addUpdateAction(venue, { categories });
+                _UPDATED_FIELDS.categories.updated = true;
+            }
             harmonizePlaceGo(venue);
         }
     },
@@ -3170,9 +3174,11 @@ let Flag = {
         // eslint-disable-next-line class-methods-use-this
         action() {
             const venue = getSelectedVenue();
-            _newCategories = insertAtIX(_newCategories, 'POST_OFFICE', 0);
-            W.model.actionManager.add(new UpdateObject(venue, { categories: _newCategories }));
-            _UPDATED_FIELDS.categories.updated = true;
+            if (venue.attributes.categories[0] !== 'POST_OFFICE') {
+                const categories = insertAtIX(venue.attributes.categories, 'POST_OFFICE', 0);
+                addUpdateAction(venue, { categories });
+                _UPDATED_FIELDS.categories.updated = true;
+            }
             harmonizePlaceGo(venue);
         }
     },
@@ -3184,23 +3190,38 @@ let Flag = {
 
         static eval(venue, highlightOnly) {
             const result = { flag: null };
-            if (!highlightOnly && venue.attributes.categories.includes('DOCTOR_CLINIC')) {
-                result.flag = new Flag.ChangeToHospitalUrgentCare(0, 'If this place provides emergency medical care:');
+            if (!highlightOnly) {
+                if (venue.attributes.categories.includes('DOCTOR_CLINIC')) {
+                    result.flag = new Flag.ChangeToHospitalUrgentCare(0, 'If this place provides emergency medical care:');
+                } else if (venue.attributes.categories.includes('HOSPITAL_MEDICAL_CARE')) {
+                    // Leave this check in here until we're CERTAIN that all of the old HOSPITAL_MEDICAL_CARE places have been converted.
+                    result.flag = new Flag.ChangeToHospitalUrgentCare(2, 'The "Hospital / Medical Care" category is no longer valid.');
+                }
             }
             return result;
         }
 
         // eslint-disable-next-line class-methods-use-this
         action() {
-            let idx = _newCategories.indexOf('HOSPITAL_MEDICAL_CARE');
             const venue = getSelectedVenue();
-            if (idx === -1) idx = _newCategories.indexOf('DOCTOR_CLINIC');
+            let categories = venue.attributes.categories.slice();
+            let updated = false;
+            let idx = categories.indexOf('HOSPITAL_MEDICAL_CARE');
             if (idx > -1) {
-                _newCategories[idx] = 'HOSPITAL_URGENT_CARE';
-                _UPDATED_FIELDS.categories.updated = true;
-                addUpdateAction(venue, { categories: _newCategories });
+                categories[idx] = 'HOSPITAL_URGENT_CARE';
+                updated = true;
             }
-            harmonizePlaceGo(venue); // Rerun the script to update fields and lock
+            idx = categories.indexOf('DOCTOR_CLINIC');
+            if (idx > -1) {
+                categories[idx] = 'HOSPITAL_URGENT_CARE';
+                updated = true;
+            }
+            if (updated) {
+                categories = _.uniq(categories);
+                _UPDATED_FIELDS.categories.updated = true;
+                addUpdateAction(venue, { categories });
+            }
+            harmonizePlaceGo(venue);
         }
     },
     NotAHospital: class extends WLActionFlag {
