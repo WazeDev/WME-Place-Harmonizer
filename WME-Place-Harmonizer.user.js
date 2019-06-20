@@ -2113,11 +2113,11 @@ let Flag = {
         // eslint-disable-next-line class-methods-use-this
         action() {
             const venue = getSelectedVenue();
-            _newCategories = ['BANK_FINANCIAL', 'ATM']; // Change to bank and atm cats
-            const tempName = _newName.replace(/[- (]*ATM[- )]*/g, ' ').replace(/^ /g, '').replace(/ $/g, ''); // strip ATM from name if present
-            _newName = tempName;
-            W.model.actionManager.add(new UpdateObject(venue, { name: _newName, categories: _newCategories }));
-            if (tempName !== _newName) _UPDATED_FIELDS.name.updated = true;
+            const categories = ['BANK_FINANCIAL', 'ATM'];
+            // strip ATM from name if present
+            const name = venue.attributes.name.replace(/[- (]*ATM[- )]*/g, ' ').trim();
+            addUpdateAction(venue, { name, categories });
+            if (name !== venue.attributes.name) _UPDATED_FIELDS.name.updated = true;
             _UPDATED_FIELDS.categories.updated = true;
             harmonizePlaceGo(venue);
         }
@@ -2128,12 +2128,13 @@ let Flag = {
         // eslint-disable-next-line class-methods-use-this
         action() {
             const venue = getSelectedVenue();
-            if (!_newName.includes('ATM')) {
-                _newName += ' ATM';
+            let name = venue.attributes.name;
+            if (!/\bATM\b/.test(name)) {
+                name += ' ATM';
                 _UPDATED_FIELDS.name.updated = true;
             }
-            _newCategories = ['ATM']; // Change to ATM only
-            W.model.actionManager.add(new UpdateObject(venue, { name: _newName, categories: _newCategories }));
+            const categories = ['ATM']; // Change to ATM only
+            addUpdateAction(venue, { name, categories });
             _UPDATED_FIELDS.categories.updated = true;
             harmonizePlaceGo(venue);
         }
@@ -2144,11 +2145,11 @@ let Flag = {
         // eslint-disable-next-line class-methods-use-this
         action() {
             const venue = getSelectedVenue();
-            _newCategories = ['OFFICES']; // Change to offices category
-            const tempName = _newName.replace(/[- (]*atm[- )]*/ig, ' ').replace(/^ /g, '').replace(/ $/g, '').replace(/ {2,}/g, ' '); // strip ATM from name if present
-            _newName = tempName;
-            W.model.actionManager.add(new UpdateObject(venue, { name: `${_newName} - Corporate Offices`, categories: _newCategories }));
-            if (_newName !== tempName) _UPDATED_FIELDS.name.updated = true;
+            const categories = ['OFFICES']; // Change to offices category
+            // strip ATM from name if present
+            const name = venue.attributes.name.replace(/[- (]*atm[- )]*/ig, ' ').trim().replace(/ {2,}/g, ' ');
+            addUpdateAction(venue, { name: `${name} - Corporate Offices`, categories });
+            if (name !== venue.attributes.name) _UPDATED_FIELDS.name.updated = true;
             _UPDATED_FIELDS.categories.updated = true;
             harmonizePlaceGo(venue);
         }
@@ -3033,7 +3034,7 @@ let Flag = {
 
         action() {
             const venue = getSelectedVenue();
-            let aliases = insertAtIX(venue.attributes.aliases.slice(), this.optionalAlias, 0);
+            let aliases = insertAtIX(venue.attributes.aliases, this.optionalAlias, 0);
             if (this.specCases.includes('altName2Desc') && !venue.attributes.description.toUpperCase().includes(this.optionalAlias.toUpperCase())) {
                 const description = `${this.optionalAlias}\n${venue.attributes.description}`;
                 addUpdateAction(venue, { description });
@@ -3091,16 +3092,30 @@ let Flag = {
 
         // eslint-disable-next-line class-methods-use-this
         action() {
+            const AMPM_NAME = 'ARCO ampm';
+            const AMPM_URL = 'ampm.com';
             const venue = getSelectedVenue();
-            _newCategories = insertAtIX(_newCategories, 'CONVENIENCE_STORE', 1);
-            _newName = 'ARCO ampm';
-            _newURL = 'ampm.com';
-            W.model.actionManager.add(new UpdateObject(venue, { name: _newName, url: _newURL, categories: _newCategories }));
-            _UPDATED_FIELDS.name.updated = true;
-            _UPDATED_FIELDS.url.updated = true;
-            _UPDATED_FIELDS.categories.updated = true;
-            _buttonBanner.appendAMPM.active = false; // reset the display flag
-            harmonizePlaceGo(venue);
+            let updated = false;
+            let { name, categories, url } = venue.attributes;
+            if (!categories.includes('CONVENIENCE_STORE')) {
+                categories = insertAtIX(venue.attributes.categories, 'CONVENIENCE_STORE', 1);
+                _UPDATED_FIELDS.categories.updated = true;
+                updated = true;
+            }
+            if (name !== AMPM_NAME) {
+                name = AMPM_NAME;
+                _UPDATED_FIELDS.name.updated = true;
+                updated = true;
+            }
+            if (url !== AMPM_URL) {
+                url = AMPM_URL;
+                _UPDATED_FIELDS.url.updated = true;
+                updated = true;
+            }
+            if (updated) {
+                addUpdateAction(venue, { name, url, categories });
+                harmonizePlaceGo(venue);
+            }
         }
     },
     AddATM: class extends ActionFlag {
@@ -3240,7 +3255,7 @@ let Flag = {
         static eval(venue, categories, highlightOnly, pnhNameRegMatch) {
             const result = { flag: null };
             if (!highlightOnly && venue.attributes.updatedOn < new Date('3/28/2017').getTime()
-                && ((categories.includes('PERSONAL_CARE') && !pnhNameRegMatch) || _newCategories.includes('OFFICES'))) {
+                && ((categories.includes('PERSONAL_CARE') && !pnhNameRegMatch) || categories.includes('OFFICES'))) {
                 // Show the Change To Doctor / Clinic button for places with PERSONAL_CARE or OFFICES category
                 // The date criteria was added because Doctor/Clinic category was added around then, and it's assumed if the
                 // place has been edited since then, people would have already updated the category.
