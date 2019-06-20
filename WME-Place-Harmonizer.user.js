@@ -4308,7 +4308,7 @@ function harmonizePlaceGo(item, highlightOnly = false, actions = null) {
                         default:
                             console.error('WMEPH:', `Could not process specCase value: buttOn_${buttOnValue}`);
                     }
-                    if (_buttonBanner[buttOnValue]) _buttonBanner[buttOnValue] = tempFlag;
+                    if (!_buttonBanner[buttOnValue]) _buttonBanner[buttOnValue] = tempFlag;
                 });
             }
 
