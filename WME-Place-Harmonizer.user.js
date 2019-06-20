@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name        WME Place Harmonizer Beta (pnh-update)
 // @namespace   WazeUSA
-// @version     2019.06.20.001
+// @version     2019.06.20.002
 // @description Harmonizes, formats, and locks a selected place
 // @author      WMEPH Development Group
 // @include     /^https:\/\/(www|beta)\.waze\.com\/(?!user\/)(.{2,6}\/)?editor\/?.*$/
@@ -1599,6 +1599,8 @@ class WLActionFlag extends WLFlag {
         super(severity, message, WLactive, WLtitle, WLkeyName, noLock);
         this.value = value;
         this.title = title;
+
+        // TODO - use constructor to automatically change severity, WLactive, and/or active
     }
 
     // 5/19/2019 (mapomatic) This base class action function doesn't seem to be necessary.
@@ -2154,7 +2156,23 @@ let Flag = {
     CatPostOffice: class extends FlagBase {
         constructor() {
             super(0,
-                'The Post Office category is reserved for certain USPS locations. Please be sure to follow <a href="https://wazeopedia.waze.com/wiki/USA/Places/Post_Office" style="color:#3a3a3a;" target="_blank">the guidelines</a>.');
+                'The Post Office category is reserved for certain USPS locations. Please be sure to follow '
+                + '<a href="https://wazeopedia.waze.com/wiki/USA/Places/Post_Office" style="color:#3a3a3a;" target="_blank">the guidelines</a>.');
+        }
+
+        static eval(venue, name, nameSuffix, address, state2L, countryCode, highlightOnly, actions) {
+            const result = { flag: null };
+            if (!highlightOnly && _newCategories.includes('POST_OFFICE') && !_newCategories.includes('PARKING_LOT') && countryCode === 'USA') {
+                const postOfficeRegEx = Flag.FormatUSPS.getUspsNameRegex(address, state2L);
+                const nameToCheck = name + (nameSuffix || '');
+                if (postOfficeRegEx.test(nameToCheck)) {
+                    if (nameToCheck !== venue.attributes.name) {
+                        actions.push(new UpdateObject(venue, { name: nameToCheck }));
+                    }
+                    result.flag = new Flag.CatPostOffice();
+                }
+            }
+            return result;
         }
     },
     IgnEdited: class extends FlagBase {
@@ -2306,10 +2324,59 @@ let Flag = {
         }
     },
     FormatUSPS: class extends FlagBase {
-        constructor() { super(1, 'Name the post office according to this region\'s <a href="https://wazeopedia.waze.com/wiki/USA/Places/Post_Office" style="color:#3232e6" target="_blank"> standards for USPS post offices</a>'); }
+        constructor() {
+            super(1, 'Name the post office according to this region\'s <a href="https://wazeopedia.waze.com/wiki/USA/Places/Post_Office"'
+                + ' style="color:#3232e6" target="_blank"> standards for USPS post offices</a>', true);
+        }
+
+        static getUspsNameRegex(addr, state2L) {
+            if (state2L === 'KY' || (state2L === 'NY' && addr.city && ['Queens', 'Bronx', 'Manhattan', 'Brooklyn',
+                'Staten Island'].includes(addr.city.attributes.name))) {
+                return /^post office \d{5}( [-–](?: cpu| vpo)?(?: [a-z]+){1,})?$/i;
+            }
+            return /^post office [-–](?: cpu| vpo)?(?: [a-z]+){1,}$/i;
+        }
+
+        static eval(name, nameSuffix, categories, address, state2L, countryCode) {
+            const result = { flag: null, newName: null, newNameSuffix: null };
+            if (categories.includes('POST_OFFICE') && !categories.includes('PARKING_LOT') && countryCode === 'USA') {
+                const trimmedName = name.trimLeft().replace(/ {2,}/, ' ');
+                let trimmedNameSuffix;
+                if (nameSuffix) {
+                    trimmedNameSuffix = nameSuffix.trimRight().replace(/\bvpo\b/i, 'VPO').replace(/\bcpu\b/i, 'CPU').replace(/ {2,}/, ' ');
+                }
+                const nameToCheck = trimmedName + (trimmedNameSuffix || '');
+                const postOfficeRegEx = this.getUspsNameRegex(address, state2L);
+                if (!postOfficeRegEx.test(nameToCheck)) {
+                    result.flag = new Flag.FormatUSPS();
+                }
+
+                if (trimmedName !== name) result.newName = trimmedName;
+                if (trimmedNameSuffix !== nameSuffix) result.newNameSuffix = trimmedNameSuffix;
+            }
+            return result;
+        }
     },
-    MissingUSPSAlt: class extends FlagBase {
-        constructor() { super(1, 'USPS post offices must have an alternate name of "USPS".'); }
+    MissingUSPSAlt: class extends ActionFlag {
+        constructor() { super(1, 'USPS post offices must have an alternate name of "USPS".', 'Add USPS alt name', '', true); }
+
+        static eval(aliases, categories, countryCode) {
+            const result = { flag: null };
+            if (categories.includes('POST_OFFICE') && countryCode === 'USA'
+                && !aliases.some(alias => alias.toUpperCase() === 'USPS')) {
+                result.flag = new Flag.MissingUSPSAlt();
+            }
+            return result;
+        }
+
+        // eslint-disable-next-line class-methods-use-this
+        action() {
+            const venue = getSelectedVenue();
+            const aliases = _.uniq(venue.attributes.aliases.slice().concat('USPS'));
+            addUpdateAction(venue, { aliases });
+            _UPDATED_FIELDS.aliases.updated = true;
+            harmonizePlaceGo(venue);
+        }
     },
     MissingUSPSZipAlt: class extends WLActionFlag {
         constructor() {
@@ -2317,6 +2384,25 @@ let Flag = {
                 'No <a href="https://wazeopedia.waze.com/wiki/USA/Places/Post_Office" style="color:#3232e6;" target="_blank">ZIP code alt name</a>: <input type="text" id="WMEPH-zipAltNameAdd" autocomplete="off" style="font-size:0.85em;width:65px;padding-left:2px;color:#000;" title="Enter the ZIP code and click Add">',
                 'Add', true, 'Whitelist missing USPS zip alt name', 'missingUSPSZipAlt');
             this.noBannerAssemble = true;
+        }
+
+        static eval(aliases, name, categories, countryCode) {
+            const result = { flag: null };
+            if (categories.includes('POST_OFFICE') && countryCode === 'USA') {
+                if (!aliases.some(alias => /\d{5}/.test(alias))) {
+                    result.flag = new Flag.MissingUSPSZipAlt();
+                    if (_wl.missingUSPSZipAlt) {
+                        result.flag.severity = 0;
+                        result.flag.WLactive = false;
+                    }
+                    // If the zip code appears in the primary name, pre-fill it in the text entry box.
+                    const zipMatch = name.match(/\d{5}/);
+                    if (zipMatch) {
+                        result.flag.suggestedValue = zipMatch;
+                    }
+                }
+            }
+            return result;
         }
 
         // eslint-disable-next-line class-methods-use-this
@@ -2345,6 +2431,21 @@ let Flag = {
         constructor() {
             super(1, 'The first line of the description for a <a href="https://wazeopedia.waze.com/wiki/USA/Places/Post_Office" style="color:#3232e6" target="_blank">USPS post office</a> must be CITY, STATE ZIP, e.g. "Lexington, KY 40511"',
                 true, 'Whitelist missing USPS address line in description', 'missingUSPSDescription');
+        }
+
+        static eval(venue, categories, countryCode) {
+            const result = { flag: null };
+            if (categories.includes('POST_OFFICE') && countryCode === 'USA') {
+                const lines = venue.attributes.description.split('\n');
+                if (!lines.length || !/^.{2,}, [A-Z]{2}\s{1,2}\d{5}$/.test(lines[0])) {
+                    result.flag = new Flag.MissingUSPSDescription();
+                    if (_wl.missingUSPSDescription) {
+                        result.flag.severity = 0;
+                        result.flag.WLactive = false;
+                    }
+                }
+            }
+            return result;
         }
     },
     CatHotel: class extends FlagBase {
@@ -3040,11 +3141,13 @@ let Flag = {
                 'Yes', 'Is this a USPS location?');
         }
 
-        static eval(venue, newName) {
+        static eval(newName, countryCode, categories) {
             const result = { flag: null };
-            const cleanName = newName.toUpperCase().replace(/[/\-.]/g, '');
-            if (/\bUSP[OS]\b|\bpost(al)?\s+(service|office)\b/i.test(cleanName)) {
-                result.flag = new Flag.IsThisAPostOffice();
+            if (countryCode === 'USA' && !categories.includes('PARKING_LOT') && !categories.includes('POST_OFFICE')) {
+                const cleanName = newName.toUpperCase().replace(/[/\-.]/g, '');
+                if (/\bUSP[OS]\b|\bpost(al)?\s+(service|office)\b/i.test(cleanName)) {
+                    result.flag = new Flag.IsThisAPostOffice();
+                }
             }
             return result;
         }
@@ -4348,7 +4451,6 @@ function harmonizePlaceGo(item, highlightOnly = false, actions = null) {
                 if (pnhMatchData.altCategories.length) { // if PNH alts exist
                     insertAtIX(_newCategories, pnhMatchData.altCategories, 1); //  then insert the alts into the existing category array after the GS category
                 }
-                // TODO eval function
                 _buttonBanner.gasMkPrim = Flag.GasMkPrim.eval(_newCategories).flag;
                 if (!_buttonBanner.gasMkPrim) _newName = pnhMatchData.name;
             } else if (updatePnhName) { // if not a special category then update the name
@@ -4838,6 +4940,7 @@ function harmonizePlaceGo(item, highlightOnly = false, actions = null) {
         }
         _newPhone = normalizePhone(item.attributes.phone, outputFormat, 'existing', item, region);
 
+        // TODO eval function
         // Check if valid area code  #LOC# USA and CAN only
         if (!_wl.aCodeWL && (_countryCode === 'USA' || _countryCode === 'CAN')) {
             if (_newPhone !== null && _newPhone.match(/[2-9]\d{2}/) !== null) {
@@ -4854,70 +4957,21 @@ function harmonizePlaceGo(item, highlightOnly = false, actions = null) {
         }
 
         // Post Office check
-        if (_countryCode === 'USA' && !_newCategories.includes('PARKING_LOT')) {
-            if (!_newCategories.includes('POST_OFFICE')) {
-                _buttonBanner.isThisAPostOffice = Flag.IsThisAPostOffice.eval(item, _newName).flag;
-            } else {
-                if (!highlightOnly) {
-                    _buttonBanner.NewPlaceSubmit = null;
-                    if (item.attributes.url !== 'usps.com') {
-                        actions.push(new UpdateObject(item, { url: 'usps.com' }));
-                        _UPDATED_FIELDS.url.updated = true;
-                        _buttonBanner.urlMissing = null;
-                    }
-                }
-
-                let postOfficeRegEx;
-                if (state2L === 'KY' || (state2L === 'NY' && addr.city && ['Queens', 'Bronx', 'Manhattan', 'Brooklyn', 'Staten Island'].includes(addr.city.attributes.name))) {
-                    postOfficeRegEx = /^post office \d{5}( [-–](?: cpu| vpo)?(?: [a-z]+){1,})?$/i;
-                } else {
-                    postOfficeRegEx = /^post office [-–](?: cpu| vpo)?(?: [a-z]+){1,}$/i;
-                }
-                _newName = _newName.trimLeft().replace(/ {2,}/, ' ');
-                if (newNameSuffix) {
-                    newNameSuffix = newNameSuffix.trimRight().replace(/\bvpo\b/i, 'VPO').replace(/\bcpu\b/i, 'CPU').replace(/ {2,}/, ' ');
-                }
-                const nameToCheck = _newName + (newNameSuffix || '');
-                // TODO eval function
-                if (!postOfficeRegEx.test(nameToCheck)) {
-                    _buttonBanner.formatUSPS = new Flag.FormatUSPS();
-                    noLock = true;
-                } else if (!highlightOnly) {
-                    if (nameToCheck !== item.attributes.name) {
-                        actions.push(new UpdateObject(item, { name: nameToCheck }));
-                    }
-                    _buttonBanner.catPostOffice = new Flag.CatPostOffice();
-                }
-                if (!_newAliases.some(alias => alias.toUpperCase() === 'USPS')) {
-                    if (!highlightOnly) {
-                        _newAliases.push('USPS');
-                        actions.push(new UpdateObject(item, { aliases: _newAliases }));
-                        _UPDATED_FIELDS.aliases.updated = true;
-                    } else {
-                        _buttonBanner.missingUSPSAlt = new Flag.MissingUSPSAlt();
-                    }
-                }
-                if (!_newAliases.some(alias => /\d{5}/.test(alias))) {
-                    _buttonBanner.missingUSPSZipAlt = new Flag.MissingUSPSZipAlt();
-                    if (_wl.missingUSPSZipAlt) {
-                        _buttonBanner.missingUSPSZipAlt.severity = 0;
-                        _buttonBanner.missingUSPSZipAlt.WLactive = false;
-                    }
-                    // If the zip code appears in the primary name, pre-fill it in the text entry box.
-                    const zipMatch = _newName.match(/\d{5}/);
-                    if (zipMatch) {
-                        _buttonBanner.missingUSPSZipAlt.suggestedValue = zipMatch;
-                    }
-                }
-                const descr = item.attributes.description;
-                const lines = descr.split('\n');
-                if (lines.length < 1 || !/^.{2,}, [A-Z]{2}\s{1,2}\d{5}$/.test(lines[0])) {
-                    _buttonBanner.missingUSPSDescription = new Flag.MissingUSPSDescription();
-                    if (_wl.missingUSPSDescription) {
-                        _buttonBanner.missingUSPSDescription.severity = 0;
-                        _buttonBanner.missingUSPSDescription.WLactive = false;
-                    }
-                }
+        _buttonBanner.isThisAPostOffice = Flag.IsThisAPostOffice.eval(_newName, _countryCode, _newCategories).flag;
+        const evalResult = Flag.FormatUSPS.eval(_newName, newNameSuffix, _newCategories, addr, state2L, _countryCode);
+        _buttonBanner.formatUSPS = evalResult.flag;
+        if (evalResult.newName) _newName = evalResult.newName;
+        if (evalResult.newNameSuffix) newNameSuffix = evalResult.newNameSuffix;
+        _buttonBanner.catPostOffice = Flag.CatPostOffice.eval(item, _newName, newNameSuffix, addr, state2L, _countryCode, highlightOnly, actions).flag;
+        _buttonBanner.missingUSPSAlt = Flag.MissingUSPSAlt.eval(_newAliases, _newCategories, _countryCode).flag;
+        _buttonBanner.missingUSPSZipAlt = Flag.MissingUSPSZipAlt.eval(_newAliases, _newName, _newCategories, _countryCode).flag;
+        _buttonBanner.missingUSPSDescription = Flag.MissingUSPSDescription.eval(item, _newCategories, _countryCode).flag;
+        if (!highlightOnly && _newCategories.includes('POST_OFFICE') && !_newCategories.includes('PARKING_LOT') && _countryCode === 'USA') {
+            _buttonBanner.NewPlaceSubmit = null;
+            if (item.attributes.url !== 'usps.com') {
+                actions.push(new UpdateObject(item, { url: 'usps.com' }));
+                _UPDATED_FIELDS.url.updated = true;
+                _buttonBanner.urlMissing = null;
             }
         } // END Post Office check
     } // END if (!residential && has name)
