@@ -1846,7 +1846,15 @@ let Flag = {
     GasMkPrim: class extends ActionFlag {
         constructor() {
             super(3, 'Gas Station is not the primary category', 'Fix', 'Make the Gas Station '
-                + 'category the primary category.');
+                + 'category the primary category.', true);
+        }
+
+        static eval(categories) {
+            const result = { flag: null };
+            if (categories.indexOf('GAS_STATION') !== 0) { // If no GS category in the primary, flag it
+                result.flag = new Flag.GasMkPrim();
+            }
+            return result;
         }
 
         // eslint-disable-next-line class-methods-use-this
@@ -4341,12 +4349,8 @@ function harmonizePlaceGo(item, highlightOnly = false, actions = null) {
                     insertAtIX(_newCategories, pnhMatchData.altCategories, 1); //  then insert the alts into the existing category array after the GS category
                 }
                 // TODO eval function
-                if (_newCategories.indexOf('GAS_STATION') !== 0) { // If no GS category in the primary, flag it
-                    _buttonBanner.gasMkPrim = new Flag.GasMkPrim();
-                    noLock = true;
-                } else {
-                    _newName = pnhMatchData.name;
-                }
+                _buttonBanner.gasMkPrim = Flag.GasMkPrim.eval(_newCategories).flag;
+                if (!_buttonBanner.gasMkPrim) _newName = pnhMatchData.name;
             } else if (updatePnhName) { // if not a special category then update the name
                 _newName = pnhMatchData.name;
                 _newCategories = insertAtIX(_newCategories, priPNHPlaceCat, 0);
