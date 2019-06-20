@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name        WME Place Harmonizer Beta (pnh-update)
 // @namespace   WazeUSA
-// @version     2019.06.19.003
+// @version     2019.06.19.004
 // @description Harmonizes, formats, and locks a selected place
 // @author      WMEPH Development Group
 // @include     /^https:\/\/(www|beta)\.waze\.com\/(?!user\/)(.{2,6}\/)?editor\/?.*$/
@@ -1721,7 +1721,33 @@ let Flag = {
         constructor() { super(3, 'Overlapping hours of operation. Place might not save.'); }
     },
     UnmappedRegion: class extends WLFlag {
-        constructor() { super(3, 'This category is usually not mapped in this region.', true, 'Whitelist unmapped category', 'unmappedRegion'); }
+        constructor() { super(3, 'This category is usually not mapped in this region.', true, 'Whitelist unmapped category', 'unmappedRegion', true); }
+
+        static eval(catId, pnhCategory, state2L, region, countryCode, isLocked) {
+            const result = { flag: null };
+            const { rareRegions } = pnhCategory;
+            if (rareRegions.includes(state2L)
+                || rareRegions.includes(region)
+                || rareRegions.includes(countryCode)) {
+                if (catId === 'OTHER' && ['GLR', 'NER', 'NWR', 'PLN', 'SCR', 'SER', 'NOR', 'HI'].includes(region)) {
+                    if (!isLocked) {
+                        result.flag = new Flag.UnmappedRegion();
+                        result.flag.WLactive = false;
+                        result.flag.severity = 1;
+                        result.flag.message = 'The "Other" category should only be used if no other category applies.  Manually lock the place to override this flag.';
+                    }
+                } else {
+                    result.flag = new Flag.UnmappedRegion();
+                    result.flag.message = `The "${pnhCategory.translation}" category is usually not mapped in this region.`;
+                    if (_wl.unmappedRegion) {
+                        result.flag.WLactive = false;
+                        result.flag.severity = 0;
+                        result.flag.noLock = false;
+                    }
+                }
+            }
+            return result;
+        }
     },
     RestAreaName: class extends WLFlag {
         constructor() { super(3, 'Rest area name is out of spec. Use the Rest Area wiki button below to view formats.', true, 'Whitelist rest area name', 'restAreaName'); }
@@ -4632,31 +4658,9 @@ function harmonizePlaceGo(item, highlightOnly = false, actions = null) {
                 // display any messages regarding the category
                 _buttonBanner.pnhCatMess = Flag.PnhCatMess.eval(catData.message, _newCategories, highlightOnly).flag;
 
-                // TODO eval function
                 // Unmapped categories
-                if (catData.rareRegions.includes(state2L)
-                    || catData.rareRegions.includes(region)
-                    || catData.rareRegions.includes(_countryCode)) {
-                    if (catId === 'OTHER' && ['GLR', 'NER', 'NWR', 'PLN', 'SCR', 'SER', 'NOR', 'HI'].includes(region)) {
-                        if (!isLocked) {
-                            _buttonBanner.unmappedRegion = new Flag.UnmappedRegion();
-                            _buttonBanner.unmappedRegion.WLactive = false;
-                            _buttonBanner.unmappedRegion.severity = 1;
-                            _buttonBanner.unmappedRegion.message = 'The "Other" category should only be used if no other category applies.  Manually lock the place to override this flag.';
-                            noLock = true;
-                        }
-                    } else {
-                        _buttonBanner.unmappedRegion = new Flag.UnmappedRegion();
-                        if (_wl.unmappedRegion) {
-                            _buttonBanner.unmappedRegion.WLactive = false;
-                            _buttonBanner.unmappedRegion.severity = 0;
-                        } else {
-                            noLock = true;
-                        }
-                    }
-                }
+                _buttonBanner.unmappedRegion = Flag.UnmappedRegion.eval(catId, catData, state2L, region, _countryCode, isLocked).flag;
 
-                // TODO eval function
                 // Parent Category
                 _buttonBanner.parentCategory = Flag.ParentCategory.eval(catData, state2L, region, _countryCode).flag;
 
