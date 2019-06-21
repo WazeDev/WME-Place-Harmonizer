@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name        WME Place Harmonizer Beta (pnh-update)
 // @namespace   WazeUSA
-// @version     2019.06.21.003
+// @version     2019.06.21.004
 // @description Harmonizes, formats, and locks a selected place
 // @author      WMEPH Development Group
 // @include     /^https:\/\/(www|beta)\.waze\.com\/(?!user\/)(.{2,6}\/)?editor\/?.*$/
@@ -110,7 +110,7 @@ let _wmephBetaList;
 let _modifKey = 'Alt+';
 
 // Whitelisting vars
-let _venueWhitelist;
+let _whitelistArray;
 const WL_BUTTON_TEXT = 'WL';
 const WL_LOCAL_STORE_NAME = 'WMEPH-venueWhitelistNew';
 const WL_LOCAL_STORE_NAME_COMPRESSED = 'WMEPH-venueWhitelistCompressed';
@@ -137,7 +137,7 @@ let _dupeBanner;
 
 const PANEL_FIELDS = {}; // the fields for the sidebar
 let _disableHighlightTest = false; // Set to true to temporarily disable highlight checks immediately when venues change.
-let _wl = {};
+
 const USER = {
     ref: null,
     rank: null,
@@ -634,7 +634,7 @@ function addSpellingVariants(nameList, spellingVariantList) {
 
 // Whitelist stringifying and parsing
 function saveWhiteList(compress) {
-    let wlString = JSON.stringify(_venueWhitelist);
+    let wlString = JSON.stringify(_whitelistArray);
     if (compress) {
         if (wlString.length < 4800000) { // Also save to regular storage as a back up
             localStorage.setItem(WL_LOCAL_STORE_NAME, wlString);
@@ -653,10 +653,10 @@ function loadWhiteList(decompress) {
     } else {
         wlString = localStorage.getItem(WL_LOCAL_STORE_NAME);
     }
-    _venueWhitelist = JSON.parse(wlString);
+    _whitelistArray = JSON.parse(wlString);
 }
 function backupWhiteList(compress) {
-    let wlString = JSON.stringify(_venueWhitelist);
+    let wlString = JSON.stringify(_whitelistArray);
     if (compress) {
         wlString = LZString.compressToUTF16(wlString);
         localStorage.setItem(WL_LOCAL_STORE_NAME_COMPRESSED + Math.floor(Date.now() / 1000), wlString);
@@ -734,8 +734,8 @@ function deleteDupeLabel() {
 }
 
 //  Whitelist an item. Returns true if successful. False if not.
-function whitelistAction(itemID, wlKeyName) {
-    const venue = getSelectedVenue();
+function whitelistAction(venue, wlKeyName) {
+    const venueID = venue.attributes.id;
     let addressTemp = venue.getAddress();
     if (addressTemp.hasOwnProperty('attributes')) {
         addressTemp = addressTemp.attributes;
@@ -745,14 +745,16 @@ function whitelistAction(itemID, wlKeyName) {
         return false;
     }
     const itemGPS = OL.Layer.SphericalMercator.inverseMercator(venue.attributes.geometry.getCentroid().x, venue.attributes.geometry.getCentroid().y);
-    if (!_venueWhitelist.hasOwnProperty(itemID)) { // If venue is NOT on WL, then add it.
-        _venueWhitelist[itemID] = {};
+    let whitelist = _whitelistArray[venueID];
+    if (!whitelist) { // If venue is NOT on WL, then add it.
+        whitelist = {};
+        _whitelistArray[venueID] = whitelist;
     }
-    _venueWhitelist[itemID][wlKeyName] = { active: true }; // WL the flag for the venue
-    _venueWhitelist[itemID].city = addressTemp.city.attributes.name; // Store city for the venue
-    _venueWhitelist[itemID].state = addressTemp.state.name; // Store state for the venue
-    _venueWhitelist[itemID].country = addressTemp.country.name; // Store country for the venue
-    _venueWhitelist[itemID].gps = itemGPS; // Store GPS coords for the venue
+    whitelist[wlKeyName] = { active: true }; // WL the flag for the venue
+    whitelist.city = addressTemp.city.attributes.name; // Store city for the venue
+    whitelist.state = addressTemp.state.name; // Store state for the venue
+    whitelist.country = addressTemp.country.name; // Store country for the venue
+    whitelist.gps = itemGPS; // Store GPS coords for the venue
     saveWhiteList(true); // Save the WL to local storage
     wmephWhitelistCounter();
     _buttonBanner2.clearWL.active = true;
@@ -919,9 +921,9 @@ function syncWL(newVenues) {
     newVenues.forEach(newVenue => {
         const oldID = newVenue._prevID;
         const newID = newVenue.attributes.id;
-        if (oldID && newID && _venueWhitelist[oldID]) {
-            _venueWhitelist[newID] = _venueWhitelist[oldID];
-            delete _venueWhitelist[oldID];
+        if (oldID && newID && _whitelistArray[oldID]) {
+            _whitelistArray[newID] = _whitelistArray[oldID];
+            delete _whitelistArray[oldID];
         }
     });
     saveWhiteList(true);
@@ -1355,9 +1357,9 @@ function toTitleCaseStrong(str) {
 }
 
 // normalize phone
-function normalizePhone(s, outputFormat, returnType, item, region) {
+function normalizePhone(s, outputFormat, returnType, item, region, whitelist) {
     if (!s && returnType === 'existing') {
-        _buttonBanner.phoneMissing = Flag.PhoneMissing.eval(item, _wl, region, outputFormat);
+        _buttonBanner.phoneMissing = Flag.PhoneMissing.eval(item, whitelist, region, outputFormat);
         return s;
     }
     s = s.replace(/(\d{3}.*)\W+(?:extension|ext|xt|x).*/i, '$1');
@@ -1471,15 +1473,15 @@ function setServiceChecked(servBtn, checked, actions) {
 }
 
 // Normalize url
-function normalizeURL(s, lc, skipBannerActivate, venue, region) {
+function normalizeURL(s, lc, skipBannerActivate, venue, region, whitelist) {
     const regionsThatWantPLAUrls = ['SER'];
 
     if ((!s || s.trim().length === 0) && !skipBannerActivate) {
         // Notify that url is missing and provide web search to find website and gather data (provided for all editors)
         const hasOperator = venue.attributes.brand && W.model.venues.categoryBrands.PARKING_LOT.includes(venue.attributes.brand);
         if (!venue.isParkingLot() || (venue.isParkingLot() && (regionsThatWantPLAUrls.includes(region) || hasOperator))) {
-            _buttonBanner.urlMissing = new Flag.UrlMissing();
-            if (_wl.urlWL || (venue.isParkingLot() && !hasOperator)) {
+            _buttonBanner.urlMissing = new Flag.UrlMissing(region, whitelist);
+            if (whitelist.urlWL || (venue.isParkingLot() && !hasOperator)) {
                 _buttonBanner.urlMissing.severity = 0;
                 _buttonBanner.urlMissing.WLactive = false;
             }
@@ -1563,7 +1565,7 @@ class WLFlag extends FlagBase {
 
     WLaction() {
         const venue = getSelectedVenue();
-        if (whitelistAction(venue.attributes.id, this.WLkeyName)) {
+        if (whitelistAction(venue, this.WLkeyName)) {
             harmonizePlaceGo(venue);
         }
     }
@@ -1679,9 +1681,9 @@ let Flag = {
                 true, 'Whitelist Indiana liquor store hours', 'indianaLiquorStoreHours');
         }
 
-        static eval(venue, name, highlightOnly) {
+        static eval(venue, name, highlightOnly, whitelist) {
             const result = { flag: null };
-            if (!highlightOnly && !_wl.indianaLiquorStoreHours
+            if (!highlightOnly && !whitelist.indianaLiquorStoreHours
                 && [/\bbeers?\b/, /\bwines?\b/, /\bliquor\b/, /\bspirits\b/].some(re => re.test(name))
                 && !venue.attributes.openingHours.some(entry => entry.days.includes(0))
                 && !venue.isResidential()) {
@@ -1699,7 +1701,7 @@ let Flag = {
     UnmappedRegion: class extends WLFlag {
         constructor() { super(3, 'This category is usually not mapped in this region.', true, 'Whitelist unmapped category', 'unmappedRegion', true); }
 
-        static eval(catId, pnhCategory, state2L, region, countryCode, isLocked) {
+        static eval(catId, pnhCategory, state2L, region, countryCode, isLocked, whitelist) {
             const result = { flag: null };
             const { rareRegions } = pnhCategory;
             if (rareRegions.includes(state2L)
@@ -1715,7 +1717,7 @@ let Flag = {
                 } else {
                     result.flag = new Flag.UnmappedRegion();
                     result.flag.message = `The "${pnhCategory.translation}" category is usually not mapped in this region.`;
-                    if (_wl.unmappedRegion) {
+                    if (whitelist.unmappedRegion) {
                         result.flag.WLactive = false;
                         result.flag.severity = 0;
                         result.flag.noLock = false;
@@ -1891,13 +1893,13 @@ let Flag = {
                 true, 'Whitelist Pet/Vet category', 'changeHMC2PetVet', true);
         }
 
-        static eval(name, categories) {
+        static eval(name, categories, whitelist) {
             const testName = name.toLowerCase().replace(/[^a-z]/g, ' ');
             const testNameWords = testName.split(' ');
             const result = { flag: null };
             if ((categories.includes('HOSPITAL_URGENT_CARE') || categories.includes('DOCTOR_CLINIC'))
                 && (containsAny(testNameWords, _animalFullMatch) || _animalPartMatch.some(match => testName.includes(match)))) {
-                if (!_wl.changeHMC2PetVet) {
+                if (!whitelist.changeHMC2PetVet) {
                     result.flag = new Flag.ChangeToPetVet();
                 }
             }
@@ -1929,14 +1931,14 @@ let Flag = {
                 true, 'Whitelist School category', 'changeSchool2Offices', true);
         }
 
-        static eval(name, categories) {
+        static eval(name, categories, whitelist) {
             const result = { flag: null };
             const testName = name.toLowerCase().replace(/[^a-z]/g, ' ');
             const testNameWords = testName.split(' ');
 
             if (categories.includes('SCHOOL')
                 && (containsAny(testNameWords, _schoolFullMatch) || _schoolPartMatch.some(match => testName.includes(match)))) {
-                if (!_wl.changeSchool2Offices) {
+                if (!whitelist.changeSchool2Offices) {
                     result.flag = new Flag.NotASchool();
                 }
             }
@@ -2183,13 +2185,13 @@ let Flag = {
                 true, 'Whitelist parent Category', 'parentCategory');
         }
 
-        static eval(pnhCategories, state2L, region, countryCode) {
+        static eval(pnhCategories, state2L, region, countryCode, whitelist) {
             const result = { flag: null };
             if (pnhCategories.parentNotMappedRegions.includes(state2L)
                 || pnhCategories.parentNotMappedRegions.includes(region)
                 || pnhCategories.parentNotMappedRegions.includes(countryCode)) {
                 result.flag = new Flag.ParentCategory();
-                if (_wl.parentCategory) {
+                if (whitelist.parentCategory) {
                     _buttonBanner.parentCategory.WLactive = false;
                 }
             }
@@ -2275,11 +2277,11 @@ let Flag = {
                 true, 'Whitelist no gas brand', 'subFuel');
         }
 
-        static eval(pnhMatch, newName) {
+        static eval(pnhMatch, newName, whitelist) {
             const result = { flag: null };
             if (pnhMatch.subFuel && !['GAS', 'FUEL'].some(word => newName.toUpperCase().includes(word))) {
                 result.flag = new Flag.SubFuel();
-                if (_wl.subFuel) {
+                if (whitelist.subFuel) {
                     result.flag.WLactive = false;
                 }
             }
@@ -2361,12 +2363,12 @@ let Flag = {
             this.noBannerAssemble = true;
         }
 
-        static eval(aliases, name, categories, countryCode) {
+        static eval(aliases, name, categories, countryCode, whitelist) {
             const result = { flag: null };
             if (categories.includes('POST_OFFICE') && countryCode === 'USA') {
                 if (!aliases.some(alias => /\d{5}/.test(alias))) {
                     result.flag = new Flag.MissingUSPSZipAlt();
-                    if (_wl.missingUSPSZipAlt) {
+                    if (whitelist.missingUSPSZipAlt) {
                         result.flag.severity = 0;
                         result.flag.WLactive = false;
                     }
@@ -2408,13 +2410,13 @@ let Flag = {
                 true, 'Whitelist missing USPS address line in description', 'missingUSPSDescription');
         }
 
-        static eval(venue, categories, countryCode) {
+        static eval(venue, categories, countryCode, whitelist) {
             const result = { flag: null };
             if (categories.includes('POST_OFFICE') && countryCode === 'USA') {
                 const lines = venue.attributes.description.split('\n');
                 if (!lines.length || !/^.{2,}, [A-Z]{2}\s{1,2}\d{5}$/.test(lines[0])) {
                     result.flag = new Flag.MissingUSPSDescription();
-                    if (_wl.missingUSPSDescription) {
+                    if (whitelist.missingUSPSDescription) {
                         result.flag.severity = 0;
                         result.flag.WLactive = false;
                     }
@@ -2431,11 +2433,11 @@ let Flag = {
             super(1, 'Place needs localization information', true, 'Whitelist localization', 'localizedName');
         }
 
-        static eval(name, nameSuffix, pnhMatch) {
+        static eval(name, nameSuffix, pnhMatch, whitelist) {
             const result = { flag: null };
             if ((name + (nameSuffix || '')).match(pnhMatch.checkLocalization) === null) {
                 result.flag = new Flag.LocalizedName();
-                if (_wl.localizedName) {
+                if (whitelist.localizedName) {
                     result.flag.WLactive = false;
                     result.flag.severity = 0;
                 }
@@ -2561,16 +2563,18 @@ let Flag = {
         }
     },
     UrlMissing: class extends WLActionFlag {
-        constructor() {
+        constructor(region, whitelist) {
             super(1, 'No URL: <input type="text" id="WMEPH-UrlAdd" autocomplete="off" style="font-size:0.85em;width:100px;padding-left:2px;color:#000;">', 'Add', 'Add URL to place', true, 'Whitelist empty URL', 'urlWL');
             this.noBannerAssemble = true;
             this.badInput = false;
+            this.region = region;
+            this.whitelist = whitelist;
         }
 
         // eslint-disable-next-line class-methods-use-this
         action() {
             const venue = getSelectedVenue();
-            const newUrl = normalizeURL($('#WMEPH-UrlAdd').val(), true, false, venue);
+            const newUrl = normalizeURL($('#WMEPH-UrlAdd').val(), true, false, venue, this.region, this.whitelist);
             if ((!newUrl || newUrl.trim().length === 0) || newUrl === 'badURL') {
                 $('input#WMEPH-UrlAdd').css({ backgroundColor: '#FDD' }).attr('title', 'Invalid URL format');
                 // this.badInput = true;
@@ -2583,16 +2587,18 @@ let Flag = {
         }
     },
     BadAreaCode: class extends WLActionFlag {
-        constructor(textValue, outputFormat) {
+        constructor(textValue, outputFormat, region, whitelist) {
             super(1, `Area Code mismatch:<br><input type="text" id="WMEPH-PhoneAdd" autocomplete="off" style="font-size:0.85em;width:100px;padding-left:2px;color:#000;" value="${textValue || ''}">`,
                 'Update', 'Update phone #', true, 'Whitelist the area code', 'aCodeWL');
             this.outputFormat = outputFormat;
             this.noBannerAssemble = true;
+            this.whitelist = whitelist;
+            this.region = region;
         }
 
         action() {
             const venue = getSelectedVenue();
-            const newPhone = normalizePhone($('#WMEPH-PhoneAdd').val(), this.outputFormat, 'inputted', venue);
+            const newPhone = normalizePhone($('#WMEPH-PhoneAdd').val(), this.outputFormat, 'inputted', venue, this.region, this.whitelist);
             if (newPhone === 'badPhone') {
                 $('input#WMEPH-PhoneAdd').css({ backgroundColor: '#FDD' }).attr('title', 'Invalid phone # format');
                 this.badInput = true;
@@ -2606,13 +2612,15 @@ let Flag = {
         }
     },
     PhoneMissing: class extends WLActionFlag {
-        constructor(venue, hasOperator, wl, outputFormat, isPLA) {
+        constructor(venue, hasOperator, wl, outputFormat, isPLA, region) {
             super(1, 'No ph#: <input type="text" id="WMEPH-PhoneAdd" autocomplete="off" style="font-size:0.85em;width:100px;padding-left:2px;color:#000;">',
                 'Add', 'Add phone to place', true, 'Whitelist empty phone', 'phoneWL');
             this.noBannerAssemble = true;
             this.badInput = false;
             this.outputFormat = outputFormat;
             this.venue = venue;
+            this.whitelist = wl;
+            this.region = region;
             if ((isPLA && !hasOperator) || wl[this.WLkeyName]) {
                 this.severity = 0;
                 this.WLactive = false;
@@ -2621,18 +2629,19 @@ let Flag = {
 
         static get _regionsThatWantPlaPhones() { return ['SER']; }
 
+        // TODO - find references to PhoneMissing instantiation and clean it up.
         static eval(venue, wl, region, outputFormat) {
             const hasOperator = venue.attributes.brand && W.model.venues.categoryBrands.PARKING_LOT.includes(venue.attributes.brand);
             const isPLA = venue.isParkingLot();
             let flag = null;
             if (!isPLA || (isPLA && (this._regionsThatWantPlaPhones.includes(region) || hasOperator))) {
-                flag = new Flag.PhoneMissing(venue, hasOperator, wl, outputFormat, isPLA);
+                flag = new Flag.PhoneMissing(venue, hasOperator, wl, outputFormat, isPLA, region);
             }
             return flag;
         }
 
         action() {
-            const newPhone = normalizePhone($('#WMEPH-PhoneAdd').val(), this.outputFormat, 'inputted', this.venue);
+            const newPhone = normalizePhone($('#WMEPH-PhoneAdd').val(), this.outputFormat, 'inputted', this.venue, this.region, this.whitelist);
             if (newPhone === 'badPhone') {
                 $('input#WMEPH-PhoneAdd').css({ backgroundColor: '#FDD' }).attr('title', 'Invalid phone # format');
                 this.badInput = true;
@@ -3230,13 +3239,13 @@ let Flag = {
                 true, 'Whitelist category', 'notAHospital', true);
         }
 
-        static eval(name, categories) {
+        static eval(name, categories, whitelist) {
             const result = { flag: null };
             if (categories.includes('HOSPITAL_URGENT_CARE')) {
                 const testName = name.toLowerCase().replace(/[^a-z]/g, ' ');
                 const testNameWords = testName.split(' ');
                 if (containsAny(testNameWords, _hospitalFullMatch) || _hospitalPartMatch.some(match => testName.includes(match))) {
-                    if (!_wl.notAHospital) {
+                    if (!whitelist.notAHospital) {
                         result.flag = new Flag.NotAHospital();
                     }
                 }
@@ -3956,7 +3965,7 @@ function getButtonBanner2(venue, placePL) {
             title: 'Clear all Whitelisted fields for this place',
             action() {
                 if (confirm('Are you sure you want to clear all whitelisted fields for this place?')) {
-                    delete _venueWhitelist[venue.attributes.id];
+                    delete _whitelistArray[venue.attributes.id];
                     saveWhiteList(true);
                     harmonizePlaceGo(venue);
                 }
@@ -3992,41 +4001,6 @@ function harmonizePlaceGo(item, highlightOnly = false, actions = null) {
     actions = actions || [];
 
     _severityButt = 0;
-
-    // Whitelist: reset flags
-    _wl = {
-        dupeWL: [],
-        restAreaName: false,
-        restAreaSpec: false,
-        restAreaScenic: false,
-        unmappedRegion: false,
-        gasMismatch: false,
-        hotelMkPrim: false,
-        changeToOffice: false,
-        changeToDoctorClinic: false,
-        changeHMC2PetVet: false,
-        changeSchool2Offices: false,
-        pointNotArea: false,
-        areaNotPoint: false,
-        HNWL: false,
-        hnNonStandard: false,
-        HNRange: false,
-        parentCategory: false,
-        suspectDesc: false,
-        resiTypeName: false,
-        longURL: false,
-        gasNoBrand: false,
-        subFuel: false,
-        hotelLocWL: false,
-        localizedName: false,
-        urlWL: false,
-        phoneWL: false,
-        aCodeWL: false,
-        noHours: false,
-        nameMissing: false,
-        plaNameMissing: false,
-        extProviderMissing: false
-    };
 
     let addr = item.getAddress();
     if (addr.hasOwnProperty('attributes')) {
@@ -4114,19 +4088,20 @@ function harmonizePlaceGo(item, highlightOnly = false, actions = null) {
     _buttonBanner.changeToHospitalUrgentCare = Flag.ChangeToHospitalUrgentCare.eval(item, highlightOnly).flag;
 
     // Whitelist breakout if place exists on the Whitelist and the option is enabled
-
     let itemGPS;
-    if (_venueWhitelist.hasOwnProperty(itemID) && (!highlightOnly || (highlightOnly && !$('#WMEPH-DisableWLHL').prop('checked')))) {
+    const wl = { dupeWL: [] };
+    if (_whitelistArray.hasOwnProperty(itemID) && (!highlightOnly || (highlightOnly && !$('#WMEPH-DisableWLHL').prop('checked')))) {
+        const tempWhitelist = _whitelistArray[itemID];
         // Enable the clear WL button if any property is true
-        Object.keys(_venueWhitelist[itemID]).forEach(wlKey => { // loop thru the venue WL keys
-            if (_venueWhitelist[itemID].hasOwnProperty(wlKey) && (_venueWhitelist[itemID][wlKey].active || false)) {
+        Object.keys(tempWhitelist).forEach(wlKey => { // loop thru the venue WL keys
+            if (tempWhitelist[wlKey].active || false) {
                 if (!highlightOnly) _buttonBanner2.clearWL.active = true;
-                _wl[wlKey] = _venueWhitelist[itemID][wlKey];
+                wl[wlKey] = tempWhitelist[wlKey];
             }
         });
-        if (_venueWhitelist[itemID].hasOwnProperty('dupeWL') && _venueWhitelist[itemID].dupeWL.length > 0) {
+        if (tempWhitelist.hasOwnProperty('dupeWL') && tempWhitelist.dupeWL.length > 0) {
             if (!highlightOnly) _buttonBanner2.clearWL.active = true;
-            _wl.dupeWL = _venueWhitelist[itemID].dupeWL;
+            wl.dupeWL = tempWhitelist.dupeWL;
         }
         // Update address and GPS info for the place
         if (!highlightOnly) {
@@ -4135,10 +4110,10 @@ function harmonizePlaceGo(item, highlightOnly = false, actions = null) {
                 const centroid = item.attributes.geometry.getCentroid();
                 itemGPS = OL.Layer.SphericalMercator.inverseMercator(centroid.x, centroid.y);
             }
-            _venueWhitelist[itemID].city = addr.city.attributes.name; // Store city for the venue
-            _venueWhitelist[itemID].state = addr.state.name; // Store state for the venue
-            _venueWhitelist[itemID].country = addr.country.name; // Store country for the venue
-            _venueWhitelist[itemID].gps = itemGPS; // Store GPS coords for the venue
+            tempWhitelist.city = addr.city.attributes.name; // Store city for the venue
+            tempWhitelist.state = addr.state.name; // Store state for the venue
+            tempWhitelist.country = addr.country.name; // Store country for the venue
+            tempWhitelist.gps = itemGPS; // Store GPS coords for the venue
         }
     }
 
@@ -4230,7 +4205,7 @@ function harmonizePlaceGo(item, highlightOnly = false, actions = null) {
     } // END Gas Station Checks
 
     // Note for Indiana editors to check liquor store hours if Sunday hours haven't been added yet.
-    _buttonBanner.indianaLiquorStoreHours = Flag.IndianaLiquorStoreHours.eval(item, newName, highlightOnly).flag;
+    _buttonBanner.indianaLiquorStoreHours = Flag.IndianaLiquorStoreHours.eval(item, newName, highlightOnly, wl).flag;
 
     const isLocked = item.attributes.lockRank >= (_pnhLockLevel > -1 ? _pnhLockLevel : _defaultLockLevel);
 
@@ -4409,13 +4384,13 @@ function harmonizePlaceGo(item, highlightOnly = false, actions = null) {
             if (pnhMatchData.checkLocalization) {
                 // It's assumed the user will need to match some non-standard naming pattern, so don't update the place name.
                 updatePnhName = false;
-                _buttonBanner.localizedName = Flag.LocalizedName.eval(newName, newNameSuffix, pnhMatchData).flag;
+                _buttonBanner.localizedName = Flag.LocalizedName.eval(newName, newNameSuffix, pnhMatchData, wl).flag;
             }
 
             if (pnhMatchData.keepName) updatePnhName = false;
 
             // If it's a place that also sells fuel, enable the button
-            _buttonBanner.subFuel = Flag.SubFuel.eval(pnhMatchData, newName).flag;
+            _buttonBanner.subFuel = Flag.SubFuel.eval(pnhMatchData, newName, wl).flag;
 
             // Add convenience store category to station
             _buttonBanner.addConvStore = Flag.AddConvStore.eval(newCategories, pnhMatchData).flag;
@@ -4449,7 +4424,7 @@ function harmonizePlaceGo(item, highlightOnly = false, actions = null) {
                 // TODO eval function
                 if (newCategories.indexOf('HOTEL') !== 0) { // If no HOTEL category in the primary, flag it
                     _buttonBanner.hotelMkPrim = new Flag.HotelMkPrim();
-                    if (_wl.hotelMkPrim) {
+                    if (wl.hotelMkPrim) {
                         _buttonBanner.hotelMkPrim.WLactive = false;
                     } else {
                         noLock = true;
@@ -4543,17 +4518,17 @@ function harmonizePlaceGo(item, highlightOnly = false, actions = null) {
                 if (newURL !== null || newURL !== '') {
                     localURLcheckRE = new RegExp(localUrlCheck, 'i');
                     if (newURL.match(localURLcheckRE) !== null) {
-                        newURL = normalizeURL(newURL, false, true, item, region);
+                        newURL = normalizeURL(newURL, false, true, item, region, wl);
                     } else {
-                        newURL = normalizeURL(pnhMatchData.url, false, true, item, region);
+                        newURL = normalizeURL(pnhMatchData.url, false, true, item, region, wl);
                         _buttonBanner.localURL = new Flag.LocalURL();
                     }
                 } else {
-                    newURL = normalizeURL(pnhMatchData.url, false, true, item, region);
+                    newURL = normalizeURL(pnhMatchData.url, false, true, item, region, wl);
                     _buttonBanner.localURL = new Flag.LocalURL();
                 }
             } else {
-                newURL = normalizeURL(pnhMatchData.url, false, true, item, region);
+                newURL = normalizeURL(pnhMatchData.url, false, true, item, region, wl);
             }
 
             // Update aliases, aka alt names
@@ -4614,7 +4589,7 @@ function harmonizePlaceGo(item, highlightOnly = false, actions = null) {
                 _buttonBanner.STC.originalName = newName + (newNameSuffix || '');
             }
 
-            newURL = normalizeURL(newURL, true, false, item, region); // Normalize url
+            newURL = normalizeURL(newURL, true, false, item, region, wl); // Normalize url
 
             // Generic Bank treatment
             _ixBank = item.attributes.categories.indexOf('BANK_FINANCIAL');
@@ -4824,10 +4799,10 @@ function harmonizePlaceGo(item, highlightOnly = false, actions = null) {
                 _buttonBanner.pnhCatMess = Flag.PnhCatMess.eval(catData.message, newCategories, highlightOnly).flag;
 
                 // Unmapped categories
-                _buttonBanner.unmappedRegion = Flag.UnmappedRegion.eval(catId, catData, state2L, region, countryCode, isLocked).flag;
+                _buttonBanner.unmappedRegion = Flag.UnmappedRegion.eval(catId, catData, state2L, region, countryCode, isLocked, wl).flag;
 
                 // Parent Category
-                _buttonBanner.parentCategory = Flag.ParentCategory.eval(catData, state2L, region, countryCode).flag;
+                _buttonBanner.parentCategory = Flag.ParentCategory.eval(catData, state2L, region, countryCode, wl).flag;
 
                 // Set lock level
                 let regionalLock = null;
@@ -4849,7 +4824,7 @@ function harmonizePlaceGo(item, highlightOnly = false, actions = null) {
         if (isPoint) {
             if (maxPointSeverity === 3) {
                 _buttonBanner.areaNotPoint = new Flag.AreaNotPoint();
-                if (_wl.areaNotPoint || item.attributes.lockRank >= _defaultLockLevel) {
+                if (wl.areaNotPoint || item.attributes.lockRank >= _defaultLockLevel) {
                     _buttonBanner.areaNotPoint.WLactive = false;
                     _buttonBanner.areaNotPoint.severity = 0;
                 } else {
@@ -4857,7 +4832,7 @@ function harmonizePlaceGo(item, highlightOnly = false, actions = null) {
                 }
             } else if (maxPointSeverity === 2) {
                 _buttonBanner.areaNotPointMid = new Flag.AreaNotPointMid();
-                if (_wl.areaNotPoint || item.attributes.lockRank >= _defaultLockLevel) {
+                if (wl.areaNotPoint || item.attributes.lockRank >= _defaultLockLevel) {
                     _buttonBanner.areaNotPointMid.WLactive = false;
                     _buttonBanner.areaNotPointMid.severity = 0;
                 } else {
@@ -4865,14 +4840,14 @@ function harmonizePlaceGo(item, highlightOnly = false, actions = null) {
                 }
             } else if (maxPointSeverity === 1) {
                 _buttonBanner.areaNotPointLow = new Flag.AreaNotPointLow();
-                if (_wl.areaNotPoint || item.attributes.lockRank >= _defaultLockLevel) {
+                if (wl.areaNotPoint || item.attributes.lockRank >= _defaultLockLevel) {
                     _buttonBanner.areaNotPointLow.WLactive = false;
                     _buttonBanner.areaNotPointLow.severity = 0;
                 }
             }
         } else if (maxAreaSeverity === 3) {
             _buttonBanner.pointNotArea = new Flag.PointNotArea();
-            if (_wl.pointNotArea || item.attributes.lockRank >= _defaultLockLevel) {
+            if (wl.pointNotArea || item.attributes.lockRank >= _defaultLockLevel) {
                 _buttonBanner.pointNotArea.WLactive = false;
                 _buttonBanner.pointNotArea.severity = 0;
             } else {
@@ -4880,7 +4855,7 @@ function harmonizePlaceGo(item, highlightOnly = false, actions = null) {
             }
         } else if (maxAreaSeverity === 2) {
             _buttonBanner.pointNotAreaMid = new Flag.PointNotAreaMid();
-            if (_wl.pointNotArea || item.attributes.lockRank >= _defaultLockLevel) {
+            if (wl.pointNotArea || item.attributes.lockRank >= _defaultLockLevel) {
                 _buttonBanner.pointNotAreaMid.WLactive = false;
                 _buttonBanner.pointNotAreaMid.severity = 0;
             } else {
@@ -4888,7 +4863,7 @@ function harmonizePlaceGo(item, highlightOnly = false, actions = null) {
             }
         } else if (maxAreaSeverity === 1) {
             _buttonBanner.pointNotAreaLow = new Flag.PointNotAreaLow();
-            if (_wl.pointNotArea || item.attributes.lockRank >= _defaultLockLevel) {
+            if (wl.pointNotArea || item.attributes.lockRank >= _defaultLockLevel) {
                 _buttonBanner.pointNotAreaLow.WLactive = false;
                 _buttonBanner.pointNotAreaLow.severity = 0;
             }
@@ -4908,7 +4883,7 @@ function harmonizePlaceGo(item, highlightOnly = false, actions = null) {
                 'BRIDGE', 'TUNNEL', 'JUNCTION_INTERCHANGE', 'ISLAND', 'SEA_LAKE_POOL', 'RIVER_STREAM', 'FOREST_GROVE', 'CANAL',
                 'SWAMP_MARSH', 'DAM'])) {
                 _buttonBanner.noHours = new Flag.NoHours();
-                if (hoursAdded || _wl.noHours || $('#WMEPH-DisableHoursHL').prop('checked') || containsAny(newCategories, ['SCHOOL', 'CONVENTIONS_EVENT_CENTER',
+                if (hoursAdded || wl.noHours || $('#WMEPH-DisableHoursHL').prop('checked') || containsAny(newCategories, ['SCHOOL', 'CONVENTIONS_EVENT_CENTER',
                     'CAMPING_TRAILER_PARK', 'COTTAGE_CABIN', 'COLLEGE_UNIVERSITY', 'GOLF_COURSE', 'SPORTS_COURT', 'MOVIE_THEATER',
                     'SHOPPING_CENTER', 'RELIGIOUS_CENTER', 'PARKING_LOT', 'PARK', 'PLAYGROUND', 'AIRPORT', 'FIRE_DEPARTMENT', 'POLICE_STATION',
                     'SEAPORT_MARINA_HARBOR', 'FARM', 'SCENIC_LOOKOUT_VIEWPOINT'])) {
@@ -4958,13 +4933,13 @@ function harmonizePlaceGo(item, highlightOnly = false, actions = null) {
         _updateURL = true;
         if (newURL !== item.attributes.url && !isNullOrWhitespace(newURL)) {
             if (pnhNameRegMatch && item.attributes.url !== null && item.attributes.url !== '' && newURL !== 'badURL') { // for cases where there is an existing URL in the WME place, and there is a PNH url on queue:
-                let newURLTemp = normalizeURL(newURL, true, false, item); // normalize
-                const itemURL = normalizeURL(item.attributes.url, true, false, item);
+                let newURLTemp = normalizeURL(newURL, true, false, item, region, wl); // normalize
+                const itemURL = normalizeURL(item.attributes.url, true, false, item, region, wl);
                 newURLTemp = newURLTemp.replace(/^www\.(.*)$/i, '$1'); // strip www
                 const itemURLTemp = itemURL.replace(/^www\.(.*)$/i, '$1'); // strip www
                 if (newURLTemp !== itemURLTemp) { // if formatted URLs don't match, then alert the editor to check the existing URL
                     _buttonBanner.longURL = new Flag.LongURL(placePL);
-                    if (_wl.longURL) {
+                    if (wl.longURL) {
                         _buttonBanner.longURL.severity = 0;
                         _buttonBanner.longURL.WLactive = false;
                     }
@@ -4997,15 +4972,15 @@ function harmonizePlaceGo(item, highlightOnly = false, actions = null) {
         } else if (countryCode === 'CAN') {
             outputFormat = '+1-{0}-{1}-{2}';
         }
-        _newPhone = normalizePhone(item.attributes.phone, outputFormat, 'existing', item, region);
+        _newPhone = normalizePhone(item.attributes.phone, outputFormat, 'existing', item, region, wl);
 
         // TODO eval function
         // Check if valid area code  #LOC# USA and CAN only
-        if (!_wl.aCodeWL && (countryCode === 'USA' || countryCode === 'CAN')) {
+        if (!wl.aCodeWL && (countryCode === 'USA' || countryCode === 'CAN')) {
             if (_newPhone !== null && _newPhone.match(/[2-9]\d{2}/) !== null) {
                 const areaCode = _newPhone.match(/[2-9]\d{2}/)[0];
                 if (!_areaCodeList.includes(areaCode)) {
-                    _buttonBanner.badAreaCode = new Flag.BadAreaCode(_newPhone, outputFormat);
+                    _buttonBanner.badAreaCode = new Flag.BadAreaCode(_newPhone, outputFormat, region, wl);
                 }
             }
         }
@@ -5024,8 +4999,8 @@ function harmonizePlaceGo(item, highlightOnly = false, actions = null) {
         _buttonBanner.catPostOffice = Flag.CatPostOffice.eval(item, newName, newNameSuffix, newCategories, addr, state2L,
             countryCode, highlightOnly, actions).flag;
         _buttonBanner.missingUSPSAlt = Flag.MissingUSPSAlt.eval(newAliases, newCategories, countryCode).flag;
-        _buttonBanner.missingUSPSZipAlt = Flag.MissingUSPSZipAlt.eval(newAliases, newName, newCategories, countryCode).flag;
-        _buttonBanner.missingUSPSDescription = Flag.MissingUSPSDescription.eval(item, newCategories, countryCode).flag;
+        _buttonBanner.missingUSPSZipAlt = Flag.MissingUSPSZipAlt.eval(newAliases, newName, newCategories, countryCode, wl).flag;
+        _buttonBanner.missingUSPSDescription = Flag.MissingUSPSDescription.eval(item, newCategories, countryCode, wl).flag;
         if (!highlightOnly && newCategories.includes('POST_OFFICE') && !newCategories.includes('PARKING_LOT') && countryCode === 'USA') {
             _buttonBanner.NewPlaceSubmit = null;
             if (item.attributes.url !== 'usps.com') {
@@ -5056,7 +5031,7 @@ function harmonizePlaceGo(item, highlightOnly = false, actions = null) {
         }
         if (compressedBrands.every(compressedBrand => !compressedName.includes(compressedBrand) && !compressedNewName.includes(compressedBrand))) {
             _buttonBanner.gasMismatch = new Flag.GasMismatch();
-            if (_wl.gasMismatch) {
+            if (wl.gasMismatch) {
                 _buttonBanner.gasMismatch.WLactive = false;
             } else {
                 noLock = true;
@@ -5083,7 +5058,7 @@ function harmonizePlaceGo(item, highlightOnly = false, actions = null) {
         }
     }
 
-    _buttonBanner.plaNameNonStandard = Flag.PlaNameNonStandard.eval(item, _wl).flag;
+    _buttonBanner.plaNameNonStandard = Flag.PlaNameNonStandard.eval(item, wl).flag;
 
     // Public parking lot warning message:
     if (item.isParkingLot() && item.attributes.categoryAttributes && item.attributes.categoryAttributes.PARKING_LOT
@@ -5131,7 +5106,7 @@ function harmonizePlaceGo(item, highlightOnly = false, actions = null) {
                 } else {
                     _buttonBanner.hnMissing.severity = 0;
                 }
-            } else if (_wl.HNWL) {
+            } else if (wl.HNWL) {
                 _buttonBanner.hnMissing.severity = 0;
                 _buttonBanner.hnMissing.WLactive = false;
             } else {
@@ -5159,7 +5134,7 @@ function harmonizePlaceGo(item, highlightOnly = false, actions = null) {
         // TODO eval function
         if (!hnOK) {
             _buttonBanner.hnNonStandard = new Flag.HnNonStandard();
-            if (_wl.hnNonStandard) {
+            if (wl.hnNonStandard) {
                 _buttonBanner.hnNonStandard.WLactive = false;
                 _buttonBanner.hnNonStandard.severity = 0;
             } else {
@@ -5184,12 +5159,12 @@ function harmonizePlaceGo(item, highlightOnly = false, actions = null) {
     _buttonBanner.cityMissing = Flag.CityMissing.eval(item, addr, highlightOnly).flag;
     _buttonBanner.streetMissing = Flag.StreetMissing.eval(item, addr).flag;
 
-    _buttonBanner.notAHospital = Flag.NotAHospital.eval(newName, newCategories).flag;
+    _buttonBanner.notAHospital = Flag.NotAHospital.eval(newName, newCategories, wl).flag;
 
     // CATEGORY vs. NAME checks
-    _buttonBanner.changeToPetVet = Flag.ChangeToPetVet.eval(newName, newCategories).flag;
+    _buttonBanner.changeToPetVet = Flag.ChangeToPetVet.eval(newName, newCategories, wl).flag;
     _buttonBanner.changeToPetVet = Flag.ChangeToDoctorClinic.eval(item, newCategories, highlightOnly, pnhNameRegMatch).flag;
-    _buttonBanner.notASchool = Flag.NotASchool.eval(newName, newCategories).flag;
+    _buttonBanner.notASchool = Flag.NotASchool.eval(newName, newCategories, wl).flag;
 
     // Some cats don't need PNH messages and url/phone severities
     if (['BRIDGE', 'FOREST_GROVE', 'DAM', 'TUNNEL', 'CEMETERY'].includes(item.attributes.categories[0])) {
@@ -5216,7 +5191,7 @@ function harmonizePlaceGo(item, highlightOnly = false, actions = null) {
     if (/rest area/i.test(oldName) || /rest stop/i.test(oldName) || /service plaza/i.test(oldName) || hasRestAreaCategory) {
         if (hasRestAreaCategory) {
             if (item.attributes.categories.includes('SCENIC_LOOKOUT_VIEWPOINT')) {
-                if (!_wl.restAreaScenic) _buttonBanner.restAreaScenic = new Flag.RestAreaScenic();
+                if (!wl.restAreaScenic) _buttonBanner.restAreaScenic = new Flag.RestAreaScenic();
             }
             if (item.attributes.categories.includes('TRANSPORTATION')) {
                 _buttonBanner.restAreaNoTransportation = new Flag.RestAreaNoTransportation();
@@ -5233,7 +5208,7 @@ function harmonizePlaceGo(item, highlightOnly = false, actions = null) {
 
             if (oldName.match(/^Rest Area.* - /) === null) {
                 _buttonBanner.restAreaName = new Flag.RestAreaName();
-                if (_wl.restAreaName) {
+                if (wl.restAreaName) {
                     _buttonBanner.restAreaName.WLactive = false;
                 }
             } else if (!highlightOnly) {
@@ -5275,7 +5250,7 @@ function harmonizePlaceGo(item, highlightOnly = false, actions = null) {
                 _buttonBanner.phoneMissing.severity = 0;
                 _buttonBanner.phoneMissing.WLactive = false;
             }
-        } else if (!_wl.restAreaSpec) {
+        } else if (!wl.restAreaSpec) {
             _buttonBanner.restAreaSpec = new Flag.RestAreaSpec();
         }
     }
@@ -5403,14 +5378,14 @@ function harmonizePlaceGo(item, highlightOnly = false, actions = null) {
         if (['HOME', 'MY HOME', 'HOUSE', 'MY HOUSE', 'PARENTS HOUSE', 'CASA', 'MI CASA', 'WORK', 'MY WORK', 'MY OFFICE',
             'MOMS HOUSE', 'DADS HOUSE', 'MOM', 'DAD'].includes(nameShortSpace)) {
             _buttonBanner.resiTypeName = new Flag.ResiTypeName();
-            if (_wl.resiTypeName) {
+            if (wl.resiTypeName) {
                 _buttonBanner.resiTypeName.WLactive = false;
             }
             _buttonBanner.resiTypeNameSoft = null;
         }
         if (item.attributes.description.toLowerCase().includes('google') || item.attributes.description.toLowerCase().includes('yelp')) {
             _buttonBanner.suspectDesc = new Flag.SuspectDesc();
-            if (_wl.suspectDesc) {
+            if (wl.suspectDesc) {
                 _buttonBanner.suspectDesc.WLactive = false;
             }
         }
@@ -5479,23 +5454,23 @@ function harmonizePlaceGo(item, highlightOnly = false, actions = null) {
             } else {
                 const wlAction = dID => {
                     const WL_KEY_NAME = 'dupeWL';
-                    if (!_venueWhitelist.hasOwnProperty(itemID)) { // If venue is NOT on WL, then add it.
-                        _venueWhitelist[itemID] = { dupeWL: [] };
+                    if (!_whitelistArray.hasOwnProperty(itemID)) { // If venue is NOT on WL, then add it.
+                        _whitelistArray[itemID] = { dupeWL: [] };
                     }
-                    if (!_venueWhitelist[itemID].hasOwnProperty(WL_KEY_NAME)) { // If dupeWL key is not in venue WL, then initialize it.
-                        _venueWhitelist[itemID][WL_KEY_NAME] = [];
+                    if (!_whitelistArray[itemID].hasOwnProperty(WL_KEY_NAME)) { // If dupeWL key is not in venue WL, then initialize it.
+                        _whitelistArray[itemID][WL_KEY_NAME] = [];
                     }
-                    _venueWhitelist[itemID].dupeWL.push(dID); // WL the id for the duplicate venue
-                    _venueWhitelist[itemID].dupeWL = _.uniq(_venueWhitelist[itemID].dupeWL);
+                    _whitelistArray[itemID].dupeWL.push(dID); // WL the id for the duplicate venue
+                    _whitelistArray[itemID].dupeWL = _.uniq(_whitelistArray[itemID].dupeWL);
                     // Make an entry for the opposite item
-                    if (!_venueWhitelist.hasOwnProperty(dID)) { // If venue is NOT on WL, then add it.
-                        _venueWhitelist[dID] = { dupeWL: [] };
+                    if (!_whitelistArray.hasOwnProperty(dID)) { // If venue is NOT on WL, then add it.
+                        _whitelistArray[dID] = { dupeWL: [] };
                     }
-                    if (!_venueWhitelist[dID].hasOwnProperty(WL_KEY_NAME)) { // If dupeWL key is not in venue WL, then initialize it.
-                        _venueWhitelist[dID][WL_KEY_NAME] = [];
+                    if (!_whitelistArray[dID].hasOwnProperty(WL_KEY_NAME)) { // If dupeWL key is not in venue WL, then initialize it.
+                        _whitelistArray[dID][WL_KEY_NAME] = [];
                     }
-                    _venueWhitelist[dID].dupeWL.push(itemID); // WL the id for the duplicate venue
-                    _venueWhitelist[dID].dupeWL = _.uniq(_venueWhitelist[dID].dupeWL);
+                    _whitelistArray[dID].dupeWL.push(itemID); // WL the id for the duplicate venue
+                    _whitelistArray[dID].dupeWL = _.uniq(_whitelistArray[dID].dupeWL);
                     saveWhiteList(true); // Save the WL to local storage
                     wmephWhitelistCounter();
                     _buttonBanner2.clearWL.active = true;
@@ -5512,8 +5487,8 @@ function harmonizePlaceGo(item, highlightOnly = false, actions = null) {
                         WLtitle: 'Whitelist Duplicate',
                         WLaction: wlAction
                     };
-                    if (_venueWhitelist.hasOwnProperty(itemID) && _venueWhitelist[itemID].hasOwnProperty('dupeWL')
-                        && _venueWhitelist[itemID].dupeWL.includes(_dupeIDList[ijx])) {
+                    if (_whitelistArray.hasOwnProperty(itemID) && _whitelistArray[itemID].hasOwnProperty('dupeWL')
+                        && _whitelistArray[itemID].dupeWL.includes(_dupeIDList[ijx])) {
                         // if the dupe is on the whitelist then remove it from the banner
                         _dupeBanner[_dupeIDList[ijx]].active = false;
                     } else {
@@ -5529,7 +5504,7 @@ function harmonizePlaceGo(item, highlightOnly = false, actions = null) {
     if (dupeFinderResult && dupeFinderResult.dupeHNRangeList.length > 3) {
         let dhnix;
         const dupeHNRangeListSorted = [];
-        sortWithIndex(dupeFinderResult.dupeHNRangeList);
+        sortWithIndex(dupeFinderResult.dupeHNRangeDistList);
         for (dhnix = 0; dhnix < dupeFinderResult.dupeHNRangeList.length; dhnix++) {
             dupeHNRangeListSorted.push(dupeFinderResult.dupeHNRangeList[dupeFinderResult.dupeHNRangeDistList.sortIndices[dhnix]]);
         }
@@ -5546,7 +5521,7 @@ function harmonizePlaceGo(item, highlightOnly = false, actions = null) {
         const arrayHNRatioCheckIX = Math.min(Math.round(arrayHNRatio.length / 2), 8);
         if (arrayHNRatio[arrayHNRatioCheckIX] > 1.4) {
             _buttonBanner.HNRange = new Flag.HNRange();
-            if (_wl.HNRange) {
+            if (wl.HNRange) {
                 _buttonBanner.HNRange.WLactive = false;
                 _buttonBanner.HNRange.active = false;
             }
@@ -6473,7 +6448,7 @@ function findNearbyDuplicate(selectedVenueName, selectedVenueAliases, selectedVe
     const dupeHNRangeDistList = [];
 
     // Get the list of dupes that have been whitelisted.
-    const selectedVenueWL = _venueWhitelist[selectedVenueId];
+    const selectedVenueWL = _whitelistArray[selectedVenueId];
     const whitelistedDupes = selectedVenueWL && selectedVenueWL.dupeWL ? selectedVenueWL.dupeWL : [];
 
     const excludePLADupes = $('#WMEPH-ExcludePLADupes').prop('checked');
@@ -7115,14 +7090,14 @@ function onWLMergeClick() {
     $wlToolsMsg.empty();
     if ($wlInput.val() === 'resetWhitelist') {
         if (confirm('***Do you want to reset all Whitelist data?\nClick OK to erase.')) { // if the category doesn't translate, then pop an alert that will make a forum post to the thread
-            _venueWhitelist = { '1.1.1': { Placeholder: {} } }; // Populate with a dummy place
+            _whitelistArray = { '1.1.1': { Placeholder: {} } }; // Populate with a dummy place
             saveWhiteList(true);
         }
     } else { // try to merge uncompressed WL data
         let wlsToMerge = validateWLS($('#WMEPH-WLInput').val());
         if (wlsToMerge) {
             phlog('Whitelists merged!');
-            _venueWhitelist = mergeWL(_venueWhitelist, wlsToMerge);
+            _whitelistArray = mergeWL(_whitelistArray, wlsToMerge);
             saveWhiteList(true);
             $wlToolsMsg.append('<p style="color:green">Whitelist data merged<p>');
             $wlInput.val('');
@@ -7130,7 +7105,7 @@ function onWLMergeClick() {
             wlsToMerge = validateWLS(LZString.decompressFromUTF16($('#WMEPH-WLInput').val()));
             if (wlsToMerge) {
                 phlog('Whitelists merged!');
-                _venueWhitelist = mergeWL(_venueWhitelist, wlsToMerge);
+                _whitelistArray = mergeWL(_whitelistArray, wlsToMerge);
                 saveWhiteList(true);
                 $wlToolsMsg.append('<p style="color:green">Whitelist data merged<p>');
                 $wlInput.val('');
@@ -7209,7 +7184,7 @@ function onWLStateFilterClick() {
                     stateToRemove}? This CANNOT be undone. Press OK to delete, cancel to preserve the data.`)) {
                     backupWhiteList(true);
                     venuesToRemove.forEach(venueKey => {
-                        delete _venueWhitelist[venueKey];
+                        delete _whitelistArray[venueKey];
                     });
                     saveWhiteList(true);
                     msgColor = 'green';
@@ -7709,7 +7684,7 @@ function placeHarmonizerInit() {
     // Whitelist initialization
     if (validateWLS(LZString.decompressFromUTF16(localStorage.getItem(WL_LOCAL_STORE_NAME_COMPRESSED))) === false) { // If no compressed WL string exists
         if (validateWLS(localStorage.getItem(WL_LOCAL_STORE_NAME)) === false) { // If no regular WL exists
-            _venueWhitelist = { '1.1.1': { Placeholder: {} } }; // Populate with a dummy place
+            _whitelistArray = { '1.1.1': { Placeholder: {} } }; // Populate with a dummy place
             saveWhiteList(false);
             saveWhiteList(true);
         } else { // if regular WL string exists, then transfer to compressed version
@@ -7760,9 +7735,9 @@ function placeHarmonizerInit() {
 
     // Remove any temporary ID values (ID < 0) from the WL store at startup.
     let removedWLCount = 0;
-    Object.keys(_venueWhitelist).forEach(venueID => {
+    Object.keys(_whitelistArray).forEach(venueID => {
         if (venueID < 0) {
-            delete _venueWhitelist[venueID];
+            delete _whitelistArray[venueID];
             removedWLCount += 1;
         }
     });
