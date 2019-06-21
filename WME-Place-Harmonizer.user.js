@@ -175,7 +175,6 @@ let _catTransWaze2Lang; // pulls the category translations
 let _newURL;
 let _tempPNHURL = '';
 let _newPhone;
-let _newAliases = [];
 const _WME_SERVICES_ARRAY = ['VALLET_SERVICE', 'DRIVETHROUGH', 'WI_FI', 'RESTROOMS', 'CREDIT_CARDS', 'RESERVATIONS', 'OUTSIDE_SEATING',
     'AIR_CONDITIONING', 'PARKING_FOR_CUSTOMERS', 'DELIVERIES', 'TAKE_AWAY', 'WHEELCHAIR_ACCESSIBLE', 'DISABILITY_PARKING'];
 const COLLEGE_ABBREVIATIONS = ['USF', 'USFSP', 'UF', 'UCF', 'UA', 'UGA', 'FSU', 'UM', 'SCP', 'FAU', 'FIU'];
@@ -4029,7 +4028,7 @@ function harmonizePlaceGo(item, highlightOnly = false, actions = null) {
     const nameParts = getNameParts(item.attributes.name);
     let newNameSuffix = nameParts.suffix;
     let newName = nameParts.base;
-    _newAliases = item.attributes.aliases.slice();
+    let _newAliases = item.attributes.aliases.slice();
     _newURL = item.attributes.url;
     let newURLSubmit = '';
     if (_newURL !== null && _newURL !== '') {
