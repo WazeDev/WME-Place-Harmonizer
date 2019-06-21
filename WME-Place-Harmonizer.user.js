@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name        WME Place Harmonizer Beta (pnh-update)
 // @namespace   WazeUSA
-// @version     2019.06.21.004
+// @version     2019.06.21.005
 // @description Harmonizes, formats, and locks a selected place
 // @author      WMEPH Development Group
 // @include     /^https:\/\/(www|beta)\.waze\.com\/(?!user\/)(.{2,6}\/)?editor\/?.*$/
@@ -815,7 +815,7 @@ function harmoList(itemName, state2L, region3L, country, itemCats, item, placePL
         if (pnhEntry.regexNameMatch) {
             // Check for regex name matching instead of "standard" name matching.
             pnhMatchString = pnhEntry.regexNameMatch.test(item.attributes.name);
-        } else if (pnhEntry.strMatchAny || pnhEntry.category1 === 'Hotel') {
+        } else if (pnhEntry.strMatchAny || pnhEntry.category1 === 'HOTEL') {
             // Match any part of WME name with either the PNH name or any spaced names
             const spaceMatchList = [
                 pnhEntry.name.toUpperCase().replace(/ AND /g, ' ').replace(/^THE /g, '').replace(/[^A-Z0-9 ]/g, ' ').replace(/ {2,}/g, ' '),
@@ -4279,7 +4279,7 @@ function harmonizePlaceGo(item, highlightOnly = false, actions = null) {
                 let pnhMatchEntryHold = pnhMatchData[0];
                 pnhMatchData.forEach(pnhEntry => { // For each of the matches,
                     orderList.push(pnhEntry.order); // Add Order number to a list
-                    if (pnhEntry.brandParent) { // If there is a brandParent flag, prioritize by highest match
+                    if (pnhEntry.brandParent > -1) { // If there is a brandParent flag, prioritize by highest match
                         if (pnhEntry.brandParent > brandParent) { // if the match is more specific than the previous ones:
                             brandParent = pnhEntry.brandParent; // Update the brandParent level
                             pnhMatchEntryHold = pnhEntry; // Update the PNH data line
