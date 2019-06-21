@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name        WME Place Harmonizer Beta (pnh-update)
 // @namespace   WazeUSA
-// @version     2019.06.21.001
+// @version     2019.06.21.002
 // @description Harmonizes, formats, and locks a selected place
 // @author      WMEPH Development Group
 // @include     /^https:\/\/(www|beta)\.waze\.com\/(?!user\/)(.{2,6}\/)?editor\/?.*$/
@@ -2988,7 +2988,7 @@ let Flag = {
                 if (venue.attributes.lockRank < _defaultLockLevel) {
                     result.flag = new Flag.LockRPP(venue.attributes.lockRank);
                 } else {
-                    result.flag = new FlagBase(0, `Current lock: ${_defaultLockLevel + 1}`);
+                    result.flag = new FlagBase(0, `Current lock: ${venue.attributes.lockRank + 1}`);
                 }
             }
             return result;
