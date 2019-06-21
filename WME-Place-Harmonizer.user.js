@@ -172,12 +172,10 @@ const _PM_USER_LIST = { // user names and IDs for PM functions
 let _severityButt = 0; // error tracking to determine banner color (action buttons)
 let _duplicateName = '';
 let _catTransWaze2Lang; // pulls the category translations
-let _newName;
 let _newURL;
 let _tempPNHURL = '';
 let _newPhone;
 let _newAliases = [];
-let _newCategories = [];
 const _WME_SERVICES_ARRAY = ['VALLET_SERVICE', 'DRIVETHROUGH', 'WI_FI', 'RESTROOMS', 'CREDIT_CARDS', 'RESERVATIONS', 'OUTSIDE_SEATING',
     'AIR_CONDITIONING', 'PARKING_FOR_CUSTOMERS', 'DELIVERIES', 'TAKE_AWAY', 'WHEELCHAIR_ACCESSIBLE', 'DISABILITY_PARKING'];
 const COLLEGE_ABBREVIATIONS = ['USF', 'USFSP', 'UF', 'UCF', 'UA', 'UGA', 'FSU', 'UM', 'SCP', 'FAU', 'FIU'];
@@ -1839,10 +1837,13 @@ let Flag = {
         // eslint-disable-next-line class-methods-use-this
         action() {
             const venue = getSelectedVenue();
-            // Insert/move Gas category in the first position
-            _newCategories = insertAtIX(_newCategories, 'GAS_STATION', 0);
-            _UPDATED_FIELDS.categories.updated = true;
-            addUpdateAction(venue, { categories: _newCategories });
+            let { categories } = venue.attributes;
+            if (categories[0] !== 'GAS_STATION') {
+                // Insert/move Gas category in the first position
+                categories = insertAtIX(categories, 'GAS_STATION', 0);
+                _UPDATED_FIELDS.categories.updated = true;
+                addUpdateAction(venue, { categories });
+            }
             harmonizePlaceGo(venue);
         }
     },
@@ -2138,9 +2139,9 @@ let Flag = {
                 + '<a href="https://wazeopedia.waze.com/wiki/USA/Places/Post_Office" style="color:#3a3a3a;" target="_blank">the guidelines</a>.');
         }
 
-        static eval(venue, name, nameSuffix, address, state2L, countryCode, highlightOnly, actions) {
+        static eval(venue, name, nameSuffix, categories, address, state2L, countryCode, highlightOnly, actions) {
             const result = { flag: null };
-            if (!highlightOnly && _newCategories.includes('POST_OFFICE') && !_newCategories.includes('PARKING_LOT') && countryCode === 'USA') {
+            if (!highlightOnly && categories.includes('POST_OFFICE') && countryCode === 'USA') {
                 const postOfficeRegEx = Flag.FormatUSPS.getUspsNameRegex(address, state2L);
                 const nameToCheck = name + (nameSuffix || '');
                 if (postOfficeRegEx.test(nameToCheck)) {
@@ -3024,19 +3025,28 @@ let Flag = {
         }
     },
     AddCat2: class extends ActionFlag {
-        constructor() { super(0, '', 'Yes', ''); }
+        constructor(catId) {
+            super(0, `Is there a ${_catTransWaze2Lang[catId]} at this location?`, 'Yes', `Add ${_catTransWaze2Lang[catId]}`);
+            this.altCategory = catId;
+        }
 
-        static eval() {
+        static eval(pnhMatch, categories) {
             const result = { flag: null };
-            result.flag = new Flag.AddCat2();
+            const altCat = pnhMatch.altCategories[0];
+            if (pnhMatch.buttOn && pnhMatch.buttOn.includes('addCat2') && !categories.includes(altCat)) {
+                result.flag = new Flag.AddCat2(altCat);
+            }
             return result;
         }
 
         action() {
             const venue = getSelectedVenue();
-            _newCategories.push(this.altCategory);
-            W.model.actionManager.add(new UpdateObject(venue, { categories: _newCategories }));
-            _UPDATED_FIELDS.categories.updated = true;
+            const categories = venue.attributes.slice();
+            if (!categories.includes(this.altCategory)) {
+                categories.push(this.altCategory);
+                addUpdateAction(venue, { categories });
+                _UPDATED_FIELDS.categories.updated = true;
+            }
             harmonizePlaceGo(venue);
         }
     },
@@ -3046,9 +3056,12 @@ let Flag = {
         // eslint-disable-next-line class-methods-use-this
         action() {
             const venue = getSelectedVenue();
-            _newCategories = insertAtIX(_newCategories, 'PHARMACY', 1);
-            W.model.actionManager.add(new UpdateObject(venue, { categories: _newCategories }));
-            _UPDATED_FIELDS.categories.updated = true;
+            let { categories } = venue.attributes;
+            if (!categories.includes('PHARMACY')) {
+                categories = insertAtIX(categories, 'PHARMACY', 1);
+                addUpdateAction(venue, { categories });
+                _UPDATED_FIELDS.categories.updated = true;
+            }
             harmonizePlaceGo(venue);
         }
     },
@@ -3058,9 +3071,12 @@ let Flag = {
         // eslint-disable-next-line class-methods-use-this
         action() {
             const venue = getSelectedVenue();
-            _newCategories = insertAtIX(_newCategories, 'SUPERMARKET_GROCERY', 1);
-            W.model.actionManager.add(new UpdateObject(venue, { categories: _newCategories }));
-            _UPDATED_FIELDS.categories.updated = true;
+            let { categories } = venue.attributes;
+            if (!categories.includes('SUPERMARKET_GROCERY')) {
+                categories = insertAtIX(categories, 'SUPERMARKET_GROCERY', 1);
+                addUpdateAction(venue, { categories });
+                _UPDATED_FIELDS.categories.updated = true;
+            }
             harmonizePlaceGo(venue);
         }
     },
@@ -3207,10 +3223,10 @@ let Flag = {
                 true, 'Whitelist category', 'notAHospital', true);
         }
 
-        static eval(categories) {
+        static eval(name, categories) {
             const result = { flag: null };
             if (categories.includes('HOSPITAL_URGENT_CARE')) {
-                const testName = _newName.toLowerCase().replace(/[^a-z]/g, ' ');
+                const testName = name.toLowerCase().replace(/[^a-z]/g, ' ');
                 const testNameWords = testName.split(' ');
                 if (containsAny(testNameWords, _hospitalFullMatch) || _hospitalPartMatch.some(match => testName.includes(match))) {
                     if (!_wl.notAHospital) {
@@ -4009,10 +4025,10 @@ function harmonizePlaceGo(item, highlightOnly = false, actions = null) {
 
     let noLock = false; // if nothing goes wrong, then place will be locked
 
-    _newCategories = item.attributes.categories.slice();
+    let newCategories = item.attributes.categories.slice();
     const nameParts = getNameParts(item.attributes.name);
     let newNameSuffix = nameParts.suffix;
-    _newName = nameParts.base;
+    let newName = nameParts.base;
     _newAliases = item.attributes.aliases.slice();
     _newURL = item.attributes.url;
     let newURLSubmit = '';
@@ -4164,21 +4180,21 @@ function harmonizePlaceGo(item, highlightOnly = false, actions = null) {
     }
 
     // Gas station treatment (applies to all including PNH)
-    const flag = Flag.IsThisAPilotTravelCenter.eval(item, highlightOnly, state2L, _newName, actions).flag;
+    const flag = Flag.IsThisAPilotTravelCenter.eval(item, highlightOnly, state2L, newName, actions).flag;
     _buttonBanner.isThisAPilotTravelCenter = flag;
-    if (flag && flag.newName) _newName = flag.newName;
+    if (flag && flag.newName) newName = flag.newName;
 
     if (item.isGasStation()) {
         // If no gas station name, replace with brand name
-        if (!highlightOnly && (!_newName || _newName.trim().length === 0) && item.attributes.brand) {
-            _newName = item.attributes.brand;
-            actions.push(new UpdateObject(item, { name: _newName }));
+        if (!highlightOnly && (!newName || newName.trim().length === 0) && item.attributes.brand) {
+            newName = item.attributes.brand;
+            actions.push(new UpdateObject(item, { name: newName }));
             _UPDATED_FIELDS.name.updated = true;
         }
     } // END Gas Station Checks
 
     // Note for Indiana editors to check liquor store hours if Sunday hours haven't been added yet.
-    _buttonBanner.indianaLiquorStoreHours = Flag.IndianaLiquorStoreHours.eval(item, _newName, highlightOnly).flag;
+    _buttonBanner.indianaLiquorStoreHours = Flag.IndianaLiquorStoreHours.eval(item, newName, highlightOnly).flag;
 
     const isLocked = item.attributes.lockRank >= (_pnhLockLevel > -1 ? _pnhLockLevel : _defaultLockLevel);
 
@@ -4196,7 +4212,7 @@ function harmonizePlaceGo(item, highlightOnly = false, actions = null) {
                 actions.push(new UpdateObject(item, { name: '' }));
                 // no field HL
             }
-            _newCategories = ['RESIDENCE_HOME'];
+            newCategories = ['RESIDENCE_HOME'];
             // newDescripion = null;
             if (item.attributes.description !== null && item.attributes.description !== '') { // remove any description
                 phlogdev('Residential description cleared');
@@ -4225,8 +4241,8 @@ function harmonizePlaceGo(item, highlightOnly = false, actions = null) {
         if (!item.isPoint()) {
             _buttonBanner.pointNotArea = new Flag.PointNotArea();
         }
-    } else if (item.isParkingLot() || (_newName && _newName.trim().length)) { // for non-residential places
-        _buttonBanner.extProviderMissing = Flag.ExtProviderMissing.eval(item, isLocked, _newCategories, _USER.rank, $('#WMEPH-DisablePLAExtProviderCheck').prop('checked'), actions).flag;
+    } else if (item.isParkingLot() || (newName && newName.trim().length)) { // for non-residential places
+        _buttonBanner.extProviderMissing = Flag.ExtProviderMissing.eval(item, isLocked, newCategories, _USER.rank, $('#WMEPH-DisablePLAExtProviderCheck').prop('checked'), actions).flag;
 
         // Place Harmonization
         let matchResult = { matches: [], status: 'NoMatch' };
@@ -4234,7 +4250,7 @@ function harmonizePlaceGo(item, highlightOnly = false, actions = null) {
         if (!highlightOnly) {
             if (!item.isParkingLot()) {
                 // check against the PNH list
-                matchResult = harmoList(_newName, state2L, region, _countryCode, _newCategories, item, placePL);
+                matchResult = harmoList(newName, state2L, region, _countryCode, newCategories, item, placePL);
                 pnhMatchData = matchResult.matches;
             }
         }
@@ -4357,56 +4373,56 @@ function harmonizePlaceGo(item, highlightOnly = false, actions = null) {
             if (pnhMatchData.checkLocalization) {
                 // It's assumed the user will need to match some non-standard naming pattern, so don't update the place name.
                 updatePnhName = false;
-                _buttonBanner.localizedName = Flag.LocalizedName.eval(_newName, newNameSuffix, pnhMatchData).flag;
+                _buttonBanner.localizedName = Flag.LocalizedName.eval(newName, newNameSuffix, pnhMatchData).flag;
             }
 
             if (pnhMatchData.keepName) updatePnhName = false;
 
             // If it's a place that also sells fuel, enable the button
-            _buttonBanner.subFuel = Flag.SubFuel.eval(pnhMatchData, _newName).flag;
+            _buttonBanner.subFuel = Flag.SubFuel.eval(pnhMatchData, newName).flag;
 
             // Add convenience store category to station
-            _buttonBanner.addConvStore = Flag.AddConvStore.eval(_newCategories, pnhMatchData).flag;
+            _buttonBanner.addConvStore = Flag.AddConvStore.eval(newCategories, pnhMatchData).flag;
 
             // Display any notes for the specific place
             _buttonBanner.specCaseMessage = Flag.SpecCaseMessage.eval(item, pnhMatchData).flag;
 
             // name parsing with category exceptions
             if (priPNHPlaceCat === 'HOTEL') {
-                const nameToCheck = _newName + (newNameSuffix || '');
+                const nameToCheck = newName + (newNameSuffix || '');
                 if (nameToCheck.toUpperCase() === pnhMatchData.name.toUpperCase()) { // If no localization
                     _buttonBanner.catHotel = new Flag.CatHotel(pnhMatchData.name);
-                    _newName = pnhMatchData.name;
+                    newName = pnhMatchData.name;
                 } else {
                     // Replace PNH part of name with PNH name
-                    const splix = _newName.toUpperCase().replace(/[-/]/g, ' ').indexOf(pnhMatchData.name.toUpperCase().replace(/[-/]/g, ' '));
+                    const splix = newName.toUpperCase().replace(/[-/]/g, ' ').indexOf(pnhMatchData.name.toUpperCase().replace(/[-/]/g, ' '));
                     if (splix > -1) {
-                        const frontText = _newName.slice(0, splix);
-                        const backText = _newName.slice(splix + pnhMatchData.name.length);
-                        _newName = pnhMatchData.name;
-                        if (frontText.length > 0) { _newName = `${frontText} ${_newName}`; }
-                        if (backText.length > 0) { _newName = `${_newName} ${backText}`; }
-                        _newName = _newName.replace(/ {2,}/g, ' ');
+                        const frontText = newName.slice(0, splix);
+                        const backText = newName.slice(splix + pnhMatchData.name.length);
+                        newName = pnhMatchData.name;
+                        if (frontText.length > 0) { newName = `${frontText} ${newName}`; }
+                        if (backText.length > 0) { newName = `${newName} ${backText}`; }
+                        newName = newName.replace(/ {2,}/g, ' ');
                     } else {
-                        _newName = pnhMatchData.name;
+                        newName = pnhMatchData.name;
                     }
                 }
                 if (pnhMatchData.altCategories.length) { // if PNH alts exist
-                    insertAtIX(_newCategories, pnhMatchData.altCategories, 1); //  then insert the alts into the existing category array after the GS category
+                    insertAtIX(newCategories, pnhMatchData.altCategories, 1); //  then insert the alts into the existing category array after the GS category
                 }
                 // TODO eval function
-                if (_newCategories.indexOf('HOTEL') !== 0) { // If no HOTEL category in the primary, flag it
+                if (newCategories.indexOf('HOTEL') !== 0) { // If no HOTEL category in the primary, flag it
                     _buttonBanner.hotelMkPrim = new Flag.HotelMkPrim();
                     if (_wl.hotelMkPrim) {
                         _buttonBanner.hotelMkPrim.WLactive = false;
                     } else {
                         noLock = true;
                     }
-                } else if (_newCategories.includes('HOTEL')) {
+                } else if (newCategories.includes('HOTEL')) {
                     // Remove LODGING if it exists
-                    const lodgingIdx = _newCategories.indexOf('LODGING');
+                    const lodgingIdx = newCategories.indexOf('LODGING');
                     if (lodgingIdx > -1) {
-                        _newCategories.splice(lodgingIdx, 1);
+                        newCategories.splice(lodgingIdx, 1);
                     }
                 }
                 // If PNH match, set wifi service.
@@ -4417,13 +4433,13 @@ function harmonizePlaceGo(item, highlightOnly = false, actions = null) {
                 if (!_servicesBanner.add247.checked) {
                     _servicesBanner.add247.action();
                 }
-            } else if (_newCategories.includes('BANK_FINANCIAL') && !pnhMatchData.notABank) {
+            } else if (newCategories.includes('BANK_FINANCIAL') && !pnhMatchData.notABank) {
                 // PNH Bank treatment
                 _ixBank = item.attributes.categories.indexOf('BANK_FINANCIAL');
                 _ixATM = item.attributes.categories.indexOf('ATM');
                 _ixOffices = item.attributes.categories.indexOf('OFFICES');
                 // if the name contains ATM in it
-                if (/\batm\b/ig.test(_newName)) {
+                if (/\batm\b/ig.test(newName)) {
                     if (_ixOffices === 0) {
                         _buttonBanner.bankType1 = new Flag.BankType1();
                         _buttonBanner.bankBranch = new Flag.BankBranch();
@@ -4438,8 +4454,8 @@ function harmonizePlaceGo(item, highlightOnly = false, actions = null) {
                         _buttonBanner.bankBranch = new Flag.BankBranch();
                         _buttonBanner.standaloneATM = new Flag.StandaloneATM();
                     }
-                    _newName = `${pnhMatchData.name} ATM`;
-                    _newCategories = insertAtIX(_newCategories, 'ATM', 0);
+                    newName = `${pnhMatchData.name} ATM`;
+                    newCategories = insertAtIX(newCategories, 'ATM', 0);
                     // Net result: If the place has ATM cat only and ATM in the name, then it will be green and renamed Bank Name ATM
                 } else if (_ixBank > -1 || _ixATM > -1) { // if no ATM in name but with a banking category:
                     if (_ixOffices === 0) {
@@ -4453,33 +4469,33 @@ function harmonizePlaceGo(item, highlightOnly = false, actions = null) {
                         _buttonBanner.bankBranch = new Flag.BankBranch();
                         _buttonBanner.standaloneATM = new Flag.StandaloneATM();
                     }
-                    _newName = pnhMatchData.name;
+                    newName = pnhMatchData.name;
                     // Net result: If the place has Bank category first, then it will be green with PNH name replaced
                 } else { // for PNH match with neither bank type category, make it a bank
-                    _newCategories = insertAtIX(_newCategories, 'BANK_FINANCIAL', 1);
+                    newCategories = insertAtIX(newCategories, 'BANK_FINANCIAL', 1);
                     _buttonBanner.standaloneATM = new Flag.StandaloneATM();
                     _buttonBanner.bankCorporate = new Flag.BankCorporate();
                 }// END PNH bank treatment
             } else if (['GAS_STATION'].includes(priPNHPlaceCat)) { // for PNH gas stations, don't replace existing sub-categories
                 if (pnhMatchData.altCategories.length) { // if PNH alts exist
-                    insertAtIX(_newCategories, pnhMatchData.altCategories, 1); //  then insert the alts into the existing category array after the GS category
+                    insertAtIX(newCategories, pnhMatchData.altCategories, 1); //  then insert the alts into the existing category array after the GS category
                 }
-                _buttonBanner.gasMkPrim = Flag.GasMkPrim.eval(_newCategories).flag;
-                if (!_buttonBanner.gasMkPrim) _newName = pnhMatchData.name;
+                _buttonBanner.gasMkPrim = Flag.GasMkPrim.eval(newCategories).flag;
+                if (!_buttonBanner.gasMkPrim) newName = pnhMatchData.name;
             } else if (updatePnhName) { // if not a special category then update the name
-                _newName = pnhMatchData.name;
-                _newCategories = insertAtIX(_newCategories, priPNHPlaceCat, 0);
+                newName = pnhMatchData.name;
+                newCategories = insertAtIX(newCategories, priPNHPlaceCat, 0);
                 if (pnhMatchData.altCategories.length && !(pnhMatchData.buttOn && pnhMatchData.buttOn.includes('addCat2')) && !pnhMatchData.optionCat2) {
-                    _newCategories = insertAtIX(_newCategories, pnhMatchData.altCategories, 1);
+                    newCategories = insertAtIX(newCategories, pnhMatchData.altCategories, 1);
                 }
             } else if (!updatePnhName) {
                 // Strong title case option for non-PNH places
-                const titleCaseName = toTitleCaseStrong(_newName);
-                if (_newName !== titleCaseName) {
+                const titleCaseName = toTitleCaseStrong(newName);
+                if (newName !== titleCaseName) {
                     _buttonBanner.STC = new Flag.STC();
                     _buttonBanner.STC.suffixMessage = `<span style="margin-left: 4px;font-size: 14px">&bull; ${titleCaseName}${newNameSuffix || ''}</span>`;
                     _buttonBanner.STC.title += titleCaseName;
-                    _buttonBanner.STC.originalName = _newName + (newNameSuffix || '');
+                    _buttonBanner.STC.originalName = newName + (newNameSuffix || '');
                 }
             }
 
@@ -4511,31 +4527,25 @@ function harmonizePlaceGo(item, highlightOnly = false, actions = null) {
 
             // Remove unnecessary parent categories
             const pnhCategories = _PNH_DATA[_countryCode].categories;
-            const parentCats = _.uniq(_newCategories.filter(catId => pnhCategories[catId].parentCategory).map(catId => pnhCategories[catId].parentCategory));
-            _newCategories = _newCategories.filter(cat => !parentCats.includes(cat));
+            const parentCats = _.uniq(newCategories.filter(catId => pnhCategories[catId].parentCategory).map(catId => pnhCategories[catId].parentCategory));
+            newCategories = newCategories.filter(cat => !parentCats.includes(cat));
 
             // update categories if different and no Cat2 option
-            if (!matchSets(_.uniq(item.attributes.categories), _.uniq(_newCategories))) {
+            if (!matchSets(_.uniq(item.attributes.categories), _.uniq(newCategories))) {
                 if (!pnhMatchData.optionCat2 && !(pnhMatchData.buttOn && pnhMatchData.buttOn.includes('addCat2'))) {
-                    phlogdev(`Categories updated with ${_newCategories}`);
-                    actions.push(new UpdateObject(item, { categories: _newCategories }));
+                    phlogdev(`Categories updated with ${newCategories}`);
+                    actions.push(new UpdateObject(item, { categories: newCategories }));
                     _UPDATED_FIELDS.categories.updated = true;
                 } else { // if second cat is optional
                     phlogdev(`Primary category updated with ${priPNHPlaceCat}`);
-                    _newCategories = insertAtIX(_newCategories, priPNHPlaceCat, 0);
-                    actions.push(new UpdateObject(item, { categories: _newCategories }));
+                    newCategories = insertAtIX(newCategories, priPNHPlaceCat, 0);
+                    actions.push(new UpdateObject(item, { categories: newCategories }));
                     _UPDATED_FIELDS.categories.updated = true;
                 }
             }
+
             // Enable optional 2nd category button
-            if (pnhMatchData.buttOn && pnhMatchData.buttOn.includes('addCat2') && !_newCategories.includes(pnhMatchData.altCategories[0])) {
-                const altCat = pnhMatchData.altCategories[0];
-                // TODO - move logic into flag eval
-                _buttonBanner.addCat2 = Flag.AddCat2.eval().flag;
-                _buttonBanner.addCat2.message = `Is there a ${_catTransWaze2Lang[altCat]} at this location?`;
-                _buttonBanner.addCat2.title = `Add ${_catTransWaze2Lang[altCat]}`;
-                _buttonBanner.addCat2.altCategory = altCat;
-            }
+            _buttonBanner.addCat2 = Flag.AddCat2.eval(pnhMatchData, newCategories).flag;
 
             // Description update
             let newDescripion = pnhMatchData.description;
@@ -4560,12 +4570,12 @@ function harmonizePlaceGo(item, highlightOnly = false, actions = null) {
             }
 
             // Strong title case option for non-PNH places
-            const titleCaseName = toTitleCaseStrong(_newName);
-            if (_newName !== titleCaseName) {
+            const titleCaseName = toTitleCaseStrong(newName);
+            if (newName !== titleCaseName) {
                 _buttonBanner.STC = new Flag.STC();
                 _buttonBanner.STC.suffixMessage = `<span style="margin-left: 4px;font-size: 14px">&bull; ${titleCaseName}${newNameSuffix || ''}</span>`;
                 _buttonBanner.STC.title += titleCaseName;
-                _buttonBanner.STC.originalName = _newName + (newNameSuffix || '');
+                _buttonBanner.STC.originalName = newName + (newNameSuffix || '');
             }
 
             _newURL = normalizeURL(_newURL, true, false, item, region); // Normalize url
@@ -4575,7 +4585,7 @@ function harmonizePlaceGo(item, highlightOnly = false, actions = null) {
             _ixATM = item.attributes.categories.indexOf('ATM');
             _ixOffices = item.attributes.categories.indexOf('OFFICES');
             // if the name contains ATM in it
-            if (_newName.match(/\batm\b/ig) !== null) {
+            if (newName.match(/\batm\b/ig) !== null) {
                 if (_ixOffices === 0) {
                     _buttonBanner.bankType1 = new Flag.BankType1();
                     _buttonBanner.bankBranch = new Flag.BankBranch();
@@ -4609,15 +4619,15 @@ function harmonizePlaceGo(item, highlightOnly = false, actions = null) {
 
         if (!highlightOnly) {
             // Update name:
-            if ((_newName + (newNameSuffix || '')) !== item.attributes.name) {
+            if ((newName + (newNameSuffix || '')) !== item.attributes.name) {
                 phlogdev('Name updated');
-                actions.push(new UpdateObject(item, { name: _newName + (newNameSuffix || '') }));
+                actions.push(new UpdateObject(item, { name: newName + (newNameSuffix || '') }));
                 // actions.push(new UpdateObject(item, { name: newName }));
                 _UPDATED_FIELDS.name.updated = true;
             }
 
             // Update aliases
-            _newAliases = removeSFAliases(_newName, _newAliases);
+            _newAliases = removeSFAliases(newName, _newAliases);
             if (_newAliases.some(alias => !item.attributes.aliases.includes(alias)) || _newAliases.length !== item.attributes.aliases.length) {
                 phlogdev('Alt Names updated');
                 actions.push(new UpdateObject(item, { aliases: _newAliases }));
@@ -4633,7 +4643,7 @@ function harmonizePlaceGo(item, highlightOnly = false, actions = null) {
             let newPlaceAddon = '';
             let approvalAddon = '';
             const approvalMessage = `Submitted via WMEPH. PNH order number ${pnhOrderNum}`;
-            const encodedTempSubmitName = encodeURIComponent(_newName);
+            const encodedTempSubmitName = encodeURIComponent(newName);
             const encodedPlacePL = encodeURIComponent(placePL);
             const encodedUrlSubmit = encodeURIComponent(newURLSubmit);
             const suffix = _USER.name + gFormState;
@@ -4711,7 +4721,7 @@ function harmonizePlaceGo(item, highlightOnly = false, actions = null) {
             // PNH specific Services:
 
             const autoEnableServices = $('#WMEPH-EnableServices').prop('checked');
-            _newCategories.forEach(catId => {
+            newCategories.forEach(catId => {
                 const catData = _PNH_DATA[_countryCode].categories[catId];
                 Object.keys(catData.services).forEach(serviceId => {
                     const service = catData.services[serviceId];
@@ -4742,7 +4752,7 @@ function harmonizePlaceGo(item, highlightOnly = false, actions = null) {
         let maxAreaSeverity = 3;
         let highestCategoryLock = -1;
 
-        _newCategories.forEach(catId => {
+        newCategories.forEach(catId => {
             const catData = _PNH_DATA[_countryCode].categories[catId];
             if (catData) {
                 let pvaPoint = catData.point;
@@ -4760,7 +4770,7 @@ function harmonizePlaceGo(item, highlightOnly = false, actions = null) {
                 }
 
                 // If Post Office and VPO or CPU is in the name, always a point.
-                if (_newCategories.includes('POST_OFFICE') && /\b(?:cpu|vpo)\b/i.test(item.attributes.name)) {
+                if (newCategories.includes('POST_OFFICE') && /\b(?:cpu|vpo)\b/i.test(item.attributes.name)) {
                     pvaPoint = '1';
                     pvaArea = null;
                 }
@@ -4775,7 +4785,7 @@ function harmonizePlaceGo(item, highlightOnly = false, actions = null) {
                 }
 
                 // display any messages regarding the category
-                _buttonBanner.pnhCatMess = Flag.PnhCatMess.eval(catData.message, _newCategories, highlightOnly).flag;
+                _buttonBanner.pnhCatMess = Flag.PnhCatMess.eval(catData.message, newCategories, highlightOnly).flag;
 
                 // Unmapped categories
                 _buttonBanner.unmappedRegion = Flag.UnmappedRegion.eval(catId, catData, state2L, region, _countryCode, isLocked).flag;
@@ -4850,7 +4860,7 @@ function harmonizePlaceGo(item, highlightOnly = false, actions = null) {
 
         COLLEGE_ABBREVIATIONS.forEach(abbr => {
             const anpNoneRE = new RegExp(`\\b${abbr}\\b`, 'g');
-            if (anpNoneRE.test(_newName) && _buttonBanner.areaNotPointLow) {
+            if (anpNoneRE.test(newName) && _buttonBanner.areaNotPointLow) {
                 _buttonBanner.areaNotPointLow.severity = 0;
                 _buttonBanner.areaNotPointLow.WLactive = false;
             }
@@ -4858,11 +4868,11 @@ function harmonizePlaceGo(item, highlightOnly = false, actions = null) {
 
         // Check for missing hours field
         if (item.attributes.openingHours.length === 0) { // if no hours...
-            if (!containsAny(_newCategories, ['STADIUM_ARENA', 'CEMETERY', 'TRANSPORTATION', 'FERRY_PIER', 'SUBWAY_STATION',
+            if (!containsAny(newCategories, ['STADIUM_ARENA', 'CEMETERY', 'TRANSPORTATION', 'FERRY_PIER', 'SUBWAY_STATION',
                 'BRIDGE', 'TUNNEL', 'JUNCTION_INTERCHANGE', 'ISLAND', 'SEA_LAKE_POOL', 'RIVER_STREAM', 'FOREST_GROVE', 'CANAL',
                 'SWAMP_MARSH', 'DAM'])) {
                 _buttonBanner.noHours = new Flag.NoHours();
-                if (hoursAdded || _wl.noHours || $('#WMEPH-DisableHoursHL').prop('checked') || containsAny(_newCategories, ['SCHOOL', 'CONVENTIONS_EVENT_CENTER',
+                if (hoursAdded || _wl.noHours || $('#WMEPH-DisableHoursHL').prop('checked') || containsAny(newCategories, ['SCHOOL', 'CONVENTIONS_EVENT_CENTER',
                     'CAMPING_TRAILER_PARK', 'COTTAGE_CABIN', 'COLLEGE_UNIVERSITY', 'GOLF_COURSE', 'SPORTS_COURT', 'MOVIE_THEATER',
                     'SHOPPING_CENTER', 'RELIGIOUS_CENTER', 'PARKING_LOT', 'PARK', 'PLAYGROUND', 'AIRPORT', 'FIRE_DEPARTMENT', 'POLICE_STATION',
                     'SEAPORT_MARINA_HARBOR', 'FARM', 'SCENIC_LOOKOUT_VIEWPOINT'])) {
@@ -4970,16 +4980,16 @@ function harmonizePlaceGo(item, highlightOnly = false, actions = null) {
         }
 
         // Post Office check
-        _buttonBanner.isThisAPostOffice = Flag.IsThisAPostOffice.eval(_newName, _countryCode, _newCategories).flag;
-        const evalResult = Flag.FormatUSPS.eval(_newName, newNameSuffix, _newCategories, addr, state2L, _countryCode);
+        _buttonBanner.isThisAPostOffice = Flag.IsThisAPostOffice.eval(newName, _countryCode, newCategories).flag;
+        const evalResult = Flag.FormatUSPS.eval(newName, newNameSuffix, newCategories, addr, state2L, _countryCode);
         _buttonBanner.formatUSPS = evalResult.flag;
-        if (evalResult.newName) _newName = evalResult.newName;
+        if (evalResult.newName) newName = evalResult.newName;
         if (evalResult.newNameSuffix) newNameSuffix = evalResult.newNameSuffix;
-        _buttonBanner.catPostOffice = Flag.CatPostOffice.eval(item, _newName, newNameSuffix, addr, state2L, _countryCode, highlightOnly, actions).flag;
-        _buttonBanner.missingUSPSAlt = Flag.MissingUSPSAlt.eval(_newAliases, _newCategories, _countryCode).flag;
-        _buttonBanner.missingUSPSZipAlt = Flag.MissingUSPSZipAlt.eval(_newAliases, _newName, _newCategories, _countryCode).flag;
-        _buttonBanner.missingUSPSDescription = Flag.MissingUSPSDescription.eval(item, _newCategories, _countryCode).flag;
-        if (!highlightOnly && _newCategories.includes('POST_OFFICE') && !_newCategories.includes('PARKING_LOT') && _countryCode === 'USA') {
+        _buttonBanner.catPostOffice = Flag.CatPostOffice.eval(item, newName, newNameSuffix, newCategories, addr, state2L, _countryCode, highlightOnly, actions).flag;
+        _buttonBanner.missingUSPSAlt = Flag.MissingUSPSAlt.eval(_newAliases, newCategories, _countryCode).flag;
+        _buttonBanner.missingUSPSZipAlt = Flag.MissingUSPSZipAlt.eval(_newAliases, newName, newCategories, _countryCode).flag;
+        _buttonBanner.missingUSPSDescription = Flag.MissingUSPSDescription.eval(item, newCategories, _countryCode).flag;
+        if (!highlightOnly && newCategories.includes('POST_OFFICE') && !newCategories.includes('PARKING_LOT') && _countryCode === 'USA') {
             _buttonBanner.NewPlaceSubmit = null;
             if (item.attributes.url !== 'usps.com') {
                 actions.push(new UpdateObject(item, { url: 'usps.com' }));
@@ -4992,9 +5002,9 @@ function harmonizePlaceGo(item, highlightOnly = false, actions = null) {
     // TODO eval function
     // For gas stations, check to make sure brand exists somewhere in the place name.
     // Remove non - alphanumeric characters first, for more relaxed matching.
-    if (_newCategories[0] === 'GAS_STATION' && item.attributes.brand) {
+    if (newCategories[0] === 'GAS_STATION' && item.attributes.brand) {
         const compressedName = item.attributes.name.toUpperCase().replace(/[^a-zA-Z0-9]/g, '');
-        const compressedNewName = _newName.toUpperCase().replace(/[^a-zA-Z0-9]/g, '');
+        const compressedNewName = newName.toUpperCase().replace(/[^a-zA-Z0-9]/g, '');
         // Some brands may have more than one acceptable name, or the brand listed in WME doesn't match what we want to see in the name.
         // Ideally, this would be addressed in the PNH spreadsheet somehow, but for now hardcoding is the only option.
         const compressedBrands = [newBrand.toUpperCase().replace(/[^a-zA-Z0-9]/g, '')];
@@ -5023,7 +5033,7 @@ function harmonizePlaceGo(item, highlightOnly = false, actions = null) {
 
     // TODO eval function
     // Name check
-    if (!item.attributes.residential && (!_newName || _newName.replace(/[^A-Za-z0-9]/g, '').length === 0)) {
+    if (!item.attributes.residential && (!newName || newName.replace(/[^A-Za-z0-9]/g, '').length === 0)) {
         if (item.isParkingLot()) {
             // If it's a parking lot and not locked to R3...
             if (item.attributes.lockRank < 2) {
@@ -5137,12 +5147,12 @@ function harmonizePlaceGo(item, highlightOnly = false, actions = null) {
     _buttonBanner.cityMissing = Flag.CityMissing.eval(item, addr, highlightOnly).flag;
     _buttonBanner.streetMissing = Flag.StreetMissing.eval(item, addr).flag;
 
-    _buttonBanner.notAHospital = Flag.NotAHospital.eval(_newCategories).flag;
+    _buttonBanner.notAHospital = Flag.NotAHospital.eval(newName, newCategories).flag;
 
     // CATEGORY vs. NAME checks
-    _buttonBanner.changeToPetVet = Flag.ChangeToPetVet.eval(_newName, _newCategories).flag;
-    _buttonBanner.changeToPetVet = Flag.ChangeToDoctorClinic.eval(item, _newCategories, highlightOnly, pnhNameRegMatch).flag;
-    _buttonBanner.notASchool = Flag.NotASchool.eval(_newName, _newCategories).flag;
+    _buttonBanner.changeToPetVet = Flag.ChangeToPetVet.eval(newName, newCategories).flag;
+    _buttonBanner.changeToPetVet = Flag.ChangeToDoctorClinic.eval(item, newCategories, highlightOnly, pnhNameRegMatch).flag;
+    _buttonBanner.notASchool = Flag.NotASchool.eval(newName, newCategories).flag;
 
     // Some cats don't need PNH messages and url/phone severities
     if (['BRIDGE', 'FOREST_GROVE', 'DAM', 'TUNNEL', 'CEMETERY'].includes(item.attributes.categories[0])) {
@@ -5191,8 +5201,8 @@ function harmonizePlaceGo(item, highlightOnly = false, actions = null) {
                 }
             } else if (!highlightOnly) {
                 const newSuffix = newNameSuffix.replace(/Mile/i, 'mile');
-                if (_newName + newSuffix !== item.attributes.name) {
-                    actions.push(new UpdateObject(item, { name: _newName + newSuffix }));
+                if (newName + newSuffix !== item.attributes.name) {
+                    actions.push(new UpdateObject(item, { name: newName + newSuffix }));
                     _UPDATED_FIELDS.name.updated = true;
                     phlogdev('Lower case "mile"');
                 } else {
@@ -5253,10 +5263,10 @@ function harmonizePlaceGo(item, highlightOnly = false, actions = null) {
         levelToLock = _defaultLockLevel;
     }
     if (region === 'SER') {
-        if (_newCategories.includes('COLLEGE_UNIVERSITY') && _newCategories.includes('PARKING_LOT')) {
+        if (newCategories.includes('COLLEGE_UNIVERSITY') && newCategories.includes('PARKING_LOT')) {
             levelToLock = _LOCK_LEVEL_4;
-        } else if (item.isPoint() && _newCategories.includes('COLLEGE_UNIVERSITY') && (!_newCategories.includes('HOSPITAL_MEDICAL_CARE')
-            || !_newCategories.includes('HOSPITAL_URGENT_CARE'))) {
+        } else if (item.isPoint() && newCategories.includes('COLLEGE_UNIVERSITY') && (!newCategories.includes('HOSPITAL_MEDICAL_CARE')
+            || !newCategories.includes('HOSPITAL_URGENT_CARE'))) {
             levelToLock = _LOCK_LEVEL_4;
         }
     }
@@ -5355,19 +5365,19 @@ function harmonizePlaceGo(item, highlightOnly = false, actions = null) {
     }
 
     // Turn off unnecessary buttons
-    if (_newCategories.includes('PHARMACY')) {
+    if (newCategories.includes('PHARMACY')) {
         if (_buttonBanner.addPharm) _buttonBanner.addPharm = null;
     }
-    if (_newCategories.includes('SUPERMARKET_GROCERY')) {
+    if (newCategories.includes('SUPERMARKET_GROCERY')) {
         if (_buttonBanner.addSuper) _buttonBanner.addSuper = null;
     }
 
     // TODO eval function
     // Final alerts for non-severe locations
     if (!item.attributes.residential && _severityButt < 3) {
-        const nameShortSpace = _newName.toUpperCase().replace(/[^A-Z ']/g, '');
+        const nameShortSpace = newName.toUpperCase().replace(/[^A-Z ']/g, '');
         if (nameShortSpace.includes('\'S HOUSE') || nameShortSpace.includes('\'S HOME') || nameShortSpace.includes('\'S WORK')) {
-            if (!containsAny(_newCategories, ['RESTAURANT', 'DESSERT', 'BAR']) && !pnhNameRegMatch) {
+            if (!containsAny(newCategories, ['RESTAURANT', 'DESSERT', 'BAR']) && !pnhNameRegMatch) {
                 _buttonBanner.resiTypeNameSoft = new Flag.ResiTypeNameSoft();
             }
         }
@@ -5427,11 +5437,11 @@ function harmonizePlaceGo(item, highlightOnly = false, actions = null) {
     // Run nearby duplicate place finder function
     _dupeHNRangeList = [];
     _dupeBanner = {};
-    if (_newName.replace(/[^A-Za-z0-9]/g, '').length > 0 && !item.attributes.residential && !isEmergencyRoom(item) && !isRestArea(item)) {
+    if (newName.replace(/[^A-Za-z0-9]/g, '').length > 0 && !item.attributes.residential && !isEmergencyRoom(item) && !isRestArea(item)) {
         if ($('#WMEPH-DisableDFZoom').prop('checked')) { // don't zoom and pan for results outside of FOV
-            _duplicateName = findNearbyDuplicate(_newName, _newAliases, item, false);
+            _duplicateName = findNearbyDuplicate(newName, _newAliases, item, false);
         } else {
-            _duplicateName = findNearbyDuplicate(_newName, _newAliases, item, true);
+            _duplicateName = findNearbyDuplicate(newName, _newAliases, item, true);
         }
         if (_duplicateName[1]) {
             _buttonBanner.overlapping = new Flag.Overlapping();
