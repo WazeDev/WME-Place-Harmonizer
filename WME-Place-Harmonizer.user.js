@@ -1758,10 +1758,37 @@ let Flag = {
             harmonizePlaceGo(venue);
         }
     },
+    // Some brands may have more than one acceptable name, or the brand listed in WME doesn't match what we want to see in the name.
+    // Ideally, this would be addressed in the PNH spreadsheet somehow, but for now hardcoding is the only option.
     GasMismatch: class extends WLFlag {
         constructor() {
             super(3, '<a href="https://wazeopedia.waze.com/wiki/USA/Places/Gas_station#Name" target="_blank" class="red">Gas brand should typically be included in the place name.</a>',
-                true, 'Whitelist gas brand / name mismatch', 'gasMismatch');
+                true, 'Whitelist gas brand / name mismatch', 'gasMismatch', true);
+        }
+
+        static eval(venue, name, brand, categories, whitelist) {
+            const result = { flag: null };
+            if (categories[0] === 'GAS_STATION' && brand) {
+                const compressedName = name.toUpperCase().replace(/[^a-zA-Z0-9]/g, '');
+                const compressedBrands = [brand.toUpperCase().replace(/[^a-zA-Z0-9]/g, '')];
+                if (brand === 'Diamond Gasoline') {
+                    compressedBrands.push('DIAMONDOIL');
+                } else if (brand === 'Murphy USA') {
+                    compressedBrands.push('MURPHY');
+                } else if (brand === 'Mercury Fuel') {
+                    compressedBrands.push('MERCURY', 'MERCURYPRICECUTTER');
+                } else if (brand === 'Carrollfuel') {
+                    compressedBrands.push('CARROLLMOTORFUEL', 'CARROLLMOTORFUELS');
+                }
+                if (!compressedBrands.some(compressedBrand => compressedName.includes(compressedBrand))) {
+                    result.flag = new Flag.GasMismatch();
+                    if (whitelist.gasMismatch) {
+                        result.flag.WLactive = false;
+                        result.noLock = false;
+                    }
+                }
+            }
+            return result;
         }
     },
     GasUnbranded: class extends FlagBase {
@@ -5010,30 +5037,7 @@ function harmonizePlaceGo(item, highlightOnly = false, actions = null) {
     // TODO eval function
     // For gas stations, check to make sure brand exists somewhere in the place name.
     // Remove non - alphanumeric characters first, for more relaxed matching.
-    if (newCategories[0] === 'GAS_STATION' && item.attributes.brand) {
-        const compressedName = item.attributes.name.toUpperCase().replace(/[^a-zA-Z0-9]/g, '');
-        const compressedNewName = newName.toUpperCase().replace(/[^a-zA-Z0-9]/g, '');
-        // Some brands may have more than one acceptable name, or the brand listed in WME doesn't match what we want to see in the name.
-        // Ideally, this would be addressed in the PNH spreadsheet somehow, but for now hardcoding is the only option.
-        const compressedBrands = [newBrand.toUpperCase().replace(/[^a-zA-Z0-9]/g, '')];
-        if (newBrand === 'Diamond Gasoline') {
-            compressedBrands.push('DIAMONDOIL');
-        } else if (newBrand === 'Murphy USA') {
-            compressedBrands.push('MURPHY');
-        } else if (newBrand === 'Mercury Fuel') {
-            compressedBrands.push('MERCURY', 'MERCURYPRICECUTTER');
-        } else if (newBrand === 'Carrollfuel') {
-            compressedBrands.push('CARROLLMOTORFUEL', 'CARROLLMOTORFUELS');
-        }
-        if (compressedBrands.every(compressedBrand => !compressedName.includes(compressedBrand) && !compressedNewName.includes(compressedBrand))) {
-            _buttonBanner.gasMismatch = new Flag.GasMismatch();
-            if (wl.gasMismatch) {
-                _buttonBanner.gasMismatch.WLactive = false;
-            } else {
-                noLock = true;
-            }
-        }
-    }
+    _buttonBanner.gasMismatch = Flag.GasMismatch.eval(item, newName, newBrand, newCategories, wl).flag;
 
     // Brand checking (be sure to check this after determining if brand will be forced, when harmonzing)
     _buttonBanner.gasNoBrand = Flag.GasNoBrand.eval(item, newBrand).flag;
