@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name        WME Place Harmonizer Beta (pnh-update)
 // @namespace   WazeUSA
-// @version     2019.06.23.001
+// @version     2019.06.24.001
 // @description Harmonizes, formats, and locks a selected place
 // @author      WMEPH Development Group
 // @include     /^https:\/\/(www|beta)\.waze\.com\/(?!user\/)(.{2,6}\/)?editor\/?.*$/
@@ -94,6 +94,137 @@ let _resultsCache = {};
 let _initAlreadyRun = false; // This is used to skip a couple things if already run once.  This could probably be handled better...
 let _textEntryValues = null; // Store the values entered in text boxes so they can be re-added when the banner is reassembled.
 
+// Constants for category IDs
+const AIRPORT = 'AIRPORT';
+// const ART_GALLERY = 'ART_GALLERY';
+// const ARTS_AND_CRAFTS = 'ARTS_AND_CRAFTS';
+const ATM = 'ATM';
+// const BAKERY = 'BAKERY';
+const BANK_FINANCIAL = 'BANK_FINANCIAL';
+const BAR = 'BAR';
+// const BEACH = 'BEACH';
+// const BED_AND_BREAKFAST = 'BED_AND_BREAKFAST';
+// const BOOKSTORE = 'BOOKSTORE';
+const BRIDGE = 'BRIDGE';
+// const BUS_STATION = 'BUS_STATION';
+// const CAFE = 'CAFE';
+const CAMPING_TRAILER_PARK = 'CAMPING_TRAILER_PARK';
+const CANAL = 'CANAL';
+// const CAR_DEALERSHIP = 'CAR_DEALERSHIP';
+// const CAR_RENTAL = 'CAR_RENTAL';
+// const CAR_SERVICES = 'CAR_SERVICES';
+// const CAR_WASH = 'CAR_WASH';
+// const CASINO = 'CASINO';
+const CEMETERY = 'CEMETERY';
+// const CHARGING_STATION = 'CHARGING_STATION';
+// const CITY_HALL = 'CITY_HALL';
+// const CLUB = 'CLUB';
+const COLLEGE_UNIVERSITY = 'COLLEGE_UNIVERSITY';
+// const CONSTRUCTION_SITE = 'CONSTRUCTION_SITE';
+const CONVENIENCE_STORE = 'CONVENIENCE_STORE';
+const CONVENTIONS_EVENT_CENTER = 'CONVENTIONS_EVENT_CENTER';
+const COTTAGE_CABIN = 'COTTAGE_CABIN';
+// const COURTHOUSE = 'COURTHOUSE';
+// const CULTURE_AND_ENTERTAINEMENT = 'CULTURE_AND_ENTERTAINEMENT';
+// const CURRENCY_EXCHANGE = 'CURRENCY_EXCHANGE';
+const DAM = 'DAM';
+// const DEPARTMENT_STORE = 'DEPARTMENT_STORE';
+const DESSERT = 'DESSERT';
+const DOCTOR_CLINIC = 'DOCTOR_CLINIC';
+// const ELECTRONICS = 'ELECTRONICS';
+// const EMBASSY_CONSULATE = 'EMBASSY_CONSULATE';
+// const EMERGENCY_SHELTER = 'EMERGENCY_SHELTER';
+// const FACTORY_INDUSTRIAL = 'FACTORY_INDUSTRIAL';
+const FARM = 'FARM';
+// const FASHION_AND_CLOTHING = 'FASHION_AND_CLOTHING';
+// const FAST_FOOD = 'FAST_FOOD';
+const FERRY_PIER = 'FERRY_PIER';
+const FIRE_DEPARTMENT = 'FIRE_DEPARTMENT';
+// const FLOWERS = 'FLOWERS';
+// const FOOD_AND_DRINK = 'FOOD_AND_DRINK';
+// const FOOD_COURT = 'FOOD_COURT';
+const FOREST_GROVE = 'FOREST_GROVE';
+// const FURNITURE_HOME_STORE = 'FURNITURE_HOME_STORE';
+// const GAME_CLUB = 'GAME_CLUB';
+// const GARAGE_AUTOMOTIVE_SHOP = 'GARAGE_AUTOMOTIVE_SHOP';
+const GAS_STATION = 'GAS_STATION';
+// const GIFTS = 'GIFTS';
+const GOLF_COURSE = 'GOLF_COURSE';
+// const GOVERNMENT = 'GOVERNMENT';
+// const GYM_FITNESS = 'GYM_FITNESS';
+// const HARDWARE_STORE = 'HARDWARE_STORE';
+const HOSPITAL_MEDICAL_CARE = 'HOSPITAL_MEDICAL_CARE';
+const HOSPITAL_URGENT_CARE = 'HOSPITAL_URGENT_CARE';
+// const HOSTEL = 'HOSTEL';
+const HOTEL = 'HOTEL';
+// const ICE_CREAM = 'ICE_CREAM';
+// const INFORMATION_POINT = 'INFORMATION_POINT';
+const ISLAND = 'ISLAND';
+// const JEWELRY = 'JEWELRY';
+const JUNCTION_INTERCHANGE = 'JUNCTION_INTERCHANGE';
+// const KINDERGARDEN = 'KINDERGARDEN';
+// const LAUNDRY_DRY_CLEAN = 'LAUNDRY_DRY_CLEAN';
+// const LIBRARY = 'LIBRARY';
+const LODGING = 'LODGING';
+// const MARKET = 'MARKET';
+// const MILITARY = 'MILITARY';
+const MOVIE_THEATER = 'MOVIE_THEATER';
+// const MUSEUM = 'MUSEUM';
+// const MUSIC_STORE = 'MUSIC_STORE';
+// const MUSIC_VENUE = 'MUSIC_VENUE';
+const NATURAL_FEATURES = 'NATURAL_FEATURES';
+const OFFICES = 'OFFICES';
+// const ORGANIZATION_OR_ASSOCIATION = 'ORGANIZATION_OR_ASSOCIATION';
+const OTHER = 'OTHER';
+// const OUTDOORS = 'OUTDOORS';
+const PARK = 'PARK';
+const PARKING_LOT = 'PARKING_LOT';
+// const PERFORMING_ARTS_VENUE = 'PERFORMING_ARTS_VENUE';
+const PERSONAL_CARE = 'PERSONAL_CARE';
+const PET_STORE_VETERINARIAN_SERVICES = 'PET_STORE_VETERINARIAN_SERVICES';
+const PHARMACY = 'PHARMACY';
+// const PHOTOGRAPHY = 'PHOTOGRAPHY';
+const PLAYGROUND = 'PLAYGROUND';
+// const PLAZA = 'PLAZA';
+const POLICE_STATION = 'POLICE_STATION';
+// const POOL = 'POOL';
+const POST_OFFICE = 'POST_OFFICE';
+// const PRISON_CORRECTIONAL_FACILITY = 'PRISON_CORRECTIONAL_FACILITY';
+// const PROFESSIONAL_AND_PUBLIC = 'PROFESSIONAL_AND_PUBLIC';
+// const PROMENADE = 'PROMENADE';
+// const RACING_TRACK = 'RACING_TRACK';
+const RELIGIOUS_CENTER = 'RELIGIOUS_CENTER';
+const RESIDENCE_HOME = 'RESIDENCE_HOME';
+const REST_AREAS = 'REST_AREAS';
+const RESTAURANT = 'RESTAURANT';
+const RIVER_STREAM = 'RIVER_STREAM';
+const SCENIC_LOOKOUT_VIEWPOINT = 'SCENIC_LOOKOUT_VIEWPOINT';
+const SCHOOL = 'SCHOOL';
+const SEA_LAKE_POOL = 'SEA_LAKE_POOL';
+const SEAPORT_MARINA_HARBOR = 'SEAPORT_MARINA_HARBOR';
+// const SHOPPING_AND_SERVICES = 'SHOPPING_AND_SERVICES';
+const SHOPPING_CENTER = 'SHOPPING_CENTER';
+// const SKI_AREA = 'SKI_AREA';
+// const SPORTING_GOODS = 'SPORTING_GOODS';
+const SPORTS_COURT = 'SPORTS_COURT';
+const STADIUM_ARENA = 'STADIUM_ARENA';
+const SUBWAY_STATION = 'SUBWAY_STATION';
+const SUPERMARKET_GROCERY = 'SUPERMARKET_GROCERY';
+const SWAMP_MARSH = 'SWAMP_MARSH';
+// const SWIMMING_POOL = 'SWIMMING_POOL';
+// const TAXI_STATION = 'TAXI_STATION';
+// const TELECOM = 'TELECOM';
+// const THEATER = 'THEATER';
+// const THEME_PARK = 'THEME_PARK';
+// const TOURIST_ATTRACTION_HISTORIC_SITE = 'TOURIST_ATTRACTION_HISTORIC_SITE';
+// const TOY_STORE = 'TOY_STORE';
+// const TRAIN_STATION = 'TRAIN_STATION';
+const TRANSPORTATION = 'TRANSPORTATION';
+// const TRASH_AND_RECYCLING_FACILITIES = 'TRASH_AND_RECYCLING_FACILITIES';
+// const TRAVEL_AGENCY = 'TRAVEL_AGENCY';
+const TUNNEL = 'TUNNEL';
+// const ZOO_AQUARIUM = 'ZOO_AQUARIUM';
+
 // vars for cat-name checking
 let _hospitalPartMatch;
 let _hospitalFullMatch;
@@ -178,8 +309,8 @@ const TITLECASE_SETTINGS = {
         'TNT', 'TV', 'UPS', 'USA', 'USPS', 'VW', 'XYZ', 'ZZZ'],
     specWords: ['d\'Bronx', 'iFix', 'ExtraMile']
 };
-const EXCLUDE_FROM_MISSING_ADDRESS_FLAGS = ['BRIDGE', 'ISLAND', 'FOREST_GROVE', 'SEA_LAKE_POOL',
-    'RIVER_STREAM', 'CANAL', 'DAM', 'TUNNEL', 'JUNCTION_INTERCHANGE'];
+const EXCLUDE_FROM_MISSING_ADDRESS_FLAGS = [BRIDGE, ISLAND, FOREST_GROVE, SEA_LAKE_POOL,
+    RIVER_STREAM, CANAL, DAM, TUNNEL, JUNCTION_INTERCHANGE];
 
 // Split out state-based data
 let _psStateIx;
@@ -507,7 +638,7 @@ function isEmergencyRoom(venue) {
 }
 
 function isRestArea(venue) {
-    return venue.attributes.categories.includes('REST_AREAS') && /rest\s*area/i.test(venue.attributes.name);
+    return venue.attributes.categories.includes(REST_AREAS) && /rest\s*area/i.test(venue.attributes.name);
 }
 
 function getPvaSeverity(pvaValue, venue) {
@@ -778,7 +909,7 @@ function harmoList(itemName, state2L, region3L, country, itemCats, item) {
         if (pnhEntry.regexNameMatch) {
             // Check for regex name matching instead of "standard" name matching.
             pnhMatchString = pnhEntry.regexNameMatch.test(item.attributes.name);
-        } else if (pnhEntry.strMatchAny || pnhEntry.category1 === 'HOTEL') {
+        } else if (pnhEntry.strMatchAny || pnhEntry.category1 === HOTEL) {
             // Match any part of WME name with either the PNH name or any spaced names
             const spaceMatchList = [
                 pnhEntry.name.toUpperCase().replace(/ AND /g, ' ').replace(/^THE /g, '').replace(/[^A-Z0-9 ]/g, ' ').replace(/ {2,}/g, ' '),
@@ -811,7 +942,7 @@ function harmoList(itemName, state2L, region3L, country, itemCats, item) {
             let { forceCategory } = pnhEntry; // Primary category of PNH data
 
             // Gas stations only harmonized if the WME place category is already gas station (prevents Costco Gas becoming Costco Store)
-            if (itemCats[0] === 'GAS_STATION') {
+            if (itemCats[0] === GAS_STATION) {
                 forceCategory = '1';
             }
 
@@ -1127,7 +1258,7 @@ function initializeHighlights() {
                 evaluate(venue) {
                     if ($('#WMEPH-PLATypeFill').prop('checked') && venue && venue.model && venue.model.attributes.categories
                         && venue.model.attributes.categoryAttributes && venue.model.attributes.categoryAttributes.PARKING_LOT
-                        && venue.model.attributes.categories.includes('PARKING_LOT')) {
+                        && venue.model.attributes.categories.includes(PARKING_LOT)) {
                         const type = venue.model.attributes.categoryAttributes.PARKING_LOT.parkingType;
                         return (!type && this.value === 'public') || (type && (type.toLowerCase() === this.value));
                     }
@@ -1590,10 +1721,10 @@ let Flag = {
                     result = 'adLock';
                 } else {
                     const cat = venue.attributes.categories;
-                    if (containsAny(cat, ['HOSPITAL_MEDICAL_CARE', 'HOSPITAL_URGENT_CARE', 'GAS_STATION'])) {
+                    if (containsAny(cat, [HOSPITAL_MEDICAL_CARE, HOSPITAL_URGENT_CARE, GAS_STATION])) {
                         phlogdev('Unaddressed HUC/GS');
                         result = 5;
-                    } else if (cat.includes('JUNCTION_INTERCHANGE')) {
+                    } else if (cat.includes(JUNCTION_INTERCHANGE)) {
                         result = 0;
                     } else {
                         result = 3;
@@ -1668,7 +1799,7 @@ let Flag = {
             if (rareRegions.includes(state2L)
                 || rareRegions.includes(region)
                 || rareRegions.includes(countryCode)) {
-                if (catId === 'OTHER' && ['GLR', 'NER', 'NWR', 'PLN', 'SCR', 'SER', 'NOR', 'HI'].includes(region)) {
+                if (catId === OTHER && ['GLR', 'NER', 'NWR', 'PLN', 'SCR', 'SER', 'NOR', 'HI'].includes(region)) {
                     if (!isLocked) {
                         result.flag = new Flag.UnmappedRegion();
                         result.flag.WLactive = false;
@@ -1698,8 +1829,8 @@ let Flag = {
         action() {
             const venue = getSelectedVenue();
             let { categories } = venue.attributes;
-            if (categories.includes('TRANSPORTATION')) {
-                categories = categories.filter(cat => cat !== 'TRANSPORTATION');
+            if (categories.includes(TRANSPORTATION)) {
+                categories = categories.filter(cat => cat !== TRANSPORTATION);
                 UPDATED_FIELDS.categories.updated = true;
                 addUpdateAction(venue, { categories });
                 harmonizePlaceGo(venue);
@@ -1719,8 +1850,8 @@ let Flag = {
         action() {
             const venue = getSelectedVenue();
             let { categories } = venue.attributes;
-            if (categories.includes('SCENIC_LOOKOUT_VIEWPOINT')) {
-                categories = categories.filter(cat => cat !== 'SCENIC_LOOKOUT_VIEWPOINT');
+            if (categories.includes(SCENIC_LOOKOUT_VIEWPOINT)) {
+                categories = categories.filter(cat => cat !== SCENIC_LOOKOUT_VIEWPOINT);
                 UPDATED_FIELDS.categories.updated = true;
                 addUpdateAction(venue, { categories });
                 harmonizePlaceGo(venue);
@@ -1738,8 +1869,8 @@ let Flag = {
             const venue = getSelectedVenue();
             const actions = [];
             // update categories according to spec
-            if (!venue.attributes.categories.includes('REST_AREAS')) {
-                const categories = insertAtIX(venue.attributes.categories, 'REST_AREAS', 0);
+            if (!venue.attributes.categories.includes(REST_AREAS)) {
+                const categories = insertAtIX(venue.attributes.categories, REST_AREAS, 0);
                 addUpdateAction(venue, { categories }, actions);
                 UPDATED_FIELDS.categories.updated = true;
             }
@@ -1766,9 +1897,9 @@ let Flag = {
                 true, 'Whitelist gas brand / name mismatch', 'gasMismatch', true);
         }
 
-        static eval(venue, name, brand, categories, whitelist) {
+        static eval(name, brand, categories, whitelist) {
             const result = { flag: null };
-            if (categories[0] === 'GAS_STATION' && brand) {
+            if (categories[0] === GAS_STATION && brand) {
                 const compressedName = name.toUpperCase().replace(/[^a-zA-Z0-9]/g, '');
                 const compressedBrands = [brand.toUpperCase().replace(/[^a-zA-Z0-9]/g, '')];
                 if (brand === 'Diamond Gasoline') {
@@ -1814,7 +1945,7 @@ let Flag = {
 
         static eval(categories) {
             const result = { flag: null };
-            if (categories.indexOf('GAS_STATION') !== 0) { // If no GS category in the primary, flag it
+            if (categories.indexOf(GAS_STATION) !== 0) { // If no GS category in the primary, flag it
                 result.flag = new Flag.GasMkPrim();
             }
             return result;
@@ -1824,9 +1955,9 @@ let Flag = {
         action() {
             const venue = getSelectedVenue();
             let { categories } = venue.attributes;
-            if (categories[0] !== 'GAS_STATION') {
+            if (categories[0] !== GAS_STATION) {
                 // Insert/move Gas category in the first position
-                categories = insertAtIX(categories, 'GAS_STATION', 0);
+                categories = insertAtIX(categories, GAS_STATION, 0);
                 UPDATED_FIELDS.categories.updated = true;
                 addUpdateAction(venue, { categories });
             }
@@ -1867,7 +1998,7 @@ let Flag = {
 
         static eval(venue, pnhMatch, whitelist) {
             const result = { flag: null };
-            if (pnhMatch.category1 === 'HOTEL' && venue.attributes.categories[0] !== 'HOTEL') { // If no HOTEL category in the primary, flag it
+            if (pnhMatch.category1 === HOTEL && venue.attributes.categories[0] !== HOTEL) { // If no HOTEL category in the primary, flag it
                 result.flag = new Flag.HotelMkPrim();
                 if (whitelist.hotelMkPrim) {
                     result.flag.WLactive = false;
@@ -1882,7 +2013,7 @@ let Flag = {
         action() {
             const venue = getSelectedVenue();
             // Insert/move Hotel category in the first position
-            const categories = insertAtIX(venue.attributes.categories.slice(), 'HOTEL', 0);
+            const categories = insertAtIX(venue.attributes.categories.slice(), HOTEL, 0);
             UPDATED_FIELDS.categories.updated = true;
             addUpdateAction(venue, { categories });
             harmonizePlaceGo(venue);
@@ -1898,7 +2029,7 @@ let Flag = {
             const testName = name.toLowerCase().replace(/[^a-z]/g, ' ');
             const testNameWords = testName.split(' ');
             const result = { flag: null };
-            if ((categories.includes('HOSPITAL_URGENT_CARE') || categories.includes('DOCTOR_CLINIC'))
+            if ((categories.includes(HOSPITAL_URGENT_CARE) || categories.includes(DOCTOR_CLINIC))
                 && (containsAny(testNameWords, _animalFullMatch) || _animalPartMatch.some(match => testName.includes(match)))) {
                 if (!whitelist.changeHMC2PetVet) {
                     result.flag = new Flag.ChangeToPetVet();
@@ -1913,8 +2044,8 @@ let Flag = {
             let updated = false;
             let categories = _.uniq(venue.attributes.categories.slice());
             categories.forEach((cat, idx) => {
-                if (cat === 'HOSPITAL_URGENT_CARE' || cat === 'DOCTOR_CLINIC') {
-                    categories[idx] = 'PET_STORE_VETERINARIAN_SERVICES';
+                if (cat === HOSPITAL_URGENT_CARE || cat === DOCTOR_CLINIC) {
+                    categories[idx] = PET_STORE_VETERINARIAN_SERVICES;
                     updated = true;
                 }
             });
@@ -1937,7 +2068,7 @@ let Flag = {
             const testName = name.toLowerCase().replace(/[^a-z]/g, ' ');
             const testNameWords = testName.split(' ');
 
-            if (categories.includes('SCHOOL')
+            if (categories.includes(SCHOOL)
                 && (containsAny(testNameWords, _schoolFullMatch) || _schoolPartMatch.some(match => testName.includes(match)))) {
                 if (!whitelist.changeSchool2Offices) {
                     result.flag = new Flag.NotASchool();
@@ -1955,7 +2086,7 @@ let Flag = {
         // eslint-disable-next-line class-methods-use-this
         action() {
             const venue = getSelectedVenue();
-            if (venue.attributes.categories.includes('RESIDENCE_HOME')) {
+            if (venue.attributes.categories.includes(RESIDENCE_HOME)) {
                 const centroid = venue.geometry.getCentroid();
                 updateFeatureGeometry(venue, new OL.Geometry.Point(centroid.x, centroid.y));
             } else {
@@ -2036,7 +2167,7 @@ let Flag = {
             if (address.city && (!address.street || address.street.isEmpty)
                 && !EXCLUDE_FROM_MISSING_ADDRESS_FLAGS.includes(venue.attributes.categories[0])) {
                 result.flag = new Flag.StreetMissing();
-                if (['SCENIC_LOOKOUT_VIEWPOINT'].includes(venue.attributes.categories[0])) {
+                if ([SCENIC_LOOKOUT_VIEWPOINT].includes(venue.attributes.categories[0])) {
                     result.flag.severity = 1;
                     result.flag.noLock = false;
                 }
@@ -2090,7 +2221,7 @@ let Flag = {
         // eslint-disable-next-line class-methods-use-this
         action() {
             const venue = getSelectedVenue();
-            const categories = ['BANK_FINANCIAL', 'ATM'];
+            const categories = [BANK_FINANCIAL, ATM];
             // strip ATM from name if present
             const name = venue.attributes.name.replace(/[- (]*ATM[- )]*/g, ' ').trim();
             addUpdateAction(venue, { name, categories });
@@ -2110,7 +2241,7 @@ let Flag = {
                 name += ' ATM';
                 UPDATED_FIELDS.name.updated = true;
             }
-            const categories = ['ATM']; // Change to ATM only
+            const categories = [ATM]; // Change to ATM only
             addUpdateAction(venue, { name, categories });
             UPDATED_FIELDS.categories.updated = true;
             harmonizePlaceGo(venue);
@@ -2122,7 +2253,7 @@ let Flag = {
         // eslint-disable-next-line class-methods-use-this
         action() {
             const venue = getSelectedVenue();
-            const categories = ['OFFICES']; // Change to offices category
+            const categories = [OFFICES]; // Change to offices category
             // strip ATM from name if present
             const name = venue.attributes.name.replace(/[- (]*atm[- )]*/ig, ' ').trim().replace(/ {2,}/g, ' ');
             addUpdateAction(venue, { name: `${name} - Corporate Offices`, categories });
@@ -2140,7 +2271,7 @@ let Flag = {
 
         static eval(venue, name, nameSuffix, categories, address, state2L, countryCode, highlightOnly, actions) {
             const result = { flag: null };
-            if (!highlightOnly && categories.includes('POST_OFFICE') && countryCode === 'USA') {
+            if (!highlightOnly && categories.includes(POST_OFFICE) && countryCode === 'USA') {
                 const postOfficeRegEx = Flag.FormatUSPS.getUspsNameRegex(address, state2L);
                 const nameToCheck = name + (nameSuffix || '');
                 if (postOfficeRegEx.test(nameToCheck)) {
@@ -2350,7 +2481,7 @@ let Flag = {
 
         static eval(name, nameSuffix, categories, address, state2L, countryCode) {
             const result = { flag: null, newName: null, newNameSuffix: null };
-            if (categories.includes('POST_OFFICE') && !categories.includes('PARKING_LOT') && countryCode === 'USA') {
+            if (categories.includes(POST_OFFICE) && !categories.includes(PARKING_LOT) && countryCode === 'USA') {
                 const trimmedName = name.trimLeft().replace(/ {2,}/, ' ');
                 let trimmedNameSuffix;
                 if (nameSuffix) {
@@ -2373,7 +2504,7 @@ let Flag = {
 
         static eval(aliases, categories, countryCode) {
             const result = { flag: null };
-            if (categories.includes('POST_OFFICE') && countryCode === 'USA'
+            if (categories.includes(POST_OFFICE) && countryCode === 'USA'
                 && !aliases.some(alias => alias.toUpperCase() === 'USPS')) {
                 result.flag = new Flag.MissingUSPSAlt();
             }
@@ -2399,7 +2530,7 @@ let Flag = {
 
         static eval(aliases, name, categories, countryCode, whitelist) {
             const result = { flag: null };
-            if (categories.includes('POST_OFFICE') && countryCode === 'USA') {
+            if (categories.includes(POST_OFFICE) && countryCode === 'USA') {
                 if (!aliases.some(alias => /\d{5}/.test(alias))) {
                     result.flag = new Flag.MissingUSPSZipAlt();
                     if (whitelist.missingUSPSZipAlt) {
@@ -2446,7 +2577,7 @@ let Flag = {
 
         static eval(venue, categories, countryCode, whitelist) {
             const result = { flag: null };
-            if (categories.includes('POST_OFFICE') && countryCode === 'USA') {
+            if (categories.includes(POST_OFFICE) && countryCode === 'USA') {
                 const lines = venue.attributes.description.split('\n');
                 if (!lines.length || !/^.{2,}, [A-Z]{2}\s{1,2}\d{5}$/.test(lines[0])) {
                     result.flag = new Flag.MissingUSPSDescription();
@@ -2464,7 +2595,7 @@ let Flag = {
 
         static eval(name, nameSuffix, pnhName, primaryPnhCategory) {
             const result = { flag: null, newName: name };
-            if (primaryPnhCategory === 'HOTEL') {
+            if (primaryPnhCategory === HOTEL) {
                 const nameToCheck = name + (nameSuffix || '');
                 if (nameToCheck.toUpperCase() === pnhName.toUpperCase()) { // If no localization
                     result.flag = new Flag.CatHotel(pnhName);
@@ -2522,7 +2653,7 @@ let Flag = {
             const result = { flag: null };
             if (!highlightOnly && !isNullOrWhitespace(message)) {
                 result.flag = new Flag.PnhCatMess(message);
-                if (categories.includes('HOSPITAL_URGENT_CARE')) {
+                if (categories.includes(HOSPITAL_URGENT_CARE)) {
                     result.flag.value = 'Change to Doctor/Clinic';
                     result.flag.actionType = 'changeToDoctorClinic';
                 }
@@ -2534,9 +2665,9 @@ let Flag = {
             const venue = getSelectedVenue();
             if (this.actionType === 'changeToDoctorClinic') {
                 const categories = _.uniq(venue.attributes.categories.slice());
-                const idx = categories.indexOf('HOSPITAL_URGENT_CARE');
+                const idx = categories.indexOf(HOSPITAL_URGENT_CARE);
                 if (idx > -1) {
-                    categories[idx] = 'DOCTOR_CLINIC';
+                    categories[idx] = DOCTOR_CLINIC;
                     UPDATED_FIELDS.categories.updated = true;
                     addUpdateAction(venue, { categories });
                     harmonizePlaceGo(venue);
@@ -2554,8 +2685,8 @@ let Flag = {
         static eval(venue, isLocked, categories, userRank, ignoreParkingLots, actions) {
             const result = { flag: null };
             if (userRank >= 2 && venue.areExternalProvidersEditable() && !(venue.isParkingLot() && ignoreParkingLots)) {
-                const catsToIgnore = ['BRIDGE', 'TUNNEL', 'JUNCTION_INTERCHANGE', 'NATURAL_FEATURES', 'ISLAND',
-                    'SEA_LAKE_POOL', 'RIVER_STREAM', 'CANAL', 'SWAMP_MARSH'];
+                const catsToIgnore = [BRIDGE, TUNNEL, JUNCTION_INTERCHANGE, NATURAL_FEATURES, ISLAND,
+                    SEA_LAKE_POOL, RIVER_STREAM, CANAL, SWAMP_MARSH];
                 if (!categories.some(cat => catsToIgnore.includes(cat))) {
                     const provIDs = venue.attributes.externalProviderIDs;
                     if (!(provIDs && provIDs.length)) {
@@ -3120,8 +3251,8 @@ let Flag = {
         action() {
             const venue = getSelectedVenue();
             let { categories } = venue.attributes;
-            if (!categories.includes('PHARMACY')) {
-                categories = insertAtIX(categories, 'PHARMACY', 1);
+            if (!categories.includes(PHARMACY)) {
+                categories = insertAtIX(categories, PHARMACY, 1);
                 addUpdateAction(venue, { categories });
                 UPDATED_FIELDS.categories.updated = true;
             }
@@ -3135,8 +3266,8 @@ let Flag = {
         action() {
             const venue = getSelectedVenue();
             let { categories } = venue.attributes;
-            if (!categories.includes('SUPERMARKET_GROCERY')) {
-                categories = insertAtIX(categories, 'SUPERMARKET_GROCERY', 1);
+            if (!categories.includes(SUPERMARKET_GROCERY)) {
+                categories = insertAtIX(categories, SUPERMARKET_GROCERY, 1);
                 addUpdateAction(venue, { categories });
                 UPDATED_FIELDS.categories.updated = true;
             }
@@ -3153,8 +3284,8 @@ let Flag = {
             const venue = getSelectedVenue();
             let updated = false;
             let { name, categories, url } = venue.attributes;
-            if (!categories.includes('CONVENIENCE_STORE')) {
-                categories = insertAtIX(venue.attributes.categories, 'CONVENIENCE_STORE', 1);
+            if (!categories.includes(CONVENIENCE_STORE)) {
+                categories = insertAtIX(venue.attributes.categories, CONVENIENCE_STORE, 1);
                 UPDATED_FIELDS.categories.updated = true;
                 updated = true;
             }
@@ -3180,8 +3311,8 @@ let Flag = {
         // eslint-disable-next-line class-methods-use-this
         action() {
             const venue = getSelectedVenue();
-            if (!venue.attributes.categories.includes('ATM')) {
-                const categories = insertAtIX(venue.attributes.categories, 'ATM', 1);
+            if (!venue.attributes.categories.includes(ATM)) {
+                const categories = insertAtIX(venue.attributes.categories, ATM, 1);
                 addUpdateAction(venue, { categories });
                 UPDATED_FIELDS.categories.updated = true;
             }
@@ -3193,7 +3324,7 @@ let Flag = {
 
         static eval(categories, pnhMatch) {
             const result = { flag: null };
-            if (categories[0] === 'GAS_STATION' && !categories.includes('CONVENIENCE_STORE') && !pnhMatch.subFuel) {
+            if (categories[0] === GAS_STATION && !categories.includes(CONVENIENCE_STORE) && !pnhMatch.subFuel) {
                 result.flag = new Flag.AddConvStore();
             }
             return result;
@@ -3202,8 +3333,8 @@ let Flag = {
         // eslint-disable-next-line class-methods-use-this
         action() {
             const venue = getSelectedVenue();
-            if (!venue.attributes.categories.includes('CONVENIENCE_STORE')) {
-                const categories = insertAtIX(venue.attributes.categories, 'CONVENIENCE_STORE', 1);
+            if (!venue.attributes.categories.includes(CONVENIENCE_STORE)) {
+                const categories = insertAtIX(venue.attributes.categories, CONVENIENCE_STORE, 1);
                 addUpdateAction(venue, { categories });
                 UPDATED_FIELDS.categories.updated = true;
             }
@@ -3218,7 +3349,7 @@ let Flag = {
 
         static eval(newName, countryCode, categories) {
             const result = { flag: null };
-            if (countryCode === 'USA' && !categories.includes('PARKING_LOT') && !categories.includes('POST_OFFICE')) {
+            if (countryCode === 'USA' && !categories.includes(PARKING_LOT) && !categories.includes(POST_OFFICE)) {
                 const cleanName = newName.toUpperCase().replace(/[/\-.]/g, '');
                 if (/\bUSP[OS]\b|\bpost(al)?\s+(service|office)\b/i.test(cleanName)) {
                     result.flag = new Flag.IsThisAPostOffice();
@@ -3230,8 +3361,8 @@ let Flag = {
         // eslint-disable-next-line class-methods-use-this
         action() {
             const venue = getSelectedVenue();
-            if (venue.attributes.categories[0] !== 'POST_OFFICE') {
-                const categories = insertAtIX(venue.attributes.categories, 'POST_OFFICE', 0);
+            if (venue.attributes.categories[0] !== POST_OFFICE) {
+                const categories = insertAtIX(venue.attributes.categories, POST_OFFICE, 0);
                 addUpdateAction(venue, { categories });
                 UPDATED_FIELDS.categories.updated = true;
             }
@@ -3247,9 +3378,9 @@ let Flag = {
         static eval(venue, highlightOnly) {
             const result = { flag: null };
             if (!highlightOnly) {
-                if (venue.attributes.categories.includes('DOCTOR_CLINIC')) {
+                if (venue.attributes.categories.includes(DOCTOR_CLINIC)) {
                     result.flag = new Flag.ChangeToHospitalUrgentCare(0, 'If this place provides emergency medical care:');
-                } else if (venue.attributes.categories.includes('HOSPITAL_MEDICAL_CARE')) {
+                } else if (venue.attributes.categories.includes(HOSPITAL_MEDICAL_CARE)) {
                     // Leave this check in here until we're CERTAIN that all of the old HOSPITAL_MEDICAL_CARE places have been converted.
                     result.flag = new Flag.ChangeToHospitalUrgentCare(2, 'The "Hospital / Medical Care" category is no longer valid.');
                 }
@@ -3262,14 +3393,14 @@ let Flag = {
             const venue = getSelectedVenue();
             let categories = venue.attributes.categories.slice();
             let updated = false;
-            let idx = categories.indexOf('HOSPITAL_MEDICAL_CARE');
+            let idx = categories.indexOf(HOSPITAL_MEDICAL_CARE);
             if (idx > -1) {
-                categories[idx] = 'HOSPITAL_URGENT_CARE';
+                categories[idx] = HOSPITAL_URGENT_CARE;
                 updated = true;
             }
-            idx = categories.indexOf('DOCTOR_CLINIC');
+            idx = categories.indexOf(DOCTOR_CLINIC);
             if (idx > -1) {
-                categories[idx] = 'HOSPITAL_URGENT_CARE';
+                categories[idx] = HOSPITAL_URGENT_CARE;
                 updated = true;
             }
             if (updated) {
@@ -3288,7 +3419,7 @@ let Flag = {
 
         static eval(name, categories, whitelist) {
             const result = { flag: null };
-            if (categories.includes('HOSPITAL_URGENT_CARE')) {
+            if (categories.includes(HOSPITAL_URGENT_CARE)) {
                 const testName = name.toLowerCase().replace(/[^a-z]/g, ' ');
                 const testNameWords = testName.split(' ');
                 if (containsAny(testNameWords, _hospitalFullMatch) || _hospitalPartMatch.some(match => testName.includes(match))) {
@@ -3306,14 +3437,14 @@ let Flag = {
             let categories = venue.attributes.categories.slice();
             let updateIt = false;
             if (categories.length) {
-                const idx = categories.indexOf('HOSPITAL_URGENT_CARE');
+                const idx = categories.indexOf(HOSPITAL_URGENT_CARE);
                 if (idx > -1) {
-                    categories[idx] = 'DOCTOR_CLINIC';
+                    categories[idx] = DOCTOR_CLINIC;
                     updateIt = true;
                 }
                 categories = _.uniq(categories);
             } else {
-                categories.push('DOCTOR_CLINIC');
+                categories.push(DOCTOR_CLINIC);
                 updateIt = true;
             }
             if (updateIt) {
@@ -3332,7 +3463,7 @@ let Flag = {
         static eval(venue, categories, highlightOnly, pnhNameRegMatch) {
             const result = { flag: null };
             if (!highlightOnly && venue.attributes.updatedOn < new Date('3/28/2017').getTime()
-                && ((categories.includes('PERSONAL_CARE') && !pnhNameRegMatch) || categories.includes('OFFICES'))) {
+                && ((categories.includes(PERSONAL_CARE) && !pnhNameRegMatch) || categories.includes(OFFICES))) {
                 // Show the Change To Doctor / Clinic button for places with PERSONAL_CARE or OFFICES category
                 // The date criteria was added because Doctor/Clinic category was added around then, and it's assumed if the
                 // place has been edited since then, people would have already updated the category.
@@ -3349,16 +3480,16 @@ let Flag = {
             let categories = _.clone(venue.attributes.categories);
             let updateIt = false;
             if (categories.length) {
-                ['OFFICES', 'PERSONAL_CARE'].forEach(cat => {
+                [OFFICES, PERSONAL_CARE].forEach(cat => {
                     const idx = categories.indexOf(cat);
                     if (idx > -1) {
-                        categories[idx] = 'DOCTOR_CLINIC';
+                        categories[idx] = DOCTOR_CLINIC;
                         updateIt = true;
                     }
                 });
                 categories = _.uniq(categories);
             } else {
-                categories.push('DOCTOR_CLINIC');
+                categories.push(DOCTOR_CLINIC);
                 updateIt = true;
             }
             if (updateIt) {
@@ -3449,7 +3580,7 @@ let Flag = {
 
         static eval(venue, address, itemGps, countryCode, state2L, pnhMatch = null) {
             const result = { flag: null };
-            if (countryCode === 'USA' && venue.attributes.categories.includes('POST_OFFICE')) {
+            if (countryCode === 'USA' && venue.attributes.categories.includes(POST_OFFICE)) {
                 result.flag = new Flag.StoreFinder('https://tools.usps.com/go/POLocatorAction.action');
             } else if (pnhMatch) {
                 if (pnhMatch.storeFinderLocalizedUrl) {
@@ -4273,7 +4404,7 @@ function harmonizePlaceGo(item, highlightOnly = false, actions = null) {
                 actions.push(new UpdateObject(item, { name: '' }));
                 // no field HL
             }
-            newCategories = ['RESIDENCE_HOME'];
+            newCategories = [RESIDENCE_HOME];
             // newDescripion = null;
             if (item.attributes.description !== null && item.attributes.description !== '') { // remove any description
                 phlogdev('Residential description cleared');
@@ -4420,7 +4551,7 @@ function harmonizePlaceGo(item, highlightOnly = false, actions = null) {
 
             // TODO Add check for forceBrand on non-gas station PNH entries when loading PNH data.
             // Gas Station forceBranding
-            if (priPNHPlaceCat === 'GAS_STATION' && pnhMatchData.forceBrand) {
+            if (priPNHPlaceCat === GAS_STATION && pnhMatchData.forceBrand) {
                 if (item.attributes.brand !== pnhMatchData.forceBrand) {
                     actions.push(new UpdateObject(item, { brand: pnhMatchData.forceBrand }));
                     UPDATED_FIELDS.brand.updated = true;
@@ -4454,7 +4585,7 @@ function harmonizePlaceGo(item, highlightOnly = false, actions = null) {
             _buttonBanner.catHotel = flagResult.flag;
             _buttonBanner.hotelMkPrim = Flag.HotelMkPrim.eval(item, pnhMatchData, wl).flag;
 
-            if (priPNHPlaceCat === 'HOTEL') {
+            if (priPNHPlaceCat === HOTEL) {
                 if (!_buttonBanner.catHotel) {
                     // Replace PNH part of name with PNH name
                     const splix = newName.toUpperCase().replace(/[-/]/g, ' ').indexOf(pnhMatchData.name.toUpperCase().replace(/[-/]/g, ' '));
@@ -4473,9 +4604,9 @@ function harmonizePlaceGo(item, highlightOnly = false, actions = null) {
                     insertAtIX(newCategories, pnhMatchData.altCategories, 1);
                 }
 
-                if (newCategories.includes('HOTEL')) {
+                if (newCategories.includes(HOTEL)) {
                     // Remove LODGING if it exists
-                    const lodgingIdx = newCategories.indexOf('LODGING');
+                    const lodgingIdx = newCategories.indexOf(LODGING);
                     if (lodgingIdx > -1) {
                         newCategories.splice(lodgingIdx, 1);
                     }
@@ -4488,11 +4619,11 @@ function harmonizePlaceGo(item, highlightOnly = false, actions = null) {
                 if (!_servicesBanner.add247.checked) {
                     _servicesBanner.add247.action();
                 }
-            } else if (newCategories.includes('BANK_FINANCIAL') && !pnhMatchData.notABank) {
+            } else if (newCategories.includes(BANK_FINANCIAL) && !pnhMatchData.notABank) {
                 // PNH Bank treatment
-                const _ixBank = item.attributes.categories.indexOf('BANK_FINANCIAL');
-                const _ixATM = item.attributes.categories.indexOf('ATM');
-                const _ixOffices = item.attributes.categories.indexOf('OFFICES');
+                const _ixBank = item.attributes.categories.indexOf(BANK_FINANCIAL);
+                const _ixATM = item.attributes.categories.indexOf(ATM);
+                const _ixOffices = item.attributes.categories.indexOf(OFFICES);
                 // if the name contains ATM in it
                 if (/\batm\b/ig.test(newName)) {
                     if (_ixOffices === 0) {
@@ -4510,7 +4641,7 @@ function harmonizePlaceGo(item, highlightOnly = false, actions = null) {
                         _buttonBanner.standaloneATM = new Flag.StandaloneATM();
                     }
                     newName = `${pnhMatchData.name} ATM`;
-                    newCategories = insertAtIX(newCategories, 'ATM', 0);
+                    newCategories = insertAtIX(newCategories, ATM, 0);
                     // Net result: If the place has ATM cat only and ATM in the name, then it will be green and renamed Bank Name ATM
                 } else if (_ixBank > -1 || _ixATM > -1) { // if no ATM in name but with a banking category:
                     if (_ixOffices === 0) {
@@ -4527,11 +4658,11 @@ function harmonizePlaceGo(item, highlightOnly = false, actions = null) {
                     newName = pnhMatchData.name;
                     // Net result: If the place has Bank category first, then it will be green with PNH name replaced
                 } else { // for PNH match with neither bank type category, make it a bank
-                    newCategories = insertAtIX(newCategories, 'BANK_FINANCIAL', 1);
+                    newCategories = insertAtIX(newCategories, BANK_FINANCIAL, 1);
                     _buttonBanner.standaloneATM = new Flag.StandaloneATM();
                     _buttonBanner.bankCorporate = new Flag.BankCorporate();
                 }// END PNH bank treatment
-            } else if (['GAS_STATION'].includes(priPNHPlaceCat)) { // for PNH gas stations, don't replace existing sub-categories
+            } else if ([GAS_STATION].includes(priPNHPlaceCat)) { // for PNH gas stations, don't replace existing sub-categories
                 if (pnhMatchData.altCategories.length) { // if PNH alts exist
                     insertAtIX(newCategories, pnhMatchData.altCategories, 1); //  then insert the alts into the existing category array after the GS category
                 }
@@ -4637,9 +4768,9 @@ function harmonizePlaceGo(item, highlightOnly = false, actions = null) {
             newURL = normalizeURL(newURL, true, false, item, region, wl); // Normalize url
 
             // Generic Bank treatment
-            const _ixBank = item.attributes.categories.indexOf('BANK_FINANCIAL');
-            const _ixATM = item.attributes.categories.indexOf('ATM');
-            const _ixOffices = item.attributes.categories.indexOf('OFFICES');
+            const _ixBank = item.attributes.categories.indexOf(BANK_FINANCIAL);
+            const _ixATM = item.attributes.categories.indexOf(ATM);
+            const _ixOffices = item.attributes.categories.indexOf(OFFICES);
             // if the name contains ATM in it
             if (newName.match(/\batm\b/ig) !== null) {
                 if (_ixOffices === 0) {
@@ -4831,7 +4962,7 @@ function harmonizePlaceGo(item, highlightOnly = false, actions = null) {
                 }
 
                 // If Post Office and VPO or CPU is in the name, always a point.
-                if (newCategories.includes('POST_OFFICE') && /\b(?:cpu|vpo)\b/i.test(item.attributes.name)) {
+                if (newCategories.includes(POST_OFFICE) && /\b(?:cpu|vpo)\b/i.test(item.attributes.name)) {
                     pvaPoint = '1';
                     pvaArea = null;
                 }
@@ -4929,14 +5060,14 @@ function harmonizePlaceGo(item, highlightOnly = false, actions = null) {
 
         // Check for missing hours field
         if (item.attributes.openingHours.length === 0) { // if no hours...
-            if (!containsAny(newCategories, ['STADIUM_ARENA', 'CEMETERY', 'TRANSPORTATION', 'FERRY_PIER', 'SUBWAY_STATION',
-                'BRIDGE', 'TUNNEL', 'JUNCTION_INTERCHANGE', 'ISLAND', 'SEA_LAKE_POOL', 'RIVER_STREAM', 'FOREST_GROVE', 'CANAL',
-                'SWAMP_MARSH', 'DAM'])) {
+            if (!containsAny(newCategories, [STADIUM_ARENA, CEMETERY, TRANSPORTATION, FERRY_PIER, SUBWAY_STATION,
+                BRIDGE, TUNNEL, JUNCTION_INTERCHANGE, ISLAND, SEA_LAKE_POOL, RIVER_STREAM, FOREST_GROVE, CANAL,
+                SWAMP_MARSH, DAM])) {
                 _buttonBanner.noHours = new Flag.NoHours();
-                if (hoursAdded || wl.noHours || $('#WMEPH-DisableHoursHL').prop('checked') || containsAny(newCategories, ['SCHOOL', 'CONVENTIONS_EVENT_CENTER',
-                    'CAMPING_TRAILER_PARK', 'COTTAGE_CABIN', 'COLLEGE_UNIVERSITY', 'GOLF_COURSE', 'SPORTS_COURT', 'MOVIE_THEATER',
-                    'SHOPPING_CENTER', 'RELIGIOUS_CENTER', 'PARKING_LOT', 'PARK', 'PLAYGROUND', 'AIRPORT', 'FIRE_DEPARTMENT', 'POLICE_STATION',
-                    'SEAPORT_MARINA_HARBOR', 'FARM', 'SCENIC_LOOKOUT_VIEWPOINT'])) {
+                if (hoursAdded || wl.noHours || $('#WMEPH-DisableHoursHL').prop('checked') || containsAny(newCategories, [SCHOOL,
+                    CONVENTIONS_EVENT_CENTER, CAMPING_TRAILER_PARK, COTTAGE_CABIN, COLLEGE_UNIVERSITY, GOLF_COURSE, SPORTS_COURT,
+                    MOVIE_THEATER, SHOPPING_CENTER, RELIGIOUS_CENTER, PARKING_LOT, PARK, PLAYGROUND, AIRPORT, FIRE_DEPARTMENT,
+                    POLICE_STATION, SEAPORT_MARINA_HARBOR, FARM, SCENIC_LOOKOUT_VIEWPOINT])) {
                     _buttonBanner.noHours.WLactive = false;
                     _buttonBanner.noHours.severity = 0;
                     if (hoursAdded) _buttonBanner.noHours.message = getHoursHtml('Hours');
@@ -5024,7 +5155,7 @@ function harmonizePlaceGo(item, highlightOnly = false, actions = null) {
         _buttonBanner.missingUSPSAlt = Flag.MissingUSPSAlt.eval(newAliases, newCategories, countryCode).flag;
         _buttonBanner.missingUSPSZipAlt = Flag.MissingUSPSZipAlt.eval(newAliases, newName, newCategories, countryCode, wl).flag;
         _buttonBanner.missingUSPSDescription = Flag.MissingUSPSDescription.eval(item, newCategories, countryCode, wl).flag;
-        if (!highlightOnly && newCategories.includes('POST_OFFICE') && !newCategories.includes('PARKING_LOT') && countryCode === 'USA') {
+        if (!highlightOnly && newCategories.includes(POST_OFFICE) && !newCategories.includes(PARKING_LOT) && countryCode === 'USA') {
             _buttonBanner.NewPlaceSubmit = null;
             if (item.attributes.url !== 'usps.com') {
                 actions.push(new UpdateObject(item, { url: 'usps.com' }));
@@ -5037,7 +5168,7 @@ function harmonizePlaceGo(item, highlightOnly = false, actions = null) {
     // TODO eval function
     // For gas stations, check to make sure brand exists somewhere in the place name.
     // Remove non - alphanumeric characters first, for more relaxed matching.
-    _buttonBanner.gasMismatch = Flag.GasMismatch.eval(item, newName, newBrand, newCategories, wl).flag;
+    _buttonBanner.gasMismatch = Flag.GasMismatch.eval(newName, newBrand, newCategories, wl).flag;
 
     // Brand checking (be sure to check this after determining if brand will be forced, when harmonzing)
     _buttonBanner.gasNoBrand = Flag.GasNoBrand.eval(item, newBrand).flag;
@@ -5052,7 +5183,7 @@ function harmonizePlaceGo(item, highlightOnly = false, actions = null) {
                 noLock = true;
                 _buttonBanner.plaNameMissing = new Flag.PlaNameMissing();
             }
-        } else if (!['ISLAND', 'FOREST_GROVE', 'SEA_LAKE_POOL', 'RIVER_STREAM', 'CANAL'].includes(item.attributes.categories[0])) {
+        } else if (![ISLAND, FOREST_GROVE, SEA_LAKE_POOL, RIVER_STREAM, CANAL].includes(item.attributes.categories[0])) {
             _buttonBanner.nameMissing = new Flag.NameMissing();
             noLock = true;
         }
@@ -5085,10 +5216,10 @@ function harmonizePlaceGo(item, highlightOnly = false, actions = null) {
     const hasStreet = item.attributes.streetID || (inferredAddress && inferredAddress.street);
 
     if (hasStreet && (!currentHN || currentHN.replace(/\D/g, '').length === 0)) {
-        if (!['BRIDGE', 'ISLAND', 'FOREST_GROVE', 'SEA_LAKE_POOL', 'RIVER_STREAM', 'CANAL', 'DAM',
-            'TUNNEL', 'JUNCTION_INTERCHANGE'].includes(item.attributes.categories[0])) {
+        if (![BRIDGE, ISLAND, FOREST_GROVE, SEA_LAKE_POOL, RIVER_STREAM, CANAL, DAM,
+            TUNNEL, JUNCTION_INTERCHANGE].includes(item.attributes.categories[0])) {
             _buttonBanner.hnMissing = new Flag.HnMissing(item);
-            if (state2L === 'PR' || ['SCENIC_LOOKOUT_VIEWPOINT'].includes(item.attributes.categories[0])) {
+            if (state2L === 'PR' || [SCENIC_LOOKOUT_VIEWPOINT].includes(item.attributes.categories[0])) {
                 _buttonBanner.hnMissing.severity = 0;
                 _buttonBanner.hnMissing.WLactive = false;
             } else if (item.isParkingLot()) {
@@ -5167,7 +5298,7 @@ function harmonizePlaceGo(item, highlightOnly = false, actions = null) {
     _buttonBanner.notASchool = Flag.NotASchool.eval(newName, newCategories, wl).flag;
 
     // Some cats don't need PNH messages and url/phone severities
-    if (['BRIDGE', 'FOREST_GROVE', 'DAM', 'TUNNEL', 'CEMETERY'].includes(item.attributes.categories[0])) {
+    if ([BRIDGE, FOREST_GROVE, DAM, TUNNEL, CEMETERY].includes(item.attributes.categories[0])) {
         _buttonBanner.NewPlaceSubmit = null;
         if (_buttonBanner.phoneMissing) {
             _buttonBanner.phoneMissing.severity = 0;
@@ -5177,7 +5308,7 @@ function harmonizePlaceGo(item, highlightOnly = false, actions = null) {
             _buttonBanner.urlMissing.severity = 0;
             _buttonBanner.urlMissing.WLactive = false;
         }
-    } else if (['ISLAND', 'SEA_LAKE_POOL', 'RIVER_STREAM', 'CANAL', 'JUNCTION_INTERCHANGE', 'SCENIC_LOOKOUT_VIEWPOINT'].includes(item.attributes.categories[0])) {
+    } else if ([ISLAND, SEA_LAKE_POOL, RIVER_STREAM, CANAL, JUNCTION_INTERCHANGE, SCENIC_LOOKOUT_VIEWPOINT].includes(item.attributes.categories[0])) {
         // Some cats don't need PNH messages and url/phone messages
         _buttonBanner.NewPlaceSubmit = null;
         _buttonBanner.phoneMissing = null;
@@ -5186,14 +5317,14 @@ function harmonizePlaceGo(item, highlightOnly = false, actions = null) {
 
     // *** Rest Area parsing
     // check rest area name against standard formats or if has the right categories
-    const hasRestAreaCategory = item.attributes.categories.includes('REST_AREAS');
+    const hasRestAreaCategory = item.attributes.categories.includes(REST_AREAS);
     const oldName = item.attributes.name;
     if (/rest area/i.test(oldName) || /rest stop/i.test(oldName) || /service plaza/i.test(oldName) || hasRestAreaCategory) {
         if (hasRestAreaCategory) {
-            if (item.attributes.categories.includes('SCENIC_LOOKOUT_VIEWPOINT')) {
+            if (item.attributes.categories.includes(SCENIC_LOOKOUT_VIEWPOINT)) {
                 if (!wl.restAreaScenic) _buttonBanner.restAreaScenic = new Flag.RestAreaScenic();
             }
-            if (item.attributes.categories.includes('TRANSPORTATION')) {
+            if (item.attributes.categories.includes(TRANSPORTATION)) {
                 _buttonBanner.restAreaNoTransportation = new Flag.RestAreaNoTransportation();
             }
             if (item.isPoint()) { // needs to be area
@@ -5202,7 +5333,7 @@ function harmonizePlaceGo(item, highlightOnly = false, actions = null) {
             _buttonBanner.pointNotArea = null;
             _buttonBanner.unmappedRegion = null;
 
-            if (item.attributes.categories.includes('GAS_STATION')) {
+            if (item.attributes.categories.includes(GAS_STATION)) {
                 _buttonBanner.restAreaGas = new Flag.RestAreaGas();
             }
 
@@ -5275,10 +5406,10 @@ function harmonizePlaceGo(item, highlightOnly = false, actions = null) {
         levelToLock = defaultLockLevel;
     }
     if (region === 'SER') {
-        if (newCategories.includes('COLLEGE_UNIVERSITY') && newCategories.includes('PARKING_LOT')) {
+        if (newCategories.includes(COLLEGE_UNIVERSITY) && newCategories.includes(PARKING_LOT)) {
             levelToLock = 3;
-        } else if (item.isPoint() && newCategories.includes('COLLEGE_UNIVERSITY') && (!newCategories.includes('HOSPITAL_MEDICAL_CARE')
-            || !newCategories.includes('HOSPITAL_URGENT_CARE'))) {
+        } else if (item.isPoint() && newCategories.includes(COLLEGE_UNIVERSITY) && (!newCategories.includes(HOSPITAL_MEDICAL_CARE)
+            || !newCategories.includes(HOSPITAL_URGENT_CARE))) {
             levelToLock = 3;
         }
     }
@@ -5359,10 +5490,10 @@ function harmonizePlaceGo(item, highlightOnly = false, actions = null) {
     _buttonBanner.lockRPP = Flag.LockRPP.eval(item).flag;
 
     // Turn off unnecessary buttons
-    if (newCategories.includes('PHARMACY')) {
+    if (newCategories.includes(PHARMACY)) {
         if (_buttonBanner.addPharm) _buttonBanner.addPharm = null;
     }
-    if (newCategories.includes('SUPERMARKET_GROCERY')) {
+    if (newCategories.includes(SUPERMARKET_GROCERY)) {
         if (_buttonBanner.addSuper) _buttonBanner.addSuper = null;
     }
 
@@ -5371,7 +5502,7 @@ function harmonizePlaceGo(item, highlightOnly = false, actions = null) {
     if (!item.attributes.residential && severity < 3) {
         const nameShortSpace = newName.toUpperCase().replace(/[^A-Z ']/g, '');
         if (nameShortSpace.includes('\'S HOUSE') || nameShortSpace.includes('\'S HOME') || nameShortSpace.includes('\'S WORK')) {
-            if (!containsAny(newCategories, ['RESTAURANT', 'DESSERT', 'BAR']) && !pnhNameRegMatch) {
+            if (!containsAny(newCategories, [RESTAURANT, DESSERT, BAR]) && !pnhNameRegMatch) {
                 _buttonBanner.resiTypeNameSoft = new Flag.ResiTypeNameSoft();
             }
         }
@@ -5408,8 +5539,8 @@ function harmonizePlaceGo(item, highlightOnly = false, actions = null) {
         });
 
         // Special case flags
-        if (item.attributes.lockRank === 0 && (item.attributes.categories.includes('HOSPITAL_MEDICAL_CARE')
-            || item.attributes.categories.includes('HOSPITAL_URGENT_CARE') || item.isGasStation())) {
+        if (item.attributes.lockRank === 0 && (item.attributes.categories.includes(HOSPITAL_MEDICAL_CARE)
+            || item.attributes.categories.includes(HOSPITAL_URGENT_CARE) || item.isGasStation())) {
             severity = 5;
         }
 
@@ -6412,7 +6543,7 @@ function findNearbyDuplicate(selectedVenueName, selectedVenueAliases, selectedVe
     // Clear non-letter characters for alternate match ( HOLLYIVYPUB23 --> HOLLYIVYPUB )
     const itemNameNoNum = selectedVenueNameRF.replace(/[^A-Z]/g, '');
     if (((itemNameNoNum.length > 2 && !noNumSkip.includes(itemNameNoNum)) || allowedTwoLetters.includes(itemNameNoNum))
-        && !selectedVenueAttr.categories.includes('PARKING_LOT')) {
+        && !selectedVenueAttr.categories.includes(PARKING_LOT)) {
         // only add de-numbered name if anything remains
         currNameList.push(itemNameNoNum);
     }
@@ -6428,7 +6559,7 @@ function findNearbyDuplicate(selectedVenueName, selectedVenueAliases, selectedVe
             // Clear non-letter characters for alternate match ( HOLLYIVYPUB23 --> HOLLYIVYPUB )
             const aliasNameNoNum = aliasNameRF.replace(/[^A-Z]/g, '');
             if (((aliasNameNoNum.length > 2 && !noNumSkip.includes(aliasNameNoNum)) || allowedTwoLetters.includes(aliasNameNoNum))
-                && !selectedVenueAttr.categories.includes('PARKING_LOT')) {
+                && !selectedVenueAttr.categories.includes(PARKING_LOT)) {
                 // only add de-numbered name if anything remains
                 currNameList.push(aliasNameNoNum);
             }
@@ -6517,7 +6648,7 @@ function findNearbyDuplicate(selectedVenueName, selectedVenueAliases, selectedVe
 
                     const testNameNoNum = strippedTestName.replace(/[^A-Z]/g, ''); // Clear non-letter characters for alternate match
                     if (((testNameNoNum.length > 2 && !noNumSkip.includes(testNameNoNum)) || allowedTwoLetters.includes(testNameNoNum))
-                        && !testVenueAttr.categories.includes('PARKING_LOT')) { //  only add de-numbered name if at least 2 chars remain
+                        && !testVenueAttr.categories.includes(PARKING_LOT)) { //  only add de-numbered name if at least 2 chars remain
                         testNameList.push(testNameNoNum);
                     }
 
@@ -6545,7 +6676,7 @@ function findNearbyDuplicate(selectedVenueName, selectedVenueAliases, selectedVe
                             }
                             const aliasNameNoNum = aliasNameRF.replace(/[^A-Z]/g, ''); // Clear non-letter characters for alternate match ( HOLLYIVYPUB23 --> HOLLYIVYPUB )
                             if (((aliasNameNoNum.length > 2 && !noNumSkip.includes(aliasNameNoNum)) || allowedTwoLetters.includes(aliasNameNoNum))
-                                && !testVenueAttr.categories.includes('PARKING_LOT')) { //  only add de-numbered name if at least 2 characters remain
+                                && !testVenueAttr.categories.includes(PARKING_LOT)) { //  only add de-numbered name if at least 2 characters remain
                                 testNameList.push(aliasNameNoNum);
                             } else {
                                 testNameList.push(`111231643239${randInt}`); //  just to keep track of the alias in question, always add something.
@@ -8194,7 +8325,7 @@ function processPnhChains(chainData, categories) {
             if (chainObj.category1) {
                 const category = chainObj.category1.toUpperCase().replace(/[^A-Z0-9]/g, '');
                 let appendWords;
-                if (category === 'HOTEL') {
+                if (category === HOTEL) {
                     appendWords = ['HOTEL'];
                 } else if (category === 'BANKFINANCIAL' && !chainObj.specialCase.includes('notABank')) {
                     appendWords = ['BANK', 'ATM'];
