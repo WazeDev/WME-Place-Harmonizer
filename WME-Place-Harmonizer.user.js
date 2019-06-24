@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name        WME Place Harmonizer Beta (pnh-update)
 // @namespace   WazeUSA
-// @version     2019.06.24.001
+// @version     2019.06.24.002
 // @description Harmonizes, formats, and locks a selected place
 // @author      WMEPH Development Group
 // @include     /^https:\/\/(www|beta)\.waze\.com\/(?!user\/)(.{2,6}\/)?editor\/?.*$/
@@ -1512,7 +1512,7 @@ function getNameParts(name) {
     return { base: splits[1], suffix: splits[2] };
 }
 
-function addUpdateAction(venue, updateObj, actions) {
+function addUpdateAction(venue, updateObj, actions = null) {
     const action = new UpdateObject(venue, updateObj);
     if (actions) {
         actions.push(action);
@@ -1791,7 +1791,10 @@ let Flag = {
         constructor() { super(3, 'Overlapping hours of operation. Place might not save.'); }
     },
     UnmappedRegion: class extends WLFlag {
-        constructor() { super(3, 'This category is usually not mapped in this region.', true, 'Whitelist unmapped category', 'unmappedRegion', true); }
+        constructor() {
+            super(3, 'This category is usually not mapped in this region.', true,
+                'Whitelist unmapped category', 'unmappedRegion', true);
+        }
 
         static eval(catId, pnhCategory, state2L, region, countryCode, isLocked, whitelist) {
             const result = { flag: null };
@@ -1804,7 +1807,8 @@ let Flag = {
                         result.flag = new Flag.UnmappedRegion();
                         result.flag.WLactive = false;
                         result.flag.severity = 1;
-                        result.flag.message = 'The "Other" category should only be used if no other category applies.  Manually lock the place to override this flag.';
+                        result.flag.message = 'The "Other" category should only be used if no other category applies. '
+                            + 'Manually lock the place to override this flag.';
                     }
                 } else {
                     result.flag = new Flag.UnmappedRegion();
@@ -1820,7 +1824,10 @@ let Flag = {
         }
     },
     RestAreaName: class extends WLFlag {
-        constructor() { super(3, 'Rest area name is out of spec. Use the Rest Area wiki button below to view formats.', true, 'Whitelist rest area name', 'restAreaName'); }
+        constructor() {
+            super(3, 'Rest area name is out of spec. Use the Rest Area wiki button below to view formats.', true,
+                'Whitelist rest area name', 'restAreaName');
+        }
     },
     RestAreaNoTransportation: class extends ActionFlag {
         constructor() { super(2, 'Rest areas should not use the Transportation category.', 'Remove it?'); }
@@ -1972,7 +1979,7 @@ let Flag = {
             if (!highlightOnly && state2L === 'TN') {
                 if (newName.toLowerCase().trim() === 'pilot') {
                     result.flag.newName = 'Pilot Food Mart';
-                    actions.push(new UpdateObject(venue, { name: result.newName }));
+                    addUpdateAction(venue, { name: result.newName }, actions);
                     UPDATED_FIELDS.name.updated = true;
                 }
                 if (newName.toLowerCase().trim() === 'pilot food mart') {
@@ -2276,7 +2283,7 @@ let Flag = {
                 const nameToCheck = name + (nameSuffix || '');
                 if (postOfficeRegEx.test(nameToCheck)) {
                     if (nameToCheck !== venue.attributes.name) {
-                        actions.push(new UpdateObject(venue, { name: nameToCheck }));
+                        addUpdateAction(venue, { name: nameToCheck }, actions);
                     }
                     result.flag = new Flag.CatPostOffice();
                 }
@@ -2392,7 +2399,7 @@ let Flag = {
                         }
                         if (!highlightOnly && updateUrl && itemURL !== item.attributes.url) { // Update the URL
                             phlogdev('URL formatted');
-                            actions.push(new UpdateObject(item, { url: itemURL }));
+                            addUpdateAction(item, { url: itemURL }, actions);
                             UPDATED_FIELDS.url.updated = true;
                         }
                         updateUrl = false;
@@ -2400,7 +2407,7 @@ let Flag = {
                 }
                 if (!highlightOnly && updateUrl && newURL !== 'badURL' && newURL !== item.attributes.url) { // Update the URL
                     phlogdev('URL updated');
-                    actions.push(new UpdateObject(item, { url: newURL }));
+                    addUpdateAction(item, { url: newURL }, actions);
                     UPDATED_FIELDS.url.updated = true;
                 }
             }
@@ -2411,7 +2418,7 @@ let Flag = {
         action() {
             const venue = getSelectedVenue();
             if (this.url !== '') {
-                W.model.actionManager.add(new UpdateObject(venue, { url: this.url }));
+                addUpdateAction(venue, { url: this.url });
                 UPDATED_FIELDS.url.updated = true;
                 harmonizePlaceGo(venue);
             } else if (confirm('WMEPH: URL Matching Error!\nClick OK to report this error')) {
@@ -2558,7 +2565,7 @@ let Flag = {
                     // Make sure zip hasn't already been added.
                     if (!aliases.includes(zip)) {
                         aliases.push(zip);
-                        W.model.actionManager.add(new UpdateObject(venue, { aliases }));
+                        addUpdateAction(venue, { aliases });
                         harmonizePlaceGo(venue);
                     } else {
                         $input.css({ backgroundColor: '#FDD' }).attr('title', 'Zip code alt name already exists');
@@ -2757,7 +2764,7 @@ let Flag = {
                 // this.badInput = true;
             } else {
                 phlogdev(newUrl);
-                W.model.actionManager.add(new UpdateObject(venue, { url: newUrl }));
+                addUpdateAction(venue, { url: newUrl });
                 UPDATED_FIELDS.url.updated = true;
                 harmonizePlaceGo(venue);
             }
@@ -2782,7 +2789,7 @@ let Flag = {
             } else {
                 this.badInput = false;
                 phlogdev(newPhone);
-                W.model.actionManager.add(new UpdateObject(venue, { phone: newPhone }));
+                addUpdateAction(venue, { phone: newPhone });
                 UPDATED_FIELDS.phone.updated = true;
                 harmonizePlaceGo(venue);
             }
@@ -2825,7 +2832,7 @@ let Flag = {
             } else {
                 this.badInput = false;
                 phlogdev(newPhone);
-                W.model.actionManager.add(new UpdateObject(this.venue, { phone: newPhone }));
+                addUpdateAction(this.venue, { phone: newPhone });
                 UPDATED_FIELDS.phone.updated = true;
                 harmonizePlaceGo(this.venue);
             }
@@ -2860,7 +2867,7 @@ let Flag = {
             const parseResult = parser.parseHours(pasteHours);
             if (parseResult.hours && !parseResult.overlappingHours && !parseResult.sameOpenAndCloseTimes && !parseResult.parseError) {
                 phlogdev(parseResult.hours);
-                W.model.actionManager.add(new UpdateObject(venue, { openingHours: parseResult.hours }));
+                addUpdateAction(venue, { openingHours: parseResult.hours });
                 UPDATED_FIELDS.openingHours.updated = true;
                 $('#WMEPH-HoursPaste').val(DEFAULT_HOURS_TEXT);
                 harmonizePlaceGo(venue);
@@ -2987,7 +2994,7 @@ let Flag = {
                 });
             }
             newAttr.lotType = ['STREET_LEVEL'];
-            W.model.actionManager.add(new UpdateObject(venue, { categoryAttributes: { PARKING_LOT: newAttr } }));
+            addUpdateAction(venue, { categoryAttributes: { PARKING_LOT: newAttr } });
             harmonizePlaceGo(venue);
         }
     },
@@ -3092,7 +3099,7 @@ let Flag = {
                 });
             }
             newAttr.canExitWhileClosed = true;
-            W.model.actionManager.add(new UpdateObject(venue, { categoryAttributes: { PARKING_LOT: newAttr } }));
+            addUpdateAction(venue, { categoryAttributes: { PARKING_LOT: newAttr } });
             harmonizePlaceGo(venue);
         }
     },
@@ -3120,7 +3127,7 @@ let Flag = {
                 services = [];
             }
             services.push('DISABILITY_PARKING');
-            W.model.actionManager.add(new UpdateObject(venue, { services }));
+            addUpdateAction(venue, { services });
             UPDATED_FIELDS.services_DISABILITY_PARKING.updated = true;
             harmonizePlaceGo(venue);
         }
@@ -3449,7 +3456,7 @@ let Flag = {
             }
             if (updateIt) {
                 UPDATED_FIELDS.categories.updated = true;
-                W.model.actionManager.add(new UpdateObject(venue, { categories }));
+                addUpdateAction(venue, { categories });
             }
             harmonizePlaceGo(venue); // Rerun the script to update fields and lock
         }
@@ -3494,7 +3501,7 @@ let Flag = {
             }
             if (updateIt) {
                 UPDATED_FIELDS.categories.updated = true;
-                W.model.actionManager.add(new UpdateObject(venue, { categories }));
+                addUpdateAction(venue, { categories });
             }
             harmonizePlaceGo(venue); // Rerun the script to update fields and lock
         }
@@ -3514,7 +3521,7 @@ let Flag = {
                 const parts = getNameParts(this.originalName);
                 newName = toTitleCaseStrong(parts.base);
                 if (parts.base !== newName) {
-                    W.model.actionManager.add(new UpdateObject(venue, { name: newName + (parts.suffix || '') }));
+                    addUpdateAction(venue, { name: newName + (parts.suffix || '') });
                     UPDATED_FIELDS.name.updated = true;
                 }
                 harmonizePlaceGo(venue);
@@ -4380,7 +4387,7 @@ function harmonizePlaceGo(item, highlightOnly = false, actions = null) {
         // If no gas station name, replace with brand name
         if (!highlightOnly && (!newName || newName.trim().length === 0) && item.attributes.brand) {
             newName = item.attributes.brand;
-            actions.push(new UpdateObject(item, { name: newName }));
+            addUpdateAction(item, { name: newName }, actions);
             UPDATED_FIELDS.name.updated = true;
         }
     } // END Gas Station Checks
@@ -4401,31 +4408,31 @@ function harmonizePlaceGo(item, highlightOnly = false, actions = null) {
             }
             if (item.attributes.name !== '') { // Set the residential place name to the address (to clear any personal info)
                 phlogdev('Residential Name reset');
-                actions.push(new UpdateObject(item, { name: '' }));
+                addUpdateAction(item, { name: '' }, actions);
                 // no field HL
             }
             newCategories = [RESIDENCE_HOME];
             // newDescripion = null;
             if (item.attributes.description !== null && item.attributes.description !== '') { // remove any description
                 phlogdev('Residential description cleared');
-                actions.push(new UpdateObject(item, { description: null }));
+                addUpdateAction(item, { description: null }, actions);
                 // no field HL
             }
             // newPhone = null;
             if (item.attributes.phone !== null && item.attributes.phone !== '') { // remove any phone info
                 phlogdev('Residential Phone cleared');
-                actions.push(new UpdateObject(item, { phone: null }));
+                addUpdateAction(item, { phone: null }, actions);
                 // no field HL
             }
             // newURL = null;
             if (item.attributes.url !== null && item.attributes.url !== '') { // remove any url
                 phlogdev('Residential URL cleared');
-                actions.push(new UpdateObject(item, { url: null }));
+                addUpdateAction(item, { url: null }, actions);
                 // no field HL
             }
             if (item.attributes.services.length > 0) {
                 phlogdev('Residential services cleared');
-                actions.push(new UpdateObject(item, { services: [] }));
+                addUpdateAction(item, { services: [] }, actions);
                 // no field HL
             }
         }
@@ -4553,7 +4560,7 @@ function harmonizePlaceGo(item, highlightOnly = false, actions = null) {
             // Gas Station forceBranding
             if (priPNHPlaceCat === GAS_STATION && pnhMatchData.forceBrand) {
                 if (item.attributes.brand !== pnhMatchData.forceBrand) {
-                    actions.push(new UpdateObject(item, { brand: pnhMatchData.forceBrand }));
+                    addUpdateAction(item, { brand: pnhMatchData.forceBrand }, actions);
                     UPDATED_FIELDS.brand.updated = true;
                     phlogdev('Gas brand updated from PNH');
                 }
@@ -4720,12 +4727,12 @@ function harmonizePlaceGo(item, highlightOnly = false, actions = null) {
             if (!matchSets(_.uniq(item.attributes.categories), _.uniq(newCategories))) {
                 if (!pnhMatchData.optionCat2 && !(pnhMatchData.buttOn && pnhMatchData.buttOn.includes('addCat2'))) {
                     phlogdev(`Categories updated with ${newCategories}`);
-                    actions.push(new UpdateObject(item, { categories: newCategories }));
+                    addUpdateAction(item, { categories: newCategories }, actions);
                     UPDATED_FIELDS.categories.updated = true;
                 } else { // if second cat is optional
                     phlogdev(`Primary category updated with ${priPNHPlaceCat}`);
                     newCategories = insertAtIX(newCategories, priPNHPlaceCat, 0);
-                    actions.push(new UpdateObject(item, { categories: newCategories }));
+                    addUpdateAction(item, { categories: newCategories }, actions);
                     UPDATED_FIELDS.categories.updated = true;
                 }
             }
@@ -4741,7 +4748,7 @@ function harmonizePlaceGo(item, highlightOnly = false, actions = null) {
                 }
                 phlogdev('Description updated');
                 newDescripion = `${newDescripion}\n${item.attributes.description}`;
-                actions.push(new UpdateObject(item, { description: newDescripion }));
+                addUpdateAction(item, { description: newDescripion }, actions);
                 UPDATED_FIELDS.description.updated = true;
             }
 
@@ -4808,7 +4815,7 @@ function harmonizePlaceGo(item, highlightOnly = false, actions = null) {
             // Update name:
             if ((newName + (newNameSuffix || '')) !== item.attributes.name) {
                 phlogdev('Name updated');
-                actions.push(new UpdateObject(item, { name: newName + (newNameSuffix || '') }));
+                addUpdateAction(item, { name: newName + (newNameSuffix || '') }, actions);
                 // actions.push(new UpdateObject(item, { name: newName }));
                 UPDATED_FIELDS.name.updated = true;
             }
@@ -4817,7 +4824,7 @@ function harmonizePlaceGo(item, highlightOnly = false, actions = null) {
             newAliases = removeSFAliases(newName, newAliases);
             if (newAliases.some(alias => !item.attributes.aliases.includes(alias)) || newAliases.length !== item.attributes.aliases.length) {
                 phlogdev('Alt Names updated');
-                actions.push(new UpdateObject(item, { aliases: newAliases }));
+                addUpdateAction(item, { aliases: newAliases }, actions);
                 UPDATED_FIELDS.aliases.updated = true;
             }
 
@@ -5097,7 +5104,7 @@ function harmonizePlaceGo(item, highlightOnly = false, actions = null) {
                     phlogdev('Correcting M-S entry...');
                     tempHours.push(new OpeningHour({ days: [0], fromHour: tempHours[ohix].fromHour, toHour: tempHours[ohix].toHour }));
                     tempHours[ohix].days = [1];
-                    actions.push(new UpdateObject(item, { openingHours: tempHours }));
+                    addUpdateAction(item, { openingHours: tempHours }, actions);
                 }
             }
         }
@@ -5140,7 +5147,7 @@ function harmonizePlaceGo(item, highlightOnly = false, actions = null) {
         }
         if (!highlightOnly && newPhone !== item.attributes.phone) {
             phlogdev('Phone updated');
-            actions.push(new UpdateObject(item, { phone: newPhone }));
+            addUpdateAction(item, { phone: newPhone }, actions);
             UPDATED_FIELDS.phone.updated = true;
         }
 
@@ -5158,7 +5165,7 @@ function harmonizePlaceGo(item, highlightOnly = false, actions = null) {
         if (!highlightOnly && newCategories.includes(POST_OFFICE) && !newCategories.includes(PARKING_LOT) && countryCode === 'USA') {
             _buttonBanner.NewPlaceSubmit = null;
             if (item.attributes.url !== 'usps.com') {
-                actions.push(new UpdateObject(item, { url: 'usps.com' }));
+                addUpdateAction(item, { url: 'usps.com' }, actions);
                 UPDATED_FIELDS.url.updated = true;
                 _buttonBanner.urlMissing = null;
             }
@@ -5277,7 +5284,7 @@ function harmonizePlaceGo(item, highlightOnly = false, actions = null) {
         if (updateHNflag) {
             _buttonBanner.hnDashRemoved = new Flag.HnDashRemoved();
             if (!highlightOnly) {
-                actions.push(new UpdateObject(item, { houseNumber: hnTemp }));
+                addUpdateAction(item, { houseNumber: hnTemp }, actions);
                 UPDATED_FIELDS.address.updated = true;
             } else if (item.attributes.residential) {
                 _buttonBanner.hnDashRemoved.severity = 3;
@@ -5345,7 +5352,7 @@ function harmonizePlaceGo(item, highlightOnly = false, actions = null) {
             } else if (!highlightOnly) {
                 const newSuffix = newNameSuffix.replace(/Mile/i, 'mile');
                 if (newName + newSuffix !== item.attributes.name) {
-                    actions.push(new UpdateObject(item, { name: newName + newSuffix }));
+                    addUpdateAction(item, { name: newName + newSuffix }, actions);
                     UPDATED_FIELDS.name.updated = true;
                     phlogdev('Lower case "mile"');
                 } else {
@@ -5440,8 +5447,7 @@ function harmonizePlaceGo(item, highlightOnly = false, actions = null) {
             _buttonBanner.extProviderMissing.title = 'If no Google link exists, lock this place.\nIf there is still no Google link after '
                 + '6 months from the last update date, it will turn red as a reminder to search again.';
             _buttonBanner.extProviderMissing.action = () => {
-                const action = new UpdateObject(item, { lockRank: levelToLock });
-                W.model.actionManager.add(action);
+                addUpdateAction(item, { lockRank: levelToLock });
                 UPDATED_FIELDS.lock.updated = true;
                 harmonizePlaceGo(item);
             };
@@ -5453,7 +5459,7 @@ function harmonizePlaceGo(item, highlightOnly = false, actions = null) {
         if (item.attributes.lockRank < levelToLock) {
             if (!highlightOnly) {
                 phlogdev('Venue locked!');
-                actions.push(new UpdateObject(item, { lockRank: levelToLock }));
+                addUpdateAction(item, { lockRank: levelToLock }, actions);
                 UPDATED_FIELDS.lock.updated = true;
             } else {
                 hlLockFlag = true;
@@ -5868,7 +5874,7 @@ function assembleBanner() {
             });
         }
         newAttr.estimatedNumberOfSpots = selectedValue;
-        W.model.actionManager.add(new UpdateObject(selectedVenue, { categoryAttributes: { PARKING_LOT: newAttr } }));
+        addUpdateAction(selectedVenue, { categoryAttributes: { PARKING_LOT: newAttr } });
         harmonizePlaceGo(selectedVenue);
     });
 
@@ -5885,7 +5891,7 @@ function assembleBanner() {
             });
         }
         newAttr.parkingType = selectedValue;
-        W.model.actionManager.add(new UpdateObject(selectedVenue, { categoryAttributes: { PARKING_LOT: newAttr } }));
+        addUpdateAction(selectedVenue, { categoryAttributes: { PARKING_LOT: newAttr } });
         harmonizePlaceGo(selectedVenue);
     });
 
@@ -5902,7 +5908,7 @@ function assembleBanner() {
             });
         }
         newAttr.costType = selectedValue;
-        W.model.actionManager.add(new UpdateObject(selectedVenue, { categoryAttributes: { PARKING_LOT: newAttr } }));
+        addUpdateAction(selectedVenue, { categoryAttributes: { PARKING_LOT: newAttr } });
         harmonizePlaceGo(selectedVenue);
     });
 
@@ -6422,7 +6428,7 @@ function clonePlace() {
             updateItem = true;
         }
         if (updateItem) {
-            W.model.actionManager.add(new UpdateObject(venue, cloneItems));
+            addUpdateAction(venue, cloneItems);
             phlogdev('Item details cloned');
         }
 
