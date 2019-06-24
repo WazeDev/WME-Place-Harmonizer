@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name        WME Place Harmonizer Beta (pnh-update)
 // @namespace   WazeUSA
-// @version     2019.06.21.006
+// @version     2019.06.23.001
 // @description Harmonizes, formats, and locks a selected place
 // @author      WMEPH Development Group
 // @include     /^https:\/\/(www|beta)\.waze\.com\/(?!user\/)(.{2,6}\/)?editor\/?.*$/
@@ -66,7 +66,7 @@ const _CSS_ARRAY = [
     '#WMEPH_banner .banner-row.yellow { color:#584a04; background-color:#f0f0c2; }',
     '#WMEPH_banner .banner-row.gray { color:#3a3a3a; background-color:#eeeeee; }',
     '#WMEPH_banner .banner-row .dupe { padding-left:8px; }',
-    '#WMEPH_banner { background-color:#fff; color:black; font-size:14px; padding-top:8px; padding-bottom:8px; margin-left:4px; margin-right:4px; line-height:18px; margin-top:2px; border: solid 1px #8d8c8c; border-radius: 6px; margin-bottom: 4px;}',
+    '#WMEPH_banner { background-color:#fff; color:black; font-size:14px; padding-top:8px; padding-bottom:8px; margin-left:4px; margin-right:4px; line-height:18px; margin-top:2px; border: solid 1px #8d8c8c; border-radius: 6px; }',
     '#WMEPH_banner input[type=text] { font-size: 13px !important; height:22px !important; font-family: "Open Sans", Alef, helvetica, sans-serif !important; }',
     '#WMEPH_banner div:last-child { padding-bottom: 3px !important; }',
     '#WMEPH_runButton { padding-bottom: 6px; padding-top: 3px; width: 290; color: black; font-size: 15px; margin-right: auto; margin-left: 4px; }',
@@ -193,9 +193,6 @@ let _psAreaCodeIx;
 let _stateDataTemp;
 let _areaCodeList = '800,822,833,844,855,866,877,888'; //  include toll free non-geographic area codes
 
-let _ixBank;
-let _ixATM;
-let _ixOffices;
 let _layer;
 
 const UPDATED_FIELDS = {
@@ -1838,7 +1835,20 @@ let Flag = {
     HotelMkPrim: class extends WLActionFlag {
         constructor() {
             super(3, 'Hotel category is not first', 'Fix', 'Make the Hotel category the primary category.',
-                true, 'Whitelist hotel as secondary category', 'hotelMkPrim');
+                true, 'Whitelist hotel as secondary category', 'hotelMkPrim', true);
+        }
+
+        static eval(venue, pnhMatch, whitelist) {
+            const result = { flag: null };
+            if (pnhMatch.category1 === 'HOTEL' && venue.attributes.categories[0] !== 'HOTEL') { // If no HOTEL category in the primary, flag it
+                result.flag = new Flag.HotelMkPrim();
+                if (whitelist.hotelMkPrim) {
+                    result.flag.WLactive = false;
+                    result.flag.severity = 0;
+                    result.flag.noLock = false;
+                }
+            }
+            return result;
         }
 
         // eslint-disable-next-line class-methods-use-this
@@ -2424,6 +2434,18 @@ let Flag = {
     },
     CatHotel: class extends FlagBase {
         constructor(pnhName) { super(0, `Check hotel website for any name localization (e.g. ${pnhName} - Tampa Airport).`); }
+
+        static eval(name, nameSuffix, pnhName, primaryPnhCategory) {
+            const result = { flag: null, newName: name };
+            if (primaryPnhCategory === 'HOTEL') {
+                const nameToCheck = name + (nameSuffix || '');
+                if (nameToCheck.toUpperCase() === pnhName.toUpperCase()) { // If no localization
+                    result.flag = new Flag.CatHotel(pnhName);
+                    result.newName = pnhName;
+                }
+            }
+            return result;
+        }
     },
     LocalizedName: class extends WLFlag {
         constructor() {
@@ -3055,7 +3077,7 @@ let Flag = {
 
         action() {
             const venue = getSelectedVenue();
-            const categories = venue.attributes.slice();
+            const categories = venue.attributes.categories.slice();
             if (!categories.includes(this.altCategory)) {
                 categories.push(this.altCategory);
                 addUpdateAction(venue, { categories });
@@ -4118,7 +4140,7 @@ function harmonizePlaceGo(item, highlightOnly = false, actions = null) {
     }
 
     // Country restrictions
-    if (!highlightOnly && (addr.county === null || addr.state === null)) {
+    if (!highlightOnly && (!addr.country || !addr.state)) {
         alert('Country and/or state could not be determined.  Edit the place address and run WMEPH again.');
         return undefined;
     }
@@ -4400,12 +4422,13 @@ function harmonizePlaceGo(item, highlightOnly = false, actions = null) {
             _buttonBanner.specCaseMessage = Flag.SpecCaseMessage.eval(item, pnhMatchData).flag;
 
             // name parsing with category exceptions
+            const flagResult = Flag.CatHotel.eval(newName, newNameSuffix, pnhMatchData.name, priPNHPlaceCat);
+            newName = flagResult.newName;
+            _buttonBanner.catHotel = flagResult.flag;
+            _buttonBanner.hotelMkPrim = Flag.HotelMkPrim.eval(item, pnhMatchData, wl).flag;
+
             if (priPNHPlaceCat === 'HOTEL') {
-                const nameToCheck = newName + (newNameSuffix || '');
-                if (nameToCheck.toUpperCase() === pnhMatchData.name.toUpperCase()) { // If no localization
-                    _buttonBanner.catHotel = new Flag.CatHotel(pnhMatchData.name);
-                    newName = pnhMatchData.name;
-                } else {
+                if (!_buttonBanner.catHotel) {
                     // Replace PNH part of name with PNH name
                     const splix = newName.toUpperCase().replace(/[-/]/g, ' ').indexOf(pnhMatchData.name.toUpperCase().replace(/[-/]/g, ' '));
                     if (splix > -1) {
@@ -4420,17 +4443,10 @@ function harmonizePlaceGo(item, highlightOnly = false, actions = null) {
                     }
                 }
                 if (pnhMatchData.altCategories.length) { // if PNH alts exist
-                    insertAtIX(newCategories, pnhMatchData.altCategories, 1); //  then insert the alts into the existing category array after the GS category
+                    insertAtIX(newCategories, pnhMatchData.altCategories, 1);
                 }
-                // TODO eval function
-                if (newCategories.indexOf('HOTEL') !== 0) { // If no HOTEL category in the primary, flag it
-                    _buttonBanner.hotelMkPrim = new Flag.HotelMkPrim();
-                    if (wl.hotelMkPrim) {
-                        _buttonBanner.hotelMkPrim.WLactive = false;
-                    } else {
-                        noLock = true;
-                    }
-                } else if (newCategories.includes('HOTEL')) {
+
+                if (newCategories.includes('HOTEL')) {
                     // Remove LODGING if it exists
                     const lodgingIdx = newCategories.indexOf('LODGING');
                     if (lodgingIdx > -1) {
@@ -4447,9 +4463,9 @@ function harmonizePlaceGo(item, highlightOnly = false, actions = null) {
                 }
             } else if (newCategories.includes('BANK_FINANCIAL') && !pnhMatchData.notABank) {
                 // PNH Bank treatment
-                _ixBank = item.attributes.categories.indexOf('BANK_FINANCIAL');
-                _ixATM = item.attributes.categories.indexOf('ATM');
-                _ixOffices = item.attributes.categories.indexOf('OFFICES');
+                const _ixBank = item.attributes.categories.indexOf('BANK_FINANCIAL');
+                const _ixATM = item.attributes.categories.indexOf('ATM');
+                const _ixOffices = item.attributes.categories.indexOf('OFFICES');
                 // if the name contains ATM in it
                 if (/\batm\b/ig.test(newName)) {
                     if (_ixOffices === 0) {
@@ -4594,9 +4610,9 @@ function harmonizePlaceGo(item, highlightOnly = false, actions = null) {
             newURL = normalizeURL(newURL, true, false, item, region, wl); // Normalize url
 
             // Generic Bank treatment
-            _ixBank = item.attributes.categories.indexOf('BANK_FINANCIAL');
-            _ixATM = item.attributes.categories.indexOf('ATM');
-            _ixOffices = item.attributes.categories.indexOf('OFFICES');
+            const _ixBank = item.attributes.categories.indexOf('BANK_FINANCIAL');
+            const _ixATM = item.attributes.categories.indexOf('ATM');
+            const _ixOffices = item.attributes.categories.indexOf('OFFICES');
             // if the name contains ATM in it
             if (newName.match(/\batm\b/ig) !== null) {
                 if (_ixOffices === 0) {
@@ -5913,7 +5929,7 @@ function assembleServicesBanner() {
                 'background-color': '#eee',
                 color: 'black',
                 'font-size': '15px',
-                padding: '4px',
+                padding: '0px 4px 4px',
                 'margin-left': '4px',
                 'margin-right': 'auto'
             }));
@@ -5982,11 +5998,14 @@ function buttonWhitelist(b, bKey) {
 function displayRunButton() {
     const betaDelay = 100;
     setTimeout(() => {
+        removeFloatingArtifacts(); // Hack to get rid of floating lines in edit panel
         if ($('#WMEPH_runButton').length === 0) {
             $('<div id="WMEPH_runButton">').prependTo('.contents');
         }
         if ($('#runWMEPH').length === 0) {
-            const devVersSuffix = IS_DEV_VERSION ? '-β' : '';
+            //CHANGE TO BETA BEFORE RELEASE
+            //const devVersSuffix = IS_DEV_VERSION ? '-β' : '';
+            const devVersSuffix = IS_DEV_VERSION ? '-α' : '';
             const strButt1 = `<input class="btn btn-primary wmeph-fat-btn" id="runWMEPH" title="Run WMEPH${
                 devVersSuffix} on Place" type="button" value="Run WMEPH${devVersSuffix}">`;
             $('#WMEPH_runButton').append(strButt1);
@@ -7393,12 +7412,6 @@ function addWmephTab() {
         )
     );
 
-    // Normally, scrolling happens inside the tab-content div.  When WMEPH adds stuff outside the landmark div, it effectively breaks that
-    // and causes scrolling to occur at the main content div under edit-panel.  That's actually OK, but need to disable a couple
-    // artifacts that "stick around" with absolute positioning.
-    $('.tabs-container .tab-scroll-gradient').css({ display: 'none' });
-    $('.content .landmark').removeClass('separator-line');
-
     //TEMPORARY, FOR ALPHA TESTING
     new WazeWrap.Interface.Tab(`WMEPH${IS_DEV_VERSION ? '-α' : ''}`, $container.html(), initWmephTab, null);
     //new WazeWrap.Interface.Tab(`WMEPH${_IS_DEV_VERSION ? '-β' : ''}`, $container.html(), initWmephTab, null);
@@ -7781,6 +7794,21 @@ function placeHarmonizerInit() {
     bootstrapWmephColorHighlights();
 } // END placeHarmonizer_init function
 
+// Normally, scrolling happens inside the tab-content div.  When WMEPH adds stuff outside the landmark div, it effectively breaks that
+// and causes scrolling to occur at the main content div under edit-panel.  That's actually OK, but need to disable a couple
+// artifacts that "stick around" with absolute positioning.
+function removeFloatingArtifacts() {
+    const gradient = $('.tabs-container .tab-scroll-gradient');
+    const line = $('.contents .landmark.separator-line');
+
+    // if (gradient.length && line.length) {
+    gradient.css({ display: 'none' });
+    line.removeClass('separator-line');
+    // } else {
+    //     setTimeout(removeFloatingArtifacts, 1000);
+    // }
+}
+
 function placeHarmonizerBootstrap() {
     if (require && W && W.loginManager && W.loginManager.user && W.map && WazeWrap && WazeWrap.Ready && W.model.venues.categoryBrands.PARKING_LOT) {
         placeHarmonizerInit();
@@ -8106,8 +8134,6 @@ function processPnhChains(chainData, categories) {
             }
         });
 
-        // The code below here used to be in a separate function, but for whatever reason it was
-        // causing a ~6x-10x lag in performance compared to running it directly here.
         const baseWords = chainCellToArray(idxSearchNameBase);
         const midWords = chainCellToArray(idxSearchNameMid);
         const endWords = chainCellToArray(idxSearchNameEnd);
@@ -8190,7 +8216,6 @@ function processPnhChains(chainData, categories) {
     });
     return chains;
 }
-
 
 // THIS IS THE OFFICIAL SPREADSHEET ID
 const SPREADSHEET_ID = '1pBz4l4cNapyGyzfMJKqA4ePEFLkmz2RryAt1UV39B4g';
