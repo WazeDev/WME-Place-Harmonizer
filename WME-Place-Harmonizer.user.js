@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name        WME Place Harmonizer Beta (pnh-update)
 // @namespace   WazeUSA
-// @version     2019.06.24.003
+// @version     2019.06.24.004
 // @description Harmonizes, formats, and locks a selected place
 // @author      WMEPH Development Group
 // @include     /^https:\/\/(www|beta)\.waze\.com\/(?!user\/)(.{2,6}\/)?editor\/?.*$/
@@ -2761,13 +2761,24 @@ let Flag = {
         }
     },
     BadAreaCode: class extends WLActionFlag {
-        constructor(textValue, outputFormat, region, whitelist) {
-            super(1, `Area Code mismatch:<br><input type="text" id="WMEPH-PhoneAdd" autocomplete="off" style="font-size:0.85em;width:100px;padding-left:2px;color:#000;" value="${textValue || ''}">`,
+        constructor(phone, outputFormat, region, whitelist) {
+            super(1, `Area Code mismatch:<br><input type="text" id="WMEPH-PhoneAdd" autocomplete="off" style="font-size:0.85em;width:100px;padding-left:2px;color:#000;" value="${phone || ''}">`,
                 'Update', 'Update phone #', true, 'Whitelist the area code', 'aCodeWL');
             this.outputFormat = outputFormat;
             this.noBannerAssemble = true;
             this.whitelist = whitelist;
             this.region = region;
+        }
+
+        static eval(phone, outputFormat, region, validAreaCodes, countryCode, whitelist) {
+            const result = { flage: null };
+            if (!whitelist.aCodeWL && phone && (countryCode === 'USA' || countryCode === 'CAN')) {
+                const areaCodeMatch = phone.match(/[2-9]\d{2}/);
+                if (areaCodeMatch && !validAreaCodes.includes(areaCodeMatch[0])) {
+                    result.flag = new Flag.BadAreaCode(phone, outputFormat, region, whitelist);
+                }
+            }
+            return result;
         }
 
         action() {
@@ -4294,13 +4305,17 @@ function harmonizePlaceGo(item, highlightOnly = false, actions = null) {
         }
     }
 
-    // Country restrictions
+    // If the country or state are not available, we can't continue.
+    // Note: if this is ever adapted to other countries, some have areas with no state so this check will need to be changed.
     if (!highlightOnly && (!addr.country || !addr.state)) {
         alert('Country and/or state could not be determined.  Edit the place address and run WMEPH again.');
         return undefined;
     }
+
     const countryName = addr.country.name;
     const stateName = addr.state.name;
+
+    // Determine the country code to use for getting PNH data.
     let countryCode;
     if (['United States', 'American Samoa', 'Guam', 'Northern Mariana Islands', 'Puerto Rico', 'Virgin Islands (U.S.)'].includes(countryName)) {
         countryCode = 'USA';
@@ -4313,17 +4328,17 @@ function harmonizePlaceGo(item, highlightOnly = false, actions = null) {
         return 3;
     }
 
-    // Get state-based data
+    // Get state-based PNH data
     let pnhStateData = PNH_DATA.states[stateName];
-
     // If state data is not found, try country.
     if (!pnhStateData) {
         pnhStateData = PNH_DATA.states[countryName];
     }
 
+    // If no PNH data, allow user to post an error report.
     if (!pnhStateData) {
         if (!highlightOnly) {
-            if (confirm('WMEPH: Localization Error!\nClick OK to report this error')) { // if the category doesn't translate, then pop an alert that will make a forum post to the thread
+            if (confirm('WMEPH: Localization Error!\nClick OK to report this error')) {
                 const data = {
                     subject: 'WMEPH Localization Error report',
                     message: `Error report: Localization match failed.  State = "${stateName}".`
@@ -4334,7 +4349,7 @@ function harmonizePlaceGo(item, highlightOnly = false, actions = null) {
         return 3;
     }
 
-    const { abbr: state2L, region, areaCodes } = pnhStateData;
+    const { abbr: state2L, region } = pnhStateData;
     let { defaultLockLevel } = pnhStateData;
 
     // Gas station treatment (applies to all including PNH)
@@ -5094,16 +5109,9 @@ function harmonizePlaceGo(item, highlightOnly = false, actions = null) {
         }
         newPhone = normalizePhone(item.attributes.phone, outputFormat, 'existing', item, region, wl);
 
-        // TODO eval function
-        // Check if valid area code  #LOC# USA and CAN only
-        if (!wl.aCodeWL && (countryCode === 'USA' || countryCode === 'CAN')) {
-            if (newPhone !== null && newPhone.match(/[2-9]\d{2}/) !== null) {
-                const areaCode = newPhone.match(/[2-9]\d{2}/)[0];
-                if (!areaCodes.includes(areaCode)) {
-                    _buttonBanner.badAreaCode = new Flag.BadAreaCode(newPhone, outputFormat, region, wl);
-                }
-            }
-        }
+        // Check if valid area code, USA and CAN only
+        _buttonBanner.badAreaCode = Flag.BadAreaCode.eval(newPhone, outputFormat, region, pnhStateData.areaCodes, countryCode, wl).flag;
+
         if (!highlightOnly && newPhone !== item.attributes.phone) {
             phlogdev('Phone updated');
             addUpdateAction(item, { phone: newPhone }, actions);
