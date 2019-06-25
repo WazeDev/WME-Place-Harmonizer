@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name        WME Place Harmonizer Beta (pnh-update)
 // @namespace   WazeUSA
-// @version     2019.06.24.002
+// @version     2019.06.24.003
 // @description Harmonizes, formats, and locks a selected place
 // @author      WMEPH Development Group
 // @include     /^https:\/\/(www|beta)\.waze\.com\/(?!user\/)(.{2,6}\/)?editor\/?.*$/
@@ -312,17 +312,7 @@ const TITLECASE_SETTINGS = {
 const EXCLUDE_FROM_MISSING_ADDRESS_FLAGS = [BRIDGE, ISLAND, FOREST_GROVE, SEA_LAKE_POOL,
     RIVER_STREAM, CANAL, DAM, TUNNEL, JUNCTION_INTERCHANGE];
 
-// Split out state-based data
-let _psStateIx;
-let _psState2LetterIx;
-let _psRegionIx;
-let _psGoogleFormStateIx;
-let _psDefaultLockLevelIx;
-// var _ps_requirePhone_ix;
-// var _ps_requireURL_ix;
-let _psAreaCodeIx;
-let _stateDataTemp;
-let _areaCodeList = '800,822,833,844,855,866,877,888'; //  include toll free non-geographic area codes
+const TOLL_FREE_AREA_CODES = ['800', '822', '833', '844', '855', '866', '877', '888']; //  include toll free non-geographic area codes
 
 let _layer;
 
@@ -4323,60 +4313,29 @@ function harmonizePlaceGo(item, highlightOnly = false, actions = null) {
         return 3;
     }
 
-    // Parse state-based data
-    let state2L = 'Unknown';
-    let region = 'Unknown';
-    let gFormState = '';
-    let defaultLockLevel = 1;
-    for (let usdix = 1; usdix < PNH_DATA.states.length; usdix++) {
-        _stateDataTemp = PNH_DATA.states[usdix].split('|');
-        if (stateName === _stateDataTemp[_psStateIx]) {
-            state2L = _stateDataTemp[_psState2LetterIx];
-            region = _stateDataTemp[_psRegionIx];
-            gFormState = _stateDataTemp[_psGoogleFormStateIx];
-            if (_stateDataTemp[_psDefaultLockLevelIx].match(/[1-5]{1}/) !== null) {
-                defaultLockLevel = _stateDataTemp[_psDefaultLockLevelIx] - 1; // normalize by -1
-            } else if (!highlightOnly) {
-                alert('Lock level sheet data is not correct');
-            } else {
-                return 3;
-            }
-            _areaCodeList = `${_areaCodeList},${_stateDataTemp[_psAreaCodeIx]}`;
-            break;
-        }
-        // If State is not found, then use the country
-        if (countryName === _stateDataTemp[_psStateIx]) {
-            state2L = _stateDataTemp[_psState2LetterIx];
-            region = _stateDataTemp[_psRegionIx];
-            gFormState = _stateDataTemp[_psGoogleFormStateIx];
-            if (_stateDataTemp[_psDefaultLockLevelIx].match(/[1-5]{1}/) !== null) {
-                defaultLockLevel = _stateDataTemp[_psDefaultLockLevelIx] - 1; // normalize by -1
-            } else if (!highlightOnly) {
-                alert('Lock level sheet data is not correct');
-            } else {
-                return 3;
-            }
-            _areaCodeList = `${_areaCodeList},${_stateDataTemp[_psAreaCodeIx]}`;
-            break;
-        }
+    // Get state-based data
+    let pnhStateData = PNH_DATA.states[stateName];
+
+    // If state data is not found, try country.
+    if (!pnhStateData) {
+        pnhStateData = PNH_DATA.states[countryName];
     }
-    if (state2L === 'Unknown' || region === 'Unknown') { // if nothing found:
+
+    if (!pnhStateData) {
         if (!highlightOnly) {
             if (confirm('WMEPH: Localization Error!\nClick OK to report this error')) { // if the category doesn't translate, then pop an alert that will make a forum post to the thread
                 const data = {
                     subject: 'WMEPH Localization Error report',
-                    message: `Error report: Localization match failed for "${stateName}".`
+                    message: `Error report: Localization match failed.  State = "${stateName}".`
                 };
-                if (PNH_DATA.states.length === 0) {
-                    data.message += ' _PNH_DATA.states array is empty.';
-                } else {
-                    data.message += ` state2L = ${_stateDataTemp[_psState2LetterIx]}. region = ${_stateDataTemp[_psRegionIx]}`;
-                }
                 reportError(data);
             }
         }
         return 3;
     }
+
+    const { abbr: state2L, region, areaCodes } = pnhStateData;
+    let { defaultLockLevel } = pnhStateData;
 
     // Gas station treatment (applies to all including PNH)
     const flag = Flag.IsThisAPilotTravelCenter.eval(item, highlightOnly, state2L, newName, actions).flag;
@@ -4840,7 +4799,7 @@ function harmonizePlaceGo(item, highlightOnly = false, actions = null) {
             const encodedTempSubmitName = encodeURIComponent(newName);
             const encodedPlacePL = encodeURIComponent(placePL);
             const encodedUrlSubmit = encodeURIComponent(newURLSubmit);
-            const suffix = USER.name + gFormState;
+            const suffix = USER.name + pnhStateData.googleStateForm;
             switch (region) {
                 case 'NWR': regionFormURL = 'https://docs.google.com/forms/d/1hv5hXBlGr1pTMmo4n3frUx1DovUODbZodfDBwwTc7HE/viewform';
                     newPlaceAddon = `?entry.925969794=${encodedTempSubmitName}&entry.1970139752=${encodedUrlSubmit}&entry.1749047694=${suffix}`;
@@ -5140,7 +5099,7 @@ function harmonizePlaceGo(item, highlightOnly = false, actions = null) {
         if (!wl.aCodeWL && (countryCode === 'USA' || countryCode === 'CAN')) {
             if (newPhone !== null && newPhone.match(/[2-9]\d{2}/) !== null) {
                 const areaCode = newPhone.match(/[2-9]\d{2}/)[0];
-                if (!_areaCodeList.includes(areaCode)) {
+                if (!areaCodes.includes(areaCode)) {
                     _buttonBanner.badAreaCode = new Flag.BadAreaCode(newPhone, outputFormat, region, wl);
                 }
             }
@@ -7882,7 +7841,7 @@ function placeHarmonizerInit() {
 
     if (!_wmephBetaList || _wmephBetaList.length === 0) {
         if (IS_DEV_VERSION) {
-            alert('Beta user list access issue.  Please post in the GHO or PM/DM MapOMatic about this message.  Script should still work.');
+            alert('Beta user list access issue.  Please PM/DM MapOMatic about this message.  Script should still work.');
         }
         USER.isBetaUser = false;
         USER.isDevUser = false;
@@ -7896,17 +7855,6 @@ function placeHarmonizerInit() {
     }
 
     _catTransWaze2Lang = I18n.translations[_userLanguage].venues.categories; // pulls the category translations
-
-    // Split out state-based data
-    const stateHeaders = PNH_DATA.states[0].split('|');
-    _psStateIx = stateHeaders.indexOf('ps_state');
-    _psState2LetterIx = stateHeaders.indexOf('ps_state2L');
-    _psRegionIx = stateHeaders.indexOf('ps_region');
-    _psGoogleFormStateIx = stateHeaders.indexOf('ps_gFormState');
-    _psDefaultLockLevelIx = stateHeaders.indexOf('ps_defaultLockLevel');
-    // ps_requirePhone_ix = _stateHeaders.indexOf('ps_requirePhone');
-    // ps_requireURL_ix = _stateHeaders.indexOf('ps_requireURL');
-    _psAreaCodeIx = stateHeaders.indexOf('ps_areacode');
 
     // Set up Run WMEPH button once place is selected
     bootstrapRunButton();
@@ -7974,6 +7922,48 @@ const cellToText = value => value.trim() || null;
 const cellToArray = value => value.split(',').map(v => v.trim().replace(/\\"/g, '"')).filter(v => v.length);
 const tighten = str => str.toUpperCase().replace(/ AND /g, '').replace(/^THE /g, '').replace(/[^A-Z0-9]/g, '');
 const stripNonAlpha = strArray => strArray.map(str => str.toUpperCase().replace(/[^A-Z0-9]/g, ''));
+
+function processPnhStates(stateData) {
+    const headerRow = stateData[0];
+    const getColIndex = id => headerRow.indexOf(id);
+    const idxName = getColIndex('ps_state');
+    const idxAbbr = getColIndex('ps_state2L');
+    const idxRegion = getColIndex('ps_region');
+    const idxGoogleFormState = getColIndex('ps_gFormState');
+    const idxDefaultLockLevel = getColIndex('ps_defaultLockLevel');
+    const idxAreaCodes = getColIndex('ps_areacode');
+
+    const states = {};
+    for (let idxStateRow = 1; idxStateRow < stateData.length; idxStateRow++) {
+        const stateRow = stateData[idxStateRow];
+        const stateCellToText = col => cellToText(stateRow[col]);
+        const stateCellToArray = col => cellToArray(stateRow[col]);
+        const stateObj = {
+            name: stateCellToText(idxName),
+            abbr: stateCellToText(idxAbbr),
+            region: stateCellToText(idxRegion),
+            googleStateForm: stateCellToText(idxGoogleFormState),
+            defaultLockLevel: parseInt(stateCellToText(idxDefaultLockLevel), 10),
+            areaCodes: stateCellToArray(idxAreaCodes).concat(TOLL_FREE_AREA_CODES)
+        };
+
+        if (isNaN(stateObj.defaultLockLevel)) {
+            console.error(`WMEPH: Default lock level for state "${stateObj.name}" could not be interpreted. `
+                + 'It will be set to 2 until it is fixed in the PNH spreadsheet.');
+            stateObj.defaultLockLevel = 2;
+        } else if (stateObj.defaultLockLevel < 1 || stateObj.defaultLockLevel > 5) {
+            console.error(`WMEPH: Default lock level for state "${stateObj.name}" is set to ${stateObj.defaultLockLevel} in the PNH spreadsheet. `
+                + 'Values outside of 1-5 are not valid. It will be set to 2 until it is fixed in the PNH spreadsheet.');
+            stateObj.defaultLockLevel = 2;
+        }
+
+        // Adjust for 0-based lock level
+        stateObj.defaultLockLevel--;
+
+        states[stateObj.name] = stateObj;
+    }
+    return states;
+}
 
 function processPnhCategories(catData) {
     const headerRow = catData[0];
@@ -8371,7 +8361,6 @@ function downloadPnhData() {
     const dec = s => atob(atob(s));
     const getSpreadsheetUrl = (id, range, key) => `https://sheets.googleapis.com/v4/spreadsheets/${id}/values/${range}?${dec(key)}`;
 
-    // TODO change the _PNH_DATA cache to use an object so we don't have to rely on ugly array index lookups.
     const processData1 = (data, colIdx) => data.filter(row => row.length >= colIdx + 1).map(row => row[colIdx]);
 
     $.getJSON(getSpreadsheetUrl(SPREADSHEET_ID, SPREADSHEET_RANGE, API_KEY)).done(res => {
@@ -8385,18 +8374,20 @@ function downloadPnhData() {
         // This needs to be performed before makeNameCheckList() is called.
         _wordVariations = processData1(values, 11).slice(1).map(row => row.toUpperCase().replace(/[^A-z0-9,]/g, '').split(','));
 
-        PNH_DATA.states = processData1(values, 1);
+        let data = processData1(values, 1).map(row => row.split('|').map(value => value.trim())).filter(row => row[0].length);
+        PNH_DATA.states = processPnhStates(data);
 
-        const catData = processData1(values, 3).map(row => row.split('|').map(value => value.trim()));
-        PNH_DATA.USA.categories = processPnhCategories(catData);
+        data = processData1(values, 3).map(row => row.split('|').map(value => value.trim()));
+        PNH_DATA.USA.categories = processPnhCategories(data);
 
-        let chainData = processData1(values, 0).map(row => row.split('|').map(value => value.trim()));
-        PNH_DATA.USA.newPnh = processPnhChains(chainData, PNH_DATA.USA.categories);
+        data = processData1(values, 0).map(row => row.split('|').map(value => value.trim()));
+        PNH_DATA.USA.newPnh = processPnhChains(data, PNH_DATA.USA.categories);
 
         // For now, Canada uses some of the same settings as USA.
         PNH_DATA.CAN.categories = PNH_DATA.USA.categories;
-        chainData = processData1(values, 2).map(row => row.split('|').map(value => value.trim()));
-        PNH_DATA.CAN.newPnh = processPnhChains(chainData, PNH_DATA.CAN.categories);
+
+        data = processData1(values, 2).map(row => row.split('|').map(value => value.trim()));
+        PNH_DATA.CAN.newPnh = processPnhChains(data, PNH_DATA.CAN.categories);
 
         const WMEPHuserList = processData1(values, 4)[1].split('|');
         const betaix = WMEPHuserList.indexOf('BETAUSERS');
