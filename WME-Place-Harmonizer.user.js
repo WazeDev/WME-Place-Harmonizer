@@ -2367,7 +2367,28 @@ let Flag = {
     WazeBot: class extends ActionFlag {
         constructor() {
             super(2,
-                'Edited last by an automated process. Please verify information is correct.', 'Nudge', 'If no other properties need to be updated, click to nudge the place (force an edit).');
+                'Edited last by an automated process. Please verify information is correct.', 'Nudge',
+                'If no other properties need to be updated, click to nudge the place (force an edit).');
+        }
+
+        static eval(venue) {
+            const result = { flag: null };
+            const updatedById = venue.attributes.updatedBy ? venue.attributes.updatedBy : venue.attributes.createdBy;
+            const updatedBy = W.model.users.getObjectById(updatedById);
+            const updatedByName = updatedBy ? updatedBy.userName : null;
+            const botNamesAndIDs = [
+                '^waze-maint', '^105774162$',
+                '^waze3rdparty$', '^361008095$',
+                '^WazeParking1$', '^338475699$',
+                '^admin$', '^-1$',
+                '^avsus$', '^107668852$'
+            ];
+            const botRegEx = new RegExp(botNamesAndIDs.join('|'), 'i');
+            if (venue.isUnchanged() && !venue.attributes.residential && updatedById && (botRegEx.test(updatedById.toString())
+                || (updatedByName && botRegEx.test(updatedByName)))) {
+                result.flag = new Flag.WazeBot();
+            }
+            return result;
         }
 
         // eslint-disable-next-line class-methods-use-this
@@ -3611,6 +3632,21 @@ let Flag = {
     },
     PlaceLocked: class extends FlagBase {
         constructor() { super(0, 'Place locked.'); }
+
+        static eval(venue, levelToLock, severity, noLock, highlightOnly, actions) {
+            const result = { flag: null };
+            if (!noLock && severity < 2) {
+                if (venue.attributes.lockRank < levelToLock) {
+                    if (!highlightOnly) {
+                        phlogdev('Venue locked!');
+                        addUpdateAction(venue, { lockRank: levelToLock }, actions);
+                        UPDATED_FIELDS.lock.updated = true;
+                    }
+                }
+                result.flag = new Flag.PlaceLocked();
+            }
+            return result;
+        }
     },
     NewPlaceSubmit: class extends ActionFlag {
         constructor(newPlaceUrl) {
@@ -5233,7 +5269,6 @@ function harmonizePlaceGo(item, highlightOnly = false, actions = null) {
         } // END Post Office check
     } // END if (!residential && has name)
 
-    // TODO eval function
     // For gas stations, check to make sure brand exists somewhere in the place name.
     // Remove non - alphanumeric characters first, for more relaxed matching.
     _buttonBanner.gasMismatch = Flag.GasMismatch.eval(newName, newBrand, newCategories, wl).flag;
@@ -5249,7 +5284,6 @@ function harmonizePlaceGo(item, highlightOnly = false, actions = null) {
     _buttonBanner.plaNameNonStandard = Flag.PlaNameNonStandard.eval(item, wl).flag;
     _buttonBanner.plaIsPublic = Flag.PlaIsPublic.eval(item, highlightOnly).flag;
 
-    // TODO eval function
     // House number / HN check
     let currentHN = item.attributes.houseNumber;
     // Check to see if there's an action that is currently updating the house number.
@@ -5463,41 +5497,14 @@ function harmonizePlaceGo(item, highlightOnly = false, actions = null) {
         }
     }
 
-    let hlLockFlag = false;
-    if (!noLock && severity < 2) {
-        if (item.attributes.lockRank < levelToLock) {
-            if (!highlightOnly) {
-                phlogdev('Venue locked!');
-                addUpdateAction(item, { lockRank: levelToLock }, actions);
-                UPDATED_FIELDS.lock.updated = true;
-            } else {
-                hlLockFlag = true;
-            }
-        }
-        _buttonBanner.placeLocked = new Flag.PlaceLocked();
-    }
+    _buttonBanner.placeLocked = Flag.PlaceLocked.eval(item, levelToLock, severity, noLock, highlightOnly, actions).flag;
 
-    // TODO eval function
     // IGN check
     _buttonBanner.ignEdited = Flag.IgnEdited.eval(item).flag;
 
     // TODO eval function
     // waze_maint_bot check
-    const updatedById = item.attributes.updatedBy ? item.attributes.updatedBy : item.attributes.createdBy;
-    const updatedBy = W.model.users.getObjectById(updatedById);
-    const updatedByName = updatedBy ? updatedBy.userName : null;
-    const botNamesAndIDs = [
-        '^waze-maint', '^105774162$',
-        '^waze3rdparty$', '^361008095$',
-        '^WazeParking1$', '^338475699$',
-        '^admin$', '^-1$',
-        '^avsus$', '^107668852$'
-    ];
-    const botRegEx = new RegExp(botNamesAndIDs.join('|'), 'i');
-    if (item.isUnchanged() && !item.attributes.residential && updatedById && (botRegEx.test(updatedById.toString())
-        || (updatedByName && botRegEx.test(updatedByName)))) {
-        _buttonBanner.wazeBot = new Flag.WazeBot();
-    }
+    _buttonBanner.wazeBot = Flag.WazeBot.eval(item).flag;
 
     // TODO eval function
     // TODO is this needed anymore?
@@ -5559,14 +5566,13 @@ function harmonizePlaceGo(item, highlightOnly = false, actions = null) {
             severity = 5;
         }
 
-        if (severity === 0 && hlLockFlag) {
-            severity = 'lock';
-        }
-        if (severity === 1 && hlLockFlag) {
-            severity = 'lock1';
-        }
+        const hlLockFlag = highlightOnly && !noLock && severity < 2 && item.attributes.lockRank < levelToLock;
         if (item.attributes.adLocked) {
             severity = 'adLock';
+        } else if (severity === 0 && hlLockFlag) {
+            severity = 'lock';
+        } else if (severity === 1 && hlLockFlag) {
+            severity = 'lock1';
         }
 
         return severity;
