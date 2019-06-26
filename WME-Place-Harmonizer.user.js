@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name        WME Place Harmonizer Beta (pnh-update)
 // @namespace   WazeUSA
-// @version     2019.06.25.001
+// @version     2019.06.26.001
 // @description Harmonizes, formats, and locks a selected place
 // @author      WMEPH Development Group
 // @include     /^https:\/\/(www|beta)\.waze\.com\/(?!user\/)(.{2,6}\/)?editor\/?.*$/
@@ -271,7 +271,7 @@ let _disableHighlightTest = false; // Set to true to temporarily disable highlig
 
 const USER = {
     ref: null,
-    rank: null,
+    normalizedRank: null,
     name: null,
     isBetaUser: false,
     isDevUser: false
@@ -1306,7 +1306,7 @@ function applyHighlightsTest(venues, force) {
             // Highlighting logic would go here
             // Severity can be: 0, 'lock', 1, 2, 3, 4, or 'high'. Set to
             // anything else to use default WME style.
-            if (doHighlight && !(disableRankHL && venue.attributes.lockRank > USER.rank - 1)) {
+            if (doHighlight && !(disableRankHL && venue.attributes.lockRank > USER.normalizedRank - 1)) {
                 try {
                     const { id } = venue.attributes;
                     let severity;
@@ -1725,18 +1725,52 @@ let Flag = {
         }
     },
     NameMissing: class extends FlagBase {
-        constructor() { super(3, 'Name is missing.'); }
+        constructor() { super(3, 'Name is missing.', true); }
+
+        static eval(name, categories) {
+            const result = { flag: null };
+            if (!/[a-z0-9]/i.test(name)
+                && ![RESIDENCE_HOME, PARKING_LOT, ISLAND, FOREST_GROVE, SEA_LAKE_POOL, RIVER_STREAM, CANAL].includes(categories[0])) {
+                result.flag = new Flag.NameMissing();
+            }
+            return result;
+        }
     },
     PlaIsPublic: class extends FlagBase {
         constructor() {
             super(0, 'If this does not meet the requirements for a <a href="https://wazeopedia.waze.com/wiki/USA/Places/Parking_lot#Lot_Type" '
                 + 'target="_blank" style="color:5a5a73">public parking lot</a>, change to:<br>');
+            this.message += [
+                ['RESTRICTED', 'Restricted'],
+                ['PRIVATE', 'Private']
+            ].map(
+                btnInfo => $('<button>', { class: 'wmeph-pla-lot-type-btn btn btn-default btn-xs wmeph-btn', 'data-lot-type': btnInfo[0] })
+                    .text(btnInfo[1])
+                    .prop('outerHTML')
+            ).join('');
+        }
+
+        static eval(venue, highlightOnly) {
+            const result = { flag: null };
+            if (!highlightOnly && venue.isParkingLot() && venue.attributes.categoryAttributes && venue.attributes.categoryAttributes.PARKING_LOT
+                && venue.attributes.categoryAttributes.PARKING_LOT.parkingType === 'PUBLIC') {
+                result.flag = new Flag.PlaIsPublic();
+            }
+            return result;
         }
     },
     PlaNameMissing: class extends FlagBase {
         constructor() {
-            super(1, 'Name is missing.');
-            this.message += USER.rank < 3 ? ' Request an R3+ lock to confirm unnamed parking lot.' : ' Lock to 3+ to confirm unnamed parking lot.';
+            super(1, 'Name is missing.', true);
+            this.message += USER.normalizedRank < 3 ? ' Request an R3+ lock to confirm unnamed parking lot.' : ' Lock to 3+ to confirm unnamed parking lot.';
+        }
+
+        static eval(name, categories, lockRank) {
+            const result = { flag: null };
+            if (lockRank < 2 && categories[0] === PARKING_LOT && !/[a-z0-9]/i.test(name)) {
+                result.flag = new Flag.PlaNameMissing();
+            }
+            return result;
         }
     },
     PlaNameNonStandard: class extends WLFlag {
@@ -2109,10 +2143,45 @@ let Flag = {
         constructor(venue) {
             super(3,
                 'No HN: <input type="text" id="WMEPH-HNAdd" autocomplete="off" style="font-size:0.85em;width:100px;padding-left:2px;color:#000;" > ',
-                'Add', 'Add HN to place', true, 'Whitelist empty HN', 'HNWL');
+                'Add', 'Add HN to place', true, 'Whitelist empty HN', 'HNWL', true);
             this.venue = venue;
             this.noBannerAssemble = true;
             this.badInput = false;
+        }
+
+        static eval(venue, hn, hasStreet, state2L, whitelist) {
+            const result = { flag: null };
+            if (hasStreet && !(hn && hn.replace(/\D/g, '').length)) {
+                if (![BRIDGE, ISLAND, FOREST_GROVE, SEA_LAKE_POOL, RIVER_STREAM, CANAL, DAM,
+                    TUNNEL, JUNCTION_INTERCHANGE].includes(venue.attributes.categories[0])) {
+                    result.flag = new Flag.HnMissing(venue);
+                    if (state2L === 'PR' || venue.attributes.categories[0] === SCENIC_LOOKOUT_VIEWPOINT) {
+                        result.flag.severity = 0;
+                        result.flag.WLactive = false;
+                        result.flag.noLock = false;
+                    } else if (venue.isParkingLot()) {
+                        result.flag.WLactive = false;
+                        if (venue.attributes.lockRank < 2) {
+                            let msgAdd;
+                            if (USER.normalizedRank < 3) {
+                                msgAdd = 'Request an R3+ lock to confirm no HN.';
+                            } else {
+                                msgAdd = 'Lock to R3+ to confirm no HN.';
+                            }
+                            result.flag.suffixMessage = msgAdd;
+                            result.flag.severity = 1;
+                        } else {
+                            result.flag.severity = 0;
+                            result.flag.noLock = false;
+                        }
+                    } else if (whitelist.HNWL) {
+                        result.flag.severity = 0;
+                        result.flag.WLactive = false;
+                        result.flag.noLock = false;
+                    }
+                }
+            }
+            return result;
         }
 
         action() {
@@ -3183,7 +3252,7 @@ let Flag = {
         static eval(venue, defaultLockLevel) {
             const result = { flag: null };
             // Allow residential point locking by R3+
-            if (venue.attributes.residential && (USER.isDevUser || USER.isBetaUser || USER.rank >= 3)) {
+            if (venue.attributes.residential && (USER.isDevUser || USER.isBetaUser || USER.normalizedRank >= 3)) {
                 if (venue.attributes.lockRank < defaultLockLevel) {
                     result.flag = new Flag.LockRPP(venue.attributes.lockRank, defaultLockLevel);
                 } else {
@@ -4417,7 +4486,7 @@ function harmonizePlaceGo(item, highlightOnly = false, actions = null) {
             _buttonBanner.pointNotArea = new Flag.PointNotArea();
         }
     } else if (item.isParkingLot() || (newName && newName.trim().length)) { // for non-residential places
-        _buttonBanner.extProviderMissing = Flag.ExtProviderMissing.eval(item, isLocked, newCategories, USER.rank, $('#WMEPH-DisablePLAExtProviderCheck').prop('checked'), actions).flag;
+        _buttonBanner.extProviderMissing = Flag.ExtProviderMissing.eval(item, isLocked, newCategories, USER.normalizedRank, $('#WMEPH-DisablePLAExtProviderCheck').prop('checked'), actions).flag;
 
         // Place Harmonization
         let matchResult = { matches: [], status: 'NoMatch' };
@@ -5173,37 +5242,12 @@ function harmonizePlaceGo(item, highlightOnly = false, actions = null) {
     _buttonBanner.gasNoBrand = Flag.GasNoBrand.eval(item, newBrand).flag;
     _buttonBanner.gasUnbranded = Flag.GasUnbranded.eval(item, newBrand).flag;
 
-    // TODO eval function
     // Name check
-    if (!item.attributes.residential && (!newName || newName.replace(/[^A-Za-z0-9]/g, '').length === 0)) {
-        if (item.isParkingLot()) {
-            // If it's a parking lot and not locked to R3...
-            if (item.attributes.lockRank < 2) {
-                noLock = true;
-                _buttonBanner.plaNameMissing = new Flag.PlaNameMissing();
-            }
-        } else if (![ISLAND, FOREST_GROVE, SEA_LAKE_POOL, RIVER_STREAM, CANAL].includes(item.attributes.categories[0])) {
-            _buttonBanner.nameMissing = new Flag.NameMissing();
-            noLock = true;
-        }
-    }
+    _buttonBanner.plaNameMissing = Flag.PlaNameMissing.eval(newName, newCategories, item.attributes.lockRank).flag;
+    _buttonBanner.nameMissing = Flag.NameMissing.eval(newName, newCategories).flag;
 
     _buttonBanner.plaNameNonStandard = Flag.PlaNameNonStandard.eval(item, wl).flag;
-
-    // Public parking lot warning message:
-    if (item.isParkingLot() && item.attributes.categoryAttributes && item.attributes.categoryAttributes.PARKING_LOT
-        && item.attributes.categoryAttributes.PARKING_LOT.parkingType === 'PUBLIC') {
-        _buttonBanner.plaIsPublic = new Flag.PlaIsPublic();
-        // Add the buttons to the message.
-        _buttonBanner.plaIsPublic.message += [
-            ['RESTRICTED', 'Restricted'],
-            ['PRIVATE', 'Private']
-        ].map(
-            btnInfo => $('<button>', { class: 'wmeph-pla-lot-type-btn btn btn-default btn-xs wmeph-btn', 'data-lot-type': btnInfo[0] })
-                .text(btnInfo[1])
-                .prop('outerHTML')
-        ).join('');
-    }
+    _buttonBanner.plaIsPublic = Flag.PlaIsPublic.eval(item, highlightOnly).flag;
 
     // TODO eval function
     // House number / HN check
@@ -5214,36 +5258,9 @@ function harmonizePlaceGo(item, highlightOnly = false, actions = null) {
     // Use the inferred address street if currently no street.
     const hasStreet = item.attributes.streetID || (inferredAddress && inferredAddress.street);
 
-    if (hasStreet && (!currentHN || currentHN.replace(/\D/g, '').length === 0)) {
-        if (![BRIDGE, ISLAND, FOREST_GROVE, SEA_LAKE_POOL, RIVER_STREAM, CANAL, DAM,
-            TUNNEL, JUNCTION_INTERCHANGE].includes(item.attributes.categories[0])) {
-            _buttonBanner.hnMissing = new Flag.HnMissing(item);
-            if (state2L === 'PR' || [SCENIC_LOOKOUT_VIEWPOINT].includes(item.attributes.categories[0])) {
-                _buttonBanner.hnMissing.severity = 0;
-                _buttonBanner.hnMissing.WLactive = false;
-            } else if (item.isParkingLot()) {
-                _buttonBanner.hnMissing.WLactive = false;
-                if (item.attributes.lockRank < 2) {
-                    noLock = true;
-                    let msgAdd;
-                    if (USER.rank < 3) {
-                        msgAdd = 'Request an R3+ lock to confirm no HN.';
-                    } else {
-                        msgAdd = 'Lock to R3+ to confirm no HN.';
-                    }
-                    _buttonBanner.hnMissing.suffixMessage = msgAdd;
-                    _buttonBanner.hnMissing.severity = 1;
-                } else {
-                    _buttonBanner.hnMissing.severity = 0;
-                }
-            } else if (wl.HNWL) {
-                _buttonBanner.hnMissing.severity = 0;
-                _buttonBanner.hnMissing.WLactive = false;
-            } else {
-                noLock = true;
-            }
-        }
-    } else if (currentHN) {
+    _buttonBanner.hnMissing = Flag.HnMissing.eval(item, currentHN, hasStreet, state2L, wl).flag;
+
+    if (currentHN) {
         let hnOK = false;
         let updateHNflag = false;
         const hnTemp = currentHN.replace(/[^\d]/g, ''); // Digits only
@@ -5413,7 +5430,7 @@ function harmonizePlaceGo(item, highlightOnly = false, actions = null) {
         }
     }
 
-    if (levelToLock > (USER.rank - 1)) { levelToLock = (USER.rank - 1); } // Only lock up to the user's level
+    if (levelToLock > (USER.normalizedRank - 1)) { levelToLock = (USER.normalizedRank - 1); } // Only lock up to the user's level
 
     // If gas station is missing brand, don't flag if place is locked.
     if (_buttonBanner.gasNoBrand) {
@@ -7359,7 +7376,7 @@ function initWmephTab() {
     initSettingsCheckbox('WMEPH-HidePURWebSearch');
     initSettingsCheckbox('WMEPH-ExcludePLADupes');
     initSettingsCheckbox('WMEPH-ShowPLAExitWhileClosed');
-    if (USER.isDevUser || USER.isBetaUser || USER.rank >= 2) {
+    if (USER.isDevUser || USER.isBetaUser || USER.normalizedRank >= 2) {
         initSettingsCheckbox('WMEPH-DisablePLAExtProviderCheck');
         initSettingsCheckbox('WMEPH-EnableServices');
         initSettingsCheckbox('WMEPH-AddAddresses');
@@ -7439,7 +7456,7 @@ function addWmephTab() {
     createSettingsCheckbox($harmonizerTab, 'WMEPH-HidePURWebSearch', 'Hide "Web Search" button on PUR popups');
     createSettingsCheckbox($harmonizerTab, 'WMEPH-ExcludePLADupes', 'Exclude parking lots when searching for duplicate places');
     createSettingsCheckbox($harmonizerTab, 'WMEPH-ShowPLAExitWhileClosed', 'Always ask if cars can exit parking lots');
-    if (USER.isDevUser || USER.isBetaUser || USER.rank >= 2) {
+    if (USER.isDevUser || USER.isBetaUser || USER.normalizedRank >= 2) {
         createSettingsCheckbox($harmonizerTab, 'WMEPH-DisablePLAExtProviderCheck', 'Disable check for "Google place link" on Parking Lot Areas');
         createSettingsCheckbox($harmonizerTab, 'WMEPH-EnableServices', 'Enable automatic addition of common services');
         createSettingsCheckbox($harmonizerTab, 'WMEPH-AddAddresses', 'Add detected address fields to places with no address');
@@ -7488,7 +7505,7 @@ function addWmephTab() {
     createSettingsCheckbox($highlighterTab, 'WMEPH-DisableRankHL', 'Disable highlighting for places locked above your rank');
     createSettingsCheckbox($highlighterTab, 'WMEPH-DisableWLHL', 'Disable Whitelist highlighting (shows all missing info regardless of WL)');
     createSettingsCheckbox($highlighterTab, 'WMEPH-PLATypeFill', 'Fill parking lots based on type (public=blue, restricted=yellow, private=red)');
-    if (USER.isDevUser || USER.isBetaUser || USER.rank >= 3) {
+    if (USER.isDevUser || USER.isBetaUser || USER.normalizedRank >= 3) {
         // createSettingsCheckbox($highlighterTab 'WMEPH-UnlockedRPPs','Highlight unlocked residential place points');
     }
 
@@ -7761,7 +7778,7 @@ function placeHarmonizerInit() {
 
     USER.ref = W.loginManager.user;
     USER.name = USER.ref.userName;
-    USER.rank = USER.ref.normalizedLevel; // get editor's level (actual level)
+    USER.normalizedRank = USER.ref.normalizedLevel; // get editor's level (actual level)
     _userLanguage = I18n.locale;
 
     // Array prototype extensions (for Firefox fix)
