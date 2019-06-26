@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name        WME Place Harmonizer Beta (pnh-update)
 // @namespace   WazeUSA
-// @version     2019.06.26.001
+// @version     2019.06.26.002
 // @description Harmonizes, formats, and locks a selected place
 // @author      WMEPH Development Group
 // @include     /^https:\/\/(www|beta)\.waze\.com\/(?!user\/)(.{2,6}\/)?editor\/?.*$/
@@ -2427,12 +2427,20 @@ let Flag = {
         constructor() { super(2, 'Place points are stacked up.'); }
     },
     SuspectDesc: class extends WLFlag {
-        constructor() { super(2, 'Description field might contain copyrighted info.', true, 'Whitelist description', 'suspectDesc'); }
-    },
-    ResiTypeName: class extends WLFlag {
         constructor() {
-            super(2, 'The place name suggests a residential place or personalized place of work.  Please verify.',
-                true, 'Whitelist Residential-type name', 'resiTypeName');
+            super(2, 'Description field might contain copyrighted info.', true,
+                'Whitelist description', 'suspectDesc');
+        }
+
+        static eval(venue, severity, whitelist) {
+            const result = { flag: null };
+            if (!venue.attributes.residential && severity < 3 && !whitelist.suspectDesc) {
+                const desc = venue.attributes.description.toLowerCase();
+                if ([/\bgoogle\b/i, /\byelp\b/i].some(regex => regex.test(desc))) {
+                    result.flag = new Flag.SuspectDesc();
+                }
+            }
+            return result;
         }
     },
     Mismatch247: class extends FlagBase {
@@ -3258,8 +3266,26 @@ let Flag = {
             return flag;
         }
     },
-    ResiTypeNameSoft: class extends FlagBase {
-        constructor() { super(0, 'The place name suggests a residential place or personalized place of work.  Please verify.'); }
+    ResiTypeName: class extends WLFlag {
+        constructor(severity) {
+            super(severity, 'The place name suggests a residential place or personalized place of work.  Please verify.',
+                true, 'Whitelist Residential-type name', 'resiTypeName');
+        }
+
+        static eval(venue, name, categories, severity, pnhNameRegMatch, whitelist) {
+            const result = { flag: null };
+            if (!venue.attributes.residential && severity < 3 && !whitelist.resiTypeName) {
+                const nameShortSpace = name.toUpperCase().replace(/[^A-Z ']/g, '');
+                if (['\'S HOUSE', '\'S HOME', '\'S WORK'].some(str => nameShortSpace.includes(str))
+                    && !containsAny(categories, [RESTAURANT, DESSERT, BAR]) && !pnhNameRegMatch) {
+                    result.flag = new Flag.ResiTypeName(0);
+                } else if (['HOME', 'MY HOME', 'HOUSE', 'MY HOUSE', 'PARENTS HOUSE', 'CASA', 'MI CASA', 'WORK',
+                    'MY WORK', 'MY OFFICE', 'MOMS HOUSE', 'DADS HOUSE', 'MOM', 'DAD'].includes(nameShortSpace.replace(/'/g, ''))) {
+                    result.flag = new Flag.ResiTypeName(2);
+                }
+            }
+            return result;
+        }
     },
     LocalURL: class extends FlagBase {
         constructor() { super(0, 'Some locations for this business have localized URLs, while others use the primary corporate site. Check if a local URL applies to this location.'); }
@@ -5502,11 +5528,9 @@ function harmonizePlaceGo(item, highlightOnly = false, actions = null) {
     // IGN check
     _buttonBanner.ignEdited = Flag.IgnEdited.eval(item).flag;
 
-    // TODO eval function
     // waze_maint_bot check
     _buttonBanner.wazeBot = Flag.WazeBot.eval(item).flag;
 
-    // TODO eval function
     // TODO is this needed anymore?
     // RPP Locking option for R3+
     _buttonBanner.lockRPP = Flag.LockRPP.eval(item).flag;
@@ -5519,30 +5543,9 @@ function harmonizePlaceGo(item, highlightOnly = false, actions = null) {
         if (_buttonBanner.addSuper) _buttonBanner.addSuper = null;
     }
 
-    // TODO eval function
     // Final alerts for non-severe locations
-    if (!item.attributes.residential && severity < 3) {
-        const nameShortSpace = newName.toUpperCase().replace(/[^A-Z ']/g, '');
-        if (nameShortSpace.includes('\'S HOUSE') || nameShortSpace.includes('\'S HOME') || nameShortSpace.includes('\'S WORK')) {
-            if (!containsAny(newCategories, [RESTAURANT, DESSERT, BAR]) && !pnhNameRegMatch) {
-                _buttonBanner.resiTypeNameSoft = new Flag.ResiTypeNameSoft();
-            }
-        }
-        if (['HOME', 'MY HOME', 'HOUSE', 'MY HOUSE', 'PARENTS HOUSE', 'CASA', 'MI CASA', 'WORK', 'MY WORK', 'MY OFFICE',
-            'MOMS HOUSE', 'DADS HOUSE', 'MOM', 'DAD'].includes(nameShortSpace)) {
-            _buttonBanner.resiTypeName = new Flag.ResiTypeName();
-            if (wl.resiTypeName) {
-                _buttonBanner.resiTypeName.WLactive = false;
-            }
-            _buttonBanner.resiTypeNameSoft = null;
-        }
-        if (item.attributes.description.toLowerCase().includes('google') || item.attributes.description.toLowerCase().includes('yelp')) {
-            _buttonBanner.suspectDesc = new Flag.SuspectDesc();
-            if (wl.suspectDesc) {
-                _buttonBanner.suspectDesc.WLactive = false;
-            }
-        }
-    }
+    _buttonBanner.resiTypeName = Flag.ResiTypeName.eval(item, newName, newCategories, severity, pnhNameRegMatch, wl).flag;
+    _buttonBanner.suspectDesc = Flag.SuspectDesc.eval(item, severity, wl).flag;
 
     // Return severity for highlighter (no dupe run))
     if (highlightOnly) {
