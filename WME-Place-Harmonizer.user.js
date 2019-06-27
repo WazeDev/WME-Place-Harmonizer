@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name        WME Place Harmonizer Beta (pnh-update)
 // @namespace   WazeUSA
-// @version     2019.06.26.002
+// @version     2019.06.26.003
 // @description Harmonizes, formats, and locks a selected place
 // @author      WMEPH Development Group
 // @include     /^https:\/\/(www|beta)\.waze\.com\/(?!user\/)(.{2,6}\/)?editor\/?.*$/
@@ -1667,9 +1667,6 @@ class WLActionFlag extends WLFlag {
 
 // Namespace to keep these grouped.
 let Flag = {
-    HnDashRemoved: class extends FlagBase {
-        constructor() { super(0, 'Dash removed from house number. Verify'); }
-    },
     FullAddressInference: class extends FlagBase {
         constructor() { super(3, 'Missing address was inferred from nearby segments. Verify the address and run script again.', true); }
 
@@ -2216,7 +2213,24 @@ let Flag = {
     HnNonStandard: class extends WLFlag {
         constructor() {
             super(3, 'House number is non-standard.', true,
-                'Whitelist non-standard HN', 'hnNonStandard');
+                'Whitelist non-standard HN', 'hnNonStandard', true);
+        }
+
+        static eval(hn, state2L, address, whitelist) {
+            const result = { flag: null };
+            if (hn) {
+                if (!(/^\d{1,6}$/.test(hn)
+                    || (state2L === 'NY' && address.city.attributes.name === 'Queens' && /^\d{1,4}-\d{1,4}$/.test(hn))
+                    || (state2L === 'HI' && /^\d{1,2}-\d{1,4}$/.test(hn)))) {
+                    result.flag = new Flag.HnNonStandard();
+                    if (whitelist.hnNonStandard) {
+                        result.flag.WLactive = false;
+                        result.flag.severity = 0;
+                        result.flag.noLock = false;
+                    }
+                }
+            }
+            return result;
         }
     },
     HNRange: class extends WLFlag {
@@ -3845,7 +3859,6 @@ function getButtonBanner() {
         pnhCatMess: null,
         notAHospital: null,
         notASchool: null,
-        hnDashRemoved: null,
         fullAddressInference: null,
         nameMissing: null,
         plaIsPublic: null,
@@ -5320,48 +5333,7 @@ function harmonizePlaceGo(item, highlightOnly = false, actions = null) {
 
     _buttonBanner.hnMissing = Flag.HnMissing.eval(item, currentHN, hasStreet, state2L, wl).flag;
 
-    if (currentHN) {
-        let hnOK = false;
-        let updateHNflag = false;
-        const hnTemp = currentHN.replace(/[^\d]/g, ''); // Digits only
-        const hnTempDash = currentHN.replace(/[^\d-]/g, ''); // Digits and dashes only
-        if (hnTemp < 1000000 && state2L === 'NY' && addr.city.attributes.name === 'Queens' && hnTempDash.match(/^\d{1,4}-\d{1,4}$/g) !== null) {
-            updateHNflag = true;
-            hnOK = true;
-        }
-        if (hnTemp === currentHN && hnTemp < 1000000) { //  general check that HN is 6 digits or less, & that it is only [0-9]
-            hnOK = true;
-        }
-        if (state2L === 'HI' && hnTempDash.match(/^\d{1,2}-\d{1,4}$/g) !== null) {
-            if (hnTempDash === hnTempDash.match(/^\d{1,2}-\d{1,4}$/g)[0]) {
-                hnOK = true;
-            }
-        }
-
-        // TODO eval function
-        if (!hnOK) {
-            _buttonBanner.hnNonStandard = new Flag.HnNonStandard();
-            if (wl.hnNonStandard) {
-                _buttonBanner.hnNonStandard.WLactive = false;
-                _buttonBanner.hnNonStandard.severity = 0;
-            } else {
-                noLock = true;
-            }
-        }
-
-        // TODO - verify HN dash removal is still needed.
-        if (updateHNflag) {
-            _buttonBanner.hnDashRemoved = new Flag.HnDashRemoved();
-            if (!highlightOnly) {
-                addUpdateAction(item, { houseNumber: hnTemp }, actions);
-                UPDATED_FIELDS.address.updated = true;
-            } else if (item.attributes.residential) {
-                _buttonBanner.hnDashRemoved.severity = 3;
-            } else {
-                _buttonBanner.hnDashRemoved.severity = 1;
-            }
-        }
-    }
+    _buttonBanner.hnNonStandard = Flag.HnNonStandard.eval(currentHN, state2L, addr, wl).flag;
 
     _buttonBanner.cityMissing = Flag.CityMissing.eval(item, addr, highlightOnly).flag;
     _buttonBanner.streetMissing = Flag.StreetMissing.eval(item, addr).flag;
