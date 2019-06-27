@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name        WME Place Harmonizer Beta (pnh-update)
 // @namespace   WazeUSA
-// @version     2019.06.26.003
+// @version     2019.06.27.001
 // @description Harmonizes, formats, and locks a selected place
 // @author      WMEPH Development Group
 // @include     /^https:\/\/(www|beta)\.waze\.com\/(?!user\/)(.{2,6}\/)?editor\/?.*$/
@@ -1808,8 +1808,17 @@ let Flag = {
             return result;
         }
     },
+    // TODO - eval
     HoursOverlap: class extends FlagBase {
         constructor() { super(3, 'Overlapping hours of operation. Place might not save.'); }
+
+        static eval(hoursOverlap) {
+            const result = { flag: null };
+            if (hoursOverlap) {
+                result.flag = new Flag.HoursOverlap();
+            }
+            return result;
+        }
     },
     UnmappedRegion: class extends WLFlag {
         constructor() {
@@ -1844,12 +1853,14 @@ let Flag = {
             return result;
         }
     },
+    // TODO - eval
     RestAreaName: class extends WLFlag {
         constructor() {
             super(3, 'Rest area name is out of spec. Use the Rest Area wiki button below to view formats.', true,
                 'Whitelist rest area name', 'restAreaName');
         }
     },
+    // TODO - eval
     RestAreaNoTransportation: class extends ActionFlag {
         constructor() { super(2, 'Rest areas should not use the Transportation category.', 'Remove it?'); }
 
@@ -1865,9 +1876,11 @@ let Flag = {
             }
         }
     },
+    // TODO - eval
     RestAreaGas: class extends FlagBase {
         constructor() { super(3, 'Gas stations at Rest Areas should be separate area places.'); }
     },
+    // TODO - eval
     RestAreaScenic: class extends WLActionFlag {
         constructor() {
             super(0, 'Verify that the "Scenic Overlook" category is appropriate for this rest area.  If not: ',
@@ -1886,6 +1899,7 @@ let Flag = {
             }
         }
     },
+    // TODO - eval
     RestAreaSpec: class extends WLActionFlag {
         constructor() {
             super(3, 'Is this a rest area?',
@@ -2105,6 +2119,7 @@ let Flag = {
             return result;
         }
     },
+    // TODO - eval
     PointNotArea: class extends WLActionFlag {
         constructor() {
             super(3, 'This category should be a point place.', 'Change to point', 'Change to point place',
@@ -2123,6 +2138,7 @@ let Flag = {
             harmonizePlaceGo(venue);
         }
     },
+    // TODO - eval
     AreaNotPoint: class extends WLActionFlag {
         constructor() {
             super(3, 'This category should be an area place.', 'Change to area', 'Change to Area',
@@ -2233,6 +2249,7 @@ let Flag = {
             return result;
         }
     },
+    // TODO - eval
     HNRange: class extends WLFlag {
         constructor() {
             super(2, 'House number seems out of range for the street name. Verify.', true,
@@ -2292,9 +2309,11 @@ let Flag = {
             $('.city-name').focus();
         }
     },
+    // TODO - eval
     BankType1: class extends FlagBase {
         constructor() { super(3, 'Clarify the type of bank: the name has ATM but the primary category is Offices'); }
     },
+    // TODO - eval
     BankBranch: class extends ActionFlag {
         constructor() { super(1, 'Is this a bank branch office? ', 'Yes', 'Is this a bank branch?'); }
 
@@ -2310,6 +2329,7 @@ let Flag = {
             harmonizePlaceGo(venue);
         }
     },
+    // TODO - eval
     StandaloneATM: class extends ActionFlag {
         constructor() { super(2, 'Or is this a standalone ATM? ', 'Yes', 'Is this a standalone ATM with no bank branch?'); }
 
@@ -2327,6 +2347,7 @@ let Flag = {
             harmonizePlaceGo(venue);
         }
     },
+    // TODO - eval
     BankCorporate: class extends ActionFlag {
         constructor() { super(1, 'Or is this the bank\'s corporate offices?', 'Yes', 'Is this the bank\'s corporate offices?'); }
 
@@ -2431,12 +2452,14 @@ let Flag = {
             return result;
         }
     },
+    // TODO - eval
     CheckDescription: class extends FlagBase {
         constructor() {
             super(2,
                 'Description field already contained info; PNH description was added in front of existing. Check for inconsistency or duplicate info.');
         }
     },
+    // TODO - eval
     Overlapping: class extends FlagBase {
         constructor() { super(2, 'Place points are stacked up.'); }
     },
@@ -2457,18 +2480,22 @@ let Flag = {
             return result;
         }
     },
+    // TODO - eval
     Mismatch247: class extends FlagBase {
         constructor() { super(2, 'Hours of operation listed as open 24hrs but not for all 7 days.'); }
     },
+    // TODO - eval
     PhoneInvalid: class extends FlagBase {
         constructor() { super(2, 'Phone invalid.'); }
     },
+    // TODO - eval
     AreaNotPointMid: class extends WLFlag {
         constructor() {
             super(2, 'This category is usually an area place, but can be a point in some cases. Verify if point is appropriate.',
                 true, 'Whitelist area (not point)', 'areaNotPoint');
         }
     },
+    // TODO - eval
     PointNotAreaMid: class extends WLFlag {
         constructor() {
             super(2, 'This category is usually a point place, but can be an area in some cases. Verify if area is appropriate.',
@@ -2562,12 +2589,14 @@ let Flag = {
             return result;
         }
     },
+    // TODO - eval
     AreaNotPointLow: class extends WLFlag {
         constructor() {
             super(1, 'This category is usually an area place, but can be a point in some cases. Verify if point is appropriate.',
                 true, 'Whitelist area (not point)', 'areaNotPoint');
         }
     },
+    // TODO - eval
     PointNotAreaLow: class extends WLFlag {
         constructor() {
             super(1, 'This category is usually a point place, but can be an area in some cases. Verify if area is appropriate.',
@@ -2850,6 +2879,7 @@ let Flag = {
             }, 100);
         }
     },
+    // TODO - eval
     UrlMissing: class extends WLActionFlag {
         constructor(region, whitelist) {
             super(1, 'No URL: <input type="text" id="WMEPH-UrlAdd" autocomplete="off" style="font-size:0.85em;width:100px;padding-left:2px;color:#000;">', 'Add', 'Add URL to place', true, 'Whitelist empty URL', 'urlWL');
@@ -2953,6 +2983,7 @@ let Flag = {
             }
         }
     },
+    // TODO - eval
     NoHours: class extends WLFlag {
         constructor() { super(1, getHoursHtml('No hours'), true, 'Whitelist "No hours"', 'noHours'); }
 
@@ -3301,6 +3332,7 @@ let Flag = {
             return result;
         }
     },
+    // TODO - eval
     LocalURL: class extends FlagBase {
         constructor() { super(0, 'Some locations for this business have localized URLs, while others use the primary corporate site. Check if a local URL applies to this location.'); }
     },
@@ -3384,6 +3416,7 @@ let Flag = {
             harmonizePlaceGo(venue);
         }
     },
+    // TODO - eval
     AddPharm: class extends ActionFlag {
         constructor() { super(0, 'Is there a Pharmacy at this location?', 'Yes', 'Add Pharmacy category'); }
 
@@ -3399,6 +3432,7 @@ let Flag = {
             harmonizePlaceGo(venue);
         }
     },
+    // TODO - eval
     AddSuper: class extends ActionFlag {
         constructor() { super(0, 'Does this location have a supermarket?', 'Yes', 'Add Supermarket category'); }
 
@@ -3414,6 +3448,7 @@ let Flag = {
             harmonizePlaceGo(venue);
         }
     },
+    // TODO - eval
     AppendAMPM: class extends ActionFlag {
         constructor() { super(0, 'Is there an ampm at this location?', 'Yes', 'Add ampm to the place'); }
 
@@ -3445,6 +3480,7 @@ let Flag = {
             }
         }
     },
+    // TODO - eval
     AddATM: class extends ActionFlag {
         constructor() { super(0, 'ATM at location? ', 'Yes', 'Add the ATM category to this place'); }
 
@@ -3639,6 +3675,7 @@ let Flag = {
             harmonizePlaceGo(venue); // Rerun the script to update fields and lock
         }
     },
+    // TODO - eval
     STC: class extends ActionFlag {
         constructor() {
             super(0, '', 'Force Title Case?', 'Force title case to: ');
@@ -3664,9 +3701,11 @@ let Flag = {
             }
         }
     },
+    // TODO - eval
     SFAliases: class extends FlagBase {
         constructor() { super(0, 'Unnecessary aliases were removed.'); }
     },
+    // TODO - eval
     PlaceMatched: class extends FlagBase {
         constructor() { super(0, 'Place matched from PNH data.'); }
     },
@@ -3688,6 +3727,7 @@ let Flag = {
             return result;
         }
     },
+    // TODO - eval
     NewPlaceSubmit: class extends ActionFlag {
         constructor(newPlaceUrl) {
             super(0, 'No PNH match. If it\'s a chain: ', 'Submit new chain data', 'Submit info for a new chain through the linked form');
@@ -3698,6 +3738,7 @@ let Flag = {
             window.open(this.newPlaceUrl);
         }
     },
+    // TODO - eval
     ApprovalSubmit: class extends ActionFlag {
         constructor(region, pnhOrderNum, pnhNameTemp, placePL, approveRegionUrl) {
             super(0, 'PNH data exists but is not approved for this region: ', 'Request approval', 'Request region/country approval of this place');
@@ -4328,7 +4369,7 @@ function harmonizePlaceGo(item, highlightOnly = false, actions = null) {
     let pnhNameTempWeb = '';
     let pnhLockLevel;
     let placePL;
-    let hoursAdded = false;
+    let added247Hours = false;
     const itemID = item.attributes.id;
 
     // Used for collecting all actions to be applied to the model.
@@ -4655,7 +4696,7 @@ function harmonizePlaceGo(item, highlightOnly = false, actions = null) {
             // TODO - should have a single flag that says the flag should be turned on/off.  No need for psOn and psOff.
             if (pnhMatchData.psOn) {
                 pnhMatchData.psOn.forEach(psOnValue => {
-                    if (psOnValue === 'add247') hoursAdded = true;
+                    if (psOnValue === 'add247') added247Hours = true;
                     _servicesBanner[psOnValue].actionOn(actions);
                     _servicesBanner[psOnValue].pnhOverride = true;
                 });
@@ -5214,13 +5255,13 @@ function harmonizePlaceGo(item, highlightOnly = false, actions = null) {
                 BRIDGE, TUNNEL, JUNCTION_INTERCHANGE, ISLAND, SEA_LAKE_POOL, RIVER_STREAM, FOREST_GROVE, CANAL,
                 SWAMP_MARSH, DAM])) {
                 _buttonBanner.noHours = new Flag.NoHours();
-                if (hoursAdded || wl.noHours || $('#WMEPH-DisableHoursHL').prop('checked') || containsAny(newCategories, [SCHOOL,
+                if (added247Hours || wl.noHours || $('#WMEPH-DisableHoursHL').prop('checked') || containsAny(newCategories, [SCHOOL,
                     CONVENTIONS_EVENT_CENTER, CAMPING_TRAILER_PARK, COTTAGE_CABIN, COLLEGE_UNIVERSITY, GOLF_COURSE, SPORTS_COURT,
                     MOVIE_THEATER, SHOPPING_CENTER, RELIGIOUS_CENTER, PARKING_LOT, PARK, PLAYGROUND, AIRPORT, FIRE_DEPARTMENT,
                     POLICE_STATION, SEAPORT_MARINA_HARBOR, FARM, SCENIC_LOOKOUT_VIEWPOINT])) {
                     _buttonBanner.noHours.WLactive = false;
                     _buttonBanner.noHours.severity = 0;
-                    if (hoursAdded) _buttonBanner.noHours.message = getHoursHtml('Hours');
+                    if (added247Hours) _buttonBanner.noHours.message = getHoursHtml('Hours');
                 }
             }
         } else {
@@ -5236,8 +5277,10 @@ function harmonizePlaceGo(item, highlightOnly = false, actions = null) {
             _buttonBanner.noHours.WLactive = false;
             _buttonBanner.noHours.message = getHoursHtml('Hours');
         }
-        if (!checkHours(item.attributes.openingHours)) {
-            _buttonBanner.hoursOverlap = new Flag.HoursOverlap();
+
+        const hoursOverlap = checkOverlappingHours(item.attributes.openingHours);
+        _buttonBanner.hoursOverlap = Flag.HoursOverlap.eval(hoursOverlap).flag;
+        if (hoursOverlap) {
             _buttonBanner.noHours = new Flag.NoHours();
         } else {
             const tempHours = item.attributes.openingHours.slice();
@@ -6452,41 +6495,54 @@ function getOpeningHours(venue) {
     return venue && venue.attributes.openingHours && venue.attributes.openingHours.map(formatOpeningHour);
 }
 
-// function to check overlapping hours
-function checkHours(hoursObj) {
-    if (hoursObj.length === 1) {
-        return true;
+/**
+ * Check for overlapping hours
+ * @param {object} hours venue hours object
+ * @return {boolean} True if hours argument contains overlapping hours
+ */
+function checkOverlappingHours(hours) {
+    // TODO -- FIX THIS. OVERLAPPING HOURS CHECK IS NOT WORKING.
+
+    // Only one set of hours, so no overlap.
+    if (hours.length === 1) {
+        return false;
     }
 
-    for (let day2Ch = 0; day2Ch < 7; day2Ch++) { // Go thru each day of the week
+    // Go thru each day of the week
+    for (let day2Ch = 0; day2Ch < 7; day2Ch++) {
         const daysObj = [];
-        for (let hourSet = 0; hourSet < hoursObj.length; hourSet++) { // For each set of hours
-            if (hoursObj[hourSet].days.includes(day2Ch)) { // pull out hours that are for the current day, add 2400 if it goes past midnight, and store
-                const fromHourTemp = hoursObj[hourSet].fromHour.replace(/:/g, '');
-                let toHourTemp = hoursObj[hourSet].toHour.replace(/:/g, '');
+
+        // For each set of hours...
+        for (let hourSet = 0; hourSet < hours.length; hourSet++) {
+            // pull out hours that are for the current day, add 2400 if it goes past midnight, and store
+            if (hours[hourSet].days.includes(day2Ch)) {
+                const fromHourTemp = hours[hourSet].fromHour.replace(/:/g, '');
+                let toHourTemp = hours[hourSet].toHour.replace(/:/g, '');
                 if (toHourTemp <= fromHourTemp) {
                     toHourTemp = parseInt(toHourTemp, 10) + 2400;
                 }
                 daysObj.push([fromHourTemp, toHourTemp]);
             }
         }
-        if (daysObj.length > 1) { // If there's multiple hours for the day, check them for overlap
+
+        // If there's multiple hours for the day, check them for overlap
+        if (daysObj.length > 1) {
             for (let hourSetCheck2 = 1; hourSetCheck2 < daysObj.length; hourSetCheck2++) {
                 for (let hourSetCheck1 = 0; hourSetCheck1 < hourSetCheck2; hourSetCheck1++) {
                     if (daysObj[hourSetCheck2][0] > daysObj[hourSetCheck1][0] && daysObj[hourSetCheck2][0] < daysObj[hourSetCheck1][1]) {
-                        return false;
+                        return true;
                     }
                     if (daysObj[hourSetCheck2][1] > daysObj[hourSetCheck1][0] && daysObj[hourSetCheck2][1] < daysObj[hourSetCheck1][1]) {
-                        return false;
+                        return true;
                     }
                 }
             }
         }
     }
-    return true;
+    return false;
 }
 
-// Duplicate place finder  ###bmtg
+// Duplicate place finder
 function findNearbyDuplicate(selectedVenueName, selectedVenueAliases, selectedVenue, recenterOption) {
     // Helper function to prep a name for comparisons.
     const formatName = name => name.toUpperCase().replace(/ AND /g, '').replace(/^THE /g, '').replace(/[^A-Z0-9]/g, '');
