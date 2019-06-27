@@ -1808,7 +1808,6 @@ let Flag = {
             return result;
         }
     },
-    // TODO - eval
     HoursOverlap: class extends FlagBase {
         constructor() { super(3, 'Overlapping hours of operation. Place might not save.'); }
 
@@ -2480,9 +2479,22 @@ let Flag = {
             return result;
         }
     },
-    // TODO - eval
     Mismatch247: class extends FlagBase {
         constructor() { super(2, 'Hours of operation listed as open 24hrs but not for all 7 days.'); }
+
+        static eval(venue) {
+            const result = { flag: null };
+
+            // if one set of hours exist, check for partial 24hrs setting
+            if (venue.attributes.openingHours.length === 1) {
+                const hoursEntry = venue.attributes.openingHours[0];
+                if (hoursEntry.days.length < 7 && /^0?0:00$/.test(hoursEntry.fromHour)
+                    && (/^0?0:00$/.test(hoursEntry.toHour) || hoursEntry.toHour === '23:59')) {
+                    result.flag = new Flag.Mismatch247();
+                }
+            }
+            return result;
+        }
     },
     // TODO - eval
     PhoneInvalid: class extends FlagBase {
@@ -2983,9 +2995,35 @@ let Flag = {
             }
         }
     },
-    // TODO - eval
     NoHours: class extends WLFlag {
         constructor() { super(1, getHoursHtml('No hours'), true, 'Whitelist "No hours"', 'noHours'); }
+
+        static eval(venue, categories, added247Hours, whitelist) {
+            const result = { flag: null };
+            if (!venue.attributes.openingHours.length) { // if no hours...
+                if (!containsAny(categories, [STADIUM_ARENA, CEMETERY, TRANSPORTATION, FERRY_PIER, SUBWAY_STATION,
+                    BRIDGE, TUNNEL, JUNCTION_INTERCHANGE, ISLAND, SEA_LAKE_POOL, RIVER_STREAM, FOREST_GROVE, CANAL,
+                    SWAMP_MARSH, DAM])) {
+                    // If the place doesn't belong to one of the categories above, show the missing hours flag.
+                    result.flag = new Flag.NoHours();
+                    if (added247Hours || whitelist.noHours || $('#WMEPH-DisableHoursHL').prop('checked') || containsAny(categories, [SCHOOL,
+                        CONVENTIONS_EVENT_CENTER, CAMPING_TRAILER_PARK, COTTAGE_CABIN, COLLEGE_UNIVERSITY, GOLF_COURSE, SPORTS_COURT,
+                        MOVIE_THEATER, SHOPPING_CENTER, RELIGIOUS_CENTER, PARKING_LOT, PARK, PLAYGROUND, AIRPORT, FIRE_DEPARTMENT,
+                        POLICE_STATION, SEAPORT_MARINA_HARBOR, FARM, SCENIC_LOOKOUT_VIEWPOINT])) {
+                        result.flag.WLactive = false;
+                        result.flag.severity = 0;
+                        if (added247Hours) result.flag.message = getHoursHtml('Hours');
+                    }
+                }
+            } else {
+                result.flag = new Flag.NoHours();
+                result.flag.severity = 0;
+                result.flag.WLactive = false;
+                result.flag.message = getHoursHtml('Hours');
+            }
+
+            return result;
+        }
 
         // eslint-disable-next-line class-methods-use-this
         getTitle(parseResult) {
@@ -5249,40 +5287,12 @@ function harmonizePlaceGo(item, highlightOnly = false, actions = null) {
             }
         });
 
-        // Check for missing hours field
-        if (item.attributes.openingHours.length === 0) { // if no hours...
-            if (!containsAny(newCategories, [STADIUM_ARENA, CEMETERY, TRANSPORTATION, FERRY_PIER, SUBWAY_STATION,
-                BRIDGE, TUNNEL, JUNCTION_INTERCHANGE, ISLAND, SEA_LAKE_POOL, RIVER_STREAM, FOREST_GROVE, CANAL,
-                SWAMP_MARSH, DAM])) {
-                _buttonBanner.noHours = new Flag.NoHours();
-                if (added247Hours || wl.noHours || $('#WMEPH-DisableHoursHL').prop('checked') || containsAny(newCategories, [SCHOOL,
-                    CONVENTIONS_EVENT_CENTER, CAMPING_TRAILER_PARK, COTTAGE_CABIN, COLLEGE_UNIVERSITY, GOLF_COURSE, SPORTS_COURT,
-                    MOVIE_THEATER, SHOPPING_CENTER, RELIGIOUS_CENTER, PARKING_LOT, PARK, PLAYGROUND, AIRPORT, FIRE_DEPARTMENT,
-                    POLICE_STATION, SEAPORT_MARINA_HARBOR, FARM, SCENIC_LOOKOUT_VIEWPOINT])) {
-                    _buttonBanner.noHours.WLactive = false;
-                    _buttonBanner.noHours.severity = 0;
-                    if (added247Hours) _buttonBanner.noHours.message = getHoursHtml('Hours');
-                }
-            }
-        } else {
-            if (item.attributes.openingHours.length === 1) { // if one set of hours exist, check for partial 24hrs setting
-                const hoursEntry = item.attributes.openingHours[0];
-                if (hoursEntry.days.length < 7 && /^0?0:00$/.test(hoursEntry.fromHour)
-                    && (/^0?0:00$/.test(hoursEntry.toHour) || hoursEntry.toHour === '23:59')) {
-                    _buttonBanner.mismatch247 = new Flag.Mismatch247();
-                }
-            }
-            _buttonBanner.noHours = new Flag.NoHours();
-            _buttonBanner.noHours.severity = 0;
-            _buttonBanner.noHours.WLactive = false;
-            _buttonBanner.noHours.message = getHoursHtml('Hours');
-        }
+        _buttonBanner.mismatch247 = Flag.Mismatch247.eval(item).flag;
+        _buttonBanner.noHours = Flag.NoHours.eval(item, newCategories, added247Hours, wl).flag;
 
         const hoursOverlap = checkOverlappingHours(item.attributes.openingHours);
         _buttonBanner.hoursOverlap = Flag.HoursOverlap.eval(hoursOverlap).flag;
-        if (hoursOverlap) {
-            _buttonBanner.noHours = new Flag.NoHours();
-        } else {
+        if (!hoursOverlap) {
             const tempHours = item.attributes.openingHours.slice();
             for (let ohix = 0; ohix < item.attributes.openingHours.length; ohix++) {
                 if (tempHours[ohix].days.length === 2 && tempHours[ohix].days[0] === 1 && tempHours[ohix].days[1] === 0) {
