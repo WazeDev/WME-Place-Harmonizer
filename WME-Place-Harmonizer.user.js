@@ -1852,7 +1852,6 @@ let Flag = {
             return result;
         }
     },
-    // TODO - eval
     RestAreaName: class extends WLFlag {
         constructor() {
             super(3, 'Rest area name is out of spec. Use the Rest Area wiki button below to view formats.', true,
@@ -1934,11 +1933,21 @@ let Flag = {
             }
         }
     },
-    // TODO - eval
     RestAreaSpec: class extends WLActionFlag {
         constructor() {
-            super(3, 'Is this a rest area?',
-                'Yes', 'Update with proper categories and services.', true, 'Whitelist place', 'restAreaSpec');
+            super(3, 'Is this a rest area?', 'Yes', 'Update with proper categories and services.',
+                true, 'Whitelist place', 'restAreaSpec');
+        }
+
+        static eval(venue, whitelist) {
+            const result = { flag: null };
+            const { attributes } = venue;
+            // If the place has rest area words in the name, but no REST_AREAS category
+            if (/\brest\s+area\b|\brest\s+stop\b|\bservice\s+plaza\b/i.test(attributes.name)
+                && !attributes.categories.includes(REST_AREAS) && !whitelist.restAreaSpec) {
+                result.flag = new Flag.RestAreaSpec();
+            }
+            return result;
         }
 
         // eslint-disable-next-line class-methods-use-this
@@ -2284,11 +2293,45 @@ let Flag = {
             return result;
         }
     },
-    // TODO - eval
     HNRange: class extends WLFlag {
         constructor() {
             super(2, 'House number seems out of range for the street name. Verify.', true,
                 'Whitelist HN range', 'HNRange');
+        }
+
+        static eval(vendor, dupeFinderResult, whitelist) {
+            const result = { flag: null };
+            if (dupeFinderResult && dupeFinderResult.dupeHNRangeList.length > 3 && !whitelist.HNRange) {
+                let dhnix;
+                const dupeHNRangeListSorted = [];
+                sortWithIndex(dupeFinderResult.dupeHNRangeDistList);
+                for (dhnix = 0; dhnix < dupeFinderResult.dupeHNRangeList.length; dhnix++) {
+                    dupeHNRangeListSorted.push(dupeFinderResult.dupeHNRangeList[dupeFinderResult.dupeHNRangeDistList.sortIndices[dhnix]]);
+                }
+                // Calculate HN/distance ratio with other venues
+                // var sumHNRatio = 0;
+                const arrayHNRatio = [];
+                for (dhnix = 0; dhnix < dupeHNRangeListSorted.length; dhnix++) {
+                    arrayHNRatio.push(
+                        Math.abs((parseInt(vendor.attributes.houseNumber, 10) - dupeHNRangeListSorted[dhnix]) / dupeFinderResult.dupeHNRangeDistList[dhnix])
+                    );
+                }
+                sortWithIndex(arrayHNRatio);
+                // Examine either the median or the 8th index if length is >16
+                const arrayHNRatioCheckIX = Math.min(Math.round(arrayHNRatio.length / 2), 8);
+                if (arrayHNRatio[arrayHNRatioCheckIX] > 1.4) {
+                    result.flag = new Flag.HNRange();
+                    if (arrayHNRatio[arrayHNRatioCheckIX] > 5) {
+                        result.flag.severity = 3;
+                    }
+                    // show stats if HN out of range
+                    phlogdev(`HNs: ${dupeHNRangeListSorted}`);
+                    phlogdev(`Distances: ${dupeFinderResult.dupeHNRangeDistList}`);
+                    phlogdev(`arrayHNRatio: ${arrayHNRatio}`);
+                    phlogdev(`HN Ratio Score: ${arrayHNRatio[Math.round(arrayHNRatio.length / 2)]}`);
+                }
+            }
+            return result;
         }
     },
     StreetMissing: class extends ActionFlag {
@@ -2487,11 +2530,41 @@ let Flag = {
             return result;
         }
     },
-    // TODO - eval
-    CheckDescription: class extends FlagBase {
-        constructor() {
-            super(2,
-                'Description field already contained info; PNH description was added in front of existing. Check for inconsistency or duplicate info.');
+    CheckDescription: class extends ActionFlag {
+        constructor(venue, pnhDescription) {
+            const message = `Current description:<div style="font-style: italic; margin-bottom: 8px;">${
+                venue.attributes.description}</div>Harmonized description:<div style="font-style: italic;">${
+                pnhDescription}</div>`;
+            super(2, message, 'Replace', 'Replace current description with harmonized description');
+            this.value2 = 'Insert before';
+            this.title2 = 'Insert harmonized description before current description';
+            this.pnhDescription = pnhDescription;
+        }
+
+        static eval(venue, pnhMatch) {
+            const result = { flag: null };
+            const { description } = venue.attributes;
+            const pnhDescription = pnhMatch.description;
+            if (!(isNullOrWhitespace(pnhDescription) || isNullOrWhitespace(description)
+                || description.toUpperCase().includes(pnhDescription.toUpperCase()))) {
+                result.flag = new Flag.CheckDescription(venue, pnhDescription);
+            }
+            return result;
+        }
+
+        static updateDescription(description) {
+            const venue = getSelectedVenue();
+            addUpdateAction(getSelectedVenue(), { description });
+            UPDATED_FIELDS.description.updated = true;
+            harmonizePlaceGo(venue);
+        }
+
+        action() {
+            this.constructor.updateDescription(this.pnhDescription);
+        }
+
+        action2() {
+            this.constructor.updateDescription(`${this.pnhDescription}\n${getSelectedVenue().attributes.description}`);
         }
     },
     // TODO - eval
@@ -4999,15 +5072,10 @@ function harmonizePlaceGo(item, highlightOnly = false, actions = null) {
             _buttonBanner.addCat2 = Flag.AddCat2.eval(pnhMatchData, newCategories).flag;
 
             // Description update
-            let newDescripion = pnhMatchData.description;
-            if (!isNullOrWhitespace(newDescripion) && !item.attributes.description.toUpperCase().includes(newDescripion.toUpperCase())) {
-                if (item.attributes.description !== '' && item.attributes.description !== null && item.attributes.description !== ' ') {
-                    _buttonBanner.checkDescription = new Flag.CheckDescription();
-                }
-                phlogdev('Description updated');
-                newDescripion = `${newDescripion}\n${item.attributes.description}`;
-                addUpdateAction(item, { description: newDescripion }, actions);
-                UPDATED_FIELDS.description.updated = true;
+            _buttonBanner.checkDescription = Flag.CheckDescription.eval(item, pnhMatchData).flag;
+
+            if (isNullOrWhitespace(item.attributes.description) && !isNullOrWhitespace(pnhMatchData.description)) {
+                addUpdateAction(item, { description: pnhMatchData.description }, actions);
             }
 
             // Special Lock by PNH
@@ -5462,6 +5530,7 @@ function harmonizePlaceGo(item, highlightOnly = false, actions = null) {
     _buttonBanner.restAreaNoTransportation = Flag.RestAreaNoTransportation.eval(item).flag;
     _buttonBanner.restAreaGas = Flag.RestAreaGas.eval(item).flag;
     _buttonBanner.restAreaName = Flag.RestAreaName.eval(item, wl).flag;
+    _buttonBanner.restAreaSpec = Flag.RestAreaSpec.eval(item, wl).flag;
 
     if (newCategories.includes(REST_AREAS)) {
         if (!highlightOnly && newNameSuffix && !/^Rest Area.* - /.test(oldName)) {
@@ -5503,10 +5572,6 @@ function harmonizePlaceGo(item, highlightOnly = false, actions = null) {
             _buttonBanner.phoneMissing.severity = 0;
             _buttonBanner.phoneMissing.WLactive = false;
         }
-    }
-
-    if (!newCategories.includes(REST_AREAS) && /\brest\s+area\b|\brest\s+stop\b|\bservice\s+plaza\b/i.test(oldName) && !wl.restAreaSpec) {
-        _buttonBanner.restAreaSpec = new Flag.RestAreaSpec();
     }
 
     // update Severity for banner messages
@@ -5703,40 +5768,7 @@ function harmonizePlaceGo(item, highlightOnly = false, actions = null) {
     }
 
     // Check HN range (this depends on the returned dupefinder data, so has to run after it)
-    if (dupeFinderResult && dupeFinderResult.dupeHNRangeList.length > 3) {
-        let dhnix;
-        const dupeHNRangeListSorted = [];
-        sortWithIndex(dupeFinderResult.dupeHNRangeDistList);
-        for (dhnix = 0; dhnix < dupeFinderResult.dupeHNRangeList.length; dhnix++) {
-            dupeHNRangeListSorted.push(dupeFinderResult.dupeHNRangeList[dupeFinderResult.dupeHNRangeDistList.sortIndices[dhnix]]);
-        }
-        // Calculate HN/distance ratio with other venues
-        // var sumHNRatio = 0;
-        const arrayHNRatio = [];
-        for (dhnix = 0; dhnix < dupeHNRangeListSorted.length; dhnix++) {
-            arrayHNRatio.push(
-                Math.abs((parseInt(item.attributes.houseNumber, 10) - dupeHNRangeListSorted[dhnix]) / dupeFinderResult.dupeHNRangeDistList[dhnix])
-            );
-        }
-        sortWithIndex(arrayHNRatio);
-        // Examine either the median or the 8th index if length is >16
-        const arrayHNRatioCheckIX = Math.min(Math.round(arrayHNRatio.length / 2), 8);
-        if (arrayHNRatio[arrayHNRatioCheckIX] > 1.4) {
-            _buttonBanner.HNRange = new Flag.HNRange();
-            if (wl.HNRange) {
-                _buttonBanner.HNRange.WLactive = false;
-                _buttonBanner.HNRange.active = false;
-            }
-            if (arrayHNRatio[arrayHNRatioCheckIX] > 5) {
-                _buttonBanner.HNRange.severity = 3;
-            }
-            // show stats if HN out of range
-            phlogdev(`HNs: ${dupeHNRangeListSorted}`);
-            phlogdev(`Distances: ${dupeFinderResult.dupeHNRangeDistList}`);
-            phlogdev(`arrayHNRatio: ${arrayHNRatio}`);
-            phlogdev(`HN Ratio Score: ${arrayHNRatio[Math.round(arrayHNRatio.length / 2)]}`);
-        }
-    }
+    _buttonBanner.HNRange = Flag.HNRange.eval(item, dupeFinderResult, wl).flag;
 
     executeMultiAction(actions);
 
