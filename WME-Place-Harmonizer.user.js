@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name        WME Place Harmonizer Beta (pnh-update)
 // @namespace   WazeUSA
-// @version     2019.06.28.002
+// @version     2019.06.28.003
 // @description Harmonizes, formats, and locks a selected place
 // @author      WMEPH Development Group
 // @include     /^https:\/\/(www|beta)\.waze\.com\/(?!user\/)(.{2,6}\/)?editor\/?.*$/
@@ -3056,7 +3056,7 @@ let Flag = {
         }
 
         static eval(phone, outputFormat, validAreaCodes, countryCode, whitelist) {
-            const result = { flage: null };
+            const result = { flag: null };
             if (phone && phone !== 'badPhone' && !whitelist.aCodeWL && (countryCode === 'USA' || countryCode === 'CAN')) {
                 const areaCodeMatch = phone.match(/[2-9]\d{2}/);
                 if (areaCodeMatch && !validAreaCodes.includes(areaCodeMatch[0])) {
@@ -3547,15 +3547,18 @@ let Flag = {
 
         action() {
             const venue = getSelectedVenue();
-            let aliases = insertAtIX(venue.attributes.aliases, this.optionalAlias, 0);
-            if (this.specCases.includes('altName2Desc') && !venue.attributes.description.toUpperCase().includes(this.optionalAlias.toUpperCase())) {
-                const description = `${this.optionalAlias}\n${venue.attributes.description}`;
-                addUpdateAction(venue, { description });
-                UPDATED_FIELDS.description.updated = true;
+            if (!venue.attributes.aliases.includes(this.optionalAlias)) {
+                const aliases = _.uniq(insertAtIX(venue.attributes.aliases, this.optionalAlias, 0));
+                addUpdateAction(venue, { aliases });
+                UPDATED_FIELDS.aliases.updated = true;
             }
-            aliases = removeSFAliases(name, aliases);
-            addUpdateAction(venue, { aliases });
-            UPDATED_FIELDS.aliases.updated = true;
+            // TODO - decide if altName2Desc is needed anymore. It doesn't exist in the PNH spreadsheet as of 6/29/2019
+            // if (this.specCases.includes('altName2Desc')
+            //     && !venue.attributes.description.toUpperCase().includes(this.optionalAlias.toUpperCase())) {
+            //     const description = `${this.optionalAlias}\n${venue.attributes.description}`;
+            //     addUpdateAction(venue, { description });
+            //     UPDATED_FIELDS.description.updated = true;
+            // }
             harmonizePlaceGo(venue);
         }
     },
@@ -3871,8 +3874,35 @@ let Flag = {
         }
     },
     // TODO - eval
-    SFAliases: class extends FlagBase {
-        constructor() { super(0, 'Unnecessary aliases were removed.'); }
+    UnnecessaryAltNames: class extends ActionFlag {
+        constructor() { super(2, 'One or more unnecessary alt names were found.', 'Delete them'); }
+
+        static getUnnecessaryAltNames(name, altNames) {
+            const prepName = str => str.toUpperCase().replace(/'/g, '').replace(/-/g, ' ').replace(/\/ /g, ' ').replace(/ \//g, ' ').replace(/ {2,}/g, ' ');
+            name = prepName(name);
+            return altNames.filter(altName => name.startsWith(prepName(altName)));
+        }
+
+        static eval(name, altNames) {
+            const result = { flag: null };
+            if (this.getUnnecessaryAltNames(name, altNames).length) {
+                result.flag = new Flag.UnnecessaryAltNames();
+            }
+            return result;
+        }
+
+        // eslint-disable-next-line class-methods-use-this
+        action() {
+            const venue = getSelectedVenue();
+            let aliases = venue.attributes.aliases.slice();
+            const unnecessaryAltNames = this.constructor.getUnnecessaryAltNames(venue.attributes.name, aliases);
+            if (unnecessaryAltNames.length) {
+                aliases = aliases.filter(altName => !unnecessaryAltNames.includes(altName));
+                addUpdateAction(venue, { aliases });
+                UPDATED_FIELDS.aliases.updated = true;
+            }
+            harmonizePlaceGo(venue);
+        }
     },
     // TODO - eval
     PlaceMatched: class extends FlagBase {
@@ -4122,6 +4152,7 @@ function getButtonBanner() {
         missingUSPSDescription: null,
         catHotel: null,
         localizedName: null,
+        unnecessaryAltNames: null,
         specCaseMessage: null,
         specCaseMessageLow: null,
         changeToDoctorClinic: null,
@@ -4153,7 +4184,6 @@ function getButtonBanner() {
         isThisAPostOffice: null,
         STC: null,
         changeToHospitalUrgentCare: null,
-        sfAliases: null,
         placeMatched: null,
         placeLocked: null,
         NewPlaceSubmit: null,
@@ -5158,6 +5188,8 @@ function harmonizePlaceGo(item, highlightOnly = false, actions = null) {
             } // END generic bank treatment
         } // END PNH match/no-match updates
 
+        _buttonBanner.unnecessaryAltNames = Flag.UnnecessaryAltNames.eval(newName, newAliases).flag;
+
         if (!highlightOnly) {
             // Update name:
             if ((newName + (newNameSuffix || '')) !== item.attributes.name) {
@@ -5168,7 +5200,6 @@ function harmonizePlaceGo(item, highlightOnly = false, actions = null) {
             }
 
             // Update aliases
-            newAliases = removeSFAliases(newName, newAliases);
             if (newAliases.some(alias => !item.attributes.aliases.includes(alias)) || newAliases.length !== item.attributes.aliases.length) {
                 phlogdev('Alt Names updated');
                 addUpdateAction(item, { aliases: newAliases }, actions);
@@ -7242,20 +7273,6 @@ function insertAtIX(array1, array2, ix) { // array1 is original string, array2 i
         arrayNew.push(...arrayTemp); // add the tail end of original
     }
     return _.uniq(arrayNew); // remove any duplicates (so the function can be used to move the position of a string)
-}
-
-// Function to remove unnecessary aliases
-function removeSFAliases(nName, nAliases) {
-    const newAliasesUpdate = [];
-    nName = nName.toUpperCase().replace(/'/g, '').replace(/-/g, ' ').replace(/\/ /g, ' ').replace(/ \//g, ' ').replace(/ {2,}/g, ' ');
-    for (let naix = 0; naix < nAliases.length; naix++) {
-        if (!nName.startsWith(nAliases[naix].toUpperCase().replace(/'/g, '').replace(/-/g, ' ').replace(/\/ /g, ' ').replace(/ \//g, ' ').replace(/ {2,}/g, ' '))) {
-            newAliasesUpdate.push(nAliases[naix]);
-        } else {
-            _buttonBanner.sfAliases = new Flag.SFAliases();
-        }
-    }
-    return newAliasesUpdate;
 }
 
 // used for phone reformatting
