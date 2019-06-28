@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name        WME Place Harmonizer Beta (pnh-update)
 // @namespace   WazeUSA
-// @version     2019.06.28.001
+// @version     2019.06.28.002
 // @description Harmonizes, formats, and locks a selected place
 // @author      WMEPH Development Group
 // @include     /^https:\/\/(www|beta)\.waze\.com\/(?!user\/)(.{2,6}\/)?editor\/?.*$/
@@ -1438,35 +1438,43 @@ function toTitleCaseStrong(str) {
     return str;
 }
 
-// normalize phone
-function normalizePhone(s, outputFormat, returnType, item, region, whitelist) {
-    if (!s && returnType === 'existing') {
-        _buttonBanner.phoneMissing = Flag.PhoneMissing.eval(item, whitelist, region, outputFormat);
-        return s;
-    }
-    s = s.replace(/(\d{3}.*)\W+(?:extension|ext|xt|x).*/i, '$1');
-    let s1 = s.replace(/\D/g, ''); // remove non-number characters
+/**
+ * Attempts to normalize a phone # ***(USA/CAN specific)***
+ * @param {string} phone The phone # to normalize
+ * @param {string} outputFormat The string format to use for the 3 parts of the
+ * phone #, e.g. "({0}) {1}-{2}"
+ * @returns {string} The normalized phone #, or "badPhone" if it can't be normalized
+ */
+function normalizePhone(phone, outputFormat) {
+    if (isNullOrWhitespace(phone)) return phone;
+
+    // Remove trailing extension text
+    phone = phone.replace(/(\d{3}.*)\W+(?:extension|ext|xt|x).*/i, '$1');
+
+    // Remove non-numeric characters
+    let phoneDigitsOnly = phone.replace(/\D/g, '');
 
     // Ignore leading 1, and also don't allow area code or exchange to start with 0 or 1 (***USA/CAN specific)
-    let m = s1.match(/^1?([2-9]\d{2})([2-9]\d{2})(\d{4})$/);
+    let match = phoneDigitsOnly.match(/^1?([2-9]\d{2})([2-9]\d{2})(\d{4})$/);
 
-    if (!m) { // then try alphanumeric matching
-        if (s) { s = s.toUpperCase(); }
-        s1 = s.replace(/[^0-9A-Z]/g, '').replace(/^\D*(\d)/, '$1').replace(/^1?([2-9][0-9]{2}[0-9A-Z]{7,10})/g, '$1');
-        s1 = replaceLetters(s1);
+    // If that doesn't match, then try alphanumeric matching
+    if (!match) {
+        phoneDigitsOnly = replaceLetters(
+            phone.toUpperCase()
+                .replace(/[^0-9A-Z]/g, '')
+                .replace(/^\D*(\d)/, '$1')
+                .replace(/^1?([2-9][0-9]{2}[0-9A-Z]{7,10})/g, '$1')
+        );
 
         // Ignore leading 1, and also don't allow area code or exchange to start with 0 or 1 (***USA/CAN specific)
-        m = s1.match(/^([2-9]\d{2})([2-9]\d{2})(\d{4})(?:.{0,3})$/);
+        match = phoneDigitsOnly.match(/^([2-9]\d{2})([2-9]\d{2})(\d{4})(?:.{0,3})$/);
 
-        if (!m) {
-            if (returnType === 'inputted') {
-                return 'badPhone';
-            }
-            _buttonBanner.phoneInvalid = new Flag.PhoneInvalid();
-            return s;
-        }
+        // Can't normalize phone #
+        if (!match) return 'badPhone';
     }
-    return phoneFormat(outputFormat, m[1], m[2], m[3]);
+
+    // Phone appears to match a valid format, so go ahead and format it for output.
+    return phoneFormat(outputFormat, match[1], match[2], match[3]);
 }
 
 // Alphanumeric phone conversion
@@ -2163,7 +2171,7 @@ let Flag = {
             return result;
         }
     },
-    // TODO - eval
+    // TODO - eval pt vs area
     PointNotArea: class extends WLActionFlag {
         constructor() {
             super(3, 'This category should be a point place.', 'Change to point', 'Change to point place',
@@ -2182,7 +2190,7 @@ let Flag = {
             harmonizePlaceGo(venue);
         }
     },
-    // TODO - eval
+    // TODO - eval pt vs area
     AreaNotPoint: class extends WLActionFlag {
         constructor() {
             super(3, 'This category should be an area place.', 'Change to area', 'Change to Area',
@@ -2387,11 +2395,11 @@ let Flag = {
             $('.city-name').focus();
         }
     },
-    // TODO - eval
+    // TODO - eval banking
     BankType1: class extends FlagBase {
         constructor() { super(3, 'Clarify the type of bank: the name has ATM but the primary category is Offices'); }
     },
-    // TODO - eval
+    // TODO - eval banking
     BankBranch: class extends ActionFlag {
         constructor() { super(1, 'Is this a bank branch office? ', 'Yes', 'Is this a bank branch?'); }
 
@@ -2407,7 +2415,7 @@ let Flag = {
             harmonizePlaceGo(venue);
         }
     },
-    // TODO - eval
+    // TODO - eval banking
     StandaloneATM: class extends ActionFlag {
         constructor() { super(2, 'Or is this a standalone ATM? ', 'Yes', 'Is this a standalone ATM with no bank branch?'); }
 
@@ -2425,7 +2433,7 @@ let Flag = {
             harmonizePlaceGo(venue);
         }
     },
-    // TODO - eval
+    // TODO - eval banking
     BankCorporate: class extends ActionFlag {
         constructor() { super(1, 'Or is this the bank\'s corporate offices?', 'Yes', 'Is this the bank\'s corporate offices?'); }
 
@@ -2612,18 +2620,25 @@ let Flag = {
             return result;
         }
     },
-    // TODO - eval
     PhoneInvalid: class extends FlagBase {
         constructor() { super(2, 'Phone invalid.'); }
+
+        static eval(phone) {
+            const result = { flag: null };
+            if (phone === 'badPhone') {
+                result.flag = new Flag.PhoneInvalid();
+            }
+            return result;
+        }
     },
-    // TODO - eval
+    // TODO - eval pt vs area
     AreaNotPointMid: class extends WLFlag {
         constructor() {
             super(2, 'This category is usually an area place, but can be a point in some cases. Verify if point is appropriate.',
                 true, 'Whitelist area (not point)', 'areaNotPoint');
         }
     },
-    // TODO - eval
+    // TODO - eval pt vs area
     PointNotAreaMid: class extends WLFlag {
         constructor() {
             super(2, 'This category is usually a point place, but can be an area in some cases. Verify if area is appropriate.',
@@ -2717,14 +2732,14 @@ let Flag = {
             return result;
         }
     },
-    // TODO - eval
+    // TODO - eval pt vs area
     AreaNotPointLow: class extends WLFlag {
         constructor() {
             super(1, 'This category is usually an area place, but can be a point in some cases. Verify if point is appropriate.',
                 true, 'Whitelist area (not point)', 'areaNotPoint');
         }
     },
-    // TODO - eval
+    // TODO - eval pt vs area
     PointNotAreaLow: class extends WLFlag {
         constructor() {
             super(1, 'This category is usually a point place, but can be an area in some cases. Verify if area is appropriate.',
@@ -3033,21 +3048,19 @@ let Flag = {
         }
     },
     BadAreaCode: class extends WLActionFlag {
-        constructor(phone, outputFormat, region, whitelist) {
-            super(1, `Area Code mismatch:<br><input type="text" id="WMEPH-PhoneAdd" autocomplete="off" style="font-size:0.85em;width:100px;padding-left:2px;color:#000;" value="${phone || ''}">`,
+        constructor(phone, outputFormat) {
+            super(2, `Area Code mismatch:<br><input type="text" id="WMEPH-BadAreaCode" autocomplete="off" style="font-size:0.85em;width:100px;padding-left:2px;color:#000;" value="${phone || ''}">`,
                 'Update', 'Update phone #', true, 'Whitelist the area code', 'aCodeWL');
             this.outputFormat = outputFormat;
             this.noBannerAssemble = true;
-            this.whitelist = whitelist;
-            this.region = region;
         }
 
-        static eval(phone, outputFormat, region, validAreaCodes, countryCode, whitelist) {
+        static eval(phone, outputFormat, validAreaCodes, countryCode, whitelist) {
             const result = { flage: null };
-            if (!whitelist.aCodeWL && phone && (countryCode === 'USA' || countryCode === 'CAN')) {
+            if (phone && phone !== 'badPhone' && !whitelist.aCodeWL && (countryCode === 'USA' || countryCode === 'CAN')) {
                 const areaCodeMatch = phone.match(/[2-9]\d{2}/);
                 if (areaCodeMatch && !validAreaCodes.includes(areaCodeMatch[0])) {
-                    result.flag = new Flag.BadAreaCode(phone, outputFormat, region, whitelist);
+                    result.flag = new Flag.BadAreaCode(phone, outputFormat);
                 }
             }
             return result;
@@ -3055,9 +3068,9 @@ let Flag = {
 
         action() {
             const venue = getSelectedVenue();
-            const newPhone = normalizePhone($('#WMEPH-PhoneAdd').val(), this.outputFormat, 'inputted', venue, this.region, this.whitelist);
+            const newPhone = normalizePhone($('#WMEPH-BadAreaCode').val(), this.outputFormat);
             if (newPhone === 'badPhone') {
-                $('input#WMEPH-PhoneAdd').css({ backgroundColor: '#FDD' }).attr('title', 'Invalid phone # format');
+                $('input#WMEPH-BadAreaCode').css({ backgroundColor: '#FDD' }).attr('title', 'Invalid phone # format');
                 this.badInput = true;
             } else {
                 this.badInput = false;
@@ -3088,17 +3101,19 @@ let Flag = {
 
         // TODO - find references to PhoneMissing instantiation and clean it up.
         static eval(venue, wl, region, outputFormat) {
-            const hasOperator = venue.attributes.brand && W.model.venues.categoryBrands.PARKING_LOT.includes(venue.attributes.brand);
-            const isPLA = venue.isParkingLot();
-            let flag = null;
-            if (!isPLA || (isPLA && (this._regionsThatWantPlaPhones.includes(region) || hasOperator))) {
-                flag = new Flag.PhoneMissing(venue, hasOperator, wl, outputFormat, isPLA, region);
+            const result = { flag: null };
+            if (isNullOrWhitespace(venue.attributes.phone)) {
+                const hasOperator = venue.attributes.brand && W.model.venues.categoryBrands.PARKING_LOT.includes(venue.attributes.brand);
+                const isPLA = venue.isParkingLot();
+                if (!isPLA || (isPLA && (this._regionsThatWantPlaPhones.includes(region) || hasOperator))) {
+                    result.flag = new Flag.PhoneMissing(venue, hasOperator, wl, outputFormat, isPLA, region);
+                }
             }
-            return flag;
+            return result;
         }
 
         action() {
-            const newPhone = normalizePhone($('#WMEPH-PhoneAdd').val(), this.outputFormat, 'inputted', this.venue, this.region, this.whitelist);
+            const newPhone = normalizePhone($('#WMEPH-PhoneAdd').val(), this.outputFormat);
             if (newPhone === 'badPhone') {
                 $('input#WMEPH-PhoneAdd').css({ backgroundColor: '#FDD' }).attr('title', 'Invalid phone # format');
                 this.badInput = true;
@@ -4583,7 +4598,6 @@ function harmonizePlaceGo(item, highlightOnly = false, actions = null) {
     if (newURL !== null && newURL !== '') {
         newURLSubmit = newURL;
     }
-    let newPhone = item.attributes.phone;
 
     let pnhNameRegMatch;
 
@@ -5443,12 +5457,15 @@ function harmonizePlaceGo(item, highlightOnly = false, actions = null) {
         } else if (countryCode === 'CAN') {
             outputFormat = '+1-{0}-{1}-{2}';
         }
-        newPhone = normalizePhone(item.attributes.phone, outputFormat, 'existing', item, region, wl);
+        _buttonBanner.phoneMissing = Flag.PhoneMissing.eval(item, wl, region, outputFormat).flag;
+
+        const newPhone = normalizePhone(item.attributes.phone, outputFormat);
+        _buttonBanner.phoneInvalid = Flag.PhoneInvalid.eval(newPhone).flag;
 
         // Check if valid area code, USA and CAN only
-        _buttonBanner.badAreaCode = Flag.BadAreaCode.eval(newPhone, outputFormat, region, pnhStateData.areaCodes, countryCode, wl).flag;
+        _buttonBanner.badAreaCode = Flag.BadAreaCode.eval(newPhone, outputFormat, pnhStateData.areaCodes, countryCode, wl).flag;
 
-        if (!highlightOnly && newPhone !== item.attributes.phone) {
+        if (!highlightOnly && newPhone !== item.attributes.phone && newPhone !== 'badPhone') {
             phlogdev('Phone updated');
             addUpdateAction(item, { phone: newPhone }, actions);
             UPDATED_FIELDS.phone.updated = true;
@@ -6026,6 +6043,11 @@ function assembleBanner() {
     $('#WMEPH-PhoneAdd').keyup(evt => {
         if (evt.keyCode === 13 && $('#WMEPH-PhoneAdd').val() !== '') {
             $('#WMEPH_phoneMissing').click();
+        }
+    });
+
+    $('#WMEPH-BadAreaCode').keyup(evt => {
+        if (evt.keyCode === 13 && $('#WMEPH-BadAreaCode').val() !== '') {
             $('#WMEPH_badAreaCode').click();
         }
     });
