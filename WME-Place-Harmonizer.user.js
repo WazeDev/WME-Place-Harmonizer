@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name        WME Place Harmonizer Beta (pnh-update)
 // @namespace   WazeUSA
-// @version     2019.06.27.002
+// @version     2019.06.28.001
 // @description Harmonizes, formats, and locks a selected place
 // @author      WMEPH Development Group
 // @include     /^https:\/\/(www|beta)\.waze\.com\/(?!user\/)(.{2,6}\/)?editor\/?.*$/
@@ -1857,6 +1857,18 @@ let Flag = {
         constructor() {
             super(3, 'Rest area name is out of spec. Use the Rest Area wiki button below to view formats.', true,
                 'Whitelist rest area name', 'restAreaName');
+        }
+
+        static eval(item, whitelist) {
+            const result = { flag: null };
+            if (item.attributes.categories.includes(REST_AREAS) && !/^Rest Area.* - /.test(item.attributes.name)) {
+                result.flag = new Flag.RestAreaName();
+                if (whitelist.restAreaName) {
+                    result.flag.WLactive = false;
+                    result.flag.severity = 0;
+                }
+            }
+            return result;
         }
     },
     RestAreaNoTransportation: class extends ActionFlag {
@@ -5445,61 +5457,56 @@ function harmonizePlaceGo(item, highlightOnly = false, actions = null) {
 
     // *** Rest Area parsing
     // check rest area name against standard formats or if has the right categories
-    const hasRestAreaCategory = item.attributes.categories.includes(REST_AREAS);
     const oldName = item.attributes.name;
-    const nameHasRestAreaWords = /\brest\s+area\b|\brest\s+stop\b|\bservice\s+plaza\b/i.test(oldName);
     _buttonBanner.restAreaScenic = Flag.RestAreaScenic.eval(item, wl).flag;
     _buttonBanner.restAreaNoTransportation = Flag.RestAreaNoTransportation.eval(item).flag;
     _buttonBanner.restAreaGas = Flag.RestAreaGas.eval(item).flag;
-    if (nameHasRestAreaWords || hasRestAreaCategory) {
-        if (hasRestAreaCategory) {
-            if (oldName.match(/^Rest Area.* - /) === null) {
-                _buttonBanner.restAreaName = new Flag.RestAreaName();
-                if (wl.restAreaName) {
-                    _buttonBanner.restAreaName.WLactive = false;
-                }
-            } else if (!highlightOnly) {
-                const newSuffix = newNameSuffix.replace(/Mile/i, 'mile');
-                if (newName + newSuffix !== item.attributes.name) {
-                    addUpdateAction(item, { name: newName + newSuffix }, actions);
-                    UPDATED_FIELDS.name.updated = true;
-                    phlogdev('Lower case "mile"');
-                } else {
-                    // The new name matches the original name, so the only change would have been to capitalize "Mile", which
-                    // we don't want. So remove any previous name-change action.  Note: this feels like a hack and is probably
-                    // a fragile workaround.  The name shouldn't be capitalized in the first place, unless necessary.
-                    for (let i = 0; i < actions.length; i++) {
-                        const action = actions[i];
-                        if (action.newAttributes.name) {
-                            actions.splice(i, 1);
-                            UPDATED_FIELDS.name.updated = false;
-                            break;
-                        }
+    _buttonBanner.restAreaName = Flag.RestAreaName.eval(item, wl).flag;
+
+    if (newCategories.includes(REST_AREAS)) {
+        if (!highlightOnly && newNameSuffix && !/^Rest Area.* - /.test(oldName)) {
+            const newSuffix = newNameSuffix.replace(/Mile/i, 'mile');
+            if (newName + newSuffix !== item.attributes.name) {
+                addUpdateAction(item, { name: newName + newSuffix }, actions);
+                UPDATED_FIELDS.name.updated = true;
+                phlogdev('Lower case "mile"');
+            } else {
+                // The new name matches the original name, so the only change would have been to capitalize "Mile", which
+                // we don't want. So remove any previous name-change action.  Note: this feels like a hack and is probably
+                // a fragile workaround.  The name shouldn't be capitalized in the first place, unless necessary.
+                for (let i = 0; i < actions.length; i++) {
+                    const action = actions[i];
+                    if (action.newAttributes.name) {
+                        actions.splice(i, 1);
+                        UPDATED_FIELDS.name.updated = false;
+                        break;
                     }
                 }
             }
-
-            // switch to rest area wiki button
-            if (!highlightOnly) {
-                _buttonBanner2.restAreaWiki.active = true;
-                _buttonBanner2.placesWiki.active = false;
-            }
-
-            // missing address ok
-            _buttonBanner.streetMissing = null;
-            _buttonBanner.cityMissing = null;
-            _buttonBanner.hnMissing = null;
-            if (_buttonBanner.urlMissing) {
-                _buttonBanner.urlMissing.WLactive = false;
-                _buttonBanner.urlMissing.severity = 0;
-            }
-            if (_buttonBanner.phoneMissing) {
-                _buttonBanner.phoneMissing.severity = 0;
-                _buttonBanner.phoneMissing.WLactive = false;
-            }
-        } else if (!wl.restAreaSpec) {
-            _buttonBanner.restAreaSpec = new Flag.RestAreaSpec();
         }
+
+        // switch to rest area wiki button
+        if (!highlightOnly) {
+            _buttonBanner2.restAreaWiki.active = true;
+            _buttonBanner2.placesWiki.active = false;
+        }
+
+        // missing address ok
+        _buttonBanner.streetMissing = null;
+        _buttonBanner.cityMissing = null;
+        _buttonBanner.hnMissing = null;
+        if (_buttonBanner.urlMissing) {
+            _buttonBanner.urlMissing.WLactive = false;
+            _buttonBanner.urlMissing.severity = 0;
+        }
+        if (_buttonBanner.phoneMissing) {
+            _buttonBanner.phoneMissing.severity = 0;
+            _buttonBanner.phoneMissing.WLactive = false;
+        }
+    }
+
+    if (!newCategories.includes(REST_AREAS) && /\brest\s+area\b|\brest\s+stop\b|\bservice\s+plaza\b/i.test(oldName) && !wl.restAreaSpec) {
+        _buttonBanner.restAreaSpec = new Flag.RestAreaSpec();
     }
 
     // update Severity for banner messages
