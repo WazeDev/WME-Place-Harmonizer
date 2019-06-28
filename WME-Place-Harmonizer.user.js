@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name        WME Place Harmonizer Beta (pnh-update)
 // @namespace   WazeUSA
-// @version     2019.06.27.001
+// @version     2019.06.27.002
 // @description Harmonizes, formats, and locks a selected place
 // @author      WMEPH Development Group
 // @include     /^https:\/\/(www|beta)\.waze\.com\/(?!user\/)(.{2,6}\/)?editor\/?.*$/
@@ -1859,9 +1859,17 @@ let Flag = {
                 'Whitelist rest area name', 'restAreaName');
         }
     },
-    // TODO - eval
     RestAreaNoTransportation: class extends ActionFlag {
         constructor() { super(2, 'Rest areas should not use the Transportation category.', 'Remove it?'); }
+
+        static eval(venue) {
+            const result = { flag: null };
+            const { categories } = venue.attributes;
+            if (categories.includes(REST_AREAS) && categories.includes(TRANSPORTATION)) {
+                result.flag = new Flag.RestAreaNoTransportation();
+            }
+            return result;
+        }
 
         // eslint-disable-next-line class-methods-use-this
         action() {
@@ -1875,15 +1883,31 @@ let Flag = {
             }
         }
     },
-    // TODO - eval
     RestAreaGas: class extends FlagBase {
         constructor() { super(3, 'Gas stations at Rest Areas should be separate area places.'); }
+
+        static eval(venue) {
+            const result = { flag: null };
+            const { categories } = venue.attributes;
+            if (categories.includes(REST_AREAS) && categories.includes(GAS_STATION)) {
+                result.flag = new Flag.RestAreaGas();
+            }
+            return result;
+        }
     },
-    // TODO - eval
     RestAreaScenic: class extends WLActionFlag {
         constructor() {
             super(0, 'Verify that the "Scenic Overlook" category is appropriate for this rest area.  If not: ',
-                'Remove it', 'Remove "Scenic Overlook" category.', true, 'Whitelist place', 'restAreaScenic');
+                'Remove it', 'Remove "Scenic Overlook" category.', true, 'Whitelist "Scenic Overlook" category', 'restAreaScenic');
+        }
+
+        static eval(venue, whitelist) {
+            const result = { flag: null };
+            const { categories } = venue.attributes;
+            if (categories.includes(REST_AREAS) && categories.includes(SCENIC_LOOKOUT_VIEWPOINT) && !whitelist.restAreaScenic) {
+                result.flag = new Flag.RestAreaScenic();
+            }
+            return result;
         }
 
         // eslint-disable-next-line class-methods-use-this
@@ -5231,10 +5255,13 @@ function harmonizePlaceGo(item, highlightOnly = false, actions = null) {
             defaultLockLevel = highestCategoryLock;
         }
 
+        // TODO - come up with a better way to handle point vs area places
         if (isPoint) {
             if (maxPointSeverity === 3) {
                 _buttonBanner.areaNotPoint = new Flag.AreaNotPoint();
-                if (wl.areaNotPoint || item.attributes.lockRank >= defaultLockLevel) {
+                // If Rest Area, ignore lock and make it red. Otherwise, green if locked.
+                // TODO - look into which categories should ignore area vs point flags, and at what "severity"
+                if (wl.areaNotPoint || (!newCategories.includes(REST_AREAS) && item.attributes.lockRank >= defaultLockLevel)) {
                     _buttonBanner.areaNotPoint.WLactive = false;
                     _buttonBanner.areaNotPoint.severity = 0;
                 } else {
@@ -5420,24 +5447,12 @@ function harmonizePlaceGo(item, highlightOnly = false, actions = null) {
     // check rest area name against standard formats or if has the right categories
     const hasRestAreaCategory = item.attributes.categories.includes(REST_AREAS);
     const oldName = item.attributes.name;
-    if (/rest area/i.test(oldName) || /rest stop/i.test(oldName) || /service plaza/i.test(oldName) || hasRestAreaCategory) {
+    const nameHasRestAreaWords = /\brest\s+area\b|\brest\s+stop\b|\bservice\s+plaza\b/i.test(oldName);
+    _buttonBanner.restAreaScenic = Flag.RestAreaScenic.eval(item, wl).flag;
+    _buttonBanner.restAreaNoTransportation = Flag.RestAreaNoTransportation.eval(item).flag;
+    _buttonBanner.restAreaGas = Flag.RestAreaGas.eval(item).flag;
+    if (nameHasRestAreaWords || hasRestAreaCategory) {
         if (hasRestAreaCategory) {
-            if (item.attributes.categories.includes(SCENIC_LOOKOUT_VIEWPOINT)) {
-                if (!wl.restAreaScenic) _buttonBanner.restAreaScenic = new Flag.RestAreaScenic();
-            }
-            if (item.attributes.categories.includes(TRANSPORTATION)) {
-                _buttonBanner.restAreaNoTransportation = new Flag.RestAreaNoTransportation();
-            }
-            if (item.isPoint()) { // needs to be area
-                _buttonBanner.areaNotPoint = new Flag.AreaNotPoint();
-            }
-            _buttonBanner.pointNotArea = null;
-            _buttonBanner.unmappedRegion = null;
-
-            if (item.attributes.categories.includes(GAS_STATION)) {
-                _buttonBanner.restAreaGas = new Flag.RestAreaGas();
-            }
-
             if (oldName.match(/^Rest Area.* - /) === null) {
                 _buttonBanner.restAreaName = new Flag.RestAreaName();
                 if (wl.restAreaName) {
