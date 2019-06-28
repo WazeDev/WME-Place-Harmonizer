@@ -2567,9 +2567,16 @@ let Flag = {
             this.constructor.updateDescription(`${this.pnhDescription}\n${getSelectedVenue().attributes.description}`);
         }
     },
-    // TODO - eval
     Overlapping: class extends FlagBase {
         constructor() { super(2, 'Place points are stacked up.'); }
+
+        static eval(dupeFinderResult) {
+            const result = { flag: null };
+            if (dupeFinderResult && dupeFinderResult.overlappingFlag) {
+                result.flag = new Flag.Overlapping();
+            }
+            return result;
+        }
     },
     SuspectDesc: class extends WLFlag {
         constructor() {
@@ -5704,9 +5711,6 @@ function harmonizePlaceGo(item, highlightOnly = false, actions = null) {
         dupeFinderResult = findNearbyDuplicate(newName, newAliases, item, zoomAndCenter);
         _dupeIDList = dupeFinderResult.dupeIDList;
 
-        if (dupeFinderResult.overlappingFlag) {
-            _buttonBanner.overlapping = new Flag.Overlapping();
-        }
         const duplicateNames = dupeFinderResult.dupeNames;
         if (duplicateNames.length) {
             if (duplicateNames.length + 1 !== _dupeIDList.length && USER.isDevUser) { // If there's an issue with the data return, allow an error report
@@ -5766,6 +5770,8 @@ function harmonizePlaceGo(item, highlightOnly = false, actions = null) {
             }
         }
     }
+
+    _buttonBanner.overlapping = Flag.Overlapping.eval(dupeFinderResult).flag;
 
     // Check HN range (this depends on the returned dupefinder data, so has to run after it)
     _buttonBanner.HNRange = Flag.HNRange.eval(item, dupeFinderResult, wl).flag;
