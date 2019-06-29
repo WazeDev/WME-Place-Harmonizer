@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name        WME Place Harmonizer Beta (pnh-update)
 // @namespace   WazeUSA
-// @version     2019.06.29.001
+// @version     2019.06.29.002
 // @description Harmonizes, formats, and locks a selected place
 // @author      WMEPH Development Group
 // @include     /^https:\/\/(www|beta)\.waze\.com\/(?!user\/)(.{2,6}\/)?editor\/?.*$/
@@ -3587,9 +3587,16 @@ let Flag = {
             harmonizePlaceGo(venue);
         }
     },
-    // TODO - eval
     AddPharm: class extends ActionFlag {
         constructor() { super(0, 'Is there a Pharmacy at this location?', 'Yes', 'Add Pharmacy category'); }
+
+        static eval(pnhMatch, categories) {
+            const result = { flag: null };
+            if (pnhMatch.buttOn && pnhMatch.buttOn.includes('addPharm') && !categories.includes(PHARMACY)) {
+                result.flag = new Flag.AddPharm();
+            }
+            return result;
+        }
 
         // eslint-disable-next-line class-methods-use-this
         action() {
@@ -3603,9 +3610,16 @@ let Flag = {
             harmonizePlaceGo(venue);
         }
     },
-    // TODO - eval
     AddSuper: class extends ActionFlag {
         constructor() { super(0, 'Does this location have a supermarket?', 'Yes', 'Add Supermarket category'); }
+
+        static eval(pnhMatch, categories) {
+            const result = { flag: null };
+            if (pnhMatch.buttOn && pnhMatch.buttOn.includes('addSuper') && !categories.includes(SUPERMARKET_GROCERY)) {
+                result.flag = new Flag.AddSuper();
+            }
+            return result;
+        }
 
         // eslint-disable-next-line class-methods-use-this
         action() {
@@ -3619,9 +3633,16 @@ let Flag = {
             harmonizePlaceGo(venue);
         }
     },
-    // TODO - eval
     AppendAMPM: class extends ActionFlag {
         constructor() { super(0, 'Is there an ampm at this location?', 'Yes', 'Add ampm to the place'); }
+
+        static eval(pnhMatch, name) {
+            const result = { flag: null };
+            if (pnhMatch.buttOn && pnhMatch.buttOn.includes('appendAMPM') && name !== 'ARCO ampm') {
+                result.flag = new Flag.AppendAMPM();
+            }
+            return result;
+        }
 
         // eslint-disable-next-line class-methods-use-this
         action() {
@@ -3651,9 +3672,16 @@ let Flag = {
             }
         }
     },
-    // TODO - eval
     AddATM: class extends ActionFlag {
         constructor() { super(0, 'ATM at location? ', 'Yes', 'Add the ATM category to this place'); }
+
+        static eval(pnhMatch, categories) {
+            const result = { flag: null };
+            if (pnhMatch.buttOn && pnhMatch.buttOn.includes('addATM') && !categories.includes(ATM)) {
+                result.flag = new Flag.AddATM();
+            }
+            return result;
+        }
 
         // eslint-disable-next-line class-methods-use-this
         action() {
@@ -3669,9 +3697,10 @@ let Flag = {
     AddConvStore: class extends ActionFlag {
         constructor() { super(0, 'Add convenience store category? ', 'Yes', 'Add the Convenience Store category to this place'); }
 
-        static eval(categories, pnhMatch) {
+        static eval(pnhMatch, categories) {
             const result = { flag: null };
-            if (categories[0] === GAS_STATION && !categories.includes(CONVENIENCE_STORE) && !pnhMatch.subFuel) {
+            if (categories[0] === GAS_STATION && !categories.includes(CONVENIENCE_STORE) && (!pnhMatch || (pnhMatch && !pnhMatch.subFuel
+                && !(pnhMatch.buttOff && pnhMatch.buttOff.includes('addConvStore'))))) {
                 result.flag = new Flag.AddConvStore();
             }
             return result;
@@ -4887,41 +4916,10 @@ function harmonizePlaceGo(item, highlightOnly = false, actions = null) {
             // Check special cases
             let localUrlCheck = '';
 
-            if (pnhMatchData.buttOn) {
-                pnhMatchData.buttOn.forEach(buttOnValue => {
-                    let tempFlag = null;
-                    switch (buttOnValue) {
-                        case 'addCat2':
-                            // flag = new Flag.AddCat2();
-                            break;
-                        case 'addPharm':
-                            tempFlag = new Flag.AddPharm();
-                            break;
-                        case 'addSuper':
-                            tempFlag = new Flag.AddSuper();
-                            break;
-                        case 'appendAMPM':
-                            tempFlag = new Flag.AppendAMPM();
-                            break;
-                        case 'addATM':
-                            tempFlag = new Flag.AddATM();
-                            break;
-                        case 'addConvStore':
-                            tempFlag = new Flag.AddConvStore();
-                            break;
-                        default:
-                            console.error('WMEPH:', `Could not process specCase value: buttOn_${buttOnValue}`);
-                    }
-                    if (!_buttonBanner[buttOnValue]) _buttonBanner[buttOnValue] = tempFlag;
-                });
-            }
-
-            // TODO - should have a single flag that says the flag should be turned on/off.  No need for buttOn and buttOff.
-            if (pnhMatchData.buttOff) {
-                pnhMatchData.buttOff.forEach(buttOffValue => {
-                    _buttonBanner[buttOffValue] = null;
-                });
-            }
+            _buttonBanner.appendAMPM = Flag.AppendAMPM.eval(pnhMatchData, newName).flag;
+            _buttonBanner.addPharm = Flag.AddPharm.eval(pnhMatchData, newCategories).flag;
+            _buttonBanner.addATM = Flag.AddATM.eval(pnhMatchData, newCategories).flag;
+            _buttonBanner.addSuper = Flag.AddSuper.eval(pnhMatchData, newCategories).flag;
 
             // TODO - should have a single flag that says the flag should be turned on/off.  No need for psOn and psOff.
             if (pnhMatchData.psOn) {
@@ -4964,9 +4962,6 @@ function harmonizePlaceGo(item, highlightOnly = false, actions = null) {
 
             // If it's a place that also sells fuel, enable the button
             _buttonBanner.subFuel = Flag.SubFuel.eval(pnhMatchData, newName, wl).flag;
-
-            // Add convenience store category to station
-            _buttonBanner.addConvStore = Flag.AddConvStore.eval(newCategories, pnhMatchData).flag;
 
             // Display any notes for the specific place
             _buttonBanner.specCaseMessage = Flag.SpecCaseMessage.eval(item, pnhMatchData).flag;
@@ -5198,6 +5193,9 @@ function harmonizePlaceGo(item, highlightOnly = false, actions = null) {
 
         _buttonBanner.unnecessaryAltNames = Flag.UnnecessaryAltNames.eval(newName, newAliases).flag;
         _buttonBanner.TitleCase = Flag.TitleCase.eval(pnhMatchData, newName, newNameSuffix, highlightOnly).flag;
+
+        // Add convenience store category to station
+        _buttonBanner.addConvStore = Flag.AddConvStore.eval(pnhMatchData, newCategories).flag;
 
         if (!highlightOnly) {
             // Update name:
