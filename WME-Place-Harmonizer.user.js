@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name        WME Place Harmonizer Beta (pnh-update)
 // @namespace   WazeUSA
-// @version     2019.06.28.003
+// @version     2019.06.28.004
 // @description Harmonizes, formats, and locks a selected place
 // @author      WMEPH Development Group
 // @include     /^https:\/\/(www|beta)\.waze\.com\/(?!user\/)(.{2,6}\/)?editor\/?.*$/
@@ -964,7 +964,6 @@ function harmoList(itemName, state2L, region3L, country, itemCats, item) {
 
     // If name & region match was found:
     if (matchPNHRegionData.length) {
-        _buttonBanner.placeMatched = new Flag.PlaceMatched();
         result.matches = matchPNHRegionData;
         result.status = 'Match';
         return result;
@@ -3873,7 +3872,6 @@ let Flag = {
             }
         }
     },
-    // TODO - eval
     UnnecessaryAltNames: class extends ActionFlag {
         constructor() { super(2, 'One or more unnecessary alt names were found.', 'Delete them'); }
 
@@ -3904,9 +3902,16 @@ let Flag = {
             harmonizePlaceGo(venue);
         }
     },
-    // TODO - eval
     PlaceMatched: class extends FlagBase {
         constructor() { super(0, 'Place matched from PNH data.'); }
+
+        static eval(matchResult) {
+            const result = { flag: null };
+            if (matchResult.status === 'Match') {
+                result.flag = new Flag.PlaceMatched();
+            }
+            return result;
+        }
     },
     PlaceLocked: class extends FlagBase {
         constructor() { super(0, 'Place locked.'); }
@@ -3926,18 +3931,24 @@ let Flag = {
             return result;
         }
     },
-    // TODO - eval
     NewPlaceSubmit: class extends ActionFlag {
         constructor(newPlaceUrl) {
             super(0, 'No PNH match. If it\'s a chain: ', 'Submit new chain data', 'Submit info for a new chain through the linked form');
             this.newPlaceUrl = newPlaceUrl;
         }
 
+        static eval(matchResult, url) {
+            const result = { flag: null };
+            if (matchResult.status === 'NoMatch') {
+                result.flag = new Flag.NewPlaceSubmit(url);
+            }
+            return result;
+        }
+
         action() {
             window.open(this.newPlaceUrl);
         }
     },
-    // TODO - eval
     ApprovalSubmit: class extends ActionFlag {
         constructor(region, pnhOrderNum, pnhNameTemp, placePL, approveRegionUrl) {
             super(0, 'PNH data exists but is not approved for this region: ', 'Request approval', 'Request region/country approval of this place');
@@ -3946,6 +3957,14 @@ let Flag = {
             this.pnhNameTemp = pnhNameTemp;
             this.placePL = placePL;
             this.approveRegionUrl = approveRegionUrl;
+        }
+
+        static eval(matchResult, pnhOrderNum, region, placePL, url) {
+            const result = { flag: null };
+            if (matchResult.status === 'ApprovalNeeded') {
+                result.flag = new Flag.ApprovalSubmit(region, pnhOrderNum, matchResult.pnhNameTemp, placePL, url);
+            }
+            return result;
         }
 
         action() {
@@ -4813,6 +4832,8 @@ function harmonizePlaceGo(item, highlightOnly = false, actions = null) {
             }
         }
 
+        _buttonBanner.placeMatched = Flag.PlaceMatched.eval(matchResult).flag;
+
         pnhNameRegMatch = false;
         if (!highlightOnly && matchResult.status === 'Match') { // *** Replace place data with PNH data
             pnhNameRegMatch = true;
@@ -5287,13 +5308,10 @@ function harmonizePlaceGo(item, highlightOnly = false, actions = null) {
                 default: regionFormURL = '';
             }
 
-            if (matchResult.status === 'NoMatch') {
-                // if no match was found, suggest adding the place to the sheet if it's a chain
-                _buttonBanner.NewPlaceSubmit = new Flag.NewPlaceSubmit(regionFormURL + newPlaceAddon);
-            } else if (matchResult.status === 'ApprovalNeeded') {
-                // if a match was found but not approved for the region, suggest requesting PNH approval
-                _buttonBanner.ApprovalSubmit = new Flag.ApprovalSubmit(region, pnhOrderNum, matchResult.pnhNameTemp, placePL, regionFormURL + approvalAddon);
-            }
+            // if no match was found, suggest adding the place to the sheet if it's a chain
+            _buttonBanner.NewPlaceSubmit = Flag.NewPlaceSubmit.eval(matchResult, regionFormURL + newPlaceAddon).flag;
+            // if a match was found but not approved for the region, suggest requesting PNH approval
+            _buttonBanner.ApprovalSubmit = Flag.ApprovalSubmit.eval(matchResult, pnhOrderNum, region, placePL, regionFormURL + approvalAddon).flag;
 
             // PNH specific Services:
 
