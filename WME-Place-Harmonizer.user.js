@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name        WME Place Harmonizer Beta (pnh-update)
 // @namespace   WazeUSA
-// @version     2019.06.29.002
+// @version     2019.06.29.003
 // @description Harmonizes, formats, and locks a selected place
 // @author      WMEPH Development Group
 // @include     /^https:\/\/(www|beta)\.waze\.com\/(?!user\/)(.{2,6}\/)?editor\/?.*$/
@@ -3500,9 +3500,19 @@ let Flag = {
             return result;
         }
     },
-    // TODO - eval
     LocalURL: class extends FlagBase {
-        constructor() { super(0, 'Some locations for this business have localized URLs, while others use the primary corporate site. Check if a local URL applies to this location.'); }
+        constructor() {
+            super(0, 'Some locations for this business have localized URLs, while others use the primary corporate site. '
+                + 'Check if a local URL applies to this location.');
+        }
+
+        static eval(pnhMatch, newUrl) {
+            const result = { flag: null };
+            if (pnhMatch && (pnhMatch.localUrlCheck && newUrl === pnhMatch.url)) {
+                result.flag = new Flag.LocalURL();
+            }
+            return result;
+        }
     },
     LockRPP: class extends ActionFlag {
         constructor(lockLevel, defaultLockLevel) {
@@ -4914,8 +4924,6 @@ function harmonizePlaceGo(item, highlightOnly = false, actions = null) {
             }
 
             // Check special cases
-            let localUrlCheck = '';
-
             _buttonBanner.appendAMPM = Flag.AppendAMPM.eval(pnhMatchData, newName).flag;
             _buttonBanner.addPharm = Flag.AddPharm.eval(pnhMatchData, newCategories).flag;
             _buttonBanner.addATM = Flag.AddATM.eval(pnhMatchData, newCategories).flag;
@@ -4939,8 +4947,6 @@ function harmonizePlaceGo(item, highlightOnly = false, actions = null) {
 
             // If brand is going to be forced, use that.  Otherwise, use existing brand.
             if (pnhMatchData.forceBrand) newBrand = pnhMatchData.forceBrand;
-
-            if (pnhMatchData.localUrlCheck) localUrlCheck = pnhMatchData.localUrlCheck;
 
             // optional alt-name
             _buttonBanner.addAlias = Flag.AddAlias.eval(pnhMatchData.optionAltName, newAliases).flag;
@@ -5089,23 +5095,23 @@ function harmonizePlaceGo(item, highlightOnly = false, actions = null) {
             // TODO - need to add a section above to allow other permissible categories to remain? (optional)
 
             // Parse URL data
-            let localURLcheckRE;
-            if (localUrlCheck !== '') {
-                if (newURL !== null || newURL !== '') {
-                    localURLcheckRE = new RegExp(localUrlCheck, 'i');
-                    if (newURL.match(localURLcheckRE) !== null) {
-                        newURL = normalizeURL(newURL, false, true, item, region, wl);
-                    } else {
-                        newURL = normalizeURL(pnhMatchData.url, false, true, item, region, wl);
-                        _buttonBanner.localURL = new Flag.LocalURL();
-                    }
-                } else {
-                    newURL = normalizeURL(pnhMatchData.url, false, true, item, region, wl);
-                    _buttonBanner.localURL = new Flag.LocalURL();
-                }
-            } else {
-                newURL = normalizeURL(pnhMatchData.url, false, true, item, region, wl);
+            // if (pnhMatchData.localUrlCheck) {
+            //     if (pnhMatchData.localUrlCheck.test(newURL)) {
+            //         newURL = normalizeURL(newURL, false, true, item, region, wl);
+            //     } else {
+            //         newURL = normalizeURL(pnhMatchData.url, false, true, item, region, wl);
+            //         _buttonBanner.localURL = new Flag.LocalURL();
+            //     }
+            // } else {
+            //     newURL = normalizeURL(pnhMatchData.url, false, true, item, region, wl);
+            // }
+
+            if (!pnhMatchData.localUrlCheck || (pnhMatchData.localUrlCheck && !pnhMatchData.localUrlCheck.test(newURL))) {
+                newURL = pnhMatchData.url;
             }
+            newURL = normalizeURL(newURL, false, true, item, region, wl);
+
+            _buttonBanner.localURL = Flag.LocalURL.eval(pnhMatchData, newURL).flag;
 
             // Update aliases, aka alt names
             if (!pnhMatchData.noUpdateAlias && !containsAll(newAliases, pnhMatchData.aliases) && !pnhMatchData.optionName2) {
@@ -8448,6 +8454,12 @@ function processPnhChains(chainData, categories) {
                             if (result.arg) {
                                 found = true;
                                 chainObj.forceBrand = result.arg;
+                            }
+                            break;
+                        case 'localURL':
+                            if (result.arg) {
+                                found = true;
+                                chainObj.localUrlCheck = new RegExp(result.arg.replace(/\\/g, '\\'), 'i');
                             }
                             break;
                         default:
