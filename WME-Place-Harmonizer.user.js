@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name        WME Place Harmonizer Beta (pnh-update)
 // @namespace   WazeUSA
-// @version     2019.06.28.004
+// @version     2019.06.29.001
 // @description Harmonizes, formats, and locks a selected place
 // @author      WMEPH Development Group
 // @include     /^https:\/\/(www|beta)\.waze\.com\/(?!user\/)(.{2,6}\/)?editor\/?.*$/
@@ -2894,7 +2894,7 @@ let Flag = {
 
         static eval(name, nameSuffix, pnhMatch, whitelist) {
             const result = { flag: null };
-            if ((name + (nameSuffix || '')).match(pnhMatch.checkLocalization) === null) {
+            if (pnhMatch.checkLocalization && !pnhMatch.checkLocalization.test(name + (nameSuffix || ''))) {
                 result.flag = new Flag.LocalizedName();
                 if (whitelist.localizedName) {
                     result.flag.WLactive = false;
@@ -3846,13 +3846,27 @@ let Flag = {
             harmonizePlaceGo(venue); // Rerun the script to update fields and lock
         }
     },
-    // TODO - eval
-    STC: class extends ActionFlag {
+    TitleCase: class extends ActionFlag {
         constructor() {
             super(0, '', 'Force Title Case?', 'Force title case to: ');
             this.originalName = null;
             this.confirmChange = false;
             this.noBannerAssemble = true;
+        }
+
+        static eval(pnhMatch, name, nameSuffix, highlightOnly) {
+            const result = { flag: null };
+            // Strong title case option for places that aren't having a name set explicitly.
+            if (!highlightOnly && (!pnhMatch || pnhMatch.keepName || pnhMatch.checkLocalization)) {
+                const titleCaseName = toTitleCaseStrong(name);
+                if (name !== titleCaseName) {
+                    result.flag = new Flag.TitleCase();
+                    result.flag.suffixMessage = `<span style="margin-left: 4px;font-size: 14px">&bull; ${titleCaseName}${nameSuffix || ''}</span>`;
+                    result.flag.title += titleCaseName;
+                    result.flag.originalName = name + (nameSuffix || '');
+                }
+            }
+            return result;
         }
 
         action() {
@@ -3867,8 +3881,8 @@ let Flag = {
                 }
                 harmonizePlaceGo(venue);
             } else {
-                $('button#WMEPH_STC').text('Are you sure?').after(' The name has changed.  This will overwrite the new name.');
-                _buttonBanner.STC.confirmChange = true;
+                $('button#WMEPH_TitleCase').text('Are you sure?').after(' The name has changed.  This will overwrite the new name.');
+                _buttonBanner.TitleCase.confirmChange = true;
             }
         }
     },
@@ -4201,7 +4215,7 @@ function getButtonBanner() {
         addATM: null,
         addConvStore: null,
         isThisAPostOffice: null,
-        STC: null,
+        TitleCase: null,
         changeToHospitalUrgentCare: null,
         placeMatched: null,
         placeLocked: null,
@@ -4837,7 +4851,6 @@ function harmonizePlaceGo(item, highlightOnly = false, actions = null) {
         pnhNameRegMatch = false;
         if (!highlightOnly && matchResult.status === 'Match') { // *** Replace place data with PNH data
             pnhNameRegMatch = true;
-            let updatePnhName = true;
 
             // Retrieve the data from the PNH line(s)
             let nsMultiMatch = false;
@@ -4860,8 +4873,6 @@ function harmonizePlaceGo(item, highlightOnly = false, actions = null) {
             } else {
                 pnhMatchData = pnhMatchData[0]; // Single match
             }
-
-            const priPNHPlaceCat = pnhMatchData.category1;
 
             // if the location has multiple matches, then pop an alert that will make a forum post to the thread
             if (nsMultiMatch) {
@@ -4938,7 +4949,7 @@ function harmonizePlaceGo(item, highlightOnly = false, actions = null) {
 
             // TODO Add check for forceBrand on non-gas station PNH entries when loading PNH data.
             // Gas Station forceBranding
-            if (priPNHPlaceCat === GAS_STATION && pnhMatchData.forceBrand) {
+            if (pnhMatchData.category1 === GAS_STATION && pnhMatchData.forceBrand) {
                 if (item.attributes.brand !== pnhMatchData.forceBrand) {
                     addUpdateAction(item, { brand: pnhMatchData.forceBrand }, actions);
                     UPDATED_FIELDS.brand.updated = true;
@@ -4949,13 +4960,7 @@ function harmonizePlaceGo(item, highlightOnly = false, actions = null) {
             // Check Localization
             // TODO - I don't really like how this works. Should be a separate text value for the checkLocalization flag,
             // not use the ph_displayNote field value.
-            if (pnhMatchData.checkLocalization) {
-                // It's assumed the user will need to match some non-standard naming pattern, so don't update the place name.
-                updatePnhName = false;
-                _buttonBanner.localizedName = Flag.LocalizedName.eval(newName, newNameSuffix, pnhMatchData, wl).flag;
-            }
-
-            if (pnhMatchData.keepName) updatePnhName = false;
+            _buttonBanner.localizedName = Flag.LocalizedName.eval(newName, newNameSuffix, pnhMatchData, wl).flag;
 
             // If it's a place that also sells fuel, enable the button
             _buttonBanner.subFuel = Flag.SubFuel.eval(pnhMatchData, newName, wl).flag;
@@ -4972,7 +4977,7 @@ function harmonizePlaceGo(item, highlightOnly = false, actions = null) {
             _buttonBanner.catHotel = flagResult.flag;
             _buttonBanner.hotelMkPrim = Flag.HotelMkPrim.eval(item, pnhMatchData, wl).flag;
 
-            if (priPNHPlaceCat === HOTEL) {
+            if (pnhMatchData.category1 === HOTEL) {
                 if (!_buttonBanner.catHotel) {
                     // Make an array of all possible full name matches.
                     const nameArray = [pnhMatchData.name];
@@ -5072,26 +5077,17 @@ function harmonizePlaceGo(item, highlightOnly = false, actions = null) {
                     _buttonBanner.standaloneATM = new Flag.StandaloneATM();
                     _buttonBanner.bankCorporate = new Flag.BankCorporate();
                 }// END PNH bank treatment
-            } else if ([GAS_STATION].includes(priPNHPlaceCat)) { // for PNH gas stations, don't replace existing sub-categories
+            } else if (pnhMatchData.category1 === GAS_STATION) { // for PNH gas stations, don't replace existing sub-categories
                 if (pnhMatchData.altCategories.length) { // if PNH alts exist
                     insertAtIX(newCategories, pnhMatchData.altCategories, 1); //  then insert the alts into the existing category array after the GS category
                 }
                 _buttonBanner.gasMkPrim = Flag.GasMkPrim.eval(newCategories).flag;
                 if (!_buttonBanner.gasMkPrim) newName = pnhMatchData.name;
-            } else if (updatePnhName) { // if not a special category then update the name
+            } else if (!(pnhMatchData.keepName || pnhMatchData.checkLocalization)) { // if not a special category then update the name
                 newName = pnhMatchData.name;
-                newCategories = insertAtIX(newCategories, priPNHPlaceCat, 0);
+                newCategories = insertAtIX(newCategories, pnhMatchData.category1, 0);
                 if (pnhMatchData.altCategories.length && !(pnhMatchData.buttOn && pnhMatchData.buttOn.includes('addCat2')) && !pnhMatchData.optionCat2) {
                     newCategories = insertAtIX(newCategories, pnhMatchData.altCategories, 1);
-                }
-            } else if (!updatePnhName) {
-                // Strong title case option for non-PNH places
-                const titleCaseName = toTitleCaseStrong(newName);
-                if (newName !== titleCaseName) {
-                    _buttonBanner.STC = new Flag.STC();
-                    _buttonBanner.STC.suffixMessage = `<span style="margin-left: 4px;font-size: 14px">&bull; ${titleCaseName}${newNameSuffix || ''}</span>`;
-                    _buttonBanner.STC.title += titleCaseName;
-                    _buttonBanner.STC.originalName = newName + (newNameSuffix || '');
                 }
             }
 
@@ -5133,8 +5129,8 @@ function harmonizePlaceGo(item, highlightOnly = false, actions = null) {
                     addUpdateAction(item, { categories: newCategories }, actions);
                     UPDATED_FIELDS.categories.updated = true;
                 } else { // if second cat is optional
-                    phlogdev(`Primary category updated with ${priPNHPlaceCat}`);
-                    newCategories = insertAtIX(newCategories, priPNHPlaceCat, 0);
+                    phlogdev(`Primary category updated with ${pnhMatchData.category1}`);
+                    newCategories = insertAtIX(newCategories, pnhMatchData.category1, 0);
                     addUpdateAction(item, { categories: newCategories }, actions);
                     UPDATED_FIELDS.categories.updated = true;
                 }
@@ -5159,15 +5155,6 @@ function harmonizePlaceGo(item, highlightOnly = false, actions = null) {
             if (matchResult.status === 'ApprovalNeeded') {
                 pnhNameTempWeb = encodeURIComponent(matchResult.pnhNameTemp[0]);
                 pnhOrderNum = matchResult.pnhOrderNum.join(',');
-            }
-
-            // Strong title case option for non-PNH places
-            const titleCaseName = toTitleCaseStrong(newName);
-            if (newName !== titleCaseName) {
-                _buttonBanner.STC = new Flag.STC();
-                _buttonBanner.STC.suffixMessage = `<span style="margin-left: 4px;font-size: 14px">&bull; ${titleCaseName}${newNameSuffix || ''}</span>`;
-                _buttonBanner.STC.title += titleCaseName;
-                _buttonBanner.STC.originalName = newName + (newNameSuffix || '');
             }
 
             newURL = normalizeURL(newURL, true, false, item, region, wl); // Normalize url
@@ -5210,6 +5197,7 @@ function harmonizePlaceGo(item, highlightOnly = false, actions = null) {
         } // END PNH match/no-match updates
 
         _buttonBanner.unnecessaryAltNames = Flag.UnnecessaryAltNames.eval(newName, newAliases).flag;
+        _buttonBanner.TitleCase = Flag.TitleCase.eval(pnhMatchData, newName, newNameSuffix, highlightOnly).flag;
 
         if (!highlightOnly) {
             // Update name:
