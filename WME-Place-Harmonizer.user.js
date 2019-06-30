@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name        WME Place Harmonizer Beta (pnh-update)
 // @namespace   WazeUSA
-// @version     2019.06.29.003
+// @version     2019.06.30.001
 // @description Harmonizes, formats, and locks a selected place
 // @author      WMEPH Development Group
 // @include     /^https:\/\/(www|beta)\.waze\.com\/(?!user\/)(.{2,6}\/)?editor\/?.*$/
@@ -1562,46 +1562,35 @@ function setServiceChecked(servBtn, checked, actions) {
 }
 
 // Normalize url
-function normalizeURL(s, lc, skipBannerActivate, venue, region, whitelist) {
-    const regionsThatWantPLAUrls = ['SER'];
-
-    if ((!s || s.trim().length === 0) && !skipBannerActivate) {
-        // Notify that url is missing and provide web search to find website and gather data (provided for all editors)
-        const hasOperator = venue.attributes.brand && W.model.venues.categoryBrands.PARKING_LOT.includes(venue.attributes.brand);
-        if (!venue.isParkingLot() || (venue.isParkingLot() && (regionsThatWantPLAUrls.includes(region) || hasOperator))) {
-            _buttonBanner.urlMissing = new Flag.UrlMissing(region, whitelist);
-            if (whitelist.urlWL || (venue.isParkingLot() && !hasOperator)) {
-                _buttonBanner.urlMissing.severity = 0;
-                _buttonBanner.urlMissing.WLactive = false;
-            }
-        }
-        return s;
+function normalizeURL(url, toLowerCase = false) {
+    if (isNullOrWhitespace(url)) {
+        return url;
     }
 
-    s = s.replace(/ \(.*/g, ''); // remove anything with parentheses after it
-    s = s.replace(/ /g, ''); // remove any spaces
-    let m = s.match(/^http:\/\/(.*)$/i); // remove http://
-    if (m) { [, s] = m; }
-    if (lc) { // lowercase the entire domain
-        s = s.replace(/[^/]+/i, txt => ((txt === txt.toLowerCase()) ? txt : txt.toLowerCase()));
+    url = url.replace(/ \(.*/g, ''); // remove anything with parentheses after it
+    url = url.replace(/ /g, ''); // remove any spaces
+    let m = url.match(/^http:\/\/(.*)$/i); // remove http://
+    if (m) { [, url] = m; }
+    if (toLowerCase) { // lowercase the entire domain
+        url = url.replace(/[^/]+/i, txt => ((txt === txt.toLowerCase()) ? txt : txt.toLowerCase()));
     } else { // lowercase only the www and com
-        s = s.replace(/www\./i, 'www.');
-        s = s.replace(/\.com/i, '.com');
+        url = url.replace(/www\./i, 'www.');
+        url = url.replace(/\.com/i, '.com');
     }
-    m = s.match(/^(.*)\/pages\/welcome.aspx$/i); // remove unneeded terms
-    if (m) { [, s] = m; }
-    m = s.match(/^(.*)\/pages\/default.aspx$/i); // remove unneeded terms
-    if (m) { [, s] = m; }
+    m = url.match(/^(.*)\/pages\/welcome.aspx$/i); // remove unneeded terms
+    if (m) { [, url] = m; }
+    m = url.match(/^(.*)\/pages\/default.aspx$/i); // remove unneeded terms
+    if (m) { [, url] = m; }
     // m = s.match(/^(.*)\/index.html$/i); // remove unneeded terms
     // if (m) { s = m[1]; }
     // m = s.match(/^(.*)\/index.htm$/i); // remove unneeded terms
     // if (m) { s = m[1]; }
     // m = s.match(/^(.*)\/index.php$/i); // remove unneeded terms
     // if (m) { s = m[1]; }
-    m = s.match(/^(.*)\/$/i); // remove final slash
-    if (m) { [, s] = m; }
-    if (!s || s.trim().length === 0 || !/(^https?:\/\/)?\w+\.\w+/.test(s)) s = 'badURL';
-    return s;
+    m = url.match(/^(.*)\/$/i); // remove final slash
+    if (m) { [, url] = m; }
+    if (isNullOrWhitespace(url) || !/(^https?:\/\/)?\w+\.\w+/.test(url)) url = 'badURL';
+    return url;
 } // END normalizeURL function
 
 // Only run the harmonization if a venue is selected
@@ -1673,7 +1662,7 @@ class WLActionFlag extends WLFlag {
 }
 
 // Namespace to keep these grouped.
-let Flag = {
+const Flag = {
     FullAddressInference: class extends FlagBase {
         constructor() { super(3, 'Missing address was inferred from nearby segments. Verify the address and run script again.', true); }
 
@@ -2652,16 +2641,23 @@ let Flag = {
             this.url = url;
         }
 
-        static eval(item, newURL, region, highlightOnly, pnhNameRegMatch, actions, placePL, wl) {
+        static eval(item, newURL, highlightOnly, pnhNameRegMatch, actions, placePL, wl) {
             const result = { flag: null };
             let updateUrl = true;
             if (newURL !== item.attributes.url && !isNullOrWhitespace(newURL)) {
                 // for cases where there is an existing URL in the WME place, and there is a PNH url on queue:
                 if (pnhNameRegMatch && !isNullOrWhitespace(item.attributes.url) && newURL !== 'badURL') {
-                    let newURLTemp = normalizeURL(newURL, true, false, item, region, wl); // normalize
-                    const itemURL = normalizeURL(item.attributes.url, true, false, item, region, wl);
-                    newURLTemp = newURLTemp.replace(/^www\.(.*)$/i, '$1'); // strip www
-                    const itemURLTemp = itemURL.replace(/^www\.(.*)$/i, '$1'); // strip www
+                    let newURLTemp = normalizeURL(newURL); // normalize
+                    let itemURL = normalizeURL(item.attributes.url);
+
+                    // If the existing place URL can't be normalized, just use the original
+                    if (itemURL === 'badURL') itemURL = item.attributes.url;
+
+                    // Strip www
+                    // TODO - I don't think we should be stripping www. It may be necessary to have it for some sites, and optional for others.
+                    newURLTemp = newURLTemp.replace(/^www\.(.*)$/i, '$1');
+                    const itemURLTemp = itemURL.replace(/^www\.(.*)$/i, '$1');
+
                     if (newURLTemp !== itemURLTemp) { // if formatted URLs don't match, then alert the editor to check the existing URL
                         result.flag = new Flag.UrlMismatch(placePL, newURL);
                         if (wl.longURL) {
@@ -3021,21 +3017,48 @@ let Flag = {
             }, 100);
         }
     },
-    // TODO - eval
+    BadUrl: class extends FlagBase {
+        constructor() {
+            super(2, 'Invalid website URL', true);
+        }
+
+        static eval(url) {
+            const result = { flag: null };
+            if (!isNullOrWhitespace(url) && (url === 'badURL' || !/(^https?:\/\/)?\w+\.\w+/.test(url))) {
+                result.flag = new Flag.BadUrl();
+            }
+            return result;
+        }
+    },
     UrlMissing: class extends WLActionFlag {
-        constructor(region, whitelist) {
+        constructor() {
             super(1, 'No URL: <input type="text" id="WMEPH-UrlAdd" autocomplete="off" style="font-size:0.85em;width:100px;padding-left:2px;color:#000;">', 'Add', 'Add URL to place', true, 'Whitelist empty URL', 'urlWL');
             this.noBannerAssemble = true;
             this.badInput = false;
-            this.region = region;
-            this.whitelist = whitelist;
+        }
+
+        static eval(url, brand, venue, region, whitelist) {
+            const result = { flag: null };
+            if (isNullOrWhitespace(url)) {
+                const regionsThatWantPLAUrls = ['SER'];
+                const hasOperator = brand && W.model.venues.categoryBrands.PARKING_LOT.includes(brand);
+                // If parking lot, only show flag if region wants it or if the PLA has an operator.
+                if (!venue.isParkingLot() || (venue.isParkingLot() && (regionsThatWantPLAUrls.includes(region) || hasOperator))) {
+                    result.flag = new Flag.UrlMissing();
+                    if (whitelist.urlWL || (venue.isParkingLot() && !hasOperator)) {
+                        result.flag.severity = 0;
+                        result.flag.WLactive = false;
+                    }
+                }
+            }
+            return result;
         }
 
         // eslint-disable-next-line class-methods-use-this
         action() {
             const venue = getSelectedVenue();
-            const newUrl = normalizeURL($('#WMEPH-UrlAdd').val(), true, false, venue, this.region, this.whitelist);
-            if ((!newUrl || newUrl.trim().length === 0) || newUrl === 'badURL') {
+            const newUrl = normalizeURL($('#WMEPH-UrlAdd').val());
+            if (isNullOrWhitespace(newUrl) || newUrl === 'badURL') {
                 $('input#WMEPH-UrlAdd').css({ backgroundColor: '#FDD' }).attr('title', 'Invalid URL format');
                 // this.badInput = true;
             } else {
@@ -3921,7 +3944,7 @@ let Flag = {
                 harmonizePlaceGo(venue);
             } else {
                 $('button#WMEPH_TitleCase').text('Are you sure?').after(' The name has changed.  This will overwrite the new name.');
-                _buttonBanner.TitleCase.confirmChange = true;
+                _buttonBanner.titleCase.confirmChange = true;
             }
         }
     },
@@ -4214,6 +4237,7 @@ function getButtonBanner() {
         areaNotPointMid: null,
         pointNotAreaMid: null,
         urlMismatch: null,
+        badUrl: null,
         gasNoBrand: null,
         subFuel: null,
         areaNotPointLow: null,
@@ -4254,7 +4278,7 @@ function getButtonBanner() {
         addATM: null,
         addConvStore: null,
         isThisAPostOffice: null,
-        TitleCase: null,
+        titleCase: null,
         changeToHospitalUrgentCare: null,
         placeMatched: null,
         placeLocked: null,
@@ -5109,9 +5133,6 @@ function harmonizePlaceGo(item, highlightOnly = false, actions = null) {
             if (!pnhMatchData.localUrlCheck || (pnhMatchData.localUrlCheck && !pnhMatchData.localUrlCheck.test(newURL))) {
                 newURL = pnhMatchData.url;
             }
-            newURL = normalizeURL(newURL, false, true, item, region, wl);
-
-            _buttonBanner.localURL = Flag.LocalURL.eval(pnhMatchData, newURL).flag;
 
             // Update aliases, aka alt names
             if (!pnhMatchData.noUpdateAlias && !containsAll(newAliases, pnhMatchData.aliases) && !pnhMatchData.optionName2) {
@@ -5158,8 +5179,6 @@ function harmonizePlaceGo(item, highlightOnly = false, actions = null) {
                 pnhOrderNum = matchResult.pnhOrderNum.join(',');
             }
 
-            newURL = normalizeURL(newURL, true, false, item, region, wl); // Normalize url
-
             // Generic Bank treatment
             const _ixBank = item.attributes.categories.indexOf(BANK_FINANCIAL);
             const _ixATM = item.attributes.categories.indexOf(ATM);
@@ -5197,8 +5216,13 @@ function harmonizePlaceGo(item, highlightOnly = false, actions = null) {
             } // END generic bank treatment
         } // END PNH match/no-match updates
 
+        if (!highlightOnly) newURL = normalizeURL(newURL, pnhMatchData === null);
+
+        _buttonBanner.localURL = Flag.LocalURL.eval(pnhMatchData, newURL).flag;
+        _buttonBanner.urlMissing = Flag.UrlMissing.eval(newURL, newBrand, item, region, wl).flag;
+        _buttonBanner.badUrl = Flag.BadUrl.eval(item.attributes.url).flag;
         _buttonBanner.unnecessaryAltNames = Flag.UnnecessaryAltNames.eval(newName, newAliases).flag;
-        _buttonBanner.TitleCase = Flag.TitleCase.eval(pnhMatchData, newName, newNameSuffix, highlightOnly).flag;
+        _buttonBanner.titleCase = Flag.TitleCase.eval(pnhMatchData, newName, newNameSuffix, highlightOnly).flag;
 
         // Add convenience store category to station
         _buttonBanner.addConvStore = Flag.AddConvStore.eval(pnhMatchData, newCategories).flag;
@@ -5483,7 +5507,7 @@ function harmonizePlaceGo(item, highlightOnly = false, actions = null) {
         }
 
         // URL updating
-        _buttonBanner.urlMismatch = Flag.UrlMismatch.eval(item, newURL, region, highlightOnly, pnhNameRegMatch, actions, placePL, wl).flag;
+        _buttonBanner.urlMismatch = Flag.UrlMismatch.eval(item, newURL, highlightOnly, pnhNameRegMatch, actions, placePL, wl).flag;
 
         // Phone formatting
         let outputFormat = '({0}) {1}-{2}';
