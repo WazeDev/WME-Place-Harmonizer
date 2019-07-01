@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name        WME Place Harmonizer Beta (pnh-update)
 // @namespace   WazeUSA
-// @version     2019.06.30.001
+// @version     2019.06.30.002
 // @description Harmonizes, formats, and locks a selected place
 // @author      WMEPH Development Group
 // @include     /^https:\/\/(www|beta)\.waze\.com\/(?!user\/)(.{2,6}\/)?editor\/?.*$/
@@ -1494,12 +1494,14 @@ function replaceLetters(number) {
 
 // Add array of actions to a MultiAction to be executed at once (counts as one edit for redo/undo purposes)
 function executeMultiAction(actions, description) {
-    if (actions.length > 0) {
+    if (actions.length > 1) {
         const mAction = new MultiAction();
         mAction.setModel(W.model);
         mAction._description = description || mAction._description || 'Change(s) made by WMEPH';
         actions.forEach(action => { mAction.doSubAction(action); });
         W.model.actionManager.add(mAction);
+    } else if (actions.length === 1) {
+        W.model.actionManager.add(actions[0]);
     }
 }
 
@@ -1510,6 +1512,7 @@ function getNameParts(name) {
 }
 
 function addUpdateAction(venue, updateObj, actions = null) {
+    // TODO - add user option to decide if actions should be lumped into a MultiAction or executed immediately.
     const action = new UpdateObject(venue, updateObj);
     if (actions) {
         actions.push(action);
@@ -1561,6 +1564,7 @@ function setServiceChecked(servBtn, checked, actions) {
     if (!toggle) servBtn.active = checked;
 }
 
+// TODO - evaluate if this needs to be applied when updating existing URLs.  It's still applied when adding directly from the banner.
 // Normalize url
 function normalizeURL(url, toLowerCase = false) {
     if (isNullOrWhitespace(url)) {
@@ -2641,41 +2645,13 @@ const Flag = {
             this.url = url;
         }
 
-        static eval(item, newURL, highlightOnly, pnhNameRegMatch, actions, placePL, wl) {
+        static eval(url, pnhMatch, highlightOnly, placePL, wl) {
             const result = { flag: null };
-            let updateUrl = true;
-            if (newURL !== item.attributes.url && !isNullOrWhitespace(newURL)) {
-                // for cases where there is an existing URL in the WME place, and there is a PNH url on queue:
-                if (pnhNameRegMatch && !isNullOrWhitespace(item.attributes.url) && newURL !== 'badURL') {
-                    let newURLTemp = normalizeURL(newURL); // normalize
-                    let itemURL = normalizeURL(item.attributes.url);
-
-                    // If the existing place URL can't be normalized, just use the original
-                    if (itemURL === 'badURL') itemURL = item.attributes.url;
-
-                    // Strip www
-                    // TODO - I don't think we should be stripping www. It may be necessary to have it for some sites, and optional for others.
-                    newURLTemp = newURLTemp.replace(/^www\.(.*)$/i, '$1');
-                    const itemURLTemp = itemURL.replace(/^www\.(.*)$/i, '$1');
-
-                    if (newURLTemp !== itemURLTemp) { // if formatted URLs don't match, then alert the editor to check the existing URL
-                        result.flag = new Flag.UrlMismatch(placePL, newURL);
-                        if (wl.longURL) {
-                            result.flag.severity = 0;
-                            result.flag.WLactive = false;
-                        }
-                        if (!highlightOnly && updateUrl && itemURL !== item.attributes.url) { // Update the URL
-                            phlogdev('URL formatted');
-                            addUpdateAction(item, { url: itemURL }, actions);
-                            UPDATED_FIELDS.url.updated = true;
-                        }
-                        updateUrl = false;
-                    }
-                }
-                if (!highlightOnly && updateUrl && newURL !== 'badURL' && newURL !== item.attributes.url) { // Update the URL
-                    phlogdev('URL updated');
-                    addUpdateAction(item, { url: newURL }, actions);
-                    UPDATED_FIELDS.url.updated = true;
+            if (!highlightOnly && pnhMatch && url !== pnhMatch.url && !isNullOrWhitespace(url)) {
+                result.flag = new Flag.UrlMismatch(placePL, pnhMatch.url);
+                if (wl.longURL) {
+                    result.flag.severity = 0;
+                    result.flag.WLactive = false;
                 }
             }
             return result;
@@ -3064,6 +3040,31 @@ const Flag = {
             } else {
                 phlogdev(newUrl);
                 addUpdateAction(venue, { url: newUrl });
+                UPDATED_FIELDS.url.updated = true;
+                harmonizePlaceGo(venue);
+            }
+        }
+    },
+    RemoveHttp: class extends WLActionFlag {
+        constructor() {
+            super(2, 'http:// is typically not needed and makes less of the URL visible to the user.', 'Remove it',
+                'Remove http:// from the URL', true, 'Whitelist http', 'removeHttp');
+        }
+
+        static eval(url, whitelist) {
+            const result = { flag: null };
+            if (!whitelist.removeHttp && /^\s*http:\/\//i.test(url)) {
+                result.flag = new Flag.RemoveHttp();
+            }
+            return result;
+        }
+
+        // eslint-disable-next-line class-methods-use-this
+        action() {
+            const venue = getSelectedVenue();
+            const url = venue.attributes.url.replace(/^\s*http:\/\//i, '');
+            if (url !== venue.attributes.url) {
+                addUpdateAction(venue, { url });
                 UPDATED_FIELDS.url.updated = true;
                 harmonizePlaceGo(venue);
             }
@@ -4253,6 +4254,7 @@ function getButtonBanner() {
         specCaseMessageLow: null,
         changeToDoctorClinic: null,
         extProviderMissing: null,
+        removeHttp: null,
         urlMissing: null,
         badAreaCode: null,
         phoneMissing: null,
@@ -4720,10 +4722,8 @@ function harmonizePlaceGo(item, highlightOnly = false, actions = null) {
     let newName = nameParts.base;
     let newAliases = item.attributes.aliases.slice();
     let newURL = item.attributes.url;
-    let newURLSubmit = '';
-    if (newURL !== null && newURL !== '') {
-        newURLSubmit = newURL;
-    }
+    // TODO - don't capture URL until the submit button is clicked
+    const newURLSubmit = isNullOrWhitespace(newURL) ? '' : newURL;
 
     let pnhNameRegMatch;
 
@@ -5130,8 +5130,15 @@ function harmonizePlaceGo(item, highlightOnly = false, actions = null) {
             //     newURL = normalizeURL(pnhMatchData.url, false, true, item, region, wl);
             // }
 
-            if (!pnhMatchData.localUrlCheck || (pnhMatchData.localUrlCheck && !pnhMatchData.localUrlCheck.test(newURL))) {
+            // if (!pnhMatchData.localUrlCheck || (pnhMatchData.localUrlCheck && !pnhMatchData.localUrlCheck.test(newURL))) {
+            //     newURL = pnhMatchData.url;
+            // }
+
+            // Update the URL if none currently exists.
+            if (isNullOrWhitespace(item.attributes.url)) {
                 newURL = pnhMatchData.url;
+                addUpdateAction(item, { url: newURL }, actions);
+                UPDATED_FIELDS.url.updated = true;
             }
 
             // Update aliases, aka alt names
@@ -5216,11 +5223,15 @@ function harmonizePlaceGo(item, highlightOnly = false, actions = null) {
             } // END generic bank treatment
         } // END PNH match/no-match updates
 
-        if (!highlightOnly) newURL = normalizeURL(newURL, pnhMatchData === null);
+        //if (!highlightOnly) newURL = normalizeURL(newURL, pnhMatchData === null);
 
+        // URL updating
+        _buttonBanner.urlMismatch = Flag.UrlMismatch.eval(newURL, pnhMatchData, highlightOnly, placePL, wl).flag;
+        _buttonBanner.removeHttp = Flag.RemoveHttp.eval(item.attributes.url, wl).flag;
         _buttonBanner.localURL = Flag.LocalURL.eval(pnhMatchData, newURL).flag;
         _buttonBanner.urlMissing = Flag.UrlMissing.eval(newURL, newBrand, item, region, wl).flag;
-        _buttonBanner.badUrl = Flag.BadUrl.eval(item.attributes.url).flag;
+        _buttonBanner.badUrl = Flag.BadUrl.eval(newURL).flag;
+
         _buttonBanner.unnecessaryAltNames = Flag.UnnecessaryAltNames.eval(newName, newAliases).flag;
         _buttonBanner.titleCase = Flag.TitleCase.eval(pnhMatchData, newName, newNameSuffix, highlightOnly).flag;
 
@@ -5248,6 +5259,7 @@ function harmonizePlaceGo(item, highlightOnly = false, actions = null) {
             _buttonBanner.StoreFinder = Flag.StoreFinder.eval(item, addr, itemGPS, countryCode, state2L, pnhMatchData).flag;
 
             // Make PNH submission links
+            // TODO - move this into the eval function
             let regionFormURL = '';
             let newPlaceAddon = '';
             let approvalAddon = '';
@@ -5505,9 +5517,6 @@ function harmonizePlaceGo(item, highlightOnly = false, actions = null) {
             }
             _servicesBanner.add247.active = true;
         }
-
-        // URL updating
-        _buttonBanner.urlMismatch = Flag.UrlMismatch.eval(item, newURL, highlightOnly, pnhNameRegMatch, actions, placePL, wl).flag;
 
         // Phone formatting
         let outputFormat = '({0}) {1}-{2}';
