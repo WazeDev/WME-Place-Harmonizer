@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name        WME Place Harmonizer Beta (pnh-update)
 // @namespace   WazeUSA
-// @version     2019.06.30.002
+// @version     2019.07.03.001
 // @description Harmonizes, formats, and locks a selected place
 // @author      WMEPH Development Group
 // @include     /^https:\/\/(www|beta)\.waze\.com\/(?!user\/)(.{2,6}\/)?editor\/?.*$/
@@ -932,7 +932,7 @@ function harmoList(itemName, state2L, region3L, country, itemCats, item) {
             let { forceCategory } = pnhEntry; // Primary category of PNH data
 
             // Gas stations only harmonized if the WME place category is already gas station (prevents Costco Gas becoming Costco Store)
-            if (itemCats[0] === GAS_STATION) {
+            if (pnhEntry.category1 === GAS_STATION) {
                 forceCategory = '1';
             }
 
@@ -941,8 +941,7 @@ function harmoList(itemName, state2L, region3L, country, itemCats, item) {
                 || (forceCategory === '0' || !forceCategory)
             ) {
                 const approvedRegions = pnhEntry.regions;
-                if (approvedRegions.includes(state2L) || approvedRegions.includes(region3L) // if the WME-selected item matches the state, region
-                    || approvedRegions.includes(country) //  OR if the country code is in the data then it is approved for all regions therein
+                if ([region3L, state2L, country].some(str => approvedRegions.includes(str)) // if the WME-selected item matches the state, region, or country
                     || $('#WMEPH-RegionOverride').prop('checked')) { // OR if region override is selected (dev setting)
                     matchPNHRegionData.push(pnhEntry);
                 } else {
@@ -1821,32 +1820,22 @@ const Flag = {
     },
     UnmappedRegion: class extends WLFlag {
         constructor() {
-            super(3, 'This category is usually not mapped in this region.', true,
+            super(2, 'These categories are usually not mapped in this region: ', true,
                 'Whitelist unmapped category', 'unmappedRegion', true);
         }
 
-        static eval(catId, pnhCategory, state2L, region, countryCode, isLocked, whitelist) {
+        static eval(pnhCategorySettings, categories, state2L, region, countryCode, whitelist) {
             const result = { flag: null };
-            const { rareRegions } = pnhCategory;
-            if (rareRegions.includes(state2L)
-                || rareRegions.includes(region)
-                || rareRegions.includes(countryCode)) {
-                if (catId === OTHER && ['GLR', 'NER', 'NWR', 'PLN', 'SCR', 'SER', 'NOR', 'HI'].includes(region)) {
-                    if (!isLocked) {
-                        result.flag = new Flag.UnmappedRegion();
-                        result.flag.WLactive = false;
-                        result.flag.severity = 1;
-                        result.flag.message = 'The "Other" category should only be used if no other category applies. '
-                            + 'Manually lock the place to override this flag.';
-                    }
-                } else {
-                    result.flag = new Flag.UnmappedRegion();
-                    result.flag.message = `The "${pnhCategory.translation}" category is usually not mapped in this region.`;
-                    if (whitelist.unmappedRegion) {
-                        result.flag.WLactive = false;
-                        result.flag.severity = 0;
-                        result.flag.noLock = false;
-                    }
+            const unmappedCats = categories
+                .filter(catId => [region, countryCode, state2L].some(str => pnhCategorySettings[catId].rareRegions.includes(str)))
+                .map(catId => pnhCategorySettings[catId].translation);
+            if (unmappedCats.length) {
+                result.flag = new Flag.UnmappedRegion();
+                result.flag.message += unmappedCats.join(', ');
+                if (whitelist.unmappedRegion) {
+                    result.flag.WLactive = false;
+                    result.flag.severity = 0;
+                    result.flag.noLock = false;
                 }
             }
             return result;
@@ -2513,18 +2502,22 @@ const Flag = {
     },
     ParentCategory: class extends WLFlag {
         constructor() {
-            super(2, 'This parent category is usually not mapped in this region.',
+            super(2, 'These parent categories are usually not mapped in this region: ',
                 true, 'Whitelist parent Category', 'parentCategory');
         }
 
-        static eval(pnhCategories, state2L, region, countryCode, whitelist) {
+        static eval(pnhCategorySettings, categories, state2L, region, countryCode, whitelist) {
             const result = { flag: null };
-            if (pnhCategories.parentNotMappedRegions.includes(state2L)
-                || pnhCategories.parentNotMappedRegions.includes(region)
-                || pnhCategories.parentNotMappedRegions.includes(countryCode)) {
+            const parentCats = categories
+                .filter(catId => [region, countryCode, state2L].some(str => pnhCategorySettings[catId].parentNotMappedRegions.includes(str)))
+                .map(catId => pnhCategorySettings[catId].translation);
+            if (parentCats.length) {
                 result.flag = new Flag.ParentCategory();
+                result.flag.message += parentCats.join(', ');
                 if (whitelist.parentCategory) {
-                    _buttonBanner.parentCategory.WLactive = false;
+                    result.flag.WLactive = false;
+                    result.flag.severity = 0;
+                    result.flag.noLock = false;
                 }
             }
             return result;
@@ -2903,13 +2896,19 @@ const Flag = {
     PnhCatMess: class extends ActionFlag {
         constructor(message) { super(0, message, null, null); }
 
-        static eval(message, categories, highlightOnly) {
+        static eval(pnhCategorySettings, categories, highlightOnly) {
             const result = { flag: null };
-            if (!highlightOnly && !isNullOrWhitespace(message)) {
-                result.flag = new Flag.PnhCatMess(message);
-                if (categories.includes(HOSPITAL_URGENT_CARE)) {
-                    result.flag.value = 'Change to Doctor/Clinic';
-                    result.flag.actionType = 'changeToDoctorClinic';
+            if (!highlightOnly) {
+                for (let catIdx = 0; catIdx < categories.length; catIdx++) {
+                    const { message } = pnhCategorySettings[categories[catIdx]];
+                    if (!isNullOrWhitespace(message)) {
+                        result.flag = new Flag.PnhCatMess(message);
+                        if (categories.includes(HOSPITAL_URGENT_CARE)) {
+                            result.flag.value = 'Change to Doctor/Clinic';
+                            result.flag.actionType = 'changeToDoctorClinic';
+                        }
+                        return result;
+                    }
                 }
             }
             return result;
@@ -5367,6 +5366,11 @@ function harmonizePlaceGo(item, highlightOnly = false, actions = null) {
             });
         }
 
+        const pnhCategorySettings = PNH_DATA[countryCode].categories;
+
+        _buttonBanner.pnhCatMess = Flag.PnhCatMess.eval(pnhCategorySettings, newCategories, highlightOnly).flag;
+        _buttonBanner.unmappedRegion = Flag.UnmappedRegion.eval(pnhCategorySettings, newCategories, state2L, region, countryCode, wl).flag;
+        _buttonBanner.parentCategory = Flag.ParentCategory.eval(pnhCategorySettings, newCategories, state2L, region, countryCode, wl).flag;
 
         const isPoint = item.isPoint();
         // NOTE: do not use is2D() function. It doesn't seem to be 100% reliable.
@@ -5406,15 +5410,6 @@ function harmonizePlaceGo(item, highlightOnly = false, actions = null) {
                 } else if (isArea) {
                     maxAreaSeverity = Math.min(areaSeverity, maxAreaSeverity);
                 }
-
-                // display any messages regarding the category
-                _buttonBanner.pnhCatMess = Flag.PnhCatMess.eval(catData.message, newCategories, highlightOnly).flag;
-
-                // Unmapped categories
-                _buttonBanner.unmappedRegion = Flag.UnmappedRegion.eval(catId, catData, state2L, region, countryCode, isLocked, wl).flag;
-
-                // Parent Category
-                _buttonBanner.parentCategory = Flag.ParentCategory.eval(catData, state2L, region, countryCode, wl).flag;
 
                 // Set lock level
                 let regionalLock = null;
@@ -8501,7 +8496,8 @@ function processPnhChains(chainData, categories) {
                 }
 
                 if (!found) {
-                    console.warn(`WMEPH special case setting "${specialCase}" was not recognized for this chain entry. It may not harmonize correctly:`, chainObj);
+                    console.warn(`WMEPH special case setting "${specialCase}" was not recognized for this chain entry. It may not harmonize correctly:`,
+                        chainObj);
                 }
             }
         });
