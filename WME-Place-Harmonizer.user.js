@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name        WME Place Harmonizer Beta (pnh-update)
 // @namespace   WazeUSA
-// @version     2019.07.03.001
+// @version     2019.07.06.001
 // @description Harmonizes, formats, and locks a selected place
 // @author      WMEPH Development Group
 // @include     /^https:\/\/(www|beta)\.waze\.com\/(?!user\/)(.{2,6}\/)?editor\/?.*$/
@@ -175,7 +175,7 @@ const MOVIE_THEATER = 'MOVIE_THEATER';
 const NATURAL_FEATURES = 'NATURAL_FEATURES';
 const OFFICES = 'OFFICES';
 // const ORGANIZATION_OR_ASSOCIATION = 'ORGANIZATION_OR_ASSOCIATION';
-const OTHER = 'OTHER';
+// const OTHER = 'OTHER';
 // const OUTDOORS = 'OUTDOORS';
 const PARK = 'PARK';
 const PARKING_LOT = 'PARKING_LOT';
@@ -2186,14 +2186,16 @@ const Flag = {
         }
     },
     HnMissing: class extends WLActionFlag {
-        constructor(venue) {
-            super(3,
-                'No HN: <input type="text" id="WMEPH-HNAdd" autocomplete="off" style="font-size:0.85em;width:100px;padding-left:2px;color:#000;" > ',
-                'Add', 'Add HN to place', true, 'Whitelist empty HN', 'HNWL', true);
-            this.venue = venue;
-            this.noBannerAssemble = true;
-            this.badInput = false;
-        }
+        constructor() { super(3, 'No HN:', 'Edit address', 'Edit address to add HN.'); }
+
+        // constructor(venue) {
+        //     super(3,
+        //         'No HN: <input type="text" id="WMEPH-HNAdd" autocomplete="off" style="font-size:0.85em;width:100px;padding-left:2px;color:#000;" > ',
+        //         'Add', 'Add HN to place', true, 'Whitelist empty HN', 'HNWL', true);
+        //     this.venue = venue;
+        //     this.noBannerAssemble = true;
+        //     this.badInput = false;
+        // }
 
         static eval(venue, hn, hasStreet, state2L, whitelist) {
             const result = { flag: null };
@@ -2230,35 +2232,32 @@ const Flag = {
             return result;
         }
 
+        // action() {
+        //     const newHN = $('#WMEPH-HNAdd').val().replace(/\s+/g, '');
+        //     phlogdev(newHN);
+        //     const hnTemp = newHN.replace(/[^\d]/g, '');
+        //     const hnTempDash = newHN.replace(/[^\d-]/g, '');
+        //     if (hnTemp > 0 && hnTemp < 1000000) {
+        //         const action = new UpdateObject(this.venue, { houseNumber: hnTempDash });
+        //         action.wmephDescription = `Changed house # to: ${hnTempDash}`;
+        //         harmonizePlaceGo(this.venue, false, [action]);
+        //         UPDATED_FIELDS.address.updated = true;
+        //     } else {
+        //         $('input#WMEPH-HNAdd').css({ backgroundColor: '#FDD' }).attr('title', 'Must be a number between 0 and 1000000');
+        //         this.badInput = true;
+        //     }
+        // }
+
+        // eslint-disable-next-line class-methods-use-this
         action() {
-            const newHN = $('#WMEPH-HNAdd').val().replace(/\s+/g, '');
-            phlogdev(newHN);
-            const hnTemp = newHN.replace(/[^\d]/g, '');
-            const hnTempDash = newHN.replace(/[^\d-]/g, '');
-            if (hnTemp > 0 && hnTemp < 1000000) {
-                const action = new UpdateObject(this.venue, { houseNumber: hnTempDash });
-                action.wmephDescription = `Changed house # to: ${hnTempDash}`;
-                harmonizePlaceGo(this.venue, false, [action]);
-                UPDATED_FIELDS.address.updated = true;
-            } else {
-                $('input#WMEPH-HNAdd').css({ backgroundColor: '#FDD' }).attr('title', 'Must be a number between 0 and 1000000');
-                this.badInput = true;
+            $('.nav-tabs a[href="#landmark-edit-general"]').trigger('click');
+            $('.landmark .full-address').click();
+            if ($('.empty-street').prop('checked')) {
+                $('.empty-street').click();
             }
+            $('input.house-number').focus();
         }
     },
-    // 2019-5-22 There's an issue in WME where it won't update the address displayed in the side panel
-    // when the underlying model is updated.  I changed to the code below for a while, but we've
-    // come up with a temporary fix using WW, so using the textbox entry should be OK now.
-    // HnMissing: class extends WLActionFlag {
-    //     constructor() { super(3, 'No HN:', 'Edit address', 'Edit address to add HN.'); }
-
-    //     // eslint-disable-next-line class-methods-use-this
-    //     action() {
-    //         $('.nav-tabs a[href="#landmark-edit-general"]').trigger('click');
-    //         $('.landmark .full-address').click();
-    //         $('input.house-number').focus();
-    //     }
-    // },
     HnNonStandard: class extends WLFlag {
         constructor() {
             super(3, 'House number is non-standard.', true,
