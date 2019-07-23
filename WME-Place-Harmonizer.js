@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name        WME Place Harmonizer Beta
 // @namespace   WazeUSA
-// @version     2019.05.31.001
+// @version     2019.07.23.001
 // @description Harmonizes, formats, and locks a selected place
 // @author      WMEPH Development Group
 // @include     /^https:\/\/(www|beta)\.waze\.com\/(?!user\/)(.{2,6}\/)?editor\/?.*$/
@@ -26,6 +26,9 @@
 
 // Script update info
 const _WHATS_NEW_LIST = { // New in this version
+    '2019.07.23.001': [
+        'Bug fix for latest WME release.'
+    ],
     '2019.05.31.001': [
         'Fixed an issue that was preventing WMEPH from running on some places.'
     ],
@@ -1671,7 +1674,7 @@ function normalizeURL(s, lc, skipBannerActivate, venue, region) {
 
     if ((!s || s.trim().length === 0) && !skipBannerActivate) {
         // Notify that url is missing and provide web search to find website and gather data (provided for all editors)
-        const hasOperator = venue.attributes.brand && W.model.venues.categoryBrands.PARKING_LOT.includes(venue.attributes.brand);
+        const hasOperator = venue.attributes.brand && W.model.categoryBrands.PARKING_LOT.includes(venue.attributes.brand);
         if (!venue.isParkingLot() || (venue.isParkingLot() && (regionsThatWantPLAUrls.includes(region) || hasOperator))) {
             _buttonBanner.urlMissing = new Flag.UrlMissing();
             if (_wl.urlWL || (venue.isParkingLot() && !hasOperator)) {
@@ -2617,7 +2620,7 @@ let Flag = {
         static get _regionsThatWantPlaPhones() { return ['SER']; }
 
         static eval(venue, wl, region, outputFormat) {
-            const hasOperator = venue.attributes.brand && W.model.venues.categoryBrands.PARKING_LOT.includes(venue.attributes.brand);
+            const hasOperator = venue.attributes.brand && W.model.categoryBrands.PARKING_LOT.includes(venue.attributes.brand);
             const isPLA = venue.isParkingLot();
             let flag = null;
             if (!isPLA || (isPLA && (this._regionsThatWantPlaPhones.includes(region) || hasOperator))) {
@@ -7991,7 +7994,7 @@ function placeHarmonizerInit() {
 } // END placeHarmonizer_init function
 
 function placeHarmonizerBootstrap() {
-    if (W && W.loginManager && W.loginManager.user && W.map && WazeWrap && WazeWrap.Ready && W.model.venues.categoryBrands.PARKING_LOT) {
+    if (W && W.loginManager && W.loginManager.user && W.map && WazeWrap && WazeWrap.Ready && W.model.categoryBrands.PARKING_LOT) {
         placeHarmonizerInit();
     } else {
         phlog('Waiting for WME map and login...');
