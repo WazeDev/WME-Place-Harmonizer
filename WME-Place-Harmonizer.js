@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name        WME Place Harmonizer
 // @namespace   WazeUSA
-// @version     2019.07.23.001
+// @version     2019.07.25.001
 // @description Harmonizes, formats, and locks a selected place
 // @author      WMEPH Development Group
 // @include     /^https:\/\/(www|beta)\.waze\.com\/(?!user\/)(.{2,6}\/)?editor\/?.*$/
@@ -26,6 +26,9 @@
 
 // Script update info
 const _WHATS_NEW_LIST = { // New in this version
+    '2019.07.25.001': [
+        'More bug fixes for latest WME release.'
+    ],
     '2019.07.23.001': [
         'Bug fix for latest WME release.'
     ],
@@ -1387,7 +1390,7 @@ function applyHighlightsTest(venues, force) {
 
     // Make sure venues is an array, or convert it to one if not.
     if (venues) {
-        if (!_.isArray(venues)) {
+        if (!Array.isArray(venues)) {
             venues = [venues];
         }
     } else {
@@ -3223,7 +3226,7 @@ let Flag = {
         // eslint-disable-next-line class-methods-use-this
         action() {
             const venue = getSelectedVenue();
-            let categories = _.clone(venue.attributes.categories);
+            let categories = venue.attributes.categories.slice();
             let updateIt = false;
             if (categories.length) {
                 ['OFFICES', 'PERSONAL_CARE'].forEach(cat => {
@@ -6955,7 +6958,6 @@ function inferAddress(maxRecursionDepth) {
     };
 
     const findConnections = (startingNodeID, recursionDepth) => {
-        let connectedSegments;
         let newNode;
 
         // Limit search depth to avoid problems.
@@ -6964,12 +6966,7 @@ function inferAddress(maxRecursionDepth) {
         }
 
         // Populate variable with segments connected to starting node.
-        connectedSegments = _.where(orderedSegments, {
-            fromNodeID: startingNodeID
-        });
-        connectedSegments = connectedSegments.concat(_.where(orderedSegments, {
-            toNodeID: startingNodeID
-        }));
+        const connectedSegments = orderedSegments.filter(seg => [seg.fromNodeID, seg.toNodeID].includes(startingNodeID));
 
         // Check connected segments for address info.
         const keys = Object.keys(connectedSegments);
