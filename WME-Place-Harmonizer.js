@@ -2,7 +2,7 @@
 // ==UserScript==
 // @name        WME Place Harmonizer
 // @namespace   WazeUSA
-// @version     2019.10.30.001
+// @version     2019.11.20.001
 // @description Harmonizes, formats, and locks a selected place
 // @author      WMEPH Development Group
 // @include     /^https:\/\/(www|beta)\.waze\.com\/(?!user\/)(.{2,6}\/)?editor\/?.*$/
@@ -96,11 +96,11 @@ const _CSS_ARRAY = [
     '.wmeph-hr { border-color: #ccc; }'
 ];
 
-const MultiAction = require('Waze/Action/MultiAction');
-const UpdateObject = require('Waze/Action/UpdateObject');
-const UpdateFeatureGeometry = require('Waze/Action/UpdateFeatureGeometry');
-const UpdateFeatureAddress = require('Waze/Action/UpdateFeatureAddress');
-const OpeningHour = require('Waze/Model/Objects/OpeningHour');
+var MultiAction;
+var UpdateObject;
+var UpdateFeatureGeometry;
+var UpdateFeatureAddress;
+var OpeningHour;
 
 const _SCRIPT_VERSION = GM_info.script.version.toString(); // pull version from header
 const _SCRIPT_NAME = GM_info.script.name;
@@ -7992,6 +7992,12 @@ function placeHarmonizerInit() {
         '.wmeph-mods-table-cell.title { font-weight: bold; }'
     ].join('\n');
     $('head').append(`<style type="text/css">${css}</style>`);
+    
+    MultiAction = require('Waze/Action/MultiAction');
+    UpdateObject = require('Waze/Action/UpdateObject');
+    UpdateFeatureGeometry = require('Waze/Action/UpdateFeatureGeometry');
+    UpdateFeatureAddress = require('Waze/Action/UpdateFeatureAddress');
+    OpeningHour = require('Waze/Model/Objects/OpeningHour');
 
     // For debugging purposes.  May be removed when no longer needed.
     unsafeWindow.PNH_DATA = _PNH_DATA;
