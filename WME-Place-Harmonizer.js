@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name        WME Place Harmonizer Beta
 // @namespace   WazeUSA
-// @version     2019.11.20.002
+// @version     2019.11.20.003
 // @description Harmonizes, formats, and locks a selected place
 // @author      WMEPH Development Group
 // @include     /^https:\/\/(www|beta)\.waze\.com\/(?!user\/)(.{2,6}\/)?editor\/?.*$/
@@ -91,11 +91,11 @@ const _CSS_ARRAY = [
     '.wmeph-hr { border-color: #ccc; }'
 ];
 
-const MultiAction;
-const UpdateObject;
-const UpdateFeatureGeometry;
-const UpdateFeatureAddress;
-const OpeningHour;
+var MultiAction;
+var UpdateObject;
+var UpdateFeatureGeometry;
+var UpdateFeatureAddress;
+var OpeningHour;
 
 const _SCRIPT_VERSION = GM_info.script.version.toString(); // pull version from header
 const _SCRIPT_NAME = GM_info.script.name;
@@ -3841,7 +3841,7 @@ function getButtonBanner2(venue, placePL) {
                     () => {},
                     'Yes',
                     'No'
-                );*/
+                );
             }
         },
         PlaceErrorForumPost: {
@@ -7552,9 +7552,6 @@ function onWLStateFilterClick() {
                     () => { $('#PlaceHarmonizerWLToolsMsg').empty().append($('<p>').css({ color: 'blue' }).text('No changes made')); }
                 );
                 return;
-            } // else {
-            msgColor = 'red';
-            msgText = 'Please backup your WL using the Pull button before removing state data';
             } else {
                 msgColor = 'red';
                 msgText = 'Please backup your WL using the Pull button before removing state data';
@@ -7970,7 +7967,7 @@ function placeHarmonizerInit() {
         '.wmeph-mods-table-cell.title { font-weight: bold; }'
     ].join('\n');
     $('head').append(`<style type="text/css">${css}</style>`);
-    
+
     MultiAction = require('Waze/Action/MultiAction');
     UpdateObject = require('Waze/Action/UpdateObject');
     UpdateFeatureGeometry = require('Waze/Action/UpdateFeatureGeometry');
