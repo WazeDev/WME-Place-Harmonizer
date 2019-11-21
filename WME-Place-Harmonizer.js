@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name        WME Place Harmonizer Beta
 // @namespace   WazeUSA
-// @version     2019.11.20.001
+// @version     2019.11.20.002
 // @description Harmonizes, formats, and locks a selected place
 // @author      WMEPH Development Group
 // @include     /^https:\/\/(www|beta)\.waze\.com\/(?!user\/)(.{2,6}\/)?editor\/?.*$/
@@ -91,11 +91,11 @@ const _CSS_ARRAY = [
     '.wmeph-hr { border-color: #ccc; }'
 ];
 
-const MultiAction = require('Waze/Action/MultiAction');
-const UpdateObject = require('Waze/Action/UpdateObject');
-const UpdateFeatureGeometry = require('Waze/Action/UpdateFeatureGeometry');
-const UpdateFeatureAddress = require('Waze/Action/UpdateFeatureAddress');
-const OpeningHour = require('Waze/Model/Objects/OpeningHour');
+const MultiAction;
+const UpdateObject;
+const UpdateFeatureGeometry;
+const UpdateFeatureAddress;
+const OpeningHour;
 
 const _SCRIPT_VERSION = GM_info.script.version.toString(); // pull version from header
 const _SCRIPT_NAME = GM_info.script.name;
@@ -7970,6 +7970,12 @@ function placeHarmonizerInit() {
         '.wmeph-mods-table-cell.title { font-weight: bold; }'
     ].join('\n');
     $('head').append(`<style type="text/css">${css}</style>`);
+    
+    MultiAction = require('Waze/Action/MultiAction');
+    UpdateObject = require('Waze/Action/UpdateObject');
+    UpdateFeatureGeometry = require('Waze/Action/UpdateFeatureGeometry');
+    UpdateFeatureAddress = require('Waze/Action/UpdateFeatureAddress');
+    OpeningHour = require('Waze/Model/Objects/OpeningHour');
 
     // For debugging purposes.  May be removed when no longer needed.
     unsafeWindow.PNH_DATA = _PNH_DATA;
@@ -8144,7 +8150,7 @@ function placeHarmonizerInit() {
 } // END placeHarmonizer_init function
 
 function placeHarmonizerBootstrap() {
-    if (W && W.loginManager && W.loginManager.user && W.map && WazeWrap && WazeWrap.Ready && W.model.categoryBrands.PARKING_LOT) {
+    if (W && W.loginManager && W.loginManager.user && W.map && WazeWrap && WazeWrap.Ready && W.model.categoryBrands.PARKING_LOT && require) {
         placeHarmonizerInit();
     } else {
         phlog('Waiting for WME map and login...');
