@@ -1,7 +1,8 @@
+/* eslint-disable nonblock-statement-body-position, brace-style, curly, radix, no-template-curly-in-string, max-classes-per-file */
 // ==UserScript==
 // @name        WME Place Harmonizer Beta
 // @namespace   WazeUSA
-// @version     2019.11.20.003
+// @version     2019.11.21.001
 // @description Harmonizes, formats, and locks a selected place
 // @author      WMEPH Development Group
 // @include     /^https:\/\/(www|beta)\.waze\.com\/(?!user\/)(.{2,6}\/)?editor\/?.*$/
@@ -32,6 +33,12 @@
 
 // Script update info
 const _WHATS_NEW_LIST = { // New in this version
+    '2019.11.21.001': [
+        'WME v2.43-40-gf367bffa4 compatibility.'
+    ],
+    '2019.10.30.001': [
+        'Switch to WazeWrap alerts and event registrations.'
+    ],
     '2019.07.25.001': [
         'More bug fixes for latest WME release.'
     ],
@@ -81,7 +88,8 @@ const _CSS_ARRAY = [
     '#WMEPH_banner .banner-row.yellow { color:#584a04; background-color:#f0f0c2; }',
     '#WMEPH_banner .banner-row.gray { color:#3a3a3a; background-color:#eeeeee; }',
     '#WMEPH_banner .banner-row .dupe { padding-left:8px; }',
-    '#WMEPH_banner { background-color:#fff; color:black; font-size:14px; padding-top:8px; padding-bottom:8px; margin-left:4px; margin-right:4px; line-height:18px; margin-top:2px; border: solid 1px #8d8c8c; border-radius: 6px; margin-bottom: 4px;}',
+    '#WMEPH_banner { background-color:#fff; color:black; font-size:14px; padding-top:8px; padding-bottom:8px; margin-left:4px; margin-right:4px; line-height:18px; '
+    + 'margin-top:2px; border: solid 1px #8d8c8c; border-radius: 6px; margin-bottom: 4px;}',
     '#WMEPH_banner input[type=text] { font-size: 13px !important; height:22px !important; font-family: "Open Sans", Alef, helvetica, sans-serif !important; }',
     '#WMEPH_banner div:last-child { padding-bottom: 3px !important; }',
     '#WMEPH_runButton { padding-bottom: 6px; padding-top: 3px; width: 290; color: black; font-size: 15px; margin-right: auto; margin-left: 4px; }',
@@ -91,11 +99,11 @@ const _CSS_ARRAY = [
     '.wmeph-hr { border-color: #ccc; }'
 ];
 
-var MultiAction;
-var UpdateObject;
-var UpdateFeatureGeometry;
-var UpdateFeatureAddress;
-var OpeningHour;
+let MultiAction,
+    UpdateObject,
+    UpdateFeatureGeometry,
+    UpdateFeatureAddress,
+    OpeningHour;
 
 const _SCRIPT_VERSION = GM_info.script.version.toString(); // pull version from header
 const _SCRIPT_NAME = GM_info.script.name;
@@ -182,6 +190,8 @@ const _LOCK_LEVEL_4 = 3;
 let _defaultLockLevel = _LOCK_LEVEL_2;
 let _pnhLockLevel;
 const _PM_USER_LIST = { // user names and IDs for PM functions
+    // SER: { approvalActive: true, modID: '17083181', modName: 'itzwolf' },
+    // WMEPH: { approvalActive: true, modID: '2647925', modName: 'MapOMatic' }
     SER: {
         approvalActive: true,
         mods: [
@@ -213,6 +223,7 @@ const _COLLEGE_ABBREVIATIONS = 'USF|USFSP|UF|UCF|UA|UGA|FSU|UM|SCP|FAU|FIU';
 // Change place.name to title case
 const _TITLECASE_SETTINGS = {
     ignoreWords: 'an|and|as|at|by|for|from|hhgregg|in|into|of|on|or|the|to|with'.split('|'),
+    // eslint-disable-next-line max-len
     capWords: '3M|AAA|AMC|AOL|AT&T|ATM|BBC|BLT|BMV|BMW|BP|CBS|CCS|CGI|CISCO|CJ|CNG|CNN|CVS|DHL|DKNY|DMV|DSW|EMS|ER|ESPN|FCU|FCUK|FDNY|GNC|H&M|HP|HSBC|IBM|IHOP|IKEA|IRS|JBL|JCPenney|KFC|LLC|MBNA|MCA|MCI|NBC|NYPD|PDQ|PNC|TCBY|TNT|TV|UPS|USA|USPS|VW|XYZ|ZZZ'.split('|'),
     specWords: 'd\'Bronx|iFix|ExtraMile'.split('|')
 };
@@ -340,6 +351,7 @@ const _SHORTCUT = {
         // var ths = this;
         shortcutCombo = shortcutCombo.toLowerCase();
         // The function to be called at keypress
+        // eslint-disable-next-line func-names
         const func = function keyPressFunc(e) {
             e = e || window.event;
             if (opt.disable_in_input) { // Don't enable shortcut keys in Input, Textarea fields
@@ -552,8 +564,8 @@ function getHoursHtml(label, defaultText) {
             style: 'margin-bottom:4px; margin-right:0px'
         }),
         // jquery throws an error when setting autocomplete="off" in a jquery object (must use .autocomplete() function), so just use a string here.
-        // eslint-disable-next-line max-len
-        `<textarea id="WMEPH-HoursPaste" wrap="off" autocomplete="off" style="overflow:auto;width:85%;max-width:85%;min-width:85%;font-size:0.85em;height:24px;min-height:24px;max-height:300px;padding-left:3px;color:#AAA">${defaultText}`
+        '<textarea id="WMEPH-HoursPaste" wrap="off" autocomplete="off" '
+        + `style="overflow:auto;width:85%;max-width:85%;min-width:85%;font-size:0.85em;height:24px;min-height:24px;max-height:300px;padding-left:3px;color:#AAA">${defaultText}`
     )[0].outerHTML;
 }
 
@@ -821,9 +833,9 @@ function phlogdev(msg) {
 function zoomPlace() {
     const venue = getSelectedVenue();
     if (venue) {
-        W.map.moveTo(getVenueLonLat(venue), 7);
+        W.map.getOLMap().moveTo(getVenueLonLat(venue), 7);
     } else {
-        W.map.moveTo(_wmephMousePosition, 5);
+        W.map.getOLMap().moveTo(_wmephMousePosition, 5);
     }
 }
 
@@ -885,7 +897,7 @@ function whitelistAction(itemID, wlKeyName) {
         addressTemp = addressTemp.attributes;
     }
     if (!addressTemp.country) {
-        //alert('Whitelisting requires an address. Enter the place\'s address and try again.');
+        // alert('Whitelisting requires an address. Enter the place\'s address and try again.');
         WazeWrap.Alerts.error(_SCRIPT_NAME, 'Whitelisting requires an address. Enter the place\'s address and try again.');
         return false;
     }
@@ -908,7 +920,7 @@ function whitelistAction(itemID, wlKeyName) {
 function wmephWhitelistCounter() {
     localStorage.WMEPH_WLAddCount = parseInt(localStorage.WMEPH_WLAddCount, 10) + 1;
     if (localStorage.WMEPH_WLAddCount > 50) {
-        //alert('Don\'t forget to periodically back up your Whitelist data using the Pull option in the WMEPH settings tab.');
+        // alert('Don\'t forget to periodically back up your Whitelist data using the Pull option in the WMEPH settings tab.');
         WazeWrap.Alerts.warning(_SCRIPT_NAME, 'Don\'t forget to periodically back up your Whitelist data using the Pull option in the WMEPH settings tab.');
         localStorage.WMEPH_WLAddCount = 2;
     }
@@ -956,7 +968,7 @@ function appendServiceButtonIconCss() {
 // Function that checks current place against the Harmonization Data.  Returns place data or "NoMatch"
 function harmoList(itemName, state2L, region3L, country, itemCats, item, placePL) {
     if (country !== 'USA' && country !== 'CAN') {
-        //alert('No PNH data exists for this country.');
+        // alert('No PNH data exists for this country.');
         WazeWrap.Alerts.info(_SCRIPT_NAME, 'No PNH data exists for this country.');
         return ['NoMatch'];
     }
@@ -1435,6 +1447,7 @@ function applyHighlightsTest(venues, force) {
                     const { id } = venue.attributes;
                     let severity;
                     let cachedResult;
+                    // eslint-disable-next-line no-cond-assign
                     if (force || !isNaN(id) || ((cachedResult = _resultsCache[id]) === undefined) || (venue.updatedOn > cachedResult.u)) {
                         severity = harmonizePlaceGo(venue, 'highlight');
                         if (isNaN(id)) _resultsCache[id] = { s: severity, u: venue.updatedOn || -1 };
@@ -1514,6 +1527,7 @@ function toTitleCaseStrong(str) {
     const macIndexes = [];
     const macRegex = /\bMac[A-Z]/g;
     let macMatch;
+    // eslint-disable-next-line no-cond-assign
     while ((macMatch = macRegex.exec(str)) !== null) {
         macIndexes.push(macMatch.index);
     }
@@ -1739,7 +1753,7 @@ function normalizeURL(s, lc, skipBannerActivate, venue, region) {
 function harmonizePlace() {
     // Beta version for approved users only
     if (_IS_DEV_VERSION && !_USER.isBetaUser) {
-        //alert('Please sign up to beta-test this script version.\nSend a PM or Slack-DM to MapOMatic or Tonestertm, or post in the WMEPH forum thread. Thanks.');
+        // alert('Please sign up to beta-test this script version.\nSend a PM or Slack-DM to MapOMatic or Tonestertm, or post in the WMEPH forum thread. Thanks.');
         WazeWrap.Alerts.error(_SCRIPT_NAME, 'Please sign up to beta-test this script version.<br>Send a PM or Slack-DM to MapOMatic or Tonestertm, or post in the WMEPH forum thread. Thanks.');
         return;
     }
@@ -1812,11 +1826,12 @@ let Flag = {
         static eval(venue, addr, actions) {
             const result = {};
             if (!addr.state || !addr.country) {
-                if (W.map.getZoom() < 4) {
+                if (W.map.getOLMap().getZoom() < 4) {
                     if ($('#WMEPH-EnableIAZoom').prop('checked')) {
-                        W.map.moveTo(getVenueLonLat(venue), 5);
+                        W.map.getOLMap().moveTo(getVenueLonLat(venue), 5);
                     } else {
-                        //alert('No address and the state cannot be determined. Please zoom in and rerun the script. '
+                        /* alert('No address and the state cannot be determined. Please zoom in and rerun the script. '
+                            + 'You can enable autozoom for this type of case in the options.'); */
                         WazeWrap.Alerts.error(_SCRIPT_NAME, 'No address and the state cannot be determined. Please zoom in and rerun the script. '
                             + 'You can enable autozoom for this type of case in the options.');
                     }
@@ -1837,7 +1852,7 @@ let Flag = {
                             result.noLock = true;
                         }
                     } else { //  if the inference doesn't work...
-                        //alert('This place has no address data and the address cannot be inferred from nearby segments. Please edit the address and run WMEPH again.');
+                        // alert('This place has no address data and the address cannot be inferred from nearby segments. Please edit the address and run WMEPH again.');
                         WazeWrap.Alerts.error(_SCRIPT_NAME, 'This place has no address data and the address cannot be inferred from nearby segments. Please edit the address and run WMEPH again.');
                         result.exit = true; //  don't run the rest of the script
                     }
@@ -2374,7 +2389,7 @@ let Flag = {
                 _UPDATED_FIELDS.url.updated = true;
                 harmonizePlaceGo(venue, 'harmonize');
                 _updateURL = true;
-            /*} else if (confirm('WMEPH: URL Matching Error!\nClick OK to report this error')) {
+            /* } else if (confirm('WMEPH: URL Matching Error!\nClick OK to report this error')) {
                 // if the category doesn't translate, then pop an alert that will make a forum post to the thread
                 reportError({
                     subject: 'WMEPH URL comparison Error report',
@@ -2599,7 +2614,16 @@ let Flag = {
     },
     UrlMissing: class extends WLActionFlag {
         constructor() {
-            super(true, 1, 'No URL: <input type="text" id="WMEPH-UrlAdd" autocomplete="off" style="font-size:0.85em;width:100px;padding-left:2px;color:#000;">', 'Add', 'Add URL to place', true, 'Whitelist empty URL', 'urlWL');
+            super(
+                true,
+                1,
+                'No URL: <input type="text" id="WMEPH-UrlAdd" autocomplete="off" style="font-size:0.85em;width:100px;padding-left:2px;color:#000;">',
+                'Add',
+                'Add URL to place',
+                true,
+                'Whitelist empty URL',
+                'urlWL'
+            );
             this.noBannerAssemble = true;
             this.badInput = false;
         }
@@ -3056,6 +3080,7 @@ let Flag = {
                 addUpdateAction(venue, { description });
                 _UPDATED_FIELDS.description.updated = true;
             }
+            // eslint-disable-next-line no-undef
             aliases = removeSFAliases(name, aliases);
             addUpdateAction(venue, { aliases });
             _UPDATED_FIELDS.aliases.updated = true;
@@ -3346,7 +3371,7 @@ let Flag = {
                     preview: 'Preview',
                     attach_sig: 'on'
                 };
-                //forumPMInputs[`address_list[u][${_PM_USER_LIST[this.region].modID}]`] = 'to'; // Sends a PM to the regional mod instead of the submission form
+                // forumPMInputs[`address_list[u][${_PM_USER_LIST[this.region].modID}]`] = 'to'; // Sends a PM to the regional mod instead of the submission form
                 _PM_USER_LIST[this.region].mods.forEach(obj => {
                     forumPMInputs[`address_list[u][${obj.id}]`] = 'to';
                 });
@@ -3363,7 +3388,7 @@ let Flag = {
         // eslint-disable-next-line class-methods-use-this
         action() {
             let openPlaceWebsiteURL;
-            let linkProceed = true;
+            // let linkProceed = true;
             if (_updateURL) {
                 // replace WME url with storefinder URLs if they are in the PNH data
                 if (_customStoreFinder) {
@@ -3373,11 +3398,12 @@ let Flag = {
                 }
                 // If the user has 'never' opened a localized store finder URL, then warn them (just once)
                 if (localStorage.getItem(_SETTING_IDS.sfUrlWarning) === '0' && _customStoreFinderLocal) {
-                    /*linkProceed = false;
-                    if (confirm('***Localized store finder sites often show multiple nearby results. Please make sure you pick the right location.\nClick OK to agree and continue.')) { // if the category doesn't translate, then pop an alert that will make a forum post to the thread
+                    /* linkProceed = false;
+                    // if the category doesn't translate, then pop an alert that will make a forum post to the thread <--- What is this about? 2019.10.30 - dB
+                    if (confirm('***Localized store finder sites often show multiple nearby results. Please make sure you pick the right location.\nClick OK to agree and continue.')) {
                         localStorage.setItem(_SETTING_IDS.sfUrlWarning, '1'); // prevent future warnings
                         linkProceed = true;
-                    }*/
+                    } */
                     WazeWrap.Alerts.confirm(
                         _SCRIPT_NAME,
                         '***Localized store finder sites often show multiple nearby results. Please make sure you pick the right location.<br>Click OK to agree and continue.',
@@ -3399,13 +3425,13 @@ let Flag = {
                 openPlaceWebsiteURL = url;
             }
             // open the link depending on new window setting
-            //if (linkProceed) {
-                if ($('#WMEPH-WebSearchNewTab').prop('checked')) {
-                    window.open(openPlaceWebsiteURL);
-                } else {
-                    window.open(openPlaceWebsiteURL, _SEARCH_RESULTS_WINDOW_NAME, _searchResultsWindowSpecs);
-                }
-            //}
+            // if (linkProceed) {
+            if ($('#WMEPH-WebSearchNewTab').prop('checked')) {
+                window.open(openPlaceWebsiteURL);
+            } else {
+                window.open(openPlaceWebsiteURL, _SEARCH_RESULTS_WINDOW_NAME, _searchResultsWindowSpecs);
+            }
+            // }
         }
     }
 }; // END Flag namespace
@@ -3825,11 +3851,11 @@ function getButtonBanner2(venue, placePL) {
             value: 'Clear place whitelist',
             title: 'Clear all Whitelisted fields for this place',
             action() {
-                /*if (confirm('Are you sure you want to clear all whitelisted fields for this place?')) {
+                /* if (confirm('Are you sure you want to clear all whitelisted fields for this place?')) {
                     delete _venueWhitelist[venue.attributes.id];
                     saveWhitelistToLS(true);
                     harmonizePlaceGo(venue, 'harmonize');
-                }*/
+                } */
                 WazeWrap.Alerts.confirm(
                     _SCRIPT_NAME,
                     'Are you sure you want to clear all whitelisted fields for this place?',
@@ -4059,7 +4085,7 @@ function harmonizePlaceGo(item, useFlag, actions) {
 
     // Country restrictions
     if (hpMode.harmFlag && (addr.county === null || addr.state === null)) {
-        //alert('Country and/or state could not be determined.  Edit the place address and run WMEPH again.');
+        // alert('Country and/or state could not be determined.  Edit the place address and run WMEPH again.');
         WazeWrap.Alerts.error(_SCRIPT_NAME, 'Country and/or state could not be determined.  Edit the place address and run WMEPH again.');
         return undefined;
     }
@@ -4081,7 +4107,7 @@ function harmonizePlaceGo(item, useFlag, actions) {
         _countryCode = 'USA';
     } else {
         if (hpMode.harmFlag) {
-            //alert('At present this script is not supported in this country.');
+            // alert('At present this script is not supported in this country.');
             WazeWrap.Alerts.error(_SCRIPT_NAME, 'At present this script is not supported in this country.');
         }
         return 3;
@@ -4100,7 +4126,7 @@ function harmonizePlaceGo(item, useFlag, actions) {
             if (_stateDataTemp[_psDefaultLockLevelIx].match(/[1-5]{1}/) !== null) {
                 _defaultLockLevel = _stateDataTemp[_psDefaultLockLevelIx] - 1; // normalize by -1
             } else if (hpMode.harmFlag) {
-                //alert('Lock level sheet data is not correct');
+                // alert('Lock level sheet data is not correct');
                 WazeWrap.Alerts.warning(_SCRIPT_NAME, 'Lock level sheet data is not correct');
             } else if (hpMode.hlFlag) {
                 return 3;
@@ -4116,7 +4142,7 @@ function harmonizePlaceGo(item, useFlag, actions) {
             if (_stateDataTemp[_psDefaultLockLevelIx].match(/[1-5]{1}/) !== null) {
                 _defaultLockLevel = _stateDataTemp[_psDefaultLockLevelIx] - 1; // normalize by -1
             } else if (hpMode.harmFlag) {
-                //alert('Lock level sheet data is not correct');
+                // alert('Lock level sheet data is not correct');
                 WazeWrap.Alerts.warning(_SCRIPT_NAME, 'Lock level sheet data is not correct');
             } else if (hpMode.hlFlag) {
                 return 3;
@@ -4127,7 +4153,7 @@ function harmonizePlaceGo(item, useFlag, actions) {
     }
     if (state2L === 'Unknown' || region === 'Unknown') { // if nothing found:
         if (hpMode.harmFlag) {
-            /*if (confirm('WMEPH: Localization Error!\nClick OK to report this error')) { // if the category doesn't translate, then pop an alert that will make a forum post to the thread
+            /* if (confirm('WMEPH: Localization Error!\nClick OK to report this error')) { // if the category doesn't translate, then pop an alert that will make a forum post to the thread
                 const data = {
                     subject: 'WMEPH Localization Error report',
                     message: `Error report: Localization match failed for "${stateName}".`
@@ -4138,7 +4164,7 @@ function harmonizePlaceGo(item, useFlag, actions) {
                     data.message += ` state2L = ${_stateDataTemp[_psState2LetterIx]}. region = ${_stateDataTemp[_psRegionIx]}`;
                 }
                 reportError(data);
-            }*/
+            } */
             WazeWrap.Alerts.confirm(
                 _SCRIPT_NAME,
                 'WMEPH: Localization Error!<br>Click OK to report this error',
@@ -4293,12 +4319,12 @@ function harmonizePlaceGo(item, useFlag, actions) {
 
             // if the location has multiple matches, then pop an alert that will make a forum post to the thread
             if (nsMultiMatch) {
-                /*if (confirm('WMEPH: Multiple matches found!\nDouble check the script changes.\nClick OK to report this situation.')) {
+                /* if (confirm('WMEPH: Multiple matches found!\nDouble check the script changes.\nClick OK to report this situation.')) {
                     reportError({
                         subject: `Order Nos. "${orderList.join(', ')}" WMEPH Multiple match report`,
                         message: `Error report: PNH Order Nos. "${orderList.join(', ')}" are ambiguous multiple matches.\n \nExample Permalink: ${placePL}`
                     });
-                }*/
+                } */
                 WazeWrap.Alerts.confirm(
                     _SCRIPT_NAME,
                     'WMEPH: Multiple matches found!<br>Double check the script changes.<br>Click OK to report this situation.',
@@ -5751,14 +5777,14 @@ function harmonizePlaceGo(item, useFlag, actions) {
         [_duplicateName] = _duplicateName;
         if (_duplicateName.length) {
             if (_duplicateName.length + 1 !== _dupeIDList.length && _USER.isDevUser) { // If there's an issue with the data return, allow an error report
-                /*if (confirm('WMEPH: Dupefinder Error!\nClick OK to report this')) {
+                /* if (confirm('WMEPH: Dupefinder Error!\nClick OK to report this')) {
                     // if the category doesn't translate, then pop an alert that will make a forum post to the thread
                     reportError({
                         subject: 'WMEPH Bug report DupeID',
                         message: `Script version: ${_SCRIPT_VERSION}${_DEV_VERSION_STR}\nPermalink: ${placePL}\nPlace name: ${
                             item.attributes.name}\nCountry: ${addr.country.name}\n--------\nDescribe the error:\nDupeID mismatch with dupeName list`
                     });
-                }*/
+                } */
                 WazeWrap.Alerts.confirm(
                     _SCRIPT_NAME,
                     'WMEPH: Dupefinder Error!<br>Click OK to report this',
@@ -6375,7 +6401,8 @@ function showOpenPlaceWebsiteButton() {
 function showSearchButton() {
     const venue = getSelectedVenue();
     if (venue && $('#wmephSearch').length === 0) {
-        const strButt1 = '<input class="btn btn-danger btn-xs wmeph-fat-btn" id="wmephSearch" title="Search the web for this place.  Do not copy info from 3rd party sources!" type="button" value="Google">';
+        const strButt1 = '<input class="btn btn-danger btn-xs wmeph-fat-btn" id="wmephSearch" title="Search the web for this place.  Do not copy info from 3rd party sources!" '
+            + 'type="button" value="Google">';
         $('#WMEPH_runButton').append(strButt1);
         const btn = document.getElementById('wmephSearch');
         if (btn !== null) {
@@ -6389,7 +6416,7 @@ function showSearchButton() {
                         window.open(url, _SEARCH_RESULTS_WINDOW_NAME, _searchResultsWindowSpecs);
                     }
                 } else {
-                    //alert('The state and country haven\'t been set for this place yet.  Edit the address first.');
+                    // alert('The state and country haven\'t been set for this place yet.  Edit the address first.');
                     WazeWrap.Alerts.error(_SCRIPT_NAME, 'The state and country haven\'t been set for this place yet.  Edit the address first.');
                 }
             };
@@ -6681,7 +6708,7 @@ function findNearbyDuplicate(selectedVenueName, selectedVenueAliases, selectedVe
     // Remove any previous search labels
     _dupeLayer.destroyFeatures();
 
-    const mapExtent = W.map.getExtent();
+    const mapExtent = W.map.getOLMap().getExtent();
     const padFrac = 0.15; // how much to pad the zoomed window
 
     // generic terms to skip if it's all that remains after stripping numbers
@@ -6981,7 +7008,7 @@ function findNearbyDuplicate(selectedVenueName, selectedVenueAliases, selectedVe
         mapExtent.right = maxLon + (padFrac * padMult) * (maxLon - minLon);
         mapExtent.bottom = minLat - (padFrac * padMult) * (maxLat - minLat);
         mapExtent.top = maxLat + (padFrac * padMult) * (maxLat - minLat);
-        W.map.zoomToExtent(mapExtent);
+        W.map.getOLMap().zoomToExtent(mapExtent);
     }
     return [dupeNames, overlappingFlag];
 } // END findNearbyDuplicate function
@@ -7238,12 +7265,12 @@ function catTranslate(natCategories) {
 
     // if the category doesn't translate, then pop an alert that will make a forum post to the thread
     // Generally this means the category used in the PNH sheet is not close enough to the natural language categories used inside the WME translations
-    /*if (confirm('WMEPH: Category Error!\nClick OK to report this error')) {
+    /* if (confirm('WMEPH: Category Error!\nClick OK to report this error')) {
         reportError({
             subject: 'WMEPH Bug report: no tns',
             message: `Error report: Category "${natCategories}" was not found in the PNH categories sheet.`
         });
-    }*/
+    } */
     WazeWrap.Alerts.confirm(
         _SCRIPT_NAME,
         'WMEPH: Category Error!<br>Click OK to report this error',
@@ -7422,10 +7449,10 @@ function onWLMergeClick() {
 
     $wlToolsMsg.empty();
     if ($wlInput.val() === 'resetWhitelist') {
-        /*if (confirm('***Do you want to reset all Whitelist data?\nClick OK to erase.')) { // if the category doesn't translate, then pop an alert that will make a forum post to the thread
+        /* if (confirm('***Do you want to reset all Whitelist data?\nClick OK to erase.')) { // if the category doesn't translate, then pop an alert that will make a forum post to the thread
             _venueWhitelist = { '1.1.1': { Placeholder: {} } }; // Populate with a dummy place
             saveWhitelistToLS(true);
-        }*/
+        } */
         WazeWrap.Alerts.confirm( // if the category doesn't translate, then pop an alert that will make a forum post to the thread
             _SCRIPT_NAME,
             '***Do you want to reset all Whitelist data?<br>Click OK to erase.',
@@ -7522,7 +7549,7 @@ function onWLStateFilterClick() {
         );
         if (venuesToRemove.length > 0) {
             if (localStorage.WMEPH_WLAddCount === '1') {
-                /*if (confirm(`Are you sure you want to clear all whitelist data for ${
+                /* if (confirm(`Are you sure you want to clear all whitelist data for ${
                     stateToRemove}? This CANNOT be undone. Press OK to delete, cancel to preserve the data.`)) {
                     backupWhitelistToLS(true);
                     venuesToRemove.forEach(venueKey => {
@@ -7535,11 +7562,10 @@ function onWLStateFilterClick() {
                 } else {
                     msgColor = 'blue';
                     msgText = 'No changes made';
-                }*/
+                } */
                 WazeWrap.Alerts.confirm(
-                _SCRIPT_NAME,
-                `Are you sure you want to clear all whitelist data for ${
-            	    stateToRemove}? This CANNOT be undone. Press OK to delete, cancel to preserve the data.`,
+                    _SCRIPT_NAME,
+                    `Are you sure you want to clear all whitelist data for ${stateToRemove}? This CANNOT be undone. Press OK to delete, cancel to preserve the data.`,
                     () => {
                         backupWhitelistToLS(true);
                         venuesToRemove.forEach(venueKey => {
@@ -7552,10 +7578,10 @@ function onWLStateFilterClick() {
                     () => { $('#PlaceHarmonizerWLToolsMsg').empty().append($('<p>').css({ color: 'blue' }).text('No changes made')); }
                 );
                 return;
-            } else {
-                msgColor = 'red';
-                msgText = 'Please backup your WL using the Pull button before removing state data';
-            }
+            } // else {
+            msgColor = 'red';
+            msgText = 'Please backup your WL using the Pull button before removing state data';
+            // }
         } else {
             msgColor = 'red';
             msgText = `No data for "${stateToRemove}". Use the state name exactly as listed in the Stats`;
@@ -7677,7 +7703,11 @@ function addWmephTab() {
 
     // Add Letter input box
     const $phShortcutDiv = $('<div id="PlaceHarmonizerKB">');
-    $phShortcutDiv.append('<div id="PlaceHarmonizerKBWarn"></div>Shortcut Letter (a-Z): <input type="text" maxlength="1" id="WMEPH-KeyboardShortcut" style="width: 30px;padding-left:8px"><div id="PlaceHarmonizerKBCurrent"></div>');
+    // eslint-disable-next-line max-len
+    $phShortcutDiv.append(
+        '<div id="PlaceHarmonizerKBWarn"></div>Shortcut Letter (a-Z): <input type="text" maxlength="1" id="WMEPH-KeyboardShortcut" '
+        + '     style="width: 30px;padding-left:8px"><div id="PlaceHarmonizerKBCurrent"></div>'
+    );
     createSettingsCheckbox($phShortcutDiv, 'WMEPH-KBSModifierKey', 'Use Ctrl instead of Alt'); // Add Alt-->Ctrl checkbox
 
     if (_USER.isDevUser) { // Override script regionality (devs only)
@@ -7690,7 +7720,7 @@ function addWmephTab() {
         '<hr class="wmeph-hr" align="center" width="100%">',
         `<div><a href="${_URLS.placesWiki}" target="_blank">Open the WME Places Wiki page</a></div>`,
         `<div><a href="${_URLS.forum}" target="_blank">Submit script feedback & suggestions</a></div>`,
-        '<hr class="wmeph-hr" align="center" width="95%">',
+        '<hr class="wmeph-hr" align="center" width="95%">'
     );
 
     $harmonizerTab.append(
@@ -7734,7 +7764,8 @@ function addWmephTab() {
         + '</div>'
         + '<div style="margin-top:12px;">'
         + '<input class="btn btn-info btn-xs wmeph-fat-btn" id="WMEPH-WLStats" title="Display WL stats" type="button" value="Stats">'
-        + '<input class="btn btn-danger btn-xs wmeph-fat-btn" id="WMEPH-WLStateFilter" title="Remove all WL items for a state.  Enter the state in the \'Whitelist string\' box." type="button" value="Remove data for 1 State">'
+        + '<input class="btn btn-danger btn-xs wmeph-fat-btn" id="WMEPH-WLStateFilter" title="Remove all WL items for a state.  Enter the state in the \'Whitelist string\' box." '
+        + '     type="button" value="Remove data for 1 State">'
         + '</div>'
         + '</div>'
         + '<div id="PlaceHarmonizerWLToolsMsg" style="margin-top:10px;"></div>'
@@ -8020,7 +8051,7 @@ function placeHarmonizerInit() {
         });
         _dupeLayer = new OL.Layer.Vector(lname, { displayInLayerSwitcher: false, uniqueName: '__DuplicatePlaceNames', styleMap: new OL.StyleMap(style) });
         _dupeLayer.setVisibility(false);
-        W.map.addLayer(_dupeLayer);
+        W.map.getOLMap().addLayer(_dupeLayer);
     }
 
     if (localStorage.getItem('WMEPH-featuresExamined') === null) {
@@ -8043,7 +8074,7 @@ function placeHarmonizerInit() {
             localStorage.setItem('WMEPH-OneTimeWLBU', localStorage.getItem(_WL_LOCAL_STORE_NAME));
             loadWhitelistFromLS(false);
             saveWhitelistToLS(true);
-            //alert('Whitelists are being converted to a compressed format.  If you have trouble with your WL, please submit an error report.');
+            // alert('Whitelists are being converted to a compressed format.  If you have trouble with your WL, please submit an error report.');
             WazeWrap.Alerts.info(_SCRIPT_NAME, 'Whitelists are being converted to a compressed format.  If you have trouble with your WL, please submit an error report.');
         }
     } else {
@@ -8066,9 +8097,10 @@ function placeHarmonizerInit() {
         localStorage.setItem(_SETTING_IDS.sfUrlWarning, '0');
     }
 
+    // W.map.events.register('mousemove', W.map, e => errorHandler(() => {
     WazeWrap.Events.register('mousemove', W.map, e => errorHandler(() => {
         const wmEvts = (W.map.events) ? W.map.events : W.map.getMapEventsListener();
-        _wmephMousePosition = W.map.getLonLatFromPixel(wmEvts.getMousePosition(e));
+        _wmephMousePosition = W.map.getOLMap().getLonLatFromPixel(wmEvts.getMousePosition(e));
     }));
 
     // Add zoom shortcut
@@ -8102,7 +8134,7 @@ function placeHarmonizerInit() {
 
     if (!_wmephBetaList || _wmephBetaList.length === 0) {
         if (_IS_DEV_VERSION) {
-            //alert('Beta user list access issue.  Please post in the GHO or PM/DM MapOMatic about this message.  Script should still work.');
+            // alert('Beta user list access issue.  Please post in the GHO or PM/DM MapOMatic about this message.  Script should still work.');
             WazeWrap.Alerts.warning(_SCRIPT_NAME, 'Beta user list access issue.  Please post in the GHO or PM/DM MapOMatic about this message.  Script should still work.');
         }
         _USER.isBetaUser = false;
@@ -8169,7 +8201,7 @@ function downloadPnhData() {
     $.getJSON(getSpreadsheetUrl(SPREADSHEET_ID, SPREADSHEET_RANGE, API_KEY)).done(res => {
         const { values } = res;
         if (values[0][0].toLowerCase() === 'obsolete') {
-            //alert('You are using an outdated version of WMEPH that doesn\'t work anymore. Update or disable the script.');
+            // alert('You are using an outdated version of WMEPH that doesn\'t work anymore. Update or disable the script.');
             WazeWrap.Alerts.error(_SCRIPT_NAME, 'You are using an outdated version of WMEPH that doesn\'t work anymore. Update or disable the script.');
             return;
         }
@@ -8218,7 +8250,7 @@ function downloadPnhData() {
 function bootstrap() {
     // Quit if another version of WMEPH is already running.
     if (unsafeWindow.wmephRunning) {
-        //alert('Multiple versions of Place Harmonizer are turned on.  Only one will be enabled.');
+        // alert('Multiple versions of Place Harmonizer are turned on.  Only one will be enabled.');
         WazeWrap.Alerts.error(_SCRIPT_NAME, 'Multiple versions of Place Harmonizer are turned on.  Only one will be enabled.');
         return;
     }
