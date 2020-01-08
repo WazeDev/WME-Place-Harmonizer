@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name        WME Place Harmonizer Beta
 // @namespace   WazeUSA
-// @version     2019.11.20.003
+// @version     2020.01.07.001
 // @description Harmonizes, formats, and locks a selected place
 // @author      WMEPH Development Group
 // @include     /^https:\/\/(www|beta)\.waze\.com\/(?!user\/)(.{2,6}\/)?editor\/?.*$/
@@ -32,6 +32,9 @@
 
 // Script update info
 const _WHATS_NEW_LIST = { // New in this version
+    '2020.01.07.001': [
+        'Bug fix due to latest WME release.'
+        ],
     '2019.07.25.001': [
         'More bug fixes for latest WME release.'
     ],
@@ -6981,7 +6984,7 @@ function findNearbyDuplicate(selectedVenueName, selectedVenueAliases, selectedVe
         mapExtent.right = maxLon + (padFrac * padMult) * (maxLon - minLon);
         mapExtent.bottom = minLat - (padFrac * padMult) * (maxLat - minLat);
         mapExtent.top = maxLat + (padFrac * padMult) * (maxLat - minLat);
-        W.map.zoomToExtent(mapExtent);
+        W.map.getOLMap().zoomToExtent(mapExtent);
     }
     return [dupeNames, overlappingFlag];
 } // END findNearbyDuplicate function
