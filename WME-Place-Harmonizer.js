@@ -2,7 +2,7 @@
 // ==UserScript==
 // @name        WME Place Harmonizer
 // @namespace   WazeUSA
-// @version     2020.01.07.001
+// @version     2020.03.14.001
 // @description Harmonizes, formats, and locks a selected place
 // @author      WMEPH Development Group
 // @include     /^https:\/\/(www|beta)\.waze\.com\/(?!user\/)(.{2,6}\/)?editor\/?.*$/
@@ -33,9 +33,12 @@
 
 // Script update info
 const _WHATS_NEW_LIST = { // New in this version
+    '2020.03.14.001': [
+        'Minor bug fix for missing street when using localized store locator.'
+    ]
     '2020.01.07.001': [
         'Bug fix due to latest WME release.'
-        ],
+    ],
     '2019.10.30.001': [
         'Switch to WazeWrap alerts and event registrations.'
     ],
@@ -99,11 +102,11 @@ const _CSS_ARRAY = [
     '.wmeph-hr { border-color: #ccc; }'
 ];
 
-var MultiAction;
-var UpdateObject;
-var UpdateFeatureGeometry;
-var UpdateFeatureAddress;
-var OpeningHour;
+let MultiAction;
+let UpdateObject;
+let UpdateFeatureGeometry;
+let UpdateFeatureAddress;
+let OpeningHour;
 
 const _SCRIPT_VERSION = GM_info.script.version.toString(); // pull version from header
 const _SCRIPT_NAME = GM_info.script.name;
@@ -2385,7 +2388,7 @@ let Flag = {
                 reportError({
                     subject: 'WMEPH URL comparison Error report',
                     message: `Error report: URL comparison failed for "${venue.attributes.name}"\nPermalink: ${this.placePL}`
-                }); */
+                });
             } else {
                 WazeWrap.Alerts.confirm(
                     _SCRIPT_NAME,
@@ -2396,7 +2399,7 @@ let Flag = {
                             message: `Error report: URL comparison failed for "${venue.attributes.name}"\nPermalink: ${this.placePL}`
                         });
                     },
-                    () => {}
+                    () => { }
                 );
             }
         }
@@ -3842,7 +3845,7 @@ function getButtonBanner2(venue, placePL) {
                         saveWhitelistToLS(true);
                         harmonizePlaceGo(venue, 'harmonize');
                     },
-                    () => {},
+                    () => { },
                     'Yes',
                     'No'
                 );
@@ -4127,8 +4130,8 @@ function harmonizePlaceGo(item, useFlag, actions) {
     }
     if (state2L === 'Unknown' || region === 'Unknown') { // if nothing found:
         if (hpMode.harmFlag) {
-            /*if (confirm('WMEPH: Localization Error!\nClick OK to report this error')) { // if the category doesn't translate, then pop an alert that will make a forum post to the thread
-
+            /* if (confirm('WMEPH: Localization Error!\nClick OK to report this error')) {
+                // if the category doesn't translate, then pop an alert that will make a forum post to the thread
                 const data = {
                     subject: 'WMEPH Localization Error report',
                     message: `Error report: Localization match failed for "${stateName}".`
@@ -4139,7 +4142,7 @@ function harmonizePlaceGo(item, useFlag, actions) {
                     data.message += ` state2L = ${_stateDataTemp[_psState2LetterIx]}. region = ${_stateDataTemp[_psRegionIx]}`;
                 }
                 reportError(data);
-            }*/
+            } */
             WazeWrap.Alerts.confirm(
                 _SCRIPT_NAME,
                 'WMEPH: Localization Error!<br>Click OK to report this error',
@@ -4294,12 +4297,12 @@ function harmonizePlaceGo(item, useFlag, actions) {
 
             // if the location has multiple matches, then pop an alert that will make a forum post to the thread
             if (nsMultiMatch) {
-                /*if (confirm('WMEPH: Multiple matches found!\nDouble check the script changes.\nClick OK to report this situation.')) {
+                /* if (confirm('WMEPH: Multiple matches found!\nDouble check the script changes.\nClick OK to report this situation.')) {
                     reportError({
                         subject: `Order Nos. "${orderList.join(', ')}" WMEPH Multiple match report`,
                         message: `Error report: PNH Order Nos. "${orderList.join(', ')}" are ambiguous multiple matches.\n \nExample Permalink: ${placePL}`
                     });
-                }*/
+                } */
                 WazeWrap.Alerts.confirm(
                     _SCRIPT_NAME,
                     'WMEPH: Multiple matches found!<br>Double check the script changes.<br>Click OK to report this situation.',
@@ -4467,7 +4470,7 @@ function harmonizePlaceGo(item, useFlag, actions) {
                     let searchStreet = '';
                     let searchCity = '';
                     let searchState = '';
-                    if (addr.street.name === 'string') {
+                    if (typeof addr.street.name === 'string') {
                         searchStreet = addr.street.name;
                     }
                     const searchStreetPlus = searchStreet.replace(/ /g, '+');
@@ -5752,14 +5755,14 @@ function harmonizePlaceGo(item, useFlag, actions) {
         [_duplicateName] = _duplicateName;
         if (_duplicateName.length) {
             if (_duplicateName.length + 1 !== _dupeIDList.length && _USER.isDevUser) { // If there's an issue with the data return, allow an error report
-                /*if (confirm('WMEPH: Dupefinder Error!\nClick OK to report this')) {
+                /* if (confirm('WMEPH: Dupefinder Error!\nClick OK to report this')) {
                     // if the category doesn't translate, then pop an alert that will make a forum post to the thread
                     reportError({
                         subject: 'WMEPH Bug report DupeID',
                         message: `Script version: ${_SCRIPT_VERSION}${_DEV_VERSION_STR}\nPermalink: ${placePL}\nPlace name: ${
                             item.attributes.name}\nCountry: ${addr.country.name}\n--------\nDescribe the error:\nDupeID mismatch with dupeName list`
                     });
-                }*/
+                } */
                 WazeWrap.Alerts.confirm(
                     _SCRIPT_NAME,
                     'WMEPH: Dupefinder Error!<br>Click OK to report this',
@@ -6377,7 +6380,7 @@ function showSearchButton() {
     const venue = getSelectedVenue();
     if (venue && $('#wmephSearch').length === 0) {
         const strButt1 = '<input class="btn btn-danger btn-xs wmeph-fat-btn" id="wmephSearch" title="Search the web for this place.  Do not copy info from 3rd party sources!" '
-        + 'type="button" value="Google">';
+            + 'type="button" value="Google">';
         $('#WMEPH_runButton').append(strButt1);
         const btn = document.getElementById('wmephSearch');
         if (btn !== null) {
@@ -7239,12 +7242,12 @@ function catTranslate(natCategories) {
 
     // if the category doesn't translate, then pop an alert that will make a forum post to the thread
     // Generally this means the category used in the PNH sheet is not close enough to the natural language categories used inside the WME translations
-    /*if (confirm('WMEPH: Category Error!\nClick OK to report this error')) {
+    /* if (confirm('WMEPH: Category Error!\nClick OK to report this error')) {
         reportError({
             subject: 'WMEPH Bug report: no tns',
             message: `Error report: Category "${natCategories}" was not found in the PNH categories sheet.`
         });
-    }*/
+    } */
     WazeWrap.Alerts.confirm(
         _SCRIPT_NAME,
         'WMEPH: Category Error!<br>Click OK to report this error',
@@ -7423,10 +7426,11 @@ function onWLMergeClick() {
 
     $wlToolsMsg.empty();
     if ($wlInput.val() === 'resetWhitelist') {
-        /*if (confirm('***Do you want to reset all Whitelist data?\nClick OK to erase.')) { // if the category doesn't translate, then pop an alert that will make a forum post to the thread
+        /* if (confirm('***Do you want to reset all Whitelist data?\nClick OK to erase.')) {
+            // if the category doesn't translate, then pop an alert that will make a forum post to the thread
             _venueWhitelist = { '1.1.1': { Placeholder: {} } }; // Populate with a dummy place
             saveWhitelistToLS(true);
-        }*/
+        } */
         WazeWrap.Alerts.confirm( // if the category doesn't translate, then pop an alert that will make a forum post to the thread
             _SCRIPT_NAME,
             '***Do you want to reset all Whitelist data?<br>Click OK to erase.',
@@ -7523,7 +7527,7 @@ function onWLStateFilterClick() {
         );
         if (venuesToRemove.length > 0) {
             if (localStorage.WMEPH_WLAddCount === '1') {
-                /*if (confirm(`Are you sure you want to clear all whitelist data for ${
+                /* if (confirm(`Are you sure you want to clear all whitelist data for ${
                     stateToRemove}? This CANNOT be undone. Press OK to delete, cancel to preserve the data.`)) {
                     backupWhitelistToLS(true);
                     venuesToRemove.forEach(venueKey => {
@@ -7536,11 +7540,11 @@ function onWLStateFilterClick() {
                 } else {
                     msgColor = 'blue';
                     msgText = 'No changes made';
-                }*/
+                } */
                 WazeWrap.Alerts.confirm(
-                _SCRIPT_NAME,
-                `Are you sure you want to clear all whitelist data for ${
-            	    stateToRemove}? This CANNOT be undone. Press OK to delete, cancel to preserve the data.`,
+                    _SCRIPT_NAME,
+                    `Are you sure you want to clear all whitelist data for ${stateToRemove}? This CANNOT be undone. `
+                    + 'Press OK to delete, cancel to preserve the data.',
                     () => {
                         backupWhitelistToLS(true);
                         venuesToRemove.forEach(venueKey => {
@@ -7970,7 +7974,7 @@ function placeHarmonizerInit() {
         '.wmeph-mods-table-cell.title { font-weight: bold; }'
     ].join('\n');
     $('head').append(`<style type="text/css">${css}</style>`);
-    
+
     MultiAction = require('Waze/Action/MultiAction');
     UpdateObject = require('Waze/Action/UpdateObject');
     UpdateFeatureGeometry = require('Waze/Action/UpdateFeatureGeometry');
