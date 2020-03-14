@@ -2,7 +2,7 @@
 // ==UserScript==
 // @name        WME Place Harmonizer
 // @namespace   WazeUSA
-// @version     2020.03.14.001
+// @version     2020.03.14.002
 // @description Harmonizes, formats, and locks a selected place
 // @author      WMEPH Development Group
 // @include     /^https:\/\/(www|beta)\.waze\.com\/(?!user\/)(.{2,6}\/)?editor\/?.*$/
@@ -35,7 +35,7 @@
 const _WHATS_NEW_LIST = { // New in this version
     '2020.03.14.001': [
         'Minor bug fix for missing street when using localized store locator.'
-    ]
+    ],
     '2020.01.07.001': [
         'Bug fix due to latest WME release.'
     ],
