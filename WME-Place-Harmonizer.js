@@ -1,6 +1,6 @@
 /* eslint-disable nonblock-statement-body-position, brace-style, curly, radix, no-template-curly-in-string */
 // ==UserScript==
-// @name        WME Place Harmonizer
+// @name        WME Place Harmonizer Beta
 // @namespace   WazeUSA
 // @version     2020.03.14.002
 // @description Harmonizes, formats, and locks a selected place
