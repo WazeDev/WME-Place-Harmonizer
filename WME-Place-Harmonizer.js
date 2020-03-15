@@ -2,7 +2,7 @@
 // ==UserScript==
 // @name        WME Place Harmonizer
 // @namespace   WazeUSA
-// @version     2020.03.14.003
+// @version     2020.03.15.001
 // @description Harmonizes, formats, and locks a selected place
 // @author      WMEPH Development Group
 // @include     /^https:\/\/(www|beta)\.waze\.com\/(?!user\/)(.{2,6}\/)?editor\/?.*$/
@@ -33,6 +33,9 @@
 
 // Script update info
 const _WHATS_NEW_LIST = { // New in this version
+    '2020.03.15.001': [
+        'FIXED: When clicking the "Use PNH URL" button, a window would open to report an error.'
+    ],
     '2020.03.14.001': [
         'Minor bug fix for missing street when using localized store locator.'
     ],
@@ -2379,16 +2382,16 @@ let Flag = {
         // eslint-disable-next-line class-methods-use-this
         action() {
             const venue = getSelectedVenue();
-            if (_tempPNHURL !== '') {
+            if (!isNullOrWhitespace(_tempPNHURL)) {
                 W.model.actionManager.add(new UpdateObject(venue, { url: _tempPNHURL }));
                 _UPDATED_FIELDS.url.updated = true;
                 harmonizePlaceGo(venue, 'harmonize');
                 _updateURL = true;
-                // if the category doesn't translate, then pop an alert that will make a forum post to the thread
-                reportError({
-                    subject: 'WMEPH URL comparison Error report',
-                    message: `Error report: URL comparison failed for "${venue.attributes.name}"\nPermalink: ${this.placePL}`
-                });
+                // // if the category doesn't translate, then pop an alert that will make a forum post to the thread
+                // reportError({
+                //     subject: 'WMEPH URL comparison Error report',
+                //     message: `Error report: URL comparison failed for "${venue.attributes.name}"\nPermalink: ${this.placePL}`
+                // });
             } else {
                 WazeWrap.Alerts.confirm(
                     _SCRIPT_NAME,
