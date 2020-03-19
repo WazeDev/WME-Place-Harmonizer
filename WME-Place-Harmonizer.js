@@ -2,7 +2,7 @@
 // ==UserScript==
 // @name        WME Place Harmonizer
 // @namespace   WazeUSA
-// @version     2020.03.15.001
+// @version     2020.03.18.001
 // @description Harmonizes, formats, and locks a selected place
 // @author      WMEPH Development Group
 // @include     /^https:\/\/(www|beta)\.waze\.com\/(?!user\/)(.{2,6}\/)?editor\/?.*$/
@@ -33,6 +33,9 @@
 
 // Script update info
 const _WHATS_NEW_LIST = { // New in this version
+    '2020.03.18.001': [
+        'Bug fix for X-Ray Mode, caused by WME changes.'
+    ],
     '2020.03.15.001': [
         'FIXED: When clicking the "Use PNH URL" button, a window would open to report an error.'
     ],
@@ -1154,18 +1157,20 @@ function toggleXrayMode(enable) {
 
     const commentsLayer = W.map.getLayerByUniqueName('mapComments');
     const gisLayer = W.map.getLayerByUniqueName('__wmeGISLayers');
+    const satLayer = W.map.getLayerByUniqueName('satellite_imagery');
+    const roadLayer = W.map.roadLayers[0];
     const commentRuleSymb = commentsLayer.styleMap.styles.default.rules[0].symbolizer;
     if (enable) {
         _layer.styleMap.styles.default.rules = _layer.styleMap.styles.default.rules.filter(rule => rule.wmephDefault !== 'default');
-        W.map.roadLayers[0].opacity = 0.25;
-        W.map.baseLayer.opacity = 0.25;
+        roadLayer.opacity = 0.25;
+        satLayer.opacity = 0.25;
         commentRuleSymb.Polygon.strokeColor = '#888';
         commentRuleSymb.Polygon.fillOpacity = 0.2;
         if (gisLayer) gisLayer.setOpacity(0.4);
     } else {
         _layer.styleMap.styles.default.rules = _layer.styleMap.styles.default.rules.filter(rule => rule.wmephStyle !== 'xray');
-        W.map.roadLayers[0].opacity = 1;
-        W.map.baseLayer.opacity = 1;
+        roadLayer.opacity = 1;
+        satLayer.opacity = 1;
         commentRuleSymb.Polygon.strokeColor = '#fff';
         commentRuleSymb.Polygon.fillOpacity = 0.4;
         if (gisLayer) gisLayer.setOpacity(1);
@@ -1173,8 +1178,8 @@ function toggleXrayMode(enable) {
         _layer.redraw();
     }
     commentsLayer.redraw();
-    W.map.roadLayers[0].redraw();
-    W.map.baseLayer.redraw();
+    roadLayer.redraw();
+    satLayer.redraw();
     if (!enable) return;
 
     const defaultPointRadius = 6;
