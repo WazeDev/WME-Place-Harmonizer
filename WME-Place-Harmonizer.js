@@ -2,7 +2,7 @@
 // ==UserScript==
 // @name        WME Place Harmonizer
 // @namespace   WazeUSA
-// @version     2020.03.31.001
+// @version     2020.06.01.001
 // @description Harmonizes, formats, and locks a selected place
 // @author      WMEPH Development Group
 // @include     /^https:\/\/(www|beta)\.waze\.com\/(?!user\/)(.{2,6}\/)?editor\/?.*$/
@@ -16,7 +16,7 @@
 /* global $ */
 /* global W */
 /* global GM_info */
-/* global OL */
+/* global OpenLayers */
 /* global _ */
 /* global WazeWrap */
 /* global LZString */
@@ -589,7 +589,7 @@ function getSelectedVenue() {
 
 function getVenueLonLat(venue) {
     const pt = venue.geometry.getCentroid();
-    return new OL.LonLat(pt.x, pt.y);
+    return new OpenLayers.LonLat(pt.x, pt.y);
 }
 
 function isAlwaysOpen(venue) {
@@ -911,7 +911,7 @@ function whitelistAction(itemID, wlKeyName) {
         WazeWrap.Alerts.error(_SCRIPT_NAME, 'Whitelisting requires an address. Enter the place\'s address and try again.');
         return false;
     }
-    const itemGPS = OL.Layer.SphericalMercator.inverseMercator(venue.attributes.geometry.getCentroid().x, venue.attributes.geometry.getCentroid().y);
+    const itemGPS = OpenLayers.Layer.SphericalMercator.inverseMercator(venue.attributes.geometry.getCentroid().x, venue.attributes.geometry.getCentroid().y);
     if (!_venueWhitelist.hasOwnProperty(itemID)) { // If venue is NOT on WL, then add it.
         _venueWhitelist[itemID] = {};
     }
@@ -1187,7 +1187,7 @@ function toggleXrayMode(enable) {
 
     const defaultPointRadius = 6;
     const ruleGenerator = (value, symbolizer) => new W.Rule({
-        filter: new OL.Filter.Comparison({
+        filter: new OpenLayers.Filter.Comparison({
             type: '==',
             value,
             evaluate(venue) {
@@ -1306,7 +1306,7 @@ function toggleXrayMode(enable) {
 
 function initializeHighlights() {
     const ruleGenerator = (value, symbolizer) => new W.Rule({
-        filter: new OL.Filter.Comparison({
+        filter: new OpenLayers.Filter.Comparison({
             type: '==',
             value,
             evaluate(venue) {
@@ -1388,7 +1388,7 @@ function initializeHighlights() {
 
     function plaTypeRuleGenerator(value, symbolizer) {
         return new W.Rule({
-            filter: new OL.Filter.Comparison({
+            filter: new OpenLayers.Filter.Comparison({
                 type: '==',
                 value,
                 evaluate(venue) {
@@ -1505,7 +1505,7 @@ function bootstrapWmephColorHighlights() {
             }
         }));
 
-        W.map.landmarkLayer.events.register('beforefeaturesadded', null, e => errorHandler(() => applyHighlightsTest(e.features.map(f => f.model))));
+        W.map.venueLayer.events.register('beforefeaturesadded', null, e => errorHandler(() => applyHighlightsTest(e.features.map(f => f.model))));
 
         // Clear the cache (highlight severities may need to be updated).
         _resultsCache = {};
@@ -2170,7 +2170,7 @@ let Flag = {
             const venue = getSelectedVenue();
             if (venue.attributes.categories.includes('RESIDENCE_HOME')) {
                 const centroid = venue.geometry.getCentroid();
-                updateFeatureGeometry(venue, new OL.Geometry.Point(centroid.x, centroid.y));
+                updateFeatureGeometry(venue, new OpenLayers.Geometry.Point(centroid.x, centroid.y));
             } else {
                 $('.landmark label.point-btn').click();
             }
@@ -4066,7 +4066,7 @@ function harmonizePlaceGo(item, useFlag, actions) {
             // get GPS lat/long coords from place, call as itemGPS.lat, itemGPS.lon
             if (!itemGPS) {
                 const centroid = item.attributes.geometry.getCentroid();
-                itemGPS = OL.Layer.SphericalMercator.inverseMercator(centroid.x, centroid.y);
+                itemGPS = OpenLayers.Layer.SphericalMercator.inverseMercator(centroid.x, centroid.y);
             }
             _venueWhitelist[itemID].city = addr.city.attributes.name; // Store city for the venue
             _venueWhitelist[itemID].state = addr.state.name; // Store state for the venue
@@ -4498,7 +4498,7 @@ function harmonizePlaceGo(item, useFlag, actions) {
                     searchState = searchState.replace(/ /g, '%20');
 
                     const centroid = item.attributes.geometry.getCentroid();
-                    if (!itemGPS) itemGPS = OL.Layer.SphericalMercator.inverseMercator(centroid.x, centroid.y);
+                    if (!itemGPS) itemGPS = OpenLayers.Layer.SphericalMercator.inverseMercator(centroid.x, centroid.y);
                     for (let tlix = 1; tlix < tempLocalURL.length; tlix++) {
                         if (tempLocalURL[tlix] === 'ph_streetName') {
                             _customStoreFinderLocalURL += searchStreet;
@@ -6935,7 +6935,7 @@ function findNearbyDuplicate(selectedVenueName, selectedVenueAliases, selectedVe
                         maxLat = Math.max(maxLat, lonLat.lat);
                         maxLon = Math.max(maxLon, lonLat.lon);
 
-                        labelFeatures.push(new OL.Feature.Vector(
+                        labelFeatures.push(new OpenLayers.Feature.Vector(
                             testCentroid,
                             {
                                 labelText: labelTextReformat,
@@ -6976,7 +6976,7 @@ function findNearbyDuplicate(selectedVenueName, selectedVenueAliases, selectedVe
                 currentLabel = `${currentLabel}\u25A3`; // add photo icons
             }
         }
-        labelFeatures.push(new OL.Feature.Vector(
+        labelFeatures.push(new OpenLayers.Feature.Vector(
             selectedCentroid,
             {
                 labelText: currentLabel,
@@ -7964,20 +7964,20 @@ function newForumPost(url, data) {
 /**
  * Updates the geometry of a place.
  * @param place {Waze venue object} The place to update.
- * @param newGeometry {OL.Geometry} The new geometry for the place.
+ * @param newGeometry {OpenLayers.Geometry} The new geometry for the place.
  */
 function updateFeatureGeometry(place, newGeometry) {
     let oldGeometry;
     const model = W.model.venues;
-    if (place && place.CLASS_NAME === 'Waze.Feature.Vector.Landmark' && newGeometry && (newGeometry instanceof OL.Geometry.Point
-        || newGeometry instanceof OL.Geometry.Polygon)) {
+    if (place && place.CLASS_NAME === 'Waze.Feature.Vector.Landmark' && newGeometry && (newGeometry instanceof OpenLayers.Geometry.Point
+        || newGeometry instanceof OpenLayers.Geometry.Polygon)) {
         oldGeometry = place.attributes.geometry;
         W.model.actionManager.add(new UpdateFeatureGeometry(place, model, oldGeometry, newGeometry));
     }
 }
 
 function placeHarmonizerInit() {
-    _layer = W.map.landmarkLayer;
+    _layer = W.map.venueLayer;
 
     // Add CSS stuff here
     const css = [
@@ -8026,7 +8026,7 @@ function placeHarmonizerInit() {
     _dupeLayer = W.map.getLayerByUniqueName('__DuplicatePlaceNames');
     if (!_dupeLayer) {
         const lname = 'WMEPH Duplicate Names';
-        const style = new OL.Style({
+        const style = new OpenLayers.Style({
             label: '${labelText}',
             labelOutlineColor: '#333',
             labelOutlineWidth: 3,
@@ -8042,7 +8042,7 @@ function placeHarmonizerInit() {
             strokeWidth: 10,
             pointRadius: '${pointRadius}'
         });
-        _dupeLayer = new OL.Layer.Vector(lname, { displayInLayerSwitcher: false, uniqueName: '__DuplicatePlaceNames', styleMap: new OL.StyleMap(style) });
+        _dupeLayer = new OpenLayers.Layer.Vector(lname, { displayInLayerSwitcher: false, uniqueName: '__DuplicatePlaceNames', styleMap: new OpenLayers.StyleMap(style) });
         _dupeLayer.setVisibility(false);
         W.map.addLayer(_dupeLayer);
     }
