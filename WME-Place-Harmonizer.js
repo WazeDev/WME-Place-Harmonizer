@@ -2,7 +2,7 @@
 // ==UserScript==
 // @name        WME Place Harmonizer Beta
 // @namespace   WazeUSA
-// @version     2020.05.22.001
+// @version     2020.06.01.001
 // @description Harmonizes, formats, and locks a selected place
 // @author      WMEPH Development Group
 // @include     /^https:\/\/(www|beta)\.waze\.com\/(?!user\/)(.{2,6}\/)?editor\/?.*$/
@@ -1505,7 +1505,7 @@ function bootstrapWmephColorHighlights() {
             }
         }));
 
-        W.map.landmarkLayer.events.register('beforefeaturesadded', null, e => errorHandler(() => applyHighlightsTest(e.features.map(f => f.model))));
+        W.map.venueLayer.events.register('beforefeaturesadded', null, e => errorHandler(() => applyHighlightsTest(e.features.map(f => f.model))));
 
         // Clear the cache (highlight severities may need to be updated).
         _resultsCache = {};
@@ -7977,7 +7977,7 @@ function updateFeatureGeometry(place, newGeometry) {
 }
 
 function placeHarmonizerInit() {
-    _layer = W.map.landmarkLayer;
+    _layer = W.map.venueLayer;
 
     // Add CSS stuff here
     const css = [
