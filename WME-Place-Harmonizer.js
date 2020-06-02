@@ -2,7 +2,7 @@
 // ==UserScript==
 // @name        WME Place Harmonizer Beta
 // @namespace   WazeUSA
-// @version     2020.06.01.001
+// @version     2020.06.02.001
 // @description Harmonizes, formats, and locks a selected place
 // @author      WMEPH Development Group
 // @include     /^https:\/\/(www|beta)\.waze\.com\/(?!user\/)(.{2,6}\/)?editor\/?.*$/
@@ -33,6 +33,9 @@
 
 // Script update info
 const _WHATS_NEW_LIST = { // New in this version
+    '2020.06.02.001': [
+        'Bug fix due to latest WME release.'
+        ],
     '2020.03.31.001': [
         'FIXED: WME removed normalized user rank property.'
     ],
@@ -7969,7 +7972,7 @@ function newForumPost(url, data) {
 function updateFeatureGeometry(place, newGeometry) {
     let oldGeometry;
     const model = W.model.venues;
-    if (place && place.CLASS_NAME === 'Waze.Feature.Vector.Landmark' && newGeometry && (newGeometry instanceof OpenLayers.Geometry.Point
+    if (place && place.CLASS_NAME === 'Waze.Feature.Vector.Venue' && newGeometry && (newGeometry instanceof OpenLayers.Geometry.Point
         || newGeometry instanceof OpenLayers.Geometry.Polygon)) {
         oldGeometry = place.attributes.geometry;
         W.model.actionManager.add(new UpdateFeatureGeometry(place, model, oldGeometry, newGeometry));
