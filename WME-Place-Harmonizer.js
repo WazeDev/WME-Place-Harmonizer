@@ -2,7 +2,7 @@
 // ==UserScript==
 // @name        WME Place Harmonizer Beta
 // @namespace   WazeUSA
-// @version     2020.06.03.001
+// @version     2020.06.03.004
 // @description Harmonizes, formats, and locks a selected place
 // @author      WMEPH Development Group
 // @include     /^https:\/\/(www|beta)\.waze\.com\/(?!user\/)(.{2,6}\/)?editor\/?.*$/
@@ -33,6 +33,9 @@
 
 // Script update info
 const _WHATS_NEW_LIST = { // New in this version
+    '2020.06.03.003' : [
+        'Added Refresh Data button & removed the Google button on RPPs'
+        ],
     '2020.06.02.001': [
         'Bug fix due to latest WME release.'
         ],
@@ -6392,7 +6395,7 @@ function showOpenPlaceWebsiteButton() {
 
 function showSearchButton() {
     const venue = getSelectedVenue();
-    if (venue && $('#wmephSearch').length === 0) {
+    if (venue && $('#wmephSearch').length === 0 && !venue.isResidential()) {
         const strButt1 = '<input class="btn btn-danger btn-xs wmeph-fat-btn" id="wmephSearch" title="Search the web for this place.  Do not copy info from 3rd party sources!" '
             + 'type="button" value="Google">';
         $('#WMEPH_runButton').append(strButt1);
@@ -7637,6 +7640,8 @@ function initWmephTab() {
     if (localStorage.getItem('WMEPH_WLAddCount') === null) {
         localStorage.setItem('WMEPH_WLAddCount', 2); // Counter to remind of WL backups
     }
+    //Reload Data button click event
+    $('#WMEPH-ReloadDataBtn').click(() => downloadPnhData(true));
 
     // WL button click events
     $('#WMEPH-WLMerge').click(onWLMergeClick);
@@ -7660,6 +7665,7 @@ function addWmephTab() {
     GM_addStyle(_CSS_ARRAY.join('\n'));
 
     const $container = $('<div class="active">');
+    const $reloadDataBtn = $('<div style="margin-bottom:6px; text-align:center"><input id="WMEPH-ReloadDataBtn" class="btn btn-success wmeph-fat-btn" type="button" title="Refresh Data" value="Refresh Data"/></div>');
     const $navTabs = $(
         '<ul class="nav nav-tabs"><li class="active"><a data-toggle="tab" href="#sidepanel-harmonizer">Harmonize</a></li>'
         + '<li><a data-toggle="tab" href="#sidepanel-highlighter">HL / Scan</a></li>'
@@ -7672,7 +7678,7 @@ function addWmephTab() {
     const $wlToolsTab = $('<div class="tab-pane" id="sidepanel-wltools"></div>');
     const $moderatorsTab = $('<div class="tab-pane" id="sidepanel-pnh-moderators"></div>');
     $tabContent.append($harmonizerTab, $highlighterTab, $wlToolsTab, $moderatorsTab);
-    $container.append($navTabs, $tabContent);
+    $container.append($reloadDataBtn, $navTabs, $tabContent);
 
     // Harmonizer settings
     createSettingsCheckbox($harmonizerTab, 'WMEPH-WebSearchNewTab', 'Open URL & Search Results in new tab instead of new window');
@@ -7995,12 +8001,6 @@ function placeHarmonizerInit() {
     UpdateFeatureAddress = require('Waze/Action/UpdateFeatureAddress');
     OpeningHour = require('Waze/Model/Objects/OpeningHour');
 
-    MultiAction = require('Waze/Action/MultiAction');
-    UpdateObject = require('Waze/Action/UpdateObject');
-    UpdateFeatureGeometry = require('Waze/Action/UpdateFeatureGeometry');
-    UpdateFeatureAddress = require('Waze/Action/UpdateFeatureAddress');
-    OpeningHour = require('Waze/Model/Objects/OpeningHour');
-
     // For debugging purposes.  May be removed when no longer needed.
     unsafeWindow.PNH_DATA = _PNH_DATA;
 
@@ -8184,7 +8184,7 @@ const SPREADSHEET_ID = '1pBz4l4cNapyGyzfMJKqA4ePEFLkmz2RryAt1UV39B4g';
 const SPREADSHEET_RANGE = '2019.01.20.001!A2:L';
 const API_KEY = 'YTJWNVBVRkplbUZUZVVObU1YVXpSRVZ3ZW5OaFRFSk1SbTR4VGxKblRURjJlRTFYY3pOQ2NXZElPQT09';
 
-function downloadPnhData() {
+function downloadPnhData(skipBootstrap = false) {
     const dec = s => atob(atob(s));
     const getSpreadsheetUrl = (id, range, key) => `https://sheets.googleapis.com/v4/spreadsheets/${id}/values/${range}?${dec(key)}`;
 
@@ -8232,7 +8232,8 @@ function downloadPnhData() {
         _schoolPartMatch = processTermsCell(values, 9);
         _schoolFullMatch = processTermsCell(values, 10);
 
-        placeHarmonizerBootstrap();
+        if(!skipBootstrap)
+            placeHarmonizerBootstrap();
     }).fail(res => {
         const message = res.responseJSON && res.responseJSON.error ? res.responseJSON.error : 'See response error message above.';
         console.error('WMEPH failed to load spreadsheet:', message);
