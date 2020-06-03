@@ -33,6 +33,9 @@
 
 // Script update info
 const _WHATS_NEW_LIST = { // New in this version
+    '2020.06.03.006' : [
+        'Added data refresh completion checkmark animation'
+        ],
     '2020.06.03.003' : [
         'Added Refresh Data button & removed the Google button on RPPs'
         ],
