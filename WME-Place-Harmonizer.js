@@ -7995,12 +7995,6 @@ function placeHarmonizerInit() {
     UpdateFeatureAddress = require('Waze/Action/UpdateFeatureAddress');
     OpeningHour = require('Waze/Model/Objects/OpeningHour');
 
-    MultiAction = require('Waze/Action/MultiAction');
-    UpdateObject = require('Waze/Action/UpdateObject');
-    UpdateFeatureGeometry = require('Waze/Action/UpdateFeatureGeometry');
-    UpdateFeatureAddress = require('Waze/Action/UpdateFeatureAddress');
-    OpeningHour = require('Waze/Model/Objects/OpeningHour');
-
     // For debugging purposes.  May be removed when no longer needed.
     unsafeWindow.PNH_DATA = _PNH_DATA;
 
