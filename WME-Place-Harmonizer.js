@@ -6392,7 +6392,7 @@ function showOpenPlaceWebsiteButton() {
 
 function showSearchButton() {
     const venue = getSelectedVenue();
-    if (venue && $('#wmephSearch').length === 0) {
+    if (venue && $('#wmephSearch').length === 0 && !venue.isResidential()) {
         const strButt1 = '<input class="btn btn-danger btn-xs wmeph-fat-btn" id="wmephSearch" title="Search the web for this place.  Do not copy info from 3rd party sources!" '
             + 'type="button" value="Google">';
         $('#WMEPH_runButton').append(strButt1);
