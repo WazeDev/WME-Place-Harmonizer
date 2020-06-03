@@ -2,7 +2,7 @@
 // ==UserScript==
 // @name        WME Place Harmonizer Beta
 // @namespace   WazeUSA
-// @version     2020.06.02.001
+// @version     2020.06.03.001
 // @description Harmonizes, formats, and locks a selected place
 // @author      WMEPH Development Group
 // @include     /^https:\/\/(www|beta)\.waze\.com\/(?!user\/)(.{2,6}\/)?editor\/?.*$/
@@ -267,23 +267,23 @@ let _ixOffices;
 let _layer;
 
 const _UPDATED_FIELDS = {
-    name: { updated: false, selector: '.landmark .form-control[name="name"]', tab: 'general' },
-    aliases: { updated: false, selector: '.landmark .form-control.alias-name', tab: 'general' },
-    address: { updated: false, selector: '.landmark .address-edit span.full-address', tab: 'general' },
-    categories: { updated: false, selector: '.landmark .categories.controls .select2-container', tab: 'general' },
-    description: { updated: false, selector: '.landmark .form-control[name="description"]', tab: 'general' },
-    lock: { updated: false, selector: '.landmark .form-control.waze-radio-container', tab: 'general' },
-    externalProvider: { updated: false, selector: '.landmark .external-providers-view', tab: 'general' },
-    brand: { updated: false, selector: '.landmark .brand .select2-container', tab: 'general' },
-    url: { updated: false, selector: '.landmark .form-control[name="url"]', tab: 'more-info' },
-    phone: { updated: false, selector: '.landmark .form-control[name="phone"]', tab: 'more-info' },
-    openingHours: { updated: false, selector: '.landmark .opening-hours ul', tab: 'more-info' },
-    cost: { updated: false, selector: '.landmark .form-control[name="costType"]', tab: 'more-info' },
-    canExit: { updated: false, selector: '.landmark label[for="can-exit-checkbox"]', tab: 'more-info' },
-    hasTBR: { updated: false, selector: '.landmark label[for="has-tbr"]', tab: 'more-info' },
-    lotType: { updated: false, selector: '.landmark .parking-type-option', tab: 'more-info' },
-    parkingSpots: { updated: false, selector: '.landmark .form-control[name="estimatedNumberOfSpots"]', tab: 'more-info' },
-    lotElevation: { updated: false, selector: '.landmark .lot-checkbox', tab: 'more-info' },
+    name: { updated: false, selector: '.venue .form-control[name="name"]', tab: 'general' },
+    aliases: { updated: false, selector: '.venue .form-control.alias-name', tab: 'general' },
+    address: { updated: false, selector: '.venue .address-edit span.full-address', tab: 'general' },
+    categories: { updated: false, selector: '.venue .categories.controls .select2-container', tab: 'general' },
+    description: { updated: false, selector: '.venue .form-control[name="description"]', tab: 'general' },
+    lock: { updated: false, selector: '.venue .form-control.waze-radio-container', tab: 'general' },
+    externalProvider: { updated: false, selector: '.venue .external-providers-view', tab: 'general' },
+    brand: { updated: false, selector: '.venue .brand .select2-container', tab: 'general' },
+    url: { updated: false, selector: '.venue .form-control[name="url"]', tab: 'more-info' },
+    phone: { updated: false, selector: '.venue .form-control[name="phone"]', tab: 'more-info' },
+    openingHours: { updated: false, selector: '.venue .opening-hours ul', tab: 'more-info' },
+    cost: { updated: false, selector: '.venue .form-control[name="costType"]', tab: 'more-info' },
+    canExit: { updated: false, selector: '.venue label[for="can-exit-checkbox"]', tab: 'more-info' },
+    hasTBR: { updated: false, selector: '.venue label[for="has-tbr"]', tab: 'more-info' },
+    lotType: { updated: false, selector: '.venue .parking-type-option', tab: 'more-info' },
+    parkingSpots: { updated: false, selector: '.venue .form-control[name="estimatedNumberOfSpots"]', tab: 'more-info' },
+    lotElevation: { updated: false, selector: '.venue .lot-checkbox', tab: 'more-info' },
 
     getFieldProperties() {
         return Object.keys(this)
@@ -300,7 +300,7 @@ const _UPDATED_FIELDS = {
     //         .filter(prop => prop.updated && addedNode.querySelector(prop.selector))
     //         .forEach(prop => {
     //             $(prop.selector).css({ 'background-color': '#dfd' });
-    //             $(`a[href="#landmark-edit-${prop.tab}"]`).css({ 'background-color': '#dfd' });
+    //             $(`a[href="#venue-edit-${prop.tab}"]`).css({ 'background-color': '#dfd' });
     //         });
     // },
     reset() {
@@ -314,7 +314,7 @@ const _UPDATED_FIELDS = {
             'EV_CHARGING_STATION', 'CAR_WASH', 'SECURITY', 'AIRPORT_SHUTTLE']
             .forEach(service => {
                 const propName = `services_${service}`;
-                this[propName] = { updated: false, selector: `.landmark label[for="service-checkbox-${service}"]`, tab: 'more-info' };
+                this[propName] = { updated: false, selector: `.venue label[for="service-checkbox-${service}"]`, tab: 'more-info' };
             });
 
         // 5/24/2019 (mapomatic) This observer doesn't seem to work anymore.  I've added the updateEditPanelHighlights
@@ -340,7 +340,7 @@ const _UPDATED_FIELDS = {
         // Highlight fields in the editor panel that have been updated by WMEPH.
         this.getFieldProperties().filter(prop => prop.updated).forEach(prop => {
             $(prop.selector).css({ 'background-color': '#dfd' });
-            $(`a[href="#landmark-edit-${prop.tab}"]`).css({ 'background-color': '#dfd' });
+            $(`a[href="#venue-edit-${prop.tab}"]`).css({ 'background-color': '#dfd' });
         });
     }
 };
@@ -946,10 +946,10 @@ function createObserver() {
                 const addedNode = mutation.addedNodes[i];
                 // Only fire up if it's a node
                 if (addedNode.querySelector && addedNode.querySelector('.tab-scroll-gradient')) {
-                    // Normally, scrolling happens inside the tab-content div.  When WMEPH adds stuff outside the landmark div, it effectively breaks that
+                    // Normally, scrolling happens inside the tab-content div.  When WMEPH adds stuff outside the venue div, it effectively breaks that
                     // and causes scrolling to occur at the main content div under edit-panel.  That's actually OK, but need to disable a couple
                     // artifacts that "stick around" with absolute positioning.
-                    $('#edit-panel .landmark').removeClass('separator-line');
+                    $('#edit-panel .venue').removeClass('separator-line');
                     $('#edit-panel .tab-scroll-gradient').css({ display: 'none' });
                 }
             }
@@ -2175,7 +2175,7 @@ let Flag = {
                 const centroid = venue.geometry.getCentroid();
                 updateFeatureGeometry(venue, new OpenLayers.Geometry.Point(centroid.x, centroid.y));
             } else {
-                $('.landmark label.point-btn').click();
+                $('.venue label.point-btn').click();
             }
             harmonizePlaceGo(venue, 'harmonize'); // Rerun the script to update fields and lock
         }
@@ -2227,8 +2227,8 @@ let Flag = {
 
     //     // eslint-disable-next-line class-methods-use-this
     //     action() {
-    //         $('.nav-tabs a[href="#landmark-edit-general"]').trigger('click');
-    //         $('.landmark .full-address').click();
+    //         $('.nav-tabs a[href="#venue-edit-general"]').trigger('click');
+    //         $('.venue .full-address').click();
     //         $('input.house-number').focus();
     //     }
     // },
@@ -2249,8 +2249,8 @@ let Flag = {
 
         // eslint-disable-next-line class-methods-use-this
         action() {
-            $('.nav-tabs a[href="#landmark-edit-general"]').trigger('click');
-            $('.landmark .full-address').click();
+            $('.nav-tabs a[href="#venue-edit-general"]').trigger('click');
+            $('.venue .full-address').click();
             if ($('.empty-street').prop('checked')) {
                 $('.empty-street').click();
             }
@@ -2262,8 +2262,8 @@ let Flag = {
 
         // eslint-disable-next-line class-methods-use-this
         action() {
-            $('.nav-tabs a[href="#landmark-edit-general"]').trigger('click');
-            $('.landmark .full-address').click();
+            $('.nav-tabs a[href="#venue-edit-general"]').trigger('click');
+            $('.venue .full-address').click();
             if ($('.empty-city').prop('checked')) {
                 $('.empty-city').click();
             }
@@ -2613,7 +2613,7 @@ let Flag = {
             const venue = getSelectedVenue();
             $('div.external-providers-view a').focus().click();
             setTimeout(() => {
-                $('a[href="#landmark-edit-general"]').click();
+                $('a[href="#venue-edit-general"]').click();
                 $('.external-providers-view a.add').focus().mousedown();
                 $('div.external-providers-view > div > ul > div > li > div > a').last().mousedown();
                 setTimeout(() => $('.select2-input').last().focus().val(venue.attributes.name).trigger('input'), 100);
@@ -2738,7 +2738,7 @@ let Flag = {
             }
             phlogdev(pasteHours);
             pasteHours += !replaceAllHours ? `,${getOpeningHours(venue).join(',')}` : '';
-            $('.nav-tabs a[href="#landmark-edit-more-info"]').tab('show');
+            $('.nav-tabs a[href="#venue-edit-more-info"]').tab('show');
             const parser = new HoursParser();
             const parseResult = parser.parseHours(pasteHours);
             if (parseResult.hours && !parseResult.overlappingHours && !parseResult.sameOpenAndCloseTimes && !parseResult.parseError) {
@@ -2837,7 +2837,7 @@ let Flag = {
 
         // eslint-disable-next-line class-methods-use-this
         action() {
-            $('a[href="#landmark-edit-more-info"]').click();
+            $('a[href="#venue-edit-more-info"]').click();
             $('#payment-checkbox-ELECTRONIC_PASS').focus();
         }
     },
@@ -6574,7 +6574,7 @@ function getPanelFields() {
     const placeNavTabs = $('.nav');
     for (let pfix = 0; pfix < placeNavTabs.length; pfix++) {
         const pfa = placeNavTabs[pfix].innerHTML;
-        if (pfa.includes('landmark-edit')) {
+        if (pfa.includes('venue-edit')) {
             panelFieldsList = placeNavTabs[pfix].children;
             _PANEL_FIELDS.navTabsIX = pfix;
             break;
@@ -6582,10 +6582,10 @@ function getPanelFields() {
     }
     for (let pfix = 0; pfix < panelFieldsList.length; pfix++) {
         const pfa = panelFieldsList[pfix].innerHTML;
-        if (pfa.includes('landmark-edit-general')) {
+        if (pfa.includes('venue-edit-general')) {
             _PANEL_FIELDS.navTabGeneral = pfix;
         }
-        if (pfa.includes('landmark-edit-more')) {
+        if (pfa.includes('venue-edit-more')) {
             _PANEL_FIELDS.navTabMore = pfix;
         }
     }
