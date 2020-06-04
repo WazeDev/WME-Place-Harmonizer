@@ -1,8 +1,8 @@
 /* eslint-disable nonblock-statement-body-position, brace-style, curly, radix, no-template-curly-in-string */
 // ==UserScript==
-// @name        WME Place Harmonizer Beta
+// @name        WME Place Harmonizer
 // @namespace   WazeUSA
-// @version     2020.06.04.001
+// @version     2020.06.04.002
 // @description Harmonizes, formats, and locks a selected place
 // @author      WMEPH Development Group
 // @include     /^https:\/\/(www|beta)\.waze\.com\/(?!user\/)(.{2,6}\/)?editor\/?.*$/
@@ -34,7 +34,7 @@
 
 // Script update info
 const _WHATS_NEW_LIST = { // New in this version
-    '2020.06.04.001': [
+    '2020.06.04.002': [
         'Added Refresh Data button, with data refresh completion checkmark animation, & removed the Google button on RPPs'
         ],
     '2020.06.02.001': [
