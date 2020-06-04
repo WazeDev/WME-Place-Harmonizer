@@ -2,7 +2,7 @@
 // ==UserScript==
 // @name        WME Place Harmonizer Beta
 // @namespace   WazeUSA
-// @version     2020.06.03.006
+// @version     2020.06.03.008
 // @description Harmonizes, formats, and locks a selected place
 // @author      WMEPH Development Group
 // @include     /^https:\/\/(www|beta)\.waze\.com\/(?!user\/)(.{2,6}\/)?editor\/?.*$/
@@ -34,6 +34,9 @@
 
 // Script update info
 const _WHATS_NEW_LIST = { // New in this version
+    '2020.06.03.006': [
+        'Added data refresh completion checkmark animation'
+        ],
     '2020.06.03.003' : [
         'Added Refresh Data button & removed the Google button on RPPs'
         ],
@@ -115,7 +118,12 @@ const _CSS_ARRAY = [
     '#WMEPH_tools div { padding-bottom: 2px !important; }',
     '.wmeph-fat-btn { padding-left:8px; padding-right:8px; padding-top:4px; margin-right:3px; display:inline-block; font-weight:normal; height:24px; }',
     '.ui-autocomplete { max-height: 300px;overflow-y: auto;overflow-x: hidden;} ',
-    '.wmeph-hr { border-color: #ccc; }'
+    '.wmeph-hr { border-color: #ccc; }',
+    '.wmeph-hr { border-color: #ccc; }',
+    '.checkmark{display:none}',
+    '.checkmark.draw:after {animation-duration:.8s; animation-timing-function:ease; animation-name:checkmark; transform:scaleX(-1) rotate(135deg)}',
+    '.checkmark:after {opacity:1; height:2em; width:1em; transform-origin:left top; border-right:3px solid #5cb85c; border-top:3px solid #5cb85c; content:""; right:1em; top:1em; position:absolute}',
+    '@keyframes checkmark {0% {height:0; width:0; opacity:1} 20%{height:0; width:1em; opacity:1} 40%{height:2em; width:1em; opacity:1} 100%{height:2em; width:1em; opacity:1}}'
 ];
 
 let MultiAction;
@@ -7642,7 +7650,11 @@ function initWmephTab() {
         localStorage.setItem('WMEPH_WLAddCount', 2); // Counter to remind of WL backups
     }
     //Reload Data button click event
-    $('#WMEPH-ReloadDataBtn').click(() => downloadPnhData(true));
+    $('#WMEPH-ReloadDataBtn').click(function(){	    $('#WMEPH-ReloadDataBtn').click(() => downloadPnhData(true));
+        $('.checkmark').toggle();
+        downloadPnhData(true);
+        setTimeout(() => $('.checkmark').toggle(), 3000);
+    });
 
     // WL button click events
     $('#WMEPH-WLMerge').click(onWLMergeClick);
@@ -7666,7 +7678,7 @@ function addWmephTab() {
     GM_addStyle(_CSS_ARRAY.join('\n'));
 
     const $container = $('<div class="active">');
-    const $reloadDataBtn = $('<div style="margin-bottom:6px; text-align:center"><input id="WMEPH-ReloadDataBtn" class="btn btn-success wmeph-fat-btn" type="button" title="Refresh Data" value="Refresh Data"/></div>');
+    const $reloadDataBtn = $('<div style="margin-bottom:6px; text-align:center;"><div style="position:relative; display:inline-block; width:75%"><input id="WMEPH-ReloadDataBtn" style="min-width:90px; width:50%" class="btn btn-success wmeph-fat-btn" type="button" title="Refresh Data" value="Refresh Data"/><div class="checkmark draw"></div></div></div>');
     const $navTabs = $(
         '<ul class="nav nav-tabs"><li class="active"><a data-toggle="tab" href="#sidepanel-harmonizer">Harmonize</a></li>'
         + '<li><a data-toggle="tab" href="#sidepanel-highlighter">HL / Scan</a></li>'
