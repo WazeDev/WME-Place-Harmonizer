@@ -1,8 +1,8 @@
 /* eslint-disable nonblock-statement-body-position, brace-style, curly, radix, no-template-curly-in-string */
 // ==UserScript==
-// @name        WME Place Harmonizer
+// @name        WME Place Harmonizer Beta
 // @namespace   WazeUSA
-// @version     2020.06.03.001
+// @version     2020.06.03.008
 // @description Harmonizes, formats, and locks a selected place
 // @author      WMEPH Development Group
 // @include     /^https:\/\/(www|beta)\.waze\.com\/(?!user\/)(.{2,6}\/)?editor\/?.*$/
@@ -30,9 +30,16 @@
 /* global MutationObserver */
 /* global performance */
 /* global atob */
+/* global require */
 
 // Script update info
 const _WHATS_NEW_LIST = { // New in this version
+    '2020.06.03.006': [
+        'Added data refresh completion checkmark animation'
+        ],
+    '2020.06.03.003' : [
+        'Added Refresh Data button & removed the Google button on RPPs'
+        ],
     '2020.06.02.001': [
         'Bug fix due to latest WME release.'
         ],
@@ -111,7 +118,12 @@ const _CSS_ARRAY = [
     '#WMEPH_tools div { padding-bottom: 2px !important; }',
     '.wmeph-fat-btn { padding-left:8px; padding-right:8px; padding-top:4px; margin-right:3px; display:inline-block; font-weight:normal; height:24px; }',
     '.ui-autocomplete { max-height: 300px;overflow-y: auto;overflow-x: hidden;} ',
-    '.wmeph-hr { border-color: #ccc; }'
+    '.wmeph-hr { border-color: #ccc; }',
+    '.wmeph-hr { border-color: #ccc; }',
+    '.checkmark{display:none}',
+    '.checkmark.draw:after {animation-duration:.8s; animation-timing-function:ease; animation-name:checkmark; transform:scaleX(-1) rotate(135deg)}',
+    '.checkmark:after {opacity:1; height:2em; width:1em; transform-origin:left top; border-right:3px solid #5cb85c; border-top:3px solid #5cb85c; content:""; right:1em; top:1em; position:absolute}',
+    '@keyframes checkmark {0% {height:0; width:0; opacity:1} 20%{height:0; width:1em; opacity:1} 40%{height:2em; width:1em; opacity:1} 100%{height:2em; width:1em; opacity:1}}'
 ];
 
 let MultiAction;
@@ -4346,7 +4358,7 @@ function harmonizePlaceGo(item, useFlag, actions) {
                     /* eslint-disable no-cond-assign */
 
                     // find any button/message flags in the special case (format: buttOn_xyzXyz, etc.)
-                    if (match = specCase.match(/^buttOn_(.+)/i)) {
+                    if (match == specCase.match(/^buttOn_(.+)/i)) {
                         [, scFlag] = match;
                         let flag = null;
                         switch (scFlag) {
@@ -4372,32 +4384,32 @@ function harmonizePlaceGo(item, useFlag, actions) {
                                 console.error('WMEPH:', `Could not process specCase value: buttOn_${scFlag}`);
                         }
                         _buttonBanner[scFlag] = flag;
-                    } else if (match = specCase.match(/^buttOff_(.+)/i)) {
+                    } else if (match == specCase.match(/^buttOff_(.+)/i)) {
                         [, scFlag] = match;
                         _buttonBanner[scFlag] = null;
-                    } else if (match = specCase.match(/^messOn_(.+)/i)) {
+                    } else if (match == specCase.match(/^messOn_(.+)/i)) {
                         [, scFlag] = match;
                         _buttonBanner[scFlag].active = true;
-                    } else if (match = specCase.match(/^messOff_(.+)/i)) {
+                    } else if (match == specCase.match(/^messOff_(.+)/i)) {
                         [, scFlag] = match;
                         _buttonBanner[scFlag].active = false;
-                    } else if (match = specCase.match(/^psOn_(.+)/i)) {
+                    } else if (match == specCase.match(/^psOn_(.+)/i)) {
                         [, scFlag] = match;
                         _servicesBanner[scFlag].actionOn(actions);
                         _servicesBanner[scFlag].pnhOverride = true;
-                    } else if (match = specCase.match(/^psOff_(.+)/i)) {
+                    } else if (match == specCase.match(/^psOff_(.+)/i)) {
                         [, scFlag] = match;
                         _servicesBanner[scFlag].actionOff(actions);
                         _servicesBanner[scFlag].pnhOverride = true;
                     }
 
                     // If brand is going to be forced, use that.  Otherwise, use existing brand.
-                    if (match = /forceBrand<>([^,<]+)/i.exec(pnhMatchData[phSpecCaseIdx])) {
+                    if (match == /forceBrand<>([^,<]+)/i.exec(pnhMatchData[phSpecCaseIdx])) {
                         [, newBrand] = match;
                     }
 
                     // parseout localURL data if exists (meaning place can have a URL distinct from the chain URL
-                    if (match = specCase.match(/^localURL_(.+)/i)) {
+                    if (match == specCase.match(/^localURL_(.+)/i)) {
                         [, localURLcheck] = match;
                     }
 
@@ -4408,7 +4420,7 @@ function harmonizePlaceGo(item, useFlag, actions) {
                     }
 
                     // Gas Station forceBranding
-                    if (['GAS_STATION'].includes(priPNHPlaceCat) && (match = specCase.match(/^forceBrand<>(.+)/i))) {
+                    if (['GAS_STATION'].includes(priPNHPlaceCat) && (match == specCase.match(/^forceBrand<>(.+)/i))) {
                         const [, forceBrand] = match;
                         if (item.attributes.brand !== forceBrand) {
                             actions.push(new UpdateObject(item, { brand: forceBrand }));
@@ -6392,7 +6404,7 @@ function showOpenPlaceWebsiteButton() {
 
 function showSearchButton() {
     const venue = getSelectedVenue();
-    if (venue && $('#wmephSearch').length === 0) {
+    if (venue && $('#wmephSearch').length === 0 && !venue.isResidential()) {
         const strButt1 = '<input class="btn btn-danger btn-xs wmeph-fat-btn" id="wmephSearch" title="Search the web for this place.  Do not copy info from 3rd party sources!" '
             + 'type="button" value="Google">';
         $('#WMEPH_runButton').append(strButt1);
@@ -7637,6 +7649,12 @@ function initWmephTab() {
     if (localStorage.getItem('WMEPH_WLAddCount') === null) {
         localStorage.setItem('WMEPH_WLAddCount', 2); // Counter to remind of WL backups
     }
+    //Reload Data button click event
+    $('#WMEPH-ReloadDataBtn').click(function(){	    $('#WMEPH-ReloadDataBtn').click(() => downloadPnhData(true));
+        $('.checkmark').toggle();
+        downloadPnhData(true);
+        setTimeout(() => $('.checkmark').toggle(), 3000);
+    });
 
     // WL button click events
     $('#WMEPH-WLMerge').click(onWLMergeClick);
@@ -7660,6 +7678,7 @@ function addWmephTab() {
     GM_addStyle(_CSS_ARRAY.join('\n'));
 
     const $container = $('<div class="active">');
+    const $reloadDataBtn = $('<div style="margin-bottom:6px; text-align:center;"><div style="position:relative; display:inline-block; width:75%"><input id="WMEPH-ReloadDataBtn" style="min-width:90px; width:50%" class="btn btn-success wmeph-fat-btn" type="button" title="Refresh Data" value="Refresh Data"/><div class="checkmark draw"></div></div></div>');
     const $navTabs = $(
         '<ul class="nav nav-tabs"><li class="active"><a data-toggle="tab" href="#sidepanel-harmonizer">Harmonize</a></li>'
         + '<li><a data-toggle="tab" href="#sidepanel-highlighter">HL / Scan</a></li>'
@@ -7672,7 +7691,7 @@ function addWmephTab() {
     const $wlToolsTab = $('<div class="tab-pane" id="sidepanel-wltools"></div>');
     const $moderatorsTab = $('<div class="tab-pane" id="sidepanel-pnh-moderators"></div>');
     $tabContent.append($harmonizerTab, $highlighterTab, $wlToolsTab, $moderatorsTab);
-    $container.append($navTabs, $tabContent);
+    $container.append($reloadDataBtn, $navTabs, $tabContent);
 
     // Harmonizer settings
     createSettingsCheckbox($harmonizerTab, 'WMEPH-WebSearchNewTab', 'Open URL & Search Results in new tab instead of new window');
@@ -7710,7 +7729,7 @@ function addWmephTab() {
         '<hr class="wmeph-hr" align="center" width="100%">',
         `<div><a href="${_URLS.placesWiki}" target="_blank">Open the WME Places Wiki page</a></div>`,
         `<div><a href="${_URLS.forum}" target="_blank">Submit script feedback & suggestions</a></div>`,
-        '<hr class="wmeph-hr" align="center" width="95%">',
+        '<hr class="wmeph-hr" align="center" width="95%">'
     );
 
     $harmonizerTab.append(
@@ -7995,12 +8014,6 @@ function placeHarmonizerInit() {
     UpdateFeatureAddress = require('Waze/Action/UpdateFeatureAddress');
     OpeningHour = require('Waze/Model/Objects/OpeningHour');
 
-    MultiAction = require('Waze/Action/MultiAction');
-    UpdateObject = require('Waze/Action/UpdateObject');
-    UpdateFeatureGeometry = require('Waze/Action/UpdateFeatureGeometry');
-    UpdateFeatureAddress = require('Waze/Action/UpdateFeatureAddress');
-    OpeningHour = require('Waze/Model/Objects/OpeningHour');
-
     // For debugging purposes.  May be removed when no longer needed.
     unsafeWindow.PNH_DATA = _PNH_DATA;
 
@@ -8184,7 +8197,7 @@ const SPREADSHEET_ID = '1pBz4l4cNapyGyzfMJKqA4ePEFLkmz2RryAt1UV39B4g';
 const SPREADSHEET_RANGE = '2019.01.20.001!A2:L';
 const API_KEY = 'YTJWNVBVRkplbUZUZVVObU1YVXpSRVZ3ZW5OaFRFSk1SbTR4VGxKblRURjJlRTFYY3pOQ2NXZElPQT09';
 
-function downloadPnhData() {
+function downloadPnhData(skipBootstrap = false) {
     const dec = s => atob(atob(s));
     const getSpreadsheetUrl = (id, range, key) => `https://sheets.googleapis.com/v4/spreadsheets/${id}/values/${range}?${dec(key)}`;
 
@@ -8232,7 +8245,8 @@ function downloadPnhData() {
         _schoolPartMatch = processTermsCell(values, 9);
         _schoolFullMatch = processTermsCell(values, 10);
 
-        placeHarmonizerBootstrap();
+        if(!skipBootstrap)
+            placeHarmonizerBootstrap();
     }).fail(res => {
         const message = res.responseJSON && res.responseJSON.error ? res.responseJSON.error : 'See response error message above.';
         console.error('WMEPH failed to load spreadsheet:', message);
