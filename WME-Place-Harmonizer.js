@@ -4355,7 +4355,7 @@ function harmonizePlaceGo(item, useFlag, actions) {
                     /* eslint-disable no-cond-assign */
 
                     // find any button/message flags in the special case (format: buttOn_xyzXyz, etc.)
-                    if (match == specCase.match(/^buttOn_(.+)/i)) {
+                    if (match = specCase.match(/^buttOn_(.+)/i)) {
                         [, scFlag] = match;
                         let flag = null;
                         switch (scFlag) {
@@ -4381,32 +4381,32 @@ function harmonizePlaceGo(item, useFlag, actions) {
                                 console.error('WMEPH:', `Could not process specCase value: buttOn_${scFlag}`);
                         }
                         _buttonBanner[scFlag] = flag;
-                    } else if (match == specCase.match(/^buttOff_(.+)/i)) {
+                    } else if (match = specCase.match(/^buttOff_(.+)/i)) {
                         [, scFlag] = match;
                         _buttonBanner[scFlag] = null;
-                    } else if (match == specCase.match(/^messOn_(.+)/i)) {
+                    } else if (match = specCase.match(/^messOn_(.+)/i)) {
                         [, scFlag] = match;
                         _buttonBanner[scFlag].active = true;
-                    } else if (match == specCase.match(/^messOff_(.+)/i)) {
+                    } else if (match = specCase.match(/^messOff_(.+)/i)) {
                         [, scFlag] = match;
                         _buttonBanner[scFlag].active = false;
-                    } else if (match == specCase.match(/^psOn_(.+)/i)) {
+                    } else if (match = specCase.match(/^psOn_(.+)/i)) {
                         [, scFlag] = match;
                         _servicesBanner[scFlag].actionOn(actions);
                         _servicesBanner[scFlag].pnhOverride = true;
-                    } else if (match == specCase.match(/^psOff_(.+)/i)) {
+                    } else if (match = specCase.match(/^psOff_(.+)/i)) {
                         [, scFlag] = match;
                         _servicesBanner[scFlag].actionOff(actions);
                         _servicesBanner[scFlag].pnhOverride = true;
                     }
 
                     // If brand is going to be forced, use that.  Otherwise, use existing brand.
-                    if (match == /forceBrand<>([^,<]+)/i.exec(pnhMatchData[phSpecCaseIdx])) {
+                    if (match = /forceBrand<>([^,<]+)/i.exec(pnhMatchData[phSpecCaseIdx])) {
                         [, newBrand] = match;
                     }
 
                     // parseout localURL data if exists (meaning place can have a URL distinct from the chain URL
-                    if (match == specCase.match(/^localURL_(.+)/i)) {
+                    if (match = specCase.match(/^localURL_(.+)/i)) {
                         [, localURLcheck] = match;
                     }
 
@@ -4417,7 +4417,7 @@ function harmonizePlaceGo(item, useFlag, actions) {
                     }
 
                     // Gas Station forceBranding
-                    if (['GAS_STATION'].includes(priPNHPlaceCat) && (match == specCase.match(/^forceBrand<>(.+)/i))) {
+                    if (['GAS_STATION'].includes(priPNHPlaceCat) && (match = specCase.match(/^forceBrand<>(.+)/i))) {
                         const [, forceBrand] = match;
                         if (item.attributes.brand !== forceBrand) {
                             actions.push(new UpdateObject(item, { brand: forceBrand }));
@@ -4535,13 +4535,13 @@ function harmonizePlaceGo(item, useFlag, actions) {
                         } else if (tempLocalURL[tlix] === 'ph_longitudePM') {
                             _customStoreFinderLocalURL += itemGPS.lon;
                         } else if (tempLocalURL[tlix] === 'ph_latitudePMBuffMin') {
-                            _customStoreFinderLocalURL += (itemGPS.lat - 0.15).toString();
+                            _customStoreFinderLocalURL += (itemGPS.lat - 0.01).toString();
                         } else if (tempLocalURL[tlix] === 'ph_longitudePMBuffMin') {
-                            _customStoreFinderLocalURL += (itemGPS.lon - 0.15).toString();
+                            _customStoreFinderLocalURL += (itemGPS.lon - 0.01).toString();
                         } else if (tempLocalURL[tlix] === 'ph_latitudePMBuffMax') {
-                            _customStoreFinderLocalURL += (itemGPS.lat + 0.15).toString();
+                            _customStoreFinderLocalURL += (itemGPS.lat + 0.01).toString();
                         } else if (tempLocalURL[tlix] === 'ph_longitudePMBuffMax') {
-                            _customStoreFinderLocalURL += (itemGPS.lon + 0.15).toString();
+                            _customStoreFinderLocalURL += (itemGPS.lon + 0.01).toString();
                         } else if (tempLocalURL[tlix] === 'ph_houseNumber') {
                             _customStoreFinderLocalURL += (item.attributes.houseNumber ? item.attributes.houseNumber : '');
                         } else {
@@ -4879,10 +4879,6 @@ function harmonizePlaceGo(item, useFlag, actions) {
                     approvalAddon = `?entry.925969794=${pnhNameTempWeb}&entry.50214576=${approvalMessage}&entry.1749047694=${suffix}`;
                     break;
                 case 'SCR': regionFormURL = 'https://docs.google.com/forms/d/1KZzLdlX0HLxED5Bv0wFB-rWccxUp2Mclih5QJIQFKSQ/viewform';
-                    newPlaceAddon = `?entry.925969794=${encodedTempSubmitName}&entry.1970139752=${encodedUrlSubmit}&entry.1749047694=${suffix}`;
-                    approvalAddon = `?entry.925969794=${pnhNameTempWeb}&entry.50214576=${approvalMessage}&entry.1749047694=${suffix}`;
-                    break;
-                case 'TX': regionFormURL = 'https://docs.google.com/forms/d/1x7VM7ofPOKVnWOaX7d70OWXpnVKf6Mkadn4dgYxx4ic/viewform';
                     newPlaceAddon = `?entry.925969794=${encodedTempSubmitName}&entry.1970139752=${encodedUrlSubmit}&entry.1749047694=${suffix}`;
                     approvalAddon = `?entry.925969794=${pnhNameTempWeb}&entry.50214576=${approvalMessage}&entry.1749047694=${suffix}`;
                     break;
