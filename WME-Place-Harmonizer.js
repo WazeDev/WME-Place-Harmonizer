@@ -2,7 +2,7 @@
 // ==UserScript==
 // @name        WME Place Harmonizer
 // @namespace   WazeUSA
-// @version     2020.06.04.002
+// @version     2020.06.06.001
 // @description Harmonizes, formats, and locks a selected place
 // @author      WMEPH Development Group
 // @include     /^https:\/\/(www|beta)\.waze\.com\/(?!user\/)(.{2,6}\/)?editor\/?.*$/
@@ -34,6 +34,9 @@
 
 // Script update info
 const _WHATS_NEW_LIST = { // New in this version
+    '2020.06.06.001': [
+        'Further correction for 6/4 edits, adjust bounding box values for localized locator'
+        ],
     '2020.06.04.002': [
         'Added Refresh Data button, with data refresh completion checkmark animation, & removed the Google button on RPPs'
         ],
@@ -4535,13 +4538,13 @@ function harmonizePlaceGo(item, useFlag, actions) {
                         } else if (tempLocalURL[tlix] === 'ph_longitudePM') {
                             _customStoreFinderLocalURL += itemGPS.lon;
                         } else if (tempLocalURL[tlix] === 'ph_latitudePMBuffMin') {
-                            _customStoreFinderLocalURL += (itemGPS.lat - 0.01).toString();
+                            _customStoreFinderLocalURL += (itemGPS.lat - 0.025).toString();
                         } else if (tempLocalURL[tlix] === 'ph_longitudePMBuffMin') {
-                            _customStoreFinderLocalURL += (itemGPS.lon - 0.01).toString();
+                            _customStoreFinderLocalURL += (itemGPS.lon - 0.025).toString();
                         } else if (tempLocalURL[tlix] === 'ph_latitudePMBuffMax') {
-                            _customStoreFinderLocalURL += (itemGPS.lat + 0.01).toString();
+                            _customStoreFinderLocalURL += (itemGPS.lat + 0.025).toString();
                         } else if (tempLocalURL[tlix] === 'ph_longitudePMBuffMax') {
-                            _customStoreFinderLocalURL += (itemGPS.lon + 0.01).toString();
+                            _customStoreFinderLocalURL += (itemGPS.lon + 0.025).toString();
                         } else if (tempLocalURL[tlix] === 'ph_houseNumber') {
                             _customStoreFinderLocalURL += (item.attributes.houseNumber ? item.attributes.houseNumber : '');
                         } else {
