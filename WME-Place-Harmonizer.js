@@ -2,7 +2,7 @@
 // ==UserScript==
 // @name        WME Place Harmonizer Beta
 // @namespace   WazeUSA
-// @version     2020.06.08.001
+// @version     2020.06.10.001
 // @description Harmonizes, formats, and locks a selected place
 // @author      WMEPH Development Group
 // @include     /^https:\/\/(www|beta)\.waze\.com\/(?!user\/)(.{2,6}\/)?editor\/?.*$/
@@ -4404,7 +4404,7 @@ function harmonizePlaceGo(item, useFlag, actions) {
                     }
 
                     // If brand is going to be forced, use that.  Otherwise, use existing brand.
-                    if (match == /forceBrand<>([^,<]+)/i.exec(pnhMatchData[phSpecCaseIdx])) {
+                    if (match = /forceBrand<>([^,<]+)/i.exec(pnhMatchData[phSpecCaseIdx])) {
                         [, newBrand] = match;
                     }
 
