@@ -2,7 +2,7 @@
 // ==UserScript==
 // @name        WME Place Harmonizer
 // @namespace   WazeUSA
-// @version     2020.06.06.002
+// @version     2020.09.07.001
 // @description Harmonizes, formats, and locks a selected place
 // @author      WMEPH Development Group
 // @include     /^https:\/\/(www|beta)\.waze\.com\/(?!user\/)(.{2,6}\/)?editor\/?.*$/
@@ -34,15 +34,18 @@
 
 // Script update info
 const _WHATS_NEW_LIST = { // New in this version
+    '2020.09.07.001': [
+        'Fixed a bug with the data reload button. Updated button styles to remove bold font introduced with latest WME update.'
+    ],
     '2020.06.06.001': [
         'Further correction for 6/4 edits, adjust bounding box values for localized locator'
-        ],
+    ],
     '2020.06.04.002': [
         'Added Refresh Data button, with data refresh completion checkmark animation, & removed the Google button on RPPs'
-        ],
+    ],
     '2020.06.02.001': [
         'Bug fix due to latest WME release.'
-        ],
+    ],
     '2020.03.31.001': [
         'FIXED: WME removed normalized user rank property.'
     ],
@@ -101,7 +104,7 @@ const _WHATS_NEW_LIST = { // New in this version
 
 const _CSS_ARRAY = [
     '#WMEPH_banner .wmeph-btn { background-color: #fbfbfb; box-shadow: 0 2px 0 #aaa; border: solid 1px #bbb; font-weight:normal; margin-bottom: 2px; margin-right:4px}',
-    '.wmeph-btn, .wmephwl-btn { height:19px; }',
+    '.wmeph-btn, .wmephwl-btn { height:19px; font-family: "Boing", sans-serif; }',
     '.btn.wmeph-btn { padding: 0px 3px }',
     '.btn.wmephwl-btn { padding: 0px 1px 0px 2px; height: 18px; box-shadow: 0 2px 0 #b3b3b3;}',
     '#WMEPH_banner .banner-row { padding:2px 4px; }',
@@ -116,7 +119,7 @@ const _CSS_ARRAY = [
     '#WMEPH_banner div:last-child { padding-bottom: 3px !important; }',
     '#WMEPH_runButton { padding-bottom: 6px; padding-top: 3px; width: 290; color: black; font-size: 15px; margin-right: auto; margin-left: 4px; }',
     '#WMEPH_tools div { padding-bottom: 2px !important; }',
-    '.wmeph-fat-btn { padding-left:8px; padding-right:8px; padding-top:4px; margin-right:3px; display:inline-block; font-weight:normal; height:24px; }',
+    '.wmeph-fat-btn { padding-left:8px; padding-right:8px; padding-top:4px; margin-right:3px; display:inline-block; font-weight:normal; height:24px; font-family: "Boing", sans-serif; }',
     '.ui-autocomplete { max-height: 300px;overflow-y: auto;overflow-x: hidden;} ',
     '.wmeph-hr { border-color: #ccc; }',
     '.wmeph-hr { border-color: #ccc; }',
@@ -7645,8 +7648,9 @@ function initWmephTab() {
     if (localStorage.getItem('WMEPH_WLAddCount') === null) {
         localStorage.setItem('WMEPH_WLAddCount', 2); // Counter to remind of WL backups
     }
-    //Reload Data button click event
-    $('#WMEPH-ReloadDataBtn').click(function(){	    $('#WMEPH-ReloadDataBtn').click(() => downloadPnhData(true));
+
+    // Reload Data button click event
+    $('#WMEPH-ReloadDataBtn').click(() => {
         $('.checkmark').toggle();
         downloadPnhData(true);
         setTimeout(() => $('.checkmark').toggle(), 3000);
@@ -8241,7 +8245,7 @@ function downloadPnhData(skipBootstrap = false) {
         _schoolPartMatch = processTermsCell(values, 9);
         _schoolFullMatch = processTermsCell(values, 10);
 
-        if(!skipBootstrap)
+        if (!skipBootstrap)
             placeHarmonizerBootstrap();
     }).fail(res => {
         const message = res.responseJSON && res.responseJSON.error ? res.responseJSON.error : 'See response error message above.';
