@@ -2,7 +2,7 @@
 // ==UserScript==
 // @name        WME Place Harmonizer
 // @namespace   WazeUSA
-// @version     2020.09.19.001
+// @version     2020.09.19.002
 // @description Harmonizes, formats, and locks a selected place
 // @author      WMEPH Development Group
 // @include     /^https:\/\/(www|beta)\.waze\.com\/(?!user\/)(.{2,6}\/)?editor\/?.*$/
@@ -6272,7 +6272,7 @@ function assembleServicesBanner() {
                 }
             });
             if ($rowDiv.length) {
-                $rowDiv.prepend('<span class="control-label" title="Verify all Place services before saving">Services (select all that apply):</span><br>');
+                $rowDiv.prepend('<span class="control-label" title="Verify all Place services before saving">Services (select any that apply):</span><br>');
             }
             rowDivs.push($rowDiv);
         }
