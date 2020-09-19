@@ -2,7 +2,7 @@
 // ==UserScript==
 // @name        WME Place Harmonizer
 // @namespace   WazeUSA
-// @version     2020.09.07.001
+// @version     2020.09.19.001
 // @description Harmonizes, formats, and locks a selected place
 // @author      WMEPH Development Group
 // @include     /^https:\/\/(www|beta)\.waze\.com\/(?!user\/)(.{2,6}\/)?editor\/?.*$/
@@ -34,6 +34,9 @@
 
 // Script update info
 const _WHATS_NEW_LIST = { // New in this version
+    '2020.09.19.001': [
+        'Updated place service buttons title.'
+    ],
     '2020.09.07.001': [
         'Fixed a bug with the data reload button. Updated button styles to remove bold font introduced with latest WME update.'
     ],
@@ -6269,7 +6272,7 @@ function assembleServicesBanner() {
                 }
             });
             if ($rowDiv.length) {
-                $rowDiv.prepend('<span class="control-label">Add services:</span><br>');
+                $rowDiv.prepend('<span class="control-label" title="Verify all Place services before saving">Services (select all that apply):</span><br>');
             }
             rowDivs.push($rowDiv);
         }
