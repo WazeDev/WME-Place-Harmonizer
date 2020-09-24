@@ -2,7 +2,7 @@
 // ==UserScript==
 // @name        WME Place Harmonizer Beta
 // @namespace   WazeUSA
-// @version     2020.09.19.002
+// @version     2020.09.23.001
 // @description Harmonizes, formats, and locks a selected place
 // @author      WMEPH Development Group
 // @include     /^https:\/\/(www|beta)\.waze\.com\/(?!user\/)(.{2,6}\/)?editor\/?.*$/
@@ -33,7 +33,15 @@
 /* global require */
 
 // Script update info
+
+// BE SURE TO SET THIS TO NULL OR AN EMPTY STRING WHEN RELEASING A NEW UPDATE.
+const _SCRIPT_UPDATE_MESSAGE = '<p><b>WMEPH will no longer automatically add any services.</b></p>'
++ '<p>This was requested by senior editors.</p><p>Please remember to add any services provided by the location before saving a Place.</p>';
+
 const _WHATS_NEW_LIST = { // New in this version
+    '2020.09.23.001': [
+        'Removed auto-adding of common services, based on editor feedback that it was causing issues.'
+    ],
     '2020.09.19.001': [
         'Updated place service buttons title.'
     ],
@@ -4955,24 +4963,13 @@ function harmonizePlaceGo(item, useFlag, actions) {
                         catDataTemp = catData[iii].split('|');
                         for (let psix = 0; psix < servHeaders.length; psix++) {
                             if (!_servicesBanner[servKeys[psix]].pnhOverride) {
-                                if (catDataTemp[servHeaders[psix]] === '1') { // These are automatically added to all countries/regions (if auto setting is on)
+                                if (catDataTemp[servHeaders[psix]] !== '') {
+                                    // This section of code previously checked for values of "1", "2", and state/region codes.
+                                    // A value of "2" or a state/region code would auto-add the service.  However, it was
+                                    // felt that this was a problem since it is difficult to prove that every place in a
+                                    // category would *always* offer a specific service.  So now, any value entered in the
+                                    // spreadsheet cell will only display the service button, not turn it on.
                                     _servicesBanner[servKeys[psix]].active = true;
-                                    if ($('#WMEPH-EnableServices').prop('checked')) {
-                                        // Automatically enable new services
-                                        _servicesBanner[servKeys[psix]].actionOn(actions);
-                                    }
-                                } else if (catDataTemp[servHeaders[psix]] === '2') { // these are never automatically added but shown
-                                    _servicesBanner[servKeys[psix]].active = true;
-                                } else if (catDataTemp[servHeaders[psix]] !== '') { // check for state/region auto add
-                                    _servicesBanner[servKeys[psix]].active = true;
-                                    if ($('#WMEPH-EnableServices').prop('checked')) {
-                                        const servAutoRegion = catDataTemp[servHeaders[psix]].replace(/,[^A-za-z0-9]*/g, ',').split(',');
-                                        // if the sheet data matches the state, region, or username then auto add
-                                        if (servAutoRegion.includes(state2L) || servAutoRegion.includes(region)
-                                            || servAutoRegion.includes(_USER.name)) {
-                                            _servicesBanner[servKeys[psix]].actionOn(actions);
-                                        }
-                                    }
                                 }
                             }
                         }
@@ -7620,7 +7617,6 @@ function initWmephTab() {
     initSettingsCheckbox('WMEPH-ShowPLAExitWhileClosed');
     if (_USER.isDevUser || _USER.isBetaUser || _USER.rank >= 2) {
         initSettingsCheckbox('WMEPH-DisablePLAExtProviderCheck');
-        initSettingsCheckbox('WMEPH-EnableServices');
         initSettingsCheckbox('WMEPH-AddAddresses');
         initSettingsCheckbox('WMEPH-EnableCloneMode');
         initSettingsCheckbox('WMEPH-AutoLockRPPs');
@@ -7708,7 +7704,6 @@ function addWmephTab() {
     createSettingsCheckbox($harmonizerTab, 'WMEPH-ShowPLAExitWhileClosed', 'Always ask if cars can exit parking lots');
     if (_USER.isDevUser || _USER.isBetaUser || _USER.rank >= 2) {
         createSettingsCheckbox($harmonizerTab, 'WMEPH-DisablePLAExtProviderCheck', 'Disable check for "Google place link" on Parking Lot Areas');
-        createSettingsCheckbox($harmonizerTab, 'WMEPH-EnableServices', 'Enable automatic addition of common services');
         createSettingsCheckbox($harmonizerTab, 'WMEPH-AddAddresses', 'Add detected address fields to places with no address');
         createSettingsCheckbox($harmonizerTab, 'WMEPH-EnableCloneMode', 'Enable place cloning tools');
         createSettingsCheckbox($harmonizerTab, 'WMEPH-AutoLockRPPs', 'Lock residential place points to region default');
@@ -8189,6 +8184,7 @@ function placeHarmonizerInit() {
 
 function placeHarmonizerBootstrap() {
     if (W && W.loginManager && W.loginManager.user && W.map && WazeWrap && WazeWrap.Ready && W.model.categoryBrands.PARKING_LOT && require) {
+        WazeWrap.Interface.ShowScriptUpdate(_SCRIPT_NAME, _SCRIPT_VERSION, _SCRIPT_UPDATE_MESSAGE);
         placeHarmonizerInit();
     } else {
         phlog('Waiting for WME map and login...');
