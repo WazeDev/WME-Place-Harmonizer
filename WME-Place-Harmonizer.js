@@ -2,7 +2,7 @@
 // ==UserScript==
 // @name        WME Place Harmonizer
 // @namespace   WazeUSA
-// @version     2020.09.23.001
+// @version     2020.10.03.001
 // @description Harmonizes, formats, and locks a selected place
 // @author      WMEPH Development Group
 // @include     /^https:\/\/(www|beta)\.waze\.com\/(?!user\/)(.{2,6}\/)?editor\/?.*$/
@@ -35,10 +35,12 @@
 // Script update info
 
 // BE SURE TO SET THIS TO NULL OR AN EMPTY STRING WHEN RELEASING A NEW UPDATE.
-const _SCRIPT_UPDATE_MESSAGE = '<p><b>WMEPH will no longer automatically add any services.</b></p>'
-+ '<p>This was requested by senior editors.</p><p>Please remember to add any services provided by the location before saving a Place.</p>';
+const _SCRIPT_UPDATE_MESSAGE = '';
 
 const _WHATS_NEW_LIST = { // New in this version
+    '2020.10.003': [
+        'Added ehcool68 to the list of NOR moderators. Welcome to the team, Eric!'
+    ],
     '2020.09.23.001': [
         'Removed auto-adding of common services, based on editor feedback that it was causing issues.'
     ],
@@ -7785,7 +7787,7 @@ function addWmephTab() {
         HI: ['Nacron'],
         MAR: ['jr1982jr', 'nzahn1', 'stephenr1966'],
         NER: ['jaywazin', 'SNYOWL'],
-        NOR: ['Joyriding', 'PesachZ'],
+        NOR: ['ehcool68', 'Joyriding', 'PesachZ'],
         NWR: ['dmee92', 'SkyviewGuru'],
         PLN: ['bretmcvey', 'dmee92', 'ehepner1977'],
         SAT: ['crazycaveman', 'whathappened15', 'xanderb'],
