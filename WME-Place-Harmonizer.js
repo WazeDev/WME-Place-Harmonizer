@@ -2,7 +2,7 @@
 // ==UserScript==
 // @name        WME Place Harmonizer
 // @namespace   WazeUSA
-// @version     2020.10.03.001
+// @version     2020.10.05.001
 // @description Harmonizes, formats, and locks a selected place
 // @author      WMEPH Development Group
 // @include     /^https:\/\/(www|beta)\.waze\.com\/(?!user\/)(.{2,6}\/)?editor\/?.*$/
@@ -38,7 +38,10 @@
 const _SCRIPT_UPDATE_MESSAGE = '';
 
 const _WHATS_NEW_LIST = { // New in this version
-    '2020.10.003': [
+    '2020.10.05.001': [
+        'Removed checks for HN validity. This may be implemented again in the future to reflect what Waze actually allows.'
+    ],
+    '2020.10.03.001': [
         'Added ehcool68 to the list of NOR moderators. Welcome to the team, Eric!'
     ],
     '2020.09.23.001': [
@@ -1857,9 +1860,10 @@ class WLActionFlag extends WLFlag {
 
 // Namespace to keep these grouped.
 let Flag = {
-    HnDashRemoved: class extends FlagBase {
-        constructor() { super(true, 0, 'Dash removed from house number. Verify'); }
-    },
+    // 2020-10-5 Disabling HN validity checks for now. See note on HnNonStandard flag for details.
+    // HnDashRemoved: class extends FlagBase {
+    //     constructor() { super(true, 0, 'Dash removed from house number. Verify'); }
+    // },
     FullAddressInference: class extends FlagBase {
         constructor() { super(true, 3, 'Missing address was inferred from nearby segments. Verify the address and run script again.'); }
 
@@ -2260,12 +2264,16 @@ let Flag = {
     //         $('input.house-number').focus();
     //     }
     // },
-    HnNonStandard: class extends WLFlag {
-        constructor() {
-            super(true, 3, 'House number is non-standard.', true,
-                'Whitelist non-standard HN', 'hnNonStandard');
-        }
-    },
+    // 2020-10-5 HN's with letters have been allowed since last year.  Currently, RPPs can be saved with a number
+    // followed by up to 4 letters but it's not clear if the app actually searches if only 1, 2, or more letters
+    // are present.  Other places can have a more flexible HN (up to 15 characters long, total. A single space between
+    // the # and letters. Etc)
+    // HnNonStandard: class extends WLFlag {
+    //     constructor() {
+    //         super(true, 3, 'House number is non-standard.', true,
+    //             'Whitelist non-standard HN', 'hnNonStandard');
+    //     }
+    // },
     HNRange: class extends WLFlag {
         constructor() {
             super(true, 2, 'House number seems out of range for the street name. Verify.', true,
@@ -5412,45 +5420,47 @@ function harmonizePlaceGo(item, useFlag, actions) {
             }
         }
     } else if (currentHN) {
-        let hnOK = false;
-        let updateHNflag = false;
-        const hnTemp = currentHN.replace(/[^\d]/g, ''); // Digits only
-        const hnTempDash = currentHN.replace(/[^\d-]/g, ''); // Digits and dashes only
-        if (hnTemp < 1000000 && state2L === 'NY' && addr.city.attributes.name === 'Queens' && hnTempDash.match(/^\d{1,4}-\d{1,4}$/g) !== null) {
-            updateHNflag = true;
-            hnOK = true;
-        }
-        if (hnTemp === currentHN && hnTemp < 1000000) { //  general check that HN is 6 digits or less, & that it is only [0-9]
-            hnOK = true;
-        }
-        if (state2L === 'HI' && hnTempDash.match(/^\d{1,2}-\d{1,4}$/g) !== null) {
-            if (hnTempDash === hnTempDash.match(/^\d{1,2}-\d{1,4}$/g)[0]) {
-                hnOK = true;
-            }
-        }
+        // 2020-10-5 Disabling HN validity checks for now. See the note on the HnNonStandard flag object for more details.
 
-        if (!hnOK) {
-            _buttonBanner.hnNonStandard = new Flag.HnNonStandard();
-            if (_wl.hnNonStandard) {
-                _buttonBanner.hnNonStandard.WLactive = false;
-                _buttonBanner.hnNonStandard.severity = 0;
-            } else {
-                lockOK = false;
-            }
-        }
-        if (updateHNflag) {
-            _buttonBanner.hnDashRemoved = new Flag.HnDashRemoved();
-            if (hpMode.harmFlag) {
-                actions.push(new UpdateObject(item, { houseNumber: hnTemp }));
-                _UPDATED_FIELDS.address.updated = true;
-            } else if (hpMode.hlFlag) {
-                if (item.attributes.residential) {
-                    _buttonBanner.hnDashRemoved.severity = 3;
-                } else {
-                    _buttonBanner.hnDashRemoved.severity = 1;
-                }
-            }
-        }
+        // let hnOK = false;
+        // let updateHNflag = false;
+        // const hnTemp = currentHN.replace(/[^\d]/g, ''); // Digits only
+        // const hnTempDash = currentHN.replace(/[^\d-]/g, ''); // Digits and dashes only
+        // if (hnTemp < 1000000 && state2L === 'NY' && addr.city.attributes.name === 'Queens' && hnTempDash.match(/^\d{1,4}-\d{1,4}$/g) !== null) {
+        //     updateHNflag = true;
+        //     // hnOK = true;
+        // }
+        // if (hnTemp === currentHN && hnTemp < 1000000) { //  general check that HN is 6 digits or less, & that it is only [0-9]
+        //     hnOK = true;
+        // }
+        // if (state2L === 'HI' && hnTempDash.match(/^\d{1,2}-\d{1,4}$/g) !== null) {
+        //     if (hnTempDash === hnTempDash.match(/^\d{1,2}-\d{1,4}$/g)[0]) {
+        //         hnOK = true;
+        //     }
+        // }
+
+        // if (!hnOK) {
+        //     _buttonBanner.hnNonStandard = new Flag.HnNonStandard();
+        //     if (_wl.hnNonStandard) {
+        //         _buttonBanner.hnNonStandard.WLactive = false;
+        //         _buttonBanner.hnNonStandard.severity = 0;
+        //     } else {
+        //         lockOK = false;
+        //     }
+        // }
+        // if (updateHNflag) {
+        //     _buttonBanner.hnDashRemoved = new Flag.HnDashRemoved();
+        //     if (hpMode.harmFlag) {
+        //         actions.push(new UpdateObject(item, { houseNumber: hnTemp }));
+        //         _UPDATED_FIELDS.address.updated = true;
+        //     } else if (hpMode.hlFlag) {
+        //         if (item.attributes.residential) {
+        //             _buttonBanner.hnDashRemoved.severity = 3;
+        //         } else {
+        //             _buttonBanner.hnDashRemoved.severity = 1;
+        //         }
+        //     }
+        // }
     }
 
     if ((!addr.city || addr.city.attributes.isEmpty)
