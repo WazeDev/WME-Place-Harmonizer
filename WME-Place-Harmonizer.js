@@ -5148,7 +5148,8 @@ function harmonizePlaceGo(item, useFlag, actions) {
                     _buttonBanner.noHours.severity = 0;
                 }
             }
-        } else {
+        } else if (!isAlwaysOpen(item)) {
+            // If it's not open 24/7, display the hours banner.
             if (item.attributes.openingHours.length === 1) { // if one set of hours exist, check for partial 24hrs setting
                 const hoursEntry = item.attributes.openingHours[0];
                 if (hoursEntry.days.length < 7 && /^0?0:00$/.test(hoursEntry.fromHour)
