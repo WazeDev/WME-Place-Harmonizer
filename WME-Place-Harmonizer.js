@@ -2,7 +2,7 @@
 // ==UserScript==
 // @name        WME Place Harmonizer Beta
 // @namespace   WazeUSA
-// @version     2020.10.05.001
+// @version     2020.10.13.001
 // @description Harmonizes, formats, and locks a selected place
 // @author      WMEPH Development Group
 // @include     /^https:\/\/(www|beta)\.waze\.com\/(?!user\/)(.{2,6}\/)?editor\/?.*$/
@@ -7793,7 +7793,7 @@ function addWmephTab() {
 
     const pnhModerators = {
         ATR: ['cotero2002', 'nnote'],
-        GLR: ['JustinS83'],
+        GLR: ['JustinS83', 'ojlaw'],
         HI: ['Nacron'],
         MAR: ['jr1982jr', 'nzahn1', 'stephenr1966'],
         NER: ['jaywazin', 'SNYOWL'],
