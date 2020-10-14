@@ -2,7 +2,7 @@
 // ==UserScript==
 // @name        WME Place Harmonizer
 // @namespace   WazeUSA
-// @version     2020.10.05.001
+// @version     2020.10.13.001
 // @description Harmonizes, formats, and locks a selected place
 // @author      WMEPH Development Group
 // @include     /^https:\/\/(www|beta)\.waze\.com\/(?!user\/)(.{2,6}\/)?editor\/?.*$/
@@ -5148,7 +5148,8 @@ function harmonizePlaceGo(item, useFlag, actions) {
                     _buttonBanner.noHours.severity = 0;
                 }
             }
-        } else {
+        } else if (!isAlwaysOpen(item)) {
+            // If it's not open 24/7, display the hours banner.
             if (item.attributes.openingHours.length === 1) { // if one set of hours exist, check for partial 24hrs setting
                 const hoursEntry = item.attributes.openingHours[0];
                 if (hoursEntry.days.length < 7 && /^0?0:00$/.test(hoursEntry.fromHour)
@@ -7793,7 +7794,7 @@ function addWmephTab() {
 
     const pnhModerators = {
         ATR: ['cotero2002', 'nnote'],
-        GLR: ['JustinS83'],
+        GLR: ['JustinS83', 'ojlaw'],
         HI: ['Nacron'],
         MAR: ['jr1982jr', 'nzahn1', 'stephenr1966'],
         NER: ['jaywazin', 'SNYOWL'],
