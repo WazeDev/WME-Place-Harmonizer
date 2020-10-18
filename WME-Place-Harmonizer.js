@@ -2,7 +2,7 @@
 // ==UserScript==
 // @name        WME Place Harmonizer Beta
 // @namespace   WazeUSA
-// @version     2020.10.13.001
+// @version     2020.10.18.001
 // @description Harmonizes, formats, and locks a selected place
 // @author      WMEPH Development Group
 // @include     /^https:\/\/(www|beta)\.waze\.com\/(?!user\/)(.{2,6}\/)?editor\/?.*$/
@@ -38,6 +38,10 @@
 const _SCRIPT_UPDATE_MESSAGE = '';
 
 const _WHATS_NEW_LIST = { // New in this version
+    '2020.10.18.001': [
+        'FIXED: Add External Provider button is not auto-filling place name.',
+        'NEW: Added a flag for HNs that contain more than 6 digits. Please let us know if you find valid HNs with more than 6 digits.'
+    ],
     '2020.10.05.001': [
         'Removed checks for HN validity. This may be implemented again in the future to reflect what Waze actually allows.'
     ],
@@ -61,60 +65,6 @@ const _WHATS_NEW_LIST = { // New in this version
     ],
     '2020.06.02.001': [
         'Bug fix due to latest WME release.'
-    ],
-    '2020.03.31.001': [
-        'FIXED: WME removed normalized user rank property.'
-    ],
-    '2020.03.18.001': [
-        'Bug fix for X-Ray Mode, caused by WME changes.'
-    ],
-    '2020.03.15.001': [
-        'FIXED: When clicking the "Use PNH URL" button, a window would open to report an error.'
-    ],
-    '2020.03.14.001': [
-        'Minor bug fix for missing street when using localized store locator.'
-    ],
-    '2020.01.07.001': [
-        'Bug fix due to latest WME release.'
-    ],
-    '2019.10.30.001': [
-        'Switch to WazeWrap alerts and event registrations.'
-    ],
-    '2019.07.25.001': [
-        'More bug fixes for latest WME release.'
-    ],
-    '2019.07.23.001': [
-        'Bug fix for latest WME release.'
-    ],
-    '2019.05.31.001': [
-        'Fixed an issue that was preventing WMEPH from running on some places.'
-    ],
-    '2019.05.28.001': [
-        'Some code optimizations.'
-    ],
-    '2019.05.24.001': [
-        'Fix green highlighting of WMEPH-modified fields in the edit panel.',
-        'Remove "auto-run on select" option.',
-        'Loosen requirements for Scenic Overlook category.'
-    ],
-    '2019.05.23.001': [
-        'Don\'t display WMEPH buttons when multiple places are selected.',
-        'A lot of code maintenance/cleanup',
-        'New version # format :)'
-    ],
-    '1.3.146': [
-        'FIXED: Moderator table mistakes, and updated its layout to be more compact.'],
-    '1.3.145': [
-        'NEW: Added a Moderators tab so people can bug moderators more, and me less :D'],
-    '1.3.143': [
-        'FIXED: HN entry field in WMEPH banner was not working. Replaced with "Edit Address" button.',
-        'FIXED: Adding external provider from WMEPH banner would sometimes go to the Category box.'
-    ],
-    '1.3.142': [
-        'FIXED: The "Nudge" buttons do not work in some cases.  After saving, the place is not nudged.'
-    ],
-    '1.3.141': [
-        'FIXED: WMEPH will not run on places where it finds potential duplicate places.'
     ]
 };
 
@@ -2780,7 +2730,7 @@ let Flag = {
             setTimeout(() => {
                 $('a[href="#venue-edit-general"]').click();
                 $('.external-providers-view a.add').focus().mousedown();
-                $('div.external-providers-view > div > ul > div > li > div > a').last().mousedown();
+                $('div.external-providers-view > div > ul > div > div > li > div > a').last().mousedown();
                 setTimeout(() => $('.select2-input').last().focus().val(venue.attributes.name).trigger('input'), 100);
             }, 100);
         }
