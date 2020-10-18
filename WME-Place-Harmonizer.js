@@ -2,7 +2,7 @@
 // ==UserScript==
 // @name        WME Place Harmonizer
 // @namespace   WazeUSA
-// @version     2020.10.13.001
+// @version     2020.10.18.001
 // @description Harmonizes, formats, and locks a selected place
 // @author      WMEPH Development Group
 // @include     /^https:\/\/(www|beta)\.waze\.com\/(?!user\/)(.{2,6}\/)?editor\/?.*$/
@@ -38,6 +38,10 @@
 const _SCRIPT_UPDATE_MESSAGE = '';
 
 const _WHATS_NEW_LIST = { // New in this version
+    '2020.10.18.001': [
+        'FIXED: Add External Provider button is not auto-filling place name.',
+        'NEW: Added a flag for HNs that contain more than 6 digits. Please let us know if you find valid HNs with more than 6 digits.'
+    ],
     '2020.10.05.001': [
         'Removed checks for HN validity. This may be implemented again in the future to reflect what Waze actually allows.'
     ],
@@ -61,89 +65,148 @@ const _WHATS_NEW_LIST = { // New in this version
     ],
     '2020.06.02.001': [
         'Bug fix due to latest WME release.'
-    ],
-    '2020.03.31.001': [
-        'FIXED: WME removed normalized user rank property.'
-    ],
-    '2020.03.18.001': [
-        'Bug fix for X-Ray Mode, caused by WME changes.'
-    ],
-    '2020.03.15.001': [
-        'FIXED: When clicking the "Use PNH URL" button, a window would open to report an error.'
-    ],
-    '2020.03.14.001': [
-        'Minor bug fix for missing street when using localized store locator.'
-    ],
-    '2020.01.07.001': [
-        'Bug fix due to latest WME release.'
-    ],
-    '2019.10.30.001': [
-        'Switch to WazeWrap alerts and event registrations.'
-    ],
-    '2019.07.25.001': [
-        'More bug fixes for latest WME release.'
-    ],
-    '2019.07.23.001': [
-        'Bug fix for latest WME release.'
-    ],
-    '2019.05.31.001': [
-        'Fixed an issue that was preventing WMEPH from running on some places.'
-    ],
-    '2019.05.28.001': [
-        'Some code optimizations.'
-    ],
-    '2019.05.24.001': [
-        'Fix green highlighting of WMEPH-modified fields in the edit panel.',
-        'Remove "auto-run on select" option.',
-        'Loosen requirements for Scenic Overlook category.'
-    ],
-    '2019.05.23.001': [
-        'Don\'t display WMEPH buttons when multiple places are selected.',
-        'A lot of code maintenance/cleanup',
-        'New version # format :)'
-    ],
-    '1.3.146': [
-        'FIXED: Moderator table mistakes, and updated its layout to be more compact.'],
-    '1.3.145': [
-        'NEW: Added a Moderators tab so people can bug moderators more, and me less :D'],
-    '1.3.143': [
-        'FIXED: HN entry field in WMEPH banner was not working. Replaced with "Edit Address" button.',
-        'FIXED: Adding external provider from WMEPH banner would sometimes go to the Category box.'
-    ],
-    '1.3.142': [
-        'FIXED: The "Nudge" buttons do not work in some cases.  After saving, the place is not nudged.'
-    ],
-    '1.3.141': [
-        'FIXED: WMEPH will not run on places where it finds potential duplicate places.'
     ]
 };
 
-const _CSS_ARRAY = [
-    '#WMEPH_banner .wmeph-btn { background-color: #fbfbfb; box-shadow: 0 2px 0 #aaa; border: solid 1px #bbb; font-weight:normal; margin-bottom: 2px; margin-right:4px}',
-    '.wmeph-btn, .wmephwl-btn { height:19px; font-family: "Boing", sans-serif; }',
-    '.btn.wmeph-btn { padding: 0px 3px }',
-    '.btn.wmephwl-btn { padding: 0px 1px 0px 2px; height: 18px; box-shadow: 0 2px 0 #b3b3b3;}',
-    '#WMEPH_banner .banner-row { padding:2px 4px; }',
-    '#WMEPH_banner .banner-row.red { color:#b51212; background-color:#f0dcdc; }',
-    '#WMEPH_banner .banner-row.blue { color:#3232e6; background-color:#dcdcf0; }',
-    '#WMEPH_banner .banner-row.yellow { color:#584a04; background-color:#f0f0c2; }',
-    '#WMEPH_banner .banner-row.gray { color:#3a3a3a; background-color:#eeeeee; }',
-    '#WMEPH_banner .banner-row .dupe { padding-left:8px; }',
-    '#WMEPH_banner { background-color:#fff; color:black; font-size:14px; padding-top:8px; padding-bottom:8px; margin-left:4px; margin-right:4px; line-height:18px; '
-    + 'margin-top:2px; border: solid 1px #8d8c8c; border-radius: 6px; margin-bottom: 4px;}',
-    '#WMEPH_banner input[type=text] { font-size: 13px !important; height:22px !important; font-family: "Open Sans", Alef, helvetica, sans-serif !important; }',
-    '#WMEPH_banner div:last-child { padding-bottom: 3px !important; }',
-    '#WMEPH_runButton { padding-bottom: 6px; padding-top: 3px; width: 290; color: black; font-size: 15px; margin-right: auto; margin-left: 4px; }',
-    '#WMEPH_tools div { padding-bottom: 2px !important; }',
-    '.wmeph-fat-btn { padding-left:8px; padding-right:8px; padding-top:4px; margin-right:3px; display:inline-block; font-weight:normal; height:24px; font-family: "Boing", sans-serif; }',
-    '.ui-autocomplete { max-height: 300px;overflow-y: auto;overflow-x: hidden;} ',
-    '.wmeph-hr { border-color: #ccc; }',
-    '.wmeph-hr { border-color: #ccc; }',
-    '.checkmark{display:none}',
-    '.checkmark.draw:after {animation-duration:.8s; animation-timing-function:ease; animation-name:checkmark; transform:scaleX(-1) rotate(135deg)}',
-    '.checkmark:after {opacity:1; height:2em; width:1em; transform-origin:left top; border-right:3px solid #5cb85c; border-top:3px solid #5cb85c; content:""; right:1em; top:1em; position:absolute}',
-    '@keyframes checkmark {0% {height:0; width:0; opacity:1} 20%{height:0; width:1em; opacity:1} 40%{height:2em; width:1em; opacity:1} 100%{height:2em; width:1em; opacity:1}}'
-];
+const _CSS = `
+#WMEPH_banner .wmeph-btn { 
+    background-color: #fbfbfb;
+    box-shadow: 0 2px 0 #aaa;
+    border: solid 1px #bbb;
+    font-weight:normal;
+    margin-bottom: 2px;
+    margin-right:4px
+}
+.wmeph-btn, .wmephwl-btn {
+    height: 19px;
+    font-family: "Boing", sans-serif;
+}
+.btn.wmeph-btn {
+    padding: 0px 3px;
+}
+.btn.wmephwl-btn {
+    padding: 0px 1px 0px 2px;
+    height: 18px;
+    box-shadow: 0 2px 0 #b3b3b3;
+}
+#WMEPH_banner .banner-row {
+    padding:2px 4px;
+}
+#WMEPH_banner .banner-row.red {
+    color:#b51212;
+    background-color:#f0dcdc;
+}
+#WMEPH_banner .banner-row.blue {
+    color:#3232e6;
+    background-color:#dcdcf0;
+}
+#WMEPH_banner .banner-row.yellow {
+    color:#584a04;
+    background-color:#f0f0c2;
+}
+#WMEPH_banner .banner-row.gray {
+    color:#3a3a3a;
+    background-color:#eeeeee;
+}
+#WMEPH_banner .banner-row .dupe {
+    padding-left:8px;
+}
+#WMEPH_banner {
+    background-color:#fff;
+    color:black; font-size:14px;
+    padding-top:8px;
+    padding-bottom:8px;
+    margin-left:4px;
+    margin-right:4px;
+    line-height:18px;
+    margin-top:2px;
+    border: solid 1px #8d8c8c;
+    border-radius: 6px;
+    margin-bottom: 4px;
+}
+#WMEPH_banner input[type=text] {
+    font-size: 13px !important;
+    height:22px !important;
+    font-family: "Open Sans", Alef, helvetica, sans-serif !important;
+}
+#WMEPH_banner div:last-child {
+    padding-bottom: 3px !important;
+}
+#WMEPH_runButton {
+    padding-bottom: 6px;
+    padding-top: 3px;
+    width: 290;
+    color: black;
+    font-size: 15px;
+    margin-right: auto;
+    margin-left: 4px;
+}
+#WMEPH_tools div {
+    padding-bottom: 2px !important;
+}
+.wmeph-fat-btn {
+    padding-left:8px;
+    padding-right:8px;
+    padding-top:4px;
+    margin-right:3px;
+    display:inline-block;
+    font-weight:normal;
+    height:24px;
+    font-family: "Boing", sans-serif;
+}
+.ui-autocomplete {
+    max-height: 300px;
+    overflow-y: auto;
+    overflow-x: hidden;
+} 
+.wmeph-hr {
+    border-color: #ccc;
+}
+.wmeph-hr {
+    border-color: #ccc;
+}
+.checkmark{
+    display: none
+}',
+.checkmark.draw:after {
+    animation-duration: .8s;
+    animation-timing-function: ease;
+    animation-name: checkmark;
+    transform: scaleX(-1) rotate(135deg)}
+.checkmark:after {
+    opacity: 1; 
+    height: 2em;
+    width: 1em;
+    transform-origin: left top;
+    border-right: 3px solid #5cb85c;
+    border-top: 3px solid #5cb85c;
+    content: "";
+    right: 1em;
+    top: 1em;
+    position: absolute
+}
+@keyframes checkmark {
+    0% {
+        height: 0;
+        width: 0;
+        opacity: 1
+    } 
+    20%{
+        height: 0;
+        width: 1em;
+        opacity: 1
+    }
+    40%{
+        height: 2em;
+        width: 1em;
+        opacity: 1
+    }
+    100%{
+        height: 2em;
+        width: 1em;
+        opacity: 1
+    }
+}`;
 
 let MultiAction;
 let UpdateObject;
@@ -2251,6 +2314,22 @@ let Flag = {
             }
         }
     },
+    HnTooManyDigits: class extends WLFlag {
+        constructor() {
+            super(true, 2, 'HN contains more than 6 digits. Please verify.', true, 'Whitelist long HN', 'hnTooManyDigits');
+        }
+
+        static eval(houseNumber, wl) {
+            const result = { flag: null };
+            if (!wl.hnTooManyDigits && houseNumber) {
+                houseNumber = houseNumber.replace(/[^0-9]/g, '');
+                if (houseNumber.length > 6) {
+                    result.flag = new Flag.HnTooManyDigits();
+                }
+            }
+            return result;
+        }
+    },
     // 2019-5-22 There's an issue in WME where it won't update the address displayed in the side panel
     // when the underlying model is updated.  I changed to the code below for a while, but we've
     // come up with a temporary fix using WW, so using the textbox entry should be OK now.
@@ -2651,7 +2730,7 @@ let Flag = {
             setTimeout(() => {
                 $('a[href="#venue-edit-general"]').click();
                 $('.external-providers-view a.add').focus().mousedown();
-                $('div.external-providers-view > div > ul > div > li > div > a').last().mousedown();
+                $('div.external-providers-view > div > ul > div > div > li > div > a').last().mousedown();
                 setTimeout(() => $('.select2-input').last().focus().val(venue.attributes.name).trigger('input'), 100);
             }, 100);
         }
@@ -3509,6 +3588,7 @@ function getButtonBanner() {
         pointNotArea: null,
         areaNotPoint: null,
         hnMissing: null,
+        hnTooManyDigits: null,
         hnNonStandard: null,
         HNRange: null,
         streetMissing: null,
@@ -5421,6 +5501,10 @@ function harmonizePlaceGo(item, useFlag, actions) {
             }
         }
     } else if (currentHN) {
+        _buttonBanner.hnTooManyDigits = Flag.HnTooManyDigits.eval(currentHN, _wl).flag;
+        if (_buttonBanner.hnTooManyDigits) {
+            lockOK = false;
+        }
         // 2020-10-5 Disabling HN validity checks for now. See the note on the HnNonStandard flag object for more details.
 
         // let hnOK = false;
@@ -7687,7 +7771,7 @@ function initWmephTab() {
 
 function addWmephTab() {
     // Set up the CSS
-    GM_addStyle(_CSS_ARRAY.join('\n'));
+    GM_addStyle(_CSS);
 
     const $container = $('<div class="active">');
     const $reloadDataBtn = $('<div style="margin-bottom:6px; text-align:center;"><div style="position:relative; display:inline-block; width:75%"><input id="WMEPH-ReloadDataBtn" style="min-width:90px; width:50%" class="btn btn-success wmeph-fat-btn" type="button" title="Refresh Data" value="Refresh Data"/><div class="checkmark draw"></div></div></div>');
