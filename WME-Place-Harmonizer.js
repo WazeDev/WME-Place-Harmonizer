@@ -2,7 +2,7 @@
 // ==UserScript==
 // @name        WME Place Harmonizer Beta
 // @namespace   WazeUSA
-// @version     2020.10.18.001
+// @version     2020.10.20.001
 // @description Harmonizes, formats, and locks a selected place
 // @author      WMEPH Development Group
 // @include     /^https:\/\/(www|beta)\.waze\.com\/(?!user\/)(.{2,6}\/)?editor\/?.*$/
@@ -38,6 +38,9 @@
 const _SCRIPT_UPDATE_MESSAGE = '';
 
 const _WHATS_NEW_LIST = { // New in this version
+    '2020.10.20.001': [
+        'FIXED: WMEPH not working in WME beta. This fix temporarily removes all PLs in WME beta. Error reports and new chain submission forms will not be auto-populated with PLs.'
+    ],
     '2020.10.18.001': [
         'FIXED: Add External Provider button is not auto-filling place name.',
         'NEW: Added a flag for HNs that contain more than 6 digits. Please let us know if you find valid HNs with more than 6 digits.'
@@ -8028,13 +8031,17 @@ function getCurrentPL() {
     //     return;
     // }
 
-    if ($('.WazeControlPermalink .permalink').attr('href').length > 0) {
-        return $('.WazeControlPermalink .permalink').attr('href');
+    let pl = '';
+    let elem = $('.WazeControlPermalink .permalink');
+    if (elem.length && elem.attr('href').length) {
+        pl = $('.WazeControlPermalink .permalink').attr('href');
+    } else {
+        elem = $('.WazeControlPermalink');
+        if (elem.length && elem.children('.fa-link').length) {
+            pl = elem.children('.fa-link')[0].href;
+        }
     }
-    if ($('.WazeControlPermalink').children('.fa-link').length > 0) {
-        return $('.WazeControlPermalink').children('.fa-link')[0].href;
-    }
-    return '';
+    return pl;
 }
 
 // Sets up error reporting
