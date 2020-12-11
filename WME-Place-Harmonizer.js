@@ -2,7 +2,7 @@
 // ==UserScript==
 // @name        WME Place Harmonizer Beta
 // @namespace   WazeUSA
-// @version     2020.10.20.001
+// @version     2020.12.10.001
 // @description Harmonizes, formats, and locks a selected place
 // @author      WMEPH Development Group
 // @include     /^https:\/\/(www|beta)\.waze\.com\/(?!user\/)(.{2,6}\/)?editor\/?.*$/
@@ -8223,7 +8223,7 @@ function placeHarmonizerInit() {
     addWmephTab(); // initialize the settings tab
 
     // Event listeners
-    W.selectionManager.events.registerPriority('selectionchanged', this, () => errorHandler(checkSelection));
+    W.selectionManager.events.register('selectionchanged', this, () => errorHandler(checkSelection));
     W.model.venues.on('objectssynced', () => errorHandler(destroyDupeLabels));
     W.model.venues.on('objectssynced', e => errorHandler(() => syncWL(e)));
     W.model.venues.on('objectschanged', () => errorHandler(onObjectsChanged));
