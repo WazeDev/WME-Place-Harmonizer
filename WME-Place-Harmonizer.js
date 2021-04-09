@@ -5335,7 +5335,7 @@ function harmonizePlaceGo(item, useFlag, actions) {
                 _buttonBanner.isThisAPostOffice = Flag.IsThisAPostOffice.eval(item, _newName).flag;
             } else {
                 if (hpMode.harmFlag) {
-                    _customStoreFinderURL = 'https://tools.usps.com/go/POLocatorAction.action';
+                    _customStoreFinderURL = 'https://tools.usps.com/find-location.htm';
                     _customStoreFinder = true;
                     _buttonBanner.PlaceWebsite = new Flag.PlaceWebsite();
                     _buttonBanner.NewPlaceSubmit = null;
