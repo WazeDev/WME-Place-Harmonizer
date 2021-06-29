@@ -5348,9 +5348,9 @@ function harmonizePlaceGo(item, useFlag, actions) {
 
                 let postOfficeRegEx;
                 if (state2L === 'KY' || (state2L === 'NY' && addr.city && ['Queens', 'Bronx', 'Manhattan', 'Brooklyn', 'Staten Island'].includes(addr.city.attributes.name))) {
-                    postOfficeRegEx = /^post office \d{5}( [-–](?: cpu| vpo)?(?: [a-z]+){1,})?$/i;
+                    postOfficeRegEx = /^post office \d{5}( [-–](?: cpu| vpo)?(?: [a-z0-9]+){1,})?$/i;
                 } else {
-                    postOfficeRegEx = /^post office [-–](?: cpu| vpo)?(?: [a-z]+){1,}$/i;
+                    postOfficeRegEx = /^post office [-–](?: cpu| vpo)?(?: [a-z0-9]+){1,}$/i;
                 }
                 _newName = _newName.trimLeft().replace(/ {2,}/, ' ');
                 if (newNameSuffix) {
