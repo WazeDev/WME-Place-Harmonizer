@@ -2,7 +2,7 @@
 // ==UserScript==
 // @name        WME Place Harmonizer
 // @namespace   WazeUSA
-// @version     2021.08.05.001
+// @version     2022.05.15.001
 // @description Harmonizes, formats, and locks a selected place
 // @author      WMEPH Development Group
 // @include     /^https:\/\/(www|beta)\.waze\.com\/(?!user\/)(.{2,6}\/)?editor\/?.*$/
@@ -35,9 +35,12 @@
 // Script update info
 
 // BE SURE TO SET THIS TO NULL OR AN EMPTY STRING WHEN RELEASING A NEW UPDATE.
-const _SCRIPT_UPDATE_MESSAGE = '';
+const _SCRIPT_UPDATE_MESSAGE = 'FIXED: Highlighted point places don\'t appear correct when zoomed in above level 19.  After the fix, however, category icons do not appear.  This is something we can look into if it is a problem for people.';
 
 const _WHATS_NEW_LIST = { // New in this version
+    '2022.05.15.001': [
+        'FIXED: Highlighted point places don\'t appear correct when zoomed in above level 19.'
+    ],
     '2020.10.20.001': [
         'FIXED: WMEPH not working in WME beta. This fix temporarily removes all PLs in WME beta. Error reports and new chain submission forms will not be auto-populated with PLs.'
     ],
@@ -1405,12 +1408,18 @@ function toggleXrayMode(enable) {
     _layer.redraw();
 }
 
+function getPointRadius() {
+    return W.map.zoom > 19 ? 40 : 5;
+}
 function initializeHighlights() {
     const ruleGenerator = (value, symbolizer) => new W.Rule({
         filter: new OpenLayers.Filter.Comparison({
             type: '==',
             value,
             evaluate(venue) {
+                // TODO: Added the map zoom check to get around a bug when Waze devs changed to the new PP color and icon scheme when zoomed in.
+                // This just disables PP highlighting at zoom > 19.  Could probably be handled better?
+                // return venue && venue.model && venue.model.attributes.wmephSeverity === this.value && !(venue.model.isPoint() && W.map.zoom > 19);
                 return venue && venue.model && venue.model.attributes.wmephSeverity === this.value;
             }
         }),
@@ -1420,12 +1429,16 @@ function initializeHighlights() {
 
     const severity0 = ruleGenerator(0, {
         pointRadius: 5,
+        externalGraphic: '',
+        label: '',
         strokeWidth: 4,
         strokeColor: '#24ff14'
     });
 
     const severityLock = ruleGenerator('lock', {
         pointRadius: 5,
+        externalGraphic: '',
+        label: '',
         strokeColor: '#24ff14',
         strokeLinecap: 1,
         strokeDashstyle: '7 2',
@@ -1435,6 +1448,8 @@ function initializeHighlights() {
     const severity1 = ruleGenerator(1, {
         strokeColor: '#0055ff',
         strokeWidth: 4,
+        externalGraphic: '',
+        label: '',
         pointRadius: 7
     });
 
@@ -1443,18 +1458,24 @@ function initializeHighlights() {
         strokeColor: '#0055ff',
         strokeLinecap: 1,
         strokeDashstyle: '7 2',
+        externalGraphic: '',
+        label: '',
         strokeWidth: 5
     });
 
     const severity2 = ruleGenerator(2, {
         strokeColor: '#ff0',
         strokeWidth: 6,
+        externalGraphic: '',
+        label: '',
         pointRadius: 8
     });
 
     const severity3 = ruleGenerator(3, {
         strokeColor: '#ff0000',
         strokeWidth: 4,
+        externalGraphic: '',
+        label: '',
         pointRadius: 8
     });
 
@@ -1464,6 +1485,8 @@ function initializeHighlights() {
         strokeColor: '#f42',
         strokeLinecap: 1,
         strokeWidth: 13,
+        externalGraphic: '',
+        label: '',
         strokeDashstyle: '4 2'
     });
 
@@ -1474,6 +1497,8 @@ function initializeHighlights() {
         strokeColor: '#f4a',
         strokeLinecap: 1,
         strokeWidth: 10,
+        externalGraphic: '',
+        label: '',
         strokeDashstyle: '4 2'
     });
 
@@ -1484,6 +1509,8 @@ function initializeHighlights() {
         strokeColor: '#000',
         strokeLinecap: 1,
         strokeWidth: 10,
+        externalGraphic: '',
+        label: '',
         strokeDashstyle: '4 2'
     });
 
