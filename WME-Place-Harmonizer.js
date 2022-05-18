@@ -2,7 +2,7 @@
 // ==UserScript==
 // @name        WME Place Harmonizer Beta
 // @namespace   WazeUSA
-// @version     2022.05.15.001
+// @version     2022.05.17.001
 // @description Harmonizes, formats, and locks a selected place
 // @author      WMEPH Development Group
 // @include     /^https:\/\/(www|beta)\.waze\.com\/(?!user\/)(.{2,6}\/)?editor\/?.*$/
@@ -1417,9 +1417,6 @@ function initializeHighlights() {
             type: '==',
             value,
             evaluate(venue) {
-                // TODO: Added the map zoom check to get around a bug when Waze devs changed to the new PP color and icon scheme when zoomed in.
-                // This just disables PP highlighting at zoom > 19.  Could probably be handled better?
-                // return venue && venue.model && venue.model.attributes.wmephSeverity === this.value && !(venue.model.isPoint() && W.map.zoom > 19);
                 return venue && venue.model && venue.model.attributes.wmephSeverity === this.value;
             }
         }),
@@ -1432,7 +1429,8 @@ function initializeHighlights() {
         externalGraphic: '',
         label: '',
         strokeWidth: 4,
-        strokeColor: '#24ff14'
+        strokeColor: '#24ff14',
+        fillColor: '#ba85bf'
     });
 
     const severityLock = ruleGenerator('lock', {
@@ -1442,7 +1440,8 @@ function initializeHighlights() {
         strokeColor: '#24ff14',
         strokeLinecap: 1,
         strokeDashstyle: '7 2',
-        strokeWidth: 5
+        strokeWidth: 5,
+        fillColor: '#ba85bf'
     });
 
     const severity1 = ruleGenerator(1, {
@@ -1450,7 +1449,8 @@ function initializeHighlights() {
         strokeWidth: 4,
         externalGraphic: '',
         label: '',
-        pointRadius: 7
+        pointRadius: 7,
+        fillColor: '#ba85bf'
     });
 
     const severityLock1 = ruleGenerator('lock1', {
@@ -1460,7 +1460,8 @@ function initializeHighlights() {
         strokeDashstyle: '7 2',
         externalGraphic: '',
         label: '',
-        strokeWidth: 5
+        strokeWidth: 5,
+        fillColor: '#ba85bf'
     });
 
     const severity2 = ruleGenerator(2, {
@@ -1468,7 +1469,8 @@ function initializeHighlights() {
         strokeWidth: 6,
         externalGraphic: '',
         label: '',
-        pointRadius: 8
+        pointRadius: 8,
+        fillColor: '#ba85bf'
     });
 
     const severity3 = ruleGenerator(3, {
@@ -1476,7 +1478,8 @@ function initializeHighlights() {
         strokeWidth: 4,
         externalGraphic: '',
         label: '',
-        pointRadius: 8
+        pointRadius: 8,
+        fillColor: '#ba85bf'
     });
 
     const severity4 = ruleGenerator(4, {
