@@ -2,7 +2,7 @@
 // ==UserScript==
 // @name        WME Place Harmonizer
 // @namespace   WazeUSA
-// @version     2022.05.17.001
+// @version     2022.05.17.002
 // @description Harmonizes, formats, and locks a selected place
 // @author      WMEPH Development Group
 // @include     /^https:\/\/(www|beta)\.waze\.com\/(?!user\/)(.{2,6}\/)?editor\/?.*$/
@@ -35,7 +35,7 @@
 // Script update info
 
 // BE SURE TO SET THIS TO NULL OR AN EMPTY STRING WHEN RELEASING A NEW UPDATE.
-const _SCRIPT_UPDATE_MESSAGE = 'FIXED: Highlighted point places don\'t appear correct when zoomed in above level 19.  After the fix, however, category icons do not appear.  This is something we can look into if it is a problem for people.';
+const _SCRIPT_UPDATE_MESSAGE = '';
 
 const _WHATS_NEW_LIST = { // New in this version
     '2022.05.15.001': [
@@ -1408,9 +1408,6 @@ function toggleXrayMode(enable) {
     _layer.redraw();
 }
 
-function getPointRadius() {
-    return W.map.zoom > 19 ? 40 : 5;
-}
 function initializeHighlights() {
     const ruleGenerator = (value, symbolizer) => new W.Rule({
         filter: new OpenLayers.Filter.Comparison({
