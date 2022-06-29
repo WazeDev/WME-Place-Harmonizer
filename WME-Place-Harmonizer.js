@@ -2,7 +2,7 @@
 // ==UserScript==
 // @name        WME Place Harmonizer
 // @namespace   WazeUSA
-// @version     2022.05.17.002
+// @version     2022.06.29.001
 // @description Harmonizes, formats, and locks a selected place
 // @author      WMEPH Development Group
 // @include     /^https:\/\/(www|beta)\.waze\.com\/(?!user\/)(.{2,6}\/)?editor\/?.*$/
@@ -1803,7 +1803,7 @@ function addUpdateAction(venue, updateObj, actions) {
 
 function setServiceChecked(servBtn, checked, actions) {
     const servID = _WME_SERVICES_ARRAY[servBtn.servIDIndex];
-    const checkboxChecked = $(`#service-checkbox-${servID}`).prop('checked');
+    const checkboxChecked = $(`wz-checkbox[value="${servID}"]`).prop('checked');
     const venue = getSelectedVenue();
 
     if (checkboxChecked !== checked) {
