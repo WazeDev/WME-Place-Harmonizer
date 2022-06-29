@@ -2299,9 +2299,9 @@ let Flag = {
             const venue = getSelectedVenue();
             if (venue.attributes.categories.includes('RESIDENCE_HOME')) {
                 const centroid = venue.geometry.getCentroid();
-                updateFeatureGeometry(venue, new OpenLayers.Geometry.Point(centroid.x, centroid.y));
+                // updateFeatureGeometry(venue, new OpenLayers.Geometry.Point(centroid.x, centroid.y));
             } else {
-                $('.venue label.point-btn').click();
+                $('wz-button.geometry-type-control-point').click();
             }
             harmonizePlaceGo(venue, 'harmonize'); // Rerun the script to update fields and lock
         }
@@ -2314,8 +2314,9 @@ let Flag = {
 
         // eslint-disable-next-line class-methods-use-this
         action() {
+            $('wz-button.geometry-type-control-area').click();
             const venue = getSelectedVenue();
-            updateFeatureGeometry(venue, venue.getPolygonGeometry());
+            // updateFeatureGeometry(venue, venue.getPolygonGeometry());
             harmonizePlaceGo(venue, 'harmonize');
         }
     },
