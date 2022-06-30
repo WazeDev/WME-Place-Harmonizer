@@ -2,7 +2,7 @@
 // ==UserScript==
 // @name        WME Place Harmonizer
 // @namespace   WazeUSA
-// @version     2022.06.29.002
+// @version     2022.06.30.001
 // @description Harmonizes, formats, and locks a selected place
 // @author      WMEPH Development Group
 // @include     /^https:\/\/(www|beta)\.waze\.com\/(?!user\/)(.{2,6}\/)?editor\/?.*$/
@@ -2757,13 +2757,13 @@ let Flag = {
 
         // eslint-disable-next-line class-methods-use-this
         action2() {
-            const venue = getSelectedVenue();
-            $('div.external-providers-view a').focus().click();
+            const venueName = getSelectedVenue().attributes.name;
+            $('wz-button.external-provider-add-new').click();
             setTimeout(() => {
-                $('a[href="#venue-edit-general"]').click();
-                $('.external-providers-view a.add').focus().mousedown();
-                $('div.external-providers-view > div > ul > div > div > li > div > a').last().mousedown();
-                setTimeout(() => $('.select2-input').last().focus().val(venue.attributes.name).trigger('input'), 100);
+                var elem = document.querySelector('div.external-provider-edit-form wz-autocomplete').shadowRoot.querySelector('wz-text-input').shadowRoot.querySelector('input');
+                elem.focus();
+                elem.value = venueName;
+                elem.dispatchEvent(new Event('input', {bubbles:true})); // NOTE: jquery trigger('input') and other event calls did not work.
             }, 100);
         }
     },
