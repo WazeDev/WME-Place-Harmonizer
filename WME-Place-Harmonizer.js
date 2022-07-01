@@ -2,7 +2,7 @@
 // ==UserScript==
 // @name        WME Place Harmonizer
 // @namespace   WazeUSA
-// @version     2022.06.30.002
+// @version     2022.07.01.001
 // @description Harmonizes, formats, and locks a selected place
 // @author      WMEPH Development Group
 // @include     /^https:\/\/(www|beta)\.waze\.com\/(?!user\/)(.{2,6}\/)?editor\/?.*$/
@@ -2298,7 +2298,8 @@ let Flag = {
         action() {
             const venue = getSelectedVenue();
             if (venue.attributes.categories.includes('RESIDENCE_HOME')) {
-                const centroid = venue.geometry.getCentroid();
+                // 7/1/2022 - Not sure if this is necessary? Can residence be converted to area? Either way, updateFeatureGeometry function no longer works.
+                // const centroid = venue.geometry.getCentroid();
                 // updateFeatureGeometry(venue, new OpenLayers.Geometry.Point(centroid.x, centroid.y));
             } else {
                 $('wz-button.geometry-type-control-point').click();
@@ -2760,10 +2761,13 @@ let Flag = {
             const venueName = getSelectedVenue().attributes.name;
             $('wz-button.external-provider-add-new').click();
             setTimeout(() => {
-                var elem = document.querySelector('div.external-provider-edit-form wz-autocomplete').shadowRoot.querySelector('wz-text-input').shadowRoot.querySelector('input');
-                elem.focus();
-                elem.value = venueName;
-                elem.dispatchEvent(new Event('input', {bubbles:true})); // NOTE: jquery trigger('input') and other event calls did not work.
+                $('a[href="#venue-edit-general"]').click();
+                setTimeout(() => {
+                    const elem = document.querySelector('div.external-provider-edit-form wz-autocomplete').shadowRoot.querySelector('wz-text-input').shadowRoot.querySelector('input');
+                    elem.focus();
+                    elem.value = venueName;
+                    elem.dispatchEvent(new Event('input', { bubbles: true })); // NOTE: jquery trigger('input') and other event calls did not work.
+                }, 100);
             }, 100);
         }
     },
@@ -6413,7 +6417,7 @@ function assembleServicesBanner() {
                     if (!rowData.checked) {
                         $input.css({ '-webkit-filter': 'opacity(.3)', filter: 'opacity(.3)' });
                     } else {
-                        $input.css({ 'color': 'green' });
+                        $input.css({ color: 'green' });
                     }
                     $rowDiv.append($input);
                 }
@@ -6425,12 +6429,9 @@ function assembleServicesBanner() {
         }
         if ($('#WMEPH_services').length === 0) {
             $('#WMEPH_banner').after($('<div id="WMEPH_services">').css({
-                //'background-color': '#eee',
                 color: 'black',
                 'font-size': '15px',
-                //padding: '4px',
-                'margin-left': '6px',
-                //'margin-right': 'auto'
+                'margin-left': '6px'
             }));
         } else {
             $('#WMEPH_services').empty();
@@ -8140,15 +8141,15 @@ function newForumPost(url, data) {
  * @param place {Waze venue object} The place to update.
  * @param newGeometry {OpenLayers.Geometry} The new geometry for the place.
  */
-function updateFeatureGeometry(place, newGeometry) {
-    let oldGeometry;
-    const model = W.model.venues;
-    if (place && place.CLASS_NAME === 'Waze.Feature.Vector.Venue' && newGeometry && (newGeometry instanceof OpenLayers.Geometry.Point
-        || newGeometry instanceof OpenLayers.Geometry.Polygon)) {
-        oldGeometry = place.attributes.geometry;
-        W.model.actionManager.add(new UpdateFeatureGeometry(place, model, oldGeometry, newGeometry));
-    }
-}
+// function updateFeatureGeometry(place, newGeometry) {
+//     let oldGeometry;
+//     const model = W.model.venues;
+//     if (place && place.CLASS_NAME === 'Waze.Feature.Vector.Venue' && newGeometry && (newGeometry instanceof OpenLayers.Geometry.Point
+//         || newGeometry instanceof OpenLayers.Geometry.Polygon)) {
+//         oldGeometry = place.attributes.geometry;
+//         W.model.actionManager.add(new UpdateFeatureGeometry(place, model, oldGeometry, newGeometry));
+//     }
+// }
 
 function placeHarmonizerInit() {
     _layer = W.map.venueLayer;
