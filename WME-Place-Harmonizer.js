@@ -2,7 +2,7 @@
 // ==UserScript==
 // @name        WME Place Harmonizer
 // @namespace   WazeUSA
-// @version     2022.07.01.001
+// @version     2022.07.11.001
 // @description Harmonizes, formats, and locks a selected place
 // @author      WMEPH Development Group
 // @include     /^https:\/\/(www|beta)\.waze\.com\/(?!user\/)(.{2,6}\/)?editor\/?.*$/
@@ -3078,7 +3078,7 @@ let Flag = {
 
         // eslint-disable-next-line class-methods-use-this
         action() {
-            $('.navigation-point-view .add-button').click();
+            $('wz-button.navigation-point-add-new').click();
             harmonizePlaceGo(getSelectedVenue(), 'harmonize');
         }
     },
