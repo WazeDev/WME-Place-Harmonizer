@@ -2,7 +2,7 @@
 // ==UserScript==
 // @name        WME Place Harmonizer
 // @namespace   WazeUSA
-// @version     2022.07.11.001
+// @version     2022.08.10.001
 // @description Harmonizes, formats, and locks a selected place
 // @author      WMEPH Development Group
 // @include     /^https:\/\/(www|beta)\.waze\.com\/(?!user\/)(.{2,6}\/)?editor\/?.*$/
@@ -36,45 +36,10 @@
 
 // BE SURE TO SET THIS TO NULL OR AN EMPTY STRING WHEN RELEASING A NEW UPDATE.
 const _SCRIPT_UPDATE_MESSAGE = '';
-
-// const _WHATS_NEW_LIST = { // New in this version
-//     '2022.05.15.001': [
-//         'FIXED: Highlighted point places don\'t appear correct when zoomed in above level 19.'
-//     ],
-//     '2020.10.20.001': [
-//         'FIXED: WMEPH not working in WME beta. This fix temporarily removes all PLs in WME beta. Error reports and new chain submission forms will not be auto-populated with PLs.'
-//     ],
-//     '2020.10.18.001': [
-//         'FIXED: Add External Provider button is not auto-filling place name.',
-//         'NEW: Added a flag for HNs that contain more than 6 digits. Please let us know if you find valid HNs with more than 6 digits.'
-//     ],
-//     '2020.10.05.001': [
-//         'Removed checks for HN validity. This may be implemented again in the future to reflect what Waze actually allows.'
-//     ],
-//     '2020.10.03.001': [
-//         'Added ehcool68 to the list of NOR moderators. Welcome to the team, Eric!'
-//     ],
-//     '2020.09.23.001': [
-//         'Removed auto-adding of common services, based on editor feedback that it was causing issues.'
-//     ],
-//     '2020.09.19.001': [
-//         'Updated place service buttons title.'
-//     ],
-//     '2020.09.07.001': [
-//         'Fixed a bug with the data reload button. Updated button styles to remove bold font introduced with latest WME update.'
-//     ],
-//     '2020.06.06.001': [
-//         'Further correction for 6/4 edits, adjust bounding box values for localized locator'
-//     ],
-//     '2020.06.04.002': [
-//         'Added Refresh Data button, with data refresh completion checkmark animation, & removed the Google button on RPPs'
-//     ],
-//     '2020.06.02.001': [
-//         'Bug fix due to latest WME release.'
-//     ]
-// };
-
 const _CSS = `
+#edit-panel .venue-feature-editor {
+    overflow: initial;
+}
 #WMEPH_banner .wmeph-btn { 
     background-color: #fbfbfb;
     box-shadow: 0 2px 0 #aaa;
@@ -7880,20 +7845,6 @@ function addWmephTab() {
         `<div><a href="${_URLS.forum}" target="_blank">Submit script feedback & suggestions</a></div>`,
         '<hr class="wmeph-hr" align="center" width="95%">'
     );
-
-//     $harmonizerTab.append(
-//         $('<div>').append(
-//             $('<div>', { style: 'font-weight: bold; margin-bottom: 6px;' }).text('Recent updates'),
-//             Object.keys(_WHATS_NEW_LIST).map(
-//                 version => $('<div>').append(
-//                     $('<div>').text(version),
-//                     $('<ul>', { style: 'margin-left: -23px;' }).append(
-//                         _WHATS_NEW_LIST[version].map(textLine => $('<li>').text(textLine))
-//                     )
-//                 )
-//             )
-//         )
-//     );
 
     // Highlighter settings
     $highlighterTab.append('<p>Highlighter Settings:</p>');
