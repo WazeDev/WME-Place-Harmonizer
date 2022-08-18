@@ -2,7 +2,7 @@
 // ==UserScript==
 // @name        WME Place Harmonizer Beta
 // @namespace   WazeUSA
-// @version     2022.08.12.001
+// @version     2022.08.18.001
 // @description Harmonizes, formats, and locks a selected place
 // @author      WMEPH Development Group
 // @include     /^https:\/\/(www|beta)\.waze\.com\/(?!user\/)(.{2,6}\/)?editor\/?.*$/
@@ -867,6 +867,14 @@ function makeNameCheckList(pnhData) {
         return '00';
     });
 } // END makeNameCheckList
+
+function clickGeneralTab() {
+    // Make sure the General tab is selected before clicking on the external provider element.
+    // These selector strings are very specific.  Could probably make them more generalized for robustness.
+    const containerSelector = '#edit-panel > div > div.venue-feature-editor > div > div.venue-edit-section > wz-tabs';
+    const shadowSelector = 'div > div > div > div > div:nth-child(1)';
+    document.querySelector(containerSelector).shadowRoot.querySelector(shadowSelector).click();
+}
 
 // Whitelist stringifying and parsing
 function saveWhitelistToLS(compress) {
@@ -2362,12 +2370,14 @@ let Flag = {
 
         // eslint-disable-next-line class-methods-use-this
         action() {
-            $('.nav-tabs a[href="#venue-edit-general"]').trigger('click');
+            clickGeneralTab();
             $('.venue .full-address').click();
-            if ($('.empty-street').prop('checked')) {
-                $('.empty-street').click();
-            }
-            $('.street-name').focus();
+            setTimeout(() => {
+                if ($('.empty-street').prop('checked')) {
+                    $('.empty-street').click();
+                }
+                $('.street-name').focus();
+            }, 50);
         }
     },
     CityMissing: class extends ActionFlag {
@@ -2723,10 +2733,11 @@ let Flag = {
 
         // eslint-disable-next-line class-methods-use-this
         action2() {
+            clickGeneralTab();
             const venueName = getSelectedVenue().attributes.name;
             $('wz-button.external-provider-add-new').click();
             setTimeout(() => {
-                $('a[href="#venue-edit-general"]').click();
+                clickGeneralTab();
                 setTimeout(() => {
                     const elem = document.querySelector('div.external-provider-edit-form wz-autocomplete').shadowRoot.querySelector('wz-text-input').shadowRoot.querySelector('input');
                     elem.focus();
