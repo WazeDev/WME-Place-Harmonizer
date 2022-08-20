@@ -2,7 +2,7 @@
 // ==UserScript==
 // @name        WME Place Harmonizer Beta
 // @namespace   WazeUSA
-// @version     2022.08.18.001
+// @version     2022.08.19.001
 // @description Harmonizes, formats, and locks a selected place
 // @author      WMEPH Development Group
 // @include     /^https:\/\/(www|beta)\.waze\.com\/(?!user\/)(.{2,6}\/)?editor\/?.*$/
@@ -2376,8 +2376,14 @@ let Flag = {
                 if ($('.empty-street').prop('checked')) {
                     $('.empty-street').click();
                 }
-                $('.street-name').focus();
-            }, 50);
+                setTimeout(() => {
+                    const elem = document
+                        .querySelector('#venue-edit-general > div:nth-child(1) > div > div > wz-card > form > div:nth-child(2) > div > wz-autocomplete')
+                        .shadowRoot.querySelector('#text-input')
+                        .shadowRoot.querySelector('#id');
+                    elem.focus();
+                }, 100);
+            }, 100);
         }
     },
     CityMissing: class extends ActionFlag {
@@ -2385,11 +2391,21 @@ let Flag = {
 
         // eslint-disable-next-line class-methods-use-this
         action() {
-            $('.nav-tabs a[href="#venue-edit-general"]').trigger('click');
+            clickGeneralTab();
             $('.venue .full-address').click();
-            if ($('.empty-city').prop('checked')) {
-                $('.empty-city').click();
-            }
+            setTimeout(() => {
+                if ($('.empty-city').prop('checked')) {
+                    $('.empty-city').click();
+                }
+                setTimeout(() => {
+                    const elem = document
+                        .querySelector('#venue-edit-general > div:nth-child(1) > div > div > wz-card > form > div:nth-child(4) > wz-autocomplete')
+                        .shadowRoot.querySelector('#text-input')
+                        .shadowRoot.querySelector('#id');
+                    elem.focus();
+                }, 100);
+            }, 100);
+
             $('.city-name').focus();
         }
     },
