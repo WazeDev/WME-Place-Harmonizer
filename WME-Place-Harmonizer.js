@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name        WME Place Harmonizer Beta
 // @namespace   WazeUSA
-// @version     2022.10.30.001
+// @version     2022.12.06.001
 // @description Harmonizes, formats, and locks a selected place
 // @author      WMEPH Development Group
 // @include     /^https:\/\/(www|beta)\.waze\.com\/(?!user\/)(.{2,6}\/)?editor\/?.*$/
@@ -7867,7 +7867,7 @@
 
         const pnhModerators = {
             ATR: ['cotero2002', 'nnote'],
-            GLR: ['JustinS83', 'ojlaw'],
+            GLR: ['JustinS83'],
             HI: ['Nacron'],
             MAR: ['jr1982jr', 'nzahn1', 'stephenr1966'],
             NER: ['jaywazin', 'SNYOWL'],
