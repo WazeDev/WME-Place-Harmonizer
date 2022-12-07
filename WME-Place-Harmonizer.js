@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name        WME Place Harmonizer
 // @namespace   WazeUSA
-// @version     2022.12.06.002
+// @version     2022.12.06.003
 // @description Harmonizes, formats, and locks a selected place
 // @author      WMEPH Development Group
 // @include     /^https:\/\/(www|beta)\.waze\.com\/(?!user\/)(.{2,6}\/)?editor\/?.*$/
@@ -7866,17 +7866,17 @@
         $wlToolsTab.append(phWLContentHtml);
 
         const pnhModerators = {
-            ATR: ['cotero2002', 'nnote'],
+            ATR: ['cotero2002'],
             GLR: ['JustinS83', 'wxw777'],
             HI: ['Nacron'],
-            MAR: ['jr1982jr', 'nzahn1', 'stephenr1966'],
-            NER: ['jaywazin', 'SNYOWL'],
-            NOR: ['ehcool68', 'Joyriding', 'PesachZ'],
-            NWR: ['dmee92', 'SkyviewGuru'],
-            PLN: ['bretmcvey', 'dmee92', 'ehepner1977'],
-            SAT: ['crazycaveman', 'whathappened15', 'xanderb'],
-            SCR: ['jm6087'],
-            SER: ['driving79', 'willdanneriv', 'ardan74', 'itzwolf'],
+            MAR: ['ct13', 'jr1982jr'],
+            NER: ['JayWazin', 'SNYOWL'],
+            NOR: ['Joyriding', 'ehcool68', 'PesachZ'],
+            NWR: ['SkyviewGuru', 'dmee92'],
+            PLN: ['ehepner1977', 'dmee92'],
+            SAT: ['whathappened15', 'Luke6270'],
+            SCR: ['jm6087', 'sketch'],
+            SER: ['willdanneriv', 'Ardan74'],
             SWR: ['tonestertm']
         };
 
