@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name        WME Place Harmonizer Beta
 // @namespace   WazeUSA
-// @version     2023.02.08.001
+// @version     2023.02.08.002
 // @description Harmonizes, formats, and locks a selected place
 // @author      WMEPH Development Group
 // @include     /^https:\/\/(www|beta)\.waze\.com\/(?!user\/)(.{2,6}\/)?editor\/?.*$/
@@ -262,23 +262,22 @@
     const _LOCK_LEVEL_4 = 3;
     let _defaultLockLevel = _LOCK_LEVEL_2;
     let _pnhLockLevel;
-    const _PM_USER_LIST = { // user names and IDs for PM functions
-
-        SER: {
-            approvalActive: true,
-            mods: [
-                { id: '16888799', name: 'willdanneriv' },
-                // { id: '17083181', name: 'itzwolf' },
-                { id: '17077334', name: 'ardan74' }
-            ]
-        },
-        WMEPH: {
-            approvalActive: true,
-            mods: [
-                { id: '2647925', name: 'MapOMatic' }
-            ]
-        }
-    };
+    // const _PM_USER_LIST = { // user names and IDs for PM functions
+    //     SER: {
+    //         approvalActive: true,
+    //         mods: [
+    //             { id: '16888799', name: 'willdanneriv' },
+    //             // { id: '17083181', name: 'itzwolf' },
+    //             { id: '17077334', name: 'ardan74' }
+    //         ]
+    //     },
+    //     WMEPH: {
+    //         approvalActive: true,
+    //         mods: [
+    //             { id: '2647925', name: 'MapOMatic' }
+    //         ]
+    //     }
+    // };
     // An enum to help clarify flag severity levels
     const _SEVERITY = {
         GREEN: 0,
@@ -3720,22 +3719,23 @@
                 this.placePL = placePL;
             }
 
+            // eslint-disable-next-line class-methods-use-this
             action() {
-                if (_PM_USER_LIST.hasOwnProperty(this.region) && _PM_USER_LIST[this.region].approvalActive) {
-                    const forumPMInputs = {
-                        subject: `${this.pnhOrderNum} PNH approval for "${this.pnhNameTemp}"`,
-                        message: `Please approve "${this.pnhNameTemp}" for the ${this.region} region.  Thanks\n \nPNH order number: ${
-                            this.pnhOrderNum}\n \nPermalink: ${this.placePL}\n \nPNH Link: ${_URLS.usaPnh}`,
-                        preview: 'Preview',
-                        attach_sig: 'on'
-                    };
-                    _PM_USER_LIST[this.region].mods.forEach(obj => {
-                        forumPMInputs[`address_list[u][${obj.id}]`] = 'to';
-                    });
-                    newForumPost('https://www.waze.com/forum/ucp.php?i=pm&mode=compose', forumPMInputs);
-                } else {
-                    window.open(_approveRegionURL);
-                }
+                // if (_PM_USER_LIST.hasOwnProperty(this.region) && _PM_USER_LIST[this.region].approvalActive) {
+                //     const forumPMInputs = {
+                //         subject: `${this.pnhOrderNum} PNH approval for "${this.pnhNameTemp}"`,
+                //         message: `Please approve "${this.pnhNameTemp}" for the ${this.region} region.  Thanks\n \nPNH order number: ${
+                //             this.pnhOrderNum}\n \nPermalink: ${this.placePL}\n \nPNH Link: ${_URLS.usaPnh}`,
+                //         preview: 'Preview',
+                //         attach_sig: 'on'
+                //     };
+                //     _PM_USER_LIST[this.region].mods.forEach(obj => {
+                //         forumPMInputs[`address_list[u][${obj.id}]`] = 'to';
+                //     });
+                //     newForumPost('https://www.waze.com/forum/ucp.php?i=pm&mode=compose', forumPMInputs);
+                // } else {
+                window.open(_approveRegionURL);
+                // }
             }
         },
         PlaceWebsite: class extends ActionFlag {
@@ -8240,45 +8240,46 @@
     }
 
     // Sets up error reporting
-    function reportError(data) {
-        data.preview = 'Preview';
-        data.attach_sig = 'on';
-        if (_PM_USER_LIST.hasOwnProperty('WMEPH') && _PM_USER_LIST.WMEPH.approvalActive) {
-            data[`address_list[u][${_PM_USER_LIST.WMEPH.modID}]`] = 'to';
-            newForumPost('https://www.waze.com/forum/ucp.php?i=pm&mode=compose', data);
-        } else {
-            data.addbbcode20 = 'to';
-            data.notify = 'on';
-            newForumPost(`${_URLS.forum}#preview`, data);
-        }
+    function reportError() {
+        window.open('https://www.waze.com/forum/viewtopic.php?t=239985', '_blank');
+        // data.preview = 'Preview';
+        // data.attach_sig = 'on';
+        // if (_PM_USER_LIST.hasOwnProperty('WMEPH') && _PM_USER_LIST.WMEPH.approvalActive) {
+        //     data[`address_list[u][${_PM_USER_LIST.WMEPH.modID}]`] = 'to';
+        //     newForumPost('https://www.waze.com/forum/ucp.php?i=pm&mode=compose', data);
+        // } else {
+        //     data.addbbcode20 = 'to';
+        //     data.notify = 'on';
+        //     newForumPost(`${_URLS.forum}#preview`, data);
+        // }
     } // END reportError function
 
-    // Make a populated post on a forum thread
-    function newForumPost(url, data) {
-        const form = document.createElement('form');
-        form.target = '_blank';
-        form.action = url;
-        form.method = 'post';
-        form.style.display = 'none';
-        Object.keys(data).forEach(k => {
-            let input;
-            if (k === 'message') {
-                input = document.createElement('textarea');
-            } else if (k === 'username') {
-                input = document.createElement('username_list');
-            } else {
-                input = document.createElement('input');
-            }
-            input.name = k;
-            input.value = data[k];
-            // input.type = 'hidden'; // 2018-07/10 (mapomatic) Not sure if this is required, but was causing an error when setting on the textarea object.
-            form.appendChild(input);
-        });
-        document.getElementById('WMEPH_formDiv').appendChild(form);
-        form.submit();
-        document.getElementById('WMEPH_formDiv').removeChild(form);
-        return true;
-    } // END newForumPost function
+    // // Make a populated post on a forum thread
+    // function newForumPost(url, data) {
+    //     const form = document.createElement('form');
+    //     form.target = '_blank';
+    //     form.action = url;
+    //     form.method = 'post';
+    //     form.style.display = 'none';
+    //     Object.keys(data).forEach(k => {
+    //         let input;
+    //         if (k === 'message') {
+    //             input = document.createElement('textarea');
+    //         } else if (k === 'username') {
+    //             input = document.createElement('username_list');
+    //         } else {
+    //             input = document.createElement('input');
+    //         }
+    //         input.name = k;
+    //         input.value = data[k];
+    //         // input.type = 'hidden'; // 2018-07/10 (mapomatic) Not sure if this is required, but was causing an error when setting on the textarea object.
+    //         form.appendChild(input);
+    //     });
+    //     document.getElementById('WMEPH_formDiv').appendChild(form);
+    //     form.submit();
+    //     document.getElementById('WMEPH_formDiv').removeChild(form);
+    //     return true;
+    // } // END newForumPost function
 
     /**
      * Updates the geometry of a place.
