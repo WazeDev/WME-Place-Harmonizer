@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name        WME Place Harmonizer Beta
 // @namespace   WazeUSA
-// @version     2023.02.10.001
+// @version     2023.02.10.002
 // @description Harmonizes, formats, and locks a selected place
 // @author      WMEPH Development Group
 // @include     /^https:\/\/(www|beta)\.waze\.com\/(?!user\/)(.{2,6}\/)?editor\/?.*$/
@@ -2153,6 +2153,20 @@
                 applyHighlightsTest(venue);
             }
         },
+        EVChargingStationWarning: class extends FlagBase {
+            constructor() {
+                super(
+                    true,
+                    _SEVERITY.GREEN,
+                    'Please do not delete EV Charging Stations. Be sure you are completely up to date with the latest guidelines in '
+                        + '<a href="https://wazeopedia.waze.com/wiki/USA/Places/EV_charging_station" target="_blank">wazeopedia</a>.'
+                );
+            }
+
+            static eval(item, hpMode) {
+                return hpMode.harmFlag && item.isChargingStation() ? new Flag.EVChargingStationWarning() : null;
+            }
+        },
         GasMismatch: class extends WLFlag {
             constructor() {
                 super(
@@ -3831,6 +3845,7 @@
         // WL terms are for whitelisting
 
         return {
+            evChargingStationWarning: null,
             pnhCatMess: null,
             notAHospital: null,
             notASchool: null,
@@ -5705,6 +5720,8 @@
                 }
             }
         }
+
+        _buttonBanner.evChargingStationWarning = Flag.EVChargingStationWarning.eval(item, hpMode);
 
         // Brand checking (be sure to check this after determining if brand will be forced, when harmonzing)
         result = Flag.GasNoBrand.eval(item, newBrand);
