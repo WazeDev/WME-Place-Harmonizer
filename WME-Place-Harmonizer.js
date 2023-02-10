@@ -2259,17 +2259,17 @@
                     'Whitelist Pet/Vet category',
                     'changeHMC2PetVet'
                 );
+                this.noLock = true;
             }
 
             static eval(name, categories) {
-                const testName = name.toLowerCase().replace(/[^a-z]/g, ' ');
-                const testNameWords = testName.split(' ');
-                const result = { flag: null, lockOK: true };
-                if ((categories.includes('HOSPITAL_URGENT_CARE') || categories.includes('DOCTOR_CLINIC'))
-                    && (containsAny(testNameWords, _animalFullMatch) || _animalPartMatch.some(match => testName.includes(match)))) {
-                    if (!_wl.changeHMC2PetVet) {
-                        result.flag = new Flag.ChangeToPetVet();
-                        result.lockOK = false;
+                let result = null;
+                if (!_wl.changeHMC2PetVet) {
+                    const testName = name.toLowerCase().replace(/[^a-z]/g, ' ');
+                    const testNameWords = testName.split(' ');
+                    if ((categories.includes('HOSPITAL_URGENT_CARE') || categories.includes('DOCTOR_CLINIC'))
+                        && (containsAny(testNameWords, _animalFullMatch) || _animalPartMatch.some(match => testName.includes(match)))) {
+                        result = new Flag.ChangeToPetVet();
                     }
                 }
                 return result;
@@ -2304,18 +2304,18 @@
                     'Whitelist School category',
                     'changeSchool2Offices'
                 );
+                this.noLock = true;
             }
 
             static eval(name, categories) {
-                const result = { flag: null, lockOK: true };
-                const testName = name.toLowerCase().replace(/[^a-z]/g, ' ');
-                const testNameWords = testName.split(' ');
+                let result = null;
+                if (!_wl.changeSchool2Offices) {
+                    const testName = name.toLowerCase().replace(/[^a-z]/g, ' ');
+                    const testNameWords = testName.split(' ');
 
-                if (categories.includes('SCHOOL')
-                    && (containsAny(testNameWords, _schoolFullMatch) || _schoolPartMatch.some(match => testName.includes(match)))) {
-                    if (!_wl.changeSchool2Offices) {
-                        result.flag = new Flag.NotASchool();
-                        result.lockOK = false;
+                    if (categories.includes('SCHOOL')
+                        && (containsAny(testNameWords, _schoolFullMatch) || _schoolPartMatch.some(match => testName.includes(match)))) {
+                        result = new Flag.NotASchool();
                     }
                 }
                 return result;
@@ -2414,6 +2414,7 @@
                     houseNumber = houseNumber.replace(/[^0-9]/g, '');
                     if (houseNumber.length > 6) {
                         result.flag = new Flag.HnTooManyDigits();
+                        result.flag.noLock = true;
                     }
                 }
                 return result;
@@ -2455,7 +2456,14 @@
             }
         },
         StreetMissing: class extends ActionFlag {
-            constructor() { super(true, _SEVERITY.RED, 'No street:', 'Edit address', 'Edit address to add street.'); }
+            constructor(primaryCategory) {
+                super(true, _SEVERITY.RED, 'No street:', 'Edit address', 'Edit address to add street.');
+                if (['SCENIC_LOOKOUT_VIEWPOINT'].includes(primaryCategory)) {
+                    _buttonBanner.streetMissing.severity = _SEVERITY.BLUE;
+                } else {
+                    this.noLock = true;
+                }
+            }
 
             // eslint-disable-next-line class-methods-use-this
             action() {
@@ -2474,9 +2482,24 @@
                     }, 100);
                 }, 100);
             }
+
+            static eval(item, addr) {
+                let result = null;
+                if (addr.city && (!addr.street || addr.street.isEmpty)
+                    && !'BRIDGE|ISLAND|FOREST_GROVE|SEA_LAKE_POOL|RIVER_STREAM|CANAL|DAM|TUNNEL|JUNCTION_INTERCHANGE'.split('|').includes(item.attributes.categories[0])) {
+                    result = new Flag.StreetMissing(item.attributes.categories[0]);
+                }
+                return result;
+            }
         },
         CityMissing: class extends ActionFlag {
-            constructor() { super(true, _SEVERITY.RED, 'No city:', 'Edit address', 'Edit address to add city.'); }
+            constructor(isResidential, highlightOnly) {
+                super(true, _SEVERITY.RED, 'No city:', 'Edit address', 'Edit address to add city.');
+                this.noLock = true;
+                if (isResidential && highlightOnly) {
+                    this.severity = _SEVERITY.BLUE;
+                }
+            }
 
             // eslint-disable-next-line class-methods-use-this
             action() {
@@ -2496,6 +2519,15 @@
                 }, 100);
 
                 $('.city-name').focus();
+            }
+
+            static eval(item, addr, hpMode) {
+                let result = null;
+                if ((!addr.city || addr.city.attributes.isEmpty)
+                    && !'BRIDGE|ISLAND|FOREST_GROVE|SEA_LAKE_POOL|RIVER_STREAM|CANAL|DAM|TUNNEL|JUNCTION_INTERCHANGE'.split('|').includes(item.attributes.categories[0])) {
+                    result = new Flag.CityMissing(item.attributes.residential, hpMode.hlFlag);
+                }
+                return result;
             }
         },
         BankType1: class extends FlagBase {
@@ -3576,14 +3608,14 @@
             }
 
             static eval(categories) {
-                const result = { flag: null, lockOK: true };
+                const result = { flag: null, noLock: false };
                 if (categories.includes('HOSPITAL_URGENT_CARE')) {
                     const testName = _newName.toLowerCase().replace(/[^a-z]/g, ' ');
                     const testNameWords = testName.split(' ');
                     if (containsAny(testNameWords, _hospitalFullMatch) || _hospitalPartMatch.some(match => testName.includes(match))) {
                         if (!_wl.notAHospital) {
                             result.flag = new Flag.NotAHospital();
-                            result.lockOK = false;
+                            result.noLock = true;
                         }
                     }
                 }
@@ -3628,15 +3660,15 @@
             }
 
             static eval(venue, categories, hpMode, pnhNameRegMatch) {
-                const result = { flag: null, lockOK: true };
+                let result = null;
                 if (hpMode.harmFlag && venue.attributes.updatedOn < new Date('3/28/2017').getTime()
                     && ((categories.includes('PERSONAL_CARE') && !pnhNameRegMatch) || _newCategories.includes('OFFICES'))) {
                     // Show the Change To Doctor / Clinic button for places with PERSONAL_CARE or OFFICES category
                     // The date criteria was added because Doctor/Clinic category was added around then, and it's assumed if the
                     // place has been edited since then, people would have already updated the category.
 
-                    result.flag = new Flag.ChangeToDoctorClinic();
-                    result.flag.WLactive = null;
+                    result = new Flag.ChangeToDoctorClinic();
+                    result.WLactive = null;
                 }
                 return result;
             }
@@ -4387,7 +4419,6 @@
             _buttonBanner.fullAddressInference = result.flag;
             ({ inferredAddress } = result);
             if (result.inferredAddress) addr = result.inferredAddress;
-            if (result.noLock) lockOK = false;
         } else if (hpMode.hlFlag) {
             const result = Flag.FullAddressInference.evalHL(item, addr);
             if (result) return result;
@@ -4399,18 +4430,15 @@
 
         result = Flag.PlaCostTypeMissing.eval(item, hpMode);
         _buttonBanner.plaCostTypeMissing = result.flag;
-        if (result.noLock) lockOK = false;
 
         result = Flag.PlaLotElevationMissing.eval(item);
         _buttonBanner.plaLotElevationMissing = result.flag;
-        if (result.noLock) lockOK = false;
 
         result = Flag.PlaSpaces.eval(item, hpMode);
         _buttonBanner.plaSpaces = result.flag;
 
         result = Flag.PlaLotTypeMissing.eval(item, hpMode);
         _buttonBanner.plaLotTypeMissing = result.flag;
-        if (result.noLock) lockOK = false;
 
         _buttonBanner.noPlaStopPoint = Flag.NoPlaStopPoint.eval(item).flag;
         _buttonBanner.plaStopPointUnmoved = Flag.PlaStopPointUnmoved.eval(item).flag;
@@ -5681,11 +5709,9 @@
         // Brand checking (be sure to check this after determining if brand will be forced, when harmonzing)
         result = Flag.GasNoBrand.eval(item, newBrand);
         _buttonBanner.gasNoBrand = result.flag;
-        if (result.noLock) lockOK = false;
 
         result = Flag.GasUnbranded.eval(item, newBrand);
         _buttonBanner.gasUnbranded = result.flag;
-        if (result.noLock) lockOK = false;
 
         // Name check
         if (!item.attributes.residential && (!_newName || _newName.replace(/[^A-Za-z0-9]/g, '').length === 0)) {
@@ -5756,9 +5782,7 @@
             }
         } else if (currentHN) {
             _buttonBanner.hnTooManyDigits = Flag.HnTooManyDigits.eval(currentHN, _wl).flag;
-            if (_buttonBanner.hnTooManyDigits) {
-                lockOK = false;
-            }
+
             // 2020-10-5 Disabling HN validity checks for now. See the note on the HnNonStandard flag object for more details.
 
             // let hnOK = false;
@@ -5802,44 +5826,15 @@
             // }
         }
 
-        if ((!addr.city || addr.city.attributes.isEmpty)
-            && !'BRIDGE|ISLAND|FOREST_GROVE|SEA_LAKE_POOL|RIVER_STREAM|CANAL|DAM|TUNNEL|JUNCTION_INTERCHANGE'.split('|').includes(item.attributes.categories[0])) {
-            _buttonBanner.cityMissing = new Flag.CityMissing();
-            if (item.attributes.residential && hpMode.hlFlag) {
-                _buttonBanner.cityMissing.severity = _SEVERITY.BLUE;
-            }
-            lockOK = false;
-        }
-        if (addr.city && (!addr.street || addr.street.isEmpty)
-            && !'BRIDGE|ISLAND|FOREST_GROVE|SEA_LAKE_POOL|RIVER_STREAM|CANAL|DAM|TUNNEL|JUNCTION_INTERCHANGE'.split('|').includes(item.attributes.categories[0])) {
-            _buttonBanner.streetMissing = new Flag.StreetMissing();
-            if (['SCENIC_LOOKOUT_VIEWPOINT'].includes(item.attributes.categories[0])) {
-                _buttonBanner.streetMissing.severity = _SEVERITY.BLUE;
-            } else {
-                lockOK = false;
-            }
-        }
+        _buttonBanner.cityMissing = Flag.CityMissing.eval(item, addr, hpMode);
+        _buttonBanner.streetMissing = Flag.StreetMissing.eval(item, addr);
 
         _buttonBanner.notAHospital = Flag.NotAHospital.eval(_newCategories).flag;
 
         // CATEGORY vs. NAME checks
-        result = Flag.ChangeToPetVet.eval(_newName, _newCategories);
-        if (result.flag) {
-            _buttonBanner.changeToPetVet = result.flag;
-            if (!result.lockOK) lockOK = false;
-        }
-
-        result = Flag.ChangeToDoctorClinic.eval(item, _newCategories, hpMode, pnhNameRegMatch);
-        if (result.flag) {
-            _buttonBanner.changeToPetVet = result.flag;
-            if (!result.lockOK) lockOK = false;
-        }
-
-        result = Flag.NotASchool.eval(_newName, _newCategories);
-        if (result.flag) {
-            _buttonBanner.notASchool = result.flag;
-            if (!result.lockOK) lockOK = false;
-        }
+        _buttonBanner.changeToPetVet = Flag.ChangeToPetVet.eval(_newName, _newCategories);
+        _buttonBanner.changeToDoctorClinic = Flag.ChangeToDoctorClinic.eval(item, _newCategories, hpMode, pnhNameRegMatch);
+        _buttonBanner.notASchool = Flag.NotASchool.eval(_newName, _newCategories);
 
         // Some cats don't need PNH messages and url/phone severities
         if (['BRIDGE', 'FOREST_GROVE', 'DAM', 'TUNNEL', 'CEMETERY'].includes(item.attributes.categories[0])) {
@@ -5938,6 +5933,8 @@
         });
 
         if (hpMode.harmFlag) {
+            // Update the lockOK value if "noLock" is set on any flag.
+            lockOK ||= !Object.keys(_buttonBanner).some(key => _buttonBanner[key]?.noLock);
             phlogdev(`Severity: ${_severityButt}; lockOK: ${lockOK}`);
         }
         // Place locking
