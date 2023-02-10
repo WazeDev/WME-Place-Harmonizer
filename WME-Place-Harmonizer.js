@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name        WME Place Harmonizer Beta
 // @namespace   WazeUSA
-// @version     2023.02.10.002
+// @version     2023.02.10.003
 // @description Harmonizes, formats, and locks a selected place
 // @author      WMEPH Development Group
 // @include     /^https:\/\/(www|beta)\.waze\.com\/(?!user\/)(.{2,6}\/)?editor\/?.*$/
@@ -1942,57 +1942,55 @@
         //     constructor() { super(true, SEVERITY.GREEN, 'Dash removed from house number. Verify'); }
         // },
         FullAddressInference: class extends FlagBase {
-            constructor() { super(true, _SEVERITY.RED, 'Missing address was inferred from nearby segments. Verify the address and run script again.'); }
-
-            static eval(venue, addr, actions) {
-                const result = {};
-                if (!addr.state || !addr.country) {
-                    if (W.map.getZoom() < 4) {
-                        if ($('#WMEPH-EnableIAZoom').prop('checked')) {
-                            W.map.moveTo(getVenueLonLat(venue), 5);
-                        } else {
-                            WazeWrap.Alerts.error(_SCRIPT_NAME, 'No address and the state cannot be determined. Please zoom in and rerun the script. '
-                                + 'You can enable autozoom for this type of case in the options.');
-                        }
-                        result.exit = true; //  don't run the rest of the script
-                    } else {
-                        let inferredAddress = inferAddress(7); // Pull address info from nearby segments
-                        if (inferredAddress && inferredAddress.attributes) inferredAddress = inferredAddress.attributes;
-
-                        if (inferredAddress && inferredAddress.state && inferredAddress.country) {
-                            if ($('#WMEPH-AddAddresses').prop('checked')) { // update the item's address if option is enabled
-                                updateAddress(venue, inferredAddress, actions);
-                                result.inferredAddress = inferredAddress;
-                                _UPDATED_FIELDS.address.updated = true;
-                                result.flag = new Flag.FullAddressInference();
-                                result.noLock = true;
-                            } else if (!['JUNCTION_INTERCHANGE'].includes(_newCategories[0])) {
-                                _buttonBanner.cityMissing = new Flag.CityMissing();
-                                result.noLock = true;
-                            }
-                        } else { //  if the inference doesn't work...
-                            WazeWrap.Alerts.error(_SCRIPT_NAME, 'This place has no address data and the address cannot be inferred from nearby segments. Please edit the address and run WMEPH again.');
-                            result.exit = true; //  don't run the rest of the script
-                        }
-                    }
-                }
-                return result;
+            constructor() {
+                super(true, _SEVERITY.RED, 'Missing address was inferred from nearby segments. Verify the address and run script again.');
+                this.noLock = true;
             }
 
-            static evalHL(venue, addr) {
+            static eval(venue, addr, actions, hpMode) {
                 let result = null;
-                if (!addr.state || !addr.country) {
+                if (hpMode.harmFlag) {
+                    if (!addr.state || !addr.country) {
+                        if (W.map.getZoom() < 4) {
+                            if ($('#WMEPH-EnableIAZoom').prop('checked')) {
+                                W.map.moveTo(getVenueLonLat(venue), 5);
+                            } else {
+                                WazeWrap.Alerts.error(_SCRIPT_NAME, 'No address and the state cannot be determined. Please zoom in and rerun the script. '
+                                    + 'You can enable autozoom for this type of case in the options.');
+                            }
+                            result = { exit: true }; // Don't bother returning a Flag. This will exit the rest of the harmonizePlaceGo function.
+                        } else {
+                            let inferredAddress = inferAddress(7); // Pull address info from nearby segments
+                            if (inferredAddress && inferredAddress.attributes) inferredAddress = inferredAddress.attributes;
+
+                            if (inferredAddress && inferredAddress.state && inferredAddress.country) {
+                                if ($('#WMEPH-AddAddresses').prop('checked')) { // update the item's address if option is enabled
+                                    updateAddress(venue, inferredAddress, actions);
+                                    _UPDATED_FIELDS.address.updated = true;
+                                    result = new Flag.FullAddressInference();
+                                    result.inferredAddress = inferredAddress;
+                                } else if (!['JUNCTION_INTERCHANGE'].includes(_newCategories[0])) {
+                                    _buttonBanner.cityMissing = new Flag.CityMissing();
+                                }
+                            } else { //  if the inference doesn't work...
+                                WazeWrap.Alerts.error(_SCRIPT_NAME, 'This place has no address data and the address cannot be inferred from nearby segments. Please edit the address and run WMEPH again.');
+                                result = { exit: true }; // Don't bother returning a Flag. This will exit the rest of the harmonizePlaceGo function.
+                            }
+                        }
+                    }
+                } else if (!addr.state || !addr.country) { // only highlighting
+                    result = { exit: true };
                     if (venue.attributes.adLocked) {
-                        result = 'adLock';
+                        result.severity = 'adLock';
                     } else {
                         const cat = venue.attributes.categories;
                         if (containsAny(cat, ['HOSPITAL_MEDICAL_CARE', 'HOSPITAL_URGENT_CARE', 'GAS_STATION'])) {
                             phlogdev('Unaddressed HUC/GS');
-                            result = 5;
+                            result.severity = _SEVERITY.PINK;
                         } else if (cat.includes('JUNCTION_INTERCHANGE')) {
-                            result = 0;
+                            result.severity = _SEVERITY.GREEN;
                         } else {
-                            result = 3;
+                            result.severity = _SEVERITY.restrictedPLA;
                         }
                     }
                 }
@@ -4425,21 +4423,15 @@
         _newPhone = item.attributes.phone;
 
         let pnhNameRegMatch;
+        let result;
 
         // Some user submitted places have no data in the country, state and address fields.
-        let inferredAddress;
-        if (hpMode.harmFlag) {
-            const result = Flag.FullAddressInference.eval(item, addr, actions);
-            if (result.exit) return undefined;
-            _buttonBanner.fullAddressInference = result.flag;
-            ({ inferredAddress } = result);
-            if (result.inferredAddress) addr = result.inferredAddress;
-        } else if (hpMode.hlFlag) {
-            const result = Flag.FullAddressInference.evalHL(item, addr);
-            if (result) return result;
-        }
+        result = Flag.FullAddressInference.eval(item, addr, actions, hpMode);
+        if (result?.exit) return result.severity;
+        _buttonBanner.fullAddressInference = result;
+        const inferredAddress = result?.inferredAddress;
+        addr ||= inferredAddress;
 
-        let result;
         // Check parking lot attributes.
         if (hpMode.harmFlag && item.isParkingLot()) _servicesBanner.addDisabilityParking.active = true;
 
