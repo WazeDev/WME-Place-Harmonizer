@@ -2018,13 +2018,13 @@
             }
 
             static eval(venue, wl) {
-                const result = { flag: null };
+                let result = null;
                 if (!wl.plaNameNonStandard) {
                     const { name } = venue.attributes;
                     const state = venue.getAddress().getStateName();
                     const re = state === 'Quebec' ? /\b(parking|stationnement)\b/i : /\b((park[ -](and|&|'?n'?)[ -]ride)|parking|lot|garage|ramp)\b/i;
                     if (venue.isParkingLot() && name && !re.test(name)) {
-                        result.flag = new Flag.PlaNameNonStandard();
+                        result = new Flag.PlaNameNonStandard();
                     }
                 }
                 return result;
@@ -2043,14 +2043,14 @@
             }
 
             static eval(venue, name, hpMode) {
-                const result = { flag: null };
+                let result = null;
                 if (hpMode.harmFlag && !_wl.indianaLiquorStoreHours
                     && [/\bbeers?\b/, /\bwines?\b/, /\bliquor\b/, /\bspirits\b/].some(re => re.test(name))
                     && !venue.attributes.openingHours.some(entry => entry.days.includes(0))
                     && !venue.isResidential()) {
                     const tempAddr = venue.getAddress();
                     if (tempAddr && tempAddr.getStateName() === 'Indiana') {
-                        result.flag = new Flag.IndianaLiquorStoreHours();
+                        result = new Flag.IndianaLiquorStoreHours();
                     }
                 }
                 return result;
@@ -2209,15 +2209,16 @@
             constructor() { super(true, _SEVERITY.GREEN, 'Is this a "Travel Center"?', 'Yes', ''); }
 
             static eval(venue, hpMode, state2L, newName, actions) {
-                const result = { flag: null, newName };
+                let result = null;
                 if (hpMode.harmFlag && state2L === 'TN') {
-                    if (result.newName.toLowerCase().trim() === 'pilot') {
-                        result.newName = 'Pilot Food Mart';
-                        actions.push(new UpdateObject(venue, { name: result.newName }));
+                    if (newName.toLowerCase().trim() === 'pilot') {
+                        newName = 'Pilot Food Mart';
+                        actions.push(new UpdateObject(venue, { name: newName }));
                         _UPDATED_FIELDS.name.updated = true;
                     }
-                    if (result.newName.toLowerCase().trim() === 'pilot food mart') {
-                        result.flag = new Flag.IsThisAPilotTravelCenter();
+                    if (newName.toLowerCase().trim() === 'pilot food mart') {
+                        result = new Flag.IsThisAPilotTravelCenter();
+                        result.newName = newName;
                     }
                 }
                 return result;
@@ -2414,15 +2415,15 @@
         HnTooManyDigits: class extends WLFlag {
             constructor() {
                 super(true, _SEVERITY.YELLOW, 'HN contains more than 6 digits. Please verify.', true, 'Whitelist long HN', 'hnTooManyDigits');
+                this.noLock = true;
             }
 
             static eval(houseNumber, wl) {
-                const result = { flag: null };
+                let result = null;
                 if (!wl.hnTooManyDigits && houseNumber) {
                     houseNumber = houseNumber.replace(/[^0-9]/g, '');
                     if (houseNumber.length > 6) {
-                        result.flag = new Flag.HnTooManyDigits();
-                        result.flag.noLock = true;
+                        result = new Flag.HnTooManyDigits();
                     }
                 }
                 return result;
@@ -2842,6 +2843,7 @@
                 super(true, _SEVERITY.BLUE, 'Place needs localization information', true, 'Whitelist localization', 'localizedName');
             }
 
+            // TODO: This returns a plain object instead of a Flag instance (or null). It doesn't match the pattern of other eval functions. Fix it?
             static eval(name, nameSuffix, specCase, displayNote) {
                 const result = { flag: null, updatePnhName: true };
                 const match = specCase.match(/^checkLocalization<>(.+)/i);
@@ -2865,6 +2867,28 @@
         },
         SpecCaseMessage: class extends FlagBase {
             constructor(message) { super(true, _SEVERITY.GREEN, message); }
+
+            static eval(venue, message, showDisplayNote, specialCases) {
+                let result = null;
+                if (showDisplayNote && !isNullOrWhitespace(message)) {
+                    if (containsAny(specialCases, ['pharmhours'])) {
+                        if (!venue.attributes.description.toUpperCase().includes('PHARMACY') || (!venue.attributes.description.toUpperCase().includes('HOURS')
+                            && !venue.attributes.description.toUpperCase().includes('HRS'))) {
+                            result = new Flag.SpecCaseMessage(message);
+                        }
+                    } else if (containsAny(specialCases, ['drivethruhours'])) {
+                        if (!venue.attributes.description.toUpperCase().includes('DRIVE') || (!venue.attributes.description.toUpperCase().includes('HOURS')
+                            && !venue.attributes.description.toUpperCase().includes('HRS'))) {
+                            if ($('#service-checkbox-DRIVETHROUGH').prop('checked')) {
+                                result = new Flag.SpecCaseMessage(message);
+                            }
+                        }
+                    } else {
+                        result = new Flag.SpecCaseMessageLow(message);
+                    }
+                }
+                return result;
+            }
         },
         PnhCatMess: class extends ActionFlag {
             constructor(message) { super(true, _SEVERITY.GREEN, message, null, null); }
@@ -3126,57 +3150,61 @@
             }
         },
         PlaLotTypeMissing: class extends FlagBase {
-            constructor() { super(true, _SEVERITY.RED, 'Lot type: '); }
+            constructor(harmonize) {
+                super(true, _SEVERITY.RED, 'Lot type: ');
+                this.noLock = true;
+                if (harmonize) {
+                    this.message += [['PUBLIC', 'Public'], ['RESTRICTED', 'Restricted'], ['PRIVATE', 'Private']].map(
+                        btnInfo => $('<button>', { class: 'wmeph-pla-lot-type-btn btn btn-default btn-xs wmeph-btn', 'data-lot-type': btnInfo[0] })
+                            .text(btnInfo[1])
+                            .css({
+                                padding: '3px', height: '20px', lineHeight: '0px', marginRight: '2px', marginBottom: '1px'
+                            })
+                            .prop('outerHTML')
+                    ).join('');
+                }
+            }
 
             static eval(venue, hpMode) {
-                const result = { flag: null };
+                let result = null;
                 if (venue.isParkingLot()) {
                     const catAttr = venue.attributes.categoryAttributes;
                     const parkAttr = catAttr ? catAttr.PARKING_LOT : undefined;
                     if (!parkAttr || !parkAttr.parkingType) {
-                        result.flag = new Flag.PlaLotTypeMissing();
-                        if (hpMode.harmFlag) {
-                            result.flag.noLock = true;
-                            result.flag.message += [['PUBLIC', 'Public'], ['RESTRICTED', 'Restricted'], ['PRIVATE', 'Private']].map(
-                                btnInfo => $('<button>', { class: 'wmeph-pla-lot-type-btn btn btn-default btn-xs wmeph-btn', 'data-lot-type': btnInfo[0] })
-                                    .text(btnInfo[1])
-                                    .css({
-                                        padding: '3px', height: '20px', lineHeight: '0px', marginRight: '2px', marginBottom: '1px'
-                                    })
-                                    .prop('outerHTML')
-                            ).join('');
-                        }
+                        result = new Flag.PlaLotTypeMissing(hpMode.harmFlag);
                     }
                 }
                 return result;
             }
         },
         PlaCostTypeMissing: class extends FlagBase {
-            constructor() { super(true, _SEVERITY.BLUE, 'Parking cost: '); }
+            constructor(harmonize) {
+                super(true, _SEVERITY.BLUE, 'Parking cost: ');
+                if (harmonize) {
+                    [['FREE', 'Free', 'Free'], ['LOW', '$', 'Low'], ['MODERATE', '$$', 'Moderate'], ['EXPENSIVE', '$$$', 'Expensive']].forEach(btnInfo => {
+                        this.message += $('<button>', { id: `wmeph_${btnInfo[0]}`, class: 'wmeph-pla-cost-type-btn btn btn-default btn-xs wmeph-btn', title: btnInfo[2] })
+                            .text(btnInfo[1])
+                            .css({
+                                padding: '3px',
+                                height: '20px',
+                                lineHeight: '0px',
+                                marginRight: '2px',
+                                marginBottom: '1px',
+                                minWidth: '18px'
+                            })
+                            .prop('outerHTML');
+                    });
+                    this.noLock = true;
+                }
+            }
 
             static eval(venue, hpMode) {
-                const result = { flag: null };
+                let result = null;
                 if (venue.isParkingLot()) {
                     const catAttr = venue.attributes.categoryAttributes;
                     const parkAttr = catAttr ? catAttr.PARKING_LOT : undefined;
                     if (!parkAttr || !parkAttr.costType || parkAttr.costType === 'UNKNOWN') {
-                        result.flag = new Flag.PlaCostTypeMissing();
-                        if (hpMode.harmFlag) {
-                            [['FREE', 'Free', 'Free'], ['LOW', '$', 'Low'], ['MODERATE', '$$', 'Moderate'], ['EXPENSIVE', '$$$', 'Expensive']].forEach(btnInfo => {
-                                result.flag.message += $('<button>', { id: `wmeph_${btnInfo[0]}`, class: 'wmeph-pla-cost-type-btn btn btn-default btn-xs wmeph-btn', title: btnInfo[2] })
-                                    .text(btnInfo[1])
-                                    .css({
-                                        padding: '3px',
-                                        height: '20px',
-                                        lineHeight: '0px',
-                                        marginRight: '2px',
-                                        marginBottom: '1px',
-                                        minWidth: '18px'
-                                    })
-                                    .prop('outerHTML');
-                            });
-                            result.flag.noLock = true;
-                        }
+                        result = new Flag.PlaCostTypeMissing(hpMode.harmFlag);
                     }
                 }
                 return result;
@@ -3204,16 +3232,24 @@
             }
         },
         PlaLotElevationMissing: class extends ActionFlag {
-            constructor() { super(true, _SEVERITY.BLUE, 'No lot elevation. Is it street level?', 'Yes', 'Click if street level parking only, or select other option(s) in the More Info tab.'); }
+            constructor() {
+                super(
+                    true,
+                    _SEVERITY.BLUE,
+                    'No lot elevation. Is it street level?',
+                    'Yes',
+                    'Click if street level parking only, or select other option(s) in the More Info tab.'
+                );
+                this.noLock = true;
+            }
 
             static eval(venue) {
-                const result = { flag: null };
+                let result = null;
                 if (venue.isParkingLot()) {
                     const catAttr = venue.attributes.categoryAttributes;
                     const parkAttr = catAttr ? catAttr.PARKING_LOT : undefined;
                     if (!parkAttr || !parkAttr.lotType || parkAttr.lotType.length === 0) {
-                        result.flag = new Flag.PlaLotElevationMissing();
-                        result.flag.noLock = true;
+                        result = new Flag.PlaLotElevationMissing();
                     }
                 }
                 return result;
@@ -3265,12 +3301,12 @@
             }
 
             static eval(venue, hpMode) {
-                const result = { flag: null };
+                let result = null;
                 if (hpMode.harmFlag && venue.isParkingLot()) {
                     const catAttr = venue.attributes.categoryAttributes;
                     const parkAttr = catAttr ? catAttr.PARKING_LOT : undefined;
                     if (!parkAttr || !parkAttr.estimatedNumberOfSpots || parkAttr.estimatedNumberOfSpots === 'R_1_TO_10') {
-                        result.flag = new Flag.PlaSpaces();
+                        result = new Flag.PlaSpaces();
                     }
                 }
                 return result;
@@ -3280,9 +3316,9 @@
             constructor() { super(true, _SEVERITY.BLUE, 'Entry/exit point has not been created.', 'Add point', 'Add an entry/exit point'); }
 
             static eval(venue) {
-                const result = { flag: null };
+                let result = null;
                 if (venue.isParkingLot() && (!venue.attributes.entryExitPoints || !venue.attributes.entryExitPoints.length)) {
-                    result.flag = new Flag.NoPlaStopPoint();
+                    result = new Flag.NoPlaStopPoint();
                 }
                 return result;
             }
@@ -4431,19 +4467,11 @@
         // Check parking lot attributes.
         if (hpMode.harmFlag && item.isParkingLot()) _servicesBanner.addDisabilityParking.active = true;
 
-        result = Flag.PlaCostTypeMissing.eval(item, hpMode);
-        _buttonBanner.plaCostTypeMissing = result.flag;
-
-        result = Flag.PlaLotElevationMissing.eval(item);
-        _buttonBanner.plaLotElevationMissing = result.flag;
-
-        result = Flag.PlaSpaces.eval(item, hpMode);
-        _buttonBanner.plaSpaces = result.flag;
-
-        result = Flag.PlaLotTypeMissing.eval(item, hpMode);
-        _buttonBanner.plaLotTypeMissing = result.flag;
-
-        _buttonBanner.noPlaStopPoint = Flag.NoPlaStopPoint.eval(item).flag;
+        _buttonBanner.plaCostTypeMissing = Flag.PlaCostTypeMissing.eval(item, hpMode);
+        _buttonBanner.plaLotElevationMissing = Flag.PlaLotElevationMissing.eval(item);
+        _buttonBanner.plaSpaces = Flag.PlaSpaces.eval(item, hpMode);
+        _buttonBanner.plaLotTypeMissing = Flag.PlaLotTypeMissing.eval(item, hpMode);
+        _buttonBanner.noPlaStopPoint = Flag.NoPlaStopPoint.eval(item);
         _buttonBanner.plaStopPointUnmoved = Flag.PlaStopPointUnmoved.eval(item).flag;
         _buttonBanner.plaCanExitWhileClosed = Flag.PlaCanExitWhileClosed.eval(item, hpMode).flag;
         _buttonBanner.plaPaymentTypeMissing = Flag.PlaPaymentTypeMissing.eval(item).flag;
@@ -4583,9 +4611,8 @@
 
         // Gas station treatment (applies to all including PNH)
 
-        result = Flag.IsThisAPilotTravelCenter.eval(item, hpMode, state2L, _newName, actions);
-        _buttonBanner.isThisAPilotTravelCenter = result.flag;
-        _newName = result.newName;
+        _buttonBanner.isThisAPilotTravelCenter = Flag.IsThisAPilotTravelCenter.eval(item, hpMode, state2L, _newName, actions);
+        if (_buttonBanner.isThisAPilotTravelCenter) _newName = _buttonBanner.isThisAPilotTravelCenter.newName;
 
         if (item.isGasStation()) {
             // If no gas station name, replace with brand name
@@ -4602,7 +4629,7 @@
         } // END Gas Station Checks
 
         // Note for Indiana editors to check liquor store hours if Sunday hours haven't been added yet.
-        _buttonBanner.indianaLiquorStoreHours = Flag.IndianaLiquorStoreHours.eval(item, _newName, hpMode).flag;
+        _buttonBanner.indianaLiquorStoreHours = Flag.IndianaLiquorStoreHours.eval(item, _newName, hpMode);
 
         const isLocked = item.attributes.lockRank >= (_pnhLockLevel > -1 ? _pnhLockLevel : _defaultLockLevel);
 
@@ -4852,25 +4879,7 @@
                 }
 
                 // Display any notes for the specific place
-                if (showDispNote && phDisplayNoteIdx > -1 && !isNullOrWhitespace(pnhMatchData[phDisplayNoteIdx])) {
-                    if (containsAny(specCases, ['pharmhours'])) {
-                        if (!item.attributes.description.toUpperCase().includes('PHARMACY') || (!item.attributes.description.toUpperCase().includes('HOURS')
-                            && !item.attributes.description.toUpperCase().includes('HRS'))) {
-                            _buttonBanner.specCaseMessage = new Flag.SpecCaseMessage(pnhMatchData[phDisplayNoteIdx]);
-                        }
-                    } else if (containsAny(specCases, ['drivethruhours'])) {
-                        if (!item.attributes.description.toUpperCase().includes('DRIVE') || (!item.attributes.description.toUpperCase().includes('HOURS')
-                            && !item.attributes.description.toUpperCase().includes('HRS'))) {
-                            if ($('#service-checkbox-DRIVETHROUGH').prop('checked')) {
-                                _buttonBanner.specCaseMessage = new Flag.SpecCaseMessage(pnhMatchData[phDisplayNoteIdx]);
-                            } else {
-                                _buttonBanner.specCaseMessageLow = new Flag.SpecCaseMessageLow(pnhMatchData[phDisplayNoteIdx]);
-                            }
-                        }
-                    } else {
-                        _buttonBanner.specCaseMessageLow = new Flag.SpecCaseMessageLow(pnhMatchData[phDisplayNoteIdx]);
-                    }
-                }
+                _buttonBanner.specCaseMessage = Flag.SpecCaseMessage.eval(item, pnhMatchData[phDisplayNoteIdx], showDispNote, specCases);
 
                 // Localized Storefinder code:
                 _customStoreFinderLocal = false;
@@ -5725,7 +5734,7 @@
             }
         }
 
-        _buttonBanner.plaNameNonStandard = Flag.PlaNameNonStandard.eval(item, _wl).flag;
+        _buttonBanner.plaNameNonStandard = Flag.PlaNameNonStandard.eval(item, _wl);
 
         // Public parking lot warning message:
         if (item.isParkingLot() && item.attributes.categoryAttributes && item.attributes.categoryAttributes.PARKING_LOT
@@ -5779,7 +5788,7 @@
                 }
             }
         } else if (currentHN) {
-            _buttonBanner.hnTooManyDigits = Flag.HnTooManyDigits.eval(currentHN, _wl).flag;
+            _buttonBanner.hnTooManyDigits = Flag.HnTooManyDigits.eval(currentHN, _wl);
 
             // 2020-10-5 Disabling HN validity checks for now. See the note on the HnNonStandard flag object for more details.
 
