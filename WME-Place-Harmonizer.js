@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name        WME Place Harmonizer Beta
 // @namespace   WazeUSA
-// @version     2023.02.10.003
+// @version     2023.02.10.004
 // @description Harmonizes, formats, and locks a selected place
 // @author      WMEPH Development Group
 // @include     /^https:\/\/(www|beta)\.waze\.com\/(?!user\/)(.{2,6}\/)?editor\/?.*$/
@@ -2188,7 +2188,7 @@
                 const result = { flag: null };
                 if (venue.isGasStation() && brand === 'Unbranded') {
                     result.flag = new Flag.GasUnbranded();
-                    result.noLock = true;
+                    result.flag.noLock = true;
                 }
                 return result;
             }
@@ -2742,7 +2742,7 @@
                 const result = { flag: null };
                 if (venue.isGasStation() && !brand) {
                     result.flag = new Flag.GasNoBrand();
-                    result.noLock = true;
+                    result.flag.noLock = true;
                 }
                 return result;
             }
@@ -3139,7 +3139,7 @@
                     if (!parkAttr || !parkAttr.parkingType) {
                         result.flag = new Flag.PlaLotTypeMissing();
                         if (hpMode.harmFlag) {
-                            result.noLock = true;
+                            result.flag.noLock = true;
                             result.flag.message += [['PUBLIC', 'Public'], ['RESTRICTED', 'Restricted'], ['PRIVATE', 'Private']].map(
                                 btnInfo => $('<button>', { class: 'wmeph-pla-lot-type-btn btn btn-default btn-xs wmeph-btn', 'data-lot-type': btnInfo[0] })
                                     .text(btnInfo[1])
@@ -3178,7 +3178,7 @@
                                     })
                                     .prop('outerHTML');
                             });
-                            result.noLock = true;
+                            result.flag.noLock = true;
                         }
                     }
                 }
@@ -3216,7 +3216,7 @@
                     const parkAttr = catAttr ? catAttr.PARKING_LOT : undefined;
                     if (!parkAttr || !parkAttr.lotType || parkAttr.lotType.length === 0) {
                         result.flag = new Flag.PlaLotElevationMissing();
-                        result.noLock = true;
+                        result.flag.noLock = true;
                     }
                 }
                 return result;
@@ -3627,7 +3627,7 @@
                     if (containsAny(testNameWords, _hospitalFullMatch) || _hospitalPartMatch.some(match => testName.includes(match))) {
                         if (!_wl.notAHospital) {
                             result.flag = new Flag.NotAHospital();
-                            result.noLock = true;
+                            result.flag.noLock = true;
                         }
                     }
                 }
@@ -5943,7 +5943,7 @@
 
         if (hpMode.harmFlag) {
             // Update the lockOK value if "noLock" is set on any flag.
-            lockOK ||= !Object.keys(_buttonBanner).some(key => _buttonBanner[key]?.noLock);
+            lockOK &&= !Object.keys(_buttonBanner).some(key => _buttonBanner[key]?.noLock);
             phlogdev(`Severity: ${_severityButt}; lockOK: ${lockOK}`);
         }
         // Place locking
