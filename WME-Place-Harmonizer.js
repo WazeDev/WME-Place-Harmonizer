@@ -2161,8 +2161,8 @@
                 );
             }
 
-            static eval(item, hpMode) {
-                return hpMode.harmFlag && item.isChargingStation() ? new Flag.EVChargingStationWarning() : null;
+            static eval(venue, hpMode) {
+                return hpMode.harmFlag && venue.isChargingStation() ? new Flag.EVChargingStationWarning() : null;
             }
         },
         GasMismatch: class extends WLFlag {
@@ -2180,17 +2180,13 @@
         GasUnbranded: class extends FlagBase {
             //  Unbranded is not used per wiki
             constructor() {
-                super(true, _SEVERITY.RED, '"Unbranded" should not be used for the station brand. Change to correct brand or '
-                    + 'use the blank entry at the top of the brand list.');
+                super(true, _SEVERITY.RED, '"Unbranded" should not be used for the station brand. Change to the correct brand or '
+                    + 'delete the brand.');
+                this.noLock = true;
             }
 
             static eval(venue, brand) {
-                const result = { flag: null };
-                if (venue.isGasStation() && brand === 'Unbranded') {
-                    result.flag = new Flag.GasUnbranded();
-                    result.noLock = true;
-                }
-                return result;
+                return venue.isGasStation() && brand === 'Unbranded' ? new Flag.GasUnbranded() : null;
             }
         },
         GasMkPrim: class extends ActionFlag {
@@ -2495,11 +2491,11 @@
                 }, 100);
             }
 
-            static eval(item, addr) {
+            static eval(venue, addr) {
                 let result = null;
                 if (addr.city && (!addr.street || addr.street.isEmpty)
-                    && !'BRIDGE|ISLAND|FOREST_GROVE|SEA_LAKE_POOL|RIVER_STREAM|CANAL|DAM|TUNNEL|JUNCTION_INTERCHANGE'.split('|').includes(item.attributes.categories[0])) {
-                    result = new Flag.StreetMissing(item.attributes.categories[0]);
+                    && !'BRIDGE|ISLAND|FOREST_GROVE|SEA_LAKE_POOL|RIVER_STREAM|CANAL|DAM|TUNNEL|JUNCTION_INTERCHANGE'.split('|').includes(venue.attributes.categories[0])) {
+                    result = new Flag.StreetMissing(venue.attributes.categories[0]);
                 }
                 return result;
             }
@@ -2533,11 +2529,11 @@
                 $('.city-name').focus();
             }
 
-            static eval(item, addr, hpMode) {
+            static eval(venue, addr, hpMode) {
                 let result = null;
                 if ((!addr.city || addr.city.attributes.isEmpty)
-                    && !'BRIDGE|ISLAND|FOREST_GROVE|SEA_LAKE_POOL|RIVER_STREAM|CANAL|DAM|TUNNEL|JUNCTION_INTERCHANGE'.split('|').includes(item.attributes.categories[0])) {
-                    result = new Flag.CityMissing(item.attributes.residential, hpMode.hlFlag);
+                    && !'BRIDGE|ISLAND|FOREST_GROVE|SEA_LAKE_POOL|RIVER_STREAM|CANAL|DAM|TUNNEL|JUNCTION_INTERCHANGE'.split('|').includes(venue.attributes.categories[0])) {
+                    result = new Flag.CityMissing(venue.attributes.residential, hpMode.hlFlag);
                 }
                 return result;
             }
@@ -2734,15 +2730,16 @@
             }
         },
         GasNoBrand: class extends FlagBase {
-            constructor() {
-                super(true, _SEVERITY.BLUE, 'Lock to region standards to verify no gas brand.');
+            constructor(levelToLock) {
+                super(true, _SEVERITY.BLUE, `Lock to L${levelToLock + 1}+ to verify no gas brand.`);
+                this.noLock = true;
             }
 
-            static eval(venue, brand) {
-                const result = { flag: null };
-                if (venue.isGasStation() && !brand) {
-                    result.flag = new Flag.GasNoBrand();
-                    result.noLock = true;
+            static eval(venue, brand, levelToLock) {
+                // If gas station is missing brand, don't flag if place is locked as high as user can lock it.
+                let result = null;
+                if (venue.isGasStation() && !brand && venue.attributes.lockRank < levelToLock) {
+                    result = new Flag.GasNoBrand(levelToLock);
                 }
                 return result;
             }
@@ -4353,7 +4350,6 @@
             suspectDesc: false,
             resiTypeName: false,
             longURL: false,
-            gasNoBrand: false,
             subFuel: false,
             hotelLocWL: false,
             localizedName: false,
@@ -5715,13 +5711,6 @@
 
         _buttonBanner.evChargingStationWarning = Flag.EVChargingStationWarning.eval(item, hpMode);
 
-        // Brand checking (be sure to check this after determining if brand will be forced, when harmonzing)
-        result = Flag.GasNoBrand.eval(item, newBrand);
-        _buttonBanner.gasNoBrand = result.flag;
-
-        result = Flag.GasUnbranded.eval(item, newBrand);
-        _buttonBanner.gasUnbranded = result.flag;
-
         // Name check
         if (!item.attributes.residential && (!_newName || _newName.replace(/[^A-Za-z0-9]/g, '').length === 0)) {
             if (item.isParkingLot()) {
@@ -5941,11 +5930,6 @@
             }
         });
 
-        if (hpMode.harmFlag) {
-            // Update the lockOK value if "noLock" is set on any flag.
-            lockOK ||= !Object.keys(_buttonBanner).some(key => _buttonBanner[key]?.noLock);
-            phlogdev(`Severity: ${_severityButt}; lockOK: ${lockOK}`);
-        }
         // Place locking
         // final formatting of desired lock levels
         let levelToLock;
@@ -5966,14 +5950,9 @@
 
         if (levelToLock > (_USER.rank - 1)) { levelToLock = (_USER.rank - 1); } // Only lock up to the user's level
 
-        // If gas station is missing brand, don't flag if place is locked.
-        if (_buttonBanner.gasNoBrand) {
-            if (item.attributes.lockRank >= levelToLock) {
-                _buttonBanner.gasNoBrand = null;
-            } else {
-                _buttonBanner.gasNoBrand.message = `Lock to L${levelToLock + 1}+ to verify no gas brand.`;
-            }
-        }
+        // Brand checking (be sure to check this after determining if brand will be forced, when harmonizing)
+        _buttonBanner.gasNoBrand = Flag.GasNoBrand.eval(item, newBrand, levelToLock);
+        _buttonBanner.gasUnbranded = Flag.GasUnbranded.eval(item, newBrand);
 
         // If no Google link and severity would otherwise allow locking, ask if user wants to lock anyway.
         if (!isLocked && _buttonBanner.extProviderMissing && _buttonBanner.extProviderMissing.active
@@ -5991,6 +5970,12 @@
                     harmonizePlaceGo(item, 'harmonize');
                 };
             }
+        }
+
+        if (hpMode.harmFlag) {
+            // Update the lockOK value if "noLock" is set on any flag.
+            lockOK &&= !Object.keys(_buttonBanner).some(key => _buttonBanner[key]?.noLock);
+            phlogdev(`Severity: ${_severityButt}; lockOK: ${lockOK}`);
         }
 
         let hlLockFlag = false;
