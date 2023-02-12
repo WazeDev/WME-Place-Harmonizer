@@ -2891,16 +2891,18 @@
             }
         },
         PnhCatMess: class extends ActionFlag {
-            constructor(message) { super(true, _SEVERITY.GREEN, message, null, null); }
+            constructor(message, categories) {
+                super(true, _SEVERITY.GREEN, message, null, null);
+                if (categories.includes('HOSPITAL_URGENT_CARE')) {
+                    this.value = 'Change to Doctor/Clinic';
+                    this.actionType = 'changeToDoctorClinic';
+                }
+            }
 
             static eval(message, categories, hpMode) {
-                const result = { flag: null };
+                let result = null;
                 if (hpMode.harmFlag && !isNullOrWhitespace(message)) {
-                    result.flag = new Flag.PnhCatMess(message);
-                    if (categories.includes('HOSPITAL_URGENT_CARE')) {
-                        result.flag.value = 'Change to Doctor/Clinic';
-                        result.flag.actionType = 'changeToDoctorClinic';
-                    }
+                    result = new Flag.PnhCatMess(message, categories);
                 }
                 return result;
             }
@@ -2909,9 +2911,9 @@
                 const venue = getSelectedVenue();
                 if (this.actionType === 'changeToDoctorClinic') {
                     const categories = _.uniq(venue.attributes.categories.slice());
-                    const idx = categories.indexOf('HOSPITAL_URGENT_CARE');
-                    if (idx > -1) {
-                        categories[idx] = 'DOCTOR_CLINIC';
+                    const indexOfHospital = categories.indexOf('HOSPITAL_URGENT_CARE');
+                    if (indexOfHospital > -1) {
+                        categories[indexOfHospital] = 'DOCTOR_CLINIC';
                         _UPDATED_FIELDS.categories.updated = true;
                         addUpdateAction(venue, { categories });
                         harmonizePlaceGo(venue, 'harmonize');
@@ -2923,44 +2925,46 @@
             constructor(message) { super(true, _SEVERITY.GREEN, message); }
         },
         ExtProviderMissing: class extends ActionFlag {
-            constructor() {
+            static #categoriesToIgnore = ['BRIDGE', 'TUNNEL', 'JUNCTION_INTERCHANGE', 'NATURAL_FEATURES', 'ISLAND',
+                'SEA_LAKE_POOL', 'RIVER_STREAM', 'CANAL', 'SWAMP_MARSH'];
+
+            constructor(venue, isLocked, actions) {
                 super(true, _SEVERITY.RED, 'No Google link', 'Nudge', 'If no other properties need to be updated, click to nudge the place (force an edit).');
                 this.value2 = 'Add';
                 this.title2 = 'Add a link to a Google place';
+
+                if (isLocked) {
+                    let lastUpdated;
+                    if (venue.isNew()) {
+                        lastUpdated = Date.now();
+                    } else if (venue.attributes.updatedOn) {
+                        lastUpdated = venue.attributes.updatedOn;
+                    } else {
+                        lastUpdated = venue.attributes.createdOn;
+                    }
+                    const weeksSinceLastUpdate = (Date.now() - lastUpdated) / 604800000;
+                    if (weeksSinceLastUpdate >= 26 && !venue.isUpdated() && (!actions || actions.length === 0)) {
+                        this.severity = _SEVERITY.RED;
+                        this.message += ' and place has not been edited for over 6 months. Edit a property (or nudge) and save to reset the 6 month timer: ';
+                    } else {
+                        this.severity = _SEVERITY.GREEN;
+                        this.message += ': ';
+                        delete this.value;
+                    }
+                } else {
+                    this.severity = _SEVERITY.GREEN;
+                    this.message += ': ';
+                    delete this.value;
+                }
             }
 
             static eval(venue, isLocked, categories, userRank, ignoreParkingLots, actions) {
-                const result = { flag: null };
+                let result = null;
                 if (userRank >= 2 && venue.areExternalProvidersEditable() && !(venue.isParkingLot() && ignoreParkingLots)) {
-                    const catsToIgnore = ['BRIDGE', 'TUNNEL', 'JUNCTION_INTERCHANGE', 'NATURAL_FEATURES', 'ISLAND',
-                        'SEA_LAKE_POOL', 'RIVER_STREAM', 'CANAL', 'SWAMP_MARSH'];
-                    if (!categories.some(cat => catsToIgnore.includes(cat))) {
+                    if (!categories.some(cat => this.#categoriesToIgnore.includes(cat))) {
                         const provIDs = venue.attributes.externalProviderIDs;
                         if (!(provIDs && provIDs.length)) {
-                            result.flag = new Flag.ExtProviderMissing();
-                            if (isLocked) {
-                                let lastUpdated;
-                                if (venue.isNew()) {
-                                    lastUpdated = Date.now();
-                                } else if (venue.attributes.updatedOn) {
-                                    lastUpdated = venue.attributes.updatedOn;
-                                } else {
-                                    lastUpdated = venue.attributes.createdOn;
-                                }
-                                const weeksSinceLastUpdate = (Date.now() - lastUpdated) / 604800000;
-                                if (weeksSinceLastUpdate >= 26 && !venue.isUpdated() && (!actions || actions.length === 0)) {
-                                    result.flag.severity = _SEVERITY.RED;
-                                    result.flag.message += ' and place has not been edited for over 6 months. Edit a property (or nudge) and save to reset the 6 month timer: ';
-                                } else {
-                                    result.flag.severity = _SEVERITY.GREEN;
-                                    result.flag.message += ': ';
-                                    delete result.flag.value;
-                                }
-                            } else {
-                                result.flag.severity = _SEVERITY.GREEN;
-                                result.flag.message += ': ';
-                                delete result.flag.value;
-                            }
+                            result = new Flag.ExtProviderMissing(venue, isLocked, actions);
                         }
                     }
                 }
@@ -4677,7 +4681,14 @@
                 _buttonBanner.pointNotArea = new Flag.PointNotArea();
             }
         } else if (item.isParkingLot() || (_newName && _newName.trim().length)) { // for non-residential places
-            _buttonBanner.extProviderMissing = Flag.ExtProviderMissing.eval(item, isLocked, _newCategories, _USER.rank, $('#WMEPH-DisablePLAExtProviderCheck').prop('checked'), actions).flag;
+            _buttonBanner.extProviderMissing = Flag.ExtProviderMissing.eval(
+                item,
+                isLocked,
+                _newCategories,
+                _USER.rank,
+                $('#WMEPH-DisablePLAExtProviderCheck').prop('checked'),
+                actions
+            );
 
             // Place Harmonization
             let pnhMatchData;
@@ -5406,7 +5417,7 @@
 
                     // display any messages regarding the category
                     const catMessage = catDataTemp[catDataHeaders.indexOf('pc_message')];
-                    _buttonBanner.pnhCatMess = Flag.PnhCatMess.eval(catMessage, _newCategories, hpMode).flag;
+                    _buttonBanner.pnhCatMess = Flag.PnhCatMess.eval(catMessage, _newCategories, hpMode);
                     // Unmapped categories
                     const catRare = catDataTemp[catDataHeaders.indexOf('pc_rare')].replace(/,[^A-Za-z0-9}]+/g, ',').split(',');
                     if (catRare.includes(state2L) || catRare.includes(region) || catRare.includes(_countryCode)) {
