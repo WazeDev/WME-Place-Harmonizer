@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name        WME Place Harmonizer Beta
 // @namespace   WazeUSA
-// @version     2023.02.10.004
+// @version     2023.02.11.001
 // @description Harmonizes, formats, and locks a selected place
 // @author      WMEPH Development Group
 // @include     /^https:\/\/(www|beta)\.waze\.com\/(?!user\/)(.{2,6}\/)?editor\/?.*$/
@@ -2851,7 +2851,7 @@
                     result.updatePnhName = false;
                     const [, baseName] = specCase.match(/^checkLocalization<>(.+)/i);
                     const baseNameRE = new RegExp(baseName, 'g');
-                    if ((name + (nameSuffix || '')).match(baseNameRE) === null) {
+                    if (!(name + (nameSuffix || '')).match(baseNameRE)) {
                         result.flag = new Flag.LocalizedName();
                         if (_wl.localizedName) {
                             result.flag.WLactive = false;
@@ -4853,11 +4853,11 @@
                             displayNote = pnhMatchData[phDisplayNoteIdx];
                         }
                         result = Flag.LocalizedName.eval(_newName, newNameSuffix, specCase, displayNote);
+                        if (!result.updatePnhName) {
+                            updatePNHName = false;
+                            showDispNote = false;
+                        }
                         if (result.flag) {
-                            if (!result.updatePnhName) {
-                                updatePNHName = false;
-                                showDispNote = false;
-                            }
                             _buttonBanner.localizedName = result.flag;
                         }
 
