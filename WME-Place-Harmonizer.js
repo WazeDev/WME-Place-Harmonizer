@@ -3494,11 +3494,16 @@
             }
         },
         AddCat2: class extends ActionFlag {
-            constructor() { super(true, _SEVERITY.GREEN, '', 'Yes', ''); }
+            constructor(altCategory) {
+                super(true, _SEVERITY.GREEN, `Is there a ${_catTransWaze2Lang[altCategory]} at this location?`, 'Yes', `Add ${_catTransWaze2Lang[altCategory]}`);
+                this.altCategory = altCategory;
+            }
 
-            static eval() {
-                const result = { flag: null };
-                result.flag = new Flag.AddCat2();
+            static eval(specCases, altCategory) {
+                let result = null;
+                if (specCases.includes('buttOn_addCat2') && !_newCategories.includes(altCategory)) {
+                    result = new Flag.AddCat2(altCategory);
+                }
                 return result;
             }
 
@@ -5155,14 +5160,7 @@
                     }
                 }
                 // Enable optional 2nd category button
-                if (specCases.includes('buttOn_addCat2') && !_newCategories.includes(altCategories[0])) {
-                    const altCat = altCategories[0];
-                    // TODO - move logic into flag eval
-                    _buttonBanner.addCat2 = Flag.AddCat2.eval().flag;
-                    _buttonBanner.addCat2.message = `Is there a ${_catTransWaze2Lang[altCat]} at this location?`;
-                    _buttonBanner.addCat2.title = `Add ${_catTransWaze2Lang[altCat]}`;
-                    _buttonBanner.addCat2.altCategory = altCat;
-                }
+                _buttonBanner.addCat2 = Flag.AddCat2.eval(specCases, altCategories[0]);
 
                 // Description update
                 newDescripion = pnhMatchData[phDescriptionIdx];
