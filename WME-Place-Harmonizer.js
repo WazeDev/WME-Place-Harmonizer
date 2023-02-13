@@ -3605,11 +3605,11 @@
             }
         },
         ChangeToHospitalUrgentCare: class extends WLActionFlag {
-            constructor(severity, message) {
+            constructor() {
                 super(
                     true,
-                    severity,
-                    message,
+                    _SEVERITY.GREEN,
+                    'If this place provides emergency medical care:',
                     'Change to Hospital / Urgent Care',
                     'Change category to Hospital / Urgent Care',
                     false,
@@ -3619,9 +3619,9 @@
             }
 
             static eval(venue, hpMode) {
-                const result = { flag: null };
+                let result = null;
                 if (hpMode.harmFlag && venue.attributes.categories.includes('DOCTOR_CLINIC')) {
-                    result.flag = new Flag.ChangeToHospitalUrgentCare(0, 'If this place provides emergency medical care:');
+                    result = new Flag.ChangeToHospitalUrgentCare();
                 }
                 return result;
             }
@@ -4479,7 +4479,7 @@
         _buttonBanner.plaHasAccessibleParking = Flag.PlaHasAccessibleParking.eval(item, hpMode);
 
         // Check categories that maybe should be Hospital / Urgent Care, or Doctor / Clinic.
-        _buttonBanner.changeToHospitalUrgentCare = Flag.ChangeToHospitalUrgentCare.eval(item, hpMode).flag;
+        _buttonBanner.changeToHospitalUrgentCare = Flag.ChangeToHospitalUrgentCare.eval(item, hpMode);
 
         // Whitelist breakout if place exists on the Whitelist and the option is enabled
 
