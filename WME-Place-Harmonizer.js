@@ -3338,13 +3338,13 @@
             constructor() { super(true, _SEVERITY.BLUE, 'Entry/exit point has not been moved.'); }
 
             static eval(venue) {
-                const result = { flag: null };
+                let result = null;
                 const attr = venue.attributes;
                 if (venue.isParkingLot() && attr.entryExitPoints && attr.entryExitPoints.length) {
                     const stopPoint = attr.entryExitPoints[0].getPoint();
                     const areaCenter = attr.geometry.getCentroid();
                     if (stopPoint.equals(areaCenter)) {
-                        result.flag = new Flag.PlaStopPointUnmoved();
+                        result = new Flag.PlaStopPointUnmoved();
                     }
                 }
                 return result;
@@ -4477,7 +4477,7 @@
         _buttonBanner.plaSpaces = Flag.PlaSpaces.eval(item, hpMode);
         _buttonBanner.plaLotTypeMissing = Flag.PlaLotTypeMissing.eval(item, hpMode);
         _buttonBanner.noPlaStopPoint = Flag.NoPlaStopPoint.eval(item);
-        _buttonBanner.plaStopPointUnmoved = Flag.PlaStopPointUnmoved.eval(item).flag;
+        _buttonBanner.plaStopPointUnmoved = Flag.PlaStopPointUnmoved.eval(item);
         _buttonBanner.plaCanExitWhileClosed = Flag.PlaCanExitWhileClosed.eval(item, hpMode).flag;
         _buttonBanner.plaPaymentTypeMissing = Flag.PlaPaymentTypeMissing.eval(item);
         _buttonBanner.plaHasAccessibleParking = Flag.PlaHasAccessibleParking.eval(item, hpMode).flag;
