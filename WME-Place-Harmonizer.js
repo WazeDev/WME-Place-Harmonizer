@@ -3385,12 +3385,9 @@
             constructor() { super(true, _SEVERITY.GREEN, 'Does this lot have disability parking? ', 'Yes', ''); }
 
             static eval(venue, hpMode) {
-                const result = { flag: null };
-                if (hpMode.harmFlag && venue.isParkingLot()) {
-                    const { services } = venue.attributes;
-                    if (!(services && services.includes('DISABILITY_PARKING'))) {
-                        result.flag = new Flag.PlaHasAccessibleParking();
-                    }
+                let result = null;
+                if (hpMode.harmFlag && venue.isParkingLot() && !(venue.attributes.services?.includes('DISABILITY_PARKING'))) {
+                    result = new Flag.PlaHasAccessibleParking();
                 }
                 return result;
             }
@@ -4479,7 +4476,7 @@
         _buttonBanner.plaStopPointUnmoved = Flag.PlaStopPointUnmoved.eval(item);
         _buttonBanner.plaCanExitWhileClosed = Flag.PlaCanExitWhileClosed.eval(item, hpMode);
         _buttonBanner.plaPaymentTypeMissing = Flag.PlaPaymentTypeMissing.eval(item);
-        _buttonBanner.plaHasAccessibleParking = Flag.PlaHasAccessibleParking.eval(item, hpMode).flag;
+        _buttonBanner.plaHasAccessibleParking = Flag.PlaHasAccessibleParking.eval(item, hpMode);
 
         // Check categories that maybe should be Hospital / Urgent Care, or Doctor / Clinic.
         _buttonBanner.changeToHospitalUrgentCare = Flag.ChangeToHospitalUrgentCare.eval(item, hpMode).flag;
