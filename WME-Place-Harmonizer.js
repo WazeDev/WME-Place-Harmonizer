@@ -3218,12 +3218,12 @@
             constructor() { super(true, _SEVERITY.BLUE, 'Parking isn\'t free.  Select payment type(s) from the "More info" tab. ', 'Go there'); }
 
             static eval(venue) {
-                const result = { flag: null };
+                let result = null;
                 if (venue.isParkingLot()) {
                     const catAttr = venue.attributes.categoryAttributes;
                     const parkAttr = catAttr ? catAttr.PARKING_LOT : undefined;
                     if (parkAttr && parkAttr.costType && parkAttr.costType !== 'FREE' && parkAttr.costType !== 'UNKNOWN' && (!parkAttr.paymentType || !parkAttr.paymentType.length)) {
-                        result.flag = new Flag.PlaPaymentTypeMissing();
+                        result = new Flag.PlaPaymentTypeMissing();
                     }
                 }
                 return result;
@@ -3231,8 +3231,9 @@
 
             // eslint-disable-next-line class-methods-use-this
             action() {
-                $('a[href="#venue-edit-more-info"]').click();
-                $('#payment-checkbox-ELECTRONIC_PASS').focus();
+                document.querySelector('#edit-panel wz-tab.venue-edit-tab-more-info').isActive = true;
+                // The setTimeout is necessary to allow the previous action to do its thing. A pause isn't needed, just a new thread.
+                setTimeout(() => document.querySelector('#venue-edit-more-info wz-select[name="costType"]').scrollIntoView(), 0);
             }
         },
         PlaLotElevationMissing: class extends ActionFlag {
@@ -4478,7 +4479,7 @@
         _buttonBanner.noPlaStopPoint = Flag.NoPlaStopPoint.eval(item);
         _buttonBanner.plaStopPointUnmoved = Flag.PlaStopPointUnmoved.eval(item).flag;
         _buttonBanner.plaCanExitWhileClosed = Flag.PlaCanExitWhileClosed.eval(item, hpMode).flag;
-        _buttonBanner.plaPaymentTypeMissing = Flag.PlaPaymentTypeMissing.eval(item).flag;
+        _buttonBanner.plaPaymentTypeMissing = Flag.PlaPaymentTypeMissing.eval(item);
         _buttonBanner.plaHasAccessibleParking = Flag.PlaHasAccessibleParking.eval(item, hpMode).flag;
 
         // Check categories that maybe should be Hospital / Urgent Care, or Doctor / Clinic.
