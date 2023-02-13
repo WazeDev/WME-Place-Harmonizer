@@ -3468,12 +3468,12 @@
             }
 
             static eval(specCase, specCases, aliases) {
-                const result = { flag: null };
+                let result = null;
                 const match = specCase.match(/^optionAltName<>(.+)/i);
                 if (match) {
                     const [, optionalAlias] = match;
                     if (!aliases.includes(optionalAlias)) {
-                        result.flag = new Flag.AddAlias(specCases, optionalAlias);
+                        result = new Flag.AddAlias(specCases, optionalAlias);
                     }
                 }
                 return result;
@@ -4840,10 +4840,7 @@
                         }
 
                         // parse out optional alt-name
-                        result = Flag.AddAlias.eval(specCase, specCases, _newAliases);
-                        if (result.flag) {
-                            _buttonBanner.addAlias = result.flag;
-                        }
+                        _buttonBanner.addAlias = Flag.AddAlias.eval(specCase, specCases, _newAliases);
 
                         // Gas Station forceBranding
                         if (['GAS_STATION'].includes(priPNHPlaceCat) && (match = specCase.match(/^forceBrand<>(.+)/i))) {
