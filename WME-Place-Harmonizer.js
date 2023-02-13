@@ -3354,12 +3354,11 @@
             constructor() { super(true, _SEVERITY.GREEN, 'Can cars exit when lot is closed? ', 'Yes', ''); }
 
             static eval(venue, hpMode) {
-                const result = { flag: null };
+                let result = null;
                 if (hpMode.harmFlag && venue.isParkingLot()) {
                     const catAttr = venue.attributes.categoryAttributes;
-                    const parkAttr = catAttr ? catAttr.PARKING_LOT : undefined;
-                    if (parkAttr && !parkAttr.canExitWhileClosed && ($('#WMEPH-ShowPLAExitWhileClosed').prop('checked') || !(isAlwaysOpen(venue) || venue.attributes.openingHours.length === 0))) {
-                        result.flag = new Flag.PlaCanExitWhileClosed();
+                    if (!catAttr?.PARKING_LOT?.canExitWhileClosed && ($('#WMEPH-ShowPLAExitWhileClosed').prop('checked') || !(isAlwaysOpen(venue) || venue.attributes.openingHours.length === 0))) {
+                        result = new Flag.PlaCanExitWhileClosed();
                     }
                 }
                 return result;
@@ -4478,7 +4477,7 @@
         _buttonBanner.plaLotTypeMissing = Flag.PlaLotTypeMissing.eval(item, hpMode);
         _buttonBanner.noPlaStopPoint = Flag.NoPlaStopPoint.eval(item);
         _buttonBanner.plaStopPointUnmoved = Flag.PlaStopPointUnmoved.eval(item);
-        _buttonBanner.plaCanExitWhileClosed = Flag.PlaCanExitWhileClosed.eval(item, hpMode).flag;
+        _buttonBanner.plaCanExitWhileClosed = Flag.PlaCanExitWhileClosed.eval(item, hpMode);
         _buttonBanner.plaPaymentTypeMissing = Flag.PlaPaymentTypeMissing.eval(item);
         _buttonBanner.plaHasAccessibleParking = Flag.PlaHasAccessibleParking.eval(item, hpMode).flag;
 
