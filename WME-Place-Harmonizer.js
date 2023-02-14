@@ -299,6 +299,24 @@
     let _newAliases = [];
     let _newAliasesTemp = [];
     let _newCategories = [];
+    const EV_PAYMENT_METHOD = {
+        APP: 'APP',
+        CREDIT: 'CREDIT',
+        DEBIT: 'DEBIT',
+        MEMBERSHIP_CARD: 'MEMBERSHIP_CARD',
+        ONLENE_PAYMENT: 'ONLINE_PAYMENT',
+        PLUG_IN_AUTO_CHARGER: 'PLUG_IN_AUTO_CHARGE',
+        OTHER: 'OTHER'
+    };
+    // Common payment types found at: https://wazeopedia.waze.com/wiki/USA/Places/EV_charging_station
+    const COMMON_EV_PAYMENT_METHODS = {
+        'Blink Charging': [EV_PAYMENT_METHOD.APP, EV_PAYMENT_METHOD.MEMBERSHIP_CARD, EV_PAYMENT_METHOD.PLUG_IN_AUTO_CHARGER, EV_PAYMENT_METHOD.OTHER],
+        ChargePoint: [EV_PAYMENT_METHOD.APP, EV_PAYMENT_METHOD.MEMBERSHIP_CARD],
+        'Electrify America': [EV_PAYMENT_METHOD.APP, EV_PAYMENT_METHOD.CREDIT, EV_PAYMENT_METHOD.DEBIT, EV_PAYMENT_METHOD.MEMBERSHIP_CARD, EV_PAYMENT_METHOD.PLUG_IN_AUTO_CHARGER],
+        EVgo: [EV_PAYMENT_METHOD.APP, EV_PAYMENT_METHOD.CREDIT, EV_PAYMENT_METHOD.DEBIT, EV_PAYMENT_METHOD.PLUG_IN_AUTO_CHARGER],
+        SemaConnect: [EV_PAYMENT_METHOD.APP, EV_PAYMENT_METHOD.MEMBERSHIP_CARD, EV_PAYMENT_METHOD.OTHER],
+        Tesla: [EV_PAYMENT_METHOD.PLUG_IN_AUTO_CHARGER]
+    };
     const _WME_SERVICES_ARRAY = ['VALLET_SERVICE', 'DRIVETHROUGH', 'WI_FI', 'RESTROOMS', 'CREDIT_CARDS', 'RESERVATIONS', 'OUTSIDE_SEATING',
         'AIR_CONDITIONING', 'PARKING_FOR_CUSTOMERS', 'DELIVERIES', 'TAKE_AWAY', 'CURBSIDE_PICKUP', 'WHEELCHAIR_ACCESSIBLE', 'DISABILITY_PARKING'];
     const _COLLEGE_ABBREVIATIONS = 'USF|USFSP|UF|UCF|UA|UGA|FSU|UM|SCP|FAU|FIU';
@@ -307,7 +325,7 @@
         ignoreWords: 'an|and|as|at|by|for|from|hhgregg|in|into|of|on|or|the|to|with'.split('|'),
         // eslint-disable-next-line max-len
         capWords: '3M|AAA|AMC|AOL|AT&T|ATM|BBC|BLT|BMV|BMW|BP|CBS|CCS|CGI|CISCO|CJ|CNG|CNN|CVS|DHL|DKNY|DMV|DSW|EMS|ER|ESPN|FCU|FCUK|FDNY|GNC|H&M|HP|HSBC|IBM|IHOP|IKEA|IRS|JBL|JCPenney|KFC|LLC|MBNA|MCA|MCI|NBC|NYPD|PDQ|PNC|TCBY|TNT|TV|UPS|USA|USPS|VW|XYZ|ZZZ'.split('|'),
-        specWords: 'd\'Bronx|iFix|ExtraMile'.split('|')
+        specWords: 'd\'Bronx|iFix|ExtraMile|ChargePoint|EVgo|SemaConnect'.split('|')
     };
     let _newPlaceURL;
     let _approveRegionURL;
@@ -1911,6 +1929,9 @@
         // action() { } // overwrite this
     }
     class WLFlag extends FlagBase {
+        WLactive;
+        WLtitle;
+        WLkeyName;
         constructor(active, severity, message, WLactive, WLtitle, WLkeyName) {
             super(active, severity, message);
             this.WLactive = WLactive;
@@ -1926,6 +1947,8 @@
         }
     }
     class WLActionFlag extends WLFlag {
+        value;
+        title;
         constructor(active, severity, message, value, title, WLactive, WLtitle, WLkeyName) {
             super(active, severity, message, WLactive, WLtitle, WLkeyName);
             this.value = value;
@@ -2757,6 +2780,150 @@
                     'Whitelist no gas brand',
                     'subFuel'
                 );
+            }
+        },
+        AddCommonEVPaymentMethods: class extends WLActionFlag {
+            // TODO: Instead of passing WL key to super, add a public getter for WL key in all child WLFlag classes. Getter returns a static WL key member.
+            // Parent class can then reference that. e.g. for "isWhitelisted()" function.
+            static whitelistKey = 'addCommonEVPaymentMethods';
+            constructor(venue, missingPaymentMethods, hpMode) {
+                const stationAttr = venue.attributes.categoryAttributes.CHARGING_STATION;
+                super(
+                    true,
+                    _SEVERITY.BLUE,
+                    `These common payment methods for the ${stationAttr.network} network are missing:`,
+                    'Add network payment methods',
+                    'Please verify first! If any are not needed, click the WL button and manually add any needed payment methods.',
+                    true,
+                    'Whitelist common EV payment types',
+                    Flag.AddCommonEVPaymentMethods.whitelistKey
+                );
+
+                if (hpMode.harmFlag) {
+                    this.venue = venue;
+                    // Store a copy of the network to check if it has changed in the action() function
+                    this.originalNetwork = stationAttr.network;
+                    const translations = I18n.translations[I18n.locale].edit.venue.category_attributes.payment_methods;
+                    const missingPaymentMethodsList = missingPaymentMethods.map(method => `- ${translations[method]}`).join('<br>');
+                    this.message += `<br>${missingPaymentMethodsList}<br>`;
+                }
+            }
+
+            static eval(venue, hpMode, wl) {
+                let result = null;
+                if (venue.isChargingStation() && !wl[this.whitelistKey]) {
+                    const stationAttr = venue.attributes.categoryAttributes.CHARGING_STATION;
+                    const network = stationAttr?.network;
+                    if (network && COMMON_EV_PAYMENT_METHODS.hasOwnProperty(network)) {
+                        const missingMethods = COMMON_EV_PAYMENT_METHODS[network].filter(method => !stationAttr.paymentMethods?.includes(method));
+                        if (missingMethods.length) {
+                            result = new Flag.AddCommonEVPaymentMethods(venue, missingMethods, hpMode);
+                        }
+                    }
+                }
+                return result;
+            }
+
+            action() {
+                if (!this.venue.isChargingStation()) {
+                    alert('This is no longer a charging station. Please run WMEPH again.');
+                    return;
+                }
+
+                const stationAttr = this.venue.attributes.categoryAttributes.CHARGING_STATION;
+                const network = stationAttr?.network;
+                if (network !== this.originalNetwork) {
+                    alert('EV charging station network has changed. Please run WMEPH again.');
+                    return;
+                }
+
+                const newPaymentMethods = stationAttr.paymentMethods?.slice() || [];
+                const commonPaymentMethods = COMMON_EV_PAYMENT_METHODS[network];
+                commonPaymentMethods.forEach(method => {
+                    if (!newPaymentMethods.includes(method)) newPaymentMethods.push(method);
+                });
+
+                const newCategoryAttributes = {
+                    PARKING_LOT: null,
+                    CHARGING_STATION: {
+                        network,
+                        source: stationAttr.source,
+                        paymentMethods: newPaymentMethods
+                    }
+                };
+                addUpdateAction(this.venue, { categoryAttributes: newCategoryAttributes });
+                harmonizePlaceGo(this.venue, 'harmonize');
+            }
+        },
+        RemoveUncommonEVPaymentMethods: class extends WLActionFlag {
+            // TODO: Instead of passing WL key to super, add a public getter for WL key in all child WLFlag classes. Getter returns a static WL key member.
+            // Parent class can then reference that. e.g. for "isWhitelisted()" function.
+            static whitelistKey = 'removeUncommonEVPaymentMethods';
+            constructor(venue, extraPaymentMethods, hpMode) {
+                const stationAttr = venue.attributes.categoryAttributes.CHARGING_STATION;
+                super(
+                    true,
+                    _SEVERITY.BLUE,
+                    `These payment methods are uncommon for the ${stationAttr.network} network:`,
+                    'Remove network payment methods',
+                    'Please verify first! If any should NOT be removed, click the WL button and manually remove any unneeded payment methods.',
+                    true,
+                    'Whitelist uncommon EV payment types',
+                    Flag.RemoveUncommonEVPaymentMethods.whitelistKey
+                );
+
+                if (hpMode.harmFlag) {
+                    this.venue = venue;
+                    // Store a copy of the network to check if it has changed in the action() function
+                    this.originalNetwork = stationAttr.network;
+                    const translations = I18n.translations[I18n.locale].edit.venue.category_attributes.payment_methods;
+                    const extraPaymentMethodsList = extraPaymentMethods.map(method => `- ${translations[method]}`).join('<br>');
+                    this.message += `<br>${extraPaymentMethodsList}<br>`;
+                }
+            }
+
+            static eval(venue, hpMode, wl) {
+                let result = null;
+                if (venue.isChargingStation() && !wl[this.whitelistKey]) {
+                    const stationAttr = venue.attributes.categoryAttributes.CHARGING_STATION;
+                    const network = stationAttr?.network;
+                    if (network && COMMON_EV_PAYMENT_METHODS.hasOwnProperty(network)) {
+                        const extraMethods = stationAttr.paymentMethods?.filter(method => !COMMON_EV_PAYMENT_METHODS[network].includes(method));
+                        if (extraMethods.length) {
+                            result = new Flag.RemoveUncommonEVPaymentMethods(venue, extraMethods, hpMode);
+                        }
+                    }
+                }
+                return result;
+            }
+
+            action() {
+                if (!this.venue.isChargingStation()) {
+                    alert('This is no longer a charging station. Please run WMEPH again.');
+                    return;
+                }
+
+                const stationAttr = this.venue.attributes.categoryAttributes.CHARGING_STATION;
+                const network = stationAttr?.network;
+                if (network !== this.originalNetwork) {
+                    alert('EV charging station network has changed. Please run WMEPH again.');
+                    return;
+                }
+
+                const commonPaymentMethods = COMMON_EV_PAYMENT_METHODS[network];
+                const newPaymentMethods = (stationAttr.paymentMethods?.slice() || [])
+                    .filter(method => commonPaymentMethods.includes(method));
+
+                const newCategoryAttributes = {
+                    PARKING_LOT: null,
+                    CHARGING_STATION: {
+                        network,
+                        source: stationAttr.source,
+                        paymentMethods: newPaymentMethods
+                    }
+                };
+                addUpdateAction(this.venue, { categoryAttributes: newCategoryAttributes });
+                harmonizePlaceGo(this.venue, 'harmonize');
             }
         },
         AreaNotPointLow: class extends WLFlag {
@@ -3972,6 +4139,8 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
             specCaseMessageLow: null,
             changeToDoctorClinic: null,
             extProviderMissing: null,
+            addCommonEVPaymentMethods: null,
+            removeUncommonEVPaymentMethods: null,
             urlMissing: null,
             badAreaCode: null,
             phoneMissing: null,
@@ -5734,7 +5903,10 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
             }
         }
 
+        // Check EV charging stations:
         _buttonBanner.evChargingStationWarning = Flag.EVChargingStationWarning.eval(item, hpMode);
+        _buttonBanner.addCommonEVPaymentMethods = Flag.AddCommonEVPaymentMethods.eval(item, hpMode, _wl);
+        _buttonBanner.removeUncommonEVPaymentMethods = Flag.RemoveUncommonEVPaymentMethods.eval(item, hpMode, _wl);
 
         // Name check
         if (!item.attributes.residential && (!_newName || _newName.replace(/[^A-Za-z0-9]/g, '').length === 0)) {
