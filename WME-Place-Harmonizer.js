@@ -2791,7 +2791,7 @@
                     _SEVERITY.BLUE,
                     `These payment methods are common for the ${stationAttr.network} network.`,
                     'Add network payment methods',
-                    'Please verify first! If some or all are not needed, click the WL button)',
+                    'Please verify first! If some or all are not needed, click the WL button.',
                     true,
                     'Whitelist common EV payment types',
                     Flag.AddCommonEVPaymentMethods.whitelistKey
