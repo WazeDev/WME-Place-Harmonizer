@@ -2784,12 +2784,13 @@
             // TODO: Instead of passing WL key to super, add a public getter for WL key in all child WLFlag classes. Getter returns a static WL key member.
             // Parent class can then reference that. e.g. for "isWhitelisted()" function.
             static whitelistKey = 'addCommonEVPaymentMethods';
-            constructor(missingPaymentMethods, hpMode) {
+            constructor(venue, missingPaymentMethods, hpMode) {
+                const stationAttr = venue.attributes.categoryAttributes.CHARGING_STATION;
                 super(
                     true,
                     _SEVERITY.BLUE,
-                    'These payment methods are common for this EV charger network.',
-                    'Add payment methods',
+                    `These payment methods are common for the ${stationAttr.network} network.`,
+                    'Add network payment methods',
                     'Please verify first! If some or all are not needed, click the WL button)',
                     true,
                     'Whitelist common EV payment types',
@@ -2797,6 +2798,9 @@
                 );
 
                 if (hpMode.harmFlag) {
+                    this.venue = venue;
+                    // Store a copy of the network to check if it has changed in the action() function
+                    this.originalNetwork = stationAttr.network;
                     const translations = I18n.translations[I18n.locale].edit.venue.category_attributes.payment_methods;
                     const missingPaymentMethodsList = missingPaymentMethods.map(method => `- ${translations[method]}`).join('<br>');
                     this.message += `<br>${missingPaymentMethodsList}<br>`;
@@ -2805,18 +2809,48 @@
 
             static eval(venue, hpMode, wl) {
                 let result = null;
-
                 if (venue.isChargingStation() && !wl[this.whitelistKey]) {
                     const stationAttr = venue.attributes.categoryAttributes.CHARGING_STATION;
                     const network = stationAttr?.network;
                     if (network && COMMON_EV_PAYMENT_METHODS.hasOwnProperty(network)) {
                         const missingMethods = COMMON_EV_PAYMENT_METHODS[network].filter(method => !stationAttr.paymentMethods?.includes(method));
                         if (missingMethods.length) {
-                            result = new Flag.AddCommonEVPaymentMethods(missingMethods, hpMode);
+                            result = new Flag.AddCommonEVPaymentMethods(venue, missingMethods, hpMode);
                         }
                     }
                 }
                 return result;
+            }
+
+            action() {
+                if (!this.venue.isChargingStation()) {
+                    alert('This is no longer a charging station. Please run WMEPH again.');
+                    return;
+                }
+
+                const stationAttr = this.venue.attributes.categoryAttributes.CHARGING_STATION;
+                const network = stationAttr?.network;
+                if (network !== this.originalNetwork) {
+                    alert('EV charging station network has changed. Please run WMEPH again.');
+                    return;
+                }
+
+                const newPaymentMethods = stationAttr.paymentMethods?.slice() || [];
+                const commonPaymentMethods = COMMON_EV_PAYMENT_METHODS[network];
+                commonPaymentMethods.forEach(method => {
+                    if (!newPaymentMethods.includes(method)) newPaymentMethods.push(method);
+                });
+
+                const newCategoryAttributes = {
+                    PARKING_LOT: null,
+                    CHARGING_STATION: {
+                        network,
+                        source: stationAttr.source,
+                        paymentMethods: newPaymentMethods
+                    }
+                };
+                addUpdateAction(this.venue, { categoryAttributes: newCategoryAttributes });
+                harmonizePlaceGo(this.venue, 'harmonize');
             }
         },
         AreaNotPointLow: class extends WLFlag {
