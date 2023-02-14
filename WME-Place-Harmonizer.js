@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name        WME Place Harmonizer
 // @namespace   WazeUSA
-// @version     2022.12.06.003
+// @version     2023.02.11.001
 // @description Harmonizes, formats, and locks a selected place
 // @author      WMEPH Development Group
 // @include     /^https:\/\/(www|beta)\.waze\.com\/(?!user\/)(.{2,6}\/)?editor\/?.*$/
@@ -12,17 +12,15 @@
 // @grant       GM_addStyle
 // ==/UserScript==
 
-/* global $ */
 /* global W */
-/* global GM_info */
 /* global OpenLayers */
 /* global _ */
 /* global WazeWrap */
 /* global LZString */
 /* global HoursParser */
-/* global GM_addStyle */
-/* global unsafeWindow */
 /* global I18n */
+
+/* eslint-disable max-classes-per-file */
 
 (function main() {
     'use strict';
@@ -264,24 +262,33 @@
     const _LOCK_LEVEL_4 = 3;
     let _defaultLockLevel = _LOCK_LEVEL_2;
     let _pnhLockLevel;
-    const _PM_USER_LIST = { // user names and IDs for PM functions
-
-        SER: {
-            approvalActive: true,
-            mods: [
-                { id: '16888799', name: 'willdanneriv' },
-                // { id: '17083181', name: 'itzwolf' },
-                { id: '17077334', name: 'ardan74' }
-            ]
-        },
-        WMEPH: {
-            approvalActive: true,
-            mods: [
-                { id: '2647925', name: 'MapOMatic' }
-            ]
-        }
+    // const _PM_USER_LIST = { // user names and IDs for PM functions
+    //     SER: {
+    //         approvalActive: true,
+    //         mods: [
+    //             { id: '16888799', name: 'willdanneriv' },
+    //             // { id: '17083181', name: 'itzwolf' },
+    //             { id: '17077334', name: 'ardan74' }
+    //         ]
+    //     },
+    //     WMEPH: {
+    //         approvalActive: true,
+    //         mods: [
+    //             { id: '2647925', name: 'MapOMatic' }
+    //         ]
+    //     }
+    // };
+    // An enum to help clarify flag severity levels
+    const _SEVERITY = {
+        GREEN: 0,
+        BLUE: 1,
+        YELLOW: 2,
+        RED: 3,
+        // 4 isn't used anymore
+        PINK: 5
+        // TODO: There is also 'lock' and 'lock1' severity. Add those here? Also investigate 'adLock' severity (is it still useful in WME???).
     };
-    let _severityButt = 0; // error tracking to determine banner color (action buttons)
+    let _severityButt = _SEVERITY.GREEN; // error tracking to determine banner color (action buttons)
     let _duplicateName = '';
     let _catTransWaze2Lang; // pulls the category translations
     let _newName;
@@ -407,11 +414,11 @@
 
     // KB Shortcut object
     const _SHORTCUT = {
-        all_shortcuts: {}, // All the shortcuts are stored in this array
+        allShortcuts: {}, // All the shortcuts are stored in this array
         add(shortcutCombo, callback, opt) {
             // Provide a set of default options
             const defaultOptions = {
-                type: 'keydown', propagate: false, disable_in_input: false, target: document, keycode: false
+                type: 'keydown', propagate: false, disableInInput: false, target: document, keycode: false
             };
             if (!opt) {
                 opt = defaultOptions;
@@ -428,7 +435,7 @@
             // eslint-disable-next-line func-names
             const func = function keyPressFunc(e) {
                 e = e || window.event;
-                if (opt.disable_in_input) { // Don't enable shortcut keys in Input, Textarea fields
+                if (opt.disableInInput) { // Don't enable shortcut keys in Input, Textarea fields
                     let element;
                     if (e.target) {
                         element = e.target;
@@ -483,12 +490,15 @@
                     enter: 13,
                     backspace: 8,
                     scrolllock: 145,
+                    // eslint-disable-next-line camelcase
                     scroll_lock: 145,
                     scroll: 145,
                     capslock: 20,
+                    // eslint-disable-next-line camelcase
                     caps_lock: 20,
                     caps: 20,
                     numlock: 144,
+                    // eslint-disable-next-line camelcase
                     num_lock: 144,
                     num: 144,
                     pause: 19,
@@ -498,9 +508,11 @@
                     delete: 46,
                     end: 35,
                     pageup: 33,
+                    // eslint-disable-next-line camelcase
                     page_up: 33,
                     pu: 33,
                     pagedown: 34,
+                    // eslint-disable-next-line camelcase
                     page_down: 34,
                     pd: 34,
                     left: 37,
@@ -576,7 +588,7 @@
                     }
                 }
             };
-            this.all_shortcuts[shortcutCombo] = { callback: func, target: ele, event: opt.type };
+            this.allShortcuts[shortcutCombo] = { callback: func, target: ele, event: opt.type };
             // Attach the function with the event
             if (ele.addEventListener) {
                 ele.addEventListener(opt.type, func, false);
@@ -589,8 +601,8 @@
         // Remove the shortcut - just specify the shortcut and I will remove the binding
         remove(shortcutCombo) {
             shortcutCombo = shortcutCombo.toLowerCase();
-            const binding = this.all_shortcuts[shortcutCombo];
-            delete (this.all_shortcuts[shortcutCombo]);
+            const binding = this.allShortcuts[shortcutCombo];
+            delete (this.allShortcuts[shortcutCombo]);
             if (!binding) { return; }
             const type = binding.event;
             const ele = binding.target;
@@ -672,13 +684,13 @@
         const isER = pvaValue === 'hosp' && isEmergencyRoom(venue);
         let severity;
         if (pvaValue === '' || pvaValue === '0' || (pvaValue === 'hosp' && !isER)) {
-            severity = 3;
+            severity = _SEVERITY.RED;
         } else if (pvaValue === '2') {
-            severity = 1;
+            severity = _SEVERITY.BLUE;
         } else if (pvaValue === '3') {
-            severity = 2;
+            severity = _SEVERITY.YELLOW;
         } else {
-            severity = 0;
+            severity = _SEVERITY.GREEN;
         }
         return severity;
     }
@@ -1000,9 +1012,11 @@
 
     // Keep track of how many whitelists have been added since the last pull, alert if over a threshold (100?)
     function wmephWhitelistCounter() {
+        // eslint-disable-next-line camelcase
         localStorage.WMEPH_WLAddCount = parseInt(localStorage.WMEPH_WLAddCount, 10) + 1;
         if (localStorage.WMEPH_WLAddCount > 50) {
             WazeWrap.Alerts.warning(_SCRIPT_NAME, 'Don\'t forget to periodically back up your Whitelist data using the Pull option in the WMEPH settings tab.');
+            // eslint-disable-next-line camelcase
             localStorage.WMEPH_WLAddCount = 2;
         }
     }
@@ -1823,7 +1837,7 @@
             if (!venue.isParkingLot() || (venue.isParkingLot() && (regionsThatWantPLAUrls.includes(region) || hasOperator))) {
                 _buttonBanner.urlMissing = new Flag.UrlMissing();
                 if (_wl.urlWL || (venue.isParkingLot() && !hasOperator)) {
-                    _buttonBanner.urlMissing.severity = 0;
+                    _buttonBanner.urlMissing.severity = _SEVERITY.GREEN;
                     _buttonBanner.urlMissing.WLactive = false;
                 }
             }
@@ -1925,60 +1939,58 @@
     let Flag = {
         // 2020-10-5 Disabling HN validity checks for now. See note on HnNonStandard flag for details.
         // HnDashRemoved: class extends FlagBase {
-        //     constructor() { super(true, 0, 'Dash removed from house number. Verify'); }
+        //     constructor() { super(true, SEVERITY.GREEN, 'Dash removed from house number. Verify'); }
         // },
         FullAddressInference: class extends FlagBase {
-            constructor() { super(true, 3, 'Missing address was inferred from nearby segments. Verify the address and run script again.'); }
-
-            static eval(venue, addr, actions) {
-                const result = {};
-                if (!addr.state || !addr.country) {
-                    if (W.map.getZoom() < 4) {
-                        if ($('#WMEPH-EnableIAZoom').prop('checked')) {
-                            W.map.moveTo(getVenueLonLat(venue), 5);
-                        } else {
-                            WazeWrap.Alerts.error(_SCRIPT_NAME, 'No address and the state cannot be determined. Please zoom in and rerun the script. '
-                                + 'You can enable autozoom for this type of case in the options.');
-                        }
-                        result.exit = true; //  don't run the rest of the script
-                    } else {
-                        let inferredAddress = inferAddress(7); // Pull address info from nearby segments
-                        if (inferredAddress && inferredAddress.attributes) inferredAddress = inferredAddress.attributes;
-
-                        if (inferredAddress && inferredAddress.state && inferredAddress.country) {
-                            if ($('#WMEPH-AddAddresses').prop('checked')) { // update the item's address if option is enabled
-                                updateAddress(venue, inferredAddress, actions);
-                                result.inferredAddress = inferredAddress;
-                                _UPDATED_FIELDS.address.updated = true;
-                                result.flag = new Flag.FullAddressInference();
-                                result.noLock = true;
-                            } else if (!['JUNCTION_INTERCHANGE'].includes(_newCategories[0])) {
-                                _buttonBanner.cityMissing = new Flag.CityMissing();
-                                result.noLock = true;
-                            }
-                        } else { //  if the inference doesn't work...
-                            WazeWrap.Alerts.error(_SCRIPT_NAME, 'This place has no address data and the address cannot be inferred from nearby segments. Please edit the address and run WMEPH again.');
-                            result.exit = true; //  don't run the rest of the script
-                        }
-                    }
-                }
-                return result;
+            constructor() {
+                super(true, _SEVERITY.RED, 'Missing address was inferred from nearby segments. Verify the address and run script again.');
+                this.noLock = true;
             }
 
-            static evalHL(venue, addr) {
+            static eval(venue, addr, actions, hpMode) {
                 let result = null;
-                if (!addr.state || !addr.country) {
+                if (hpMode.harmFlag) {
+                    if (!addr.state || !addr.country) {
+                        if (W.map.getZoom() < 4) {
+                            if ($('#WMEPH-EnableIAZoom').prop('checked')) {
+                                W.map.moveTo(getVenueLonLat(venue), 5);
+                            } else {
+                                WazeWrap.Alerts.error(_SCRIPT_NAME, 'No address and the state cannot be determined. Please zoom in and rerun the script. '
+                                    + 'You can enable autozoom for this type of case in the options.');
+                            }
+                            result = { exit: true }; // Don't bother returning a Flag. This will exit the rest of the harmonizePlaceGo function.
+                        } else {
+                            let inferredAddress = inferAddress(7); // Pull address info from nearby segments
+                            if (inferredAddress && inferredAddress.attributes) inferredAddress = inferredAddress.attributes;
+
+                            if (inferredAddress && inferredAddress.state && inferredAddress.country) {
+                                if ($('#WMEPH-AddAddresses').prop('checked')) { // update the item's address if option is enabled
+                                    updateAddress(venue, inferredAddress, actions);
+                                    _UPDATED_FIELDS.address.updated = true;
+                                    result = new Flag.FullAddressInference();
+                                    result.inferredAddress = inferredAddress;
+                                } else if (!['JUNCTION_INTERCHANGE'].includes(_newCategories[0])) {
+                                    _buttonBanner.cityMissing = new Flag.CityMissing();
+                                }
+                            } else { //  if the inference doesn't work...
+                                WazeWrap.Alerts.error(_SCRIPT_NAME, 'This place has no address data and the address cannot be inferred from nearby segments. Please edit the address and run WMEPH again.');
+                                result = { exit: true }; // Don't bother returning a Flag. This will exit the rest of the harmonizePlaceGo function.
+                            }
+                        }
+                    }
+                } else if (!addr.state || !addr.country) { // only highlighting
+                    result = { exit: true };
                     if (venue.attributes.adLocked) {
-                        result = 'adLock';
+                        result.severity = 'adLock';
                     } else {
                         const cat = venue.attributes.categories;
                         if (containsAny(cat, ['HOSPITAL_MEDICAL_CARE', 'HOSPITAL_URGENT_CARE', 'GAS_STATION'])) {
                             phlogdev('Unaddressed HUC/GS');
-                            result = 5;
+                            result.severity = _SEVERITY.PINK;
                         } else if (cat.includes('JUNCTION_INTERCHANGE')) {
-                            result = 0;
+                            result.severity = _SEVERITY.GREEN;
                         } else {
-                            result = 3;
+                            result.severity = _SEVERITY.restrictedPLA;
                         }
                     }
                 }
@@ -1986,23 +1998,23 @@
             }
         },
         NameMissing: class extends FlagBase {
-            constructor() { super(true, 3, 'Name is missing.'); }
+            constructor() { super(true, _SEVERITY.RED, 'Name is missing.'); }
         },
         PlaIsPublic: class extends FlagBase {
             constructor() {
-                super(true, 0, 'If this does not meet the requirements for a <a href="https://wazeopedia.waze.com/wiki/USA/Places/Parking_lot#Lot_Type" '
+                super(true, _SEVERITY.GREEN, 'If this does not meet the requirements for a <a href="https://wazeopedia.waze.com/wiki/USA/Places/Parking_lot#Lot_Type" '
                     + 'target="_blank" style="color:5a5a73">public parking lot</a>, change to:<br>');
             }
         },
         PlaNameMissing: class extends FlagBase {
             constructor() {
-                super(true, 1, 'Name is missing.');
+                super(true, _SEVERITY.BLUE, 'Name is missing.');
                 this.message += _USER.rank < 3 ? ' Request an R3+ lock to confirm unnamed parking lot.' : ' Lock to 3+ to confirm unnamed parking lot.';
             }
         },
         PlaNameNonStandard: class extends WLFlag {
             constructor() {
-                super(true, 2, 'Parking lot names typically contain words like "Parking", "Lot", and/or "Garage"', true, 'Whitelist non-standard PLA name', 'plaNameNonStandard');
+                super(true, _SEVERITY.YELLOW, 'Parking lot names typically contain words like "Parking", "Lot", and/or "Garage"', true, 'Whitelist non-standard PLA name', 'plaNameNonStandard');
             }
 
             static eval(venue, wl) {
@@ -2020,8 +2032,14 @@
         },
         IndianaLiquorStoreHours: class extends WLFlag {
             constructor() {
-                super(true, 0, 'If this is a liquor store, check the hours.  As of Feb 2018, liquor stores in Indiana are allowed to be open between noon and 8 pm on Sunday.',
-                    true, 'Whitelist Indiana liquor store hours', 'indianaLiquorStoreHours');
+                super(
+                    true,
+                    _SEVERITY.GREEN,
+                    'If this is a liquor store, check the hours. As of Feb 2018, liquor stores in Indiana are allowed to be open between noon and 8 pm on Sunday.',
+                    true,
+                    'Whitelist Indiana liquor store hours',
+                    'indianaLiquorStoreHours'
+                );
             }
 
             static eval(venue, name, hpMode) {
@@ -2039,16 +2057,16 @@
             }
         },
         HoursOverlap: class extends FlagBase {
-            constructor() { super(true, 3, 'Overlapping hours of operation. Place might not save.'); }
+            constructor() { super(true, _SEVERITY.RED, 'Overlapping hours of operation. Place might not save.'); }
         },
         UnmappedRegion: class extends WLFlag {
-            constructor() { super(true, 3, 'This category is usually not mapped in this region.', true, 'Whitelist unmapped category', 'unmappedRegion'); }
+            constructor() { super(true, _SEVERITY.RED, 'This category is usually not mapped in this region.', true, 'Whitelist unmapped category', 'unmappedRegion'); }
         },
         RestAreaName: class extends WLFlag {
-            constructor() { super(true, 3, 'Rest area name is out of spec. Use the Rest Area wiki button below to view formats.', true, 'Whitelist rest area name', 'restAreaName'); }
+            constructor() { super(true, _SEVERITY.RED, 'Rest area name is out of spec. Use the Rest Area wiki button below to view formats.', true, 'Whitelist rest area name', 'restAreaName'); }
         },
         RestAreaNoTransportation: class extends ActionFlag {
-            constructor() { super(true, 2, 'Rest areas should not use the Transportation category.', 'Remove it?'); }
+            constructor() { super(true, _SEVERITY.YELLOW, 'Rest areas should not use the Transportation category.', 'Remove it?'); }
 
             // eslint-disable-next-line class-methods-use-this
             action() {
@@ -2063,12 +2081,20 @@
             }
         },
         RestAreaGas: class extends FlagBase {
-            constructor() { super(true, 3, 'Gas stations at Rest Areas should be separate area places.'); }
+            constructor() { super(true, _SEVERITY.RED, 'Gas stations at Rest Areas should be separate area places.'); }
         },
         RestAreaScenic: class extends WLActionFlag {
             constructor() {
-                super(true, 0, 'Verify that the "Scenic Overlook" category is appropriate for this rest area.  If not: ',
-                    'Remove it', 'Remove "Scenic Overlook" category.', true, 'Whitelist place', 'restAreaScenic');
+                super(
+                    true,
+                    _SEVERITY.GREEN,
+                    'Verify that the "Scenic Overlook" category is appropriate for this rest area.  If not: ',
+                    'Remove it',
+                    'Remove "Scenic Overlook" category.',
+                    true,
+                    'Whitelist place',
+                    'restAreaScenic'
+                );
             }
 
             // eslint-disable-next-line class-methods-use-this
@@ -2085,8 +2111,16 @@
         },
         RestAreaSpec: class extends WLActionFlag {
             constructor() {
-                super(true, 3, 'Is this a rest area?',
-                    'Yes', 'Update with proper categories and services.', true, 'Whitelist place', 'restAreaSpec');
+                super(
+                    true,
+                    _SEVERITY.RED,
+                    'Is this a rest area?',
+                    'Yes',
+                    'Update with proper categories and services.',
+                    true,
+                    'Whitelist place',
+                    'restAreaSpec'
+                );
             }
 
             // eslint-disable-next-line class-methods-use-this
@@ -2117,16 +2151,36 @@
                 applyHighlightsTest(venue);
             }
         },
+        EVChargingStationWarning: class extends FlagBase {
+            constructor() {
+                super(
+                    true,
+                    _SEVERITY.GREEN,
+                    'Please do not delete EV Charging Stations. Be sure you are completely up to date with the latest guidelines in '
+                        + '<a href="https://wazeopedia.waze.com/wiki/USA/Places/EV_charging_station" target="_blank">wazeopedia</a>.'
+                );
+            }
+
+            static eval(item, hpMode) {
+                return hpMode.harmFlag && item.isChargingStation() ? new Flag.EVChargingStationWarning() : null;
+            }
+        },
         GasMismatch: class extends WLFlag {
             constructor() {
-                super(true, 3, '<a href="https://wazeopedia.waze.com/wiki/USA/Places/Gas_station#Name" target="_blank" class="red">Gas brand should typically be included in the place name.</a>',
-                    true, 'Whitelist gas brand / name mismatch', 'gasMismatch');
+                super(
+                    true,
+                    _SEVERITY.RED,
+                    '<a href="https://wazeopedia.waze.com/wiki/USA/Places/Gas_station#Name" target="_blank" class="red">Gas brand should typically be included in the place name.</a>',
+                    true,
+                    'Whitelist gas brand / name mismatch',
+                    'gasMismatch'
+                );
             }
         },
         GasUnbranded: class extends FlagBase {
             //  Unbranded is not used per wiki
             constructor() {
-                super(true, 3, '"Unbranded" should not be used for the station brand. Change to correct brand or '
+                super(true, _SEVERITY.RED, '"Unbranded" should not be used for the station brand. Change to correct brand or '
                     + 'use the blank entry at the top of the brand list.');
             }
 
@@ -2134,14 +2188,14 @@
                 const result = { flag: null };
                 if (venue.isGasStation() && brand === 'Unbranded') {
                     result.flag = new Flag.GasUnbranded();
-                    result.noLock = true;
+                    result.flag.noLock = true;
                 }
                 return result;
             }
         },
         GasMkPrim: class extends ActionFlag {
             constructor() {
-                super(true, 3, 'Gas Station is not the primary category', 'Fix', 'Make the Gas Station '
+                super(true, _SEVERITY.RED, 'Gas Station is not the primary category', 'Fix', 'Make the Gas Station '
                     + 'category the primary category.');
             }
 
@@ -2156,7 +2210,7 @@
             }
         },
         IsThisAPilotTravelCenter: class extends ActionFlag {
-            constructor() { super(true, 0, 'Is this a "Travel Center"?', 'Yes', ''); }
+            constructor() { super(true, _SEVERITY.GREEN, 'Is this a "Travel Center"?', 'Yes', ''); }
 
             static eval(venue, hpMode, state2L, newName, actions) {
                 const result = { flag: null, newName };
@@ -2183,8 +2237,16 @@
         },
         HotelMkPrim: class extends WLActionFlag {
             constructor() {
-                super(true, 3, 'Hotel category is not first', 'Fix', 'Make the Hotel category the primary category.',
-                    true, 'Whitelist hotel as secondary category', 'hotelMkPrim');
+                super(
+                    true,
+                    _SEVERITY.RED,
+                    'Hotel category is not first',
+                    'Fix',
+                    'Make the Hotel category the primary category.',
+                    true,
+                    'Whitelist hotel as secondary category',
+                    'hotelMkPrim'
+                );
             }
 
             // eslint-disable-next-line class-methods-use-this
@@ -2199,19 +2261,27 @@
         },
         ChangeToPetVet: class extends WLActionFlag {
             constructor() {
-                super(true, 3, 'Key words suggest this should be a Pet/Veterinarian category. Change?', 'Yes', 'Change to Pet/Veterinarian Category',
-                    true, 'Whitelist Pet/Vet category', 'changeHMC2PetVet');
+                super(
+                    true,
+                    _SEVERITY.RED,
+                    'Key words suggest this should be a Pet/Veterinarian category. Change?',
+                    'Yes',
+                    'Change to Pet/Veterinarian Category',
+                    true,
+                    'Whitelist Pet/Vet category',
+                    'changeHMC2PetVet'
+                );
+                this.noLock = true;
             }
 
             static eval(name, categories) {
-                const testName = name.toLowerCase().replace(/[^a-z]/g, ' ');
-                const testNameWords = testName.split(' ');
-                const result = { flag: null, lockOK: true };
-                if ((categories.includes('HOSPITAL_URGENT_CARE') || categories.includes('DOCTOR_CLINIC'))
-                    && (containsAny(testNameWords, _animalFullMatch) || _animalPartMatch.some(match => testName.includes(match)))) {
-                    if (!_wl.changeHMC2PetVet) {
-                        result.flag = new Flag.ChangeToPetVet();
-                        result.lockOK = false;
+                let result = null;
+                if (!_wl.changeHMC2PetVet) {
+                    const testName = name.toLowerCase().replace(/[^a-z]/g, ' ');
+                    const testNameWords = testName.split(' ');
+                    if ((categories.includes('HOSPITAL_URGENT_CARE') || categories.includes('DOCTOR_CLINIC'))
+                        && (containsAny(testNameWords, _animalFullMatch) || _animalPartMatch.some(match => testName.includes(match)))) {
+                        result = new Flag.ChangeToPetVet();
                     }
                 }
                 return result;
@@ -2238,20 +2308,26 @@
         },
         NotASchool: class extends WLFlag {
             constructor() {
-                super(true, 3, 'Key words suggest this should not be School category.',
-                    true, 'Whitelist School category', 'changeSchool2Offices');
+                super(
+                    true,
+                    _SEVERITY.RED,
+                    'Key words suggest this should not be School category.',
+                    true,
+                    'Whitelist School category',
+                    'changeSchool2Offices'
+                );
+                this.noLock = true;
             }
 
             static eval(name, categories) {
-                const result = { flag: null, lockOK: true };
-                const testName = name.toLowerCase().replace(/[^a-z]/g, ' ');
-                const testNameWords = testName.split(' ');
+                let result = null;
+                if (!_wl.changeSchool2Offices) {
+                    const testName = name.toLowerCase().replace(/[^a-z]/g, ' ');
+                    const testNameWords = testName.split(' ');
 
-                if (categories.includes('SCHOOL')
-                    && (containsAny(testNameWords, _schoolFullMatch) || _schoolPartMatch.some(match => testName.includes(match)))) {
-                    if (!_wl.changeSchool2Offices) {
-                        result.flag = new Flag.NotASchool();
-                        result.lockOK = false;
+                    if (categories.includes('SCHOOL')
+                        && (containsAny(testNameWords, _schoolFullMatch) || _schoolPartMatch.some(match => testName.includes(match)))) {
+                        result = new Flag.NotASchool();
                     }
                 }
                 return result;
@@ -2259,8 +2335,16 @@
         },
         PointNotArea: class extends WLActionFlag {
             constructor() {
-                super(true, 3, 'This category should be a point place.', 'Change to point', 'Change to point place',
-                    true, 'Whitelist point (not area)', 'pointNotArea');
+                super(
+                    true,
+                    _SEVERITY.RED,
+                    'This category should be a point place.',
+                    'Change to point',
+                    'Change to point place',
+                    true,
+                    'Whitelist point (not area)',
+                    'pointNotArea'
+                );
             }
 
             // eslint-disable-next-line class-methods-use-this
@@ -2278,8 +2362,16 @@
         },
         AreaNotPoint: class extends WLActionFlag {
             constructor() {
-                super(true, 3, 'This category should be an area place.', 'Change to area', 'Change to Area',
-                    true, 'Whitelist area (not point)', 'areaNotPoint');
+                super(
+                    true,
+                    _SEVERITY.RED,
+                    'This category should be an area place.',
+                    'Change to area',
+                    'Change to Area',
+                    true,
+                    'Whitelist area (not point)',
+                    'areaNotPoint'
+                );
             }
 
             // eslint-disable-next-line class-methods-use-this
@@ -2292,9 +2384,16 @@
         },
         HnMissing: class extends WLActionFlag {
             constructor(venue) {
-                super(true, 3,
+                super(
+                    true,
+                    _SEVERITY.RED,
                     'No HN: <input type="text" id="WMEPH-HNAdd" autocomplete="off" style="font-size:0.85em;width:100px;padding-left:2px;color:#000;" > ',
-                    'Add', 'Add HN to place', true, 'Whitelist empty HN', 'HNWL');
+                    'Add',
+                    'Add HN to place',
+                    true,
+                    'Whitelist empty HN',
+                    'HNWL'
+                );
                 this.venue = venue;
                 this.noBannerAssemble = true;
                 this.badInput = false;
@@ -2318,7 +2417,7 @@
         },
         HnTooManyDigits: class extends WLFlag {
             constructor() {
-                super(true, 2, 'HN contains more than 6 digits. Please verify.', true, 'Whitelist long HN', 'hnTooManyDigits');
+                super(true, _SEVERITY.YELLOW, 'HN contains more than 6 digits. Please verify.', true, 'Whitelist long HN', 'hnTooManyDigits');
             }
 
             static eval(houseNumber, wl) {
@@ -2327,6 +2426,7 @@
                     houseNumber = houseNumber.replace(/[^0-9]/g, '');
                     if (houseNumber.length > 6) {
                         result.flag = new Flag.HnTooManyDigits();
+                        result.flag.noLock = true;
                     }
                 }
                 return result;
@@ -2336,7 +2436,7 @@
         // when the underlying model is updated.  I changed to the code below for a while, but we've
         // come up with a temporary fix using WW, so using the textbox entry should be OK now.
         // HnMissing: class extends WLActionFlag {
-        //     constructor() { super(true, 3, 'No HN:', 'Edit address', 'Edit address to add HN.'); }
+        //     constructor() { super(true, SEVERITY.RED, 'No HN:', 'Edit address', 'Edit address to add HN.'); }
 
         //     // eslint-disable-next-line class-methods-use-this
         //     action() {
@@ -2351,18 +2451,31 @@
         // the # and letters. Etc)
         // HnNonStandard: class extends WLFlag {
         //     constructor() {
-        //         super(true, 3, 'House number is non-standard.', true,
+        //         super(true, SEVERITY.RED, 'House number is non-standard.', true,
         //             'Whitelist non-standard HN', 'hnNonStandard');
         //     }
         // },
         HNRange: class extends WLFlag {
             constructor() {
-                super(true, 2, 'House number seems out of range for the street name. Verify.', true,
-                    'Whitelist HN range', 'HNRange');
+                super(
+                    true,
+                    _SEVERITY.YELLOW,
+                    'House number seems out of range for the street name. Verify.',
+                    true,
+                    'Whitelist HN range',
+                    'HNRange'
+                );
             }
         },
         StreetMissing: class extends ActionFlag {
-            constructor() { super(true, 3, 'No street:', 'Edit address', 'Edit address to add street.'); }
+            constructor(primaryCategory) {
+                super(true, _SEVERITY.RED, 'No street:', 'Edit address', 'Edit address to add street.');
+                if (['SCENIC_LOOKOUT_VIEWPOINT'].includes(primaryCategory)) {
+                    _buttonBanner.streetMissing.severity = _SEVERITY.BLUE;
+                } else {
+                    this.noLock = true;
+                }
+            }
 
             // eslint-disable-next-line class-methods-use-this
             action() {
@@ -2381,9 +2494,24 @@
                     }, 100);
                 }, 100);
             }
+
+            static eval(item, addr) {
+                let result = null;
+                if (addr.city && (!addr.street || addr.street.isEmpty)
+                    && !'BRIDGE|ISLAND|FOREST_GROVE|SEA_LAKE_POOL|RIVER_STREAM|CANAL|DAM|TUNNEL|JUNCTION_INTERCHANGE'.split('|').includes(item.attributes.categories[0])) {
+                    result = new Flag.StreetMissing(item.attributes.categories[0]);
+                }
+                return result;
+            }
         },
         CityMissing: class extends ActionFlag {
-            constructor() { super(true, 3, 'No city:', 'Edit address', 'Edit address to add city.'); }
+            constructor(isResidential, highlightOnly) {
+                super(true, _SEVERITY.RED, 'No city:', 'Edit address', 'Edit address to add city.');
+                this.noLock = true;
+                if (isResidential && highlightOnly) {
+                    this.severity = _SEVERITY.BLUE;
+                }
+            }
 
             // eslint-disable-next-line class-methods-use-this
             action() {
@@ -2404,12 +2532,21 @@
 
                 $('.city-name').focus();
             }
+
+            static eval(item, addr, hpMode) {
+                let result = null;
+                if ((!addr.city || addr.city.attributes.isEmpty)
+                    && !'BRIDGE|ISLAND|FOREST_GROVE|SEA_LAKE_POOL|RIVER_STREAM|CANAL|DAM|TUNNEL|JUNCTION_INTERCHANGE'.split('|').includes(item.attributes.categories[0])) {
+                    result = new Flag.CityMissing(item.attributes.residential, hpMode.hlFlag);
+                }
+                return result;
+            }
         },
         BankType1: class extends FlagBase {
-            constructor() { super(true, 3, 'Clarify the type of bank: the name has ATM but the primary category is Offices'); }
+            constructor() { super(true, _SEVERITY.RED, 'Clarify the type of bank: the name has ATM but the primary category is Offices'); }
         },
         BankBranch: class extends ActionFlag {
-            constructor() { super(true, 1, 'Is this a bank branch office? ', 'Yes', 'Is this a bank branch?'); }
+            constructor() { super(true, _SEVERITY.BLUE, 'Is this a bank branch office? ', 'Yes', 'Is this a bank branch?'); }
 
             // eslint-disable-next-line class-methods-use-this
             action() {
@@ -2424,7 +2561,7 @@
             }
         },
         StandaloneATM: class extends ActionFlag {
-            constructor() { super(true, 2, 'Or is this a standalone ATM? ', 'Yes', 'Is this a standalone ATM with no bank branch?'); }
+            constructor() { super(true, _SEVERITY.YELLOW, 'Or is this a standalone ATM? ', 'Yes', 'Is this a standalone ATM with no bank branch?'); }
 
             // eslint-disable-next-line class-methods-use-this
             action() {
@@ -2440,7 +2577,7 @@
             }
         },
         BankCorporate: class extends ActionFlag {
-            constructor() { super(true, 1, 'Or is this the bank\'s corporate offices?', 'Yes', 'Is this the bank\'s corporate offices?'); }
+            constructor() { super(true, _SEVERITY.BLUE, 'Or is this the bank\'s corporate offices?', 'Yes', 'Is this the bank\'s corporate offices?'); }
 
             // eslint-disable-next-line class-methods-use-this
             action() {
@@ -2456,17 +2593,25 @@
         },
         CatPostOffice: class extends FlagBase {
             constructor() {
-                super(true, 0,
-                    'The Post Office category is reserved for certain USPS locations. Please be sure to follow <a href="https://wazeopedia.waze.com/wiki/USA/Places/Post_Office" style="color:#3a3a3a;" target="_blank">the guidelines</a>.');
+                super(
+                    true,
+                    _SEVERITY.GREEN,
+                    'The Post Office category is reserved for certain USPS locations. Please be sure to follow <a href="https://wazeopedia.waze.com/wiki/USA/Places/Post_Office" style="color:#3a3a3a;" target="_blank">the guidelines</a>.'
+                );
             }
         },
         IgnEdited: class extends FlagBase {
-            constructor() { super(true, 2, 'Last edited by an IGN editor'); }
+            constructor() { super(true, _SEVERITY.YELLOW, 'Last edited by an IGN editor'); }
         },
         WazeBot: class extends ActionFlag {
             constructor() {
-                super(true, 2,
-                    'Edited last by an automated process. Please verify information is correct.', 'Nudge', 'If no other properties need to be updated, click to nudge the place (force an edit).');
+                super(
+                    true,
+                    _SEVERITY.YELLOW,
+                    'Edited last by an automated process. Please verify information is correct.',
+                    'Nudge',
+                    'If no other properties need to be updated, click to nudge the place (force an edit).'
+                );
             }
 
             // eslint-disable-next-line class-methods-use-this
@@ -2478,50 +2623,85 @@
         },
         ParentCategory: class extends WLFlag {
             constructor() {
-                super(true, 2, 'This parent category is usually not mapped in this region.',
-                    true, 'Whitelist parent Category', 'parentCategory');
+                super(
+                    true,
+                    _SEVERITY.YELLOW,
+                    'This parent category is usually not mapped in this region.',
+                    true,
+                    'Whitelist parent Category',
+                    'parentCategory'
+                );
             }
         },
         CheckDescription: class extends FlagBase {
             constructor() {
-                super(true, 2,
-                    'Description field already contained info; PNH description was added in front of existing. Check for inconsistency or duplicate info.');
+                super(
+                    true,
+                    _SEVERITY.YELLOW,
+                    'Description field already contained info; PNH description was added in front of existing. Check for inconsistency or duplicate info.'
+                );
             }
         },
         Overlapping: class extends FlagBase {
-            constructor() { super(true, 2, 'Place points are stacked up.'); }
+            constructor() { super(true, _SEVERITY.YELLOW, 'Place points are stacked up.'); }
         },
         SuspectDesc: class extends WLFlag {
-            constructor() { super(true, 2, 'Description field might contain copyrighted info.', true, 'Whitelist description', 'suspectDesc'); }
+            constructor() { super(true, _SEVERITY.YELLOW, 'Description field might contain copyrighted info.', true, 'Whitelist description', 'suspectDesc'); }
         },
         ResiTypeName: class extends WLFlag {
             constructor() {
-                super(true, 2, 'The place name suggests a residential place or personalized place of work.  Please verify.',
-                    true, 'Whitelist Residential-type name', 'resiTypeName');
+                super(
+                    true,
+                    _SEVERITY.YELLOW,
+                    'The place name suggests a residential place or personalized place of work.  Please verify.',
+                    true,
+                    'Whitelist Residential-type name',
+                    'resiTypeName'
+                );
             }
         },
         Mismatch247: class extends FlagBase {
-            constructor() { super(true, 2, 'Hours of operation listed as open 24hrs but not for all 7 days.'); }
+            constructor() { super(true, _SEVERITY.YELLOW, 'Hours of operation listed as open 24hrs but not for all 7 days.'); }
         },
         PhoneInvalid: class extends FlagBase {
-            constructor() { super(true, 2, 'Phone invalid.'); }
+            constructor() { super(true, _SEVERITY.YELLOW, 'Phone invalid.'); }
         },
         AreaNotPointMid: class extends WLFlag {
             constructor() {
-                super(true, 2, 'This category is usually an area place, but can be a point in some cases. Verify if point is appropriate.',
-                    true, 'Whitelist area (not point)', 'areaNotPoint');
+                super(
+                    true,
+                    _SEVERITY.YELLOW,
+                    'This category is usually an area place, but can be a point in some cases. Verify if point is appropriate.',
+                    true,
+                    'Whitelist area (not point)',
+                    'areaNotPoint'
+                );
             }
         },
         PointNotAreaMid: class extends WLFlag {
             constructor() {
-                super(true, 2, 'This category is usually a point place, but can be an area in some cases. Verify if area is appropriate.',
-                    true, 'Whitelist point (not area)', 'pointNotArea');
+                super(
+                    true,
+                    _SEVERITY.YELLOW,
+                    'This category is usually a point place, but can be an area in some cases. Verify if area is appropriate.',
+                    true,
+                    'Whitelist point (not area)',
+                    'pointNotArea'
+                );
             }
         },
         LongURL: class extends WLActionFlag {
             constructor(placePL) {
-                super(true, 1, 'Existing URL doesn\'t match the suggested PNH URL. Use the Website button below to verify that existing URL is valid.  If not:',
-                    'Use PNH URL', 'Change URL to the PNH standard', true, 'Whitelist existing URL', 'longURL');
+                super(
+                    true,
+                    _SEVERITY.BLUE,
+                    'Existing URL doesn\'t match the suggested PNH URL. Use the Website button below to verify that existing URL is valid.  If not:',
+                    'Use PNH URL',
+                    'Change URL to the PNH standard',
+                    true,
+                    'Whitelist existing URL',
+                    'longURL'
+                );
                 this.placePL = placePL;
             }
 
@@ -2555,47 +2735,71 @@
         },
         GasNoBrand: class extends FlagBase {
             constructor() {
-                super(true, 1, 'Lock to region standards to verify no gas brand.');
+                super(true, _SEVERITY.BLUE, 'Lock to region standards to verify no gas brand.');
             }
 
             static eval(venue, brand) {
                 const result = { flag: null };
                 if (venue.isGasStation() && !brand) {
                     result.flag = new Flag.GasNoBrand();
-                    result.noLock = true;
+                    result.flag.noLock = true;
                 }
                 return result;
             }
         },
         SubFuel: class extends WLFlag {
             constructor() {
-                super(true, 1, 'Make sure this place is for the gas station itself and not the main store building.  Otherwise undo and check the categories.',
-                    true, 'Whitelist no gas brand', 'subFuel');
+                super(
+                    true,
+                    _SEVERITY.BLUE,
+                    'Make sure this place is for the gas station itself and not the main store building.  Otherwise undo and check the categories.',
+                    true,
+                    'Whitelist no gas brand',
+                    'subFuel'
+                );
             }
         },
         AreaNotPointLow: class extends WLFlag {
             constructor() {
-                super(true, 1, 'This category is usually an area place, but can be a point in some cases. Verify if point is appropriate.',
-                    true, 'Whitelist area (not point)', 'areaNotPoint');
+                super(
+                    true,
+                    _SEVERITY.BLUE,
+                    'This category is usually an area place, but can be a point in some cases. Verify if point is appropriate.',
+                    true,
+                    'Whitelist area (not point)',
+                    'areaNotPoint'
+                );
             }
         },
         PointNotAreaLow: class extends WLFlag {
             constructor() {
-                super(true, 1, 'This category is usually a point place, but can be an area in some cases. Verify if area is appropriate.',
-                    true, 'Whitelist point (not area)', 'pointNotArea');
+                super(
+                    true,
+                    _SEVERITY.BLUE,
+                    'This category is usually a point place, but can be an area in some cases. Verify if area is appropriate.',
+                    true,
+                    'Whitelist point (not area)',
+                    'pointNotArea'
+                );
             }
         },
         FormatUSPS: class extends FlagBase {
-            constructor() { super(true, 1, 'Name the post office according to this region\'s <a href="https://wazeopedia.waze.com/wiki/USA/Places/Post_Office" style="color:#3232e6" target="_blank"> standards for USPS post offices</a>'); }
+            constructor() { super(true, _SEVERITY.BLUE, 'Name the post office according to this region\'s <a href="https://wazeopedia.waze.com/wiki/USA/Places/Post_Office" style="color:#3232e6" target="_blank"> standards for USPS post offices</a>'); }
         },
         MissingUSPSAlt: class extends FlagBase {
-            constructor() { super(true, 1, 'USPS post offices must have an alternate name of "USPS".'); }
+            constructor() { super(true, _SEVERITY.BLUE, 'USPS post offices must have an alternate name of "USPS".'); }
         },
         MissingUSPSZipAlt: class extends WLActionFlag {
             constructor() {
-                super(true, 1,
+                super(
+                    true,
+                    _SEVERITY.BLUE,
                     'No <a href="https://wazeopedia.waze.com/wiki/USA/Places/Post_Office" style="color:#3232e6;" target="_blank">ZIP code alt name</a>: <input type="text" id="WMEPH-zipAltNameAdd" autocomplete="off" style="font-size:0.85em;width:65px;padding-left:2px;color:#000;" title="Enter the ZIP code and click Add">',
-                    'Add', true, 'Whitelist missing USPS zip alt name', 'missingUSPSZipAlt');
+                    'Add',
+                    true,
+                    'Whitelist missing USPS zip alt name',
+                    'missingUSPSZipAlt'
+                );
                 this.noBannerAssemble = true;
             }
 
@@ -2623,16 +2827,22 @@
         },
         MissingUSPSDescription: class extends WLFlag {
             constructor() {
-                super(true, 1, 'The first line of the description for a <a href="https://wazeopedia.waze.com/wiki/USA/Places/Post_Office" style="color:#3232e6" target="_blank">USPS post office</a> must be CITY, STATE ZIP, e.g. "Lexington, KY 40511"',
-                    true, 'Whitelist missing USPS address line in description', 'missingUSPSDescription');
+                super(
+                    true,
+                    _SEVERITY.BLUE,
+                    'The first line of the description for a <a href="https://wazeopedia.waze.com/wiki/USA/Places/Post_Office" style="color:#3232e6" target="_blank">USPS post office</a> must be CITY, STATE ZIP, e.g. "Lexington, KY 40511"',
+                    true,
+                    'Whitelist missing USPS address line in description',
+                    'missingUSPSDescription'
+                );
             }
         },
         CatHotel: class extends FlagBase {
-            constructor(pnhName) { super(true, 0, `Check hotel website for any name localization (e.g. ${pnhName} - Tampa Airport).`); }
+            constructor(pnhName) { super(true, _SEVERITY.GREEN, `Check hotel website for any name localization (e.g. ${pnhName} - Tampa Airport).`); }
         },
         LocalizedName: class extends WLFlag {
             constructor() {
-                super(true, 1, 'Place needs localization information', true, 'Whitelist localization', 'localizedName');
+                super(true, _SEVERITY.BLUE, 'Place needs localization information', true, 'Whitelist localization', 'localizedName');
             }
 
             static eval(name, nameSuffix, specCase, displayNote) {
@@ -2642,11 +2852,11 @@
                     result.updatePnhName = false;
                     const [, baseName] = specCase.match(/^checkLocalization<>(.+)/i);
                     const baseNameRE = new RegExp(baseName, 'g');
-                    if ((name + (nameSuffix || '')).match(baseNameRE) === null) {
+                    if (!(name + (nameSuffix || '')).match(baseNameRE)) {
                         result.flag = new Flag.LocalizedName();
                         if (_wl.localizedName) {
                             result.flag.WLactive = false;
-                            result.flag.severity = 0;
+                            result.flag.severity = _SEVERITY.GREEN;
                         }
                         if (displayNote) {
                             result.flag.message = displayNote;
@@ -2657,10 +2867,10 @@
             }
         },
         SpecCaseMessage: class extends FlagBase {
-            constructor(message) { super(true, 0, message); }
+            constructor(message) { super(true, _SEVERITY.GREEN, message); }
         },
         PnhCatMess: class extends ActionFlag {
-            constructor(message) { super(true, 0, message, null, null); }
+            constructor(message) { super(true, _SEVERITY.GREEN, message, null, null); }
 
             static eval(message, categories, hpMode) {
                 const result = { flag: null };
@@ -2689,11 +2899,11 @@
             }
         },
         SpecCaseMessageLow: class extends FlagBase {
-            constructor(message) { super(true, 0, message); }
+            constructor(message) { super(true, _SEVERITY.GREEN, message); }
         },
         ExtProviderMissing: class extends ActionFlag {
             constructor() {
-                super(true, 3, 'No Google link', 'Nudge', 'If no other properties need to be updated, click to nudge the place (force an edit).');
+                super(true, _SEVERITY.RED, 'No Google link', 'Nudge', 'If no other properties need to be updated, click to nudge the place (force an edit).');
                 this.value2 = 'Add';
                 this.title2 = 'Add a link to a Google place';
             }
@@ -2718,15 +2928,15 @@
                                 }
                                 const weeksSinceLastUpdate = (Date.now() - lastUpdated) / 604800000;
                                 if (weeksSinceLastUpdate >= 26 && !venue.isUpdated() && (!actions || actions.length === 0)) {
-                                    result.flag.severity = 3;
+                                    result.flag.severity = _SEVERITY.RED;
                                     result.flag.message += ' and place has not been edited for over 6 months. Edit a property (or nudge) and save to reset the 6 month timer: ';
                                 } else {
-                                    result.flag.severity = 0;
+                                    result.flag.severity = _SEVERITY.GREEN;
                                     result.flag.message += ': ';
                                     delete result.flag.value;
                                 }
                             } else {
-                                result.flag.severity = 0;
+                                result.flag.severity = _SEVERITY.GREEN;
                                 result.flag.message += ': ';
                                 delete result.flag.value;
                             }
@@ -2763,7 +2973,7 @@
             constructor() {
                 super(
                     true,
-                    1,
+                    _SEVERITY.BLUE,
                     'No URL: <input type="text" id="WMEPH-UrlAdd" autocomplete="off" style="font-size:0.85em;width:100px;padding-left:2px;color:#000;">',
                     'Add',
                     'Add URL to place',
@@ -2792,8 +3002,16 @@
         },
         BadAreaCode: class extends WLActionFlag {
             constructor(textValue, outputFormat) {
-                super(true, 1, `Area Code mismatch:<br><input type="text" id="WMEPH-PhoneAdd" autocomplete="off" style="font-size:0.85em;width:100px;padding-left:2px;color:#000;" value="${textValue || ''}">`,
-                    'Update', 'Update phone #', true, 'Whitelist the area code', 'aCodeWL');
+                super(
+                    true,
+                    _SEVERITY.BLUE,
+                    `Area Code mismatch:<br><input type="text" id="WMEPH-PhoneAdd" autocomplete="off" style="font-size:0.85em;width:100px;padding-left:2px;color:#000;" value="${textValue || ''}">`,
+                    'Update',
+                    'Update phone #',
+                    true,
+                    'Whitelist the area code',
+                    'aCodeWL'
+                );
                 this.outputFormat = outputFormat;
                 this.noBannerAssemble = true;
             }
@@ -2815,14 +3033,22 @@
         },
         PhoneMissing: class extends WLActionFlag {
             constructor(venue, hasOperator, wl, outputFormat, isPLA) {
-                super(true, 1, 'No ph#: <input type="text" id="WMEPH-PhoneAdd" autocomplete="off" style="font-size:0.85em;width:100px;padding-left:2px;color:#000;">',
-                    'Add', 'Add phone to place', true, 'Whitelist empty phone', 'phoneWL');
+                super(
+                    true,
+                    _SEVERITY.BLUE,
+                    'No ph#: <input type="text" id="WMEPH-PhoneAdd" autocomplete="off" style="font-size:0.85em;width:100px;padding-left:2px;color:#000;">',
+                    'Add',
+                    'Add phone to place',
+                    true,
+                    'Whitelist empty phone',
+                    'phoneWL'
+                );
                 this.noBannerAssemble = true;
                 this.badInput = false;
                 this.outputFormat = outputFormat;
                 this.venue = venue;
                 if ((isPLA && !hasOperator) || wl[this.WLkeyName]) {
-                    this.severity = 0;
+                    this.severity = _SEVERITY.GREEN;
                     this.WLactive = false;
                 }
             }
@@ -2854,7 +3080,7 @@
             }
         },
         NoHours: class extends WLFlag {
-            constructor() { super(true, 1, getHoursHtml('No hours'), true, 'Whitelist "No hours"', 'noHours'); }
+            constructor() { super(true, _SEVERITY.BLUE, getHoursHtml('No hours'), true, 'Whitelist "No hours"', 'noHours'); }
 
             // eslint-disable-next-line class-methods-use-this
             getTitle(parseResult) {
@@ -2888,7 +3114,7 @@
                     harmonizePlaceGo(venue, 'harmonize');
                 } else {
                     phlog('Can\'t parse those hours');
-                    this.severity = 1;
+                    this.severity = _SEVERITY.BLUE;
                     this.WLactive = true;
                     $('#WMEPH-HoursPaste').css({ 'background-color': '#FDD' }).attr({ title: this.getTitle(parseResult) });
                 }
@@ -2903,7 +3129,7 @@
             }
         },
         PlaLotTypeMissing: class extends FlagBase {
-            constructor() { super(true, 3, 'Lot type: '); }
+            constructor() { super(true, _SEVERITY.RED, 'Lot type: '); }
 
             static eval(venue, hpMode) {
                 const result = { flag: null };
@@ -2913,7 +3139,7 @@
                     if (!parkAttr || !parkAttr.parkingType) {
                         result.flag = new Flag.PlaLotTypeMissing();
                         if (hpMode.harmFlag) {
-                            result.noLock = true;
+                            result.flag.noLock = true;
                             result.flag.message += [['PUBLIC', 'Public'], ['RESTRICTED', 'Restricted'], ['PRIVATE', 'Private']].map(
                                 btnInfo => $('<button>', { class: 'wmeph-pla-lot-type-btn btn btn-default btn-xs wmeph-btn', 'data-lot-type': btnInfo[0] })
                                     .text(btnInfo[1])
@@ -2929,7 +3155,7 @@
             }
         },
         PlaCostTypeMissing: class extends FlagBase {
-            constructor() { super(true, 1, 'Parking cost: '); }
+            constructor() { super(true, _SEVERITY.BLUE, 'Parking cost: '); }
 
             static eval(venue, hpMode) {
                 const result = { flag: null };
@@ -2952,7 +3178,7 @@
                                     })
                                     .prop('outerHTML');
                             });
-                            result.noLock = true;
+                            result.flag.noLock = true;
                         }
                     }
                 }
@@ -2960,7 +3186,7 @@
             }
         },
         PlaPaymentTypeMissing: class extends ActionFlag {
-            constructor() { super(true, 1, 'Parking isn\'t free.  Select payment type(s) from the "More info" tab. ', 'Go there'); }
+            constructor() { super(true, _SEVERITY.BLUE, 'Parking isn\'t free.  Select payment type(s) from the "More info" tab. ', 'Go there'); }
 
             static eval(venue) {
                 const result = { flag: null };
@@ -2981,7 +3207,7 @@
             }
         },
         PlaLotElevationMissing: class extends ActionFlag {
-            constructor() { super(true, 1, 'No lot elevation. Is it street level?', 'Yes', 'Click if street level parking only, or select other option(s) in the More Info tab.'); }
+            constructor() { super(true, _SEVERITY.BLUE, 'No lot elevation. Is it street level?', 'Yes', 'Click if street level parking only, or select other option(s) in the More Info tab.'); }
 
             static eval(venue) {
                 const result = { flag: null };
@@ -2990,7 +3216,7 @@
                     const parkAttr = catAttr ? catAttr.PARKING_LOT : undefined;
                     if (!parkAttr || !parkAttr.lotType || parkAttr.lotType.length === 0) {
                         result.flag = new Flag.PlaLotElevationMissing();
-                        result.noLock = true;
+                        result.flag.noLock = true;
                     }
                 }
                 return result;
@@ -3015,7 +3241,7 @@
         },
         PlaSpaces: class extends FlagBase {
             constructor() {
-                super(true, 0, '# of parking spaces is set to 1-10.<br><b><i>If appropriate</i></b>, select another option:');
+                super(true, _SEVERITY.GREEN, '# of parking spaces is set to 1-10.<br><b><i>If appropriate</i></b>, select another option:');
                 const $btnDiv = $('<div>');
                 let btnIdx = 0;
                 [
@@ -3054,7 +3280,7 @@
             }
         },
         NoPlaStopPoint: class extends ActionFlag {
-            constructor() { super(true, 1, 'Entry/exit point has not been created.', 'Add point', 'Add an entry/exit point'); }
+            constructor() { super(true, _SEVERITY.BLUE, 'Entry/exit point has not been created.', 'Add point', 'Add an entry/exit point'); }
 
             static eval(venue) {
                 const result = { flag: null };
@@ -3071,7 +3297,7 @@
             }
         },
         PlaStopPointUnmoved: class extends FlagBase {
-            constructor() { super(true, 1, 'Entry/exit point has not been moved.'); }
+            constructor() { super(true, _SEVERITY.BLUE, 'Entry/exit point has not been moved.'); }
 
             static eval(venue) {
                 const result = { flag: null };
@@ -3087,7 +3313,7 @@
             }
         },
         PlaCanExitWhileClosed: class extends ActionFlag {
-            constructor() { super(true, 0, 'Can cars exit when lot is closed? ', 'Yes', ''); }
+            constructor() { super(true, _SEVERITY.GREEN, 'Can cars exit when lot is closed? ', 'Yes', ''); }
 
             static eval(venue, hpMode) {
                 const result = { flag: null };
@@ -3119,7 +3345,7 @@
             }
         },
         PlaHasAccessibleParking: class extends ActionFlag {
-            constructor() { super(true, 0, 'Does this lot have disability parking? ', 'Yes', ''); }
+            constructor() { super(true, _SEVERITY.GREEN, 'Does this lot have disability parking? ', 'Yes', ''); }
 
             static eval(venue, hpMode) {
                 const result = { flag: null };
@@ -3148,7 +3374,7 @@
             }
         },
         AllDayHoursFixed: class extends FlagBase {
-            constructor() { super(true, 0, 'Hours were changed from 00:00-23:59 to "All Day"'); }
+            constructor() { super(true, _SEVERITY.GREEN, 'Hours were changed from 00:00-23:59 to "All Day"'); }
 
             static eval(venue, hpMode, actions) {
                 const hoursEntries = venue.attributes.openingHours;
@@ -3162,7 +3388,7 @@
                     if (newHoursEntry.toHour === '23:59' && /^0?0:00$/.test(newHoursEntry.fromHour)) {
                         if (hpMode.hlFlag) {
                             // Just return a "placeholder" flag to highlight the place.
-                            flag = new FlagBase(true, 2, 'invalid all day hours');
+                            flag = new FlagBase(true, _SEVERITY.YELLOW, 'invalid all day hours');
                             break;
                         } else if (hpMode.harmFlag) {
                             updateHours = true;
@@ -3181,13 +3407,13 @@
             }
         },
         ResiTypeNameSoft: class extends FlagBase {
-            constructor() { super(true, 0, 'The place name suggests a residential place or personalized place of work.  Please verify.'); }
+            constructor() { super(true, _SEVERITY.GREEN, 'The place name suggests a residential place or personalized place of work.  Please verify.'); }
         },
         LocalURL: class extends FlagBase {
-            constructor() { super(true, 0, 'Some locations for this business have localized URLs, while others use the primary corporate site. Check if a local URL applies to this location.'); }
+            constructor() { super(true, _SEVERITY.GREEN, 'Some locations for this business have localized URLs, while others use the primary corporate site. Check if a local URL applies to this location.'); }
         },
         LockRPP: class extends ActionFlag {
-            constructor() { super(true, 0, 'Lock this residential point?', 'Lock', 'Lock the residential point'); }
+            constructor() { super(true, _SEVERITY.GREEN, 'Lock this residential point?', 'Lock', 'Lock the residential point'); }
 
             action() {
                 const venue = getSelectedVenue();
@@ -3202,7 +3428,7 @@
         },
         AddAlias: class extends ActionFlag {
             constructor(specCases, optionalAlias) {
-                super(true, 0, `Is there a ${optionalAlias} at this location?`, 'Yes', `Add ${optionalAlias}`);
+                super(true, _SEVERITY.GREEN, `Is there a ${optionalAlias} at this location?`, 'Yes', `Add ${optionalAlias}`);
                 this.specCases = specCases;
                 this.optionalAlias = optionalAlias;
             }
@@ -3234,7 +3460,7 @@
             }
         },
         AddCat2: class extends ActionFlag {
-            constructor() { super(true, 0, '', 'Yes', ''); }
+            constructor() { super(true, _SEVERITY.GREEN, '', 'Yes', ''); }
 
             static eval() {
                 const result = { flag: null };
@@ -3251,7 +3477,7 @@
             }
         },
         AddPharm: class extends ActionFlag {
-            constructor() { super(true, 0, 'Is there a Pharmacy at this location?', 'Yes', 'Add Pharmacy category'); }
+            constructor() { super(true, _SEVERITY.GREEN, 'Is there a Pharmacy at this location?', 'Yes', 'Add Pharmacy category'); }
 
             // eslint-disable-next-line class-methods-use-this
             action() {
@@ -3263,7 +3489,7 @@
             }
         },
         AddSuper: class extends ActionFlag {
-            constructor() { super(true, 0, 'Does this location have a supermarket?', 'Yes', 'Add Supermarket category'); }
+            constructor() { super(true, _SEVERITY.GREEN, 'Does this location have a supermarket?', 'Yes', 'Add Supermarket category'); }
 
             // eslint-disable-next-line class-methods-use-this
             action() {
@@ -3275,7 +3501,7 @@
             }
         },
         AppendAMPM: class extends ActionFlag {
-            constructor() { super(true, 0, 'Is there an ampm at this location?', 'Yes', 'Add ampm to the place'); }
+            constructor() { super(true, _SEVERITY.GREEN, 'Is there an ampm at this location?', 'Yes', 'Add ampm to the place'); }
 
             // eslint-disable-next-line class-methods-use-this
             action() {
@@ -3292,7 +3518,7 @@
             }
         },
         AddATM: class extends ActionFlag {
-            constructor() { super(true, 0, 'ATM at location? ', 'Yes', 'Add the ATM category to this place'); }
+            constructor() { super(true, _SEVERITY.GREEN, 'ATM at location? ', 'Yes', 'Add the ATM category to this place'); }
 
             // eslint-disable-next-line class-methods-use-this
             action() {
@@ -3304,7 +3530,7 @@
             }
         },
         AddConvStore: class extends ActionFlag {
-            constructor() { super(true, 0, 'Add convenience store category? ', 'Yes', 'Add the Convenience Store category to this place'); }
+            constructor() { super(true, _SEVERITY.GREEN, 'Add convenience store category? ', 'Yes', 'Add the Convenience Store category to this place'); }
 
             // eslint-disable-next-line class-methods-use-this
             action() {
@@ -3317,8 +3543,13 @@
         },
         IsThisAPostOffice: class extends ActionFlag {
             constructor() {
-                super(true, 0, 'Is this a <a href="https://wazeopedia.waze.com/wiki/USA/Places/Post_Office" target="_blank" style="color:#3a3a3a">USPS post office</a>? ',
-                    'Yes', 'Is this a USPS location?');
+                super(
+                    true,
+                    _SEVERITY.GREEN,
+                    'Is this a <a href="https://wazeopedia.waze.com/wiki/USA/Places/Post_Office" target="_blank" style="color:#3a3a3a">USPS post office</a>? ',
+                    'Yes',
+                    'Is this a USPS location?'
+                );
             }
 
             static eval(venue, newName) {
@@ -3341,8 +3572,16 @@
         },
         ChangeToHospitalUrgentCare: class extends WLActionFlag {
             constructor(severity, message) {
-                super(true, severity, message, 'Change to Hospital / Urgent Care', 'Change category to Hospital / Urgent Care',
-                    false, 'Whitelist category', 'changetoHospitalUrgentCare');
+                super(
+                    true,
+                    severity,
+                    message,
+                    'Change to Hospital / Urgent Care',
+                    'Change category to Hospital / Urgent Care',
+                    false,
+                    'Whitelist category',
+                    'changetoHospitalUrgentCare'
+                );
             }
 
             static eval(venue, hpMode) {
@@ -3368,19 +3607,27 @@
         },
         NotAHospital: class extends WLActionFlag {
             constructor() {
-                super(true, 3, 'Key words suggest this location may not be a hospital or urgent care location.', 'Change to Doctor / Clinic', 'Change category to Doctor / Clinic',
-                    true, 'Whitelist category', 'notAHospital');
+                super(
+                    true,
+                    _SEVERITY.RED,
+                    'Key words suggest this location may not be a hospital or urgent care location.',
+                    'Change to Doctor / Clinic',
+                    'Change category to Doctor / Clinic',
+                    true,
+                    'Whitelist category',
+                    'notAHospital'
+                );
             }
 
             static eval(categories) {
-                const result = { flag: null, lockOK: true };
+                const result = { flag: null, noLock: false };
                 if (categories.includes('HOSPITAL_URGENT_CARE')) {
                     const testName = _newName.toLowerCase().replace(/[^a-z]/g, ' ');
                     const testNameWords = testName.split(' ');
                     if (containsAny(testNameWords, _hospitalFullMatch) || _hospitalPartMatch.some(match => testName.includes(match))) {
                         if (!_wl.notAHospital) {
                             result.flag = new Flag.NotAHospital();
-                            result.lockOK = false;
+                            result.flag.noLock = true;
                         }
                     }
                 }
@@ -3412,20 +3659,28 @@
         },
         ChangeToDoctorClinic: class extends WLActionFlag {
             constructor() {
-                super(true, 0, 'If this place provides non-emergency medical care: ', 'Change to Doctor / Clinic', 'Change category to Doctor / Clinic', false,
-                    'Whitelist category', 'changeToDoctorClinic');
+                super(
+                    true,
+                    _SEVERITY.GREEN,
+                    'If this place provides non-emergency medical care: ',
+                    'Change to Doctor / Clinic',
+                    'Change category to Doctor / Clinic',
+                    false,
+                    'Whitelist category',
+                    'changeToDoctorClinic'
+                );
             }
 
             static eval(venue, categories, hpMode, pnhNameRegMatch) {
-                const result = { flag: null, lockOK: true };
+                let result = null;
                 if (hpMode.harmFlag && venue.attributes.updatedOn < new Date('3/28/2017').getTime()
                     && ((categories.includes('PERSONAL_CARE') && !pnhNameRegMatch) || _newCategories.includes('OFFICES'))) {
                     // Show the Change To Doctor / Clinic button for places with PERSONAL_CARE or OFFICES category
                     // The date criteria was added because Doctor/Clinic category was added around then, and it's assumed if the
                     // place has been edited since then, people would have already updated the category.
 
-                    result.flag = new Flag.ChangeToDoctorClinic();
-                    result.flag.WLactive = null;
+                    result = new Flag.ChangeToDoctorClinic();
+                    result.WLactive = null;
                 }
                 return result;
             }
@@ -3457,7 +3712,7 @@
         },
         STC: class extends ActionFlag {
             constructor() {
-                super(true, 0, '', 'Force Title Case?', 'Force title case to: ');
+                super(true, _SEVERITY.GREEN, '', 'Force Title Case?', 'Force title case to: ');
                 this.originalName = null;
                 this.confirmChange = false;
                 this.noBannerAssemble = true;
@@ -3481,17 +3736,17 @@
             }
         },
         SFAliases: class extends FlagBase {
-            constructor() { super(true, 0, 'Unnecessary aliases were removed.'); }
+            constructor() { super(true, _SEVERITY.GREEN, 'Unnecessary aliases were removed.'); }
         },
         PlaceMatched: class extends FlagBase {
-            constructor() { super(true, 0, 'Place matched from PNH data.'); }
+            constructor() { super(true, _SEVERITY.GREEN, 'Place matched from PNH data.'); }
         },
         PlaceLocked: class extends FlagBase {
-            constructor() { super(true, 0, 'Place locked.'); }
+            constructor() { super(true, _SEVERITY.GREEN, 'Place locked.'); }
         },
         NewPlaceSubmit: class extends ActionFlag {
             constructor() {
-                super(true, 0, 'No PNH match. If it\'s a chain: ', 'Submit new chain data', 'Submit info for a new chain through the linked form');
+                super(true, _SEVERITY.GREEN, 'No PNH match. If it\'s a chain: ', 'Submit new chain data', 'Submit info for a new chain through the linked form');
             }
 
             // eslint-disable-next-line class-methods-use-this
@@ -3501,35 +3756,36 @@
         },
         ApprovalSubmit: class extends ActionFlag {
             constructor(region, pnhOrderNum, pnhNameTemp, placePL) {
-                super(true, 0, 'PNH data exists but is not approved for this region: ', 'Request approval', 'Request region/country approval of this place');
+                super(true, _SEVERITY.GREEN, 'PNH data exists but is not approved for this region: ', 'Request approval', 'Request region/country approval of this place');
                 this.region = region;
                 this.pnhOrderNum = pnhOrderNum;
                 this.pnhNameTemp = pnhNameTemp;
                 this.placePL = placePL;
             }
 
+            // eslint-disable-next-line class-methods-use-this
             action() {
-                if (_PM_USER_LIST.hasOwnProperty(this.region) && _PM_USER_LIST[this.region].approvalActive) {
-                    const forumPMInputs = {
-                        subject: `${this.pnhOrderNum} PNH approval for "${this.pnhNameTemp}"`,
-                        message: `Please approve "${this.pnhNameTemp}" for the ${this.region} region.  Thanks\n \nPNH order number: ${
-                            this.pnhOrderNum}\n \nPermalink: ${this.placePL}\n \nPNH Link: ${_URLS.usaPnh}`,
-                        preview: 'Preview',
-                        attach_sig: 'on'
-                    };
-                    _PM_USER_LIST[this.region].mods.forEach(obj => {
-                        forumPMInputs[`address_list[u][${obj.id}]`] = 'to';
-                    });
-                    newForumPost('https://www.waze.com/forum/ucp.php?i=pm&mode=compose', forumPMInputs);
-                } else {
-                    window.open(_approveRegionURL);
-                }
+                // if (_PM_USER_LIST.hasOwnProperty(this.region) && _PM_USER_LIST[this.region].approvalActive) {
+                //     const forumPMInputs = {
+                //         subject: `${this.pnhOrderNum} PNH approval for "${this.pnhNameTemp}"`,
+                //         message: `Please approve "${this.pnhNameTemp}" for the ${this.region} region.  Thanks\n \nPNH order number: ${
+                //             this.pnhOrderNum}\n \nPermalink: ${this.placePL}\n \nPNH Link: ${_URLS.usaPnh}`,
+                //         preview: 'Preview',
+                //         attach_sig: 'on'
+                //     };
+                //     _PM_USER_LIST[this.region].mods.forEach(obj => {
+                //         forumPMInputs[`address_list[u][${obj.id}]`] = 'to';
+                //     });
+                //     newForumPost('https://www.waze.com/forum/ucp.php?i=pm&mode=compose', forumPMInputs);
+                // } else {
+                window.open(_approveRegionURL);
+                // }
             }
         },
         PlaceWebsite: class extends ActionFlag {
             // NOTE: This class is now only used to display the store locator button.
             // It can be updated to remove/change anything that doesn't serve that purpose.
-            constructor() { super(true, 0, '', 'Location Finder', 'Look up details about this location on the chain\'s finder web page'); }
+            constructor() { super(true, _SEVERITY.GREEN, '', 'Location Finder', 'Look up details about this location on the chain\'s finder web page'); }
 
             // eslint-disable-next-line class-methods-use-this
             action() {
@@ -3587,6 +3843,7 @@
         // WL terms are for whitelisting
 
         return {
+            evChargingStationWarning: null,
             pnhCatMess: null,
             notAHospital: null,
             notASchool: null,
@@ -4072,7 +4329,7 @@
         //     hpMode.scanFlag = true;
         // }
 
-        _severityButt = 0;
+        _severityButt = _SEVERITY.GREEN;
 
         // Whitelist: reset flags
         _wl = {
@@ -4166,39 +4423,29 @@
         _newPhone = item.attributes.phone;
 
         let pnhNameRegMatch;
+        let result;
 
         // Some user submitted places have no data in the country, state and address fields.
-        let inferredAddress;
-        if (hpMode.harmFlag) {
-            const result = Flag.FullAddressInference.eval(item, addr, actions);
-            if (result.exit) return undefined;
-            _buttonBanner.fullAddressInference = result.flag;
-            ({ inferredAddress } = result);
-            if (result.inferredAddress) addr = result.inferredAddress;
-            if (result.noLock) lockOK = false;
-        } else if (hpMode.hlFlag) {
-            const result = Flag.FullAddressInference.evalHL(item, addr);
-            if (result) return result;
-        }
+        result = Flag.FullAddressInference.eval(item, addr, actions, hpMode);
+        if (result?.exit) return result.severity;
+        _buttonBanner.fullAddressInference = result;
+        const inferredAddress = result?.inferredAddress;
+        addr ||= inferredAddress;
 
-        let result;
         // Check parking lot attributes.
         if (hpMode.harmFlag && item.isParkingLot()) _servicesBanner.addDisabilityParking.active = true;
 
         result = Flag.PlaCostTypeMissing.eval(item, hpMode);
         _buttonBanner.plaCostTypeMissing = result.flag;
-        if (result.noLock) lockOK = false;
 
         result = Flag.PlaLotElevationMissing.eval(item);
         _buttonBanner.plaLotElevationMissing = result.flag;
-        if (result.noLock) lockOK = false;
 
         result = Flag.PlaSpaces.eval(item, hpMode);
         _buttonBanner.plaSpaces = result.flag;
 
         result = Flag.PlaLotTypeMissing.eval(item, hpMode);
         _buttonBanner.plaLotTypeMissing = result.flag;
-        if (result.noLock) lockOK = false;
 
         _buttonBanner.noPlaStopPoint = Flag.NoPlaStopPoint.eval(item).flag;
         _buttonBanner.plaStopPointUnmoved = Flag.PlaStopPointUnmoved.eval(item).flag;
@@ -4583,11 +4830,11 @@
                             displayNote = pnhMatchData[phDisplayNoteIdx];
                         }
                         result = Flag.LocalizedName.eval(_newName, newNameSuffix, specCase, displayNote);
+                        if (!result.updatePnhName) {
+                            updatePNHName = false;
+                            showDispNote = false;
+                        }
                         if (result.flag) {
-                            if (!result.updatePnhName) {
-                                updatePNHName = false;
-                                showDispNote = false;
-                            }
                             _buttonBanner.localizedName = result.flag;
                         }
 
@@ -5078,7 +5325,6 @@
                 _newPlaceURL = regionFormURL + newPlaceAddon;
                 _approveRegionURL = regionFormURL + approvalAddon;
 
-
                 // PNH specific Services:
 
                 const servHeaders = [];
@@ -5112,12 +5358,11 @@
                 }
             }
 
-
             const isPoint = item.isPoint();
             // NOTE: do not use is2D() function. It doesn't seem to be 100% reliable.
             const isArea = !isPoint;
-            let maxPointSeverity = 0;
-            let maxAreaSeverity = 3;
+            let maxPointSeverity = _SEVERITY.GREEN;
+            let maxAreaSeverity = _SEVERITY.RED;
             let highestCategoryLock = -1;
 
             for (let ixPlaceCat = 0; ixPlaceCat < _newCategories.length; ixPlaceCat++) {
@@ -5148,7 +5393,7 @@
                     const pointSeverity = getPvaSeverity(pvaPoint, item);
                     const areaSeverity = getPvaSeverity(pvaArea, item);
 
-                    if (isPoint && pointSeverity > 0) {
+                    if (isPoint && pointSeverity > _SEVERITY.GREEN) {
                         maxPointSeverity = Math.max(pointSeverity, maxPointSeverity);
                     } else if (isArea) {
                         maxAreaSeverity = Math.min(areaSeverity, maxAreaSeverity);
@@ -5164,7 +5409,7 @@
                             if (!isLocked) {
                                 _buttonBanner.unmappedRegion = new Flag.UnmappedRegion();
                                 _buttonBanner.unmappedRegion.WLactive = false;
-                                _buttonBanner.unmappedRegion.severity = 1;
+                                _buttonBanner.unmappedRegion.severity = _SEVERITY.BLUE;
                                 _buttonBanner.unmappedRegion.message = 'The "Other" category should only be used if no other category applies.  Manually lock the place to override this flag.';
                                 lockOK = false;
                             }
@@ -5172,7 +5417,7 @@
                             _buttonBanner.unmappedRegion = new Flag.UnmappedRegion();
                             if (_wl.unmappedRegion) {
                                 _buttonBanner.unmappedRegion.WLactive = false;
-                                _buttonBanner.unmappedRegion.severity = 0;
+                                _buttonBanner.unmappedRegion.severity = _SEVERITY.GREEN;
                             } else {
                                 lockOK = false;
                             }
@@ -5202,30 +5447,30 @@
             }
 
             if (isPoint) {
-                if (maxPointSeverity === 3) {
+                if (maxPointSeverity === _SEVERITY.RED) {
                     _buttonBanner.areaNotPoint = new Flag.AreaNotPoint();
                     if (_wl.areaNotPoint || item.attributes.lockRank >= _defaultLockLevel) {
                         _buttonBanner.areaNotPoint.WLactive = false;
-                        _buttonBanner.areaNotPoint.severity = 0;
+                        _buttonBanner.areaNotPoint.severity = _SEVERITY.GREEN;
                     } else {
                         lockOK = false;
                     }
-                } else if (maxPointSeverity === 2) {
+                } else if (maxPointSeverity === _SEVERITY.YELLOW) {
                     _buttonBanner.areaNotPointMid = new Flag.AreaNotPointMid();
                     if (_wl.areaNotPoint || item.attributes.lockRank >= _defaultLockLevel) {
                         _buttonBanner.areaNotPointMid.WLactive = false;
-                        _buttonBanner.areaNotPointMid.severity = 0;
+                        _buttonBanner.areaNotPointMid.severity = _SEVERITY.GREEN;
                     } else {
                         lockOK = false;
                     }
-                } else if (maxPointSeverity === 1) {
+                } else if (maxPointSeverity === _SEVERITY.BLUE) {
                     _buttonBanner.areaNotPointLow = new Flag.AreaNotPointLow();
                     if (_wl.areaNotPoint || item.attributes.lockRank >= _defaultLockLevel) {
                         _buttonBanner.areaNotPointLow.WLactive = false;
                         _buttonBanner.areaNotPointLow.severity = 0;
                     }
                 }
-            } else if (maxAreaSeverity === 3) {
+            } else if (maxAreaSeverity === _SEVERITY.RED) {
                 _buttonBanner.pointNotArea = new Flag.PointNotArea();
                 if (_wl.pointNotArea || item.attributes.lockRank >= _defaultLockLevel) {
                     _buttonBanner.pointNotArea.WLactive = false;
@@ -5233,7 +5478,7 @@
                 } else {
                     lockOK = false;
                 }
-            } else if (maxAreaSeverity === 2) {
+            } else if (maxAreaSeverity === _SEVERITY.YELLOW) {
                 _buttonBanner.pointNotAreaMid = new Flag.PointNotAreaMid();
                 if (_wl.pointNotArea || item.attributes.lockRank >= _defaultLockLevel) {
                     _buttonBanner.pointNotAreaMid.WLactive = false;
@@ -5241,7 +5486,7 @@
                 } else {
                     lockOK = false;
                 }
-            } else if (maxAreaSeverity === 1) {
+            } else if (maxAreaSeverity === _SEVERITY.BLUE) {
                 _buttonBanner.pointNotAreaLow = new Flag.PointNotAreaLow();
                 if (_wl.pointNotArea || item.attributes.lockRank >= _defaultLockLevel) {
                     _buttonBanner.pointNotAreaLow.WLactive = false;
@@ -5269,7 +5514,7 @@
                         'SHOPPING_CENTER', 'RELIGIOUS_CENTER', 'PARKING_LOT', 'PARK', 'PLAYGROUND', 'AIRPORT', 'FIRE_DEPARTMENT', 'POLICE_STATION',
                         'SEAPORT_MARINA_HARBOR', 'FARM', 'SCENIC_LOOKOUT_VIEWPOINT'])) {
                         _buttonBanner.noHours.WLactive = false;
-                        _buttonBanner.noHours.severity = 0;
+                        _buttonBanner.noHours.severity = _SEVERITY.GREEN;
                     }
                 }
             } else if (!isAlwaysOpen(item)) {
@@ -5282,7 +5527,7 @@
                     }
                 }
                 _buttonBanner.noHours = new Flag.NoHours();
-                _buttonBanner.noHours.severity = 0;
+                _buttonBanner.noHours.severity = _SEVERITY.GREEN;
                 _buttonBanner.noHours.WLactive = false;
                 _buttonBanner.noHours.message = getHoursHtml('Hours');
             }
@@ -5321,7 +5566,7 @@
                     if (newURLTemp !== itemURLTemp) { // if formatted URLs don't match, then alert the editor to check the existing URL
                         _buttonBanner.longURL = new Flag.LongURL(placePL);
                         if (_wl.longURL) {
-                            _buttonBanner.longURL.severity = 0;
+                            _buttonBanner.longURL.severity = _SEVERITY.GREEN;
                             _buttonBanner.longURL.WLactive = false;
                         }
                         if (hpMode.harmFlag && _updateURL && itemURL !== item.attributes.url) { // Update the URL
@@ -5419,7 +5664,7 @@
                     if (!_newAliases.some(alias => /\d{5}/.test(alias))) {
                         _buttonBanner.missingUSPSZipAlt = new Flag.MissingUSPSZipAlt();
                         if (_wl.missingUSPSZipAlt) {
-                            _buttonBanner.missingUSPSZipAlt.severity = 0;
+                            _buttonBanner.missingUSPSZipAlt.severity = _SEVERITY.GREEN;
                             _buttonBanner.missingUSPSZipAlt.WLactive = false;
                         }
                         // If the zip code appears in the primary name, pre-fill it in the text entry box.
@@ -5433,7 +5678,7 @@
                     if (lines.length < 1 || !/^.{2,}, [A-Z]{2}\s{1,2}\d{5}$/.test(lines[0])) {
                         _buttonBanner.missingUSPSDescription = new Flag.MissingUSPSDescription();
                         if (_wl.missingUSPSDescription) {
-                            _buttonBanner.missingUSPSDescription.severity = 0;
+                            _buttonBanner.missingUSPSDescription.severity = _SEVERITY.GREEN;
                             _buttonBanner.missingUSPSDescription.WLactive = false;
                         }
                     }
@@ -5468,14 +5713,14 @@
             }
         }
 
+        _buttonBanner.evChargingStationWarning = Flag.EVChargingStationWarning.eval(item, hpMode);
+
         // Brand checking (be sure to check this after determining if brand will be forced, when harmonzing)
         result = Flag.GasNoBrand.eval(item, newBrand);
         _buttonBanner.gasNoBrand = result.flag;
-        if (result.noLock) lockOK = false;
 
         result = Flag.GasUnbranded.eval(item, newBrand);
         _buttonBanner.gasUnbranded = result.flag;
-        if (result.noLock) lockOK = false;
 
         // Name check
         if (!item.attributes.residential && (!_newName || _newName.replace(/[^A-Za-z0-9]/g, '').length === 0)) {
@@ -5520,7 +5765,7 @@
             if (!'BRIDGE|ISLAND|FOREST_GROVE|SEA_LAKE_POOL|RIVER_STREAM|CANAL|DAM|TUNNEL|JUNCTION_INTERCHANGE'.split('|').includes(item.attributes.categories[0])) {
                 _buttonBanner.hnMissing = new Flag.HnMissing(item);
                 if (state2L === 'PR' || ['SCENIC_LOOKOUT_VIEWPOINT'].includes(item.attributes.categories[0])) {
-                    _buttonBanner.hnMissing.severity = 0;
+                    _buttonBanner.hnMissing.severity = _SEVERITY.GREEN;
                     _buttonBanner.hnMissing.WLactive = false;
                 } else if (item.isParkingLot()) {
                     _buttonBanner.hnMissing.WLactive = false;
@@ -5533,12 +5778,12 @@
                             msgAdd = 'Lock to R3+ to confirm no HN.';
                         }
                         _buttonBanner.hnMissing.suffixMessage = msgAdd;
-                        _buttonBanner.hnMissing.severity = 1;
+                        _buttonBanner.hnMissing.severity = _SEVERITY.BLUE;
                     } else {
-                        _buttonBanner.hnMissing.severity = 0;
+                        _buttonBanner.hnMissing.severity = _SEVERITY.GREEN;
                     }
                 } else if (_wl.HNWL) {
-                    _buttonBanner.hnMissing.severity = 0;
+                    _buttonBanner.hnMissing.severity = _SEVERITY.GREEN;
                     _buttonBanner.hnMissing.WLactive = false;
                 } else {
                     lockOK = false;
@@ -5546,9 +5791,7 @@
             }
         } else if (currentHN) {
             _buttonBanner.hnTooManyDigits = Flag.HnTooManyDigits.eval(currentHN, _wl).flag;
-            if (_buttonBanner.hnTooManyDigits) {
-                lockOK = false;
-            }
+
             // 2020-10-5 Disabling HN validity checks for now. See the note on the HnNonStandard flag object for more details.
 
             // let hnOK = false;
@@ -5572,7 +5815,7 @@
             //     _buttonBanner.hnNonStandard = new Flag.HnNonStandard();
             //     if (_wl.hnNonStandard) {
             //         _buttonBanner.hnNonStandard.WLactive = false;
-            //         _buttonBanner.hnNonStandard.severity = 0;
+            //         _buttonBanner.hnNonStandard.severity = SEVERITY.GREEN;
             //     } else {
             //         lockOK = false;
             //     }
@@ -5584,62 +5827,33 @@
             //         _UPDATED_FIELDS.address.updated = true;
             //     } else if (hpMode.hlFlag) {
             //         if (item.attributes.residential) {
-            //             _buttonBanner.hnDashRemoved.severity = 3;
+            //             _buttonBanner.hnDashRemoved.severity = SEVERITY.RED;
             //         } else {
-            //             _buttonBanner.hnDashRemoved.severity = 1;
+            //             _buttonBanner.hnDashRemoved.severity = SEVERITY.BLUE;
             //         }
             //     }
             // }
         }
 
-        if ((!addr.city || addr.city.attributes.isEmpty)
-            && !'BRIDGE|ISLAND|FOREST_GROVE|SEA_LAKE_POOL|RIVER_STREAM|CANAL|DAM|TUNNEL|JUNCTION_INTERCHANGE'.split('|').includes(item.attributes.categories[0])) {
-            _buttonBanner.cityMissing = new Flag.CityMissing();
-            if (item.attributes.residential && hpMode.hlFlag) {
-                _buttonBanner.cityMissing.severity = 1;
-            }
-            lockOK = false;
-        }
-        if (addr.city && (!addr.street || addr.street.isEmpty)
-            && !'BRIDGE|ISLAND|FOREST_GROVE|SEA_LAKE_POOL|RIVER_STREAM|CANAL|DAM|TUNNEL|JUNCTION_INTERCHANGE'.split('|').includes(item.attributes.categories[0])) {
-            _buttonBanner.streetMissing = new Flag.StreetMissing();
-            if (['SCENIC_LOOKOUT_VIEWPOINT'].includes(item.attributes.categories[0])) {
-                _buttonBanner.streetMissing.severity = 1;
-            } else {
-                lockOK = false;
-            }
-        }
+        _buttonBanner.cityMissing = Flag.CityMissing.eval(item, addr, hpMode);
+        _buttonBanner.streetMissing = Flag.StreetMissing.eval(item, addr);
 
         _buttonBanner.notAHospital = Flag.NotAHospital.eval(_newCategories).flag;
 
         // CATEGORY vs. NAME checks
-        result = Flag.ChangeToPetVet.eval(_newName, _newCategories);
-        if (result.flag) {
-            _buttonBanner.changeToPetVet = result.flag;
-            if (!result.lockOK) lockOK = false;
-        }
-
-        result = Flag.ChangeToDoctorClinic.eval(item, _newCategories, hpMode, pnhNameRegMatch);
-        if (result.flag) {
-            _buttonBanner.changeToPetVet = result.flag;
-            if (!result.lockOK) lockOK = false;
-        }
-
-        result = Flag.NotASchool.eval(_newName, _newCategories);
-        if (result.flag) {
-            _buttonBanner.notASchool = result.flag;
-            if (!result.lockOK) lockOK = false;
-        }
+        _buttonBanner.changeToPetVet = Flag.ChangeToPetVet.eval(_newName, _newCategories);
+        _buttonBanner.changeToDoctorClinic = Flag.ChangeToDoctorClinic.eval(item, _newCategories, hpMode, pnhNameRegMatch);
+        _buttonBanner.notASchool = Flag.NotASchool.eval(_newName, _newCategories);
 
         // Some cats don't need PNH messages and url/phone severities
         if (['BRIDGE', 'FOREST_GROVE', 'DAM', 'TUNNEL', 'CEMETERY'].includes(item.attributes.categories[0])) {
             _buttonBanner.NewPlaceSubmit = null;
             if (_buttonBanner.phoneMissing) {
-                _buttonBanner.phoneMissing.severity = 0;
+                _buttonBanner.phoneMissing.severity = _SEVERITY.GREEN;
                 _buttonBanner.phoneMissing.WLactive = false;
             }
             if (_buttonBanner.urlMissing) {
-                _buttonBanner.urlMissing.severity = 0;
+                _buttonBanner.urlMissing.severity = _SEVERITY.GREEN;
                 _buttonBanner.urlMissing.WLactive = false;
             }
         } else if (['ISLAND', 'SEA_LAKE_POOL', 'RIVER_STREAM', 'CANAL', 'JUNCTION_INTERCHANGE', 'SCENIC_LOOKOUT_VIEWPOINT'].includes(item.attributes.categories[0])) {
@@ -5709,10 +5923,10 @@
                 _buttonBanner.hnMissing = null;
                 if (_buttonBanner.urlMissing) {
                     _buttonBanner.urlMissing.WLactive = false;
-                    _buttonBanner.urlMissing.severity = 0;
+                    _buttonBanner.urlMissing.severity = _SEVERITY.GREEN;
                 }
                 if (_buttonBanner.phoneMissing) {
-                    _buttonBanner.phoneMissing.severity = 0;
+                    _buttonBanner.phoneMissing.severity = _SEVERITY.GREEN;
                     _buttonBanner.phoneMissing.WLactive = false;
                 }
             } else if (!_wl.restAreaSpec) {
@@ -5728,6 +5942,8 @@
         });
 
         if (hpMode.harmFlag) {
+            // Update the lockOK value if "noLock" is set on any flag.
+            lockOK &&= !Object.keys(_buttonBanner).some(key => _buttonBanner[key]?.noLock);
             phlogdev(`Severity: ${_severityButt}; lockOK: ${lockOK}`);
         }
         // Place locking
@@ -5760,9 +5976,10 @@
         }
 
         // If no Google link and severity would otherwise allow locking, ask if user wants to lock anyway.
-        if (!isLocked && _buttonBanner.extProviderMissing && _buttonBanner.extProviderMissing.active && _buttonBanner.extProviderMissing.severity <= 2) {
-            _buttonBanner.extProviderMissing.severity = 3;
-            _severityButt = 3;
+        if (!isLocked && _buttonBanner.extProviderMissing && _buttonBanner.extProviderMissing.active
+            && _buttonBanner.extProviderMissing.severity <= _SEVERITY.YELLOW) {
+            _buttonBanner.extProviderMissing.severity = _SEVERITY.RED;
+            _severityButt = _SEVERITY.RED;
             if (lockOK) {
                 _buttonBanner.extProviderMissing.value = `Lock anyway? (${levelToLock + 1})`;
                 _buttonBanner.extProviderMissing.title = 'If no Google link exists, lock this place.\nIf there is still no Google link after '
@@ -5777,7 +5994,7 @@
         }
 
         let hlLockFlag = false;
-        if (lockOK && _severityButt < 2) {
+        if (lockOK && _severityButt < _SEVERITY.YELLOW) {
             if (item.attributes.lockRank < levelToLock) {
                 if (hpMode.harmFlag) {
                     phlogdev('Venue locked!');
@@ -5846,7 +6063,7 @@
         }
 
         // Final alerts for non-severe locations
-        if (!item.attributes.residential && _severityButt < 3) {
+        if (!item.attributes.residential && _severityButt < _SEVERITY.RED) {
             const nameShortSpace = _newName.toUpperCase().replace(/[^A-Z ']/g, '');
             if (nameShortSpace.includes('\'S HOUSE') || nameShortSpace.includes('\'S HOME') || nameShortSpace.includes('\'S WORK')) {
                 if (!containsAny(_newCategories, ['RESTAURANT', 'DESSERT', 'BAR']) && !pnhNameRegMatch) {
@@ -5872,7 +6089,7 @@
         // Return severity for highlighter (no dupe run))
         if (hpMode.hlFlag) {
             // get severities from the banners
-            _severityButt = 0;
+            _severityButt = _SEVERITY.GREEN;
             Object.keys(_buttonBanner).forEach(tempKey => {
                 if (_buttonBanner[tempKey] && _buttonBanner[tempKey].active) { //  If the particular message is active
                     if (_buttonBanner[tempKey].hasOwnProperty('WLactive')) {
@@ -5888,10 +6105,10 @@
             // Special case flags
             if (item.attributes.lockRank === 0 && (item.attributes.categories.includes('HOSPITAL_MEDICAL_CARE')
                 || item.attributes.categories.includes('HOSPITAL_URGENT_CARE') || item.isGasStation())) {
-                _severityButt = 5;
+                _severityButt = _SEVERITY.PINK;
             }
 
-            if (_severityButt === 0 && hlLockFlag) {
+            if (_severityButt === _SEVERITY.GREEN && hlLockFlag) {
                 _severityButt = 'lock';
             }
             if (_severityButt === 1 && hlLockFlag) {
@@ -5971,7 +6188,7 @@
                     for (let ijx = 1; ijx < _duplicateName.length + 1; ijx++) {
                         _dupeBanner[_dupeIDList[ijx]] = {
                             active: true,
-                            severity: 2,
+                            severity: _SEVERITY.YELLOW,
                             message: _duplicateName[ijx - 1],
                             WLactive: false,
                             WLvalue: _WL_BUTTON_TEXT,
@@ -6015,7 +6232,7 @@
                     _buttonBanner.HNRange.active = false;
                 }
                 if (arrayHNRatio[arrayHNRatioCheckIX] > 5) {
-                    _buttonBanner.HNRange.severity = 3;
+                    _buttonBanner.HNRange.severity = _SEVERITY.RED;
                 }
                 // show stats if HN out of range
                 phlogdev(`HNs: ${dupeHNRangeListSorted}`);
@@ -6057,7 +6274,7 @@
         let rowData;
         let $rowDiv;
         let rowDivs = [];
-        _severityButt = 0;
+        _severityButt = _SEVERITY.GREEN;
 
         const func = elem => ({ id: elem.getAttribute('id'), val: elem.value });
         _textEntryValues = $('#WMEPH_banner input[type="text"]').toArray().map(func);
@@ -6094,13 +6311,13 @@
             rowData = _buttonBanner[tempKey];
             if (rowData && rowData.active) { //  If the particular message is active
                 $rowDiv = $('<div class="banner-row">');
-                if (rowData.severity === 3) {
+                if (rowData.severity === _SEVERITY.RED) {
                     $rowDiv.addClass('red');
-                } else if (rowData.severity === 2) {
+                } else if (rowData.severity === _SEVERITY.YELLOW) {
                     $rowDiv.addClass('yellow');
-                } else if (rowData.severity === 1) {
+                } else if (rowData.severity === _SEVERITY.BLUE) {
                     $rowDiv.addClass('blue');
-                } else if (rowData.severity === 0) {
+                } else if (rowData.severity === _SEVERITY.GREEN) {
                     $rowDiv.addClass('gray');
                 }
                 if (rowData.divId) {
@@ -6153,13 +6370,13 @@
         }
         let bgColor;
         switch (_severityButt) {
-            case 1:
+            case _SEVERITY.BLUE:
                 bgColor = 'rgb(50, 50, 230)'; // blue
                 break;
-            case 2:
+            case _SEVERITY.YELLOW:
                 bgColor = 'rgb(217, 173, 42)'; // yellow
                 break;
-            case 3:
+            case _SEVERITY.RED:
                 bgColor = 'rgb(211, 48, 48)'; // red
                 break;
             default:
@@ -6477,7 +6694,7 @@
                 b[bKey].WLaction();
             }
             b[bKey].WLactive = false;
-            b[bKey].severity = 0;
+            b[bKey].severity = _SEVERITY.GREEN;
             assembleBanner();
         };
         return button;
@@ -6657,7 +6874,6 @@
             }
         }
     } // END displayCloneButton funtion
-
 
     // Catch PLs and reloads that have a place selected already and limit attempts to about 10 seconds
     function initWmephPanel() {
@@ -7846,7 +8062,6 @@
         // $highlighterTab.append('<p>Scanner Settings (coming !soon)</p>');
         // createSettingsCheckbox($highlighterTab, 'WMEPH-PlaceScanner','Placeholder, under development!');
 
-
         // Whitelisting settings
         const phWLContentHtml = $(
             '<div id="PlaceHarmonizerWLTools">Whitelist string: <input onClick="this.select();" type="text" id="WMEPH-WLInput" style="width:100%;padding-left:1px;display:block">'
@@ -8031,45 +8246,46 @@
     }
 
     // Sets up error reporting
-    function reportError(data) {
-        data.preview = 'Preview';
-        data.attach_sig = 'on';
-        if (_PM_USER_LIST.hasOwnProperty('WMEPH') && _PM_USER_LIST.WMEPH.approvalActive) {
-            data[`address_list[u][${_PM_USER_LIST.WMEPH.modID}]`] = 'to';
-            newForumPost('https://www.waze.com/forum/ucp.php?i=pm&mode=compose', data);
-        } else {
-            data.addbbcode20 = 'to';
-            data.notify = 'on';
-            newForumPost(`${_URLS.forum}#preview`, data);
-        }
+    function reportError() {
+        window.open('https://www.waze.com/forum/viewtopic.php?t=239985', '_blank');
+        // data.preview = 'Preview';
+        // data.attach_sig = 'on';
+        // if (_PM_USER_LIST.hasOwnProperty('WMEPH') && _PM_USER_LIST.WMEPH.approvalActive) {
+        //     data[`address_list[u][${_PM_USER_LIST.WMEPH.modID}]`] = 'to';
+        //     newForumPost('https://www.waze.com/forum/ucp.php?i=pm&mode=compose', data);
+        // } else {
+        //     data.addbbcode20 = 'to';
+        //     data.notify = 'on';
+        //     newForumPost(`${_URLS.forum}#preview`, data);
+        // }
     } // END reportError function
 
-    // Make a populated post on a forum thread
-    function newForumPost(url, data) {
-        const form = document.createElement('form');
-        form.target = '_blank';
-        form.action = url;
-        form.method = 'post';
-        form.style.display = 'none';
-        Object.keys(data).forEach(k => {
-            let input;
-            if (k === 'message') {
-                input = document.createElement('textarea');
-            } else if (k === 'username') {
-                input = document.createElement('username_list');
-            } else {
-                input = document.createElement('input');
-            }
-            input.name = k;
-            input.value = data[k];
-            // input.type = 'hidden'; // 2018-07/10 (mapomatic) Not sure if this is required, but was causing an error when setting on the textarea object.
-            form.appendChild(input);
-        });
-        document.getElementById('WMEPH_formDiv').appendChild(form);
-        form.submit();
-        document.getElementById('WMEPH_formDiv').removeChild(form);
-        return true;
-    } // END newForumPost function
+    // // Make a populated post on a forum thread
+    // function newForumPost(url, data) {
+    //     const form = document.createElement('form');
+    //     form.target = '_blank';
+    //     form.action = url;
+    //     form.method = 'post';
+    //     form.style.display = 'none';
+    //     Object.keys(data).forEach(k => {
+    //         let input;
+    //         if (k === 'message') {
+    //             input = document.createElement('textarea');
+    //         } else if (k === 'username') {
+    //             input = document.createElement('username_list');
+    //         } else {
+    //             input = document.createElement('input');
+    //         }
+    //         input.name = k;
+    //         input.value = data[k];
+    //         // input.type = 'hidden'; // 2018-07/10 (mapomatic) Not sure if this is required, but was causing an error when setting on the textarea object.
+    //         form.appendChild(input);
+    //     });
+    //     document.getElementById('WMEPH_formDiv').appendChild(form);
+    //     form.submit();
+    //     document.getElementById('WMEPH_formDiv').removeChild(form);
+    //     return true;
+    // } // END newForumPost function
 
     /**
      * Updates the geometry of a place.
