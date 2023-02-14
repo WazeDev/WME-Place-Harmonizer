@@ -3671,18 +3671,16 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                     'Whitelist category',
                     'notAHospital'
                 );
+                this.noLock = true;
             }
 
             static eval(categories) {
-                const result = { flag: null, noLock: false };
-                if (categories.includes('HOSPITAL_URGENT_CARE')) {
+                let result = null;
+                if (categories.includes('HOSPITAL_URGENT_CARE') && !_wl.notAHospital) {
                     const testName = _newName.toLowerCase().replace(/[^a-z]/g, ' ');
                     const testNameWords = testName.split(' ');
                     if (containsAny(testNameWords, _hospitalFullMatch) || _hospitalPartMatch.some(match => testName.includes(match))) {
-                        if (!_wl.notAHospital) {
-                            result.flag = new Flag.NotAHospital();
-                            result.flag.noLock = true;
-                        }
+                        result = new Flag.NotAHospital();
                     }
                 }
                 return result;
@@ -5861,8 +5859,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
 
         _buttonBanner.cityMissing = Flag.CityMissing.eval(item, addr, hpMode);
         _buttonBanner.streetMissing = Flag.StreetMissing.eval(item, addr);
-
-        _buttonBanner.notAHospital = Flag.NotAHospital.eval(_newCategories).flag;
+        _buttonBanner.notAHospital = Flag.NotAHospital.eval(_newCategories);
 
         // CATEGORY vs. NAME checks
         _buttonBanner.changeToPetVet = Flag.ChangeToPetVet.eval(_newName, _newCategories);
