@@ -3624,7 +3624,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
             }
         },
         ChangeToHospitalUrgentCare: class extends WLActionFlag {
-            constructor() {
+            constructor(venue) {
                 super(
                     true,
                     _SEVERITY.GREEN,
@@ -3635,27 +3635,29 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                     'Whitelist category',
                     'changetoHospitalUrgentCare'
                 );
+                this.venue = venue;
             }
 
             static eval(venue, hpMode) {
                 let result = null;
                 if (hpMode.harmFlag && venue.attributes.categories.includes('DOCTOR_CLINIC')) {
-                    result = new Flag.ChangeToHospitalUrgentCare();
+                    result = new Flag.ChangeToHospitalUrgentCare(venue);
                 }
                 return result;
             }
 
-            // eslint-disable-next-line class-methods-use-this
             action() {
-                let idx = _newCategories.indexOf('HOSPITAL_MEDICAL_CARE');
-                const venue = getSelectedVenue();
-                if (idx === -1) idx = _newCategories.indexOf('DOCTOR_CLINIC');
-                if (idx > -1) {
-                    _newCategories[idx] = 'HOSPITAL_URGENT_CARE';
-                    _UPDATED_FIELDS.categories.updated = true;
-                    addUpdateAction(venue, { categories: _newCategories });
+                let categories = this.venue.getCategories();
+                if (!categories.includes('HOSPITAL_MEDICAL_CARE')) {
+                    const indexToReplace = categories.indexOf('DOCTOR_CLINIC');
+                    if (indexToReplace > -1) {
+                        categories = categories.slice(); // create a copy
+                        categories[indexToReplace] = 'HOSPITAL_URGENT_CARE';
+                        _UPDATED_FIELDS.categories.updated = true;
+                        addUpdateAction(this.venue, { categories });
+                    }
+                    harmonizePlaceGo(this.venue, 'harmonize'); // Rerun the script to update fields and lock
                 }
-                harmonizePlaceGo(venue, 'harmonize'); // Rerun the script to update fields and lock
             }
         },
         NotAHospital: class extends WLActionFlag {
@@ -3722,10 +3724,10 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                 );
             }
 
-            static eval(venue, categories, hpMode, pnhNameRegMatch) {
+            static eval(venue, newCategories, hpMode, pnhNameRegMatch) {
                 let result = null;
                 if (hpMode.harmFlag && venue.attributes.updatedOn < new Date('3/28/2017').getTime()
-                    && ((categories.includes('PERSONAL_CARE') && !pnhNameRegMatch) || _newCategories.includes('OFFICES'))) {
+                    && ((newCategories.includes('PERSONAL_CARE') && !pnhNameRegMatch) || newCategories.includes('OFFICES'))) {
                     // Show the Change To Doctor / Clinic button for places with PERSONAL_CARE or OFFICES category
                     // The date criteria was added because Doctor/Clinic category was added around then, and it's assumed if the
                     // place has been edited since then, people would have already updated the category.
