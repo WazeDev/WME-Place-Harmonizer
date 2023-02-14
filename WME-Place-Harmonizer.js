@@ -189,7 +189,6 @@
     let _wordVariations;
     let _resultsCache = {};
     let _initAlreadyRun = false; // This is used to skip a couple things if already run once.  This could probably be handled better...
-    let _countryCode;
     let _textEntryValues = null; // Store the values entered in text boxes so they can be re-added when the banner is reassembled.
 
     // vars for cat-name checking
@@ -4546,25 +4545,16 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
             WazeWrap.Alerts.error(_SCRIPT_NAME, 'Country and/or state could not be determined.  Edit the place address and run WMEPH again.');
             return undefined;
         }
+        let countryCode;
         const countryName = addr.country.name;
         const stateName = addr.state.name;
-        if (countryName === 'United States') {
-            _countryCode = 'USA';
+        if (['United States', 'American Samoa', 'Guam', 'Northern Mariana Islands', 'Puerto Rico', 'Virgin Islands (U.S.)'].includes(countryName)) {
+            countryCode = 'USA';
         } else if (countryName === 'Canada') {
-            _countryCode = 'CAN';
-        } else if (countryName === 'American Samoa') {
-            _countryCode = 'USA';
-        } else if (countryName === 'Guam') {
-            _countryCode = 'USA';
-        } else if (countryName === 'Northern Mariana Islands') {
-            _countryCode = 'USA';
-        } else if (countryName === 'Puerto Rico') {
-            _countryCode = 'USA';
-        } else if (countryName === 'Virgin Islands (U.S.)') {
-            _countryCode = 'USA';
+            countryCode = 'CAN';
         } else {
             if (hpMode.harmFlag) {
-                WazeWrap.Alerts.error(_SCRIPT_NAME, 'At present this script is not supported in this country.');
+                WazeWrap.Alerts.error(_SCRIPT_NAME, `This script is not currently supported in ${countryName}.`);
             }
             return 3;
         }
@@ -4725,7 +4715,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                     pnhMatchData = ['NoMatch'];
                 } else {
                     // check against the PNH list
-                    pnhMatchData = harmoList(_newName, state2L, region, _countryCode, _newCategories, item, placePL);
+                    pnhMatchData = harmoList(_newName, state2L, region, countryCode, _newCategories, item, placePL);
                 }
             } else if (hpMode.hlFlag) {
                 pnhMatchData = ['Highlight'];
@@ -4737,7 +4727,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                 let showDispNote = true;
                 let updatePNHName = true;
                 // Break out the data headers
-                const pnhDataHeaders = _PNH_DATA[_countryCode].pnh[0].split('|');
+                const pnhDataHeaders = _PNH_DATA[countryCode].pnh[0].split('|');
                 const phNameIdx = pnhDataHeaders.indexOf('ph_name');
                 const phAliasesIdx = pnhDataHeaders.indexOf('ph_aliases');
                 const phCategory1Idx = pnhDataHeaders.indexOf('ph_category1');
@@ -5261,8 +5251,8 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
             } // END PNH match/no-match updates
 
             // Category/Name-based Services, added to any existing services:
-            const catData = _PNH_DATA[_countryCode].categories;
-            const catNames = _PNH_DATA[_countryCode].categoryNames;
+            const catData = _PNH_DATA[countryCode].categories;
+            const catNames = _PNH_DATA[countryCode].categoryNames;
             const catDataHeaders = catData[0].split('|');
             const catDataKeys = catData[1].split('|');
             let catDataTemp;
@@ -5410,10 +5400,10 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                     let pvaArea = catDataTemp[catDataHeaders.indexOf('pc_area')];
                     const regPoint = catDataTemp[catDataHeaders.indexOf('pc_regpoint')].replace(/,[^A-za-z0-9]*/g, ',').split(',');
                     const regArea = catDataTemp[catDataHeaders.indexOf('pc_regarea')].replace(/,[^A-za-z0-9]*/g, ',').split(',');
-                    if (regPoint.includes(state2L) || regPoint.includes(region) || regPoint.includes(_countryCode)) {
+                    if (regPoint.includes(state2L) || regPoint.includes(region) || regPoint.includes(countryCode)) {
                         pvaPoint = '1';
                         pvaArea = '';
-                    } else if (regArea.includes(state2L) || regArea.includes(region) || regArea.includes(_countryCode)) {
+                    } else if (regArea.includes(state2L) || regArea.includes(region) || regArea.includes(countryCode)) {
                         pvaPoint = '';
                         pvaArea = '1';
                     }
@@ -5438,7 +5428,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                     _buttonBanner.pnhCatMess = Flag.PnhCatMess.eval(catMessage, _newCategories, hpMode);
                     // Unmapped categories
                     const catRare = catDataTemp[catDataHeaders.indexOf('pc_rare')].replace(/,[^A-Za-z0-9}]+/g, ',').split(',');
-                    if (catRare.includes(state2L) || catRare.includes(region) || catRare.includes(_countryCode)) {
+                    if (catRare.includes(state2L) || catRare.includes(region) || catRare.includes(countryCode)) {
                         if (catDataTemp[0] === 'OTHER' && ['GLR', 'NER', 'NWR', 'PLN', 'SCR', 'SER', 'NOR', 'HI', 'SAT'].includes(region)) {
                             if (!isLocked) {
                                 _buttonBanner.unmappedRegion = new Flag.UnmappedRegion();
@@ -5459,7 +5449,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                     }
                     // Parent Category
                     const catParent = catDataTemp[catDataHeaders.indexOf('pc_parent')].replace(/,[^A-Za-z0-9}]+/g, ',').split(',');
-                    if (catParent.includes(state2L) || catParent.includes(region) || catParent.includes(_countryCode)) {
+                    if (catParent.includes(state2L) || catParent.includes(region) || catParent.includes(countryCode)) {
                         _buttonBanner.parentCategory = new Flag.ParentCategory();
                         if (_wl.parentCategory) {
                             _buttonBanner.parentCategory.WLactive = false;
@@ -5469,7 +5459,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                     for (let lockix = 1; lockix < 6; lockix++) {
                         const catLockTemp = catDataTemp[catDataHeaders.indexOf(`pc_lock${lockix}`)].replace(/,[^A-Za-z0-9}]+/g, ',').split(',');
                         if (lockix - 1 > highestCategoryLock && (catLockTemp.includes(state2L) || catLockTemp.includes(region)
-                            || catLockTemp.includes(_countryCode))) {
+                            || catLockTemp.includes(countryCode))) {
                             highestCategoryLock = lockix - 1; // Offset by 1 since lock ranks start at 0
                         }
                     }
@@ -5629,13 +5619,13 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                 outputFormat = '{0}-{1}-{2}';
             } else if (state2L === 'NV') {
                 outputFormat = '{0}-{1}-{2}';
-            } else if (_countryCode === 'CAN') {
+            } else if (countryCode === 'CAN') {
                 outputFormat = '+1-{0}-{1}-{2}';
             }
             _newPhone = normalizePhone(item.attributes.phone, outputFormat, 'existing', item, region);
 
             // Check if valid area code  #LOC# USA and CAN only
-            if (!_wl.aCodeWL && (_countryCode === 'USA' || _countryCode === 'CAN')) {
+            if (!_wl.aCodeWL && (countryCode === 'USA' || countryCode === 'CAN')) {
                 if (_newPhone !== null && _newPhone.match(/[2-9]\d{2}/) !== null) {
                     const areaCode = _newPhone.match(/[2-9]\d{2}/)[0];
                     if (!_areaCodeList.includes(areaCode)) {
@@ -5650,9 +5640,9 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
             }
 
             // Post Office check
-            _buttonBanner.isThisAPostOffice = Flag.IsThisAPostOffice.eval(item, hpMode, _countryCode, _newCategories, _newName);
-            _buttonBanner.PlaceWebsite = Flag.PlaceWebsite.eval(hpMode, _countryCode, _newCategories, _buttonBanner.PlaceWebsite);
-            if (_countryCode === 'USA' && !_newCategories.includes('PARKING_LOT') && _newCategories.includes('POST_OFFICE')) {
+            _buttonBanner.isThisAPostOffice = Flag.IsThisAPostOffice.eval(item, hpMode, countryCode, _newCategories, _newName);
+            _buttonBanner.PlaceWebsite = Flag.PlaceWebsite.eval(hpMode, countryCode, _newCategories, _buttonBanner.PlaceWebsite);
+            if (countryCode === 'USA' && !_newCategories.includes('PARKING_LOT') && _newCategories.includes('POST_OFFICE')) {
                 if (hpMode.harmFlag) {
                     _buttonBanner.NewPlaceSubmit = null;
                     if (item.attributes.url !== 'usps.com') {
