@@ -324,7 +324,7 @@
         ignoreWords: 'an|and|as|at|by|for|from|hhgregg|in|into|of|on|or|the|to|with'.split('|'),
         // eslint-disable-next-line max-len
         capWords: '3M|AAA|AMC|AOL|AT&T|ATM|BBC|BLT|BMV|BMW|BP|CBS|CCS|CGI|CISCO|CJ|CNG|CNN|CVS|DHL|DKNY|DMV|DSW|EMS|ER|ESPN|FCU|FCUK|FDNY|GNC|H&M|HP|HSBC|IBM|IHOP|IKEA|IRS|JBL|JCPenney|KFC|LLC|MBNA|MCA|MCI|NBC|NYPD|PDQ|PNC|TCBY|TNT|TV|UPS|USA|USPS|VW|XYZ|ZZZ'.split('|'),
-        specWords: 'd\'Bronx|iFix|ExtraMile'.split('|')
+        specWords: 'd\'Bronx|iFix|ExtraMile|ChargePoint|EVgo|SemaConnect'.split('|')
     };
     let _newPlaceURL;
     let _approveRegionURL;
@@ -2791,7 +2791,7 @@
                     _SEVERITY.BLUE,
                     `These common payment methods for the ${stationAttr.network} network are missing:`,
                     'Add network payment methods',
-                    'Please verify first! If any are not needed, click the WL button.',
+                    'Please verify first! If any are not needed, click the WL button and manually add any needed payment methods.',
                     true,
                     'Whitelist common EV payment types',
                     Flag.AddCommonEVPaymentMethods.whitelistKey
@@ -2864,7 +2864,7 @@
                     _SEVERITY.BLUE,
                     `These payment methods are uncommon for the ${stationAttr.network} network:`,
                     'Remove network payment methods',
-                    'Please verify first! If any should NOT be removed, click the WL button.',
+                    'Please verify first! If any should NOT be removed, click the WL button and manually remove any unneeded payment methods.',
                     true,
                     'Whitelist uncommon EV payment types',
                     Flag.RemoveUncommonEVPaymentMethods.whitelistKey
