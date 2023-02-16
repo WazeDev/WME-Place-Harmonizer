@@ -3023,13 +3023,13 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
 
             // TODO: This returns a plain object instead of a Flag instance (or null). It doesn't match the pattern of other eval functions. Fix it?
             static eval(name, nameSuffix, specCase, displayNote) {
-                const result = { flag: null, updatePnhName: true };
-                const match = specCase.match(/^checkLocalization<>(.+)/i);
-                if (match) {
-                    result.updatePnhName = false;
-                    const [, baseName] = specCase.match(/^checkLocalization<>(.+)/i);
-                    const baseNameRE = new RegExp(baseName, 'g');
-                    if (!(name + (nameSuffix || '')).match(baseNameRE)) {
+                const result = { flag: null, showDisplayNote: true};
+                const checkLocalization = specCase.match(/^checkLocalization<>(.+)/i);
+                if (checkLocalization) {
+                    result.showDisplayNote = false;
+                    const [, localizationString] = checkLocalization;
+                    const localizationRegEx = new RegExp(localizationString, 'g');
+                    if (!(name + (nameSuffix || '')).match(localizationRegEx)) {
                         result.flag = new Flag.LocalizedName();
                         if (_wl.localizedName) {
                             result.flag.WLactive = false;
@@ -5034,8 +5034,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                             displayNote = pnhMatchData[phDisplayNoteIdx];
                         }
                         result = Flag.LocalizedName.eval(_newName, newNameSuffix, specCase, displayNote);
-                        if (!result.updatePnhName) {
-                            updatePNHName = false;
+                        if (!result.showDisplayNote) {
                             showDispNote = false;
                         }
                         if (result.flag) {
