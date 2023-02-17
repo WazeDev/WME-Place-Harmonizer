@@ -3023,7 +3023,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
 
             // TODO: This returns a plain object instead of a Flag instance (or null). It doesn't match the pattern of other eval functions. Fix it?
             static eval(name, nameSuffix, specCase, displayNote) {
-                const result = { flag: null, showDisplayNote: true};
+                const result = { flag: null, showDisplayNote: true };
                 const checkLocalization = specCase.match(/^checkLocalization<>(.+)/i);
                 if (checkLocalization) {
                     result.showDisplayNote = false;
@@ -3232,6 +3232,23 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                     _UPDATED_FIELDS.phone.updated = true;
                     harmonizePlaceGo(venue, 'harmonize');
                 }
+            }
+        },
+        AddRecommendedPhone: class extends WLActionFlag {
+            constructor() {
+                super(
+                    true,
+                    _SEVERITY.BLUE,
+                    'This nationwide chain uses this phone#: ',
+                    'Add',
+                    'Add nationwide phone# to place',
+                    'Whitelist nationwide phone#',
+                    'addRecommendedPhone'
+                );
+            }
+
+            static eval(currentPhone, outputFormat, specCases) {
+
             }
         },
         PhoneMissing: class extends WLActionFlag {
