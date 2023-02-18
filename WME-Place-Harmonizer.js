@@ -3235,20 +3235,58 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
             }
         },
         AddRecommendedPhone: class extends WLActionFlag {
-            constructor() {
+            static whitelistKey = 'addRecommendedPhone';
+            constructor(venue, phone) {
                 super(
                     true,
                     _SEVERITY.BLUE,
-                    'This nationwide chain uses this phone#: ',
+                    `Recommended phone #:<br>${phone}`,
                     'Add',
-                    'Add nationwide phone# to place',
-                    'Whitelist nationwide phone#',
-                    'addRecommendedPhone'
+                    'Use recommended chain phone #',
+                    true,
+                    'Whitelist recommended phone #',
+                    Flag.AddRecommendedPhone.whitelistKey
                 );
+                this.venue = venue;
+                this.phone = phone;
             }
 
-            static eval(currentPhone, outputFormat, specCases) {
+            static eval(venue, specCases, outputFormat, wl) {
+                let result = null;
+                if (!wl[this.whitelistKey]) {
+                    const specCaseMatch = specCases.match(/phone<>(.*?)<>/);
+                    if (specCaseMatch) {
+                        let phone = specCaseMatch[1];
+                        phone = phone.replace(/(\d{3}.*)\W+(?:extension|ext|xt|x).*/i, '$1');
+                        let s1 = phone.replace(/\D/g, ''); // remove non-number characters
 
+                        // Ignore leading 1, and also don't allow area code or exchange to start with 0 or 1 (***USA/CAN specific)
+                        let m = s1.match(/^1?([2-9]\d{2})([2-9]\d{2})(\d{4})$/);
+
+                        if (m) { // then try alphanumeric matching
+                            if (phone) { phone = phone.toUpperCase(); }
+                            s1 = phone.replace(/[^0-9A-Z]/g, '').replace(/^\D*(\d)/, '$1').replace(/^1?([2-9][0-9]{2}[0-9A-Z]{7,10})/g, '$1');
+                            s1 = replaceLetters(s1);
+
+                            // Ignore leading 1, and also don't allow area code or exchange to start with 0 or 1 (***USA/CAN specific)
+                            m = s1.match(/^([2-9]\d{2})([2-9]\d{2})(\d{4})(?:.{0,3})$/);
+
+                            if (m) {
+                                phone = phoneFormat(outputFormat, m[1], m[2], m[3]);
+                                if (phone !== venue.attributes.phone) {
+                                    result = new Flag.AddRecommendedPhone(venue, phone);
+                                }
+                            }
+                        }
+                    }
+                }
+                return result;
+            }
+
+            action() {
+                W.model.actionManager.add(new UpdateObject(this.venue, { phone: this.phone }));
+                _UPDATED_FIELDS.phone.updated = true;
+                harmonizePlaceGo(this.venue, 'harmonize');
             }
         },
         PhoneMissing: class extends WLActionFlag {
@@ -4159,6 +4197,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
             addCommonEVPaymentMethods: null,
             removeUncommonEVPaymentMethods: null,
             urlMissing: null,
+            addRecommendedPhone: null,
             badAreaCode: null,
             phoneMissing: null,
             noHours: null,
@@ -4871,6 +4910,20 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                 _buttonBanner.pointNotArea = new Flag.PointNotArea();
             }
         } else if (item.isParkingLot() || (_newName && _newName.trim().length)) { // for non-residential places
+            // Phone formatting
+            let outputPhoneFormat = '({0}) {1}-{2}';
+            if (containsAny(['CA', 'CO'], [region, state2L]) && (/^\d{3}-\d{3}-\d{4}$/.test(item.attributes.phone))) {
+                outputPhoneFormat = '{0}-{1}-{2}';
+            } else if (region === 'SER' && !(/^\(\d{3}\) \d{3}-\d{4}$/.test(item.attributes.phone))) {
+                outputPhoneFormat = '{0}-{1}-{2}';
+            } else if (region === 'GLR') {
+                outputPhoneFormat = '{0}-{1}-{2}';
+            } else if (state2L === 'NV') {
+                outputPhoneFormat = '{0}-{1}-{2}';
+            } else if (countryCode === 'CAN') {
+                outputPhoneFormat = '+1-{0}-{1}-{2}';
+            }
+
             _buttonBanner.extProviderMissing = Flag.ExtProviderMissing.eval(
                 item,
                 isLocked,
@@ -5064,6 +5117,8 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                         if (specCase.match(/keepName/g) !== null) {
                             updatePNHName = false;
                         }
+
+                        _buttonBanner.addRecommendedPhone = Flag.AddRecommendedPhone.eval(item, pnhMatchData[phSpecCaseIdx], outputPhoneFormat, _wl);
                     }
                 }
 
@@ -5780,27 +5835,14 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                 }
             }
 
-            // Phone formatting
-            let outputFormat = '({0}) {1}-{2}';
-            if (containsAny(['CA', 'CO'], [region, state2L]) && (/^\d{3}-\d{3}-\d{4}$/.test(item.attributes.phone))) {
-                outputFormat = '{0}-{1}-{2}';
-            } else if (region === 'SER' && !(/^\(\d{3}\) \d{3}-\d{4}$/.test(item.attributes.phone))) {
-                outputFormat = '{0}-{1}-{2}';
-            } else if (region === 'GLR') {
-                outputFormat = '{0}-{1}-{2}';
-            } else if (state2L === 'NV') {
-                outputFormat = '{0}-{1}-{2}';
-            } else if (countryCode === 'CAN') {
-                outputFormat = '+1-{0}-{1}-{2}';
-            }
-            _newPhone = normalizePhone(item.attributes.phone, outputFormat, 'existing', item, region);
+            _newPhone = normalizePhone(item.attributes.phone, outputPhoneFormat, 'existing', item, region);
 
             // Check if valid area code  #LOC# USA and CAN only
             if (!_wl.aCodeWL && (countryCode === 'USA' || countryCode === 'CAN')) {
                 if (_newPhone !== null && _newPhone.match(/[2-9]\d{2}/) !== null) {
                     const areaCode = _newPhone.match(/[2-9]\d{2}/)[0];
                     if (!_areaCodeList.includes(areaCode)) {
-                        _buttonBanner.badAreaCode = new Flag.BadAreaCode(_newPhone, outputFormat);
+                        _buttonBanner.badAreaCode = new Flag.BadAreaCode(_newPhone, outputPhoneFormat);
                     }
                 }
             }
