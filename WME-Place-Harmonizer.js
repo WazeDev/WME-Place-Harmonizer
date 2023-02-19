@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name        WME Place Harmonizer Beta
 // @namespace   WazeUSA
-// @version     2023.02.18.001
+// @version     2023.02.18.002
 // @description Harmonizes, formats, and locks a selected place
 // @author      WMEPH Development Group
 // @include     /^https:\/\/(www|beta)\.waze\.com\/(?!user\/)(.{2,6}\/)?editor\/?.*$/
@@ -2889,7 +2889,7 @@
                     const network = stationAttr?.network;
                     if (network && COMMON_EV_PAYMENT_METHODS.hasOwnProperty(network)) {
                         const extraMethods = stationAttr.paymentMethods?.filter(method => !COMMON_EV_PAYMENT_METHODS[network].includes(method));
-                        if (extraMethods.length) {
+                        if (extraMethods?.length) {
                             result = new Flag.RemoveUncommonEVPaymentMethods(venue, extraMethods, highlightOnly);
                         }
                     }
