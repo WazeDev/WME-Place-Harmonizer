@@ -353,23 +353,80 @@
     let _layer;
 
     const _UPDATED_FIELDS = {
-        name: { updated: false, selector: '.venue .form-control[name="name"]', tab: 'general' },
-        aliases: { updated: false, selector: '.venue .form-control.alias-name', tab: 'general' },
-        address: { updated: false, selector: '.venue .address-edit span.full-address', tab: 'general' },
-        categories: { updated: false, selector: '.venue .categories.controls .select2-container', tab: 'general' },
-        description: { updated: false, selector: '.venue .form-control[name="description"]', tab: 'general' },
-        lock: { updated: false, selector: '.venue .form-control.waze-radio-container', tab: 'general' },
-        externalProvider: { updated: false, selector: '.venue .external-providers-view', tab: 'general' },
+        name: {
+            updated: false,
+            selector: '#venue-edit-general wz-text-input[name="name"]',
+            shadowSelector: '#id',
+            tab: 'general'
+        },
+        aliases: {
+            updated: false,
+            selector: '#venue-edit-general > div.aliases.form-group > wz-list',
+            tab: 'general'
+        },
+        address: {
+            updated: false,
+            selector: '#venue-edit-general div.address-edit-view div.full-address-container',
+            tab: 'general'
+        },
+        categories: {
+            updated: false,
+            selector: '#venue-edit-general > div.categories-control.form-group > wz-card',
+            shadowSelector: 'div',
+            tab: 'general'
+        },
+        description: {
+            updated: false,
+            selector: '#venue-edit-general wz-textarea[name="description"]',
+            shadowSelector: '#id',
+            tab: 'general'
+        },
+        lock: {
+            updated: false,
+            selector: '#venue-edit-general > div.lock-edit',
+            tab: 'general'
+        },
+        externalProvider: {
+            updated: false,
+            selector: '#venue-edit-general > div.external-providers-control.form-group > wz-list',
+            tab: 'general'
+        },
         brand: { updated: false, selector: '.venue .brand .select2-container', tab: 'general' },
-        url: { updated: false, selector: '.venue .form-control[name="url"]', tab: 'more-info' },
-        phone: { updated: false, selector: '.venue .form-control[name="phone"]', tab: 'more-info' },
-        openingHours: { updated: false, selector: '.venue .opening-hours ul', tab: 'more-info' },
+        url: {
+            updated: false,
+            selector: '#venue-url',
+            shadowSelector: '#id',
+            tab: 'more-info'
+        },
+        phone: {
+            updated: false,
+            selector: '#venue-phone',
+            shadowSelector: '#id',
+            tab: 'more-info'
+        },
+        openingHours: {
+            updated: false,
+            selector: '#venue-edit-more-info div.opening-hours.form-group > wz-list',
+            tab: 'more-info'
+        },
         cost: { updated: false, selector: '.venue .form-control[name="costType"]', tab: 'more-info' },
         canExit: { updated: false, selector: '.venue label[for="can-exit-checkbox"]', tab: 'more-info' },
         hasTBR: { updated: false, selector: '.venue label[for="has-tbr"]', tab: 'more-info' },
-        lotType: { updated: false, selector: '.venue .parking-type-option', tab: 'more-info' },
-        parkingSpots: { updated: false, selector: '.venue .form-control[name="estimatedNumberOfSpots"]', tab: 'more-info' },
+        lotType: { updated: false, selector: '#venue-edit-more-info > form > div:nth-child(1) > wz-radio-group', tab: 'more-info' },
+        parkingSpots: {
+            updated: false,
+            selector: '#venue-edit-more-info wz-select[name="estimatedNumberOfSpots"]',
+            shadowSelector: '#select-wrapper > div',
+            tab: 'more-info'
+        },
         lotElevation: { updated: false, selector: '.venue .lot-checkbox', tab: 'more-info' },
+        evNetwork: { updated: false, selector: '', tab: 'general' },
+        evPaymentMethods: {
+            updated: false,
+            selector: '#venue-edit-general > div.charging-station-controls div.wz-multiselect > wz-card',
+            shadowSelector: 'div',
+            tab: 'general'
+        },
 
         getFieldProperties() {
             return Object.keys(this)
@@ -390,6 +447,7 @@
         //         });
         // },
         reset() {
+            this.clearEditPanelHighlights();
             this.getFieldProperties().forEach(prop => {
                 prop.updated = false;
             });
@@ -422,12 +480,41 @@
 
             W.selectionManager.events.register('selectionchanged', null, () => errorHandler(() => this.reset()));
         },
-        updateEditPanelHighlights() {
-            // Highlight fields in the editor panel that have been updated by WMEPH.
+        getTabElement(tabName) {
+            let tabText;
+            if (tabName === 'more-info') {
+                tabText = 'More info';
+            } else if (tabName === 'general') {
+                tabText = 'General';
+            } else {
+                return null;
+            }
+            const tabElements = document.querySelector('#edit-panel div.venue-edit-section > wz-tabs').shadowRoot.querySelectorAll('.wz-tab-label');
+            return [...tabElements].filter(elem => elem.textContent === tabText)[0];
+        },
+        clearEditPanelHighlights() {
             this.getFieldProperties().filter(prop => prop.updated).forEach(prop => {
-                $(prop.selector).css({ 'background-color': '#dfd' });
-                $(`a[href="#venue-edit-${prop.tab}"]`).css({ 'background-color': '#dfd' });
+                if (prop.shadowSelector) {
+                    $(document.querySelector(prop.selector).shadowRoot.querySelector(prop.shadowSelector)).css('background-color', '');
+                } else {
+                    $(prop.selector).css({ 'background-color': '' });
+                }
+                $(this.getTabElement(prop.tab)).css({ 'background-color': '' });
             });
+        },
+        // Highlight fields in the editor panel that have been updated by WMEPH.
+        updateEditPanelHighlights() {
+            // This setTimeout is necessary to get some highlights to work.
+            setTimeout(() => {
+                this.getFieldProperties().filter(prop => prop.updated).forEach(prop => {
+                    if (prop.shadowSelector) {
+                        $(document.querySelector(prop.selector).shadowRoot.querySelector(prop.shadowSelector)).css('background-color', '#dfd');
+                    } else {
+                        $(prop.selector).css({ 'background-color': '#dfd' });
+                    }
+                    $(this.getTabElement(prop.tab)).css({ 'background-color': '#dfd' });
+                });
+            }, 100);
         }
     };
 
@@ -2851,6 +2938,7 @@
                         paymentMethods: newPaymentMethods
                     }
                 };
+                _UPDATED_FIELDS.evPaymentMethods.updated = true;
                 addUpdateAction(this.venue, { categoryAttributes: newCategoryAttributes });
                 harmonizePlaceGo(this.venue, 'harmonize');
             }
@@ -2922,6 +3010,7 @@
                         paymentMethods: newPaymentMethods
                     }
                 };
+                _UPDATED_FIELDS.evPaymentMethods.updated = true;
                 addUpdateAction(this.venue, { categoryAttributes: newCategoryAttributes });
                 harmonizePlaceGo(this.venue, 'harmonize');
             }
@@ -3256,27 +3345,9 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                 if (!wl[this.whitelistKey]) {
                     const specCaseMatch = specCases.match(/phone<>(.*?)<>/);
                     if (specCaseMatch) {
-                        let phone = specCaseMatch[1];
-                        phone = phone.replace(/(\d{3}.*)\W+(?:extension|ext|xt|x).*/i, '$1');
-                        let s1 = phone.replace(/\D/g, ''); // remove non-number characters
-
-                        // Ignore leading 1, and also don't allow area code or exchange to start with 0 or 1 (***USA/CAN specific)
-                        let m = s1.match(/^1?([2-9]\d{2})([2-9]\d{2})(\d{4})$/);
-
-                        if (m) { // then try alphanumeric matching
-                            if (phone) { phone = phone.toUpperCase(); }
-                            s1 = phone.replace(/[^0-9A-Z]/g, '').replace(/^\D*(\d)/, '$1').replace(/^1?([2-9][0-9]{2}[0-9A-Z]{7,10})/g, '$1');
-                            s1 = replaceLetters(s1);
-
-                            // Ignore leading 1, and also don't allow area code or exchange to start with 0 or 1 (***USA/CAN specific)
-                            m = s1.match(/^([2-9]\d{2})([2-9]\d{2})(\d{4})(?:.{0,3})$/);
-
-                            if (m) {
-                                phone = phoneFormat(outputFormat, m[1], m[2], m[3]);
-                                if (phone !== venue.attributes.phone) {
-                                    result = new Flag.AddRecommendedPhone(venue, phone);
-                                }
-                            }
+                        const phone = normalizePhone(specCaseMatch[1], outputFormat);
+                        if (phone !== 'badPhone' && phone !== venue.attributes.phone) {
+                            result = new Flag.AddRecommendedPhone(venue, phone);
                         }
                     }
                 }
@@ -4651,6 +4722,11 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
         _buttonBanner = getButtonBanner();
 
         if (!highlightOnly) {
+            // Uncomment this to test all field highlights.
+            // _UPDATED_FIELDS.getFieldProperties().forEach(prop => {
+            //     prop.updated = true;
+            // });
+
             // The placePL should only be needed when harmonizing, not when highlighting.
             placePL = getCurrentPL() //  set up external post div and pull place PL
                 .replace(/&layers=[^&]+(&?)/g, '$1') // remove Permalink Layers
@@ -6678,6 +6754,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                 });
             }
             newAttr.estimatedNumberOfSpots = selectedValue;
+            _UPDATED_FIELDS.parkingSpots.updated = true;
             W.model.actionManager.add(new UpdateObject(selectedVenue, { categoryAttributes: { PARKING_LOT: newAttr } }));
             harmonizePlaceGo(selectedVenue, 'harmonize');
         });
@@ -6695,6 +6772,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                 });
             }
             newAttr.parkingType = selectedValue;
+            _UPDATED_FIELDS.lotType.updated = true;
             W.model.actionManager.add(new UpdateObject(selectedVenue, { categoryAttributes: { PARKING_LOT: newAttr } }));
             harmonizePlaceGo(selectedVenue, 'harmonize');
         });
