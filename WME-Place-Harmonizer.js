@@ -1731,11 +1731,7 @@
     }
 
     // normalize phone
-    function normalizePhone(s, outputFormat, returnType, item, region) {
-        if (!s && returnType === 'existing') {
-            _buttonBanner.phoneMissing = Flag.PhoneMissing.eval(item, _wl, region, outputFormat);
-            return s;
-        }
+    function normalizePhone(s, outputFormat) {
         s = s.replace(/(\d{3}.*)\W+(?:extension|ext|xt|x).*/i, '$1');
         let s1 = s.replace(/\D/g, ''); // remove non-number characters
 
@@ -1751,11 +1747,7 @@
             m = s1.match(/^([2-9]\d{2})([2-9]\d{2})(\d{4})(?:.{0,3})$/);
 
             if (!m) {
-                if (returnType === 'inputted') {
-                    return 'badPhone';
-                }
-                _buttonBanner.phoneInvalid = new Flag.PhoneInvalid();
-                return s;
+                return 'badPhone';
             }
         }
         return phoneFormat(outputFormat, m[1], m[2], m[3]);
@@ -2686,7 +2678,15 @@
             constructor() { super(true, _SEVERITY.YELLOW, 'Hours of operation listed as open 24hrs but not for all 7 days.'); }
         },
         PhoneInvalid: class extends FlagBase {
-            constructor() { super(true, _SEVERITY.YELLOW, 'Phone invalid.'); }
+            constructor() { super(true, _SEVERITY.YELLOW, 'Phone # is invalid.'); }
+
+            static eval(phone) {
+                let result = null;
+                if (phone === 'badPhone') {
+                    result = new Flag.PhoneInvalid();
+                }
+                return result;
+            }
         },
         AreaNotPointMid: class extends WLFlag {
             constructor() {
@@ -3221,7 +3221,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
 
             action() {
                 const venue = getSelectedVenue();
-                const newPhone = normalizePhone($('#WMEPH-PhoneAdd').val(), this.outputFormat, 'inputted', venue);
+                const newPhone = normalizePhone($('#WMEPH-PhoneAdd').val(), this.outputFormat);
                 if (newPhone === 'badPhone') {
                     $('input#WMEPH-PhoneAdd').css({ backgroundColor: '#FDD' }).attr('title', 'Invalid phone # format');
                     this.badInput = true;
@@ -3290,6 +3290,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
             }
         },
         PhoneMissing: class extends WLActionFlag {
+            static whitelistKey = 'phoneWL';
             constructor(venue, hasOperator, wl, outputFormat, isPLA) {
                 super(
                     true,
@@ -3299,7 +3300,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                     'Add phone to place',
                     true,
                     'Whitelist empty phone',
-                    'phoneWL'
+                    Flag.PhoneMissing.whitelistKey
                 );
                 this.noBannerAssemble = true;
                 this.badInput = false;
@@ -3313,18 +3314,20 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
 
             static get _regionsThatWantPlaPhones() { return ['SER']; }
 
-            static eval(venue, wl, region, outputFormat) {
-                const hasOperator = venue.attributes.brand && W.model.categoryBrands.PARKING_LOT.includes(venue.attributes.brand);
-                const isPLA = venue.isParkingLot();
-                let flag = null;
-                if (!isPLA || (isPLA && (this._regionsThatWantPlaPhones.includes(region) || hasOperator))) {
-                    flag = new Flag.PhoneMissing(venue, hasOperator, wl, outputFormat, isPLA);
+            static eval(venue, newPhone, wl, region, outputFormat, skipPhoneCheck) {
+                let result = null;
+                if (!newPhone && !skipPhoneCheck && !wl[this.whitelistKey]) {
+                    const hasOperator = venue.attributes.brand && W.model.categoryBrands?.PARKING_LOT?.includes(venue.attributes.brand);
+                    const isPLA = venue.isParkingLot();
+                    if (!isPLA || (isPLA && (this._regionsThatWantPlaPhones.includes(region) || hasOperator))) {
+                        result = new Flag.PhoneMissing(venue, hasOperator, wl, outputFormat, isPLA);
+                    }
                 }
-                return flag;
+                return result;
             }
 
             action() {
-                const newPhone = normalizePhone($('#WMEPH-PhoneAdd').val(), this.outputFormat, 'inputted', this.venue);
+                const newPhone = normalizePhone($('#WMEPH-PhoneAdd').val(), this.outputFormat);
                 if (newPhone === 'badPhone') {
                     $('input#WMEPH-PhoneAdd').css({ backgroundColor: '#FDD' }).attr('title', 'Invalid phone # format');
                     this.badInput = true;
@@ -5835,7 +5838,14 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                 }
             }
 
-            _newPhone = normalizePhone(item.attributes.phone, outputPhoneFormat, 'existing', item, region);
+            let normalizedPhone;
+            if (_newPhone) {
+                normalizedPhone = normalizePhone(_newPhone, outputPhoneFormat);
+                if (normalizedPhone !== 'badPhone') _newPhone = normalizedPhone;
+            }
+
+            _buttonBanner.phoneInvalid = Flag.PhoneInvalid.eval(normalizedPhone, outputPhoneFormat);
+            _buttonBanner.phoneMissing = Flag.PhoneMissing.eval(item, _newPhone, _wl, region, outputPhoneFormat, !!_buttonBanner.addRecommendedPhone);
 
             // Check if valid area code  #LOC# USA and CAN only
             if (!_wl.aCodeWL && (countryCode === 'USA' || countryCode === 'CAN')) {
