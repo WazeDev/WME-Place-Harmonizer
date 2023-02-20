@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name        WME Place Harmonizer
 // @namespace   WazeUSA
-// @version     2023.02.19.003
+// @version     2023.02.19.004
 // @description Harmonizes, formats, and locks a selected place
 // @author      WMEPH Development Group
 // @include     /^https:\/\/(www|beta)\.waze\.com\/(?!user\/)(.{2,6}\/)?editor\/?.*$/
@@ -489,13 +489,16 @@
             } else {
                 return null;
             }
-            const tabElements = document.querySelector('#edit-panel div.venue-edit-section > wz-tabs').shadowRoot.querySelectorAll('.wz-tab-label');
-            return [...tabElements].filter(elem => elem.textContent === tabText)[0];
+            const tabElements = document.querySelector('#edit-panel div.venue-edit-section > wz-tabs')?.shadowRoot?.querySelectorAll('.wz-tab-label');
+            if (tabElements) {
+                return [...tabElements].filter(elem => elem.textContent === tabText)[0];
+            }
+            return null;
         },
         clearEditPanelHighlights() {
             this.getFieldProperties().filter(prop => prop.updated).forEach(prop => {
                 if (prop.shadowSelector) {
-                    $(document.querySelector(prop.selector).shadowRoot.querySelector(prop.shadowSelector)).css('background-color', '');
+                    $(document.querySelector(prop.selector)?.shadowRoot?.querySelector(prop.shadowSelector)).css('background-color', '');
                 } else {
                     $(prop.selector).css({ 'background-color': '' });
                 }
@@ -508,7 +511,7 @@
             setTimeout(() => {
                 this.getFieldProperties().filter(prop => prop.updated).forEach(prop => {
                     if (prop.shadowSelector) {
-                        $(document.querySelector(prop.selector).shadowRoot.querySelector(prop.shadowSelector)).css('background-color', '#dfd');
+                        $(document.querySelector(prop.selector)?.shadowRoot?.querySelector(prop.shadowSelector)).css('background-color', '#dfd');
                     } else {
                         $(prop.selector).css({ 'background-color': '#dfd' });
                     }
