@@ -490,7 +490,10 @@
                 return null;
             }
             const tabElements = document.querySelector('#edit-panel div.venue-edit-section > wz-tabs')?.shadowRoot?.querySelectorAll('.wz-tab-label');
-            return [...tabElements].filter(elem => elem.textContent === tabText)[0];
+            if (tabElements) {
+                return [...tabElements].filter(elem => elem.textContent === tabText)[0];
+            }
+            return null;
         },
         clearEditPanelHighlights() {
             this.getFieldProperties().filter(prop => prop.updated).forEach(prop => {
