@@ -489,13 +489,13 @@
             } else {
                 return null;
             }
-            const tabElements = document.querySelector('#edit-panel div.venue-edit-section > wz-tabs').shadowRoot.querySelectorAll('.wz-tab-label');
+            const tabElements = document.querySelector('#edit-panel div.venue-edit-section > wz-tabs')?.shadowRoot?.querySelectorAll('.wz-tab-label');
             return [...tabElements].filter(elem => elem.textContent === tabText)[0];
         },
         clearEditPanelHighlights() {
             this.getFieldProperties().filter(prop => prop.updated).forEach(prop => {
                 if (prop.shadowSelector) {
-                    $(document.querySelector(prop.selector).shadowRoot.querySelector(prop.shadowSelector)).css('background-color', '');
+                    $(document.querySelector(prop.selector)?.shadowRoot?.querySelector(prop.shadowSelector)).css('background-color', '');
                 } else {
                     $(prop.selector).css({ 'background-color': '' });
                 }
@@ -508,7 +508,7 @@
             setTimeout(() => {
                 this.getFieldProperties().filter(prop => prop.updated).forEach(prop => {
                     if (prop.shadowSelector) {
-                        $(document.querySelector(prop.selector).shadowRoot.querySelector(prop.shadowSelector)).css('background-color', '#dfd');
+                        $(document.querySelector(prop.selector)?.shadowRoot?.querySelector(prop.shadowSelector)).css('background-color', '#dfd');
                     } else {
                         $(prop.selector).css({ 'background-color': '#dfd' });
                     }
