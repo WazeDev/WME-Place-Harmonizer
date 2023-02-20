@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name        WME Place Harmonizer
 // @namespace   WazeUSA
-// @version     2023.02.19.004
+// @version     2023.02.19.005
 // @description Harmonizes, formats, and locks a selected place
 // @author      WMEPH Development Group
 // @include     /^https:\/\/(www|beta)\.waze\.com\/(?!user\/)(.{2,6}\/)?editor\/?.*$/
@@ -8617,6 +8617,10 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
     // }
 
     function placeHarmonizerInit() {
+        // Check for script updates.
+        checkWmephVersion();
+        setInterval(checkWmephVersion, VERSION_CHECK_MINUTES * 60 * 1000);
+
         _layer = W.map.venueLayer;
 
         // Add CSS stuff here
@@ -8813,13 +8817,37 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
     }
 
     const SPREADSHEET_ID = '1pBz4l4cNapyGyzfMJKqA4ePEFLkmz2RryAt1UV39B4g';
+    const VERSION_RANGE = 'WMEPH_VERSION!A1';
     const SPREADSHEET_RANGE = '2019.01.20.001!A2:L';
     const API_KEY = 'YTJWNVBVRkplbUZUZVVObU1YVXpSRVZ3ZW5OaFRFSk1SbTR4VGxKblRURjJlRTFYY3pOQ2NXZElPQT09';
+    const dec = s => atob(atob(s));
+    let _lastVersionChecked = '0';
+    const VERSION_CHECK_MINUTES = 60; // How frequently to check for script updates (in minutes).
 
+    function checkWmephVersion() {
+        try {
+            $.getJSON(getSpreadsheetUrl(SPREADSHEET_ID, VERSION_RANGE, API_KEY)).done(res => {
+                const { values } = res;
+                const latestVersion = values[0][0];
+                if (latestVersion > _SCRIPT_VERSION && latestVersion > (_lastVersionChecked || '0')) {
+                    _lastVersionChecked = latestVersion;
+                    WazeWrap.Alerts.info(
+                        _SCRIPT_NAME,
+                        'A <a href="https://greasyfork.org/en/scripts/28690-wme-place-harmonizer" target = "_blank">new version of WMEPH</a> is available. Update now to get the latest features and fixes.',
+                        true,
+                        false
+                    );
+                }
+            });
+        } catch (ex) {
+            // Silently fail with an error message in the console.
+            console.error('WMEPH', ex);
+        }
+    }
+    function getSpreadsheetUrl(id, range, key) {
+        return `https://sheets.googleapis.com/v4/spreadsheets/${id}/values/${range}?${dec(key)}`;
+    }
     function downloadPnhData(skipBootstrap = false) {
-        const dec = s => atob(atob(s));
-        const getSpreadsheetUrl = (id, range, key) => `https://sheets.googleapis.com/v4/spreadsheets/${id}/values/${range}?${dec(key)}`;
-
         // TODO change the _PNH_DATA cache to use an object so we don't have to rely on ugly array index lookups.
         const processData1 = (data, colIdx) => data.filter(row => row.length >= colIdx + 1).map(row => row[colIdx]);
 
