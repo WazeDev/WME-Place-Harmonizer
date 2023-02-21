@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name        WME Place Harmonizer
 // @namespace   WazeUSA
-// @version     2023.02.21.002
+// @version     2023.02.21.003
 // @description Harmonizes, formats, and locks a selected place
 // @author      WMEPH Development Group
 // @include     /^https:\/\/(www|beta)\.waze\.com\/(?!user\/)(.{2,6}\/)?editor\/?.*$/
@@ -2872,7 +2872,7 @@
                 );
             }
         },
-        AddCommonEVPaymentMethods: class extends WLActionFlag {
+        AddCommonEVPaymentMethods: class extends WLFlag {
             // TODO: Instead of passing WL key to super, add a public getter for WL key in all child WLFlag classes. Getter returns a static WL key member.
             // Parent class can then reference that. e.g. for "isWhitelisted()" function.
             static whitelistKey = 'addCommonEVPaymentMethods';
@@ -2881,9 +2881,9 @@
                 super(
                     true,
                     _SEVERITY.BLUE,
-                    `These common payment methods for the ${stationAttr.network} network are missing:`,
-                    'Add network payment methods',
-                    'Please verify first! If any are not needed, click the WL button and manually add any needed payment methods.',
+                    `These common payment methods for the ${stationAttr.network} network are missing. Verify if they are needed here:`,
+                    // 'Add network payment methods',
+                    // 'Please verify first! If any are not needed, click the WL button and manually add any needed payment methods.',
                     true,
                     'Whitelist common EV payment types',
                     Flag.AddCommonEVPaymentMethods.whitelistKey
@@ -2901,7 +2901,6 @@
 
             static eval(venue, highlightOnly, wl) {
                 let result = null;
-                return result; // temporarily disable this in production due to bugs.
                 if (venue.isChargingStation() && !wl[this.whitelistKey]) {
                     const stationAttr = venue.attributes.categoryAttributes.CHARGING_STATION;
                     const network = stationAttr?.network;
@@ -2958,7 +2957,7 @@
                 harmonizePlaceGo(this.venue, 'harmonize');
             }
         },
-        RemoveUncommonEVPaymentMethods: class extends WLActionFlag {
+        RemoveUncommonEVPaymentMethods: class extends WLFlag {
             // TODO: Instead of passing WL key to super, add a public getter for WL key in all child WLFlag classes. Getter returns a static WL key member.
             // Parent class can then reference that. e.g. for "isWhitelisted()" function.
             static whitelistKey = 'removeUncommonEVPaymentMethods';
@@ -2967,9 +2966,9 @@
                 super(
                     true,
                     _SEVERITY.BLUE,
-                    `These payment methods are uncommon for the ${stationAttr.network} network:`,
-                    'Remove network payment methods',
-                    'Please verify first! If any should NOT be removed, click the WL button and manually remove any unneeded payment methods.',
+                    `These payment methods are uncommon for the ${stationAttr.network} network. Verify if they are needed here:`,
+                    // 'Remove network payment methods',
+                    // 'Please verify first! If any should NOT be removed, click the WL button and manually remove any unneeded payment methods.',
                     true,
                     'Whitelist uncommon EV payment types',
                     Flag.RemoveUncommonEVPaymentMethods.whitelistKey
@@ -2987,7 +2986,6 @@
 
             static eval(venue, highlightOnly, wl) {
                 let result = null;
-                return result; // temporarily disable this in production due to bugs.
                 if (venue.isChargingStation() && !wl[this.whitelistKey]) {
                     const stationAttr = venue.attributes.categoryAttributes.CHARGING_STATION;
                     const network = stationAttr?.network;
