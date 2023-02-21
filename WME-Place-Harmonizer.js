@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name        WME Place Harmonizer Beta
 // @namespace   WazeUSA
-// @version     2023.02.21.004
+// @version     2023.02.21.005
 // @description Harmonizes, formats, and locks a selected place
 // @author      WMEPH Development Group
 // @include     /^https:\/\/(www|beta)\.waze\.com\/(?!user\/)(.{2,6}\/)?editor\/?.*$/
@@ -5218,10 +5218,11 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                 _customStoreFinderURL = '';
                 if (phStoreFinderUrlIdx > -1) { // if the sfurl column exists...
                     if (phStoreFinderUrlLocalIdx > -1 && !isNullOrWhitespace(pnhMatchData[phStoreFinderUrlLocalIdx])) {
-                        if (!_buttonBanner.localizedName) {
-                            _buttonBanner.PlaceWebsite = new Flag.PlaceWebsite();
-                            _buttonBanner.PlaceWebsite.value = 'Location Finder (L)';
-                        }
+                        // I'm not sure why this check for localizedName was here.
+                        // if (!_buttonBanner.localizedName) {
+                        _buttonBanner.PlaceWebsite = new Flag.PlaceWebsite();
+                        _buttonBanner.PlaceWebsite.value = 'Location Finder (L)';
+                        // }
                         const tempLocalURL = pnhMatchData[phStoreFinderUrlLocalIdx].replace(/ /g, '').split('<>');
                         let searchStreet = '';
                         let searchCity = '';
@@ -5286,9 +5287,10 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                         }
                         _customStoreFinderLocal = true;
                     } else if (!isNullOrWhitespace(pnhMatchData[phStoreFinderUrlIdx])) {
-                        if (!_buttonBanner.localizedName) {
-                            _buttonBanner.PlaceWebsite = new Flag.PlaceWebsite();
-                        }
+                        // I'm not sure why this check for localizedName was here.
+                        // if (!_buttonBanner.localizedName) {
+                        _buttonBanner.PlaceWebsite = new Flag.PlaceWebsite();
+                        // }
                         _customStoreFinderURL = pnhMatchData[phStoreFinderUrlIdx];
                         if (_customStoreFinderURL.indexOf('http') !== 0) {
                             _customStoreFinderURL = `http://${_customStoreFinderURL}`;
