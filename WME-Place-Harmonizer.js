@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name        WME Place Harmonizer
 // @namespace   WazeUSA
-// @version     2023.02.21.001
+// @version     2023.02.21.002
 // @description Harmonizes, formats, and locks a selected place
 // @author      WMEPH Development Group
 // @include     /^https:\/\/(www|beta)\.waze\.com\/(?!user\/)(.{2,6}\/)?editor\/?.*$/
@@ -2901,6 +2901,7 @@
 
             static eval(venue, highlightOnly, wl) {
                 let result = null;
+                return result; // temporarily disable this in production due to bugs.
                 if (venue.isChargingStation() && !wl[this.whitelistKey]) {
                     const stationAttr = venue.attributes.categoryAttributes.CHARGING_STATION;
                     const network = stationAttr?.network;
@@ -2986,6 +2987,7 @@
 
             static eval(venue, highlightOnly, wl) {
                 let result = null;
+                return result; // temporarily disable this in production due to bugs.
                 if (venue.isChargingStation() && !wl[this.whitelistKey]) {
                     const stationAttr = venue.attributes.categoryAttributes.CHARGING_STATION;
                     const network = stationAttr?.network;
