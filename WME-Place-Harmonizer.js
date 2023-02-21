@@ -2933,7 +2933,7 @@
                     if (!newPaymentMethods.includes(method)) newPaymentMethods.push(method);
                 });
 
-                const newCategoryAttributes = {
+                const newCategoryAttr = {
                     PARKING_LOT: null,
                     CHARGING_STATION: {
                         network,
@@ -2941,8 +2941,19 @@
                         paymentMethods: newPaymentMethods
                     }
                 };
+
+                if (stationAttr.chargingPorts) {
+                    newCategoryAttr.CHARGING_STATION.chargingPorts = stationAttr.chargingPorts
+                        .map(port => ({
+                            portId: port.portId,
+                            connectorTypes: port.connectorTypes.slice(),
+                            count: port.count,
+                            maxChargeSpeedKw: port.maxChargeSpeedKw
+                        }));
+                }
+
                 _UPDATED_FIELDS.evPaymentMethods.updated = true;
-                addUpdateAction(this.venue, { categoryAttributes: newCategoryAttributes });
+                addUpdateAction(this.venue, { categoryAttributes: newCategoryAttr });
                 harmonizePlaceGo(this.venue, 'harmonize');
             }
         },
@@ -3005,7 +3016,7 @@
                 const newPaymentMethods = (stationAttr.paymentMethods?.slice() || [])
                     .filter(method => commonPaymentMethods.includes(method));
 
-                const newCategoryAttributes = {
+                const newCategoryAttr = {
                     PARKING_LOT: null,
                     CHARGING_STATION: {
                         network,
@@ -3013,8 +3024,19 @@
                         paymentMethods: newPaymentMethods
                     }
                 };
+
+                if (stationAttr.chargingPorts) {
+                    newCategoryAttr.CHARGING_STATION.chargingPorts = stationAttr.chargingPorts
+                        .map(port => ({
+                            portId: port.portId,
+                            connectorTypes: port.connectorTypes.slice(),
+                            count: port.count,
+                            maxChargeSpeedKw: port.maxChargeSpeedKw
+                        }));
+                }
+
                 _UPDATED_FIELDS.evPaymentMethods.updated = true;
-                addUpdateAction(this.venue, { categoryAttributes: newCategoryAttributes });
+                addUpdateAction(this.venue, { categoryAttributes: newCategoryAttr });
                 harmonizePlaceGo(this.venue, 'harmonize');
             }
         },
