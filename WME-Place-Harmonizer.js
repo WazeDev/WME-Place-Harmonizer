@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name        WME Place Harmonizer Beta
 // @namespace   WazeUSA
-// @version     2023.02.21.001
+// @version     2023.02.21.004
 // @description Harmonizes, formats, and locks a selected place
 // @author      WMEPH Development Group
 // @include     /^https:\/\/(www|beta)\.waze\.com\/(?!user\/)(.{2,6}\/)?editor\/?.*$/
@@ -2933,27 +2933,14 @@
                     if (!newPaymentMethods.includes(method)) newPaymentMethods.push(method);
                 });
 
-                const newCategoryAttr = {
-                    PARKING_LOT: null,
-                    CHARGING_STATION: {
-                        network,
-                        source: stationAttr.source,
-                        paymentMethods: newPaymentMethods
-                    }
-                };
-
-                if (stationAttr.chargingPorts) {
-                    newCategoryAttr.CHARGING_STATION.chargingPorts = stationAttr.chargingPorts
-                        .map(port => ({
-                            portId: port.portId,
-                            connectorTypes: port.connectorTypes.slice(),
-                            count: port.count,
-                            maxChargeSpeedKw: port.maxChargeSpeedKw
-                        }));
+                const categoryAttrClone = JSON.parse(JSON.stringify(this.venue.getCategoryAttributes()));
+                if (!categoryAttrClone.CHARGING_STATION) {
+                    categoryAttrClone.CHARGING_STATION = {};
                 }
+                categoryAttrClone.CHARGING_STATION.paymentMethods = newPaymentMethods;
 
                 _UPDATED_FIELDS.evPaymentMethods.updated = true;
-                addUpdateAction(this.venue, { categoryAttributes: newCategoryAttr });
+                addUpdateAction(this.venue, { categoryAttributes: categoryAttrClone });
                 harmonizePlaceGo(this.venue, 'harmonize');
             }
         },
@@ -3016,27 +3003,14 @@
                 const newPaymentMethods = (stationAttr.paymentMethods?.slice() || [])
                     .filter(method => commonPaymentMethods.includes(method));
 
-                const newCategoryAttr = {
-                    PARKING_LOT: null,
-                    CHARGING_STATION: {
-                        network,
-                        source: stationAttr.source,
-                        paymentMethods: newPaymentMethods
-                    }
-                };
-
-                if (stationAttr.chargingPorts) {
-                    newCategoryAttr.CHARGING_STATION.chargingPorts = stationAttr.chargingPorts
-                        .map(port => ({
-                            portId: port.portId,
-                            connectorTypes: port.connectorTypes.slice(),
-                            count: port.count,
-                            maxChargeSpeedKw: port.maxChargeSpeedKw
-                        }));
+                const categoryAttrClone = JSON.parse(JSON.stringify(this.venue.getCategoryAttributes()));
+                if (!categoryAttrClone.CHARGING_STATION) {
+                    categoryAttrClone.CHARGING_STATION = {};
                 }
+                categoryAttrClone.CHARGING_STATION.paymentMethods = newPaymentMethods;
 
                 _UPDATED_FIELDS.evPaymentMethods.updated = true;
-                addUpdateAction(this.venue, { categoryAttributes: newCategoryAttr });
+                addUpdateAction(this.venue, { categoryAttributes: categoryAttrClone });
                 harmonizePlaceGo(this.venue, 'harmonize');
             }
         },
