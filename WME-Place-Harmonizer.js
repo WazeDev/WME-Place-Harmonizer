@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name        WME Place Harmonizer
 // @namespace   WazeUSA
-// @version     2023.02.21.003
+// @version     2023.02.21.005
 // @description Harmonizes, formats, and locks a selected place
 // @author      WMEPH Development Group
 // @include     /^https:\/\/(www|beta)\.waze\.com\/(?!user\/)(.{2,6}\/)?editor\/?.*$/
@@ -2872,7 +2872,7 @@
                 );
             }
         },
-        AddCommonEVPaymentMethods: class extends WLFlag {
+        AddCommonEVPaymentMethods: class extends WLActionFlag {
             // TODO: Instead of passing WL key to super, add a public getter for WL key in all child WLFlag classes. Getter returns a static WL key member.
             // Parent class can then reference that. e.g. for "isWhitelisted()" function.
             static whitelistKey = 'addCommonEVPaymentMethods';
@@ -2882,8 +2882,8 @@
                     true,
                     _SEVERITY.BLUE,
                     `These common payment methods for the ${stationAttr.network} network are missing. Verify if they are needed here:`,
-                    // 'Add network payment methods',
-                    // 'Please verify first! If any are not needed, click the WL button and manually add any needed payment methods.',
+                    'Add network payment methods',
+                    'Please verify first! If any are not needed, click the WL button and manually add any needed payment methods.',
                     true,
                     'Whitelist common EV payment types',
                     Flag.AddCommonEVPaymentMethods.whitelistKey
@@ -2933,31 +2933,18 @@
                     if (!newPaymentMethods.includes(method)) newPaymentMethods.push(method);
                 });
 
-                const newCategoryAttr = {
-                    PARKING_LOT: null,
-                    CHARGING_STATION: {
-                        network,
-                        source: stationAttr.source,
-                        paymentMethods: newPaymentMethods
-                    }
-                };
-
-                if (stationAttr.chargingPorts) {
-                    newCategoryAttr.CHARGING_STATION.chargingPorts = stationAttr.chargingPorts
-                        .map(port => ({
-                            portId: port.portId,
-                            connectorTypes: port.connectorTypes.slice(),
-                            count: port.count,
-                            maxChargeSpeedKw: port.maxChargeSpeedKw
-                        }));
+                const categoryAttrClone = JSON.parse(JSON.stringify(this.venue.getCategoryAttributes()));
+                if (!categoryAttrClone.CHARGING_STATION) {
+                    categoryAttrClone.CHARGING_STATION = {};
                 }
+                categoryAttrClone.CHARGING_STATION.paymentMethods = newPaymentMethods;
 
                 _UPDATED_FIELDS.evPaymentMethods.updated = true;
-                addUpdateAction(this.venue, { categoryAttributes: newCategoryAttr });
+                addUpdateAction(this.venue, { categoryAttributes: categoryAttrClone });
                 harmonizePlaceGo(this.venue, 'harmonize');
             }
         },
-        RemoveUncommonEVPaymentMethods: class extends WLFlag {
+        RemoveUncommonEVPaymentMethods: class extends WLActionFlag {
             // TODO: Instead of passing WL key to super, add a public getter for WL key in all child WLFlag classes. Getter returns a static WL key member.
             // Parent class can then reference that. e.g. for "isWhitelisted()" function.
             static whitelistKey = 'removeUncommonEVPaymentMethods';
@@ -2967,8 +2954,8 @@
                     true,
                     _SEVERITY.BLUE,
                     `These payment methods are uncommon for the ${stationAttr.network} network. Verify if they are needed here:`,
-                    // 'Remove network payment methods',
-                    // 'Please verify first! If any should NOT be removed, click the WL button and manually remove any unneeded payment methods.',
+                    'Remove network payment methods',
+                    'Please verify first! If any should NOT be removed, click the WL button and manually remove any unneeded payment methods.',
                     true,
                     'Whitelist uncommon EV payment types',
                     Flag.RemoveUncommonEVPaymentMethods.whitelistKey
@@ -3016,27 +3003,14 @@
                 const newPaymentMethods = (stationAttr.paymentMethods?.slice() || [])
                     .filter(method => commonPaymentMethods.includes(method));
 
-                const newCategoryAttr = {
-                    PARKING_LOT: null,
-                    CHARGING_STATION: {
-                        network,
-                        source: stationAttr.source,
-                        paymentMethods: newPaymentMethods
-                    }
-                };
-
-                if (stationAttr.chargingPorts) {
-                    newCategoryAttr.CHARGING_STATION.chargingPorts = stationAttr.chargingPorts
-                        .map(port => ({
-                            portId: port.portId,
-                            connectorTypes: port.connectorTypes.slice(),
-                            count: port.count,
-                            maxChargeSpeedKw: port.maxChargeSpeedKw
-                        }));
+                const categoryAttrClone = JSON.parse(JSON.stringify(this.venue.getCategoryAttributes()));
+                if (!categoryAttrClone.CHARGING_STATION) {
+                    categoryAttrClone.CHARGING_STATION = {};
                 }
+                categoryAttrClone.CHARGING_STATION.paymentMethods = newPaymentMethods;
 
                 _UPDATED_FIELDS.evPaymentMethods.updated = true;
-                addUpdateAction(this.venue, { categoryAttributes: newCategoryAttr });
+                addUpdateAction(this.venue, { categoryAttributes: categoryAttrClone });
                 harmonizePlaceGo(this.venue, 'harmonize');
             }
         },
@@ -5244,10 +5218,11 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                 _customStoreFinderURL = '';
                 if (phStoreFinderUrlIdx > -1) { // if the sfurl column exists...
                     if (phStoreFinderUrlLocalIdx > -1 && !isNullOrWhitespace(pnhMatchData[phStoreFinderUrlLocalIdx])) {
-                        if (!_buttonBanner.localizedName) {
-                            _buttonBanner.PlaceWebsite = new Flag.PlaceWebsite();
-                            _buttonBanner.PlaceWebsite.value = 'Location Finder (L)';
-                        }
+                        // I'm not sure why this check for localizedName was here.
+                        // if (!_buttonBanner.localizedName) {
+                        _buttonBanner.PlaceWebsite = new Flag.PlaceWebsite();
+                        _buttonBanner.PlaceWebsite.value = 'Location Finder (L)';
+                        // }
                         const tempLocalURL = pnhMatchData[phStoreFinderUrlLocalIdx].replace(/ /g, '').split('<>');
                         let searchStreet = '';
                         let searchCity = '';
@@ -5312,9 +5287,10 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                         }
                         _customStoreFinderLocal = true;
                     } else if (!isNullOrWhitespace(pnhMatchData[phStoreFinderUrlIdx])) {
-                        if (!_buttonBanner.localizedName) {
-                            _buttonBanner.PlaceWebsite = new Flag.PlaceWebsite();
-                        }
+                        // I'm not sure why this check for localizedName was here.
+                        // if (!_buttonBanner.localizedName) {
+                        _buttonBanner.PlaceWebsite = new Flag.PlaceWebsite();
+                        // }
                         _customStoreFinderURL = pnhMatchData[phStoreFinderUrlIdx];
                         if (_customStoreFinderURL.indexOf('http') !== 0) {
                             _customStoreFinderURL = `http://${_customStoreFinderURL}`;
