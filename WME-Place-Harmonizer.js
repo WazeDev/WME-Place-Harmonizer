@@ -180,8 +180,8 @@
 
     const _SCRIPT_VERSION = GM_info.script.version.toString(); // pull version from header
     const _SCRIPT_NAME = GM_info.script.name;
-    const _IS_DEV_VERSION = /Beta/i.test(_SCRIPT_NAME); //  enables dev messages and unique DOM options if the script is called "... Beta"
-    const _DEV_VERSION_STR = _IS_DEV_VERSION ? 'Beta' : ''; // strings to differentiate DOM elements between regular and beta script
+    const _IS_BETA_VERSION = /Beta/i.test(_SCRIPT_NAME); //  enables dev messages and unique DOM options if the script is called "... Beta"
+    const _BETA_VERSION_STR = _IS_BETA_VERSION ? 'Beta' : ''; // strings to differentiate DOM elements between regular and beta script
     const _PNH_DATA = { USA: {}, CAN: {} };
     const _CATEGORY_LOOKUP = {};
     const _DEFAULT_HOURS_TEXT = 'Paste Hours Here';
@@ -1026,11 +1026,11 @@
     }
 
     function phlog(msg) {
-        console.log(`WMEPH${_IS_DEV_VERSION ? '-β' : ''}:`, msg);
+        console.log(`WMEPH${_IS_BETA_VERSION ? '-β' : ''}:`, msg);
     }
     function phlogdev(msg) {
         if (_USER.isDevUser) {
-            console.log(`WMEPH${_IS_DEV_VERSION ? '-β' : ''} (dev):`, msg);
+            console.log(`WMEPH${_IS_BETA_VERSION ? '-β' : ''} (dev):`, msg);
         }
     }
 
@@ -1974,7 +1974,7 @@
     // Only run the harmonization if a venue is selected
     function harmonizePlace() {
         // Beta version for approved users only
-        if (_IS_DEV_VERSION && !_USER.isBetaUser) {
+        if (_IS_BETA_VERSION && !_USER.isBetaUser) {
             WazeWrap.Alerts.error(_SCRIPT_NAME, 'Please sign up to beta-test this script version.<br>Send a PM or Slack-DM to MapOMatic or Tonestertm, or post in the WMEPH forum thread. Thanks.');
             return;
         }
@@ -4655,7 +4655,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                 action() {
                     reportError({
                         subject: 'WMEPH Bug report: Script Error',
-                        message: `Script version: ${_SCRIPT_VERSION}${_DEV_VERSION_STR}\nPermalink: ${
+                        message: `Script version: ${_SCRIPT_VERSION}${_BETA_VERSION_STR}\nPermalink: ${
                             placePL}\nPlace name: ${venue.attributes.name}\nCountry: ${
                             venue.getAddress().getCountry().name}\n--------\nDescribe the error:  \n `
                     });
@@ -6463,7 +6463,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                             // if the category doesn't translate, then pop an alert that will make a forum post to the thread
                             reportError({
                                 subject: 'WMEPH Bug report DupeID',
-                                message: `Script version: ${_SCRIPT_VERSION}${_DEV_VERSION_STR}\nPermalink: ${placePL}\nPlace name: ${
+                                message: `Script version: ${_SCRIPT_VERSION}${_BETA_VERSION_STR}\nPermalink: ${placePL}\nPlace name: ${
                                     item.attributes.name}\nCountry: ${addr.country.name}\n--------\nDescribe the error:\nDupeID mismatch with dupeName list`
                             });
                         },
@@ -7015,7 +7015,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
     // Display run button on place sidebar
     function showRunButton() {
         $('<div id="WMEPH_runButton">').prependTo('#wmeph-panel');
-        const devVersSuffix = _IS_DEV_VERSION ? '-β' : '';
+        const devVersSuffix = _IS_BETA_VERSION ? '-β' : '';
         const strButt1 = `<input class="btn btn-primary wmeph-fat-btn" id="runWMEPH" title="Run WMEPH${
             devVersSuffix} on Place" type="button" value="Run WMEPH${devVersSuffix}">`;
         $('#WMEPH_runButton').append(strButt1);
@@ -8048,7 +8048,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
     // User pref for KB Shortcut:
     function initShortcutKey() {
         const $current = $('#PlaceHarmonizerKBCurrent');
-        const defaultShortcutKey = _IS_DEV_VERSION ? 'S' : 'A';
+        const defaultShortcutKey = _IS_BETA_VERSION ? 'S' : 'A';
         const shortcutID = 'WMEPH-KeyboardShortcut';
         let shortcutKey = localStorage.getItem(shortcutID);
         const $shortcutInput = $(`#${shortcutID}`);
@@ -8422,7 +8422,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
             )
         );
 
-        new WazeWrap.Interface.Tab(`WMEPH${_IS_DEV_VERSION ? '-β' : ''}`, $container.html(), initWmephTab, null);
+        new WazeWrap.Interface.Tab(`WMEPH${_IS_BETA_VERSION ? '-β' : ''}`, $container.html(), initWmephTab, null);
     }
 
     function createCloneCheckbox(divID, settingID, textDescription) {
@@ -8760,7 +8760,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
         }
 
         if (!_wmephBetaList || _wmephBetaList.length === 0) {
-            if (_IS_DEV_VERSION) {
+            if (_IS_BETA_VERSION) {
                 WazeWrap.Alerts.warning(_SCRIPT_NAME, 'Beta user list access issue.  Please post in the GHO or PM/DM MapOMatic about this message.  Script should still work.');
             }
             _USER.isBetaUser = false;
@@ -8815,9 +8815,11 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
     }
 
     const SPREADSHEET_ID = '1pBz4l4cNapyGyzfMJKqA4ePEFLkmz2RryAt1UV39B4g';
-    const VERSION_RANGE = 'WMEPH_VERSION!A1';
+    const VERSION_RANGE = 'WMEPH_VERSION!A1:A2';
     const SPREADSHEET_RANGE = '2019.01.20.001!A2:L';
     const API_KEY = 'YTJWNVBVRkplbUZUZVVObU1YVXpSRVZ3ZW5OaFRFSk1SbTR4VGxKblRURjJlRTFYY3pOQ2NXZElPQT09';
+    const BETA_URL = 'YUhSMGNITTZMeTluY21WaGMzbG1iM0pyTG05eVp5OWxiaTl6WTNKcGNIUnpMekk0TmpnNUxYZHRaUzF3YkdGalpTMW9ZWEp0YjI1cGVtVnlMV0psZEdFPQ==';
+    const PROD_URL = 'https://greasyfork.org/en/scripts/28690-wme-place-harmonizer';
     const dec = s => atob(atob(s));
     let _lastVersionChecked = '0';
     const VERSION_CHECK_MINUTES = 60; // How frequently to check for script updates (in minutes).
@@ -8826,12 +8828,13 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
         try {
             $.getJSON(getSpreadsheetUrl(SPREADSHEET_ID, VERSION_RANGE, API_KEY)).done(res => {
                 const { values } = res;
-                const latestVersion = values[0][0];
+                const latestVersion = values[_IS_BETA_VERSION ? 1 : 0][0];
                 if (latestVersion > _SCRIPT_VERSION && latestVersion > (_lastVersionChecked || '0')) {
                     _lastVersionChecked = latestVersion;
+                    const url = _IS_BETA_VERSION ? dec(BETA_URL) : PROD_URL;
                     WazeWrap.Alerts.info(
                         _SCRIPT_NAME,
-                        'A <a href="https://greasyfork.org/en/scripts/28690-wme-place-harmonizer" target = "_blank">new version of WMEPH</a> is available. Update now to get the latest features and fixes.',
+                        `<a href="${url}" target = "_blank">Version ${latestVersion}</a> is available.<br>Update now to get the latest features and fixes.`,
                         true,
                         false
                     );
