@@ -9,7 +9,9 @@
 // @require     https://greasyfork.org/scripts/37486-wme-utils-hoursparser/code/WME%20Utils%20-%20HoursParser.js
 // @require     https://cdnjs.cloudflare.com/ajax/libs/lz-string/1.4.4/lz-string.min.js
 // @license     GNU GPL v3
+// @connect     greasyfork.org
 // @grant       GM_addStyle
+// @grant       GM_xmlhttpRequest
 // ==/UserScript==
 
 /* global W */
@@ -8815,34 +8817,47 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
     }
 
     const SPREADSHEET_ID = '1pBz4l4cNapyGyzfMJKqA4ePEFLkmz2RryAt1UV39B4g';
-    const VERSION_RANGE = 'WMEPH_VERSION!A1:A2';
     const SPREADSHEET_RANGE = '2019.01.20.001!A2:L';
     const API_KEY = 'YTJWNVBVRkplbUZUZVVObU1YVXpSRVZ3ZW5OaFRFSk1SbTR4VGxKblRURjJlRTFYY3pOQ2NXZElPQT09';
     const BETA_URL = 'YUhSMGNITTZMeTluY21WaGMzbG1iM0pyTG05eVp5OWxiaTl6WTNKcGNIUnpMekk0TmpnNUxYZHRaUzF3YkdGalpTMW9ZWEp0YjI1cGVtVnlMV0psZEdFPQ==';
-    const PROD_URL = 'https://greasyfork.org/en/scripts/28690-wme-place-harmonizer';
+    const BETA_META_URL = 'YUhSMGNITTZMeTluY21WaGMzbG1iM0pyTG05eVp5OXpZM0pwY0hSekx6STROamc1TFhkdFpTMXdiR0ZqWlMxb1lYSnRiMjVwZW1WeUxXSmxkR0V2WTI5a1pTOVhUVVVsTWpCUWJHRmpaU1V5TUVoaGNtMXZibWw2WlhJbE1qQkNaWFJoTG0xbGRHRXVhbk09';
+    const PROD_URL = 'https://greasyfork.org/scripts/28690-wme-place-harmonizer/code/WME%20Place%20Harmonizer.user.js';
+    const PROD_META_URL = 'https://greasyfork.org/scripts/28690-wme-place-harmonizer/code/WME%20Place%20Harmonizer.meta.js';
     const dec = s => atob(atob(s));
     let _lastVersionChecked = '0';
-    const VERSION_CHECK_MINUTES = 60; // How frequently to check for script updates (in minutes).
+    const VERSION_CHECK_MINUTES = 60; // How frequently to check for script updates, in minutes.
 
     function checkWmephVersion() {
         try {
-            $.getJSON(getSpreadsheetUrl(SPREADSHEET_ID, VERSION_RANGE, API_KEY)).done(res => {
-                const { values } = res;
-                const latestVersion = values[_IS_BETA_VERSION ? 1 : 0][0];
-                if (latestVersion > _SCRIPT_VERSION && latestVersion > (_lastVersionChecked || '0')) {
-                    _lastVersionChecked = latestVersion;
-                    const url = _IS_BETA_VERSION ? dec(BETA_URL) : PROD_URL;
-                    WazeWrap.Alerts.info(
-                        _SCRIPT_NAME,
-                        `<a href="${url}" target = "_blank">Version ${latestVersion}</a> is available.<br>Update now to get the latest features and fixes.`,
-                        true,
-                        false
-                    );
+            let url = _IS_BETA_VERSION ? dec(BETA_META_URL) : PROD_META_URL;
+            GM_xmlhttpRequest({
+                url: PROD_META_URL,
+                onload(res) {
+                    try {
+                        const latestVersion = res.responseText.match(/@version\s+(.*)/)[1];
+                        if (latestVersion > _SCRIPT_VERSION && latestVersion > (_lastVersionChecked || '0')) {
+                            _lastVersionChecked = latestVersion;
+                            url = _IS_BETA_VERSION ? dec(BETA_URL) : PROD_URL;
+                            WazeWrap.Alerts.info(
+                                _SCRIPT_NAME,
+                                `<a href="${url}" target = "_blank">Version ${
+                                    latestVersion}</a> is available.<br>Update now to get the latest features and fixes.`,
+                                true,
+                                false
+                            );
+                        }
+                    } catch (ex) {
+                        console.error('WMEPH upgrade version check:', ex);
+                    }
+                },
+                onerror(res) {
+                    // Silently fail with an error message in the console.
+                    console.error('WMEPH upgrade version check:', res);
                 }
             });
         } catch (ex) {
             // Silently fail with an error message in the console.
-            console.error('WMEPH', ex);
+            console.error('WMEPH upgrade version check:', ex);
         }
     }
     function getSpreadsheetUrl(id, range, key) {
