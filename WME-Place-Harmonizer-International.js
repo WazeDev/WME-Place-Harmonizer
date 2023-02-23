@@ -21,6 +21,7 @@
 /* global LZString */
 
 /* eslint-disable max-classes-per-file */
+/* eslint-disable max-len */
 
 (function main() {
     'use strict';
@@ -226,12 +227,7 @@
         gLinkWarning: 'GLinkWarning' // Warning message for first time using Google search to not to use the Google info itself.
     };
     const _URLS = {
-        forum: 'https://www.waze.com/forum/posting.php?mode=reply&f=819&t=215657',
-        usaPnh: 'https://docs.google.com/spreadsheets/d/1-f-JTWY5UnBx-rFTa4qhyGMYdHBZWNirUTOgn222zMY/edit#gid=0',
-        placesWiki: 'https://wazeopedia.waze.com/wiki/USA/Places',
-        restAreaWiki: 'https://wazeopedia.waze.com/wiki/USA/Rest_areas#Adding_a_Place',
-        uspsWiki: 'https://wazeopedia.waze.com/wiki/USA/Places/Post_office',
-        uspsLocationFinder: 'https://tools.usps.com/find-location.htm'
+        forum: 'https://www.waze.com/forum/posting.php?mode=reply&f=819&t=215657'
     };
 
     // const _PM_USER_LIST = { // user names and IDs for PM functions
@@ -1040,14 +1036,14 @@
             wmephStyle: 'default'
         });
 
-        const severity0 = ruleGenerator(0, {
-            pointRadius: 5,
-            externalGraphic: '',
-            label: '',
-            strokeWidth: 4,
-            strokeColor: '#24ff14',
-            fillColor: '#ba85bf'
-        });
+        // const severity0 = ruleGenerator(0, {
+        //     pointRadius: 5,
+        //     externalGraphic: '',
+        //     label: '',
+        //     strokeWidth: 4,
+        //     strokeColor: '#24ff14',
+        //     fillColor: '#ba85bf'
+        // });
 
         const severityLock = ruleGenerator('lock', {
             pointRadius: 5,
@@ -1166,7 +1162,7 @@
             fillOpacity: '0.25'
         });
 
-        _layer.styleMap.styles.default.rules.push(...[/*severity0,*/ severityLock, severity1, severityLock1, severity2,
+        _layer.styleMap.styles.default.rules.push(...[/* severity0, */severityLock, severity1, severityLock1, severity2,
             severity3, severity4, severityHigh, severityAdLock, publicPLA, restrictedPLA, privatePLA]);
     }
 
@@ -1752,26 +1748,6 @@
 
     function getButtonBanner2(venue, placePL) {
         return {
-            placesWiki: {
-                active: true,
-                severity: 0,
-                message: '',
-                value: 'Places wiki',
-                title: 'Open the places Wazeopedia (wiki) page',
-                action() {
-                    window.open(_URLS.placesWiki);
-                }
-            },
-            restAreaWiki: {
-                active: false,
-                severity: 0,
-                message: '',
-                value: 'Rest Area wiki',
-                title: 'Open the Rest Area wiki page',
-                action() {
-                    window.open(_URLS.restAreaWiki);
-                }
-            },
             clearWL: {
                 active: false,
                 severity: 0,
@@ -1828,9 +1804,38 @@
         };
         // Whitelist breakout if place exists on the Whitelist and the option is enabled
 
+        _buttonBanner = getButtonBanner();
+
+        if (!highlightOnly) {
+            // Uncomment this to test all field highlights.
+            // _UPDATED_FIELDS.getFieldProperties().forEach(prop => {
+            //     prop.updated = true;
+            // });
+
+            // The placePL should only be needed when harmonizing, not when highlighting.
+            placePL = getCurrentPL() //  set up external post div and pull place PL
+                .replace(/&layers=[^&]+(&?)/g, '$1') // remove Permalink Layers
+                .replace(/&s=[^&]+(&?)/g, '$1') // remove Permalink Layers
+                .replace(/&update_requestsFilter=[^&]+(&?)/g, '$1') // remove Permalink Layers
+                .replace(/&problemsFilter=[^&]+(&?)/g, '$1') // remove Permalink Layers
+                .replace(/&mapProblemFilter=[^&]+(&?)/g, '$1') // remove Permalink Layers
+                .replace(/&mapUpdateRequestFilter=[^&]+(&?)/g, '$1') // remove Permalink Layers
+                .replace(/&venueFilter=[^&]+(&?)/g, '$1'); // remove Permalink Layers
+
+            _buttonBanner2 = getButtonBanner2(item, placePL);
+            _servicesBanner = getServicesBanner();
+
+            // Update icons to reflect current WME place services
+            updateServicesChecks(_servicesBanner);
+
+            if ($('#WMEPH-HideReportError').prop('checked')) {
+                _buttonBanner2.PlaceErrorForumPost.active = false;
+            }
+        }
+
         let itemGPS;
         const itemID = item.attributes.id;
-        const addr = item.getAddress();
+        const addr = item.getAddress().attributes;
         if (_venueWhitelist.hasOwnProperty(itemID) && (!highlightOnly || (highlightOnly && !$('#WMEPH-DisableWLHL').prop('checked')))) {
             // Enable the clear WL button if any property is true
             Object.keys(_venueWhitelist[itemID]).forEach(wlKey => { // loop thru the venue WL keys
@@ -1857,41 +1862,7 @@
             }
         }
 
-        _buttonBanner = getButtonBanner();
-
         _buttonBanner.misspelledPlaceName = Flag.MisspelledPlaceName.eval(item, 'CHARGING_STATION', /Ladestaion/, 'Ladestation');
-
-        if (!highlightOnly) {
-            // Uncomment this to test all field highlights.
-            // _UPDATED_FIELDS.getFieldProperties().forEach(prop => {
-            //     prop.updated = true;
-            // });
-
-            // The placePL should only be needed when harmonizing, not when highlighting.
-            placePL = getCurrentPL() //  set up external post div and pull place PL
-                .replace(/&layers=[^&]+(&?)/g, '$1') // remove Permalink Layers
-                .replace(/&s=[^&]+(&?)/g, '$1') // remove Permalink Layers
-                .replace(/&update_requestsFilter=[^&]+(&?)/g, '$1') // remove Permalink Layers
-                .replace(/&problemsFilter=[^&]+(&?)/g, '$1') // remove Permalink Layers
-                .replace(/&mapProblemFilter=[^&]+(&?)/g, '$1') // remove Permalink Layers
-                .replace(/&mapUpdateRequestFilter=[^&]+(&?)/g, '$1') // remove Permalink Layers
-                .replace(/&venueFilter=[^&]+(&?)/g, '$1'); // remove Permalink Layers
-
-            _buttonBanner2 = getButtonBanner2(item, placePL);
-            _servicesBanner = getServicesBanner();
-
-            // Update icons to reflect current WME place services
-            updateServicesChecks(_servicesBanner);
-
-            // Setting switch for the Places Wiki button
-            if ($('#WMEPH-HidePlacesWiki').prop('checked')) {
-                _buttonBanner2.placesWiki.active = false;
-            }
-
-            if ($('#WMEPH-HideReportError').prop('checked')) {
-                _buttonBanner2.PlaceErrorForumPost.active = false;
-            }
-        }
 
         // update Severity for banner messages
         Object.keys(_buttonBanner).forEach(key => {
@@ -2894,7 +2865,6 @@
         $harmonizerTab.append(
             $phShortcutDiv,
             '<hr class="wmeph-hr" align="center" width="100%">',
-            `<div><a href="${_URLS.placesWiki}" target="_blank">Open the WME Places Wiki page</a></div>`,
             `<div><a href="${_URLS.forum}" target="_blank">Submit script feedback & suggestions</a></div>`,
             '<hr class="wmeph-hr" align="center" width="95%">'
         );
@@ -3127,8 +3097,8 @@
 
     function placeHarmonizerInit() {
         // Check for script updates.
-        checkWmephVersion();
-        setInterval(checkWmephVersion, VERSION_CHECK_MINUTES * 60 * 1000);
+        // checkWmephVersion();
+        // setInterval(checkWmephVersion, VERSION_CHECK_MINUTES * 60 * 1000);
 
         _layer = W.map.venueLayer;
 
@@ -3283,47 +3253,47 @@
     // const SPREADSHEET_ID = '1pBz4l4cNapyGyzfMJKqA4ePEFLkmz2RryAt1UV39B4g';
     // const SPREADSHEET_RANGE = '2019.01.20.001!A2:L';
     // const API_KEY = 'YTJWNVBVRkplbUZUZVVObU1YVXpSRVZ3ZW5OaFRFSk1SbTR4VGxKblRURjJlRTFYY3pOQ2NXZElPQT09';
-    const BETA_URL = 'YUhSMGNITTZMeTluY21WaGMzbG1iM0pyTG05eVp5OWxiaTl6WTNKcGNIUnpMekk0TmpnNUxYZHRaUzF3YkdGalpTMW9ZWEp0YjI1cGVtVnlMV0psZEdFPQ==';
-    const BETA_META_URL = 'YUhSMGNITTZMeTluY21WaGMzbG1iM0pyTG05eVp5OXpZM0pwY0hSekx6STROamc1TFhkdFpTMXdiR0ZqWlMxb1lYSnRiMjVwZW1WeUxXSmxkR0V2WTI5a1pTOVhUVVVsTWpCUWJHRmpaU1V5TUVoaGNtMXZibWw2WlhJbE1qQkNaWFJoTG0xbGRHRXVhbk09';
-    const PROD_URL = 'https://greasyfork.org/scripts/28690-wme-place-harmonizer/code/WME%20Place%20Harmonizer.user.js';
-    const PROD_META_URL = 'https://greasyfork.org/scripts/28690-wme-place-harmonizer/code/WME%20Place%20Harmonizer.meta.js';
-    const dec = s => atob(atob(s));
-    let _lastVersionChecked = '0';
-    const VERSION_CHECK_MINUTES = 60; // How frequently to check for script updates, in minutes.
+    // const BETA_URL = 'YUhSMGNITTZMeTluY21WaGMzbG1iM0pyTG05eVp5OWxiaTl6WTNKcGNIUnpMekk0TmpnNUxYZHRaUzF3YkdGalpTMW9ZWEp0YjI1cGVtVnlMV0psZEdFPQ==';
+    // const BETA_META_URL = 'YUhSMGNITTZMeTluY21WaGMzbG1iM0pyTG05eVp5OXpZM0pwY0hSekx6STROamc1TFhkdFpTMXdiR0ZqWlMxb1lYSnRiMjVwZW1WeUxXSmxkR0V2WTI5a1pTOVhUVVVsTWpCUWJHRmpaU1V5TUVoaGNtMXZibWw2WlhJbE1qQkNaWFJoTG0xbGRHRXVhbk09';
+    // const PROD_URL = 'https://greasyfork.org/scripts/28690-wme-place-harmonizer/code/WME%20Place%20Harmonizer.user.js';
+    // const PROD_META_URL = 'https://greasyfork.org/scripts/28690-wme-place-harmonizer/code/WME%20Place%20Harmonizer.meta.js';
+    // const dec = s => atob(atob(s));
+    // let _lastVersionChecked = '0';
+    // const VERSION_CHECK_MINUTES = 60; // How frequently to check for script updates, in minutes.
 
-    function checkWmephVersion() {
-        try {
-            let url = _IS_BETA_VERSION ? dec(BETA_META_URL) : PROD_META_URL;
-            GM_xmlhttpRequest({
-                url: PROD_META_URL,
-                onload(res) {
-                    try {
-                        const latestVersion = res.responseText.match(/@version\s+(.*)/)[1];
-                        if (latestVersion > _SCRIPT_VERSION && latestVersion > (_lastVersionChecked || '0')) {
-                            _lastVersionChecked = latestVersion;
-                            url = _IS_BETA_VERSION ? dec(BETA_URL) : PROD_URL;
-                            WazeWrap.Alerts.info(
-                                _SCRIPT_NAME,
-                                `<a href="${url}" target = "_blank">Version ${
-                                    latestVersion}</a> is available.<br>Update now to get the latest features and fixes.`,
-                                true,
-                                false
-                            );
-                        }
-                    } catch (ex) {
-                        console.error('WMEPH upgrade version check:', ex);
-                    }
-                },
-                onerror(res) {
-                    // Silently fail with an error message in the console.
-                    console.error('WMEPH upgrade version check:', res);
-                }
-            });
-        } catch (ex) {
-            // Silently fail with an error message in the console.
-            console.error('WMEPH upgrade version check:', ex);
-        }
-    }
+    // function checkWmephVersion() {
+    //     try {
+    //         let url = _IS_BETA_VERSION ? dec(BETA_META_URL) : PROD_META_URL;
+    //         GM_xmlhttpRequest({
+    //             url: PROD_META_URL,
+    //             onload(res) {
+    //                 try {
+    //                     const latestVersion = res.responseText.match(/@version\s+(.*)/)[1];
+    //                     if (latestVersion > _SCRIPT_VERSION && latestVersion > (_lastVersionChecked || '0')) {
+    //                         _lastVersionChecked = latestVersion;
+    //                         url = _IS_BETA_VERSION ? dec(BETA_URL) : PROD_URL;
+    //                         WazeWrap.Alerts.info(
+    //                             _SCRIPT_NAME,
+    //                             `<a href="${url}" target = "_blank">Version ${
+    //                                 latestVersion}</a> is available.<br>Update now to get the latest features and fixes.`,
+    //                             true,
+    //                             false
+    //                         );
+    //                     }
+    //                 } catch (ex) {
+    //                     console.error('WMEPH upgrade version check:', ex);
+    //                 }
+    //             },
+    //             onerror(res) {
+    //                 // Silently fail with an error message in the console.
+    //                 console.error('WMEPH upgrade version check:', res);
+    //             }
+    //         });
+    //     } catch (ex) {
+    //         // Silently fail with an error message in the console.
+    //         console.error('WMEPH upgrade version check:', ex);
+    //     }
+    // }
     // function getSpreadsheetUrl(id, range, key) {
     //     return `https://sheets.googleapis.com/v4/spreadsheets/${id}/values/${range}?${dec(key)}`;
     // }
