@@ -1826,6 +1826,36 @@
         _wl = {
             dupeWL: []
         };
+        // Whitelist breakout if place exists on the Whitelist and the option is enabled
+
+        let itemGPS;
+        const itemID = item.attributes.id;
+        const addr = item.getAddress();
+        if (_venueWhitelist.hasOwnProperty(itemID) && (!highlightOnly || (highlightOnly && !$('#WMEPH-DisableWLHL').prop('checked')))) {
+            // Enable the clear WL button if any property is true
+            Object.keys(_venueWhitelist[itemID]).forEach(wlKey => { // loop thru the venue WL keys
+                if (_venueWhitelist[itemID].hasOwnProperty(wlKey) && (_venueWhitelist[itemID][wlKey].active || false)) {
+                    if (!highlightOnly) _buttonBanner2.clearWL.active = true;
+                    _wl[wlKey] = _venueWhitelist[itemID][wlKey];
+                }
+            });
+            if (_venueWhitelist[itemID].hasOwnProperty('dupeWL') && _venueWhitelist[itemID].dupeWL.length > 0) {
+                if (!highlightOnly) _buttonBanner2.clearWL.active = true;
+                _wl.dupeWL = _venueWhitelist[itemID].dupeWL;
+            }
+            // Update address and GPS info for the place
+            if (!highlightOnly) {
+                // get GPS lat/long coords from place, call as itemGPS.lat, itemGPS.lon
+                if (!itemGPS) {
+                    const centroid = item.attributes.geometry.getCentroid();
+                    itemGPS = OpenLayers.Layer.SphericalMercator.inverseMercator(centroid.x, centroid.y);
+                }
+                _venueWhitelist[itemID].city = addr.city.attributes.name; // Store city for the venue
+                _venueWhitelist[itemID].state = addr.state.name; // Store state for the venue
+                _venueWhitelist[itemID].country = addr.country.name; // Store country for the venue
+                _venueWhitelist[itemID].gps = itemGPS; // Store GPS coords for the venue
+            }
+        }
 
         _buttonBanner = getButtonBanner();
 
