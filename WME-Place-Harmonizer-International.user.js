@@ -1668,7 +1668,7 @@
                 }
             },
             addCurbside: {
-                active: true,
+                active: false,
                 checked: false,
                 icon: 'serv-curbside',
                 w2hratio: 50 / 50,
