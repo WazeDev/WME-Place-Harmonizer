@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name        WME Place Harmonizer Beta
 // @namespace   WazeUSA
-// @version     2023.02.22.001
+// @version     2023.03.01.001
 // @description Harmonizes, formats, and locks a selected place
 // @author      WMEPH Development Group
 // @include     /^https:\/\/(www|beta)\.waze\.com\/(?!user\/)(.{2,6}\/)?editor\/?.*$/
@@ -34,6 +34,14 @@
     const _CSS = `
     #edit-panel .venue-feature-editor {
         overflow: initial;
+    }
+    #sidebar #sidepanel-wmeph- {
+        width: auto;
+        padding: 0px 8px !important;
+    }
+    #sidebar #sidepanel-wmeph- .tab-pane {
+        width: auto;
+        padding: 8px !important;
     }
     #WMEPH_banner .wmeph-btn { 
         background-color: #fbfbfb;
