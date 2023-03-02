@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name        WME Place Harmonizer Beta
 // @namespace   WazeUSA
-// @version     2023.03.01.001
+// @version     2023.03.01.002
 // @description Harmonizes, formats, and locks a selected place
 // @author      WMEPH Development Group
 // @include     /^https:\/\/(www|beta)\.waze\.com\/(?!user\/)(.{2,6}\/)?editor\/?.*$/
@@ -8839,7 +8839,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
         try {
             let url = _IS_BETA_VERSION ? dec(BETA_META_URL) : PROD_META_URL;
             GM_xmlhttpRequest({
-                url: PROD_META_URL,
+                url,
                 onload(res) {
                     try {
                         const latestVersion = res.responseText.match(/@version\s+(.*)/)[1];
