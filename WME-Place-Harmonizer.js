@@ -3498,7 +3498,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
             }
         },
         PlaCostTypeMissing: class extends FlagBase {
-            constructor(highlightOnly) {
+            constructor(venue, highlightOnly) {
                 super(true, _SEVERITY.BLUE, 'Parking cost: ');
                 if (!highlightOnly) {
                     [['FREE', 'Free', 'Free'], ['LOW', '$', 'Low'], ['MODERATE', '$$', 'Moderate'], ['EXPENSIVE', '$$$', 'Expensive']].forEach(btnInfo => {
@@ -3514,6 +3514,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                             })
                             .prop('outerHTML');
                     });
+                    this.venue = venue;
                     this.noLock = true;
                 }
             }
@@ -3524,10 +3525,28 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                     const catAttr = venue.attributes.categoryAttributes;
                     const parkAttr = catAttr ? catAttr.PARKING_LOT : undefined;
                     if (!parkAttr || !parkAttr.costType || parkAttr.costType === 'UNKNOWN') {
-                        result = new Flag.PlaCostTypeMissing(highlightOnly);
+                        result = new Flag.PlaCostTypeMissing(venue, highlightOnly);
                     }
                 }
                 return result;
+            }
+
+            postProcess() {
+                $('.wmeph-pla-cost-type-btn').click(evt => {
+                    const selectedValue = $(evt.currentTarget).attr('id').replace('wmeph_', '');
+                    const existingAttr = this.venue.attributes.categoryAttributes.PARKING_LOT;
+                    const newAttr = {};
+                    if (existingAttr) {
+                        Object.keys(existingAttr).forEach(prop => {
+                            let value = existingAttr[prop];
+                            if (Array.isArray(value)) value = [].concat(value);
+                            newAttr[prop] = value;
+                        });
+                    }
+                    newAttr.costType = selectedValue;
+                    W.model.actionManager.add(new UpdateObject(this.venue, { categoryAttributes: { PARKING_LOT: newAttr } }));
+                    harmonizePlaceGo(this.venue, 'harmonize');
+                });
             }
         },
         PlaPaymentTypeMissing: class extends ActionFlag {
@@ -6788,23 +6807,6 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
             harmonizePlaceGo(selectedVenue, 'harmonize');
         });
 
-        $('.wmeph-pla-cost-type-btn').click(evt => {
-            const selectedVenue = getSelectedVenue();
-            const selectedValue = $(evt.currentTarget).attr('id').replace('wmeph_', '');
-            const existingAttr = selectedVenue.attributes.categoryAttributes.PARKING_LOT;
-            const newAttr = {};
-            if (existingAttr) {
-                Object.keys(existingAttr).forEach(prop => {
-                    let value = existingAttr[prop];
-                    if (Array.isArray(value)) value = [].concat(value);
-                    newAttr[prop] = value;
-                });
-            }
-            newAttr.costType = selectedValue;
-            W.model.actionManager.add(new UpdateObject(selectedVenue, { categoryAttributes: { PARKING_LOT: newAttr } }));
-            harmonizePlaceGo(selectedVenue, 'harmonize');
-        });
-
         // If pressing enter in the HN entry box, add the HN
         $('#WMEPH-HNAdd').keyup(evt => {
             if (evt.keyCode === 13 && $('#WMEPH-HNAdd').val() !== '') {
@@ -6965,6 +6967,14 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                 $('#WMEPH_services').empty();
             }
             $('#WMEPH_services').append(rowDivs);
+
+            // Allow flags to do any additional work (hook up events, etc);
+            Object.keys(_buttonBanner)
+                .map(key => _buttonBanner[key])
+                .filter(flag => flag?.active)
+                .forEach(flag => {
+                    flag.postProcess?.();
+                });
 
             // Setup bannServ onclicks
             if (!venue.isResidential()) {
