@@ -419,7 +419,12 @@
             selector: '#venue-edit-more-info div.opening-hours.form-group > wz-list',
             tab: 'more-info'
         },
-        cost: { updated: false, selector: '.venue .form-control[name="costType"]', tab: 'more-info' },
+        cost: {
+            updated: false,
+            selector: '#venue-edit-more-info wz-select[name="costType"]',
+            shadowSelector: 'div.select-box',
+            tab: 'more-info'
+        },
         canExit: { updated: false, selector: '.venue label[for="can-exit-checkbox"]', tab: 'more-info' },
         hasTBR: { updated: false, selector: '.venue label[for="has-tbr"]', tab: 'more-info' },
         lotType: { updated: false, selector: '#venue-edit-more-info > form > div:nth-child(1) > wz-radio-group', tab: 'more-info' },
@@ -3545,6 +3550,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                     }
                     newAttr.costType = selectedValue;
                     W.model.actionManager.add(new UpdateObject(this.venue, { categoryAttributes: { PARKING_LOT: newAttr } }));
+                    _UPDATED_FIELDS.cost.updated = true;
                     harmonizePlaceGo(this.venue, 'harmonize');
                 });
             }
@@ -6916,6 +6922,14 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
         if (_textEntryValues) {
             _textEntryValues.forEach(entry => $(`#${entry.id}`).val(entry.val));
         }
+
+        // Allow flags to do any additional work (hook up events, etc);
+        Object.keys(_buttonBanner)
+            .map(key => _buttonBanner[key])
+            .filter(flag => flag?.active)
+            .forEach(flag => {
+                flag.postProcess?.();
+            });
     } // END assemble Banner function
 
     function assembleServicesBanner() {
@@ -6967,14 +6981,6 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                 $('#WMEPH_services').empty();
             }
             $('#WMEPH_services').append(rowDivs);
-
-            // Allow flags to do any additional work (hook up events, etc);
-            Object.keys(_buttonBanner)
-                .map(key => _buttonBanner[key])
-                .filter(flag => flag?.active)
-                .forEach(flag => {
-                    flag.postProcess?.();
-                });
 
             // Setup bannServ onclicks
             if (!venue.isResidential()) {
