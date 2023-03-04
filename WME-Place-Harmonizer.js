@@ -63,6 +63,7 @@
         height: 18px;
         box-shadow: 0 2px 0 #b3b3b3;
     }
+    
     #WMEPH_banner .banner-row {
         padding:2px 4px;
     }
@@ -2122,41 +2123,42 @@
             constructor() { super(true, _SEVERITY.RED, 'Name is missing.'); }
         },
         PlaIsPublic: class extends FlagBase {
-            constructor(venue) {
+            constructor(venue, highlightOnly) {
                 super(true, _SEVERITY.GREEN, 'If this does not meet the requirements for a <a href="https://wazeopedia.waze.com/wiki/USA/Places/Parking_lot#Lot_Type" '
                     + 'target="_blank" style="color:5a5a73">public parking lot</a>, change to:<br>');
-                this.venue = venue;
-                // Add the buttons to the message.
-                this.message += [
-                    ['RESTRICTED', 'Restricted'],
-                    ['PRIVATE', 'Private']
-                ].map(
-                    btnInfo => $('<button>', { class: 'wmeph-pla-lot-type-btn btn btn-default btn-xs wmeph-btn', 'data-lot-type': btnInfo[0] })
-                        .text(btnInfo[1])
-                        .prop('outerHTML')
-                ).join('');
+                if (!highlightOnly) {
+                    this.venue = venue;
+                    // Add the buttons to the message.
+                    this.message += [
+                        ['RESTRICTED', 'Restricted'],
+                        ['PRIVATE', 'Private']
+                    ].map(
+                        btnInfo => $('<button>', { class: 'wmeph-pla-lot-type-btn btn btn-default btn-xs wmeph-btn', 'data-lot-type': btnInfo[0] })
+                            .text(btnInfo[1])
+                            .prop('outerHTML')
+                    ).join('');
+
+                    this.postProcess = () => {
+                        $('.wmeph-pla-lot-type-btn').click(evt => {
+                            const lotType = $(evt.currentTarget).data('lot-type');
+                            const categoryAttrClone = JSON.parse(JSON.stringify(this.venue.attributes.categoryAttributes));
+                            categoryAttrClone.PARKING_LOT.parkingType = lotType;
+                            _UPDATED_FIELDS.lotType.updated = true;
+                            W.model.actionManager.add(new UpdateObject(this.venue, { categoryAttributes: categoryAttrClone }));
+                            harmonizePlaceGo(this.venue, 'harmonize');
+                        });
+                    };
+                }
             }
 
-            static eval(venue) {
+            static eval(venue, highlightOnly) {
                 if (!venue.isParkingLot()) return null;
                 let result = null;
                 const parkingAttr = venue.attributes.categoryAttributes?.PARKING_LOT;
                 if (parkingAttr?.parkingType === 'PUBLIC') {
-                    result = new Flag.PlaIsPublic(venue);
+                    result = new Flag.PlaIsPublic(venue, highlightOnly);
                 }
                 return result;
-            }
-
-            postProcess() {
-                $('.wmeph-pla-lot-type-btn').click(evt => {
-                    const selectedValue = $(evt.currentTarget).data('lot-type');
-                    const categoryAttr = this.venue.attributes.categoryAttributes;
-                    const categoryAttrClone = JSON.parse(JSON.stringify(categoryAttr));
-                    categoryAttrClone.PARKING_LOT.parkingType = selectedValue;
-                    _UPDATED_FIELDS.lotType.updated = true;
-                    W.model.actionManager.add(new UpdateObject(this.venue, { categoryAttributes: categoryAttrClone }));
-                    harmonizePlaceGo(this.venue, 'harmonize');
-                });
             }
         },
         PlaNameMissing: class extends FlagBase {
@@ -3507,18 +3509,27 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
             }
         },
         PlaLotTypeMissing: class extends FlagBase {
-            constructor(harmonize) {
+            constructor(venue, highlightOnly) {
                 super(true, _SEVERITY.RED, 'Lot type: ');
-                this.noLock = true;
-                if (harmonize) {
+                if (!highlightOnly) {
+                    this.noLock = true;
+                    this.venue = venue;
                     this.message += [['PUBLIC', 'Public'], ['RESTRICTED', 'Restricted'], ['PRIVATE', 'Private']].map(
                         btnInfo => $('<button>', { class: 'wmeph-pla-lot-type-btn btn btn-default btn-xs wmeph-btn', 'data-lot-type': btnInfo[0] })
                             .text(btnInfo[1])
-                            .css({
-                                padding: '3px', height: '20px', lineHeight: '0px', marginRight: '2px', marginBottom: '1px'
-                            })
                             .prop('outerHTML')
                     ).join('');
+
+                    this.postProcess = () => {
+                        $('.wmeph-pla-lot-type-btn').click(evt => {
+                            const lotType = $(evt.currentTarget).data('lot-type');
+                            const categoryAttrClone = JSON.parse(JSON.stringify(this.venue.attributes.categoryAttributes));
+                            categoryAttrClone.PARKING_LOT.parkingType = lotType;
+                            _UPDATED_FIELDS.lotType.updated = true;
+                            W.model.actionManager.add(new UpdateObject(this.venue, { categoryAttributes: categoryAttrClone }));
+                            harmonizePlaceGo(this.venue, 'harmonize');
+                        });
+                    };
                 }
             }
 
@@ -3528,7 +3539,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                     const catAttr = venue.attributes.categoryAttributes;
                     const parkAttr = catAttr ? catAttr.PARKING_LOT : undefined;
                     if (!parkAttr || !parkAttr.parkingType) {
-                        result = new Flag.PlaLotTypeMissing(!highlightOnly);
+                        result = new Flag.PlaLotTypeMissing(venue, highlightOnly);
                     }
                 }
                 return result;
@@ -6119,7 +6130,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
         }
 
         _buttonBanner.plaNameNonStandard = Flag.PlaNameNonStandard.eval(item, _wl);
-        _buttonBanner.plaIsPublic = Flag.PlaIsPublic.eval(item);
+        _buttonBanner.plaIsPublic = Flag.PlaIsPublic.eval(item, highlightOnly);
 
         // House number / HN check
         let currentHN = item.attributes.houseNumber;
