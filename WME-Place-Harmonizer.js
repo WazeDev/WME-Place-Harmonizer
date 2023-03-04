@@ -2122,9 +2122,41 @@
             constructor() { super(true, _SEVERITY.RED, 'Name is missing.'); }
         },
         PlaIsPublic: class extends FlagBase {
-            constructor() {
+            constructor(venue) {
                 super(true, _SEVERITY.GREEN, 'If this does not meet the requirements for a <a href="https://wazeopedia.waze.com/wiki/USA/Places/Parking_lot#Lot_Type" '
                     + 'target="_blank" style="color:5a5a73">public parking lot</a>, change to:<br>');
+                this.venue = venue;
+                // Add the buttons to the message.
+                this.message += [
+                    ['RESTRICTED', 'Restricted'],
+                    ['PRIVATE', 'Private']
+                ].map(
+                    btnInfo => $('<button>', { class: 'wmeph-pla-lot-type-btn btn btn-default btn-xs wmeph-btn', 'data-lot-type': btnInfo[0] })
+                        .text(btnInfo[1])
+                        .prop('outerHTML')
+                ).join('');
+            }
+
+            static eval(venue) {
+                if (!venue.isParkingLot()) return null;
+                let result = null;
+                const parkingAttr = venue.attributes.categoryAttributes?.PARKING_LOT;
+                if (parkingAttr?.parkingType === 'PUBLIC') {
+                    result = new Flag.PlaIsPublic(venue);
+                }
+                return result;
+            }
+
+            postProcess() {
+                $('.wmeph-pla-lot-type-btn').click(evt => {
+                    const selectedValue = $(evt.currentTarget).data('lot-type');
+                    const categoryAttr = this.venue.attributes.categoryAttributes;
+                    const categoryAttrClone = JSON.parse(JSON.stringify(categoryAttr));
+                    categoryAttrClone.PARKING_LOT.parkingType = selectedValue;
+                    _UPDATED_FIELDS.lotType.updated = true;
+                    W.model.actionManager.add(new UpdateObject(this.venue, { categoryAttributes: categoryAttrClone }));
+                    harmonizePlaceGo(this.venue, 'harmonize');
+                });
             }
         },
         PlaNameMissing: class extends FlagBase {
@@ -6087,21 +6119,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
         }
 
         _buttonBanner.plaNameNonStandard = Flag.PlaNameNonStandard.eval(item, _wl);
-
-        // Public parking lot warning message:
-        if (item.isParkingLot() && item.attributes.categoryAttributes && item.attributes.categoryAttributes.PARKING_LOT
-            && item.attributes.categoryAttributes.PARKING_LOT.parkingType === 'PUBLIC') {
-            _buttonBanner.plaIsPublic = new Flag.PlaIsPublic();
-            // Add the buttons to the message.
-            _buttonBanner.plaIsPublic.message += [
-                ['RESTRICTED', 'Restricted'],
-                ['PRIVATE', 'Private']
-            ].map(
-                btnInfo => $('<button>', { class: 'wmeph-pla-lot-type-btn btn btn-default btn-xs wmeph-btn', 'data-lot-type': btnInfo[0] })
-                    .text(btnInfo[1])
-                    .prop('outerHTML')
-            ).join('');
-        }
+        _buttonBanner.plaIsPublic = Flag.PlaIsPublic.eval(item);
 
         // House number / HN check
         let currentHN = item.attributes.houseNumber;
@@ -6791,24 +6809,6 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
             }
             newAttr.estimatedNumberOfSpots = selectedValue;
             _UPDATED_FIELDS.parkingSpots.updated = true;
-            W.model.actionManager.add(new UpdateObject(selectedVenue, { categoryAttributes: { PARKING_LOT: newAttr } }));
-            harmonizePlaceGo(selectedVenue, 'harmonize');
-        });
-
-        $('.wmeph-pla-lot-type-btn').click(evt => {
-            const selectedVenue = getSelectedVenue();
-            const selectedValue = $(evt.currentTarget).data('lot-type');
-            const existingAttr = selectedVenue.attributes.categoryAttributes.PARKING_LOT;
-            const newAttr = {};
-            if (existingAttr) {
-                Object.keys(existingAttr).forEach(prop => {
-                    let value = existingAttr[prop];
-                    if (Array.isArray(value)) value = [].concat(value);
-                    newAttr[prop] = value;
-                });
-            }
-            newAttr.parkingType = selectedValue;
-            _UPDATED_FIELDS.lotType.updated = true;
             W.model.actionManager.add(new UpdateObject(selectedVenue, { categoryAttributes: { PARKING_LOT: newAttr } }));
             harmonizePlaceGo(selectedVenue, 'harmonize');
         });
