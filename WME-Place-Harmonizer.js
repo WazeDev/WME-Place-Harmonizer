@@ -2111,7 +2111,7 @@
                         } else if (cat.includes('JUNCTION_INTERCHANGE')) {
                             result.severity = _SEVERITY.GREEN;
                         } else {
-                            result.severity = _SEVERITY.restrictedPLA;
+                            result.severity = _SEVERITY.RED;
                         }
                     }
                 }
@@ -4896,8 +4896,8 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
             }
         }
 
-        // Country restrictions
-        if (!highlightOnly && (addr.county === null || addr.state === null)) {
+        // Country restrictions (note that FullAddressInference should guarantee country/state exist if highlightOnly is true)
+        if (!addr.country || !addr.state) {
             WazeWrap.Alerts.error(_SCRIPT_NAME, 'Country and/or state could not be determined.  Edit the place address and run WMEPH again.');
             return undefined;
         }
@@ -4912,7 +4912,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
             if (!highlightOnly) {
                 WazeWrap.Alerts.error(_SCRIPT_NAME, `This script is not currently supported in ${countryName}.`);
             }
-            return 3;
+            return _SEVERITY.RED;
         }
 
         // Parse state-based data
