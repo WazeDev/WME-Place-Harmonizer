@@ -2965,14 +2965,14 @@
 
             action() {
                 if (!this.venue.isChargingStation()) {
-                    alert('This is no longer a charging station. Please run WMEPH again.');
+                    WazeWrap.Alerts.info(_SCRIPT_NAME, 'This is no longer a charging station. Please run WMEPH again.', false, false);
                     return;
                 }
 
                 const stationAttr = this.venue.attributes.categoryAttributes.CHARGING_STATION;
                 const network = stationAttr?.network;
                 if (network !== this.originalNetwork) {
-                    alert('EV charging station network has changed. Please run WMEPH again.');
+                    WazeWrap.Alerts.info(_SCRIPT_NAME, 'EV charging station network has changed. Please run WMEPH again.', false, false);
                     return;
                 }
 
@@ -3037,14 +3037,14 @@
 
             action() {
                 if (!this.venue.isChargingStation()) {
-                    alert('This is no longer a charging station. Please run WMEPH again.');
+                    WazeWrap.Alerts.info('This is no longer a charging station. Please run WMEPH again.', false, false);
                     return;
                 }
 
                 const stationAttr = this.venue.attributes.categoryAttributes.CHARGING_STATION;
                 const network = stationAttr?.network;
                 if (network !== this.originalNetwork) {
-                    alert('EV charging station network has changed. Please run WMEPH again.');
+                    WazeWrap.Alerts.info(_SCRIPT_NAME, 'EV charging station network has changed. Please run WMEPH again.', false, false);
                     return;
                 }
 
