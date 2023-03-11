@@ -261,7 +261,7 @@
         gLinkWarning: 'GLinkWarning' // Warning message for first time using Google search to not to use the Google info itself.
     };
     const _URLS = {
-        forum: 'https://www.waze.com/forum/posting.php?mode=reply&f=819&t=215657',
+        forum: 'https://www.waze.com/forum/posting.php?mode=reply&f=819&t=239985',
         usaPnh: 'https://docs.google.com/spreadsheets/d/1-f-JTWY5UnBx-rFTa4qhyGMYdHBZWNirUTOgn222zMY/edit#gid=0',
         placesWiki: 'https://wazeopedia.waze.com/wiki/USA/Places',
         restAreaWiki: 'https://wazeopedia.waze.com/wiki/USA/Rest_areas#Adding_a_Place',
