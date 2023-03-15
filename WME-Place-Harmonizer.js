@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name        WME Place Harmonizer
 // @namespace   WazeUSA
-// @version     2023.03.14.001
+// @version     2023.03.15.001
 // @description Harmonizes, formats, and locks a selected place
 // @author      WMEPH Development Group
 // @include     /^https:\/\/(www|beta)\.waze\.com\/(?!user\/)(.{2,6}\/)?editor\/?.*$/
@@ -8654,7 +8654,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
     //     }
     // }
 
-    function placeHarmonizerInit() {
+    async function placeHarmonizerInit() {
         // Check for script updates.
         checkWmephVersion();
         setInterval(checkWmephVersion, VERSION_CHECK_MINUTES * 60 * 1000);
@@ -8778,7 +8778,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
             $('#WMEPH-ColorHighlighting').trigger('click');
         });
 
-        addWmephTab(); // initialize the settings tab
+        await addWmephTab(); // initialize the settings tab
 
         // Event listeners
         W.selectionManager.events.register('selectionchanged', this, () => errorHandler(initWmephPanel));
