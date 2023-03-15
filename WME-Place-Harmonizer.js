@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name        WME Place Harmonizer Beta
 // @namespace   WazeUSA
-// @version     2023.03.06.001
+// @version     2023.03.14.001
 // @description Harmonizes, formats, and locks a selected place
 // @author      WMEPH Development Group
 // @include     /^https:\/\/(www|beta)\.waze\.com\/(?!user\/)(.{2,6}\/)?editor\/?.*$/
@@ -35,11 +35,7 @@
     #edit-panel .venue-feature-editor {
         overflow: initial;
     }
-    #sidebar #sidepanel-wmeph- {
-        width: auto;
-        padding: 0px 8px !important;
-    }
-    #sidebar #sidepanel-wmeph- .tab-pane {
+    #sidebar .wmeph-pane {
         width: auto;
         padding: 8px !important;
     }
@@ -8337,11 +8333,11 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
         _initAlreadyRun = true;
     }
 
-    function addWmephTab() {
+    async function addWmephTab() {
         // Set up the CSS
         GM_addStyle(_CSS);
 
-        const $container = $('<div class="active">');
+        const $container = $('<div>');
         const $reloadDataBtn = $('<div style="margin-bottom:6px; text-align:center;"><div style="position:relative; display:inline-block; width:75%"><input id="WMEPH-ReloadDataBtn" style="min-width:90px; width:50%" class="btn btn-success wmeph-fat-btn" type="button" title="Refresh Data" value="Refresh Data"/><div class="checkmark draw"></div></div></div>');
         const $navTabs = $(
             '<ul class="nav nav-tabs"><li class="active"><a data-toggle="tab" href="#sidepanel-harmonizer">Harmonize</a></li>'
@@ -8350,10 +8346,10 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
             + '<li><a data-toggle="tab" href="#sidepanel-pnh-moderators">Moderators</a></li></ul>'
         );
         const $tabContent = $('<div class="tab-content">');
-        const $harmonizerTab = $('<div class="tab-pane active" id="sidepanel-harmonizer"></div>');
-        const $highlighterTab = $('<div class="tab-pane" id="sidepanel-highlighter"></div>');
-        const $wlToolsTab = $('<div class="tab-pane" id="sidepanel-wltools"></div>');
-        const $moderatorsTab = $('<div class="tab-pane" id="sidepanel-pnh-moderators"></div>');
+        const $harmonizerTab = $('<div class="tab-pane wmeph-pane active" id="sidepanel-harmonizer"></div>');
+        const $highlighterTab = $('<div class="tab-pane wmeph-pane" id="sidepanel-highlighter"></div>');
+        const $wlToolsTab = $('<div class="tab-pane wmeph-pane" id="sidepanel-wltools"></div>');
+        const $moderatorsTab = $('<div class="tab-pane wmeph-pane" id="sidepanel-pnh-moderators"></div>');
         $tabContent.append($harmonizerTab, $highlighterTab, $wlToolsTab, $moderatorsTab);
         $container.append($reloadDataBtn, $navTabs, $tabContent);
 
@@ -8459,7 +8455,14 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
             )
         );
 
-        new WazeWrap.Interface.Tab(`WMEPH${_IS_BETA_VERSION ? '-β' : ''}`, $container.html(), initWmephTab, null);
+        const { tabLabel, tabPane } = W.userscripts.registerSidebarTab('WMEPH');
+        tabLabel.innerHTML = `<span title="WME Place Harmonizer">WMEPH${_IS_BETA_VERSION ? '-β' : ''}</span>`;
+        tabPane.innerHTML = $container.html();
+        await W.userscripts.waitForElementConnected(tabPane);
+        // Fix tab content div spacing.
+        $(tabPane).parent().css({ width: 'auto', padding: '8px !important' });
+        $('.wmeph-pane').css({ width: 'auto', padding: '8px !important' });
+        initWmephTab();
     }
 
     function createCloneCheckbox(divID, settingID, textDescription) {
