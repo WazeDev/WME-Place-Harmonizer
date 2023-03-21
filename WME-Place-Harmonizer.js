@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name        WME Place Harmonizer Beta
 // @namespace   WazeUSA
-// @version     2023.03.20.001
+// @version     2023.03.20.002
 // @description Harmonizes, formats, and locks a selected place
 // @author      WMEPH Development Group
 // @include     /^https:\/\/(www|beta)\.waze\.com\/(?!user\/)(.{2,6}\/)?editor\/?.*$/
@@ -3220,6 +3220,8 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                                     harmonizePlaceGo(venue, 'harmonize');
                                 });
                             };
+                            result.severity = _SEVERITY.RED;
+                            result.noLock = true;
                         }
                     }
                 }
