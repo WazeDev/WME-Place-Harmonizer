@@ -3195,7 +3195,32 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                             }
                         }
                     } else {
-                        result = new Flag.SpecCaseMessageLow(message);
+                        // 3/23/2023 - This is a temporary solution to add a disambiguator for Tesla chargers.
+                        const teslaSC = /tesla supercharger/i;
+                        const teslaDC = /tesla destination charger/i;
+                        const isTesla = teslaSC.test(message) && teslaDC.test(message);
+                        if (isTesla) {
+                            message = message.replace(teslaSC, '<button id="wmeph-tesla-supercharger" class="btn wmeph-btn">Tesla SuperCharger</button>');
+                            message = message.replace(teslaDC, '<button id="wmeph-tesla-destination-charger" class="btn wmeph-btn">Tesla Destination Charger</button>');
+                        }
+
+                        result = new Flag.SpecCaseMessageLow(message); // KEEP THIS LINE (not part of Tesla stuff)
+
+                        if (isTesla) {
+                            result.postProcess = () => {
+                                $('#wmeph-tesla-supercharger').click(() => {
+                                    W.model.actionManager.add(new UpdateObject(venue, { name: 'Tesla Supercharger' }));
+                                    _UPDATED_FIELDS.name.updated = true;
+                                    harmonizePlaceGo(venue, 'harmonize');
+                                });
+
+                                $('#wmeph-tesla-destination-charger').click(() => {
+                                    W.model.actionManager.add(new UpdateObject(venue, { name: 'Tesla Destination Charger' }));
+                                    _UPDATED_FIELDS.name.updated = true;
+                                    harmonizePlaceGo(venue, 'harmonize');
+                                });
+                            };
+                        }
                     }
                 }
                 return result;
