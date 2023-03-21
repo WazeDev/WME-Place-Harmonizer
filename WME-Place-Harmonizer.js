@@ -3179,9 +3179,32 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
         SpecCaseMessage: class extends FlagBase {
             constructor(message) { super(true, _SEVERITY.GREEN, message); }
 
-            static eval(venue, message, showDisplayNote, specialCases) {
+            static eval(venue, message, showDisplayNote, specialCases, country, pnhList) {
                 let result = null;
                 if (showDisplayNote && !isNullOrWhitespace(message)) {
+                    const regexp = /<({.*?})>/g;
+                    const matches = [...message.matchAll(regexp)];
+
+                    matches.forEach(match => {
+                        try {
+                            const jsonStr = match[1].replaceAll('\\', '');
+                            const obj = JSON.parse(jsonStr);
+                            switch (obj.type) {
+                                case 'matchOrderButton':
+                                    console.log('FOUND matchOrderButton');
+                                    if (typeof obj.order === 'undefined' || obj.order === null) {
+                                        console.error('WMEPH: matchOrderButton is missing "order" property. ', match[1]);
+                                        return;
+                                    }
+                                    message = message.replace(match[0], 'found');
+                                    break;
+                                default:
+                                    console.error('WMEPH: Display note object has an unknown or missing "type" property. ', match[1]);
+                            }
+                        } catch (ex) {
+                            console.error('WMEPH: ', ex);
+                        }
+                    });
                     if (containsAny(specialCases, ['pharmhours'])) {
                         if (!venue.attributes.description.toUpperCase().includes('PHARMACY') || (!venue.attributes.description.toUpperCase().includes('HOURS')
                             && !venue.attributes.description.toUpperCase().includes('HRS'))) {
