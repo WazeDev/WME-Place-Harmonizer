@@ -1363,8 +1363,58 @@
         saveWhitelistToLS(true);
     }
 
+    class Settings {
+        #localStorageKey;
+        #cache = {
+            xrayModeEnabled: false,
+            highlightingEnabled: true
+        };
+
+        constructor(localStorageKey) {
+            this.#localStorageKey = localStorageKey;
+            this.#loadFromStorage();
+        }
+
+        get xrayModeEnabled() { return this.#cache.xrayModeEnabled; }
+        set xrayModeEnabled(value) { this.#cache.xrayModeEnabled = value; this.#saveToStorage(); }
+
+        setValues(values) {
+            Object.assign(this.#cache, values);
+            this.saveToStorage();
+        }
+
+        #loadFromStorage() {
+            const storedSettingsStr = localStorage.getItem(this.#localStorageKey);
+            if (storedSettingsStr) {
+                const storedSettings = JSON.parse(storedSettingsStr);
+                Object.assign(this, storedSettings);
+            }
+
+            if (localStorage.WMEPH_xrayMode_enabled) {
+                // Old settings found. Upgrade and remove them.
+                this.#upgradeSetting('WMEPH_xrayMode_enabled', 'xrayModeEnabled', true);
+                this.#saveToStorage();
+            }
+        }
+
+        #saveToStorage() {
+            localStorage.setItem(this.#localStorageKey, JSON.stringify(this.#cache));
+        }
+
+        #upgradeSetting(oldSettingName, newSettingName, doParse) {
+            let oldValue = localStorage.getItem(oldSettingName);
+            if (oldValue !== null) {
+                if (doParse) oldValue = JSON.parse(oldValue);
+                this.#cache[newSettingName] = oldValue;
+                localStorage.removeItem(oldSettingName);
+            }
+        }
+    }
+
+    const _settings = new Settings('wmephSettings');
+
     function toggleXrayMode(enable) {
-        localStorage.setItem('WMEPH_xrayMode_enabled', $('#layer-switcher-item_wmeph_x-ray_mode').prop('checked'));
+        _settings.xrayModeEnabled = $('#layer-switcher-item_wmeph_x-ray_mode').prop('checked');
 
         const commentsLayer = W.map.getLayerByUniqueName('mapComments');
         const gisLayer = W.map.getLayerByUniqueName('__wmeGISLayers');
@@ -1676,7 +1726,6 @@
         const storedBannServ = _servicesBanner;
         const storedBannButt2 = _buttonBanner2;
         const t0 = performance.now();
-        const doHighlight = $('#WMEPH-ColorHighlighting').prop('checked');
         const disableRankHL = $('#WMEPH-DisableRankHL').prop('checked');
 
         venues.forEach(venue => {
@@ -1684,7 +1733,7 @@
                 // Highlighting logic would go here
                 // Severity can be: 0, 'lock', 1, 2, 3, 4, or 'high'. Set to
                 // anything else to use default WME style.
-                if (doHighlight && !(disableRankHL && venue.attributes.lockRank > _USER.rank - 1)) {
+                if (_settings.highlightingEnabled && !(disableRankHL && venue.attributes.lockRank > _USER.rank - 1)) {
                     try {
                         const { id } = venue.attributes;
                         let severity;
@@ -1728,7 +1777,7 @@
 
     // Set up CH loop
     function bootstrapWmephColorHighlights() {
-        if (localStorage.getItem('WMEPH-ColorHighlighting') === '1') {
+        if (_settings.highlightingEnabled) {
             // Add listeners
             W.model.venues.on('objectschanged', e => errorHandler(() => {
                 if (!_disableHighlightTest) {
@@ -6756,7 +6805,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
             }
         });
 
-        if ($('#WMEPH-ColorHighlighting').prop('checked')) {
+        if (_settings.highlightingEnabled) {
             venue.attributes.wmephSeverity = _severityButt;
         }
 
@@ -8047,11 +8096,25 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
         }
     }
 
+    function initSettingsCheckbox2(settingID) {
+        $(`#WMEPH-${settingID}`).click(() => { _settings[settingID] = $(`#WMEPH-${settingID}`).prop('checked'); });
+    }
+
     // This routine will create a checkbox in the #PlaceHarmonizer tab and will load the setting
     //        settingID:  The #id of the checkbox being created.
     //  textDescription:  The description of the checkbox that will be use
     function createSettingsCheckbox($div, settingID, textDescription) {
         const $checkbox = $('<input>', { type: 'checkbox', id: settingID });
+        $div.append(
+            $('<div>', { class: 'controls-container' }).css({ paddingTop: '2px' }).append(
+                $checkbox,
+                $('<label>', { for: settingID }).text(textDescription).css({ whiteSpace: 'pre-line' })
+            )
+        );
+        return $checkbox;
+    }
+    function createSettingsCheckbox2($div, settingID, textDescription) {
+        const $checkbox = $('<input>', { type: 'checkbox', id: `WMEPH-${settingID}` });
         $div.append(
             $('<div>', { class: 'controls-container' }).css({ paddingTop: '2px' }).append(
                 $checkbox,
@@ -8289,7 +8352,6 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
     // settings tab
     function initWmephTab() {
         // Enable certain settings by default if not set by the user:
-        setCheckedByDefault('WMEPH-ColorHighlighting');
         setCheckedByDefault('WMEPH-ExcludePLADupes');
         setCheckedByDefault('WMEPH-DisablePLAExtProviderCheck');
 
@@ -8309,7 +8371,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
             initSettingsCheckbox('WMEPH-EnableCloneMode');
             initSettingsCheckbox('WMEPH-AutoLockRPPs');
         }
-        initSettingsCheckbox('WMEPH-ColorHighlighting');
+        initSettingsCheckbox2('highlightingEnabled');
         initSettingsCheckbox('WMEPH-DisableHoursHL');
         initSettingsCheckbox('WMEPH-DisableRankHL');
         initSettingsCheckbox('WMEPH-DisableWLHL');
@@ -8351,7 +8413,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
         $('#WMEPH-WLShare').click(onWLShareClick);
 
         // Color highlighting
-        $('#WMEPH-ColorHighlighting').click(bootstrapWmephColorHighlights);
+        $('#WMEPH-highlightingEnabled').click(bootstrapWmephColorHighlights);
         $('#WMEPH-DisableHoursHL').click(bootstrapWmephColorHighlights);
         $('#WMEPH-DisableRankHL').click(bootstrapWmephColorHighlights);
         $('#WMEPH-DisableWLHL').click(bootstrapWmephColorHighlights);
@@ -8420,7 +8482,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
 
         // Highlighter settings
         $highlighterTab.append('<p>Highlighter Settings:</p>');
-        createSettingsCheckbox($highlighterTab, 'WMEPH-ColorHighlighting', 'Enable color highlighting of map to indicate places needing work');
+        createSettingsCheckbox2($highlighterTab, 'highlightingEnabled', 'Enable color highlighting of map to indicate places needing work');
         createSettingsCheckbox($highlighterTab, 'WMEPH-DisableHoursHL', 'Disable highlighting for missing hours');
         createSettingsCheckbox($highlighterTab, 'WMEPH-DisableRankHL', 'Disable highlighting for places locked above your rank');
         createSettingsCheckbox($highlighterTab, 'WMEPH-DisableWLHL', 'Disable Whitelist highlighting (shows all missing info regardless of WL)');
@@ -8756,7 +8818,8 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
 
         createObserver();
 
-        const xrayMode = localStorage.getItem('WMEPH_xrayMode_enabled') === 'true';
+        debugger;
+        const xrayMode = _settings.xrayModeEnabled;
         WazeWrap.Interface.AddLayerCheckbox('Display', 'WMEPH x-ray mode', xrayMode, toggleXrayMode);
         if (xrayMode) setTimeout(() => toggleXrayMode(true), 2000); // Give other layers time to load before enabling.
 
@@ -8802,7 +8865,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
 
         // Add Color Highlighting shortcut
         _SHORTCUT.add('Control+Alt+h', () => {
-            $('#WMEPH-ColorHighlighting').trigger('click');
+            $('#WMEPH-highlightingEnabled').trigger('click');
         });
 
         await addWmephTab(); // initialize the settings tab
