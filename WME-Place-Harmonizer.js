@@ -1367,7 +1367,10 @@
         #localStorageKey;
         #cache = {
             xrayModeEnabled: false,
-            highlightingEnabled: true
+            highlightingEnabled: true,
+            addAddresses: false,
+            autoLockRPPs: false,
+            disableDuplicateFinderZoom: false,
         };
 
         constructor(localStorageKey) {
@@ -1376,23 +1379,50 @@
         }
 
         get xrayModeEnabled() { return this.#cache.xrayModeEnabled; }
-        set xrayModeEnabled(value) { this.#cache.xrayModeEnabled = value; this.#saveToStorage(); }
+        set xrayModeEnabled(value) { this.setValues({ xrayModeEnabled: value }); }
 
-        setValues(values) {
+        get highlightingEnabled() { return this.#cache.highlightingEnabled; }
+        set highlightingEnabled(value) { this.setValues({ highlightingEnabled: value }); }
+
+        get addAddresses() { return this.#cache.addAddresses; }
+        set addAddresses(value) { this.setValues({ addAddresses: value }); }
+
+        get autoLockRPPs() { return this.#cache.autoLockRPPs; }
+        set autoLockRPPs(value) { this.setValues({ autoLockRPPs: value }); }
+
+        get disableDuplicateFinderZoom() { return this.#cache.disableDuplicateFinderZoom; }
+        set disableDuplicateFinderZoom(value) { this.setValues({ disableDuplicateFinderZoom: value }); }
+
+        setValues(values, saveToStorage = true) {
             Object.assign(this.#cache, values);
-            this.saveToStorage();
+            if (saveToStorage) this.#saveToStorage();
+        }
+
+        #removeObsoleteSettings(storedSettings) {
+            Object.keys(storedSettings)
+                .filter(key => !this.#cache.hasOwnProperty(key))
+                .forEach(obsoleteKey => delete storedSettings[obsoleteKey]);
         }
 
         #loadFromStorage() {
             const storedSettingsStr = localStorage.getItem(this.#localStorageKey);
             if (storedSettingsStr) {
-                const storedSettings = JSON.parse(storedSettingsStr);
-                Object.assign(this, storedSettings);
+                try {
+                    const storedSettings = JSON.parse(storedSettingsStr);
+                    this.#removeObsoleteSettings(storedSettings);
+                    Object.assign(this.#cache, storedSettings);
+                } catch (ex) {
+                    console.error('WMEPH error loading stored settings. Using default settings. ', ex);
+                }
             }
 
-            if (localStorage.WMEPH_xrayMode_enabled) {
+            if (localStorage['WMEPH-ColorHighlighting']) {
                 // Old settings found. Upgrade and remove them.
-                this.#upgradeSetting('WMEPH_xrayMode_enabled', 'xrayModeEnabled', true);
+                this.#upgradeSetting('WMEPH-ColorHighlighting', 'enableHighlighting', 'binary');
+                this.#upgradeSetting('WMEPH_xrayMode_enabled', 'xrayModeEnabled', 'json');
+                this.#upgradeSetting('WMEPH-AddAddresses', 'addAddresses', 'binary');
+                this.#upgradeSetting('WMEPH-AutoLockRPPs', 'autoLockRPPs', 'binary');
+                this.#upgradeSetting('WMEPH-DisableDFZoom', 'disableDuplicateFinderZoom', 'binary');
                 this.#saveToStorage();
             }
         }
@@ -1401,15 +1431,28 @@
             localStorage.setItem(this.#localStorageKey, JSON.stringify(this.#cache));
         }
 
-        #upgradeSetting(oldSettingName, newSettingName, doParse) {
+        #upgradeSetting(oldSettingName, newSettingName, oldSettingType) {
             let oldValue = localStorage.getItem(oldSettingName);
             if (oldValue !== null) {
-                if (doParse) oldValue = JSON.parse(oldValue);
+                switch (oldSettingType) {
+                    case 'binary':
+                        oldValue = oldValue === '1';
+                        break;
+                    case 'json':
+                    case 'bool':
+                        oldValue = JSON.parse(oldValue);
+                        break;
+                    default:
+                        throw new Error('Invalid setting type');
+                }
                 this.#cache[newSettingName] = oldValue;
-                localStorage.removeItem(oldSettingName);
+                //localStorage.removeItem(oldSettingName);
             }
         }
     }
+
+    unsafeWindow.t1 = new Settings('whatever');
+    console.log(JSON.stringify(unsafeWindow.t1));
 
     const _settings = new Settings('wmephSettings');
 
@@ -2131,7 +2174,7 @@
                             if (inferredAddress && inferredAddress.attributes) inferredAddress = inferredAddress.attributes;
 
                             if (inferredAddress && inferredAddress.state && inferredAddress.country) {
-                                if ($('#WMEPH-AddAddresses').prop('checked')) { // update the item's address if option is enabled
+                                if (_settings.addAddresses) { // update the item's address if option is enabled
                                     updateAddress(venue, inferredAddress, actions);
                                     _UPDATED_FIELDS.address.updated = true;
                                     result = new Flag.FullAddressInference();
@@ -5100,7 +5143,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
         // Clear attributes from residential places
         if (item.attributes.residential) {
             if (!highlightOnly) {
-                if (!$('#WMEPH-AutoLockRPPs').prop('checked')) {
+                if (!_settings.autoLockRPPs) {
                     lockOK = false;
                 }
                 if (item.attributes.name !== '') { // Set the residential place name to the address (to clear any personal info)
@@ -6573,7 +6616,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
         _dupeHNRangeList = [];
         _dupeBanner = {};
         if (_newName.replace(/[^A-Za-z0-9]/g, '').length > 0 && !item.attributes.residential && !isEmergencyRoom(item) && !isRestArea(item)) {
-            if ($('#WMEPH-DisableDFZoom').prop('checked')) { // don't zoom and pan for results outside of FOV
+            if (_settings.disableDuplicateFinderZoom) { // don't zoom and pan for results outside of FOV
                 _duplicateName = findNearbyDuplicate(_newName, _newAliases, item, false);
             } else {
                 _duplicateName = findNearbyDuplicate(_newName, _newAliases, item, true);
@@ -8098,6 +8141,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
 
     function initSettingsCheckbox2(settingID) {
         $(`#WMEPH-${settingID}`).click(() => { _settings[settingID] = $(`#WMEPH-${settingID}`).prop('checked'); });
+        $(`#WMEPH-${settingID}`).prop('checked', _settings[settingID]);
     }
 
     // This routine will create a checkbox in the #PlaceHarmonizer tab and will load the setting
@@ -8114,11 +8158,12 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
         return $checkbox;
     }
     function createSettingsCheckbox2($div, settingID, textDescription) {
-        const $checkbox = $('<input>', { type: 'checkbox', id: `WMEPH-${settingID}` });
+        const checkboxId = `WMEPH-${settingID}`;
+        const $checkbox = $('<input>', { type: 'checkbox', id: checkboxId });
         $div.append(
             $('<div>', { class: 'controls-container' }).css({ paddingTop: '2px' }).append(
                 $checkbox,
-                $('<label>', { for: settingID }).text(textDescription).css({ whiteSpace: 'pre-line' })
+                $('<label>', { for: checkboxId }).text(textDescription).css({ whiteSpace: 'pre-line' })
             )
         );
         return $checkbox;
@@ -8357,7 +8402,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
 
         // Initialize settings checkboxes
         initSettingsCheckbox('WMEPH-WebSearchNewTab');
-        initSettingsCheckbox('WMEPH-DisableDFZoom');
+        initSettingsCheckbox2('disableDuplicateFinderZoom');
         initSettingsCheckbox('WMEPH-EnableIAZoom');
         initSettingsCheckbox('WMEPH-HidePlacesWiki');
         initSettingsCheckbox('WMEPH-HideReportError');
@@ -8367,9 +8412,9 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
         initSettingsCheckbox('WMEPH-ShowPLAExitWhileClosed');
         if (_USER.isDevUser || _USER.isBetaUser || _USER.rank >= 2) {
             initSettingsCheckbox('WMEPH-DisablePLAExtProviderCheck');
-            initSettingsCheckbox('WMEPH-AddAddresses');
+            initSettingsCheckbox2('addAddresses');
             initSettingsCheckbox('WMEPH-EnableCloneMode');
-            initSettingsCheckbox('WMEPH-AutoLockRPPs');
+            initSettingsCheckbox2('autoLockRPPs');
         }
         initSettingsCheckbox2('highlightingEnabled');
         initSettingsCheckbox('WMEPH-DisableHoursHL');
@@ -8444,7 +8489,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
 
         // Harmonizer settings
         createSettingsCheckbox($harmonizerTab, 'WMEPH-WebSearchNewTab', 'Open URL & Search Results in new tab instead of new window');
-        createSettingsCheckbox($harmonizerTab, 'WMEPH-DisableDFZoom', 'Disable zoom & center for duplicates');
+        createSettingsCheckbox2($harmonizerTab, 'disableDuplicateFinderZoom', 'Disable zoom & center for duplicates');
         createSettingsCheckbox($harmonizerTab, 'WMEPH-EnableIAZoom', 'Enable zoom & center for places with no address');
         createSettingsCheckbox($harmonizerTab, 'WMEPH-HidePlacesWiki', 'Hide "Places Wiki" button in results banner');
         createSettingsCheckbox($harmonizerTab, 'WMEPH-HideReportError', 'Hide "Report script error" button in results banner');
@@ -8454,9 +8499,9 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
         createSettingsCheckbox($harmonizerTab, 'WMEPH-ShowPLAExitWhileClosed', 'Always ask if cars can exit parking lots');
         if (_USER.isDevUser || _USER.isBetaUser || _USER.rank >= 2) {
             createSettingsCheckbox($harmonizerTab, 'WMEPH-DisablePLAExtProviderCheck', 'Disable check for "Google place link" on Parking Lot Areas');
-            createSettingsCheckbox($harmonizerTab, 'WMEPH-AddAddresses', 'Add detected address fields to places with no address');
+            createSettingsCheckbox2($harmonizerTab, 'addAddresses', 'Add detected address fields to places with no address');
             createSettingsCheckbox($harmonizerTab, 'WMEPH-EnableCloneMode', 'Enable place cloning tools');
-            createSettingsCheckbox($harmonizerTab, 'WMEPH-AutoLockRPPs', 'Lock residential place points to region default');
+            createSettingsCheckbox2($harmonizerTab, 'autoLockRPPs', 'Lock residential place points to region default');
         }
 
         $harmonizerTab.append('<hr class="wmeph-hr" align="center" width="100%">');
@@ -8818,7 +8863,6 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
 
         createObserver();
 
-        debugger;
         const xrayMode = _settings.xrayModeEnabled;
         WazeWrap.Interface.AddLayerCheckbox('Display', 'WMEPH x-ray mode', xrayMode, toggleXrayMode);
         if (xrayMode) setTimeout(() => toggleXrayMode(true), 2000); // Give other layers time to load before enabling.
