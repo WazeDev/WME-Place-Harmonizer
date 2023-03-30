@@ -2633,7 +2633,7 @@
             constructor(primaryCategory) {
                 super(true, _SEVERITY.RED, 'No street:', 'Edit address', 'Edit address to add street.');
                 if (['SCENIC_LOOKOUT_VIEWPOINT'].includes(primaryCategory)) {
-                    _buttonBanner.streetMissing.severity = _SEVERITY.BLUE;
+                    this.severity = _SEVERITY.BLUE;
                 } else {
                     this.noLock = true;
                 }
