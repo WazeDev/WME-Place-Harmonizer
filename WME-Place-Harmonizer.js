@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name        WME Place Harmonizer Beta
 // @namespace   WazeUSA
-// @version     2023.03.20.002
+// @version     2023.03.30.002
 // @description Harmonizes, formats, and locks a selected place
 // @author      WMEPH Development Group
 // @include     /^https:\/\/(www|beta)\.waze\.com\/(?!user\/)(.{2,6}\/)?editor\/?.*$/
@@ -1491,8 +1491,10 @@
             filter: new OpenLayers.Filter.Comparison({
                 type: '==',
                 value,
-                evaluate(venue) {
-                    return venue && venue.model && venue.model.attributes.wmephSeverity === this.value;
+                evaluate(feature) {
+                    // 2023-03-30 - Check for .model is necessary until .repositoryObject is implemented in production WME.
+                    const attr = feature.model ? feature.model.attributes : feature.attributes.repositoryObject?.attributes;
+                    return attr?.wmephSeverity === this.value;
                 }
             }),
             symbolizer,
@@ -1610,8 +1612,10 @@
             filter: new OpenLayers.Filter.Comparison({
                 type: '==',
                 value,
-                evaluate(venue) {
-                    return venue && venue.model && venue.model.attributes.wmephSeverity === this.value;
+                evaluate(feature) {
+                    // 2023-03-30 - Check for .model is necessary until .repositoryObject is implemented in production WME.
+                    const attr = feature.model ? feature.model.attributes : feature.attributes.repositoryObject?.attributes;
+                    return attr?.wmephSeverity === this.value;
                 }
             }),
             symbolizer,
@@ -1716,11 +1720,14 @@
                 filter: new OpenLayers.Filter.Comparison({
                     type: '==',
                     value,
-                    evaluate(venue) {
-                        if ($('#WMEPH-PLATypeFill').prop('checked') && venue && venue.model && venue.model.attributes.categories
-                            && venue.model.attributes.categoryAttributes && venue.model.attributes.categoryAttributes.PARKING_LOT
-                            && venue.model.attributes.categories.includes('PARKING_LOT')) {
-                            const type = venue.model.attributes.categoryAttributes.PARKING_LOT.parkingType;
+                    evaluate(feature) {
+                        // 2023-03-30 - Check for .model is necessary until .repositoryObject is implemented in production WME.
+                        const attr = feature.model ? feature.model.attributes : feature.attributes.repositoryObject?.attributes;
+
+                        if ($('#WMEPH-PLATypeFill').prop('checked') && attr
+                            && attr.categoryAttributes && attr.categoryAttributes.PARKING_LOT
+                            && attr.categories.includes('PARKING_LOT')) {
+                            const type = attr.categoryAttributes.PARKING_LOT.parkingType;
                             return (!type && this.value === 'public') || (type && (type.toLowerCase() === this.value));
                         }
                         return undefined;
@@ -1829,7 +1836,14 @@
                 }
             }));
 
-            W.map.venueLayer.events.register('beforefeaturesadded', null, e => errorHandler(() => applyHighlightsTest(e.features.map(f => f.model))));
+            // 2023-03-30 - beforefeaturesadded no longer works because data model objects may be reloaded without re-adding map features.
+            // The wmephSeverity property is stored in the venue data model object. One workaround to look into would be to
+            // store the wmephSeverity in the feature.
+            // W.map.venueLayer.events.register('beforefeaturesadded', null, e => errorHandler(() => applyHighlightsTest(e.features.map(f => f.model))));
+            W.model.venues.on('objectsadded', venues => {
+                applyHighlightsTest(venues);
+                _layer.redraw();
+            });
 
             // Clear the cache (highlight severities may need to be updated).
             _resultsCache = {};
@@ -2595,7 +2609,7 @@
                     // const centroid = venue.geometry.getCentroid();
                     // updateFeatureGeometry(venue, new OpenLayers.Geometry.Point(centroid.x, centroid.y));
                 } else {
-                    $('wz-button.geometry-type-control-point').click();
+                    $('wz-checkable-chip.geometry-type-control-point').click();
                 }
                 harmonizePlaceGo(venue, 'harmonize'); // Rerun the script to update fields and lock
             }
@@ -2616,7 +2630,7 @@
 
             // eslint-disable-next-line class-methods-use-this
             action() {
-                $('wz-button.geometry-type-control-area').click();
+                $('wz-checkable-chip.geometry-type-control-area').click();
                 const venue = getSelectedVenue();
                 // updateFeatureGeometry(venue, venue.getPolygonGeometry());
                 harmonizePlaceGo(venue, 'harmonize');
