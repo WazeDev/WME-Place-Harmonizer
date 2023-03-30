@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name        WME Place Harmonizer Beta
 // @namespace   WazeUSA
-// @version     2023.03.30.001
+// @version     2023.03.30.002
 // @description Harmonizes, formats, and locks a selected place
 // @author      WMEPH Development Group
 // @include     /^https:\/\/(www|beta)\.waze\.com\/(?!user\/)(.{2,6}\/)?editor\/?.*$/
@@ -1743,8 +1743,6 @@
                     _layer.redraw();
                 }
             }));
-
-            unsafeWindow._layer = _layer;
 
             // 2023-03-30 - beforefeaturesadded no longer works because data model objects may be reloaded without re-adding map features.
             // The wmephSeverity property is stored in the venue data model object. One workaround to look into would be to
