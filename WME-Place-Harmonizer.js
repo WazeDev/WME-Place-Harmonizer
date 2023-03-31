@@ -192,9 +192,9 @@
     const _PNH_DATA = { USA: {}, CAN: {} };
     const _CATEGORY_LOOKUP = {};
     const _DEFAULT_HOURS_TEXT = 'Paste Hours Here';
-    const _MAX_CACHE_SIZE = 25000;
+    // const _MAX_CACHE_SIZE = 25000;
     let _wordVariations;
-    let _resultsCache = {};
+    // let _resultsCache = {};
     let _initAlreadyRun = false; // This is used to skip a couple things if already run once.  This could probably be handled better...
     let _textEntryValues = null; // Store the values entered in text boxes so they can be re-added when the banner is reassembled.
 
@@ -270,22 +270,6 @@
     const _LOCK_LEVEL_4 = 3;
     let _defaultLockLevel = _LOCK_LEVEL_2;
     let _pnhLockLevel;
-    // const _PM_USER_LIST = { // user names and IDs for PM functions
-    //     SER: {
-    //         approvalActive: true,
-    //         mods: [
-    //             { id: '16888799', name: 'willdanneriv' },
-    //             // { id: '17083181', name: 'itzwolf' },
-    //             { id: '17077334', name: 'ardan74' }
-    //         ]
-    //     },
-    //     WMEPH: {
-    //         approvalActive: true,
-    //         mods: [
-    //             { id: '2647925', name: 'MapOMatic' }
-    //         ]
-    //     }
-    // };
     // An enum to help clarify flag severity levels
     const _SEVERITY = {
         GREEN: 0,
@@ -738,9 +722,9 @@
         }
     }; // END Shortcut function
 
-    function errorHandler(callback) {
+    function errorHandler(callback, ...args) {
         try {
-            callback();
+            callback(...args);
         } catch (ex) {
             console.error(`${_SCRIPT_NAME}:`, ex);
         }
@@ -1037,12 +1021,12 @@
         }
     }
 
-    function phlog(msg) {
-        console.log(`WMEPH${_IS_BETA_VERSION ? '-β' : ''}:`, msg);
+    function log(...args) {
+        console.log(`WMEPH${_IS_BETA_VERSION ? '-β' : ''}:`, ...args);
     }
-    function phlogdev(msg) {
+    function logDev(...args) {
         if (_USER.isDevUser) {
-            console.log(`WMEPH${_IS_BETA_VERSION ? '-β' : ''} (dev):`, msg);
+            console.debug(`WMEPH${_IS_BETA_VERSION ? '-β' : ''} (dev):`, ...args);
         }
     }
 
@@ -1098,7 +1082,7 @@
                         _dupeLayer.removeFeatures(deletedDupe);
                         _dupeIDList.splice(_dupeIDList.indexOf(lastAction.object.attributes.id), 1);
                     }
-                    phlog('Deleted a dupe');
+                    log('Deleted a dupe');
                 }
             }
         }, 20);
@@ -1266,7 +1250,7 @@
 
             // if a match was found:
             if (PNHStringMatch) { // Compare WME place name to PNH search name list
-                phlogdev(`Matched PNH Order No.: ${pnhEntrySplits[phOrderIdx]}`);
+                logDev(`Matched PNH Order No.: ${pnhEntrySplits[phOrderIdx]}`);
 
                 const PNHPriCat = catTranslate(pnhEntrySplits[phCategory1Idx]); // Primary category of PNH data
                 let PNHForceCat = pnhEntrySplits[phForceCatIdx]; // Primary category of PNH data
@@ -1331,20 +1315,76 @@
         return ['NoMatch'];
     } // END harmoList function
 
-    function onObjectsChanged() {
+    const _severityCache = {};
+    function onVenuesAdded(venues) {
+        logDev('onVenuesAdded:', venues.length);
+        if (_enableColorHighlighting) {
+            const t0 = performance.now();
+            venues.forEach(venue => {
+                const { id } = venue.attributes;
+                if (!_severityCache.hasOwnProperty(id)) {
+                    const severity = harmonizePlaceGo(venue, 'highlight');
+                    _severityCache[id] = severity;
+                }
+            });
+            logDev('severityCache size:', Object.keys(_severityCache).length);
+            logDev(`Ran highlighter in ${Math.round((performance.now() - t0) * 10) / 10000} seconds.`);
+        } else {
+            logDev('Highlighting disabled');
+        }
+    }
+
+    function onVenuesRemoved(venues) {
+        logDev('onVenuesRemoved:', venues.length);
+        venues.forEach(venue => {
+            // TODO: mark for removal from cache, if old/outdated
+            //delete _severityCache[venue.attributes.id];
+        });
+    }
+
+    function onVenueIdChanged(ids) {
+        logDev('onVenueIdChanged:', ids);
+        if (_severityCache.hasOwnProperty(ids.newID)) {
+            const severity = _severityCache[ids.newID];
+            delete _severityCache[ids.oldID];
+            _severityCache[ids.newID] = severity;
+        }
+    }
+
+    function onVenuesChanged(venues) {
+        logDev('onVenuesChanged: ', venues);
+
         deleteDupeLabel();
 
         // This is code to handle updating the banner when changes are made external to the script.
-        const venue = getSelectedVenue();
-        if ($('#WMEPH_banner').length > 0 && venue) {
+        const selectedVenue = getSelectedVenue();
+        if (selectedVenue && $('#WMEPH_banner').length) {
             const actions = W.model.actionManager.getActions();
             const lastAction = actions[actions.length - 1];
-            if (lastAction && lastAction.object && lastAction.object.type === 'venue' && lastAction.attributes && lastAction.attributes.id === venue.attributes.id) {
-                if (lastAction.newAttributes && lastAction.newAttributes.entryExitPoints) {
-                    harmonizePlaceGo(venue, 'harmonize');
-                }
+            if (lastAction?.object?.type === 'venue' && lastAction.attributes?.id === selectedVenue.attributes.id
+                && lastAction.newAttributes?.entryExitPoints) {
+                harmonizePlaceGo(selectedVenue, 'harmonize');
+            }
+
+            // Update the services banner
+            updateServicesChecks();
+            assembleServicesBanner();
+        }
+
+        // Update cached severities
+        if (_enableColorHighlighting) {
+            venues.forEach(venue => {
+                _severityCache[venue.attributes.id] = harmonizePlaceGo(venue, 'highlight');
+            });
+            if (!_disableHighlightTest) {
+                _layer.redraw();
             }
         }
+    }
+
+    function onBeforeVenueFeaturesAdded(e) {
+        logDev('beforefeaturesadded: ', e.features.length);
+        onVenuesAdded(e.features.map(feature => (feature.model ? feature.model : feature.attributes.repositoryObject)));
     }
 
     // This should be called after new venues are saved (using venues'objectssynced' event), so the new IDs can be retrieved and used
@@ -1399,9 +1439,14 @@
                 type: '==',
                 value,
                 evaluate(feature) {
-                    // 2023-03-30 - Check for .model is necessary until .repositoryObject is implemented in production WME.
-                    const attr = feature.model ? feature.model.attributes : feature.attributes.repositoryObject?.attributes;
-                    return attr?.wmephSeverity === this.value;
+                    if (_enableColorHighlighting) {
+                        // 2023-03-30 - Check for .model is necessary until .repositoryObject is implemented in production WME.
+                        const venue = feature.model ? feature.model : feature.attributes.repositoryObject;
+                        if (venue) {
+                            return _severityCache[venue.attributes.id] === this.value;
+                        }
+                    }
+                    return false;
                 }
             }),
             symbolizer,
@@ -1520,9 +1565,14 @@
                 type: '==',
                 value,
                 evaluate(feature) {
-                    // 2023-03-30 - Check for .model is necessary until .repositoryObject is implemented in production WME.
-                    const attr = feature.model ? feature.model.attributes : feature.attributes.repositoryObject?.attributes;
-                    return attr?.wmephSeverity === this.value;
+                    if (_enableColorHighlighting) {
+                        // 2023-03-30 - Check for .model is necessary until .repositoryObject is implemented in production WME.
+                        const venue = feature.model ? feature.model : feature.attributes.repositoryObject;
+                        if (venue) {
+                            return _severityCache[venue.attributes.id] === this.value;
+                        }
+                    }
+                    return false;
                 }
             }),
             symbolizer,
@@ -1662,108 +1712,11 @@
             severity3, severity4, severityHigh, severityAdLock, publicPLA, restrictedPLA, privatePLA]);
     }
 
-    /**
-    * To highlight a place, set the wmephSeverity attribute to the desired highlight level.
-    * @param venues {array of venues, or single venue} Venues to check for highlights.
-    * @param force {boolean} Force recalculation of highlights, rather than using cached results.
-    */
-    function applyHighlightsTest(venues, force) {
-        if (!_layer) return;
-
-        // Make sure venues is an array, or convert it to one if not.
-        if (venues) {
-            if (!Array.isArray(venues)) {
-                venues = [venues];
-            }
-        } else {
-            venues = [];
-        }
-
-        const storedBannButt = _buttonBanner;
-        const storedBannServ = _servicesBanner;
-        const storedBannButt2 = _buttonBanner2;
-        const t0 = performance.now();
-        const doHighlight = $('#WMEPH-ColorHighlighting').prop('checked');
-        const disableRankHL = $('#WMEPH-DisableRankHL').prop('checked');
-
-        venues.forEach(venue => {
-            if (venue && venue.type === 'venue' && venue.attributes) {
-                // Highlighting logic would go here
-                // Severity can be: 0, 'lock', 1, 2, 3, 4, or 'high'. Set to
-                // anything else to use default WME style.
-                if (doHighlight && !(disableRankHL && venue.attributes.lockRank > _USER.rank - 1)) {
-                    try {
-                        const { id } = venue.attributes;
-                        let severity;
-                        let cachedResult;
-                        // eslint-disable-next-line no-cond-assign
-                        if (force || !isNaN(id) || ((cachedResult = _resultsCache[id]) === undefined) || (venue.updatedOn > cachedResult.u)) {
-                            severity = harmonizePlaceGo(venue, 'highlight');
-                            if (isNaN(id)) _resultsCache[id] = { s: severity, u: venue.updatedOn || -1 };
-                        } else {
-                            severity = cachedResult.s;
-                        }
-                        venue.attributes.wmephSeverity = severity;
-                    } catch (err) {
-                        console.error('WMEPH highlight error: ', err);
-                    }
-                } else {
-                    venue.attributes.wmephSeverity = 'default';
-                }
-            }
-        });
-
-        // Trim the cache if it's over the max size limit.
-        const keys = Object.keys(_resultsCache);
-        if (keys.length > _MAX_CACHE_SIZE) {
-            const trimSize = _MAX_CACHE_SIZE * 0.8;
-            for (let i = keys.length - 1; i > trimSize; i--) {
-                delete _resultsCache[keys[i]];
-            }
-        }
-
-        const venue = getSelectedVenue();
-        if (venue) {
-            venue.attributes.wmephSeverity = harmonizePlaceGo(venue, 'highlight');
-            _buttonBanner = storedBannButt;
-            _servicesBanner = storedBannServ;
-            _buttonBanner2 = storedBannButt2;
-        }
-        phlogdev(`Ran highlighter in ${Math.round((performance.now() - t0) * 10) / 10} milliseconds.`);
-        phlogdev(`WMEPH cache size: ${Object.keys(_resultsCache).length}`);
-    }
-
     // Set up CH loop
     function bootstrapWmephColorHighlights() {
-        if (localStorage.getItem('WMEPH-ColorHighlighting') === '1') {
-            // Add listeners
-            W.model.venues.on('objectschanged', e => errorHandler(() => {
-                if (!_disableHighlightTest) {
-                    applyHighlightsTest(e, true);
-                    _layer.redraw();
-                }
-            }));
-
-            // 2023-03-30 - beforefeaturesadded no longer works because data model objects may be reloaded without re-adding map features.
-            // The wmephSeverity property is stored in the venue data model object. One workaround to look into would be to
-            // store the wmephSeverity in the feature.
-            // W.map.venueLayer.events.register('beforefeaturesadded', null, e => errorHandler(() => applyHighlightsTest(e.features.map(f => f.model))));
-            W.model.venues.on('objectsadded', venues => {
-                applyHighlightsTest(venues);
-                _layer.redraw();
-            });
-
-            // Clear the cache (highlight severities may need to be updated).
-            _resultsCache = {};
-
-            // Apply the colors
-            applyHighlightsTest(W.model.venues.getObjectArray());
-            _layer.redraw();
-        } else {
-            // reset the colors to default
-            applyHighlightsTest(W.model.venues.getObjectArray());
-            _layer.redraw();
-        }
+        // Apply the colors
+        onVenuesAdded(W.model.venues.getObjectArray());
+        _layer.redraw();
     }
 
     // Change place.name to title case
@@ -2012,7 +1965,7 @@
             _disableHighlightTest = true;
             harmonizePlaceGo(venue, 'harmonize');
             _disableHighlightTest = false;
-            applyHighlightsTest(venue);
+            // applyHighlightsTest(venue);
         } else { // Remove duplicate labels
             destroyDupeLabels();
         }
@@ -2117,7 +2070,7 @@
                     } else {
                         const cat = venue.attributes.categories;
                         if (containsAny(cat, ['HOSPITAL_MEDICAL_CARE', 'HOSPITAL_URGENT_CARE', 'GAS_STATION'])) {
-                            phlogdev('Unaddressed HUC/GS');
+                            logDev('Unaddressed HUC/GS');
                             result.severity = _SEVERITY.PINK;
                         } else if (cat.includes('JUNCTION_INTERCHANGE')) {
                             result.severity = _SEVERITY.GREEN;
@@ -2313,7 +2266,7 @@
                 _disableHighlightTest = true;
                 harmonizePlaceGo(venue, 'harmonize');
                 _disableHighlightTest = false;
-                applyHighlightsTest(venue);
+                // applyHighlightsTest(venue);
             }
         },
         EVChargingStationWarning: class extends FlagBase {
@@ -2563,7 +2516,7 @@
 
             action() {
                 const newHN = $('#WMEPH-HNAdd').val().replace(/\s+/g, '');
-                phlogdev(newHN);
+                logDev(newHN);
                 const hnTemp = newHN.replace(/[^\d]/g, '');
                 const hnTempDash = newHN.replace(/[^\d-]/g, '');
                 if (hnTemp > 0 && hnTemp < 1000000) {
@@ -3370,7 +3323,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                     $('input#WMEPH-UrlAdd').css({ backgroundColor: '#FDD' }).attr('title', 'Invalid URL format');
                     // this.badInput = true;
                 } else {
-                    phlogdev(newUrl);
+                    logDev(newUrl);
                     W.model.actionManager.add(new UpdateObject(venue, { url: newUrl }));
                     _UPDATED_FIELDS.url.updated = true;
                     harmonizePlaceGo(venue, 'harmonize');
@@ -3401,7 +3354,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                     this.badInput = true;
                 } else {
                     this.badInput = false;
-                    phlogdev(newPhone);
+                    logDev(newPhone);
                     W.model.actionManager.add(new UpdateObject(venue, { phone: newPhone }));
                     _UPDATED_FIELDS.phone.updated = true;
                     harmonizePlaceGo(venue, 'harmonize');
@@ -3489,7 +3442,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                     this.badInput = true;
                 } else {
                     this.badInput = false;
-                    phlogdev(newPhone);
+                    logDev(newPhone);
                     W.model.actionManager.add(new UpdateObject(this.venue, { phone: newPhone }));
                     _UPDATED_FIELDS.phone.updated = true;
                     harmonizePlaceGo(this.venue, 'harmonize');
@@ -3518,19 +3471,19 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                 if (pasteHours === _DEFAULT_HOURS_TEXT) {
                     return;
                 }
-                phlogdev(pasteHours);
+                logDev(pasteHours);
                 pasteHours += !replaceAllHours ? `,${getOpeningHours(venue).join(',')}` : '';
                 $('.nav-tabs a[href="#venue-edit-more-info"]').tab('show');
                 const parser = new HoursParser();
                 const parseResult = parser.parseHours(pasteHours);
                 if (parseResult.hours && !parseResult.overlappingHours && !parseResult.sameOpenAndCloseTimes && !parseResult.parseError) {
-                    phlogdev(parseResult.hours);
+                    logDev(parseResult.hours);
                     W.model.actionManager.add(new UpdateObject(venue, { openingHours: parseResult.hours }));
                     _UPDATED_FIELDS.openingHours.updated = true;
                     $('#WMEPH-HoursPaste').val(_DEFAULT_HOURS_TEXT);
                     harmonizePlaceGo(venue, 'harmonize');
                 } else {
-                    phlog('Can\'t parse those hours');
+                    log('Can\'t parse those hours');
                     this.severity = _SEVERITY.BLUE;
                     this.WLactive = true;
                     $('#WMEPH-HoursPaste').css({ 'background-color': '#FDD' }).attr({ title: this.getTitle(parseResult) });
@@ -3873,7 +3826,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
             action() {
                 const venue = getSelectedVenue();
                 let RPPlevelToLock = $('#RPPLockLevel :selected').val() || _defaultLockLevel + 1;
-                phlogdev(`RPPlevelToLock: ${RPPlevelToLock}`);
+                logDev(`RPPlevelToLock: ${RPPlevelToLock}`);
 
                 RPPlevelToLock -= 1;
                 W.model.actionManager.add(new UpdateObject(venue, { lockRank: RPPlevelToLock }));
@@ -5069,31 +5022,31 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                     lockOK = false;
                 }
                 if (item.attributes.name !== '') { // Set the residential place name to the address (to clear any personal info)
-                    phlogdev('Residential Name reset');
+                    logDev('Residential Name reset');
                     actions.push(new UpdateObject(item, { name: '' }));
                     // no field HL
                 }
                 _newCategories = ['RESIDENCE_HOME'];
                 // newDescripion = null;
                 if (item.attributes.description !== null && item.attributes.description !== '') { // remove any description
-                    phlogdev('Residential description cleared');
+                    logDev('Residential description cleared');
                     actions.push(new UpdateObject(item, { description: null }));
                     // no field HL
                 }
                 // newPhone = null;
                 if (item.attributes.phone !== null && item.attributes.phone !== '') { // remove any phone info
-                    phlogdev('Residential Phone cleared');
+                    logDev('Residential Phone cleared');
                     actions.push(new UpdateObject(item, { phone: null }));
                     // no field HL
                 }
                 // newURL = null;
                 if (item.attributes.url !== null && item.attributes.url !== '') { // remove any url
-                    phlogdev('Residential URL cleared');
+                    logDev('Residential URL cleared');
                     actions.push(new UpdateObject(item, { url: null }));
                     // no field HL
                 }
                 if (item.attributes.services.length > 0) {
-                    phlogdev('Residential services cleared');
+                    logDev('Residential services cleared');
                     actions.push(new UpdateObject(item, { services: [] }));
                     // no field HL
                 }
@@ -5287,7 +5240,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                             if (item.attributes.brand !== forceBrand) {
                                 actions.push(new UpdateObject(item, { brand: forceBrand }));
                                 _UPDATED_FIELDS.brand.updated = true;
-                                phlogdev('Gas brand updated from PNH');
+                                logDev('Gas brand updated from PNH');
                             }
                         }
 
@@ -5421,7 +5374,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                     for (let catix = 0; catix < altCategories.length; catix++) {
                         const newAltTemp = catTranslate(altCategories[catix]); // translate altCats into WME cat codes
                         if (newAltTemp === 'ERROR') { // if no translation, quit the loop
-                            phlog(`Category ${altCategories[catix]} cannot be translated.`);
+                            log(`Category ${altCategories[catix]} cannot be translated.`);
                             return undefined;
                         }
                         altCategories[catix] = newAltTemp; // replace with translated element
@@ -5585,12 +5538,12 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                 // update categories if different and no Cat2 option
                 if (!matchSets(_.uniq(item.attributes.categories), _.uniq(_newCategories))) {
                     if (!specCases.includes('optionCat2') && !specCases.includes('buttOn_addCat2')) {
-                        phlogdev(`Categories updated with ${_newCategories}`);
+                        logDev(`Categories updated with ${_newCategories}`);
                         actions.push(new UpdateObject(item, { categories: _newCategories }));
                         // W.model.actionManager.add(new UpdateObject(item, { categories: newCategories }));
                         _UPDATED_FIELDS.categories.updated = true;
                     } else { // if second cat is optional
-                        phlogdev(`Primary category updated with ${priPNHPlaceCat}`);
+                        logDev(`Primary category updated with ${priPNHPlaceCat}`);
                         _newCategories = insertAtIX(_newCategories, priPNHPlaceCat, 0);
                         actions.push(new UpdateObject(item, { categories: _newCategories }));
                         _UPDATED_FIELDS.categories.updated = true;
@@ -5605,7 +5558,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                     if (item.attributes.description !== '' && item.attributes.description !== null && item.attributes.description !== ' ') {
                         _buttonBanner.checkDescription = new Flag.CheckDescription();
                     }
-                    phlogdev('Description updated');
+                    logDev('Description updated');
                     newDescripion = `${newDescripion}\n${item.attributes.description}`;
                     actions.push(new UpdateObject(item, { description: newDescripion }));
                     _UPDATED_FIELDS.description.updated = true;
@@ -5681,7 +5634,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
             if (!highlightOnly) {
                 // Update name:
                 if ((_newName + (newNameSuffix || '')) !== item.attributes.name) {
-                    phlogdev('Name updated');
+                    logDev('Name updated');
                     actions.push(new UpdateObject(item, { name: _newName + (newNameSuffix || '') }));
                     // actions.push(new UpdateObject(item, { name: newName }));
                     _UPDATED_FIELDS.name.updated = true;
@@ -5690,7 +5643,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                 // Update aliases
                 _newAliases = removeSFAliases(_newName, _newAliases);
                 if (_newAliases.some(alias => !item.attributes.aliases.includes(alias)) || _newAliases.length !== item.attributes.aliases.length) {
-                    phlogdev('Alt Names updated');
+                    logDev('Alt Names updated');
                     actions.push(new UpdateObject(item, { aliases: _newAliases }));
                     _UPDATED_FIELDS.aliases.updated = true;
                 }
@@ -5984,7 +5937,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                 for (let ohix = 0; ohix < item.attributes.openingHours.length; ohix++) {
                     if (tempHours[ohix].days.length === 2 && tempHours[ohix].days[0] === 1 && tempHours[ohix].days[1] === 0) {
                         // separate hours
-                        phlogdev('Correcting M-S entry...');
+                        logDev('Correcting M-S entry...');
                         tempHours.push(new OpeningHour({ days: [0], fromHour: tempHours[ohix].fromHour, toHour: tempHours[ohix].toHour }));
                         tempHours[ohix].days = [1];
                         actions.push(new UpdateObject(item, { openingHours: tempHours }));
@@ -6015,7 +5968,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                             _buttonBanner.longURL.WLactive = false;
                         }
                         if (!highlightOnly && _updateURL && itemURL !== item.attributes.url) { // Update the URL
-                            phlogdev('URL formatted');
+                            logDev('URL formatted');
                             actions.push(new UpdateObject(item, { url: itemURL }));
                             _UPDATED_FIELDS.url.updated = true;
                         }
@@ -6024,7 +5977,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                     }
                 }
                 if (!highlightOnly && _updateURL && _newURL !== 'badURL' && _newURL !== item.attributes.url) { // Update the URL
-                    phlogdev('URL updated');
+                    logDev('URL updated');
                     actions.push(new UpdateObject(item, { url: _newURL }));
                     _UPDATED_FIELDS.url.updated = true;
                 }
@@ -6049,7 +6002,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                 }
             }
             if (!highlightOnly && _newPhone !== item.attributes.phone) {
-                phlogdev('Phone updated');
+                logDev('Phone updated');
                 actions.push(new UpdateObject(item, { phone: _newPhone }));
                 _UPDATED_FIELDS.phone.updated = true;
             }
@@ -6310,7 +6263,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                     if (_newName + newSuffix !== item.attributes.name) {
                         actions.push(new UpdateObject(item, { name: _newName + newSuffix }));
                         _UPDATED_FIELDS.name.updated = true;
-                        phlogdev('Lower case "mile"');
+                        logDev('Lower case "mile"');
                     } else {
                         // The new name matches the original name, so the only change would have been to capitalize "Mile", which
                         // we don't want. So remove any previous name-change action.  Note: this feels like a hack and is probably
@@ -6360,7 +6313,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
         // final formatting of desired lock levels
         let levelToLock;
         if (_pnhLockLevel !== -1 && !highlightOnly) {
-            phlogdev(`PNHLockLevel: ${_pnhLockLevel}`);
+            logDev(`PNHLockLevel: ${_pnhLockLevel}`);
             levelToLock = _pnhLockLevel;
         } else {
             levelToLock = _defaultLockLevel;
@@ -6401,14 +6354,14 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
         if (!highlightOnly) {
             // Update the lockOK value if "noLock" is set on any flag.
             lockOK &&= !Object.keys(_buttonBanner).some(key => _buttonBanner[key]?.noLock);
-            phlogdev(`Severity: ${_severityButt}; lockOK: ${lockOK}`);
+            logDev(`Severity: ${_severityButt}; lockOK: ${lockOK}`);
         }
 
         let hlLockFlag = false;
         if (lockOK && _severityButt < _SEVERITY.YELLOW) {
             if (item.attributes.lockRank < levelToLock) {
                 if (!highlightOnly) {
-                    phlogdev('Venue locked!');
+                    logDev('Venue locked!');
                     actions.push(new UpdateObject(item, { lockRank: levelToLock }));
                     _UPDATED_FIELDS.lock.updated = true;
                 } else if (highlightOnly) {
@@ -6646,10 +6599,10 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                     _buttonBanner.HNRange.severity = _SEVERITY.RED;
                 }
                 // show stats if HN out of range
-                phlogdev(`HNs: ${dupeHNRangeListSorted}`);
-                phlogdev(`Distances: ${_dupeHNRangeDistList}`);
-                phlogdev(`arrayHNRatio: ${arrayHNRatio}`);
-                phlogdev(`HN Ratio Score: ${arrayHNRatio[Math.round(arrayHNRatio.length / 2)]}`);
+                logDev(`HNs: ${dupeHNRangeListSorted}`);
+                logDev(`Distances: ${_dupeHNRangeDistList}`);
+                logDev(`arrayHNRatio: ${arrayHNRatio}`);
+                logDev(`HN Ratio Score: ${arrayHNRatio[Math.round(arrayHNRatio.length / 2)]}`);
             }
         }
 
@@ -6680,7 +6633,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
     function assembleBanner() {
         const venue = getSelectedVenue();
         if (!venue) return;
-        phlogdev('Building banners');
+        logDev('Building banners');
         let dupesFound = 0;
         let rowData;
         let $rowDiv;
@@ -6769,10 +6722,6 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                 rowDivs.push($rowDiv);
             }
         });
-
-        if ($('#WMEPH-ColorHighlighting').prop('checked')) {
-            venue.attributes.wmephSeverity = _severityButt;
-        }
 
         if ($('#WMEPH_banner').length === 0) {
             $('<div id="WMEPH_banner">').prependTo('#wmeph-panel');
@@ -7216,7 +7165,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                     _cloneMaster.services = venue.attributes.services;
                     _cloneMaster.openingHours = venue.attributes.openingHours;
                     _cloneMaster.isPLA = venue.isParkingLot();
-                    phlogdev('Place Cloned');
+                    logDev('Place Cloned');
                 };
             } else {
                 setTimeout(initWmephPanel, 100);
@@ -7329,7 +7278,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
 
     // Function to clone info from a place
     function clonePlace() {
-        phlog('Cloning info...');
+        log('Cloning info...');
         if (_cloneMaster !== null && _cloneMaster.hasOwnProperty('url')) {
             const venue = getSelectedVenue();
             const cloneItems = {};
@@ -7360,7 +7309,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
             }
             if (updateItem) {
                 W.model.actionManager.add(new UpdateObject(venue, cloneItems));
-                phlogdev('Item details cloned');
+                logDev('Item details cloned');
             }
 
             const copyStreet = isChecked('WMEPH_CPstr');
@@ -7375,10 +7324,10 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                     country: copyCity ? _cloneMaster.addr.country : originalAddress.attributes.country
                 };
                 updateAddress(venue, itemRepl);
-                phlogdev('Item address cloned');
+                logDev('Item address cloned');
             }
         } else {
-            phlog('Please copy a place');
+            log('Please copy a place');
         }
     }
 
@@ -7636,7 +7585,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                             _dupeLayer.setVisibility(true); // If anything found, make visible the dupe layer
 
                             const labelText = nameMatch ? testVenueAttr.name : `${testVenueAttr.aliases[altNameMatch]} (Alt)`;
-                            phlogdev(`Possible duplicate found. WME place: ${selectedVenueName} / Nearby place: ${labelText}`);
+                            logDev(`Possible duplicate found. WME place: ${selectedVenueName} / Nearby place: ${labelText}`);
 
                             // Reformat the name into multiple lines based on length
                             const labelTextBuild = [];
@@ -7925,7 +7874,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
             } else {
                 W.model.actionManager.add(action);
             }
-            phlogdev('Address inferred and updated');
+            logDev('Address inferred and updated');
         }
     } // END updateAddress function
 
@@ -8170,7 +8119,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
         } else { // try to merge uncompressed WL data
             _WLSToMerge = validateWLS($('#WMEPH-WLInput').val());
             if (_WLSToMerge) {
-                phlog('Whitelists merged!');
+                log('Whitelists merged!');
                 _venueWhitelist = mergeWL(_venueWhitelist, _WLSToMerge);
                 saveWhitelistToLS(true);
                 $wlToolsMsg.append('<p style="color:green">Whitelist data merged<p>');
@@ -8178,7 +8127,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
             } else { // try compressed WL
                 _WLSToMerge = validateWLS(LZString.decompressFromUTF16($('#WMEPH-WLInput').val()));
                 if (_WLSToMerge) {
-                    phlog('Whitelists merged!');
+                    log('Whitelists merged!');
                     _venueWhitelist = mergeWL(_venueWhitelist, _WLSToMerge);
                     saveWhitelistToLS(true);
                     $wlToolsMsg.append('<p style="color:green">Whitelist data merged<p>');
@@ -8300,7 +8249,15 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
         window.open(`https://docs.google.com/forms/d/1k_5RyOq81Fv4IRHzltC34kW3IUbXnQqDVMogwJKFNbE/viewform?entry.1173700072=${_USER.name}`);
     }
 
+    function onEnableColorHighlightingChanged() {
+        if (_enableColorHighlighting) {
+            onVenuesAdded(W.model.venues.getObjectArray());
+        }
+        _layer.redraw();
+    }
+
     // settings tab
+    let _enableColorHighlighting = true;
     function initWmephTab() {
         // Enable certain settings by default if not set by the user:
         setCheckedByDefault('WMEPH-ColorHighlighting');
@@ -8324,6 +8281,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
             initSettingsCheckbox('WMEPH-AutoLockRPPs');
         }
         initSettingsCheckbox('WMEPH-ColorHighlighting');
+        _enableColorHighlighting = localStorage.getItem('WMEPH-ColorHighlighting') === '1';
         initSettingsCheckbox('WMEPH-DisableHoursHL');
         initSettingsCheckbox('WMEPH-DisableRankHL');
         initSettingsCheckbox('WMEPH-DisableWLHL');
@@ -8365,11 +8323,14 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
         $('#WMEPH-WLShare').click(onWLShareClick);
 
         // Color highlighting
-        $('#WMEPH-ColorHighlighting').click(bootstrapWmephColorHighlights);
+        $('#WMEPH-ColorHighlighting').click(() => {
+            _enableColorHighlighting = $('#WMEPH-ColorHighlighting').prop('checked');
+            onEnableColorHighlightingChanged();
+        });
         $('#WMEPH-DisableHoursHL').click(bootstrapWmephColorHighlights);
         $('#WMEPH-DisableRankHL').click(bootstrapWmephColorHighlights);
         $('#WMEPH-DisableWLHL').click(bootstrapWmephColorHighlights);
-        $('#WMEPH-PLATypeFill').click(() => applyHighlightsTest(W.model.venues.getObjectArray()));
+        $('#WMEPH-PLATypeFill').click(() => _layer.redraw()); // applyHighlightsTest(W.model.venues.getObjectArray()));
 
         _initAlreadyRun = true;
     }
@@ -8824,8 +8785,12 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
         // Event listeners
         W.selectionManager.events.register('selectionchanged', this, () => errorHandler(initWmephPanel));
         W.model.venues.on('objectssynced', () => errorHandler(destroyDupeLabels));
-        W.model.venues.on('objectssynced', e => errorHandler(() => syncWL(e)));
-        W.model.venues.on('objectschanged', () => errorHandler(onObjectsChanged));
+        W.model.venues.on('objectssynced', e => errorHandler(syncWL, e));
+        // W.model.venues.on('objectsadded', venues => errorHandler(onVenuesAdded, venues));
+        W.model.venues.on('objectsremoved', venues => errorHandler(onVenuesRemoved, venues));
+        W.model.venues.on('objectschanged', venues => errorHandler(onVenuesChanged, venues));
+        W.model.venues.on('objectschanged-id', ids => errorHandler(onVenueIdChanged, ids));
+        W.map.venueLayer.events.register('beforefeaturesadded', null, e => errorHandler(onBeforeVenueFeaturesAdded, e));
 
         // Remove any temporary ID values (ID < 0) from the WL store at startup.
         let removedWLCount = 0;
@@ -8837,7 +8802,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
         });
         if (removedWLCount > 0) {
             saveWhitelistToLS(true);
-            phlogdev(`Removed ${removedWLCount} venues with temporary ID's from WL store`);
+            logDev(`Removed ${removedWLCount} venues with temporary ID's from WL store`);
         }
 
         if (!_wmephBetaList || _wmephBetaList.length === 0) {
@@ -8874,14 +8839,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
         // Setup highlight colors
         initializeHighlights();
 
-        W.model.venues.on('objectschanged', () => errorHandler(() => {
-            if ($('#WMEPH_banner').length > 0) {
-                updateServicesChecks();
-                assembleServicesBanner();
-            }
-        }));
-
-        phlog('Starting Highlighter');
+        log('Starting Highlighter');
         bootstrapWmephColorHighlights();
     } // END placeHarmonizer_init function
 
@@ -8890,7 +8848,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
             WazeWrap.Interface.ShowScriptUpdate(_SCRIPT_NAME, _SCRIPT_VERSION, _SCRIPT_UPDATE_MESSAGE);
             placeHarmonizerInit();
         } else {
-            phlog('Waiting for WME map and login...');
+            log('Waiting for WME map and login...');
             setTimeout(placeHarmonizerBootstrap, 200);
         }
     }
