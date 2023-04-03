@@ -342,6 +342,7 @@
     let _ixATM;
     let _ixOffices;
     let _layer;
+    let _severityCache;
 
     const _UPDATED_FIELDS = {
         name: {
@@ -1315,39 +1316,165 @@
         return ['NoMatch'];
     } // END harmoList function
 
-    const _severityCache = {};
-    function onVenuesAdded(venues) {
-        logDev('onVenuesAdded:', venues.length);
-        if (_enableColorHighlighting) {
-            const t0 = performance.now();
+    class SeverityCache {
+        #cleanIntervalMinutes = 10;
+        #cleanTimer;
+        #doCacheClean = false;
+        #cache = {};
+
+        stop() {
+            logDev('SeverityCache.stop');
+            this.#unhookEventHandlers();
+            this.#stopCleanTimer();
+        }
+
+        start() {
+            logDev('SeverityCache.start');
+            this.#cache = {};
+            this.#addAllVenuesToCache();
+            this.#hookEventHandlers();
+            this.#startCleanTimer();
+        }
+
+        getSeverity(venue) {
+            const { id } = venue.attributes;
+            if (!this.#cache.hasOwnProperty(id)) {
+                this.#addVenuesToCache([venue]);
+            }
+            return this.#cache[id].severity;
+        }
+
+        #hookEventHandlers() {
+            logDev('SeverityCache.#hookEventHandlers');
+            // W.model.venues.on('objectsadded', this.#onVenuesAddedToModel);
+            W.map.venueLayer.events.register('beforefeaturesadded', this, this.#onBeforeFeaturesAddedToLayer);
+            W.model.venues.on('objectsremoved', this.#onVenuesRemovedFromModel, this);
+            W.model.venues.on('objectschanged-id', this.#onVenueIdsChangedInModel, this);
+            W.model.venues.on('objectschanged', this.#onVenuesChangedInModel, this);
+        }
+
+        #unhookEventHandlers() {
+            logDev('SeverityCache.#unhookEventHandlers');
+            // W.model.venues.off('objectsadded', this.#onVenuesAddedToModel);
+            W.map.venueLayer.events.unregister('beforefeaturesadded', this, this.#onBeforeFeaturesAddedToLayer);
+            W.model.venues.off('objectsremoved', this.#onVenuesRemovedFromModel, this);
+            W.model.venues.off('objectschanged-id', this.#onVenueIdsChangedInModel, this);
+            W.model.venues.off('objectschanged', this.#onVenuesChangedInModel, this);
+        }
+
+        #addAllVenuesToCache() {
+            logDev('SeverityCache.#addAllVenuesToCache');
+            this.#onVenuesAddedToModel(W.model.venues.getObjectArray());
+        }
+
+        #addVenuesToCache(venues, forceUpdate = false) {
+            logDev('SeverityCache.#addVenuesToCache');
             venues.forEach(venue => {
                 const { id } = venue.attributes;
-                if (!_severityCache.hasOwnProperty(id)) {
-                    const severity = harmonizePlaceGo(venue, 'highlight');
-                    _severityCache[id] = severity;
+                const cacheItem = this.#cache[id];
+                if (forceUpdate || !cacheItem) {
+                    this.#cache[id] = { severity: harmonizePlaceGo(venue, 'highlight') };
+                } else {
+                    delete cacheItem.removalTime;
                 }
             });
-            logDev('severityCache size:', Object.keys(_severityCache).length);
-            logDev(`Ran highlighter in ${Math.round((performance.now() - t0) * 10) / 10000} seconds.`);
-        } else {
-            logDev('Highlighting disabled');
+            logDev(`cache size: ${Object.keys(this.#cache).length}`);
         }
-    }
 
-    function onVenuesRemoved(venues) {
-        logDev('onVenuesRemoved:', venues.length);
-        venues.forEach(venue => {
-            // TODO: mark for removal from cache, if old/outdated
-            //delete _severityCache[venue.attributes.id];
-        });
-    }
+        #onBeforeFeaturesAddedToLayer(args) {
+            logDev('SeverityCache.#onBeforeFeaturesAddedToLayer');
+            this.#onVenuesAddedToModel(args.features.map(feature => (feature.model ? feature.model : feature.attributes.repositoryObject)));
+        }
 
-    function onVenueIdChanged(ids) {
-        logDev('onVenueIdChanged:', ids);
-        if (_severityCache.hasOwnProperty(ids.newID)) {
-            const severity = _severityCache[ids.newID];
-            delete _severityCache[ids.oldID];
-            _severityCache[ids.newID] = severity;
+        #onVenuesAddedToModel(venues) {
+            logDev('SeverityCache.#onVenuesAddedToModel');
+            try {
+                this.#addVenuesToCache(venues);
+            } catch (ex) {
+                console.error(`${_SCRIPT_NAME}:`, ex);
+            }
+        }
+
+        #onVenuesRemovedFromModel(venues) {
+            logDev('SeverityCache.#onVenuesRemovedFromModel');
+            try {
+                venues.forEach(venue => this.#updateRemovalTime(venue));
+                this.#cleanCache();
+            } catch (ex) {
+                console.error(`${_SCRIPT_NAME}:`, ex);
+            }
+        }
+
+        #onVenueIdsChangedInModel(ids) {
+            logDev('SeverityCache.#onVenueIdsChangedInModel');
+            try {
+                if (this.#cache.hasOwnProperty(ids.newID)) {
+                    const cacheItem = this.#cache[ids.newID];
+                    delete this.#cache[ids.oldID];
+                    this.#cache[ids.newID] = cacheItem;
+                }
+            } catch (ex) {
+                console.error(`${_SCRIPT_NAME}:`, ex);
+            }
+        }
+
+        #onVenuesChangedInModel(venues) {
+            logDev('SeverityCache.#onVenuesChangedInModel');
+            try {
+                this.#addVenuesToCache(venues, true);
+                W.map.venueLayer.redraw();
+            } catch (ex) {
+                console.error(`${_SCRIPT_NAME}:`, ex);
+            }
+        }
+
+        #updateRemovalTime(venue) {
+            const cacheItem = this.#cache[venue.attributes.id];
+            if (cacheItem && !cacheItem.removalTime) {
+                cacheItem.removalTime = Date.now();
+            }
+        }
+
+        #startCleanTimer() {
+            logDev('SeverityCache.#startCleanTimer');
+            this.#stopCleanTimer();
+            this.#cleanTimer = setTimeout(() => { this.#onCleanTimeout(); }, this.#cleanIntervalMinutes * 60 * 1000);
+        }
+
+        #stopCleanTimer() {
+            logDev('SeverityCache.#stopCleanTimer');
+            this.#doCacheClean = false;
+            if (this.#cleanTimer) clearTimeout(this.#cleanTimer);
+        }
+
+        #cleanCache() {
+            logDev('SeverityCache.#cleanCache');
+            if (this.#doCacheClean) {
+                const currentTime = Date.now();
+                let itemsDeleted = 0;
+                Object.keys(this.#cache).forEach(id => {
+                    if (this.#deleteExpiredCacheItem(id, currentTime)) {
+                        itemsDeleted++;
+                    }
+                });
+                this.#startCleanTimer();
+                if (itemsDeleted) logDev(`Cleaned ${itemsDeleted} items from the severity cache.`);
+            }
+        }
+
+        #deleteExpiredCacheItem(id, currentTime) {
+            const cacheItem = this.#cache[id];
+            const cleanIntervalMilliseconds = this.#cleanIntervalMinutes * 60 * 1000;
+            if (cacheItem?.removalTime && (currentTime - cacheItem.removalTime) > cleanIntervalMilliseconds) {
+                delete this.#cache[id];
+                return true;
+            }
+            return false;
+        }
+
+        #onCleanTimeout() {
+            logDev('SeverityCache.#onCleanTimeout');
+            this.#doCacheClean = true;
         }
     }
 
@@ -1371,20 +1498,9 @@
             assembleServicesBanner();
         }
 
-        // Update cached severities
-        if (_enableColorHighlighting) {
-            venues.forEach(venue => {
-                _severityCache[venue.attributes.id] = harmonizePlaceGo(venue, 'highlight');
-            });
-            if (!_disableHighlightTest) {
-                _layer.redraw();
-            }
+        if (_enableColorHighlighting && !_disableHighlightTest) {
+            _layer.redraw();
         }
-    }
-
-    function onBeforeVenueFeaturesAdded(e) {
-        logDev('beforefeaturesadded: ', e.features.length);
-        onVenuesAdded(e.features.map(feature => (feature.model ? feature.model : feature.attributes.repositoryObject)));
     }
 
     // This should be called after new venues are saved (using venues'objectssynced' event), so the new IDs can be retrieved and used
@@ -1443,7 +1559,7 @@
                         // 2023-03-30 - Check for .model is necessary until .repositoryObject is implemented in production WME.
                         const venue = feature.model ? feature.model : feature.attributes.repositoryObject;
                         if (venue) {
-                            return _severityCache[venue.attributes.id] === this.value;
+                            return _severityCache.getSeverity(venue) === this.value;
                         }
                     }
                     return false;
@@ -1569,7 +1685,7 @@
                         // 2023-03-30 - Check for .model is necessary until .repositoryObject is implemented in production WME.
                         const venue = feature.model ? feature.model : feature.attributes.repositoryObject;
                         if (venue) {
-                            return _severityCache[venue.attributes.id] === this.value;
+                            return _severityCache.getSeverity(venue) === this.value;
                         }
                     }
                     return false;
@@ -1714,8 +1830,6 @@
 
     // Set up CH loop
     function bootstrapWmephColorHighlights() {
-        // Apply the colors
-        onVenuesAdded(W.model.venues.getObjectArray());
         _layer.redraw();
     }
 
@@ -8251,7 +8365,9 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
 
     function onEnableColorHighlightingChanged() {
         if (_enableColorHighlighting) {
-            onVenuesAdded(W.model.venues.getObjectArray());
+            _severityCache.start();
+        } else {
+            _severityCache.stop();
         }
         _layer.redraw();
     }
@@ -8282,6 +8398,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
         }
         initSettingsCheckbox('WMEPH-ColorHighlighting');
         _enableColorHighlighting = localStorage.getItem('WMEPH-ColorHighlighting') === '1';
+        onEnableColorHighlightingChanged();
         initSettingsCheckbox('WMEPH-DisableHoursHL');
         initSettingsCheckbox('WMEPH-DisableRankHL');
         initSettingsCheckbox('WMEPH-DisableWLHL');
@@ -8662,6 +8779,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
         setInterval(checkWmephVersion, VERSION_CHECK_MINUTES * 60 * 1000);
 
         _layer = W.map.venueLayer;
+        _severityCache = new SeverityCache();
 
         // Add CSS stuff here
         const css = [
@@ -8787,10 +8905,9 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
         W.model.venues.on('objectssynced', () => errorHandler(destroyDupeLabels));
         W.model.venues.on('objectssynced', e => errorHandler(syncWL, e));
         // W.model.venues.on('objectsadded', venues => errorHandler(onVenuesAdded, venues));
-        W.model.venues.on('objectsremoved', venues => errorHandler(onVenuesRemoved, venues));
+        // W.model.venues.on('objectsremoved', venues => errorHandler(onVenuesRemoved, venues));
         W.model.venues.on('objectschanged', venues => errorHandler(onVenuesChanged, venues));
-        W.model.venues.on('objectschanged-id', ids => errorHandler(onVenueIdChanged, ids));
-        W.map.venueLayer.events.register('beforefeaturesadded', null, e => errorHandler(onBeforeVenueFeaturesAdded, e));
+        // W.model.venues.on('objectschanged-id', ids => errorHandler(onVenueIdChanged, ids));
 
         // Remove any temporary ID values (ID < 0) from the WL store at startup.
         let removedWLCount = 0;
