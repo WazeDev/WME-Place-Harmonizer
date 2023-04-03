@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name        WME Place Harmonizer
 // @namespace   WazeUSA
-// @version     2023.04.03.001
+// @version     2023.04.03.002
 // @description Harmonizes, formats, and locks a selected place
 // @author      WMEPH Development Group
 // @include     /^https:\/\/(www|beta)\.waze\.com\/(?!user\/)(.{2,6}\/)?editor\/?.*$/
@@ -8920,6 +8920,21 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
             $('#WMEPH-ColorHighlighting').trigger('click');
         });
 
+        _catTransWaze2Lang = I18n.translations[_userLanguage].venues.categories; // pulls the category translations
+
+        // Split out state-based data
+        const _stateHeaders = _PNH_DATA.states[0].split('|');
+        _psStateIx = _stateHeaders.indexOf('ps_state');
+        _psState2LetterIx = _stateHeaders.indexOf('ps_state2L');
+        _psRegionIx = _stateHeaders.indexOf('ps_region');
+        _psGoogleFormStateIx = _stateHeaders.indexOf('ps_gFormState');
+        _psDefaultLockLevelIx = _stateHeaders.indexOf('ps_defaultLockLevel');
+        // ps_requirePhone_ix = _stateHeaders.indexOf('ps_requirePhone');
+        // ps_requireURL_ix = _stateHeaders.indexOf('ps_requireURL');
+        _psAreaCodeIx = _stateHeaders.indexOf('ps_areacode');
+
+        _severityCache = new SeverityCache();
+
         await addWmephTab(); // initialize the settings tab
 
         // Event listeners
@@ -8958,19 +8973,6 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
         if (_USER.isDevUser) {
             _USER.isBetaUser = true; // dev users are beta users
         }
-
-        _catTransWaze2Lang = I18n.translations[_userLanguage].venues.categories; // pulls the category translations
-
-        // Split out state-based data
-        const _stateHeaders = _PNH_DATA.states[0].split('|');
-        _psStateIx = _stateHeaders.indexOf('ps_state');
-        _psState2LetterIx = _stateHeaders.indexOf('ps_state2L');
-        _psRegionIx = _stateHeaders.indexOf('ps_region');
-        _psGoogleFormStateIx = _stateHeaders.indexOf('ps_gFormState');
-        _psDefaultLockLevelIx = _stateHeaders.indexOf('ps_defaultLockLevel');
-        // ps_requirePhone_ix = _stateHeaders.indexOf('ps_requirePhone');
-        // ps_requireURL_ix = _stateHeaders.indexOf('ps_requireURL');
-        _psAreaCodeIx = _stateHeaders.indexOf('ps_areacode');
 
         // Set up Run WMEPH button once place is selected
         initWmephPanel();
