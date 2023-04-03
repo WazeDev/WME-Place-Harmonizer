@@ -7199,12 +7199,12 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
     function showSearchButton() {
         const venue = getSelectedVenue();
         if (venue && $('#wmephSearch').length === 0 && !venue.isResidential()) {
-            const strButt1 = '<input class="btn btn-danger btn-xs wmeph-fat-btn" id="wmephSearch" title="Search the web for this place.  Do not copy info from 3rd party sources!" '
+            let buttonStr = '<input class="btn btn-danger btn-xs wmeph-fat-btn" id="wmephSearch" title="Search the web for this place.  Do not copy info from 3rd party sources!" '
                 + 'type="button" value="Google">';
-            $('#WMEPH_runButton').append(strButt1);
-            const btn = document.getElementById('wmephSearch');
-            if (btn !== null) {
-                btn.onclick = () => {
+            $('#WMEPH_runButton').append(buttonStr);
+            let buttonElem = document.getElementById('wmephSearch');
+            if (buttonElem !== null) {
+                buttonElem.onclick = () => {
                     const addr = venue.getAddress();
                     if (addr.hasState()) {
                         const url = buildGLink(venue.attributes.name, addr, venue.attributes.houseNumber);
@@ -7217,6 +7217,23 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                         WazeWrap.Alerts.error(_SCRIPT_NAME, 'The state and country haven\'t been set for this place yet.  Edit the address first.');
                     }
                 };
+
+                if (venue.isChargingStation()) {
+                    buttonStr = '<input class="btn btn-xs btn-danger wmeph-fat-btn" id="wmephPlugShareSearch" title="Open PlugShare website" '
+                        + 'type="button" value="PS" style="background-color: #003ca6; color:#fff; box-shadow:0 2px 0 #5075b9;">';
+                    $('#WMEPH_runButton').append(buttonStr);
+                    buttonElem = document.getElementById('wmephPlugShareSearch');
+                    buttonElem.onclick = () => {
+                        const olPoint = venue.attributes.geometry.getCentroid();
+                        const point = WazeWrap.Geometry.ConvertTo4326(olPoint.x, olPoint.y);
+                        const url = `https://www.plugshare.com/?latitude=${point.lat}&longitude=${point.lon}&spanLat=.005&spanLng=.005`;
+                        if ($('#WMEPH-WebSearchNewTab').prop('checked')) {
+                            window.open(url);
+                        } else {
+                            window.open(url, 'WMEPH - PlugShare Search', _searchResultsWindowSpecs);
+                        }
+                    };
+                }
             } else {
                 setTimeout(initWmephPanel, 100);
             }
