@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name        WME Place Harmonizer Beta
 // @namespace   WazeUSA
-// @version     2023.04.03.002
+// @version     2023.04.03.003
 // @description Harmonizes, formats, and locks a selected place
 // @author      WMEPH Development Group
 // @include     /^https:\/\/(www|beta)\.waze\.com\/(?!user\/)(.{2,6}\/)?editor\/?.*$/
@@ -192,9 +192,9 @@
     const _PNH_DATA = { USA: {}, CAN: {} };
     const _CATEGORY_LOOKUP = {};
     const _DEFAULT_HOURS_TEXT = 'Paste Hours Here';
-    // const _MAX_CACHE_SIZE = 25000;
+    const _MAX_CACHE_SIZE = 25000;
     let _wordVariations;
-    // let _resultsCache = {};
+    let _resultsCache = {};
     let _initAlreadyRun = false; // This is used to skip a couple things if already run once.  This could probably be handled better...
     let _textEntryValues = null; // Store the values entered in text boxes so they can be re-added when the banner is reassembled.
 
@@ -342,7 +342,6 @@
     let _ixATM;
     let _ixOffices;
     let _layer;
-    let _severityCache;
 
     const _UPDATED_FIELDS = {
         name: {
@@ -1316,190 +1315,19 @@
         return ['NoMatch'];
     } // END harmoList function
 
-    class SeverityCache {
-        #cleanIntervalMinutes = 10;
-        #cleanTimer;
-        #doCacheClean = false;
-        #cache = {};
-
-        stop() {
-            logDev('SeverityCache.stop');
-            this.#unhookEventHandlers();
-            this.#stopCleanTimer();
-        }
-
-        start() {
-            logDev('SeverityCache.start');
-            this.#cache = {};
-            this.#addAllVenuesToCache();
-            this.#hookEventHandlers();
-            this.#startCleanTimer();
-        }
-
-        getSeverity(venue) {
-            const { id } = venue.attributes;
-            if (!this.#cache.hasOwnProperty(id)) {
-                this.#addVenuesToCache([venue]);
-            }
-            return this.#cache[id].severity;
-        }
-
-        #hookEventHandlers() {
-            logDev('SeverityCache.#hookEventHandlers');
-            // W.model.venues.on('objectsadded', this.#onVenuesAddedToModel);
-            W.map.venueLayer.events.register('beforefeaturesadded', this, this.#onBeforeFeaturesAddedToLayer);
-            W.model.venues.on('objectsremoved', this.#onVenuesRemovedFromModel, this);
-            W.model.venues.on('objectschanged-id', this.#onVenueIdsChangedInModel, this);
-            W.model.venues.on('objectschanged', this.#onVenuesChangedInModel, this);
-        }
-
-        #unhookEventHandlers() {
-            logDev('SeverityCache.#unhookEventHandlers');
-            // W.model.venues.off('objectsadded', this.#onVenuesAddedToModel);
-            W.map.venueLayer.events.unregister('beforefeaturesadded', this, this.#onBeforeFeaturesAddedToLayer);
-            W.model.venues.off('objectsremoved', this.#onVenuesRemovedFromModel, this);
-            W.model.venues.off('objectschanged-id', this.#onVenueIdsChangedInModel, this);
-            W.model.venues.off('objectschanged', this.#onVenuesChangedInModel, this);
-        }
-
-        #addAllVenuesToCache() {
-            logDev('SeverityCache.#addAllVenuesToCache');
-            this.#onVenuesAddedToModel(W.model.venues.getObjectArray());
-        }
-
-        #addVenuesToCache(venues, forceUpdate = false) {
-            logDev('SeverityCache.#addVenuesToCache');
-            venues.forEach(venue => {
-                const { id } = venue.attributes;
-                const cacheItem = this.#cache[id];
-                if (forceUpdate || !cacheItem) {
-                    this.#cache[id] = { severity: harmonizePlaceGo(venue, 'highlight') };
-                } else {
-                    delete cacheItem.removalTime;
-                }
-            });
-            logDev(`cache size: ${Object.keys(this.#cache).length}`);
-        }
-
-        #onBeforeFeaturesAddedToLayer(args) {
-            logDev('SeverityCache.#onBeforeFeaturesAddedToLayer');
-            this.#onVenuesAddedToModel(args.features.map(feature => (feature.model ? feature.model : feature.attributes.repositoryObject)));
-        }
-
-        #onVenuesAddedToModel(venues) {
-            logDev('SeverityCache.#onVenuesAddedToModel');
-            try {
-                this.#addVenuesToCache(venues);
-            } catch (ex) {
-                console.error(`${_SCRIPT_NAME}:`, ex);
-            }
-        }
-
-        #onVenuesRemovedFromModel(venues) {
-            logDev('SeverityCache.#onVenuesRemovedFromModel');
-            try {
-                venues.forEach(venue => this.#updateRemovalTime(venue));
-                this.#cleanCache();
-            } catch (ex) {
-                console.error(`${_SCRIPT_NAME}:`, ex);
-            }
-        }
-
-        #onVenueIdsChangedInModel(ids) {
-            logDev('SeverityCache.#onVenueIdsChangedInModel');
-            try {
-                if (this.#cache.hasOwnProperty(ids.newID)) {
-                    const cacheItem = this.#cache[ids.newID];
-                    delete this.#cache[ids.oldID];
-                    this.#cache[ids.newID] = cacheItem;
-                }
-            } catch (ex) {
-                console.error(`${_SCRIPT_NAME}:`, ex);
-            }
-        }
-
-        #onVenuesChangedInModel(venues) {
-            logDev('SeverityCache.#onVenuesChangedInModel');
-            try {
-                this.#addVenuesToCache(venues, true);
-                W.map.venueLayer.redraw();
-            } catch (ex) {
-                console.error(`${_SCRIPT_NAME}:`, ex);
-            }
-        }
-
-        #updateRemovalTime(venue) {
-            const cacheItem = this.#cache[venue.attributes.id];
-            if (cacheItem && !cacheItem.removalTime) {
-                cacheItem.removalTime = Date.now();
-            }
-        }
-
-        #startCleanTimer() {
-            logDev('SeverityCache.#startCleanTimer');
-            this.#stopCleanTimer();
-            this.#cleanTimer = setTimeout(() => { this.#onCleanTimeout(); }, this.#cleanIntervalMinutes * 60 * 1000);
-        }
-
-        #stopCleanTimer() {
-            logDev('SeverityCache.#stopCleanTimer');
-            this.#doCacheClean = false;
-            if (this.#cleanTimer) clearTimeout(this.#cleanTimer);
-        }
-
-        #cleanCache() {
-            logDev('SeverityCache.#cleanCache');
-            if (this.#doCacheClean) {
-                const currentTime = Date.now();
-                let itemsDeleted = 0;
-                Object.keys(this.#cache).forEach(id => {
-                    if (this.#deleteExpiredCacheItem(id, currentTime)) {
-                        itemsDeleted++;
-                    }
-                });
-                this.#startCleanTimer();
-                if (itemsDeleted) logDev(`Cleaned ${itemsDeleted} items from the severity cache.`);
-            }
-        }
-
-        #deleteExpiredCacheItem(id, currentTime) {
-            const cacheItem = this.#cache[id];
-            const cleanIntervalMilliseconds = this.#cleanIntervalMinutes * 60 * 1000;
-            if (cacheItem?.removalTime && (currentTime - cacheItem.removalTime) > cleanIntervalMilliseconds) {
-                delete this.#cache[id];
-                return true;
-            }
-            return false;
-        }
-
-        #onCleanTimeout() {
-            logDev('SeverityCache.#onCleanTimeout');
-            this.#doCacheClean = true;
-        }
-    }
-
-    function onVenuesChanged(venues) {
-        logDev('onVenuesChanged: ', venues);
-
+    function onObjectsChanged() {
         deleteDupeLabel();
 
         // This is code to handle updating the banner when changes are made external to the script.
-        const selectedVenue = getSelectedVenue();
-        if (selectedVenue && $('#WMEPH_banner').length) {
+        const venue = getSelectedVenue();
+        if ($('#WMEPH_banner').length > 0 && venue) {
             const actions = W.model.actionManager.getActions();
             const lastAction = actions[actions.length - 1];
-            if (lastAction?.object?.type === 'venue' && lastAction.attributes?.id === selectedVenue.attributes.id
-                && lastAction.newAttributes?.entryExitPoints) {
-                harmonizePlaceGo(selectedVenue, 'harmonize');
+            if (lastAction && lastAction.object && lastAction.object.type === 'venue' && lastAction.attributes && lastAction.attributes.id === venue.attributes.id) {
+                if (lastAction.newAttributes && lastAction.newAttributes.entryExitPoints) {
+                    harmonizePlaceGo(venue, 'harmonize');
+                }
             }
-
-            // Update the services banner
-            updateServicesChecks();
-            assembleServicesBanner();
-        }
-
-        if (_enableColorHighlighting && !_disableHighlightTest) {
-            _layer.redraw();
         }
     }
 
@@ -1555,14 +1383,9 @@
                 type: '==',
                 value,
                 evaluate(feature) {
-                    if (_enableColorHighlighting) {
-                        // 2023-03-30 - Check for .model is necessary until .repositoryObject is implemented in production WME.
-                        const venue = feature.model ? feature.model : feature.attributes.repositoryObject;
-                        if (venue) {
-                            return _severityCache.getSeverity(venue) === this.value;
-                        }
-                    }
-                    return false;
+                    // 2023-03-30 - Check for .model is necessary until .repositoryObject is implemented in production WME.
+                    const attr = feature.model ? feature.model.attributes : feature.attributes.repositoryObject?.attributes;
+                    return attr?.wmephSeverity === this.value;
                 }
             }),
             symbolizer,
@@ -1681,14 +1504,9 @@
                 type: '==',
                 value,
                 evaluate(feature) {
-                    if (_enableColorHighlighting) {
-                        // 2023-03-30 - Check for .model is necessary until .repositoryObject is implemented in production WME.
-                        const venue = feature.model ? feature.model : feature.attributes.repositoryObject;
-                        if (venue) {
-                            return _severityCache.getSeverity(venue) === this.value;
-                        }
-                    }
-                    return false;
+                    // 2023-03-30 - Check for .model is necessary until .repositoryObject is implemented in production WME.
+                    const attr = feature.model ? feature.model.attributes : feature.attributes.repositoryObject?.attributes;
+                    return attr?.wmephSeverity === this.value;
                 }
             }),
             symbolizer,
@@ -1828,9 +1646,108 @@
             severity3, severity4, severityHigh, severityAdLock, publicPLA, restrictedPLA, privatePLA]);
     }
 
+    /**
+    * To highlight a place, set the wmephSeverity attribute to the desired highlight level.
+    * @param venues {array of venues, or single venue} Venues to check for highlights.
+    * @param force {boolean} Force recalculation of highlights, rather than using cached results.
+    */
+    function applyHighlightsTest(venues, force) {
+        if (!_layer) return;
+
+        // Make sure venues is an array, or convert it to one if not.
+        if (venues) {
+            if (!Array.isArray(venues)) {
+                venues = [venues];
+            }
+        } else {
+            venues = [];
+        }
+
+        const storedBannButt = _buttonBanner;
+        const storedBannServ = _servicesBanner;
+        const storedBannButt2 = _buttonBanner2;
+        const t0 = performance.now();
+        const doHighlight = $('#WMEPH-ColorHighlighting').prop('checked');
+        const disableRankHL = $('#WMEPH-DisableRankHL').prop('checked');
+
+        venues.forEach(venue => {
+            if (venue && venue.type === 'venue' && venue.attributes) {
+                // Highlighting logic would go here
+                // Severity can be: 0, 'lock', 1, 2, 3, 4, or 'high'. Set to
+                // anything else to use default WME style.
+                if (doHighlight && !(disableRankHL && venue.attributes.lockRank > _USER.rank - 1)) {
+                    try {
+                        const { id } = venue.attributes;
+                        let severity;
+                        let cachedResult;
+                        // eslint-disable-next-line no-cond-assign
+                        if (force || !isNaN(id) || ((cachedResult = _resultsCache[id]) === undefined) || (venue.updatedOn > cachedResult.u)) {
+                            severity = harmonizePlaceGo(venue, 'highlight');
+                            if (isNaN(id)) _resultsCache[id] = { s: severity, u: venue.updatedOn || -1 };
+                        } else {
+                            severity = cachedResult.s;
+                        }
+                        venue.attributes.wmephSeverity = severity;
+                    } catch (err) {
+                        console.error('WMEPH highlight error: ', err);
+                    }
+                } else {
+                    venue.attributes.wmephSeverity = 'default';
+                }
+            }
+        });
+
+        // Trim the cache if it's over the max size limit.
+        const keys = Object.keys(_resultsCache);
+        if (keys.length > _MAX_CACHE_SIZE) {
+            const trimSize = _MAX_CACHE_SIZE * 0.8;
+            for (let i = keys.length - 1; i > trimSize; i--) {
+                delete _resultsCache[keys[i]];
+            }
+        }
+
+        const venue = getSelectedVenue();
+        if (venue) {
+            venue.attributes.wmephSeverity = harmonizePlaceGo(venue, 'highlight');
+            _buttonBanner = storedBannButt;
+            _servicesBanner = storedBannServ;
+            _buttonBanner2 = storedBannButt2;
+        }
+        logDev(`Ran highlighter in ${Math.round((performance.now() - t0) * 10) / 10} milliseconds.`);
+        logDev(`WMEPH cache size: ${Object.keys(_resultsCache).length}`);
+    }
+
     // Set up CH loop
     function bootstrapWmephColorHighlights() {
-        _layer.redraw();
+        if (localStorage.getItem('WMEPH-ColorHighlighting') === '1') {
+            // Add listeners
+            W.model.venues.on('objectschanged', e => errorHandler(() => {
+                if (!_disableHighlightTest) {
+                    applyHighlightsTest(e, true);
+                    _layer.redraw();
+                }
+            }));
+
+            // 2023-03-30 - beforefeaturesadded no longer works because data model objects may be reloaded without re-adding map features.
+            // The wmephSeverity property is stored in the venue data model object. One workaround to look into would be to
+            // store the wmephSeverity in the feature.
+            // W.map.venueLayer.events.register('beforefeaturesadded', null, e => errorHandler(() => applyHighlightsTest(e.features.map(f => f.model))));
+            W.model.venues.on('objectsadded', venues => {
+                applyHighlightsTest(venues);
+                _layer.redraw();
+            });
+
+            // Clear the cache (highlight severities may need to be updated).
+            _resultsCache = {};
+
+            // Apply the colors
+            applyHighlightsTest(W.model.venues.getObjectArray());
+            _layer.redraw();
+        } else {
+            // reset the colors to default
+            applyHighlightsTest(W.model.venues.getObjectArray());
+            _layer.redraw();
+        }
     }
 
     // Change place.name to title case
@@ -2079,7 +1996,7 @@
             _disableHighlightTest = true;
             harmonizePlaceGo(venue, 'harmonize');
             _disableHighlightTest = false;
-            // applyHighlightsTest(venue);
+            applyHighlightsTest(venue);
         } else { // Remove duplicate labels
             destroyDupeLabels();
         }
@@ -2380,7 +2297,7 @@
                 _disableHighlightTest = true;
                 harmonizePlaceGo(venue, 'harmonize');
                 _disableHighlightTest = false;
-                // applyHighlightsTest(venue);
+                applyHighlightsTest(venue);
             }
         },
         EVChargingStationWarning: class extends FlagBase {
@@ -6837,6 +6754,10 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
             }
         });
 
+        if ($('#WMEPH-ColorHighlighting').prop('checked')) {
+            venue.attributes.wmephSeverity = _severityButt;
+        }
+
         if ($('#WMEPH_banner').length === 0) {
             $('<div id="WMEPH_banner">').prependTo('#wmeph-panel');
         } else {
@@ -8135,7 +8056,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
         // Load Setting for Local Storage, if it doesn't exist set it to NOT checked.
         // If previously set to 1, then trigger "click" event.
         if (!localStorage.getItem(settingID)) {
-            // phlogdev(settingID + ' not found.');
+            // logDev(settingID + ' not found.');
         } else if (localStorage.getItem(settingID) === '1') {
             $(`#${settingID}`).prop('checked', true);
         }
@@ -8380,17 +8301,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
         window.open(`https://docs.google.com/forms/d/1k_5RyOq81Fv4IRHzltC34kW3IUbXnQqDVMogwJKFNbE/viewform?entry.1173700072=${_USER.name}`);
     }
 
-    function onEnableColorHighlightingChanged() {
-        if (_enableColorHighlighting) {
-            _severityCache.start();
-        } else {
-            _severityCache.stop();
-        }
-        _layer.redraw();
-    }
-
     // settings tab
-    let _enableColorHighlighting = true;
     function initWmephTab() {
         // Enable certain settings by default if not set by the user:
         setCheckedByDefault('WMEPH-ColorHighlighting');
@@ -8414,8 +8325,6 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
             initSettingsCheckbox('WMEPH-AutoLockRPPs');
         }
         initSettingsCheckbox('WMEPH-ColorHighlighting');
-        _enableColorHighlighting = localStorage.getItem('WMEPH-ColorHighlighting') === '1';
-        onEnableColorHighlightingChanged();
         initSettingsCheckbox('WMEPH-DisableHoursHL');
         initSettingsCheckbox('WMEPH-DisableRankHL');
         initSettingsCheckbox('WMEPH-DisableWLHL');
@@ -8457,14 +8366,11 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
         $('#WMEPH-WLShare').click(onWLShareClick);
 
         // Color highlighting
-        $('#WMEPH-ColorHighlighting').click(() => {
-            _enableColorHighlighting = $('#WMEPH-ColorHighlighting').prop('checked');
-            onEnableColorHighlightingChanged();
-        });
+        $('#WMEPH-ColorHighlighting').click(bootstrapWmephColorHighlights);
         $('#WMEPH-DisableHoursHL').click(bootstrapWmephColorHighlights);
         $('#WMEPH-DisableRankHL').click(bootstrapWmephColorHighlights);
         $('#WMEPH-DisableWLHL').click(bootstrapWmephColorHighlights);
-        $('#WMEPH-PLATypeFill').click(() => _layer.redraw()); // applyHighlightsTest(W.model.venues.getObjectArray()));
+        $('#WMEPH-PLATypeFill').click(() => applyHighlightsTest(W.model.venues.getObjectArray()));
 
         _initAlreadyRun = true;
     }
@@ -8715,7 +8621,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
         // undefined, and the calling code is expecting a value.
 
         // if ($('.WazeControlPermalink').length === 0) {
-        //     phlog('Waiting for PL div');
+        //     log('Waiting for PL div');
         //     setTimeout(getCurrentPL, 500);
         //     return;
         // }
@@ -8914,31 +8820,13 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
             $('#WMEPH-ColorHighlighting').trigger('click');
         });
 
-        _catTransWaze2Lang = I18n.translations[_userLanguage].venues.categories; // pulls the category translations
-
-        // Split out state-based data
-        const _stateHeaders = _PNH_DATA.states[0].split('|');
-        _psStateIx = _stateHeaders.indexOf('ps_state');
-        _psState2LetterIx = _stateHeaders.indexOf('ps_state2L');
-        _psRegionIx = _stateHeaders.indexOf('ps_region');
-        _psGoogleFormStateIx = _stateHeaders.indexOf('ps_gFormState');
-        _psDefaultLockLevelIx = _stateHeaders.indexOf('ps_defaultLockLevel');
-        // ps_requirePhone_ix = _stateHeaders.indexOf('ps_requirePhone');
-        // ps_requireURL_ix = _stateHeaders.indexOf('ps_requireURL');
-        _psAreaCodeIx = _stateHeaders.indexOf('ps_areacode');
-
-        _severityCache = new SeverityCache();
-
         await addWmephTab(); // initialize the settings tab
 
         // Event listeners
         W.selectionManager.events.register('selectionchanged', this, () => errorHandler(initWmephPanel));
         W.model.venues.on('objectssynced', () => errorHandler(destroyDupeLabels));
-        W.model.venues.on('objectssynced', e => errorHandler(syncWL, e));
-        // W.model.venues.on('objectsadded', venues => errorHandler(onVenuesAdded, venues));
-        // W.model.venues.on('objectsremoved', venues => errorHandler(onVenuesRemoved, venues));
-        W.model.venues.on('objectschanged', venues => errorHandler(onVenuesChanged, venues));
-        // W.model.venues.on('objectschanged-id', ids => errorHandler(onVenueIdChanged, ids));
+        W.model.venues.on('objectssynced', e => errorHandler(() => syncWL(e)));
+        W.model.venues.on('objectschanged', () => errorHandler(onObjectsChanged));
 
         // Remove any temporary ID values (ID < 0) from the WL store at startup.
         let removedWLCount = 0;
@@ -8968,11 +8856,31 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
             _USER.isBetaUser = true; // dev users are beta users
         }
 
+        _catTransWaze2Lang = I18n.translations[_userLanguage].venues.categories; // pulls the category translations
+
+        // Split out state-based data
+        const _stateHeaders = _PNH_DATA.states[0].split('|');
+        _psStateIx = _stateHeaders.indexOf('ps_state');
+        _psState2LetterIx = _stateHeaders.indexOf('ps_state2L');
+        _psRegionIx = _stateHeaders.indexOf('ps_region');
+        _psGoogleFormStateIx = _stateHeaders.indexOf('ps_gFormState');
+        _psDefaultLockLevelIx = _stateHeaders.indexOf('ps_defaultLockLevel');
+        // ps_requirePhone_ix = _stateHeaders.indexOf('ps_requirePhone');
+        // ps_requireURL_ix = _stateHeaders.indexOf('ps_requireURL');
+        _psAreaCodeIx = _stateHeaders.indexOf('ps_areacode');
+
         // Set up Run WMEPH button once place is selected
         initWmephPanel();
 
         // Setup highlight colors
         initializeHighlights();
+
+        W.model.venues.on('objectschanged', () => errorHandler(() => {
+            if ($('#WMEPH_banner').length > 0) {
+                updateServicesChecks();
+                assembleServicesBanner();
+            }
+        }));
 
         log('Starting Highlighter');
         bootstrapWmephColorHighlights();
