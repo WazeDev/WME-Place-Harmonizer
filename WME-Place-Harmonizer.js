@@ -1331,11 +1331,6 @@
         }
     }
 
-    function onBeforeVenueFeaturesAdded(e) {
-        logDev('beforefeaturesadded: ', e.features.length);
-        onVenuesAdded(e.features.map(feature => (feature.model ? feature.model : feature.attributes.repositoryObject)));
-    }
-
     // This should be called after new venues are saved (using venues'objectssynced' event), so the new IDs can be retrieved and used
     // to replace the temporary IDs in the whitelist.  If WME errors during save, this function may not run.  At that point, the
     // temporary IDs can no longer be traced to the new IDs so the WL for those new venues will be orphaned, and the temporary IDs
