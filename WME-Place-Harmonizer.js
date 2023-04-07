@@ -1279,7 +1279,7 @@
             if ($('#WMEPH_banner').length) {
                 const actions = W.model.actionManager.getActions();
                 const lastAction = actions[actions.length - 1];
-                if (lastAction?.object?.type === 'venue' && lastAction.attributes?.id === venue.attributes.id && lastAction.newAttributes?.entryExitPoints) {
+                if (lastAction._venue?.attributes?.id === venue.attributes.id && lastAction._navigationPoint) {
                     harmonizePlaceGo(venue, 'harmonize');
                 }
             }
