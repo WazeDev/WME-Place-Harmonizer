@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name        WME Place Harmonizer Beta
 // @namespace   WazeUSA
-// @version     2023.04.03.003
+// @version     2023.04.07.001
 // @description Harmonizes, formats, and locks a selected place
 // @author      WMEPH Development Group
 // @include     /^https:\/\/(www|beta)\.waze\.com\/(?!user\/)(.{2,6}\/)?editor\/?.*$/
@@ -103,7 +103,7 @@
     #WMEPH_banner div:last-child {
         padding-bottom: 3px !important;
     }
-    #WMEPH_runButton {
+    #wmeph-run-panel {
         padding-bottom: 6px;
         padding-top: 3px;
         width: 290;
@@ -135,48 +135,6 @@
     }
     .wmeph-hr {
         border-color: #ccc;
-    }
-    .checkmark{
-        display: none
-    }',
-    .checkmark.draw:after {
-        animation-duration: .8s;
-        animation-timing-function: ease;
-        animation-name: checkmark;
-        transform: scaleX(-1) rotate(135deg)}
-    .checkmark:after {
-        opacity: 1; 
-        height: 2em;
-        width: 1em;
-        transform-origin: left top;
-        border-right: 3px solid #5cb85c;
-        border-top: 3px solid #5cb85c;
-        content: "";
-        right: 1em;
-        top: 1em;
-        position: absolute
-    }
-    @keyframes checkmark {
-        0% {
-            height: 0;
-            width: 0;
-            opacity: 1
-        } 
-        20%{
-            height: 0;
-            width: 1em;
-            opacity: 1
-        }
-        40%{
-            height: 2em;
-            width: 1em;
-            opacity: 1
-        }
-        100%{
-            height: 2em;
-            width: 1em;
-            opacity: 1
-        }
     }`;
 
     let MultiAction;
@@ -191,7 +149,7 @@
     const _BETA_VERSION_STR = _IS_BETA_VERSION ? 'Beta' : ''; // strings to differentiate DOM elements between regular and beta script
     const _PNH_DATA = { USA: {}, CAN: {} };
     const _CATEGORY_LOOKUP = {};
-    const _DEFAULT_HOURS_TEXT = 'Paste Hours Here';
+    const _DEFAULT_HOURS_TEXT = 'Paste hours here';
     const _MAX_CACHE_SIZE = 25000;
     let _wordVariations;
     let _resultsCache = {};
@@ -242,7 +200,6 @@
     let _dupeBanner;
 
     let _rppLockString = 'Lock?';
-    const _PANEL_FIELDS = {}; // the fields for the sidebar
     let _disableHighlightTest = false; // Set to true to temporarily disable highlight checks immediately when venues change.
     let _wl = {};
     const _USER = {
@@ -763,8 +720,7 @@
     function getSelectedVenue() {
         const features = WazeWrap.getSelectedFeatures();
         // Be sure to check for features.length === 1, in case multiple venues are currently selected.
-        return features.length === 1 && features[0].model.type === 'venue'
-            ? features[0].model : undefined;
+        return features.length === 1 && features[0].model.type === 'venue' ? features[0].model : undefined;
     }
 
     function getVenueLonLat(venue) {
@@ -1315,19 +1271,20 @@
         return ['NoMatch'];
     } // END harmoList function
 
-    function onObjectsChanged() {
+    function onVenuesChanged(venueProxies) {
         deleteDupeLabel();
 
-        // This is code to handle updating the banner when changes are made external to the script.
         const venue = getSelectedVenue();
-        if ($('#WMEPH_banner').length > 0 && venue) {
-            const actions = W.model.actionManager.getActions();
-            const lastAction = actions[actions.length - 1];
-            if (lastAction && lastAction.object && lastAction.object.type === 'venue' && lastAction.attributes && lastAction.attributes.id === venue.attributes.id) {
-                if (lastAction.newAttributes && lastAction.newAttributes.entryExitPoints) {
+        if (venueProxies.map(proxy => proxy.attributes.id).includes(venue.attributes.id)) {
+            if ($('#WMEPH_banner').length) {
+                const actions = W.model.actionManager.getActions();
+                const lastAction = actions[actions.length - 1];
+                if (lastAction?.object?.type === 'venue' && lastAction.attributes?.id === venue.attributes.id && lastAction.newAttributes?.entryExitPoints) {
                     harmonizePlaceGo(venue, 'harmonize');
                 }
             }
+
+            updateWmephPanel(false);
         }
     }
 
@@ -6652,8 +6609,8 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
         // Assemble the banners
         assembleBanner(); // Make Messaging banners
 
-        showOpenPlaceWebsiteButton();
-        showSearchButton();
+        // showOpenPlaceWebsiteButton();
+        // showSearchButton();
 
         // Highlighting will return a value, but no need to return a value here (for end of harmonization).
         // Adding this line to satisfy eslint.
@@ -7070,97 +7027,6 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
         return button;
     }
 
-    // Display run button on place sidebar
-    function showRunButton() {
-        $('<div id="WMEPH_runButton">').prependTo('#wmeph-panel');
-        const devVersSuffix = _IS_BETA_VERSION ? '-β' : '';
-        const strButt1 = `<input class="btn btn-primary wmeph-fat-btn" id="runWMEPH" title="Run WMEPH${
-            devVersSuffix} on Place" type="button" value="Run WMEPH${devVersSuffix}">`;
-        $('#WMEPH_runButton').append(strButt1);
-        const btn = document.getElementById('runWMEPH');
-        if (btn !== null) {
-            btn.onclick = () => {
-                harmonizePlace();
-            };
-        }
-    }
-
-    // Displays the Open Place Website button.
-    function showOpenPlaceWebsiteButton() {
-        const venue = getSelectedVenue();
-        if (venue) {
-            let openPlaceWebsiteURL = venue.attributes.url;
-            if (openPlaceWebsiteURL && openPlaceWebsiteURL.replace(/[^A-Za-z0-9]/g, '').length > 2) {
-                if (!$('#WMEPHurl').length) {
-                    const strButt1 = '<input class="btn btn-success btn-xs wmeph-fat-btn" id="WMEPHurl" title="Open place URL" type="button" value="Website">';
-                    $('#runWMEPH').after(strButt1);
-                    const btn = document.getElementById('WMEPHurl');
-                    if (btn !== null) {
-                        btn.onclick = () => {
-                            openPlaceWebsiteURL = venue.attributes.url;
-                            if (openPlaceWebsiteURL.match(/^http/i) === null) {
-                                openPlaceWebsiteURL = `http://${openPlaceWebsiteURL}`;
-                            }
-                            if ($('#WMEPH-WebSearchNewTab').prop('checked')) {
-                                window.open(openPlaceWebsiteURL);
-                            } else {
-                                window.open(openPlaceWebsiteURL, _SEARCH_RESULTS_WINDOW_NAME, _searchResultsWindowSpecs);
-                            }
-                        };
-                    } else {
-                        setTimeout(initWmephPanel, 100);
-                    }
-                }
-            } else if ($('#WMEPHurl').length) {
-                $('#WMEPHurl').remove();
-            }
-        }
-    }
-
-    function showSearchButton() {
-        const venue = getSelectedVenue();
-        if (venue && $('#wmephSearch').length === 0 && !venue.isResidential()) {
-            let buttonStr = '<input class="btn btn-danger btn-xs wmeph-fat-btn" id="wmephSearch" title="Search the web for this place.  Do not copy info from 3rd party sources!" '
-                + 'type="button" value="Google">';
-            $('#WMEPH_runButton').append(buttonStr);
-            let buttonElem = document.getElementById('wmephSearch');
-            if (buttonElem !== null) {
-                buttonElem.onclick = () => {
-                    const addr = venue.getAddress();
-                    if (addr.hasState()) {
-                        const url = buildGLink(venue.attributes.name, addr, venue.attributes.houseNumber);
-                        if ($('#WMEPH-WebSearchNewTab').prop('checked')) {
-                            window.open(url);
-                        } else {
-                            window.open(url, _SEARCH_RESULTS_WINDOW_NAME, _searchResultsWindowSpecs);
-                        }
-                    } else {
-                        WazeWrap.Alerts.error(_SCRIPT_NAME, 'The state and country haven\'t been set for this place yet.  Edit the address first.');
-                    }
-                };
-
-                if (venue.isChargingStation()) {
-                    buttonStr = '<input class="btn btn-xs btn-danger wmeph-fat-btn" id="wmephPlugShareSearch" title="Open PlugShare website" '
-                        + 'type="button" value="PS" style="background-color: #003ca6; color:#fff; box-shadow:0 2px 0 #5075b9;">';
-                    $('#WMEPH_runButton').append(buttonStr);
-                    buttonElem = document.getElementById('wmephPlugShareSearch');
-                    buttonElem.onclick = () => {
-                        const olPoint = venue.attributes.geometry.getCentroid();
-                        const point = WazeWrap.Geometry.ConvertTo4326(olPoint.x, olPoint.y);
-                        const url = `https://www.plugshare.com/?latitude=${point.lat}&longitude=${point.lon}&spanLat=.005&spanLng=.005`;
-                        if ($('#WMEPH-WebSearchNewTab').prop('checked')) {
-                            window.open(url);
-                        } else {
-                            window.open(url, 'WMEPH - PlugShare Search', _searchResultsWindowSpecs);
-                        }
-                    };
-                }
-            } else {
-                setTimeout(initWmephPanel, 100);
-            }
-        }
-    }
-
     // Helper functions for getting/setting checkbox checked state.
     function isChecked(id) {
         // We could use jquery here, but I assume native is faster.
@@ -7175,158 +7041,293 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
         });
     }
 
+    function onCopyClicked() {
+        const venue = getSelectedVenue();
+        const attr = venue.attributes;
+        _cloneMaster = {};
+        _cloneMaster.addr = venue.getAddress();
+        if (_cloneMaster.addr.hasOwnProperty('attributes')) {
+            _cloneMaster.addr = _cloneMaster.addr.attributes;
+        }
+        _cloneMaster.houseNumber = attr.houseNumber;
+        _cloneMaster.url = attr.url;
+        _cloneMaster.phone = attr.phone;
+        _cloneMaster.description = attr.description;
+        _cloneMaster.services = attr.services;
+        _cloneMaster.openingHours = attr.openingHours;
+        _cloneMaster.isPLA = venue.isParkingLot();
+        logDev('Place Cloned');
+    }
+
+    function onPasteClicked() {
+        clonePlace();
+    }
+
+    function onCheckAllCloneClicked() {
+        setCheckboxes(['WMEPH_CPhn', 'WMEPH_CPstr', 'WMEPH_CPcity', 'WMEPH_CPurl', 'WMEPH_CPph', 'WMEPH_CPserv',
+            'WMEPH_CPdesc', 'WMEPH_CPhrs'], true);
+    }
+
+    function onCheckAddrCloneClicked() {
+        setCheckboxes(['WMEPH_CPhn', 'WMEPH_CPstr', 'WMEPH_CPcity'], true);
+        setCheckboxes(['WMEPH_CPurl', 'WMEPH_CPph', 'WMEPH_CPserv', 'WMEPH_CPdesc', 'WMEPH_CPhrs'], false);
+    }
+
+    function onCheckNoneCloneClicked() {
+        setCheckboxes(['WMEPH_CPhn', 'WMEPH_CPstr', 'WMEPH_CPcity', 'WMEPH_CPurl', 'WMEPH_CPph', 'WMEPH_CPserv',
+            'WMEPH_CPdesc', 'WMEPH_CPhrs'], false);
+    }
+
     // WMEPH Clone Tool
     function showCloneButton() {
-        const venue = getSelectedVenue();
-        if (venue) {
-            showOpenPlaceWebsiteButton();
-            if ($('#clonePlace').length === 0) {
-                let strButt1 = '<div style="margin-bottom: 3px;"></div><input class="btn btn-warning btn-xs wmeph-btn" '
-                    + 'id="clonePlace" title="Copy place info" type="button" value="Copy" style="font-weight:normal">'
-                    + ' <input class="btn btn-warning btn-xs wmeph-btn" id="pasteClone" title="Apply the Place info. '
-                    + '(Ctrl-Alt-O)" type="button" value="Paste (for checked boxes):" style="font-weight:normal"><br>';
-                $('#WMEPH_runButton').append(strButt1);
-                createCloneCheckbox('WMEPH_runButton', 'WMEPH_CPhn', 'HN');
-                createCloneCheckbox('WMEPH_runButton', 'WMEPH_CPstr', 'Str');
-                createCloneCheckbox('WMEPH_runButton', 'WMEPH_CPcity', 'City');
-                createCloneCheckbox('WMEPH_runButton', 'WMEPH_CPurl', 'URL');
-                createCloneCheckbox('WMEPH_runButton', 'WMEPH_CPph', 'Ph');
-                $('#WMEPH_runButton').append('<br>');
-                createCloneCheckbox('WMEPH_runButton', 'WMEPH_CPdesc', 'Desc');
-                createCloneCheckbox('WMEPH_runButton', 'WMEPH_CPserv', 'Serv');
-                createCloneCheckbox('WMEPH_runButton', 'WMEPH_CPhrs', 'Hrs');
-                strButt1 = '<input class="btn btn-info btn-xs wmeph-btn" id="checkAllClone" title="Check all" '
-                    + 'type="button" value="All" style="font-weight:normal"> <input class="btn btn-info btn-xs '
-                    + 'wmeph-btn" id="checkAddrClone" title="Check Address" type="button" value="Addr" style="font-weight:normal">'
-                    + ' <input class="btn btn-info btn-xs wmeph-btn" id="checkNoneClone" title="Check none" '
-                    + 'type="button" value="None" style="font-weight:normal"><br>';
-                $('#WMEPH_runButton').append(strButt1);
-            }
-            let btn = document.getElementById('clonePlace');
-            if (btn !== null) {
-                btn.onclick = () => {
-                    _cloneMaster = {};
-                    _cloneMaster.addr = venue.getAddress();
-                    if (_cloneMaster.addr.hasOwnProperty('attributes')) {
-                        _cloneMaster.addr = _cloneMaster.addr.attributes;
-                    }
-                    _cloneMaster.houseNumber = venue.attributes.houseNumber;
-                    _cloneMaster.url = venue.attributes.url;
-                    _cloneMaster.phone = venue.attributes.phone;
-                    _cloneMaster.description = venue.attributes.description;
-                    _cloneMaster.services = venue.attributes.services;
-                    _cloneMaster.openingHours = venue.attributes.openingHours;
-                    _cloneMaster.isPLA = venue.isParkingLot();
-                    logDev('Place Cloned');
-                };
-            } else {
-                setTimeout(initWmephPanel, 100);
-                return;
-            }
-            btn = document.getElementById('pasteClone');
-            if (btn !== null) {
-                btn.onclick = () => {
-                    clonePlace(getSelectedVenue());
-                };
-            } else {
-                setTimeout(initWmephPanel, 100);
-            }
-            btn = document.getElementById('checkAllClone');
-
-            if (btn !== null) {
-                btn.onclick = () => {
-                    setCheckboxes(['WMEPH_CPhn', 'WMEPH_CPstr', 'WMEPH_CPcity', 'WMEPH_CPurl', 'WMEPH_CPph', 'WMEPH_CPserv',
-                        'WMEPH_CPdesc', 'WMEPH_CPhrs'], true);
-                };
-            } else {
-                setTimeout(initWmephPanel, 100);
-            }
-            btn = document.getElementById('checkAddrClone');
-            if (btn !== null) {
-                btn.onclick = () => {
-                    setCheckboxes(['WMEPH_CPhn', 'WMEPH_CPstr', 'WMEPH_CPcity'], true);
-                    setCheckboxes(['WMEPH_CPurl', 'WMEPH_CPph', 'WMEPH_CPserv', 'WMEPH_CPdesc', 'WMEPH_CPhrs'], false);
-                };
-            } else {
-                setTimeout(initWmephPanel, 100);
-            }
-            btn = document.getElementById('checkNoneClone');
-            if (btn !== null) {
-                btn.onclick = () => {
-                    setCheckboxes(['WMEPH_CPhn', 'WMEPH_CPstr', 'WMEPH_CPcity', 'WMEPH_CPurl', 'WMEPH_CPph', 'WMEPH_CPserv',
-                        'WMEPH_CPdesc', 'WMEPH_CPhrs'], false);
-                };
-            } else {
-                setTimeout(initWmephPanel, 100);
-            }
+        if (!$('#clonePlace').length) {
+            $('#wmeph-run-panel').append(
+                $('<div>', { style: 'margin-bottom: 5px' }),
+                $('<input>', {
+                    class: 'btn btn-warning btn-xs wmeph-btn',
+                    id: 'clonePlace',
+                    title: 'Copy place info',
+                    type: 'button',
+                    value: 'Copy',
+                    style: 'font-weight: normal'
+                }).click(onCopyClicked),
+                $('<input>', {
+                    class: 'btn btn-warning btn-xs wmeph-btn',
+                    id: 'pasteClone',
+                    title: 'Apply the Place info. (Ctrl-Alt-O)',
+                    type: 'button',
+                    value: 'Paste (for checked boxes):',
+                    style: 'font-weight: normal; margin-left: 3px;'
+                }).click(onPasteClicked),
+                '<br>',
+                createCloneCheckbox('wmeph-run-panel', 'WMEPH_CPhn', 'HN'),
+                createCloneCheckbox('wmeph-run-panel', 'WMEPH_CPstr', 'Str'),
+                createCloneCheckbox('wmeph-run-panel', 'WMEPH_CPcity', 'City'),
+                createCloneCheckbox('wmeph-run-panel', 'WMEPH_CPurl', 'URL'),
+                createCloneCheckbox('wmeph-run-panel', 'WMEPH_CPph', 'Ph'),
+                '<br>',
+                createCloneCheckbox('wmeph-run-panel', 'WMEPH_CPdesc', 'Desc'),
+                createCloneCheckbox('wmeph-run-panel', 'WMEPH_CPserv', 'Serv'),
+                createCloneCheckbox('wmeph-run-panel', 'WMEPH_CPhrs', 'Hrs'),
+                $('<input>', {
+                    class: 'btn btn-info btn-xs wmeph-btn',
+                    id: 'checkAllClone',
+                    title: 'Check all',
+                    type: 'button',
+                    value: 'All',
+                    style: 'font-weight: normal'
+                }).click(onCheckAllCloneClicked),
+                $('<input>', {
+                    class: 'btn btn-info btn-xs wmeph-btn',
+                    id: 'checkAddrClone',
+                    title: 'Check address',
+                    type: 'button',
+                    value: 'Addr',
+                    style: 'font-weight: normal; margin-left: 3px;'
+                }).click(onCheckAddrCloneClicked),
+                $('<input>', {
+                    class: 'btn btn-info btn-xs wmeph-btn',
+                    id: 'checkNoneClone',
+                    title: 'Check none',
+                    type: 'button',
+                    value: 'None',
+                    style: 'font-weight: normal; margin-left: 3px;'
+                }).click(onCheckNoneCloneClicked),
+                '<br>'
+            );
         }
-    } // END displayCloneButton funtion
+        const venue = getSelectedVenue();
+        updateElementEnabled($('#pasteClone'), venue?.isApproved() && venue.arePropertiesEditable());
+    }
+
+    function onPlugshareSearchClick() {
+        const venue = getSelectedVenue();
+        const olPoint = venue.attributes.geometry.getCentroid();
+        const point = WazeWrap.Geometry.ConvertTo4326(olPoint.x, olPoint.y);
+        const url = `https://www.plugshare.com/?latitude=${point.lat}&longitude=${point.lon}&spanLat=.005&spanLng=.005`;
+        if ($('#WMEPH-WebSearchNewTab').prop('checked')) {
+            window.open(url);
+        } else {
+            window.open(url, 'WMEPH - PlugShare Search', _searchResultsWindowSpecs);
+        }
+    }
+
+    function onOpenWebsiteClick() {
+        const venue = getSelectedVenue();
+        let { url } = venue.attributes;
+        if (url.match(/^http/i) === null) {
+            url = `http://${url}`;
+        }
+        try {
+            if ($('#WMEPH-WebSearchNewTab').prop('checked')) {
+                window.open(url);
+            } else {
+                window.open(url, _SEARCH_RESULTS_WINDOW_NAME, _searchResultsWindowSpecs);
+            }
+        } catch (ex) {
+            console.error(ex);
+            WazeWrap.Alerts.error(_SCRIPT_NAME, 'Possible invalid URL. Check the place\'s Website field.');
+        }
+    }
+
+    function onGoogleSearchClick() {
+        const venue = getSelectedVenue();
+        const addr = venue.getAddress();
+        if (addr.hasState()) {
+            const url = buildGLink(venue.attributes.name, addr, venue.attributes.houseNumber);
+            if ($('#WMEPH-WebSearchNewTab').prop('checked')) {
+                window.open(url);
+            } else {
+                window.open(url, _SEARCH_RESULTS_WINDOW_NAME, _searchResultsWindowSpecs);
+            }
+        } else {
+            WazeWrap.Alerts.error(_SCRIPT_NAME, 'The state and country haven\'t been set for this place yet.  Edit the address first.');
+        }
+    }
+
+    function updateElementEnabled($elem, enabled) {
+        $elem.prop('disabled', !enabled);
+    }
 
     // Catch PLs and reloads that have a place selected already and limit attempts to about 10 seconds
-    function initWmephPanel() {
-        $('#wmeph-panel').remove();
-        if (W.selectionManager.getSelectedFeatures().length === 1) {
-            const venue = getSelectedVenue();
-            if (venue && venue.isApproved()) {
-                $('.contents').prepend('<div id="wmeph-panel">');
-                showRunButton();
-                showOpenPlaceWebsiteButton();
-                showSearchButton();
-                getPanelFields();
-                if (localStorage.getItem('WMEPH-EnableCloneMode') === '1') {
-                    showCloneButton();
-                }
-                // If the user selects a place in the dupe list, don't clear the labels yet
-                if (_dupeIDList.includes(venue.attributes.id)) {
-                    destroyDupeLabels();
-                }
-            }
+    function updateWmephPanel(clearBanner = false) {
+        logDev('updateWmephPanel');
+
+        const venue = getSelectedVenue();
+        if (!venue) return;
+
+        if (!venue.isApproved() || !venue.arePropertiesEditable()) {
+            clearBanner = true;
+        }
+
+        if (clearBanner) {
+            $('#WMEPH_banner').remove();
+            $('#WMEPH_services').remove();
+            $('#WMEPH_tools').remove();
+        }
+
+        let $wmephPanel;
+        let $wmephRunPanel;
+        let $runButton;
+        let $websiteButton;
+        let $googleSearchButton;
+        let $plugshareSearchButton;
+
+        if (!$('#wmeph-panel').length) {
+            const devVersSuffix = _IS_BETA_VERSION ? '-β' : '';
+            $wmephPanel = $('<div>', { id: 'wmeph-panel' });
+            $wmephRunPanel = $('<div>', { id: 'wmeph-run-panel' });
+            $runButton = $('<input>', {
+                class: 'btn btn-primary wmeph-fat-btn',
+                id: 'runWMEPH',
+                title: `Run WMEPH${devVersSuffix} on Place`,
+                type: 'button',
+                value: `Run WMEPH${devVersSuffix}`
+            }).click(harmonizePlace);
+            $websiteButton = $('<input>', {
+                class: 'btn btn-success btn-xs wmeph-fat-btn',
+                id: 'WMEPHurl',
+                title: 'Open place URL',
+                type: 'button',
+                value: 'Website'
+            }).click(onOpenWebsiteClick);
+            $googleSearchButton = $('<input>', {
+                class: 'btn btn-danger btn-xs wmeph-fat-btn',
+                id: 'wmephSearch',
+                title: 'Search the web for this place.  Do not copy info from 3rd party sources!',
+                type: 'button',
+                value: 'Google'
+            }).click(onGoogleSearchClick);
+            $plugshareSearchButton = $('<input>', {
+                class: 'btn btn-xs btn-danger wmeph-fat-btn',
+                id: 'wmephPlugShareSearch',
+                title: 'Open PlugShare website',
+                type: 'button',
+                value: 'PS',
+                style: 'background-color: #003ca6; box-shadow:0 2px 0 #5075b9;'
+            }).click(onPlugshareSearchClick);
+
+            $('#edit-panel > .contents').prepend(
+                $wmephPanel.append(
+                    $wmephRunPanel.append(
+                        $runButton,
+                        $websiteButton,
+                        $googleSearchButton,
+                        $plugshareSearchButton
+                    )
+                )
+            );
+        } else {
+            $wmephPanel = $('#wmeph-panel');
+            $wmephRunPanel = $('#wmeph-run-panel');
+            $runButton = $('#runWMEPH');
+            $websiteButton = $('#WMEPHurl');
+            $googleSearchButton = $('#wmephSearch');
+            $plugshareSearchButton = $('#wmephPlugShareSearch');
+        }
+
+        updateElementEnabled($runButton, venue.isApproved() && venue.arePropertiesEditable());
+        updateElementEnabled($websiteButton, venue.attributes.url?.trim().length);
+        updateElementEnabled($googleSearchButton, !venue.isResidential());
+
+        if (venue.isChargingStation()) {
+            $plugshareSearchButton.show();
+        } else {
+            $plugshareSearchButton.hide();
+        }
+
+        if (localStorage.getItem('WMEPH-EnableCloneMode') === '1') {
+            showCloneButton();
+        }
+        // If the user selects a place in the dupe list, don't clear the labels yet
+        if (_dupeIDList.includes(venue.attributes.id)) {
+            destroyDupeLabels();
         }
     }
 
     // Find field divs
-    function getPanelFields() {
-        let panelFieldsList = $('.form-control');
-        for (let pfix = 0; pfix < panelFieldsList.length; pfix++) {
-            const pfa = panelFieldsList[pfix].name;
-            if (pfa === 'name') {
-                _PANEL_FIELDS.name = pfix;
-            }
-            if (pfa === 'lockRank') {
-                _PANEL_FIELDS.lockRank = pfix;
-            }
-            if (pfa === 'description') {
-                _PANEL_FIELDS.description = pfix;
-            }
-            if (pfa === 'url') {
-                _PANEL_FIELDS.url = pfix;
-            }
-            if (pfa === 'phone') {
-                _PANEL_FIELDS.phone = pfix;
-            }
-            if (pfa === 'brand') {
-                _PANEL_FIELDS.brand = pfix;
-            }
-        }
-        const placeNavTabs = $('.nav');
-        for (let pfix = 0; pfix < placeNavTabs.length; pfix++) {
-            const pfa = placeNavTabs[pfix].innerHTML;
-            if (pfa.includes('venue-edit')) {
-                panelFieldsList = placeNavTabs[pfix].children;
-                _PANEL_FIELDS.navTabsIX = pfix;
-                break;
-            }
-        }
-        for (let pfix = 0; pfix < panelFieldsList.length; pfix++) {
-            const pfa = panelFieldsList[pfix].innerHTML;
-            if (pfa.includes('venue-edit-general')) {
-                _PANEL_FIELDS.navTabGeneral = pfix;
-            }
-            if (pfa.includes('venue-edit-more')) {
-                _PANEL_FIELDS.navTabMore = pfix;
-            }
-        }
-    }
+    // function getPanelFields() {
+    //     let panelFieldsList = $('.form-control');
+    //     for (let pfix = 0; pfix < panelFieldsList.length; pfix++) {
+    //         const pfa = panelFieldsList[pfix].name;
+    //         if (pfa === 'name') {
+    //             _PANEL_FIELDS.name = pfix;
+    //         }
+    //         if (pfa === 'lockRank') {
+    //             _PANEL_FIELDS.lockRank = pfix;
+    //         }
+    //         if (pfa === 'description') {
+    //             _PANEL_FIELDS.description = pfix;
+    //         }
+    //         if (pfa === 'url') {
+    //             _PANEL_FIELDS.url = pfix;
+    //         }
+    //         if (pfa === 'phone') {
+    //             _PANEL_FIELDS.phone = pfix;
+    //         }
+    //         if (pfa === 'brand') {
+    //             _PANEL_FIELDS.brand = pfix;
+    //         }
+    //     }
+    //     const placeNavTabs = $('.nav');
+    //     for (let pfix = 0; pfix < placeNavTabs.length; pfix++) {
+    //         const pfa = placeNavTabs[pfix].innerHTML;
+    //         if (pfa.includes('venue-edit')) {
+    //             panelFieldsList = placeNavTabs[pfix].children;
+    //             _PANEL_FIELDS.navTabsIX = pfix;
+    //             break;
+    //         }
+    //     }
+    //     for (let pfix = 0; pfix < panelFieldsList.length; pfix++) {
+    //         const pfa = panelFieldsList[pfix].innerHTML;
+    //         if (pfa.includes('venue-edit-general')) {
+    //             _PANEL_FIELDS.navTabGeneral = pfix;
+    //         }
+    //         if (pfa.includes('venue-edit-more')) {
+    //             _PANEL_FIELDS.navTabMore = pfix;
+    //         }
+    //     }
+    // }
 
     // Function to clone info from a place
     function clonePlace() {
@@ -8352,10 +8353,10 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
         }
 
         // Reload Data button click event
-        $('#WMEPH-ReloadDataBtn').click(() => {
-            $('.checkmark').toggle();
-            downloadPnhData(true);
-            setTimeout(() => $('.checkmark').toggle(), 3000);
+        $('#WMEPH-ReloadDataBtn').click(async() => {
+            $('#WMEPH-ReloadDataBtn').attr('disabled', true);
+            await downloadPnhData();
+            $('#WMEPH-ReloadDataBtn').attr('disabled', false);
         });
 
         // WL button click events
@@ -8508,11 +8509,15 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
     }
 
     function createCloneCheckbox(divID, settingID, textDescription) {
-        $(`#${divID}`).append(`<input type="checkbox" id="${settingID}">${textDescription}</input>&nbsp&nbsp`);
-        $(`#${settingID}`).click(() => saveSettingToLocalStorage(settingID));
-        if (localStorage.getItem(settingID) === '1') {
-            $(`#${settingID}`).trigger('click');
-        }
+        const $checkbox = $('<input>', {
+            type: 'checkbox',
+            id: settingID
+        }).click(() => saveSettingToLocalStorage(settingID))
+            .prop('checked', localStorage.getItem(settingID) === '1');
+
+        const $label = $('<label>', { for: settingID, style: 'margin-left: 2px; font-weight: normal' }).text(textDescription);
+
+        return $('<span>', { style: 'margin-right: 6px;' }).append($checkbox, $label);
     }
 
     // Function to add Shift+ to upper case KBS
@@ -8696,7 +8701,30 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
     //     }
     // }
 
+    function updateUserInfo() {
+        _USER.ref = W.loginManager.user;
+        _USER.name = _USER.ref.userName;
+        _USER.rank = _USER.ref.rank + 1; // get editor's level (actual level)
+        if (!_wmephBetaList || _wmephBetaList.length === 0) {
+            if (_IS_BETA_VERSION) {
+                WazeWrap.Alerts.warning(_SCRIPT_NAME, 'Beta user list access issue.  Please post in the GHO or PM/DM MapOMatic about this message.  Script should still work.');
+            }
+            _USER.isBetaUser = false;
+            _USER.isDevUser = false;
+        } else {
+            const lcName = _USER.name.toLowerCase();
+            _USER.isDevUser = _wmephDevList.includes(lcName);
+            _USER.isBetaUser = _wmephBetaList.includes(lcName);
+        }
+        if (_USER.isDevUser) {
+            _USER.isBetaUser = true; // dev users are beta users
+        }
+    }
+
     async function placeHarmonizerInit() {
+        updateUserInfo();
+        logDev('placeHarmonizerInit'); // Be sure to update User info before calling logDev()
+
         // Check for script updates.
         checkWmephVersion();
         setInterval(checkWmephVersion, VERSION_CHECK_MINUTES * 60 * 1000);
@@ -8725,9 +8753,6 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
         tempDiv.style.display = 'none';
         $('body').append(tempDiv);
 
-        _USER.ref = W.loginManager.user;
-        _USER.name = _USER.ref.userName;
-        _USER.rank = _USER.ref.rank + 1; // get editor's level (actual level)
         _userLanguage = I18n.locale;
 
         // Array prototype extensions (for Firefox fix)
@@ -8823,10 +8848,13 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
         await addWmephTab(); // initialize the settings tab
 
         // Event listeners
-        W.selectionManager.events.register('selectionchanged', this, () => errorHandler(initWmephPanel));
+        W.selectionManager.events.register('selectionchanged', null, () => {
+            logDev('selectionchanged');
+            errorHandler(updateWmephPanel, true);
+        });
         W.model.venues.on('objectssynced', () => errorHandler(destroyDupeLabels));
         W.model.venues.on('objectssynced', e => errorHandler(() => syncWL(e)));
-        W.model.venues.on('objectschanged', () => errorHandler(onObjectsChanged));
+        W.model.venues.on('objectschanged', venues => errorHandler(onVenuesChanged, venues));
 
         // Remove any temporary ID values (ID < 0) from the WL store at startup.
         let removedWLCount = 0;
@@ -8839,21 +8867,6 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
         if (removedWLCount > 0) {
             saveWhitelistToLS(true);
             logDev(`Removed ${removedWLCount} venues with temporary ID's from WL store`);
-        }
-
-        if (!_wmephBetaList || _wmephBetaList.length === 0) {
-            if (_IS_BETA_VERSION) {
-                WazeWrap.Alerts.warning(_SCRIPT_NAME, 'Beta user list access issue.  Please post in the GHO or PM/DM MapOMatic about this message.  Script should still work.');
-            }
-            _USER.isBetaUser = false;
-            _USER.isDevUser = false;
-        } else {
-            const lcName = _USER.name.toLowerCase();
-            _USER.isDevUser = _wmephDevList.includes(lcName);
-            _USER.isBetaUser = _wmephBetaList.includes(lcName);
-        }
-        if (_USER.isDevUser) {
-            _USER.isBetaUser = true; // dev users are beta users
         }
 
         _catTransWaze2Lang = I18n.translations[_userLanguage].venues.categories; // pulls the category translations
@@ -8870,7 +8883,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
         _psAreaCodeIx = _stateHeaders.indexOf('ps_areacode');
 
         // Set up Run WMEPH button once place is selected
-        initWmephPanel();
+        updateWmephPanel();
 
         // Setup highlight colors
         initializeHighlights();
@@ -8886,14 +8899,24 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
         bootstrapWmephColorHighlights();
     } // END placeHarmonizer_init function
 
-    function placeHarmonizerBootstrap() {
-        if (W && W.loginManager && W.loginManager.user && W.map && WazeWrap && WazeWrap.Ready && W.model.categoryBrands.PARKING_LOT && require) {
-            WazeWrap.Interface.ShowScriptUpdate(_SCRIPT_NAME, _SCRIPT_VERSION, _SCRIPT_UPDATE_MESSAGE);
-            placeHarmonizerInit();
-        } else {
-            log('Waiting for WME map and login...');
-            setTimeout(placeHarmonizerBootstrap, 200);
-        }
+    function waitForReady() {
+        return new Promise(resolve => {
+            function loop() {
+                if (W && W.loginManager && W.loginManager.user && W.map && WazeWrap && WazeWrap.Ready && W.model.categoryBrands.PARKING_LOT && require) {
+                    resolve();
+                } else {
+                    setTimeout(loop, 100);
+                }
+            }
+            loop();
+        });
+    }
+
+    async function placeHarmonizerBootstrap() {
+        log('Waiting for WME and WazeWrap...');
+        await waitForReady();
+        WazeWrap.Interface.ShowScriptUpdate(_SCRIPT_NAME, _SCRIPT_VERSION, _SCRIPT_UPDATE_MESSAGE);
+        await placeHarmonizerInit();
     }
 
     const SPREADSHEET_ID = '1pBz4l4cNapyGyzfMJKqA4ePEFLkmz2RryAt1UV39B4g';
@@ -8943,61 +8966,65 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
     function getSpreadsheetUrl(id, range, key) {
         return `https://sheets.googleapis.com/v4/spreadsheets/${id}/values/${range}?${dec(key)}`;
     }
-    function downloadPnhData(skipBootstrap = false) {
-        // TODO change the _PNH_DATA cache to use an object so we don't have to rely on ugly array index lookups.
-        const processData1 = (data, colIdx) => data.filter(row => row.length >= colIdx + 1).map(row => row[colIdx]);
+    function downloadPnhData() {
+        log('PNH data download started...');
+        return new Promise((resolve, reject) => {
+            // TODO change the _PNH_DATA cache to use an object so we don't have to rely on ugly array index lookups.
+            const processData1 = (data, colIdx) => data.filter(row => row.length >= colIdx + 1).map(row => row[colIdx]);
+            const url = getSpreadsheetUrl(SPREADSHEET_ID, SPREADSHEET_RANGE, API_KEY);
 
-        $.getJSON(getSpreadsheetUrl(SPREADSHEET_ID, SPREADSHEET_RANGE, API_KEY)).done(res => {
-            const { values } = res;
-            if (values[0][0].toLowerCase() === 'obsolete') {
-                WazeWrap.Alerts.error(_SCRIPT_NAME, 'You are using an outdated version of WMEPH that doesn\'t work anymore. Update or disable the script.');
-                return;
-            }
+            $.getJSON(url).done(res => {
+                const { values } = res;
+                if (values[0][0].toLowerCase() === 'obsolete') {
+                    WazeWrap.Alerts.error(_SCRIPT_NAME, 'You are using an outdated version of WMEPH that doesn\'t work anymore. Update or disable the script.');
+                    return;
+                }
 
-            // This needs to be performed before makeNameCheckList() is called.
-            _wordVariations = processData1(values, 11).slice(1).map(row => row.toUpperCase().replace(/[^A-z0-9,]/g, '').split(','));
+                // This needs to be performed before makeNameCheckList() is called.
+                _wordVariations = processData1(values, 11).slice(1).map(row => row.toUpperCase().replace(/[^A-z0-9,]/g, '').split(','));
 
-            _PNH_DATA.USA.pnh = processData1(values, 0);
-            _PNH_DATA.USA.pnhNames = makeNameCheckList(_PNH_DATA.USA.pnh);
+                _PNH_DATA.USA.pnh = processData1(values, 0);
+                _PNH_DATA.USA.pnhNames = makeNameCheckList(_PNH_DATA.USA.pnh);
 
-            _PNH_DATA.states = processData1(values, 1);
+                _PNH_DATA.states = processData1(values, 1);
 
-            _PNH_DATA.CAN.pnh = processData1(values, 2);
-            _PNH_DATA.CAN.pnhNames = makeNameCheckList(_PNH_DATA.CAN.pnh);
+                _PNH_DATA.CAN.pnh = processData1(values, 2);
+                _PNH_DATA.CAN.pnhNames = makeNameCheckList(_PNH_DATA.CAN.pnh);
 
-            _PNH_DATA.USA.categories = processData1(values, 3);
-            _PNH_DATA.USA.categoryNames = makeCatCheckList(_PNH_DATA.USA.categories);
+                _PNH_DATA.USA.categories = processData1(values, 3);
+                _PNH_DATA.USA.categoryNames = makeCatCheckList(_PNH_DATA.USA.categories);
 
-            // For now, Canada uses some of the same settings as USA.
-            _PNH_DATA.CAN.categories = _PNH_DATA.USA.categories;
-            _PNH_DATA.CAN.categoryNames = _PNH_DATA.USA.categoryNames;
+                // For now, Canada uses some of the same settings as USA.
+                _PNH_DATA.CAN.categories = _PNH_DATA.USA.categories;
+                _PNH_DATA.CAN.categoryNames = _PNH_DATA.USA.categoryNames;
 
-            const WMEPHuserList = processData1(values, 4)[1].split('|');
-            const betaix = WMEPHuserList.indexOf('BETAUSERS');
-            _wmephDevList = [];
-            _wmephBetaList = [];
-            for (let ulix = 1; ulix < betaix; ulix++) _wmephDevList.push(WMEPHuserList[ulix].toLowerCase().trim());
-            for (let ulix = betaix + 1; ulix < WMEPHuserList.length; ulix++) _wmephBetaList.push(WMEPHuserList[ulix].toLowerCase().trim());
+                const WMEPHuserList = processData1(values, 4)[1].split('|');
+                const betaix = WMEPHuserList.indexOf('BETAUSERS');
+                _wmephDevList = [];
+                _wmephBetaList = [];
+                for (let ulix = 1; ulix < betaix; ulix++) _wmephDevList.push(WMEPHuserList[ulix].toLowerCase().trim());
+                for (let ulix = betaix + 1; ulix < WMEPHuserList.length; ulix++) _wmephBetaList.push(WMEPHuserList[ulix].toLowerCase().trim());
 
-            const processTermsCell = (termsValues, colIdx) => processData1(termsValues, colIdx)[1]
-                .toLowerCase().split('|').map(value => value.trim());
-            _hospitalPartMatch = processTermsCell(values, 5);
-            _hospitalFullMatch = processTermsCell(values, 6);
-            _animalPartMatch = processTermsCell(values, 7);
-            _animalFullMatch = processTermsCell(values, 8);
-            _schoolPartMatch = processTermsCell(values, 9);
-            _schoolFullMatch = processTermsCell(values, 10);
+                const processTermsCell = (termsValues, colIdx) => processData1(termsValues, colIdx)[1]
+                    .toLowerCase().split('|').map(value => value.trim());
+                _hospitalPartMatch = processTermsCell(values, 5);
+                _hospitalFullMatch = processTermsCell(values, 6);
+                _animalPartMatch = processTermsCell(values, 7);
+                _animalFullMatch = processTermsCell(values, 8);
+                _schoolPartMatch = processTermsCell(values, 9);
+                _schoolFullMatch = processTermsCell(values, 10);
 
-            if (!skipBootstrap) {
-                placeHarmonizerBootstrap();
-            }
-        }).fail(res => {
-            const message = res.responseJSON && res.responseJSON.error ? res.responseJSON.error : 'See response error message above.';
-            console.error('WMEPH failed to load spreadsheet:', message);
+                log('PNH data download completed');
+                resolve();
+            }).fail(res => {
+                const message = res.responseJSON && res.responseJSON.error ? res.responseJSON.error : 'See response error message above.';
+                console.error('WMEPH failed to load spreadsheet:', message);
+                reject();
+            });
         });
     }
 
-    function bootstrap() {
+    async function bootstrap() {
         // Quit if another version of WMEPH is already running.
         if (unsafeWindow.wmephRunning) {
             WazeWrap.Alerts.error(_SCRIPT_NAME, 'Multiple versions of Place Harmonizer are turned on.  Only one will be enabled.');
@@ -9005,7 +9032,8 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
         }
         unsafeWindow.wmephRunning = 1;
         // Start downloading the PNH spreadsheet data in the background.  Starts the script once data is ready.
-        downloadPnhData();
+        await downloadPnhData();
+        await placeHarmonizerBootstrap();
     }
 
     bootstrap();
