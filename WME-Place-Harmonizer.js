@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name        WME Place Harmonizer Beta
 // @namespace   WazeUSA
-// @version     2023.04.07.001
+// @version     2023.04.07.002
 // @description Harmonizes, formats, and locks a selected place
 // @author      WMEPH Development Group
 // @include     /^https:\/\/(www|beta)\.waze\.com\/(?!user\/)(.{2,6}\/)?editor\/?.*$/
@@ -1284,7 +1284,7 @@
                 }
             }
 
-            updateWmephPanel(false);
+            updateWmephPanel();
         }
     }
 
@@ -7194,7 +7194,11 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
         logDev('updateWmephPanel');
 
         const venue = getSelectedVenue();
-        if (!venue) return;
+
+        if (!venue) {
+            $('#wmeph-panel').remove();
+            return;
+        }
 
         if (!venue.isApproved() || !venue.arePropertiesEditable()) {
             clearBanner = true;
