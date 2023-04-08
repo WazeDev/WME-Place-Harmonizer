@@ -1275,7 +1275,7 @@
         deleteDupeLabel();
 
         const venue = getSelectedVenue();
-        if (venueProxies.map(proxy => proxy.attributes.id).includes(venue.attributes.id)) {
+        if (venueProxies.map(proxy => proxy.attributes.id).includes(venue?.attributes.id)) {
             if ($('#WMEPH_banner').length) {
                 const actions = W.model.actionManager.getActions();
                 const lastAction = actions[actions.length - 1];
@@ -7344,10 +7344,6 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
             const venue = getSelectedVenue();
             const cloneItems = {};
             let updateItem = false;
-            if (isChecked('WMEPH_CPhn')) {
-                //cloneItems.houseNumber = _cloneMaster.houseNumber;
-                //updateItem = true;
-            }
             if (isChecked('WMEPH_CPurl')) {
                 cloneItems.url = _cloneMaster.url;
                 updateItem = true;
@@ -9039,6 +9035,12 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
         });
     }
 
+    function devTestCode() {
+        if (W.loginManager.user.userName === 'MapOMatic') {
+            // add experimental code here
+        }
+    }
+
     async function bootstrap() {
         // Quit if another version of WMEPH is already running.
         if (unsafeWindow.wmephRunning) {
@@ -9049,6 +9051,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
         // Start downloading the PNH spreadsheet data in the background.  Starts the script once data is ready.
         await downloadPnhData();
         await placeHarmonizerBootstrap();
+        devTestCode();
     }
 
     bootstrap();
