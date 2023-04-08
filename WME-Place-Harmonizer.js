@@ -7137,7 +7137,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
             );
         }
         const venue = getSelectedVenue();
-        updateElementEnabled($('#pasteClone'), venue?.isApproved() && venue.arePropertiesEditable());
+        updateElementEnabledOrVisible($('#pasteClone'), venue?.isApproved() && venue.arePropertiesEditable());
     }
 
     function onPlugshareSearchClick() {
@@ -7185,8 +7185,17 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
         }
     }
 
-    function updateElementEnabled($elem, enabled) {
-        $elem.prop('disabled', !enabled);
+    function updateElementEnabledOrVisible($elem, props) {
+        if (props.hasOwnProperty('visible')) {
+            if (props.visible) {
+                $elem.show();
+            } else {
+                $elem.hide();
+            }
+        }
+        if (props.hasOwnProperty('enabled')) {
+            $elem.prop('disabled', !props.enabled);
+        }
     }
 
     // Catch PLs and reloads that have a place selected already and limit attempts to about 10 seconds
@@ -7270,15 +7279,10 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
             $plugshareSearchButton = $('#wmephPlugShareSearch');
         }
 
-        updateElementEnabled($runButton, venue.isApproved() && venue.arePropertiesEditable());
-        updateElementEnabled($websiteButton, venue.attributes.url?.trim().length);
-        updateElementEnabled($googleSearchButton, !venue.isResidential());
-
-        if (venue.isChargingStation()) {
-            $plugshareSearchButton.show();
-        } else {
-            $plugshareSearchButton.hide();
-        }
+        updateElementEnabledOrVisible($runButton, { enabled: venue.isApproved() && venue.arePropertiesEditable() });
+        updateElementEnabledOrVisible($websiteButton, { enabled: venue.attributes.url?.trim().length, visible: !venue.isResidential() });
+        updateElementEnabledOrVisible($googleSearchButton, { enabled: !venue.isResidential(), visible: !venue.isResidential() });
+        updateElementEnabledOrVisible($plugshareSearchButton, { visible: venue.isChargingStation() });
 
         if (localStorage.getItem('WMEPH-EnableCloneMode') === '1') {
             showCloneButton();
@@ -7341,8 +7345,8 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
             const cloneItems = {};
             let updateItem = false;
             if (isChecked('WMEPH_CPhn')) {
-                cloneItems.houseNumber = _cloneMaster.houseNumber;
-                updateItem = true;
+                //cloneItems.houseNumber = _cloneMaster.houseNumber;
+                //updateItem = true;
             }
             if (isChecked('WMEPH_CPurl')) {
                 cloneItems.url = _cloneMaster.url;
@@ -7371,14 +7375,16 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
 
             const copyStreet = isChecked('WMEPH_CPstr');
             const copyCity = isChecked('WMEPH_CPcity');
+            const copyHn = isChecked('WMEPH_CPhn');
 
-            if (copyStreet || copyCity) {
+            if (copyStreet || copyCity || copyHn) {
                 const originalAddress = venue.getAddress();
                 const itemRepl = {
                     street: copyStreet ? _cloneMaster.addr.street : originalAddress.attributes.street,
                     city: copyCity ? _cloneMaster.addr.city : originalAddress.attributes.city,
                     state: copyCity ? _cloneMaster.addr.state : originalAddress.attributes.state,
-                    country: copyCity ? _cloneMaster.addr.country : originalAddress.attributes.country
+                    country: copyCity ? _cloneMaster.addr.country : originalAddress.attributes.country,
+                    houseNumber: copyHn ? _cloneMaster.addr.houseNumber : originalAddress.attributes.houseNumber
                 };
                 updateAddress(venue, itemRepl);
                 logDev('Item address cloned');
@@ -7925,15 +7931,20 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                 streetName: address.street.name,
                 emptyStreet: address.street.isEmpty ? true : null
             };
-            const action = new UpdateFeatureAddress(feature, newAttributes);
+            const multiAction = new MultiAction([], { description: 'Update venue address' });
+            multiAction.setModel(W.model);
+            multiAction.doSubAction(new UpdateFeatureAddress(feature, newAttributes));
+            if (address.hasOwnProperty('houseNumber')) {
+                multiAction.doSubAction(new UpdateObject(feature, { houseNumber: address.houseNumber }));
+            }
             if (actions) {
-                actions.push(action);
+                actions.push(multiAction);
             } else {
-                W.model.actionManager.add(action);
+                W.model.actionManager.add(multiAction);
             }
             logDev('Address inferred and updated');
         }
-    } // END updateAddress function
+    }
 
     // Build a Google search url based on place name and address
     function buildGLink(searchName, addr, HN) {
