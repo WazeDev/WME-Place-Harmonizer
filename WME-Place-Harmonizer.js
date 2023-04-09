@@ -997,12 +997,16 @@
 
     function nudgeVenue(venue) {
         const originalGeometry = venue.geometry.clone();
+        const moveNegative = Math.random() > 0.5;
+        const nudgeDistance = 0.00000001 * (moveNegative ? -1 : 1);
         if (venue.isPoint()) {
-            venue.geometry.x += 0.000000001;
+            venue.geometry.x += nudgeDistance;
         } else {
-            venue.geometry.components[0].components[0].x += 0.000000001;
+            venue.geometry.components[0].components[0].x += nudgeDistance;
         }
-        W.model.actionManager.add(new UpdateFeatureGeometry(venue, W.model.venues, originalGeometry, venue.geometry));
+        const action = new UpdateFeatureGeometry(venue, W.model.venues, originalGeometry, venue.geometry);
+        const mAction = new MultiAction([action], { description: 'Place nudged by WMEPH' });
+        W.model.actionManager.add(mAction);
     }
 
     function sortWithIndex(toSort) {
@@ -3486,6 +3490,49 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                 this.applyHours(true);
             }
         },
+        OldHours: class extends ActionFlag {
+            static #categoriesToCheck;
+            static #cutoffDateString = '3/15/2020';
+            static #cutoffDate = new Date(this.#cutoffDateString);
+
+            constructor(venue) {
+                super(true, _SEVERITY.YELLOW, `Last updated before ${Flag.OldHours.#cutoffDateString}. Please verify hours are correct. If so, nudge this place and save.`, 'Nudge');
+                this.venue = venue;
+            }
+
+            static #initializeCategoriesToCheck(catData) {
+                const catParentIdx = catData[0].split('|').indexOf('pc_catparent');
+                const catNameIdx = catData[0].split('|').indexOf('pc_wmecat');
+                const parentCats = ['SHOPPING_AND_SERVICES', 'FOOD_AND_DRINK', 'CULTURE_AND_ENTERTAINEMENT'];
+                if (!this.#categoriesToCheck) {
+                    this.#categoriesToCheck = catData
+                        .map(catRowString => catRowString.split('|'))
+                        .filter(catRow => parentCats.includes(catRow[catParentIdx]))
+                        .map(catRow => catRow[catNameIdx]);
+                    this.#categoriesToCheck.push(...parentCats);
+                }
+            }
+
+            static #isVenueFlaggable(venue) {
+                const lastUpdated = venue.attributes.updatedOn ?? venue.attributes.createdOn;
+                return !venue.isResidential() && lastUpdated < this.#cutoffDate && venue.attributes.openingHours?.length
+                    && venue.attributes.categories.some(cat => this.#categoriesToCheck.includes(cat));
+            }
+
+            static eval(venue, catData) {
+                let result = null;
+                this.#initializeCategoriesToCheck(catData);
+                if (this.#isVenueFlaggable(venue)) {
+                    result = new Flag.OldHours(venue);
+                }
+                return result;
+            }
+
+            action() {
+                nudgeVenue(this.venue);
+                harmonizePlaceGo(this.venue, 'harmonize');
+            }
+        },
         PlaLotTypeMissing: class extends FlagBase {
             constructor(venue, highlightOnly) {
                 super(true, _SEVERITY.RED, 'Lot type: ');
@@ -3577,7 +3624,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
             }
         },
         PlaPaymentTypeMissing: class extends ActionFlag {
-            constructor() { super(true, _SEVERITY.BLUE, 'Parking isn\'t free.  Select payment type(s) from the "More info" tab. ', 'Go there'); }
+            constructor() { super(true, _SEVERITY.BLUE, 'Parking isn\'t free. Select payment type(s) from the "More info" tab. ', 'Go there'); }
 
             static eval(venue) {
                 let result = null;
@@ -4329,6 +4376,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
             addRecommendedPhone: null,
             badAreaCode: null,
             phoneMissing: null,
+            oldHours: null,
             noHours: null,
             plaLotTypeMissing: null,
             plaCostTypeMissing: null,
@@ -5932,6 +5980,8 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                     }
                 }
             }
+
+            _buttonBanner.oldHours = Flag.OldHours.eval(item, catData);
 
             if (!highlightOnly) {
                 // Highlight 24/7 button if hours are set that way, and add button for all places
