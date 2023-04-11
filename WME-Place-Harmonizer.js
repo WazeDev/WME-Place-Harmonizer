@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name        WME Place Harmonizer Beta
 // @namespace   WazeUSA
-// @version     2023.04.07.002
+// @version     2023.04.11.001
 // @description Harmonizes, formats, and locks a selected place
 // @author      WMEPH Development Group
 // @include     /^https:\/\/(www|beta)\.waze\.com\/(?!user\/)(.{2,6}\/)?editor\/?.*$/
@@ -1275,7 +1275,7 @@
         deleteDupeLabel();
 
         const venue = getSelectedVenue();
-        if (venueProxies.map(proxy => proxy.attributes.id).includes(venue.attributes.id)) {
+        if (venueProxies.map(proxy => proxy.attributes.id).includes(venue?.attributes.id)) {
             if ($('#WMEPH_banner').length) {
                 const actions = W.model.actionManager.getActions();
                 const lastAction = actions[actions.length - 1];
@@ -4649,7 +4649,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                         const venue = getSelectedVenue();
                         addUpdateAction(venue, { openingHours: [new OpeningHour({ days: [1, 2, 3, 4, 5, 6, 0], fromHour: '00:00', toHour: '00:00' })] }, actions);
                         _servicesBanner.add247.checked = true;
-                        _buttonBanner.noHours = null;
+                        harmonizePlaceGo(venue, 'harmonize');
                     }
                 },
                 actionOn(actions) {
@@ -5903,8 +5903,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                         _buttonBanner.noHours.severity = _SEVERITY.GREEN;
                     }
                 }
-            } else if (!isAlwaysOpen(item)) {
-                // If it's not open 24/7, display the hours banner.
+            } else {
                 if (item.attributes.openingHours.length === 1) { // if one set of hours exist, check for partial 24hrs setting
                     const hoursEntry = item.attributes.openingHours[0];
                     if (hoursEntry.days.length < 7 && /^0?0:00$/.test(hoursEntry.fromHour)
@@ -7137,7 +7136,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
             );
         }
         const venue = getSelectedVenue();
-        updateElementEnabled($('#pasteClone'), venue?.isApproved() && venue.arePropertiesEditable());
+        updateElementEnabledOrVisible($('#pasteClone'), venue?.isApproved() && venue.arePropertiesEditable());
     }
 
     function onPlugshareSearchClick() {
@@ -7185,8 +7184,17 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
         }
     }
 
-    function updateElementEnabled($elem, enabled) {
-        $elem.prop('disabled', !enabled);
+    function updateElementEnabledOrVisible($elem, props) {
+        if (props.hasOwnProperty('visible')) {
+            if (props.visible) {
+                $elem.show();
+            } else {
+                $elem.hide();
+            }
+        }
+        if (props.hasOwnProperty('enabled')) {
+            $elem.prop('disabled', !props.enabled);
+        }
     }
 
     // Catch PLs and reloads that have a place selected already and limit attempts to about 10 seconds
@@ -7270,15 +7278,10 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
             $plugshareSearchButton = $('#wmephPlugShareSearch');
         }
 
-        updateElementEnabled($runButton, venue.isApproved() && venue.arePropertiesEditable());
-        updateElementEnabled($websiteButton, venue.attributes.url?.trim().length);
-        updateElementEnabled($googleSearchButton, !venue.isResidential());
-
-        if (venue.isChargingStation()) {
-            $plugshareSearchButton.show();
-        } else {
-            $plugshareSearchButton.hide();
-        }
+        updateElementEnabledOrVisible($runButton, { enabled: venue.isApproved() && venue.arePropertiesEditable() });
+        updateElementEnabledOrVisible($websiteButton, { enabled: venue.attributes.url?.trim().length, visible: !venue.isResidential() });
+        updateElementEnabledOrVisible($googleSearchButton, { enabled: !venue.isResidential(), visible: !venue.isResidential() });
+        updateElementEnabledOrVisible($plugshareSearchButton, { visible: venue.isChargingStation() });
 
         if (localStorage.getItem('WMEPH-EnableCloneMode') === '1') {
             showCloneButton();
@@ -7340,10 +7343,6 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
             const venue = getSelectedVenue();
             const cloneItems = {};
             let updateItem = false;
-            if (isChecked('WMEPH_CPhn')) {
-                cloneItems.houseNumber = _cloneMaster.houseNumber;
-                updateItem = true;
-            }
             if (isChecked('WMEPH_CPurl')) {
                 cloneItems.url = _cloneMaster.url;
                 updateItem = true;
@@ -7371,14 +7370,16 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
 
             const copyStreet = isChecked('WMEPH_CPstr');
             const copyCity = isChecked('WMEPH_CPcity');
+            const copyHn = isChecked('WMEPH_CPhn');
 
-            if (copyStreet || copyCity) {
+            if (copyStreet || copyCity || copyHn) {
                 const originalAddress = venue.getAddress();
                 const itemRepl = {
                     street: copyStreet ? _cloneMaster.addr.street : originalAddress.attributes.street,
                     city: copyCity ? _cloneMaster.addr.city : originalAddress.attributes.city,
                     state: copyCity ? _cloneMaster.addr.state : originalAddress.attributes.state,
-                    country: copyCity ? _cloneMaster.addr.country : originalAddress.attributes.country
+                    country: copyCity ? _cloneMaster.addr.country : originalAddress.attributes.country,
+                    houseNumber: copyHn ? _cloneMaster.addr.houseNumber : originalAddress.attributes.houseNumber
                 };
                 updateAddress(venue, itemRepl);
                 logDev('Item address cloned');
@@ -7925,15 +7926,20 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                 streetName: address.street.name,
                 emptyStreet: address.street.isEmpty ? true : null
             };
-            const action = new UpdateFeatureAddress(feature, newAttributes);
+            const multiAction = new MultiAction([], { description: 'Update venue address' });
+            multiAction.setModel(W.model);
+            multiAction.doSubAction(new UpdateFeatureAddress(feature, newAttributes));
+            if (address.hasOwnProperty('houseNumber')) {
+                multiAction.doSubAction(new UpdateObject(feature, { houseNumber: address.houseNumber }));
+            }
             if (actions) {
-                actions.push(action);
+                actions.push(multiAction);
             } else {
-                W.model.actionManager.add(action);
+                W.model.actionManager.add(multiAction);
             }
             logDev('Address inferred and updated');
         }
-    } // END updateAddress function
+    }
 
     // Build a Google search url based on place name and address
     function buildGLink(searchName, addr, HN) {
@@ -9028,6 +9034,12 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
         });
     }
 
+    function devTestCode() {
+        if (W.loginManager.user.userName === 'MapOMatic') {
+            // add experimental code here
+        }
+    }
+
     async function bootstrap() {
         // Quit if another version of WMEPH is already running.
         if (unsafeWindow.wmephRunning) {
@@ -9038,6 +9050,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
         // Start downloading the PNH spreadsheet data in the background.  Starts the script once data is ready.
         await downloadPnhData();
         await placeHarmonizerBootstrap();
+        devTestCode();
     }
 
     bootstrap();
