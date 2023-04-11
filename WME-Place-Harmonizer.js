@@ -4697,7 +4697,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                         const venue = getSelectedVenue();
                         addUpdateAction(venue, { openingHours: [new OpeningHour({ days: [1, 2, 3, 4, 5, 6, 0], fromHour: '00:00', toHour: '00:00' })] }, actions);
                         _servicesBanner.add247.checked = true;
-                        _buttonBanner.noHours = null;
+                        harmonizePlaceGo(venue, 'harmonize');
                     }
                 },
                 actionOn(actions) {
@@ -5951,8 +5951,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                         _buttonBanner.noHours.severity = _SEVERITY.GREEN;
                     }
                 }
-            } else if (!isAlwaysOpen(item)) {
-                // If it's not open 24/7, display the hours banner.
+            } else {
                 if (item.attributes.openingHours.length === 1) { // if one set of hours exist, check for partial 24hrs setting
                     const hoursEntry = item.attributes.openingHours[0];
                     if (hoursEntry.days.length < 7 && /^0?0:00$/.test(hoursEntry.fromHour)
