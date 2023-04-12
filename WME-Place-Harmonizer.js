@@ -237,7 +237,6 @@
         PINK: 5
         // TODO: There is also 'lock' and 'lock1' severity. Add those here? Also investigate 'adLock' severity (is it still useful in WME???).
     };
-    let _severityButt = _SEVERITY.GREEN; // error tracking to determine banner color (action buttons)
     let _duplicateName = '';
     let _catTransWaze2Lang; // pulls the category translations
     let _newName;
@@ -4733,7 +4732,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
 
         const highlightOnly = !useFlag.includes('harmonize');
 
-        _severityButt = _SEVERITY.GREEN;
+        let totalSeverity = _SEVERITY.GREEN;
 
         // Whitelist: reset flags
         _wl = {
@@ -6292,7 +6291,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
         // update Severity for banner messages
         Object.keys(_buttonBanner).forEach(key => {
             if (_buttonBanner[key] && _buttonBanner[key].active) {
-                _severityButt = Math.max(_buttonBanner[key].severity, _severityButt);
+                totalSeverity = Math.max(_buttonBanner[key].severity, totalSeverity);
             }
         });
 
@@ -6324,7 +6323,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
         if (!isLocked && _buttonBanner.extProviderMissing && _buttonBanner.extProviderMissing.active
             && _buttonBanner.extProviderMissing.severity <= _SEVERITY.YELLOW) {
             _buttonBanner.extProviderMissing.severity = _SEVERITY.RED;
-            _severityButt = _SEVERITY.RED;
+            totalSeverity = _SEVERITY.RED;
             if (lockOK) {
                 _buttonBanner.extProviderMissing.value = `Lock anyway? (${levelToLock + 1})`;
                 _buttonBanner.extProviderMissing.title = 'If no Google link exists, lock this place.\nIf there is still no Google link after '
@@ -6341,11 +6340,11 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
         if (!highlightOnly) {
             // Update the lockOK value if "noLock" is set on any flag.
             lockOK &&= !Object.keys(_buttonBanner).some(key => _buttonBanner[key]?.noLock);
-            logDev(`Severity: ${_severityButt}; lockOK: ${lockOK}`);
+            logDev(`Severity: ${totalSeverity}; lockOK: ${lockOK}`);
         }
 
         let hlLockFlag = false;
-        if (lockOK && _severityButt < _SEVERITY.YELLOW) {
+        if (lockOK && totalSeverity < _SEVERITY.YELLOW) {
             if (item.attributes.lockRank < levelToLock) {
                 if (!highlightOnly) {
                     logDev('Venue locked!');
@@ -6414,7 +6413,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
         }
 
         // Final alerts for non-severe locations
-        if (!item.attributes.residential && _severityButt < _SEVERITY.RED) {
+        if (!item.attributes.residential && totalSeverity < _SEVERITY.RED) {
             const nameShortSpace = _newName.toUpperCase().replace(/[^A-Z ']/g, '');
             if (nameShortSpace.includes('\'S HOUSE') || nameShortSpace.includes('\'S HOME') || nameShortSpace.includes('\'S WORK')) {
                 if (!containsAny(_newCategories, ['RESTAURANT', 'DESSERT', 'BAR']) && !pnhNameRegMatch) {
@@ -6440,36 +6439,36 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
         // Return severity for highlighter (no dupe run))
         if (highlightOnly) {
             // get severities from the banners
-            _severityButt = _SEVERITY.GREEN;
+            totalSeverity = _SEVERITY.GREEN;
             Object.keys(_buttonBanner).forEach(tempKey => {
                 if (_buttonBanner[tempKey] && _buttonBanner[tempKey].active) { //  If the particular message is active
                     if (_buttonBanner[tempKey].hasOwnProperty('WLactive')) {
                         if (_buttonBanner[tempKey].WLactive) { // If there's a WL option, enable it
-                            _severityButt = Math.max(_buttonBanner[tempKey].severity, _severityButt);
+                            totalSeverity = Math.max(_buttonBanner[tempKey].severity, totalSeverity);
                         }
                     } else {
-                        _severityButt = Math.max(_buttonBanner[tempKey].severity, _severityButt);
+                        totalSeverity = Math.max(_buttonBanner[tempKey].severity, totalSeverity);
                     }
                 }
             });
 
             // Special case flags
-            if (item.attributes.lockRank === 0 && (item.attributes.categories.includes('HOSPITAL_MEDICAL_CARE')
-                || item.attributes.categories.includes('HOSPITAL_URGENT_CARE') || item.isGasStation())) {
-                _severityButt = _SEVERITY.PINK;
+            if (item.attributes.lockRank === 0
+                && item.attributes.categories.some(cat => ['HOSPITAL_MEDICAL_CARE', 'HOSPITAL_URGENT_CARE', 'GAS_STATION'].includes(cat))) {
+                totalSeverity = _SEVERITY.PINK;
             }
 
-            if (_severityButt === _SEVERITY.GREEN && hlLockFlag) {
-                _severityButt = 'lock';
+            if (totalSeverity === _SEVERITY.GREEN && hlLockFlag) {
+                totalSeverity = 'lock';
             }
-            if (_severityButt === 1 && hlLockFlag) {
-                _severityButt = 'lock1';
+            if (totalSeverity === 1 && hlLockFlag) {
+                totalSeverity = 'lock1';
             }
             if (item.attributes.adLocked) {
-                _severityButt = 'adLock';
+                totalSeverity = 'adLock';
             }
 
-            return _severityButt;
+            return totalSeverity;
         }
 
         // *** Below here is for harmonization only.  HL ends in previous step.
@@ -6625,7 +6624,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
         let rowData;
         let $rowDiv;
         let rowDivs = [];
-        _severityButt = _SEVERITY.GREEN;
+        let totalSeverity = _SEVERITY.GREEN;
 
         const func = elem => ({ id: elem.getAttribute('id'), val: elem.value });
         _textEntryValues = $('#WMEPH_banner input[type="text"]').toArray().map(func);
@@ -6643,7 +6642,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                     // Nothing happening here yet.
                 }
                 if (rowData.WLactive && rowData.WLaction) { // If there's a WL option, enable it
-                    _severityButt = Math.max(rowData.severity, _severityButt);
+                    totalSeverity = Math.max(rowData.severity, totalSeverity);
                     $dupeDiv.append($('<button>', {
                         class: 'btn btn-success btn-xs wmephwl-btn',
                         id: `WMEPH_WL${tempKey}`,
@@ -6693,14 +6692,14 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                 }
                 if (rowData.WLactive) {
                     if (rowData.WLaction) { // If there's a WL option, enable it
-                        _severityButt = Math.max(rowData.severity, _severityButt);
+                        totalSeverity = Math.max(rowData.severity, totalSeverity);
                         $rowDiv.append(
                             $('<button>', { class: 'btn btn-success btn-xs wmephwl-btn', id: `WMEPH_WL${tempKey}`, title: rowData.WLtitle })
                                 .text('WL')
                         );
                     }
                 } else {
-                    _severityButt = Math.max(rowData.severity, _severityButt);
+                    totalSeverity = Math.max(rowData.severity, totalSeverity);
                 }
                 if (rowData.suffixMessage) {
                     $rowDiv.append($('<div>').css({ 'margin-top': '2px' }).append(rowData.suffixMessage));
@@ -6711,7 +6710,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
         });
 
         if ($('#WMEPH-ColorHighlighting').prop('checked')) {
-            venue.attributes.wmephSeverity = _severityButt;
+            venue.attributes.wmephSeverity = totalSeverity;
         }
 
         if ($('#WMEPH_banner').length === 0) {
@@ -6720,7 +6719,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
             $('#WMEPH_banner').empty();
         }
         let bgColor;
-        switch (_severityButt) {
+        switch (totalSeverity) {
             case _SEVERITY.BLUE:
                 bgColor = 'rgb(50, 50, 230)'; // blue
                 break;
@@ -6749,7 +6748,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                         banner2RowData.title}" style="" type="button" value="${banner2RowData.value}">`);
                 }
                 rowDivs.push($rowDiv);
-                _severityButt = Math.max(_buttonBanner2[tempKey].severity, _severityButt);
+                totalSeverity = Math.max(_buttonBanner2[tempKey].severity, totalSeverity);
             }
         });
 
