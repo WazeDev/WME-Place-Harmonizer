@@ -3495,8 +3495,20 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
             static #cutoffDateString = '3/15/2020';
             static #cutoffDate = new Date(this.#cutoffDateString);
 
-            constructor(venue) {
-                super(true, _SEVERITY.YELLOW, `Last updated before ${Flag.OldHours.#cutoffDateString}. Please verify hours are correct. If so, nudge this place and save.`, 'Nudge');
+            constructor(venue, highlightOnly) {
+                let message = '';
+                const isUnchanged = venue.isUnchanged();
+                if (!highlightOnly) {
+                    message = `Last updated before ${
+                        Flag.OldHours.#cutoffDateString}. Verify hours are correct.`;
+                    if (isUnchanged) message += ' If everything is current, nudge this place and save.';
+                }
+                super(
+                    true,
+                    isUnchanged ? _SEVERITY.YELLOW : _SEVERITY.GREEN,
+                    message,
+                    isUnchanged ? 'Nudge' : null
+                );
                 this.venue = venue;
             }
 
@@ -3513,17 +3525,23 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                 }
             }
 
-            static #isVenueFlaggable(venue) {
+            static #venueIsOld(venue) {
                 const lastUpdated = venue.attributes.updatedOn ?? venue.attributes.createdOn;
-                return !venue.isResidential() && lastUpdated < this.#cutoffDate && venue.attributes.openingHours?.length
+                return lastUpdated < this.#cutoffDate;
+            }
+
+            static #venueIsFlaggable(venue) {
+                return !venue.isResidential()
+                    && this.#venueIsOld(venue)
+                    && venue.attributes.openingHours?.length
                     && venue.attributes.categories.some(cat => this.#categoriesToCheck.includes(cat));
             }
 
-            static eval(venue, catData) {
+            static eval(venue, catData, highlightOnly) {
                 let result = null;
                 this.#initializeCategoriesToCheck(catData);
-                if (this.#isVenueFlaggable(venue)) {
-                    result = new Flag.OldHours(venue);
+                if (this.#venueIsFlaggable(venue)) {
+                    result = new this(venue, highlightOnly);
                 }
                 return result;
             }
