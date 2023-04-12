@@ -4145,7 +4145,27 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
             constructor() { super(true, _SEVERITY.GREEN, 'Place matched from PNH data.'); }
         },
         PlaceLocked: class extends FlagBase {
-            constructor() { super(true, _SEVERITY.GREEN, 'Place locked.'); }
+            constructor(venue, levelToLock, highlightOnly, actions) {
+                super(true, _SEVERITY.GREEN, 'Place locked.');
+
+                if (venue.attributes.lockRank < levelToLock) {
+                    if (!highlightOnly) {
+                        logDev('Venue locked!');
+                        actions.push(new UpdateObject(venue, { lockRank: levelToLock }));
+                        _UPDATED_FIELDS.lock.updated = true;
+                    } else {
+                        this.hlLockFlag = true;
+                    }
+                }
+            }
+
+            static eval(venue, lockOK, totalSeverity, levelToLock, highlightOnly, actions) {
+                let result = null;
+                if (lockOK && totalSeverity < _SEVERITY.YELLOW) {
+                    result = new this(venue, levelToLock, highlightOnly, actions);
+                }
+                return result;
+            }
         },
         NewPlaceSubmit: class extends ActionFlag {
             constructor() {
@@ -6343,19 +6363,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
             logDev(`Severity: ${totalSeverity}; lockOK: ${lockOK}`);
         }
 
-        let hlLockFlag = false;
-        if (lockOK && totalSeverity < _SEVERITY.YELLOW) {
-            if (item.attributes.lockRank < levelToLock) {
-                if (!highlightOnly) {
-                    logDev('Venue locked!');
-                    actions.push(new UpdateObject(item, { lockRank: levelToLock }));
-                    _UPDATED_FIELDS.lock.updated = true;
-                } else if (highlightOnly) {
-                    hlLockFlag = true;
-                }
-            }
-            _buttonBanner.placeLocked = new Flag.PlaceLocked();
-        }
+        _buttonBanner.placeLocked = Flag.PlaceLocked.eval(item, lockOK, totalSeverity, levelToLock, highlightOnly, actions);
 
         // IGN check
         if (!item.attributes.residential) {
@@ -6384,7 +6392,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
         }
 
         // RPP Locking option for R3+
-        if (item.attributes.residential) {
+        if (item.isResidential()) {
             if (_USER.isDevUser || _USER.isBetaUser || _USER.rank >= 3) { // Allow residential point locking by R3+
                 _rppLockString = 'Lock at <select id="RPPLockLevel">';
                 let ddlSelected = false;
@@ -6458,10 +6466,10 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                 totalSeverity = _SEVERITY.PINK;
             }
 
-            if (totalSeverity === _SEVERITY.GREEN && hlLockFlag) {
+            if (totalSeverity === _SEVERITY.GREEN && _buttonBanner.placeLocked?.hlLockFlag) {
                 totalSeverity = 'lock';
             }
-            if (totalSeverity === 1 && hlLockFlag) {
+            if (totalSeverity === 1 && _buttonBanner.placeLocked?.hlLockFlag) {
                 totalSeverity = 'lock1';
             }
             if (item.attributes.adLocked) {
