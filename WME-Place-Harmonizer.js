@@ -3801,10 +3801,25 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
             }
         },
         ResiTypeNameSoft: class extends FlagBase {
-            constructor() { super(true, _SEVERITY.GREEN, 'The place name suggests a residential place or personalized place of work.  Please verify.'); }
+            constructor() { super(true, _SEVERITY.GREEN, 'The place name suggests a residential place or personalized place of work. Please verify.'); }
         },
         LocalURL: class extends FlagBase {
-            constructor() { super(true, _SEVERITY.GREEN, 'Some locations for this business have localized URLs, while others use the primary corporate site. Check if a local URL applies to this location.'); }
+            constructor() {
+                super(
+                    true,
+                    _SEVERITY.GREEN,
+                    'Some locations for this business have localized URLs, while others use the primary corporate site.'
+                      + ' Check if a local URL applies to this location.'
+                );
+            }
+
+            static #venueIsFlaggable(url, localUrlRegexString) {
+                return localUrlRegexString && !(new RegExp(localUrlRegexString, 'i')).test(url);
+            }
+
+            static eval(url, localUrlRegexString) {
+                return this.#venueIsFlaggable(url, localUrlRegexString) ? new this() : null;
+            }
         },
         LockRPP: class extends ActionFlag {
             constructor(venue) {
@@ -5537,23 +5552,13 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                 // *** need to add a section above to allow other permissible categories to remain? (optional)
 
                 // Parse URL data
-                let localURLcheckRE;
-                if (localURLcheck !== '') {
-                    if (_newURL !== null || _newURL !== '') {
-                        localURLcheckRE = new RegExp(localURLcheck, 'i');
-                        if (_newURL.match(localURLcheckRE) !== null) {
-                            _newURL = normalizeURL(_newURL, false, true, item, region);
-                        } else {
-                            _newURL = normalizeURL(pnhMatchData[phUrlIdx], false, true, item, region);
-                            _buttonBanner.localURL = new Flag.LocalURL();
-                        }
-                    } else {
-                        _newURL = normalizeURL(pnhMatchData[phUrlIdx], false, true, item, region);
-                        _buttonBanner.localURL = new Flag.LocalURL();
-                    }
-                } else {
-                    _newURL = normalizeURL(pnhMatchData[phUrlIdx], false, true, item, region);
+                if (!(localURLcheck && _newURL && (new RegExp(localURLcheck, 'i')).test(_newURL))) {
+                    _newURL = pnhMatchData[phUrlIdx];
                 }
+                _newURL = normalizeURL(_newURL, false, true, item, region);
+
+                _buttonBanner.localURL = Flag.LocalURL.eval(_newURL, localURLcheck);
+
                 // Parse PNH Aliases
                 [_newAliasesTemp] = pnhMatchData[phAliasesIdx].match(/([^(]*)/i);
                 if (!isNullOrWhitespace(_newAliasesTemp)) { // make aliases array
