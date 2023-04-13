@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name        WME Place Harmonizer Beta
 // @namespace   WazeUSA
-// @version     2023.04.07.002
+// @version     2023.04.11.001
 // @description Harmonizes, formats, and locks a selected place
 // @author      WMEPH Development Group
 // @include     /^https:\/\/(www|beta)\.waze\.com\/(?!user\/)(.{2,6}\/)?editor\/?.*$/
@@ -199,7 +199,6 @@
     let _servicesBanner;
     let _dupeBanner;
 
-    let _rppLockString = 'Lock?';
     let _disableHighlightTest = false; // Set to true to temporarily disable highlight checks immediately when venues change.
     let _wl = {};
     const _USER = {
@@ -237,7 +236,6 @@
         PINK: 5
         // TODO: There is also 'lock' and 'lock1' severity. Add those here? Also investigate 'adLock' severity (is it still useful in WME???).
     };
-    let _severityButt = _SEVERITY.GREEN; // error tracking to determine banner color (action buttons)
     let _duplicateName = '';
     let _catTransWaze2Lang; // pulls the category translations
     let _newName;
@@ -3870,23 +3868,70 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
             }
         },
         ResiTypeNameSoft: class extends FlagBase {
-            constructor() { super(true, _SEVERITY.GREEN, 'The place name suggests a residential place or personalized place of work.  Please verify.'); }
+            constructor() { super(true, _SEVERITY.GREEN, 'The place name suggests a residential place or personalized place of work. Please verify.'); }
         },
         LocalURL: class extends FlagBase {
-            constructor() { super(true, _SEVERITY.GREEN, 'Some locations for this business have localized URLs, while others use the primary corporate site. Check if a local URL applies to this location.'); }
+            constructor() {
+                super(
+                    true,
+                    _SEVERITY.GREEN,
+                    'Some locations for this business have localized URLs, while others use the primary corporate site.'
+                      + ' Check if a local URL applies to this location.'
+                );
+            }
+
+            static #venueIsFlaggable(url, localUrlRegexString) {
+                return localUrlRegexString && !(new RegExp(localUrlRegexString, 'i')).test(url);
+            }
+
+            static eval(url, localUrlRegexString) {
+                return this.#venueIsFlaggable(url, localUrlRegexString) ? new this() : null;
+            }
         },
         LockRPP: class extends ActionFlag {
-            constructor() { super(true, _SEVERITY.GREEN, 'Lock this residential point?', 'Lock', 'Lock the residential point'); }
+            constructor(venue) {
+                let message = 'Lock at <select id="RPPLockLevel">';
+                let ddlSelected = false;
+                for (let llix = 1; llix < 6; llix++) {
+                    if (llix < _USER.rank + 1) {
+                        if (!ddlSelected && (_defaultLockLevel === llix - 1 || llix === _USER.rank)) {
+                            message += `<option value="${llix}" selected="selected">${llix}</option>`;
+                            ddlSelected = true;
+                        } else {
+                            message += `<option value="${llix}">${llix}</option>`;
+                        }
+                    }
+                }
+                message += '</select>';
+                message = `Current lock: ${parseInt(venue.attributes.lockRank, 10) + 1}. ${message} ?`;
+                super(true, _SEVERITY.GREEN, message, 'Lock', 'Lock the residential point');
+                this.venue = venue;
+            }
+
+            static #venueIsFlaggable(venue, highlightOnly) {
+                // Allow residential point locking by R3+
+                return !highlightOnly && venue.isResidential() && (_USER.isDevUser || _USER.isBetaUser || _USER.rank >= 3);
+            }
+
+            static eval(venue, highlightOnly) {
+                let result = null;
+                if (this.#venueIsFlaggable(venue, highlightOnly)) {
+                    result = new this(venue);
+                }
+                return result;
+            }
 
             action() {
-                const venue = getSelectedVenue();
-                let RPPlevelToLock = $('#RPPLockLevel :selected').val() || _defaultLockLevel + 1;
-                logDev(`RPPlevelToLock: ${RPPlevelToLock}`);
+                let levelToLock = $('#RPPLockLevel :selected').val() || _defaultLockLevel + 1;
+                logDev(`RPPlevelToLock: ${levelToLock}`);
 
-                RPPlevelToLock -= 1;
-                W.model.actionManager.add(new UpdateObject(venue, { lockRank: RPPlevelToLock }));
-                // no field highlight here
-                this.message = `Current lock: ${parseInt(venue.attributes.lockRank, 10) + 1}. ${_rppLockString} ?`;
+                levelToLock -= 1;
+                if (this.venue.attributes.lockRank !== levelToLock) {
+                    W.model.actionManager.add(new UpdateObject(this.venue, { lockRank: levelToLock }));
+                    _UPDATED_FIELDS.lock.updated = true;
+                    harmonizePlaceGo(this.venue, 'harmonize');
+                    _layer.redraw();
+                }
             }
         },
         AddAlias: class extends ActionFlag {
@@ -4213,7 +4258,27 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
             constructor() { super(true, _SEVERITY.GREEN, 'Place matched from PNH data.'); }
         },
         PlaceLocked: class extends FlagBase {
-            constructor() { super(true, _SEVERITY.GREEN, 'Place locked.'); }
+            constructor(venue, levelToLock, highlightOnly, actions) {
+                super(true, _SEVERITY.GREEN, 'Place locked.');
+
+                if (venue.attributes.lockRank < levelToLock) {
+                    if (!highlightOnly) {
+                        logDev('Venue locked!');
+                        actions.push(new UpdateObject(venue, { lockRank: levelToLock }));
+                        _UPDATED_FIELDS.lock.updated = true;
+                    } else {
+                        this.hlLockFlag = true;
+                    }
+                }
+            }
+
+            static eval(venue, lockOK, totalSeverity, levelToLock, highlightOnly, actions) {
+                let result = null;
+                if (lockOK && totalSeverity < _SEVERITY.YELLOW) {
+                    result = new this(venue, levelToLock, highlightOnly, actions);
+                }
+                return result;
+            }
         },
         NewPlaceSubmit: class extends ActionFlag {
             constructor() {
@@ -4801,7 +4866,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
 
         const highlightOnly = !useFlag.includes('harmonize');
 
-        _severityButt = _SEVERITY.GREEN;
+        let totalSeverity = _SEVERITY.GREEN;
 
         // Whitelist: reset flags
         _wl = {
@@ -5555,23 +5620,13 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                 // *** need to add a section above to allow other permissible categories to remain? (optional)
 
                 // Parse URL data
-                let localURLcheckRE;
-                if (localURLcheck !== '') {
-                    if (_newURL !== null || _newURL !== '') {
-                        localURLcheckRE = new RegExp(localURLcheck, 'i');
-                        if (_newURL.match(localURLcheckRE) !== null) {
-                            _newURL = normalizeURL(_newURL, false, true, item, region);
-                        } else {
-                            _newURL = normalizeURL(pnhMatchData[phUrlIdx], false, true, item, region);
-                            _buttonBanner.localURL = new Flag.LocalURL();
-                        }
-                    } else {
-                        _newURL = normalizeURL(pnhMatchData[phUrlIdx], false, true, item, region);
-                        _buttonBanner.localURL = new Flag.LocalURL();
-                    }
-                } else {
-                    _newURL = normalizeURL(pnhMatchData[phUrlIdx], false, true, item, region);
+                if (!(localURLcheck && _newURL && (new RegExp(localURLcheck, 'i')).test(_newURL))) {
+                    _newURL = pnhMatchData[phUrlIdx];
                 }
+                _newURL = normalizeURL(_newURL, false, true, item, region);
+
+                _buttonBanner.localURL = Flag.LocalURL.eval(_newURL, localURLcheck);
+
                 // Parse PNH Aliases
                 [_newAliasesTemp] = pnhMatchData[phAliasesIdx].match(/([^(]*)/i);
                 if (!isNullOrWhitespace(_newAliasesTemp)) { // make aliases array
@@ -6362,7 +6417,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
         // update Severity for banner messages
         Object.keys(_buttonBanner).forEach(key => {
             if (_buttonBanner[key] && _buttonBanner[key].active) {
-                _severityButt = Math.max(_buttonBanner[key].severity, _severityButt);
+                totalSeverity = Math.max(_buttonBanner[key].severity, totalSeverity);
             }
         });
 
@@ -6394,7 +6449,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
         if (!isLocked && _buttonBanner.extProviderMissing && _buttonBanner.extProviderMissing.active
             && _buttonBanner.extProviderMissing.severity <= _SEVERITY.YELLOW) {
             _buttonBanner.extProviderMissing.severity = _SEVERITY.RED;
-            _severityButt = _SEVERITY.RED;
+            totalSeverity = _SEVERITY.RED;
             if (lockOK) {
                 _buttonBanner.extProviderMissing.value = `Lock anyway? (${levelToLock + 1})`;
                 _buttonBanner.extProviderMissing.title = 'If no Google link exists, lock this place.\nIf there is still no Google link after '
@@ -6411,22 +6466,10 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
         if (!highlightOnly) {
             // Update the lockOK value if "noLock" is set on any flag.
             lockOK &&= !Object.keys(_buttonBanner).some(key => _buttonBanner[key]?.noLock);
-            logDev(`Severity: ${_severityButt}; lockOK: ${lockOK}`);
+            logDev(`Severity: ${totalSeverity}; lockOK: ${lockOK}`);
         }
 
-        let hlLockFlag = false;
-        if (lockOK && _severityButt < _SEVERITY.YELLOW) {
-            if (item.attributes.lockRank < levelToLock) {
-                if (!highlightOnly) {
-                    logDev('Venue locked!');
-                    actions.push(new UpdateObject(item, { lockRank: levelToLock }));
-                    _UPDATED_FIELDS.lock.updated = true;
-                } else if (highlightOnly) {
-                    hlLockFlag = true;
-                }
-            }
-            _buttonBanner.placeLocked = new Flag.PlaceLocked();
-        }
+        _buttonBanner.placeLocked = Flag.PlaceLocked.eval(item, lockOK, totalSeverity, levelToLock, highlightOnly, actions);
 
         // IGN check
         if (!item.attributes.residential) {
@@ -6455,25 +6498,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
         }
 
         // RPP Locking option for R3+
-        if (item.attributes.residential) {
-            if (_USER.isDevUser || _USER.isBetaUser || _USER.rank >= 3) { // Allow residential point locking by R3+
-                _rppLockString = 'Lock at <select id="RPPLockLevel">';
-                let ddlSelected = false;
-                for (let llix = 1; llix < 6; llix++) {
-                    if (llix < _USER.rank + 1) {
-                        if (!ddlSelected && (_defaultLockLevel === llix - 1 || llix === _USER.rank)) {
-                            _rppLockString += `<option value="${llix}" selected="selected">${llix}</option>`;
-                            ddlSelected = true;
-                        } else {
-                            _rppLockString += `<option value="${llix}">${llix}</option>`;
-                        }
-                    }
-                }
-                _rppLockString += '</select>';
-                _buttonBanner.lockRPP = new Flag.LockRPP();
-                _buttonBanner.lockRPP.message = `Current lock: ${parseInt(item.attributes.lockRank, 10) + 1}. ${_rppLockString} ?`;
-            }
-        }
+        _buttonBanner.lockRPP = Flag.LockRPP.eval(item, highlightOnly);
 
         // Turn off unnecessary buttons
         if (_newCategories.includes('PHARMACY')) {
@@ -6484,7 +6509,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
         }
 
         // Final alerts for non-severe locations
-        if (!item.attributes.residential && _severityButt < _SEVERITY.RED) {
+        if (!item.attributes.residential && totalSeverity < _SEVERITY.RED) {
             const nameShortSpace = _newName.toUpperCase().replace(/[^A-Z ']/g, '');
             if (nameShortSpace.includes('\'S HOUSE') || nameShortSpace.includes('\'S HOME') || nameShortSpace.includes('\'S WORK')) {
                 if (!containsAny(_newCategories, ['RESTAURANT', 'DESSERT', 'BAR']) && !pnhNameRegMatch) {
@@ -6510,36 +6535,36 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
         // Return severity for highlighter (no dupe run))
         if (highlightOnly) {
             // get severities from the banners
-            _severityButt = _SEVERITY.GREEN;
+            totalSeverity = _SEVERITY.GREEN;
             Object.keys(_buttonBanner).forEach(tempKey => {
                 if (_buttonBanner[tempKey] && _buttonBanner[tempKey].active) { //  If the particular message is active
                     if (_buttonBanner[tempKey].hasOwnProperty('WLactive')) {
                         if (_buttonBanner[tempKey].WLactive) { // If there's a WL option, enable it
-                            _severityButt = Math.max(_buttonBanner[tempKey].severity, _severityButt);
+                            totalSeverity = Math.max(_buttonBanner[tempKey].severity, totalSeverity);
                         }
                     } else {
-                        _severityButt = Math.max(_buttonBanner[tempKey].severity, _severityButt);
+                        totalSeverity = Math.max(_buttonBanner[tempKey].severity, totalSeverity);
                     }
                 }
             });
 
             // Special case flags
-            if (item.attributes.lockRank === 0 && (item.attributes.categories.includes('HOSPITAL_MEDICAL_CARE')
-                || item.attributes.categories.includes('HOSPITAL_URGENT_CARE') || item.isGasStation())) {
-                _severityButt = _SEVERITY.PINK;
+            if (item.attributes.lockRank === 0
+                && item.attributes.categories.some(cat => ['HOSPITAL_MEDICAL_CARE', 'HOSPITAL_URGENT_CARE', 'GAS_STATION'].includes(cat))) {
+                totalSeverity = _SEVERITY.PINK;
             }
 
-            if (_severityButt === _SEVERITY.GREEN && hlLockFlag) {
-                _severityButt = 'lock';
+            if (totalSeverity === _SEVERITY.GREEN && _buttonBanner.placeLocked?.hlLockFlag) {
+                totalSeverity = 'lock';
             }
-            if (_severityButt === 1 && hlLockFlag) {
-                _severityButt = 'lock1';
+            if (totalSeverity === 1 && _buttonBanner.placeLocked?.hlLockFlag) {
+                totalSeverity = 'lock1';
             }
             if (item.attributes.adLocked) {
-                _severityButt = 'adLock';
+                totalSeverity = 'adLock';
             }
 
-            return _severityButt;
+            return totalSeverity;
         }
 
         // *** Below here is for harmonization only.  HL ends in previous step.
@@ -6673,8 +6698,6 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
             _UPDATED_FIELDS.updateEditPanelHighlights();
         }
 
-        if (_buttonBanner.lockRPP) _buttonBanner.lockRPP.message = `Current lock: ${parseInt(item.attributes.lockRank, 10) + 1}. ${_rppLockString} ?`;
-
         // Assemble the banners
         assembleBanner(); // Make Messaging banners
 
@@ -6695,7 +6718,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
         let rowData;
         let $rowDiv;
         let rowDivs = [];
-        _severityButt = _SEVERITY.GREEN;
+        let totalSeverity = _SEVERITY.GREEN;
 
         const func = elem => ({ id: elem.getAttribute('id'), val: elem.value });
         _textEntryValues = $('#WMEPH_banner input[type="text"]').toArray().map(func);
@@ -6713,7 +6736,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                     // Nothing happening here yet.
                 }
                 if (rowData.WLactive && rowData.WLaction) { // If there's a WL option, enable it
-                    _severityButt = Math.max(rowData.severity, _severityButt);
+                    totalSeverity = Math.max(rowData.severity, totalSeverity);
                     $dupeDiv.append($('<button>', {
                         class: 'btn btn-success btn-xs wmephwl-btn',
                         id: `WMEPH_WL${tempKey}`,
@@ -6763,14 +6786,14 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                 }
                 if (rowData.WLactive) {
                     if (rowData.WLaction) { // If there's a WL option, enable it
-                        _severityButt = Math.max(rowData.severity, _severityButt);
+                        totalSeverity = Math.max(rowData.severity, totalSeverity);
                         $rowDiv.append(
                             $('<button>', { class: 'btn btn-success btn-xs wmephwl-btn', id: `WMEPH_WL${tempKey}`, title: rowData.WLtitle })
                                 .text('WL')
                         );
                     }
                 } else {
-                    _severityButt = Math.max(rowData.severity, _severityButt);
+                    totalSeverity = Math.max(rowData.severity, totalSeverity);
                 }
                 if (rowData.suffixMessage) {
                     $rowDiv.append($('<div>').css({ 'margin-top': '2px' }).append(rowData.suffixMessage));
@@ -6781,7 +6804,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
         });
 
         if ($('#WMEPH-ColorHighlighting').prop('checked')) {
-            venue.attributes.wmephSeverity = _severityButt;
+            venue.attributes.wmephSeverity = totalSeverity;
         }
 
         if ($('#WMEPH_banner').length === 0) {
@@ -6790,7 +6813,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
             $('#WMEPH_banner').empty();
         }
         let bgColor;
-        switch (_severityButt) {
+        switch (totalSeverity) {
             case _SEVERITY.BLUE:
                 bgColor = 'rgb(50, 50, 230)'; // blue
                 break;
@@ -6819,7 +6842,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                         banner2RowData.title}" style="" type="button" value="${banner2RowData.value}">`);
                 }
                 rowDivs.push($rowDiv);
-                _severityButt = Math.max(_buttonBanner2[tempKey].severity, _severityButt);
+                totalSeverity = Math.max(_buttonBanner2[tempKey].severity, totalSeverity);
             }
         });
 
