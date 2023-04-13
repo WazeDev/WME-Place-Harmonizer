@@ -1845,8 +1845,8 @@
         return { base: splits[1], suffix: splits[2] };
     }
 
-    function addUpdateAction(venue, updateObj, actions) {
-        const action = new UpdateObject(venue, updateObj);
+    function addUpdateAction(venue, newAttributes, actions) {
+        const action = new UpdateObject(venue, newAttributes);
         if (actions) {
             actions.push(action);
         } else {
@@ -2699,23 +2699,44 @@
 
                 if (Object.keys(newAttributes).length) {
                     W.model.actionManager.add(new UpdateObject(this.venue, newAttributes));
-                    harmonizePlaceGo(this.venue, 'harmonize');
                 }
+
+                harmonizePlaceGo(this.venue, 'harmonize');
             }
         },
         BankCorporate: class extends ActionFlag {
-            constructor() { super(true, _SEVERITY.BLUE, 'Or is this the bank\'s corporate offices?', 'Yes', 'Is this the bank\'s corporate offices?'); }
+            constructor(venue) {
+                super(true, _SEVERITY.BLUE, 'Or is this the bank\'s corporate offices?', 'Yes', 'Is this the bank\'s corporate offices?');
+                this.venue = venue;
+            }
 
-            // eslint-disable-next-line class-methods-use-this
             action() {
-                const venue = getSelectedVenue();
-                _newCategories = ['OFFICES']; // Change to offices category
-                const tempName = _newName.replace(/[- (]*atm[- )]*/ig, ' ').replace(/^ /g, '').replace(/ $/g, '').replace(/ {2,}/g, ' '); // strip ATM from name if present
-                _newName = tempName;
-                W.model.actionManager.add(new UpdateObject(venue, { name: `${_newName} - Corporate Offices`, categories: _newCategories }));
-                if (_newName !== tempName) _UPDATED_FIELDS.name.updated = true;
-                _UPDATED_FIELDS.categories.updated = true;
-                harmonizePlaceGo(venue, 'harmonize');
+                const newAttributes = {};
+                const { categories } = this.venue.attributes;
+                if (categories.length !== 1 || categories[0] !== 'OFFICES') {
+                    newAttributes.categories = ['OFFICES']; // Change to offices category
+                    _UPDATED_FIELDS.categories.updated = true;
+                }
+
+                // strip ATM from name if present
+                let name = this.venue.attributes.name
+                    .replace(/[- (]*atm[- )]*/ig, ' ')
+                    .replace(/^ /g, '')
+                    .replace(/ $/g, '')
+                    .replace(/ {2,}/g, ' ')
+                    .replace(/\s*-\s*corporate\s*offices\s*$/i, '');
+                const suffix = ' - Corporate Offices';
+                if (!name.endsWith(suffix)) name += suffix;
+                if (this.venue.attributes.name !== name) {
+                    newAttributes.name = name;
+                    _UPDATED_FIELDS.name.updated = true;
+                }
+
+                if (Object.keys(newAttributes).length) {
+                    addUpdateAction(this.venue, newAttributes);
+                }
+
+                harmonizePlaceGo(this.venue, 'harmonize');
             }
         },
         CatPostOffice: class extends FlagBase {
@@ -5580,7 +5601,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                             _buttonBanner.bankType1 = new Flag.BankType1();
                             _buttonBanner.bankBranch = new Flag.BankBranch(item);
                             _buttonBanner.standaloneATM = new Flag.StandaloneATM(item);
-                            _buttonBanner.bankCorporate = new Flag.BankCorporate();
+                            _buttonBanner.bankCorporate = new Flag.BankCorporate(item);
                         } else if (_ixBank === -1 && _ixATM === -1) {
                             _buttonBanner.bankBranch = new Flag.BankBranch(item);
                             _buttonBanner.standaloneATM = new Flag.StandaloneATM(item);
@@ -5610,7 +5631,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                     } else { // for PNH match with neither bank type category, make it a bank
                         _newCategories = insertAtIndex(_newCategories, 'BANK_FINANCIAL', 1);
                         _buttonBanner.standaloneATM = new Flag.StandaloneATM(item);
-                        _buttonBanner.bankCorporate = new Flag.BankCorporate();
+                        _buttonBanner.bankCorporate = new Flag.BankCorporate(item);
                     }// END PNH bank treatment
                 } else if (['GAS_STATION'].includes(priPNHPlaceCat)) { // for PNH gas stations, don't replace existing sub-categories
                     if (altCategories?.length) { // if PNH alts exist
@@ -5725,7 +5746,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                         _buttonBanner.bankType1 = new Flag.BankType1();
                         _buttonBanner.bankBranch = new Flag.BankBranch(item);
                         _buttonBanner.standaloneATM = new Flag.StandaloneATM(item);
-                        _buttonBanner.bankCorporate = new Flag.BankCorporate();
+                        _buttonBanner.bankCorporate = new Flag.BankCorporate(item);
                     } else if (_ixBank === -1 && _ixATM === -1) {
                         _buttonBanner.bankBranch = new Flag.BankBranch(item);
                         _buttonBanner.standaloneATM = new Flag.StandaloneATM(item);
