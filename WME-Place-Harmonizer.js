@@ -199,7 +199,6 @@
     let _servicesBanner;
     let _dupeBanner;
 
-    let _rppLockString = 'Lock?';
     let _disableHighlightTest = false; // Set to true to temporarily disable highlight checks immediately when venues change.
     let _wl = {};
     const _USER = {
@@ -3808,17 +3807,49 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
             constructor() { super(true, _SEVERITY.GREEN, 'Some locations for this business have localized URLs, while others use the primary corporate site. Check if a local URL applies to this location.'); }
         },
         LockRPP: class extends ActionFlag {
-            constructor() { super(true, _SEVERITY.GREEN, 'Lock this residential point?', 'Lock', 'Lock the residential point'); }
+            constructor(venue) {
+                let message = 'Lock at <select id="RPPLockLevel">';
+                let ddlSelected = false;
+                for (let llix = 1; llix < 6; llix++) {
+                    if (llix < _USER.rank + 1) {
+                        if (!ddlSelected && (_defaultLockLevel === llix - 1 || llix === _USER.rank)) {
+                            message += `<option value="${llix}" selected="selected">${llix}</option>`;
+                            ddlSelected = true;
+                        } else {
+                            message += `<option value="${llix}">${llix}</option>`;
+                        }
+                    }
+                }
+                message += '</select>';
+                message = `Current lock: ${parseInt(venue.attributes.lockRank, 10) + 1}. ${message} ?`;
+                super(true, _SEVERITY.GREEN, message, 'Lock', 'Lock the residential point');
+                this.venue = venue;
+            }
+
+            static #venueIsFlaggable(venue, highlightOnly) {
+                // Allow residential point locking by R3+
+                return !highlightOnly && venue.isResidential() && (_USER.isDevUser || _USER.isBetaUser || _USER.rank >= 3);
+            }
+
+            static eval(venue, highlightOnly) {
+                let result = null;
+                if (this.#venueIsFlaggable(venue, highlightOnly)) {
+                    result = new this(venue);
+                }
+                return result;
+            }
 
             action() {
-                const venue = getSelectedVenue();
-                let RPPlevelToLock = $('#RPPLockLevel :selected').val() || _defaultLockLevel + 1;
-                logDev(`RPPlevelToLock: ${RPPlevelToLock}`);
+                let levelToLock = $('#RPPLockLevel :selected').val() || _defaultLockLevel + 1;
+                logDev(`RPPlevelToLock: ${levelToLock}`);
 
-                RPPlevelToLock -= 1;
-                W.model.actionManager.add(new UpdateObject(venue, { lockRank: RPPlevelToLock }));
-                // no field highlight here
-                this.message = `Current lock: ${parseInt(venue.attributes.lockRank, 10) + 1}. ${_rppLockString} ?`;
+                levelToLock -= 1;
+                if (this.venue.attributes.lockRank !== levelToLock) {
+                    W.model.actionManager.add(new UpdateObject(this.venue, { lockRank: levelToLock }));
+                    _UPDATED_FIELDS.lock.updated = true;
+                    harmonizePlaceGo(this.venue, 'harmonize');
+                    _layer.redraw();
+                }
             }
         },
         AddAlias: class extends ActionFlag {
@@ -6392,25 +6423,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
         }
 
         // RPP Locking option for R3+
-        if (item.isResidential()) {
-            if (_USER.isDevUser || _USER.isBetaUser || _USER.rank >= 3) { // Allow residential point locking by R3+
-                _rppLockString = 'Lock at <select id="RPPLockLevel">';
-                let ddlSelected = false;
-                for (let llix = 1; llix < 6; llix++) {
-                    if (llix < _USER.rank + 1) {
-                        if (!ddlSelected && (_defaultLockLevel === llix - 1 || llix === _USER.rank)) {
-                            _rppLockString += `<option value="${llix}" selected="selected">${llix}</option>`;
-                            ddlSelected = true;
-                        } else {
-                            _rppLockString += `<option value="${llix}">${llix}</option>`;
-                        }
-                    }
-                }
-                _rppLockString += '</select>';
-                _buttonBanner.lockRPP = new Flag.LockRPP();
-                _buttonBanner.lockRPP.message = `Current lock: ${parseInt(item.attributes.lockRank, 10) + 1}. ${_rppLockString} ?`;
-            }
-        }
+        _buttonBanner.lockRPP = Flag.LockRPP.eval(item, highlightOnly);
 
         // Turn off unnecessary buttons
         if (_newCategories.includes('PHARMACY')) {
@@ -6609,8 +6622,6 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
             // Add green highlighting to edit panel fields that have been updated by WMEPH
             _UPDATED_FIELDS.updateEditPanelHighlights();
         }
-
-        if (_buttonBanner.lockRPP) _buttonBanner.lockRPP.message = `Current lock: ${parseInt(item.attributes.lockRank, 10) + 1}. ${_rppLockString} ?`;
 
         // Assemble the banners
         assembleBanner(); // Make Messaging banners
