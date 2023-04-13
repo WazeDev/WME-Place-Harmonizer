@@ -2653,18 +2653,19 @@
             constructor() { super(true, _SEVERITY.RED, 'Clarify the type of bank: the name has ATM but the primary category is Offices'); }
         },
         BankBranch: class extends ActionFlag {
-            constructor() { super(true, _SEVERITY.BLUE, 'Is this a bank branch office? ', 'Yes', 'Is this a bank branch?'); }
+            constructor(venue) {
+                super(true, _SEVERITY.BLUE, 'Is this a bank branch office? ', 'Yes', 'Is this a bank branch?');
+                this.venue = venue;
+            }
 
-            // eslint-disable-next-line class-methods-use-this
             action() {
-                const venue = getSelectedVenue();
-                _newCategories = ['BANK_FINANCIAL', 'ATM']; // Change to bank and atm cats
-                const tempName = _newName.replace(/[- (]*ATM[- )]*/g, ' ').replace(/^ /g, '').replace(/ $/g, ''); // strip ATM from name if present
-                _newName = tempName;
-                W.model.actionManager.add(new UpdateObject(venue, { name: _newName, categories: _newCategories }));
-                if (tempName !== _newName) _UPDATED_FIELDS.name.updated = true;
+                const categories = insertAtIndex(this.venue.getCategories(), ['BANK_FINANCIAL', 'ATM'], 0); // Change to bank and atm cats
+                // strip ATM from name if present
+                const name = this.venue.attributes.name.replace(/[- (]*ATM[- )]*/ig, ' ').replace(/^ /g, '').replace(/ $/g, '');
+                W.model.actionManager.add(new UpdateObject(this.venue, { name, categories }));
+                if (name !== this.venue.attributes.name) _UPDATED_FIELDS.name.updated = true;
                 _UPDATED_FIELDS.categories.updated = true;
-                harmonizePlaceGo(venue, 'harmonize');
+                harmonizePlaceGo(this.venue, 'harmonize');
             }
         },
         StandaloneATM: class extends ActionFlag {
@@ -5556,16 +5557,16 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                     if (/\batm\b/ig.test(_newName)) {
                         if (_ixOffices === 0) {
                             _buttonBanner.bankType1 = new Flag.BankType1();
-                            _buttonBanner.bankBranch = new Flag.BankBranch();
+                            _buttonBanner.bankBranch = new Flag.BankBranch(item);
                             _buttonBanner.standaloneATM = new Flag.StandaloneATM();
                             _buttonBanner.bankCorporate = new Flag.BankCorporate();
                         } else if (_ixBank === -1 && _ixATM === -1) {
-                            _buttonBanner.bankBranch = new Flag.BankBranch();
+                            _buttonBanner.bankBranch = new Flag.BankBranch(item);
                             _buttonBanner.standaloneATM = new Flag.StandaloneATM();
                         } else if (_ixATM === 0 && _ixBank > 0) {
-                            _buttonBanner.bankBranch = new Flag.BankBranch();
+                            _buttonBanner.bankBranch = new Flag.BankBranch(item);
                         } else if (_ixBank > -1) {
-                            _buttonBanner.bankBranch = new Flag.BankBranch();
+                            _buttonBanner.bankBranch = new Flag.BankBranch(item);
                             _buttonBanner.standaloneATM = new Flag.StandaloneATM();
                         }
                         _newName = `${pnhMatchData[phNameIdx]} ATM`;
@@ -5573,14 +5574,14 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                         // Net result: If the place has ATM cat only and ATM in the name, then it will be green and renamed Bank Name ATM
                     } else if (_ixBank > -1 || _ixATM > -1) { // if no ATM in name but with a banking category:
                         if (_ixOffices === 0) {
-                            _buttonBanner.bankBranch = new Flag.BankBranch();
+                            _buttonBanner.bankBranch = new Flag.BankBranch(item);
                         } else if (_ixBank > -1 && _ixATM === -1) {
                             _buttonBanner.addATM = new Flag.AddATM();
                         } else if (_ixATM === 0 && _ixBank === -1) {
-                            _buttonBanner.bankBranch = new Flag.BankBranch();
+                            _buttonBanner.bankBranch = new Flag.BankBranch(item);
                             _buttonBanner.standaloneATM = new Flag.StandaloneATM();
                         } else if (_ixBank > 0 && _ixATM > 0) {
-                            _buttonBanner.bankBranch = new Flag.BankBranch();
+                            _buttonBanner.bankBranch = new Flag.BankBranch(item);
                             _buttonBanner.standaloneATM = new Flag.StandaloneATM();
                         }
                         _newName = pnhMatchData[phNameIdx];
@@ -5706,29 +5707,29 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                 if (_newName.match(/\batm\b/ig) !== null) {
                     if (_ixOffices === 0) {
                         _buttonBanner.bankType1 = new Flag.BankType1();
-                        _buttonBanner.bankBranch = new Flag.BankBranch();
+                        _buttonBanner.bankBranch = new Flag.BankBranch(item);
                         _buttonBanner.standaloneATM = new Flag.StandaloneATM();
                         _buttonBanner.bankCorporate = new Flag.BankCorporate();
                     } else if (_ixBank === -1 && _ixATM === -1) {
-                        _buttonBanner.bankBranch = new Flag.BankBranch();
+                        _buttonBanner.bankBranch = new Flag.BankBranch(item);
                         _buttonBanner.standaloneATM = new Flag.StandaloneATM();
                     } else if (_ixATM === 0 && _ixBank > 0) {
-                        _buttonBanner.bankBranch = new Flag.BankBranch();
+                        _buttonBanner.bankBranch = new Flag.BankBranch(item);
                     } else if (_ixBank > -1) {
-                        _buttonBanner.bankBranch = new Flag.BankBranch();
+                        _buttonBanner.bankBranch = new Flag.BankBranch(item);
                         _buttonBanner.standaloneATM = new Flag.StandaloneATM();
                     }
                     // Net result: If the place has ATM cat only and ATM in the name, then it will be green
                 } else if (_ixBank > -1 || _ixATM > -1) { // if no ATM in name:
                     if (_ixOffices === 0) {
-                        _buttonBanner.bankBranch = new Flag.BankBranch();
+                        _buttonBanner.bankBranch = new Flag.BankBranch(item);
                     } else if (_ixBank > -1 && _ixATM === -1) {
                         _buttonBanner.addATM = new Flag.AddATM();
                     } else if (_ixATM === 0 && _ixBank === -1) {
-                        _buttonBanner.bankBranch = new Flag.BankBranch();
+                        _buttonBanner.bankBranch = new Flag.BankBranch(item);
                         _buttonBanner.standaloneATM = new Flag.StandaloneATM();
                     } else if (_ixBank > 0 && _ixATM > 0) {
-                        _buttonBanner.bankBranch = new Flag.BankBranch();
+                        _buttonBanner.bankBranch = new Flag.BankBranch(item);
                         _buttonBanner.standaloneATM = new Flag.StandaloneATM();
                     }
                     // Net result: If the place has Bank category first, then it will be green
