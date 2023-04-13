@@ -2678,19 +2678,29 @@
             }
         },
         StandaloneATM: class extends ActionFlag {
-            constructor() { super(true, _SEVERITY.YELLOW, 'Or is this a standalone ATM? ', 'Yes', 'Is this a standalone ATM with no bank branch?'); }
+            constructor(venue) {
+                super(true, _SEVERITY.YELLOW, 'Or is this a standalone ATM? ', 'Yes', 'Is this a standalone ATM with no bank branch?');
+                this.venue = venue;
+            }
 
-            // eslint-disable-next-line class-methods-use-this
             action() {
-                const venue = getSelectedVenue();
-                if (!_newName.includes('ATM')) {
-                    _newName += ' ATM';
+                const { name } = this.venue.attributes;
+                const newAttributes = {};
+                if (!/\bATM\b/i.test(name)) {
+                    newAttributes.name = `${name} ATM`;
                     _UPDATED_FIELDS.name.updated = true;
                 }
-                _newCategories = ['ATM']; // Change to ATM only
-                W.model.actionManager.add(new UpdateObject(venue, { name: _newName, categories: _newCategories }));
-                _UPDATED_FIELDS.categories.updated = true;
-                harmonizePlaceGo(venue, 'harmonize');
+
+                const { categories } = this.venue.attributes;
+                if (categories.length !== 1 || categories[0] !== 'ATM') {
+                    newAttributes.categories = ['ATM']; // Change to ATM only
+                    _UPDATED_FIELDS.categories.updated = true;
+                }
+
+                if (Object.keys(newAttributes).length) {
+                    W.model.actionManager.add(new UpdateObject(this.venue, newAttributes));
+                    harmonizePlaceGo(this.venue, 'harmonize');
+                }
             }
         },
         BankCorporate: class extends ActionFlag {
@@ -5569,16 +5579,16 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                         if (_ixOffices === 0) {
                             _buttonBanner.bankType1 = new Flag.BankType1();
                             _buttonBanner.bankBranch = new Flag.BankBranch(item);
-                            _buttonBanner.standaloneATM = new Flag.StandaloneATM();
+                            _buttonBanner.standaloneATM = new Flag.StandaloneATM(item);
                             _buttonBanner.bankCorporate = new Flag.BankCorporate();
                         } else if (_ixBank === -1 && _ixATM === -1) {
                             _buttonBanner.bankBranch = new Flag.BankBranch(item);
-                            _buttonBanner.standaloneATM = new Flag.StandaloneATM();
+                            _buttonBanner.standaloneATM = new Flag.StandaloneATM(item);
                         } else if (_ixATM === 0 && _ixBank > 0) {
                             _buttonBanner.bankBranch = new Flag.BankBranch(item);
                         } else if (_ixBank > -1) {
                             _buttonBanner.bankBranch = new Flag.BankBranch(item);
-                            _buttonBanner.standaloneATM = new Flag.StandaloneATM();
+                            _buttonBanner.standaloneATM = new Flag.StandaloneATM(item);
                         }
                         _newName = `${pnhMatchData[phNameIdx]} ATM`;
                         _newCategories = insertAtIndex(_newCategories, 'ATM', 0);
@@ -5590,16 +5600,16 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                             _buttonBanner.addATM = new Flag.AddATM();
                         } else if (_ixATM === 0 && _ixBank === -1) {
                             _buttonBanner.bankBranch = new Flag.BankBranch(item);
-                            _buttonBanner.standaloneATM = new Flag.StandaloneATM();
+                            _buttonBanner.standaloneATM = new Flag.StandaloneATM(item);
                         } else if (_ixBank > 0 && _ixATM > 0) {
                             _buttonBanner.bankBranch = new Flag.BankBranch(item);
-                            _buttonBanner.standaloneATM = new Flag.StandaloneATM();
+                            _buttonBanner.standaloneATM = new Flag.StandaloneATM(item);
                         }
                         _newName = pnhMatchData[phNameIdx];
                         // Net result: If the place has Bank category first, then it will be green with PNH name replaced
                     } else { // for PNH match with neither bank type category, make it a bank
                         _newCategories = insertAtIndex(_newCategories, 'BANK_FINANCIAL', 1);
-                        _buttonBanner.standaloneATM = new Flag.StandaloneATM();
+                        _buttonBanner.standaloneATM = new Flag.StandaloneATM(item);
                         _buttonBanner.bankCorporate = new Flag.BankCorporate();
                     }// END PNH bank treatment
                 } else if (['GAS_STATION'].includes(priPNHPlaceCat)) { // for PNH gas stations, don't replace existing sub-categories
@@ -5714,16 +5724,16 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                     if (_ixOffices === 0) {
                         _buttonBanner.bankType1 = new Flag.BankType1();
                         _buttonBanner.bankBranch = new Flag.BankBranch(item);
-                        _buttonBanner.standaloneATM = new Flag.StandaloneATM();
+                        _buttonBanner.standaloneATM = new Flag.StandaloneATM(item);
                         _buttonBanner.bankCorporate = new Flag.BankCorporate();
                     } else if (_ixBank === -1 && _ixATM === -1) {
                         _buttonBanner.bankBranch = new Flag.BankBranch(item);
-                        _buttonBanner.standaloneATM = new Flag.StandaloneATM();
+                        _buttonBanner.standaloneATM = new Flag.StandaloneATM(item);
                     } else if (_ixATM === 0 && _ixBank > 0) {
                         _buttonBanner.bankBranch = new Flag.BankBranch(item);
                     } else if (_ixBank > -1) {
                         _buttonBanner.bankBranch = new Flag.BankBranch(item);
-                        _buttonBanner.standaloneATM = new Flag.StandaloneATM();
+                        _buttonBanner.standaloneATM = new Flag.StandaloneATM(item);
                     }
                     // Net result: If the place has ATM cat only and ATM in the name, then it will be green
                 } else if (_ixBank > -1 || _ixATM > -1) { // if no ATM in name:
@@ -5733,10 +5743,10 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                         _buttonBanner.addATM = new Flag.AddATM();
                     } else if (_ixATM === 0 && _ixBank === -1) {
                         _buttonBanner.bankBranch = new Flag.BankBranch(item);
-                        _buttonBanner.standaloneATM = new Flag.StandaloneATM();
+                        _buttonBanner.standaloneATM = new Flag.StandaloneATM(item);
                     } else if (_ixBank > 0 && _ixATM > 0) {
                         _buttonBanner.bankBranch = new Flag.BankBranch(item);
-                        _buttonBanner.standaloneATM = new Flag.StandaloneATM();
+                        _buttonBanner.standaloneATM = new Flag.StandaloneATM(item);
                     }
                     // Net result: If the place has Bank category first, then it will be green
                 } // END generic bank treatment
