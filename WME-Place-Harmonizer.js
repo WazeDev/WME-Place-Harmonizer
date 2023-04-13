@@ -995,12 +995,16 @@
 
     function nudgeVenue(venue) {
         const originalGeometry = venue.geometry.clone();
+        const moveNegative = Math.random() > 0.5;
+        const nudgeDistance = 0.00000001 * (moveNegative ? -1 : 1);
         if (venue.isPoint()) {
-            venue.geometry.x += 0.000000001;
+            venue.geometry.x += nudgeDistance;
         } else {
-            venue.geometry.components[0].components[0].x += 0.000000001;
+            venue.geometry.components[0].components[0].x += nudgeDistance;
         }
-        W.model.actionManager.add(new UpdateFeatureGeometry(venue, W.model.venues, originalGeometry, venue.geometry));
+        const action = new UpdateFeatureGeometry(venue, W.model.venues, originalGeometry, venue.geometry);
+        const mAction = new MultiAction([action], { description: 'Place nudged by WMEPH' });
+        W.model.actionManager.add(mAction);
     }
 
     function sortWithIndex(toSort) {
@@ -2007,7 +2011,7 @@
     }
 
     // Namespace to keep these grouped.
-    let Flag = {
+    const Flag = {
         // 2020-10-5 Disabling HN validity checks for now. See note on HnNonStandard flag for details.
         // HnDashRemoved: class extends FlagBase {
         //     constructor() { super(true, SEVERITY.GREEN, 'Dash removed from house number. Verify'); }
@@ -2038,7 +2042,7 @@
                                 if ($('#WMEPH-AddAddresses').prop('checked')) { // update the item's address if option is enabled
                                     updateAddress(venue, inferredAddress, actions);
                                     _UPDATED_FIELDS.address.updated = true;
-                                    result = new Flag.FullAddressInference();
+                                    result = new this();
                                     result.inferredAddress = inferredAddress;
                                 } else if (!['JUNCTION_INTERCHANGE'].includes(_newCategories[0])) {
                                     _buttonBanner.cityMissing = new Flag.CityMissing();
@@ -2105,7 +2109,7 @@
                 let result = null;
                 const parkingAttr = venue.attributes.categoryAttributes?.PARKING_LOT;
                 if (parkingAttr?.parkingType === 'PUBLIC') {
-                    result = new Flag.PlaIsPublic(venue, highlightOnly);
+                    result = new this(venue, highlightOnly);
                 }
                 return result;
             }
@@ -2128,7 +2132,7 @@
                     const state = venue.getAddress().getStateName();
                     const re = state === 'Quebec' ? /\b(parking|stationnement)\b/i : /\b((park[ -](and|&|'?n'?)[ -]ride)|parking|lot|garage|ramp)\b/i;
                     if (venue.isParkingLot() && name && !re.test(name)) {
-                        result = new Flag.PlaNameNonStandard();
+                        result = new this();
                     }
                 }
                 return result;
@@ -2154,7 +2158,7 @@
                     && !venue.isResidential()) {
                     const tempAddr = venue.getAddress();
                     if (tempAddr && tempAddr.getStateName() === 'Indiana') {
-                        result = new Flag.IndianaLiquorStoreHours();
+                        result = new this();
                     }
                 }
                 return result;
@@ -2266,7 +2270,7 @@
             }
 
             static eval(venue, highlightOnly) {
-                return !highlightOnly && venue.isChargingStation() ? new Flag.EVChargingStationWarning() : null;
+                return !highlightOnly && venue.isChargingStation() ? new this() : null;
             }
         },
         GasMismatch: class extends WLFlag {
@@ -2290,7 +2294,7 @@
             }
 
             static eval(venue, brand) {
-                return venue.isGasStation() && brand === 'Unbranded' ? new Flag.GasUnbranded() : null;
+                return venue.isGasStation() && brand === 'Unbranded' ? new this() : null;
             }
         },
         GasMkPrim: class extends ActionFlag {
@@ -2310,7 +2314,10 @@
             }
         },
         IsThisAPilotTravelCenter: class extends ActionFlag {
-            constructor() { super(true, _SEVERITY.GREEN, 'Is this a "Travel Center"?', 'Yes', ''); }
+            constructor(newName) {
+                super(true, _SEVERITY.GREEN, 'Is this a "Travel Center"?', 'Yes', '');
+                this.newName = newName;
+            }
 
             static eval(venue, highlightOnly, state2L, newName, actions) {
                 let result = null;
@@ -2321,8 +2328,7 @@
                         _UPDATED_FIELDS.name.updated = true;
                     }
                     if (newName.toLowerCase().trim() === 'pilot food mart') {
-                        result = new Flag.IsThisAPilotTravelCenter();
-                        result.newName = newName;
+                        result = new this(newName);
                     }
                 }
                 return result;
@@ -2382,7 +2388,7 @@
                     const testNameWords = testName.split(' ');
                     if ((categories.includes('HOSPITAL_URGENT_CARE') || categories.includes('DOCTOR_CLINIC'))
                         && (containsAny(testNameWords, _animalFullMatch) || _animalPartMatch.some(match => testName.includes(match)))) {
-                        result = new Flag.ChangeToPetVet();
+                        result = new this();
                     }
                 }
                 return result;
@@ -2428,7 +2434,7 @@
 
                     if (categories.includes('SCHOOL')
                         && (containsAny(testNameWords, _schoolFullMatch) || _schoolPartMatch.some(match => testName.includes(match)))) {
-                        result = new Flag.NotASchool();
+                        result = new this();
                     }
                 }
                 return result;
@@ -2527,7 +2533,7 @@
                 if (!wl.hnTooManyDigits && houseNumber) {
                     houseNumber = houseNumber.replace(/[^0-9]/g, '');
                     if (houseNumber.length > 6) {
-                        result = new Flag.HnTooManyDigits();
+                        result = new this();
                     }
                 }
                 return result;
@@ -2600,7 +2606,7 @@
                 let result = null;
                 if (addr.city && (!addr.street || addr.street.isEmpty)
                     && !'BRIDGE|ISLAND|FOREST_GROVE|SEA_LAKE_POOL|RIVER_STREAM|CANAL|DAM|TUNNEL|JUNCTION_INTERCHANGE'.split('|').includes(venue.attributes.categories[0])) {
-                    result = new Flag.StreetMissing(venue.attributes.categories[0]);
+                    result = new this(venue.attributes.categories[0]);
                 }
                 return result;
             }
@@ -2638,7 +2644,7 @@
                 let result = null;
                 if ((!addr.city || addr.city.attributes.isEmpty)
                     && !'BRIDGE|ISLAND|FOREST_GROVE|SEA_LAKE_POOL|RIVER_STREAM|CANAL|DAM|TUNNEL|JUNCTION_INTERCHANGE'.split('|').includes(venue.attributes.categories[0])) {
-                    result = new Flag.CityMissing(venue.attributes.residential, highlightOnly);
+                    result = new this(venue.attributes.residential, highlightOnly);
                 }
                 return result;
             }
@@ -2771,7 +2777,7 @@
             static eval(phone) {
                 let result = null;
                 if (phone === 'badPhone') {
-                    result = new Flag.PhoneInvalid();
+                    result = new this();
                 }
                 return result;
             }
@@ -2853,7 +2859,7 @@
                 // If gas station is missing brand, don't flag if place is locked as high as user can lock it.
                 let result = null;
                 if (venue.isGasStation() && !brand && venue.attributes.lockRank < levelToLock) {
-                    result = new Flag.GasNoBrand(levelToLock);
+                    result = new this(levelToLock);
                 }
                 return result;
             }
@@ -2905,7 +2911,7 @@
                     if (network && COMMON_EV_PAYMENT_METHODS.hasOwnProperty(network)) {
                         const missingMethods = COMMON_EV_PAYMENT_METHODS[network].filter(method => !stationAttr.paymentMethods?.includes(method));
                         if (missingMethods.length) {
-                            result = new Flag.AddCommonEVPaymentMethods(venue, missingMethods, highlightOnly);
+                            result = new this(venue, missingMethods, highlightOnly);
                         }
                     }
                 }
@@ -2977,7 +2983,7 @@
                     if (network && COMMON_EV_PAYMENT_METHODS.hasOwnProperty(network)) {
                         const extraMethods = stationAttr.paymentMethods?.filter(method => !COMMON_EV_PAYMENT_METHODS[network].includes(method));
                         if (extraMethods?.length) {
-                            result = new Flag.RemoveUncommonEVPaymentMethods(venue, extraMethods, highlightOnly);
+                            result = new this(venue, extraMethods, highlightOnly);
                         }
                     }
                 }
@@ -3116,7 +3122,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                     const [, localizationString] = checkLocalization;
                     const localizationRegEx = new RegExp(localizationString, 'g');
                     if (!(name + (nameSuffix || '')).match(localizationRegEx)) {
-                        result.flag = new Flag.LocalizedName();
+                        result.flag = new this();
                         if (_wl.localizedName) {
                             result.flag.WLactive = false;
                             result.flag.severity = _SEVERITY.GREEN;
@@ -3138,13 +3144,13 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                     if (containsAny(specialCases, ['pharmhours'])) {
                         if (!venue.attributes.description.toUpperCase().includes('PHARMACY') || (!venue.attributes.description.toUpperCase().includes('HOURS')
                             && !venue.attributes.description.toUpperCase().includes('HRS'))) {
-                            result = new Flag.SpecCaseMessage(message);
+                            result = new this(message);
                         }
                     } else if (containsAny(specialCases, ['drivethruhours'])) {
                         if (!venue.attributes.description.toUpperCase().includes('DRIVE') || (!venue.attributes.description.toUpperCase().includes('HOURS')
                             && !venue.attributes.description.toUpperCase().includes('HRS'))) {
                             if ($('#service-checkbox-DRIVETHROUGH').prop('checked')) {
-                                result = new Flag.SpecCaseMessage(message);
+                                result = new this(message);
                             }
                         }
                     } else {
@@ -3193,7 +3199,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
             static eval(message, categories, highlightOnly) {
                 let result = null;
                 if (!highlightOnly && !isNullOrWhitespace(message)) {
-                    result = new Flag.PnhCatMess(message, categories);
+                    result = new this(message, categories);
                 }
                 return result;
             }
@@ -3255,7 +3261,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                     if (!categories.some(cat => this.#categoriesToIgnore.includes(cat))) {
                         const provIDs = venue.attributes.externalProviderIDs;
                         if (!(provIDs && provIDs.length)) {
-                            result = new Flag.ExtProviderMissing(venue, isLocked, actions);
+                            result = new this(venue, isLocked, actions);
                         }
                     }
                 }
@@ -3371,7 +3377,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                     if (specCaseMatch) {
                         const phone = normalizePhone(specCaseMatch[1], outputFormat);
                         if (phone !== 'badPhone' && phone !== venue.attributes.phone) {
-                            result = new Flag.AddRecommendedPhone(venue, phone);
+                            result = new this(venue, phone);
                         }
                     }
                 }
@@ -3415,7 +3421,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                     const hasOperator = venue.attributes.brand && W.model.categoryBrands?.PARKING_LOT?.includes(venue.attributes.brand);
                     const isPLA = venue.isParkingLot();
                     if (!isPLA || (isPLA && (this._regionsThatWantPlaPhones.includes(region) || hasOperator))) {
-                        result = new Flag.PhoneMissing(venue, hasOperator, wl, outputFormat, isPLA);
+                        result = new this(venue, hasOperator, wl, outputFormat, isPLA);
                     }
                 }
                 return result;
@@ -3484,6 +3490,67 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                 this.applyHours(true);
             }
         },
+        OldHours: class extends ActionFlag {
+            static #categoriesToCheck;
+            static #cutoffDateString = '3/15/2020';
+            static #cutoffDate = new Date(this.#cutoffDateString);
+
+            constructor(venue, highlightOnly) {
+                let message = '';
+                const isUnchanged = venue.isUnchanged();
+                if (!highlightOnly) {
+                    message = `Last updated before ${
+                        Flag.OldHours.#cutoffDateString}. Verify hours are correct.`;
+                    if (isUnchanged) message += ' If everything is current, nudge this place and save.';
+                }
+                super(
+                    true,
+                    isUnchanged ? _SEVERITY.YELLOW : _SEVERITY.GREEN,
+                    message,
+                    isUnchanged ? 'Nudge' : null
+                );
+                this.venue = venue;
+            }
+
+            static #initializeCategoriesToCheck(catData) {
+                const catParentIdx = catData[0].split('|').indexOf('pc_catparent');
+                const catNameIdx = catData[0].split('|').indexOf('pc_wmecat');
+                const parentCats = ['SHOPPING_AND_SERVICES', 'FOOD_AND_DRINK', 'CULTURE_AND_ENTERTAINEMENT'];
+                if (!this.#categoriesToCheck) {
+                    this.#categoriesToCheck = catData
+                        .map(catRowString => catRowString.split('|'))
+                        .filter(catRow => parentCats.includes(catRow[catParentIdx]))
+                        .map(catRow => catRow[catNameIdx]);
+                    this.#categoriesToCheck.push(...parentCats);
+                }
+            }
+
+            static #venueIsOld(venue) {
+                const lastUpdated = venue.attributes.updatedOn ?? venue.attributes.createdOn;
+                return lastUpdated < this.#cutoffDate;
+            }
+
+            static #venueIsFlaggable(venue) {
+                return !venue.isResidential()
+                    && this.#venueIsOld(venue)
+                    && venue.attributes.openingHours?.length
+                    && venue.attributes.categories.some(cat => this.#categoriesToCheck.includes(cat));
+            }
+
+            static eval(venue, catData, highlightOnly) {
+                let result = null;
+                this.#initializeCategoriesToCheck(catData);
+                if (this.#venueIsFlaggable(venue)) {
+                    result = new this(venue, highlightOnly);
+                }
+                return result;
+            }
+
+            action() {
+                nudgeVenue(this.venue);
+                harmonizePlaceGo(this.venue, 'harmonize');
+            }
+        },
         PlaLotTypeMissing: class extends FlagBase {
             constructor(venue, highlightOnly) {
                 super(true, _SEVERITY.RED, 'Lot type: ');
@@ -3515,7 +3582,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                     const catAttr = venue.attributes.categoryAttributes;
                     const parkAttr = catAttr ? catAttr.PARKING_LOT : undefined;
                     if (!parkAttr || !parkAttr.parkingType) {
-                        result = new Flag.PlaLotTypeMissing(venue, highlightOnly);
+                        result = new this(venue, highlightOnly);
                     }
                 }
                 return result;
@@ -3549,7 +3616,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                     const catAttr = venue.attributes.categoryAttributes;
                     const parkAttr = catAttr ? catAttr.PARKING_LOT : undefined;
                     if (!parkAttr || !parkAttr.costType || parkAttr.costType === 'UNKNOWN') {
-                        result = new Flag.PlaCostTypeMissing(venue, highlightOnly);
+                        result = new this(venue, highlightOnly);
                     }
                 }
                 return result;
@@ -3575,7 +3642,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
             }
         },
         PlaPaymentTypeMissing: class extends ActionFlag {
-            constructor() { super(true, _SEVERITY.BLUE, 'Parking isn\'t free.  Select payment type(s) from the "More info" tab. ', 'Go there'); }
+            constructor() { super(true, _SEVERITY.BLUE, 'Parking isn\'t free. Select payment type(s) from the "More info" tab. ', 'Go there'); }
 
             static eval(venue) {
                 let result = null;
@@ -3583,7 +3650,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                     const catAttr = venue.attributes.categoryAttributes;
                     const parkAttr = catAttr ? catAttr.PARKING_LOT : undefined;
                     if (parkAttr && parkAttr.costType && parkAttr.costType !== 'FREE' && parkAttr.costType !== 'UNKNOWN' && (!parkAttr.paymentType || !parkAttr.paymentType.length)) {
-                        result = new Flag.PlaPaymentTypeMissing();
+                        result = new this();
                     }
                 }
                 return result;
@@ -3614,7 +3681,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                     const catAttr = venue.attributes.categoryAttributes;
                     const parkAttr = catAttr ? catAttr.PARKING_LOT : undefined;
                     if (!parkAttr || !parkAttr.lotType || parkAttr.lotType.length === 0) {
-                        result = new Flag.PlaLotElevationMissing();
+                        result = new this();
                     }
                 }
                 return result;
@@ -3671,7 +3738,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                     const catAttr = venue.attributes.categoryAttributes;
                     const parkAttr = catAttr ? catAttr.PARKING_LOT : undefined;
                     if (!parkAttr || !parkAttr.estimatedNumberOfSpots || parkAttr.estimatedNumberOfSpots === 'R_1_TO_10') {
-                        result = new Flag.PlaSpaces();
+                        result = new this();
                     }
                 }
                 return result;
@@ -3683,7 +3750,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
             static eval(venue) {
                 let result = null;
                 if (venue.isParkingLot() && (!venue.attributes.entryExitPoints || !venue.attributes.entryExitPoints.length)) {
-                    result = new Flag.NoPlaStopPoint();
+                    result = new this();
                 }
                 return result;
             }
@@ -3704,7 +3771,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                     const stopPoint = attr.entryExitPoints[0].getPoint();
                     const areaCenter = attr.geometry.getCentroid();
                     if (stopPoint.equals(areaCenter)) {
-                        result = new Flag.PlaStopPointUnmoved();
+                        result = new this();
                     }
                 }
                 return result;
@@ -3718,7 +3785,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                 if (!highlightOnly && venue.isParkingLot()) {
                     const catAttr = venue.attributes.categoryAttributes;
                     if (!catAttr?.PARKING_LOT?.canExitWhileClosed && ($('#WMEPH-ShowPLAExitWhileClosed').prop('checked') || !(isAlwaysOpen(venue) || venue.attributes.openingHours.length === 0))) {
-                        result = new Flag.PlaCanExitWhileClosed();
+                        result = new this();
                     }
                 }
                 return result;
@@ -3747,7 +3814,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
             static eval(venue, highlightOnly) {
                 let result = null;
                 if (!highlightOnly && venue.isParkingLot() && !(venue.attributes.services?.includes('DISABILITY_PARKING'))) {
-                    result = new Flag.PlaHasAccessibleParking();
+                    result = new this();
                 }
                 return result;
             }
@@ -3774,7 +3841,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                 const hoursEntries = venue.attributes.openingHours;
                 const newHoursEntries = [];
                 let updateHours = false;
-                let flag = null;
+                let result = null;
                 for (let i = 0, len = hoursEntries.length; i < len; i++) {
                     const newHoursEntry = new OpeningHour({
                         days: [].concat(hoursEntries[i].days), fromHour: hoursEntries[i].fromHour, toHour: hoursEntries[i].toHour
@@ -3782,7 +3849,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                     if (newHoursEntry.toHour === '23:59' && /^0?0:00$/.test(newHoursEntry.fromHour)) {
                         if (highlightOnly) {
                             // Just return a "placeholder" flag to highlight the place.
-                            flag = new FlagBase(true, _SEVERITY.YELLOW, 'invalid all day hours');
+                            result = new FlagBase(true, _SEVERITY.YELLOW, 'invalid all day hours');
                             break;
                         } else {
                             updateHours = true;
@@ -3795,9 +3862,9 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                 if (updateHours) {
                     addUpdateAction(venue, { openingHours: newHoursEntries }, actions);
                     _UPDATED_FIELDS.openingHours.updated = true;
-                    flag = new Flag.AllDayHoursFixed();
+                    result = new this();
                 }
-                return flag;
+                return result;
             }
         },
         ResiTypeNameSoft: class extends FlagBase {
@@ -3880,7 +3947,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                 if (match) {
                     const [, optionalAlias] = match;
                     if (!aliases.includes(optionalAlias)) {
-                        result = new Flag.AddAlias(specCases, optionalAlias);
+                        result = new this(specCases, optionalAlias);
                     }
                 }
                 return result;
@@ -3909,7 +3976,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
             static eval(specCases, altCategory) {
                 let result = null;
                 if (specCases.includes('buttOn_addCat2') && !_newCategories.includes(altCategory)) {
-                    result = new Flag.AddCat2(altCategory);
+                    result = new this(altCategory);
                 }
                 return result;
             }
@@ -4003,7 +4070,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                 if (!highlightOnly && countryCode === 'USA' && !newCategories.includes('PARKING_LOT') && !newCategories.includes('POST_OFFICE')) {
                     const cleanName = newName.toUpperCase().replace(/[/\-.]/g, '');
                     if (/\bUSP[OS]\b|\bpost(al)?\s+(service|office)\b/i.test(cleanName)) {
-                        result = new Flag.IsThisAPostOffice();
+                        result = new this();
                     }
                 }
                 return result;
@@ -4037,7 +4104,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
             static eval(venue, highlightOnly) {
                 let result = null;
                 if (!highlightOnly && venue.attributes.categories.includes('DOCTOR_CLINIC')) {
-                    result = new Flag.ChangeToHospitalUrgentCare(venue);
+                    result = new this(venue);
                 }
                 return result;
             }
@@ -4129,7 +4196,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                     // The date criteria was added because Doctor/Clinic category was added around then, and it's assumed if the
                     // place has been edited since then, people would have already updated the category.
 
-                    result = new Flag.ChangeToDoctorClinic();
+                    result = new this();
                     result.WLactive = null;
                 }
                 return result;
@@ -4265,7 +4332,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                 if (!highlightOnly && countryCode === 'USA' && !newCategories.includes('PARKING_LOT') && newCategories.includes('POST_OFFICE')) {
                     _customStoreFinderURL = _URLS.uspsLocationFinder;
                     _customStoreFinder = true;
-                    result = new Flag.PlaceWebsite();
+                    result = new this();
                 }
                 return result;
             }
@@ -4395,6 +4462,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
             addRecommendedPhone: null,
             badAreaCode: null,
             phoneMissing: null,
+            oldHours: null,
             noHours: null,
             plaLotTypeMissing: null,
             plaCostTypeMissing: null,
@@ -5987,6 +6055,8 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                     }
                 }
             }
+
+            _buttonBanner.oldHours = Flag.OldHours.eval(item, catData);
 
             if (!highlightOnly) {
                 // Highlight 24/7 button if hours are set that way, and add button for all places
