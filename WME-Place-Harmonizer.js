@@ -2236,7 +2236,7 @@
                 const venue = getSelectedVenue();
                 const actions = [];
                 // update categories according to spec
-                _newCategories = insertAtIX(_newCategories, 'REST_AREAS', 0);
+                _newCategories = insertAtIndex(_newCategories, 'REST_AREAS', 0);
                 actions.push(new UpdateObject(venue, { categories: _newCategories }));
                 _UPDATED_FIELDS.categories.updated = true;
 
@@ -2306,8 +2306,8 @@
             // eslint-disable-next-line class-methods-use-this
             action() {
                 const venue = getSelectedVenue();
-                // Insert/move Gas category in the first position
-                _newCategories = insertAtIX(_newCategories, 'GAS_STATION', 0);
+                // Move Gas category to the first position
+                _newCategories = insertAtIndex(_newCategories, 'GAS_STATION', 0);
                 _UPDATED_FIELDS.categories.updated = true;
                 addUpdateAction(venue, { categories: _newCategories });
                 harmonizePlaceGo(venue, 'harmonize');
@@ -2360,7 +2360,7 @@
             action() {
                 const venue = getSelectedVenue();
                 // Insert/move Hotel category in the first position
-                const categories = insertAtIX(venue.attributes.categories.slice(), 'HOTEL', 0);
+                const categories = insertAtIndex(venue.attributes.categories.slice(), 'HOTEL', 0);
                 _UPDATED_FIELDS.categories.updated = true;
                 addUpdateAction(venue, { categories });
                 harmonizePlaceGo(venue, 'harmonize');
@@ -3955,7 +3955,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
 
             action() {
                 const venue = getSelectedVenue();
-                let aliases = insertAtIX(venue.attributes.aliases.slice(), this.optionalAlias, 0);
+                let aliases = insertAtIndex(venue.attributes.aliases.slice(), this.optionalAlias, 0);
                 if (this.specCases.includes('altName2Desc') && !venue.attributes.description.toUpperCase().includes(this.optionalAlias.toUpperCase())) {
                     const description = `${this.optionalAlias}\n${venue.attributes.description}`;
                     addUpdateAction(venue, { description });
@@ -3995,7 +3995,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
             // eslint-disable-next-line class-methods-use-this
             action() {
                 const venue = getSelectedVenue();
-                _newCategories = insertAtIX(_newCategories, 'PHARMACY', 1);
+                _newCategories = insertAtIndex(_newCategories, 'PHARMACY', 1);
                 W.model.actionManager.add(new UpdateObject(venue, { categories: _newCategories }));
                 _UPDATED_FIELDS.categories.updated = true;
                 harmonizePlaceGo(venue, 'harmonize');
@@ -4007,7 +4007,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
             // eslint-disable-next-line class-methods-use-this
             action() {
                 const venue = getSelectedVenue();
-                _newCategories = insertAtIX(_newCategories, 'SUPERMARKET_GROCERY', 1);
+                _newCategories = insertAtIndex(_newCategories, 'SUPERMARKET_GROCERY', 1);
                 W.model.actionManager.add(new UpdateObject(venue, { categories: _newCategories }));
                 _UPDATED_FIELDS.categories.updated = true;
                 harmonizePlaceGo(venue, 'harmonize');
@@ -4019,7 +4019,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
             // eslint-disable-next-line class-methods-use-this
             action() {
                 const venue = getSelectedVenue();
-                _newCategories = insertAtIX(_newCategories, 'CONVENIENCE_STORE', 1);
+                _newCategories = insertAtIndex(_newCategories, 'CONVENIENCE_STORE', 1);
                 _newName = 'ARCO ampm';
                 _newURL = 'ampm.com';
                 W.model.actionManager.add(new UpdateObject(venue, { name: _newName, url: _newURL, categories: _newCategories }));
@@ -4036,7 +4036,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
             // eslint-disable-next-line class-methods-use-this
             action() {
                 const venue = getSelectedVenue();
-                _newCategories = insertAtIX(_newCategories, 'ATM', 1); // Insert ATM category in the second position
+                _newCategories = insertAtIndex(_newCategories, 'ATM', 1); // Insert ATM category in the second position
                 W.model.actionManager.add(new UpdateObject(venue, { categories: _newCategories }));
                 _UPDATED_FIELDS.categories.updated = true;
                 harmonizePlaceGo(venue, 'harmonize');
@@ -4048,14 +4048,14 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
             // eslint-disable-next-line class-methods-use-this
             action() {
                 const venue = getSelectedVenue();
-                _newCategories = insertAtIX(_newCategories, 'CONVENIENCE_STORE', 1); // Insert C.S. category in the second position
+                _newCategories = insertAtIndex(_newCategories, 'CONVENIENCE_STORE', 1); // Insert C.S. category in the second position
                 W.model.actionManager.add(new UpdateObject(venue, { categories: _newCategories }));
                 _UPDATED_FIELDS.categories.updated = true;
                 harmonizePlaceGo(venue, 'harmonize');
             }
         },
         IsThisAPostOffice: class extends ActionFlag {
-            constructor() {
+            constructor(venue) {
                 super(
                     true,
                     _SEVERITY.GREEN,
@@ -4063,6 +4063,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                     'Yes',
                     'Is this a USPS location?'
                 );
+                this.venue = venue;
             }
 
             static eval(venue, highlightOnly, countryCode, newCategories, newName) {
@@ -4070,20 +4071,18 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                 if (!highlightOnly && countryCode === 'USA' && !newCategories.includes('PARKING_LOT') && !newCategories.includes('POST_OFFICE')) {
                     const cleanName = newName.toUpperCase().replace(/[/\-.]/g, '');
                     if (/\bUSP[OS]\b|\bpost(al)?\s+(service|office)\b/i.test(cleanName)) {
-                        result = new this();
+                        result = new this(venue);
                     }
                 }
                 return result;
             }
 
             // TODO: Remove reference to _newCategories. Place should have updated categories by now.
-            // eslint-disable-next-line class-methods-use-this
             action() {
-                const venue = getSelectedVenue();
-                _newCategories = insertAtIX(_newCategories, 'POST_OFFICE', 0);
-                W.model.actionManager.add(new UpdateObject(venue, { categories: _newCategories }));
+                _newCategories = insertAtIndex(_newCategories, 'POST_OFFICE', 0);
+                W.model.actionManager.add(new UpdateObject(this.venue, { categories: _newCategories }));
                 _UPDATED_FIELDS.categories.updated = true;
-                harmonizePlaceGo(venue, 'harmonize');
+                harmonizePlaceGo(this.venue, 'harmonize');
             }
         },
         ChangeToHospitalUrgentCare: class extends WLActionFlag {
@@ -5524,7 +5523,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                         }
                     }
                     if (altCategories && altCategories.length) { // if PNH alts exist
-                        insertAtIX(_newCategories, altCategories, 1); //  then insert the alts into the existing category array after the GS category
+                        insertAtIndex(_newCategories, altCategories, 1); //  then insert the alts into the existing category array after the GS category
                     }
                     if (_newCategories.indexOf('HOTEL') !== 0) { // If no HOTEL category in the primary, flag it
                         _buttonBanner.hotelMkPrim = new Flag.HotelMkPrim();
@@ -5570,7 +5569,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                             _buttonBanner.standaloneATM = new Flag.StandaloneATM();
                         }
                         _newName = `${pnhMatchData[phNameIdx]} ATM`;
-                        _newCategories = insertAtIX(_newCategories, 'ATM', 0);
+                        _newCategories = insertAtIndex(_newCategories, 'ATM', 0);
                         // Net result: If the place has ATM cat only and ATM in the name, then it will be green and renamed Bank Name ATM
                     } else if (_ixBank > -1 || _ixATM > -1) { // if no ATM in name but with a banking category:
                         if (_ixOffices === 0) {
@@ -5587,13 +5586,13 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                         _newName = pnhMatchData[phNameIdx];
                         // Net result: If the place has Bank category first, then it will be green with PNH name replaced
                     } else { // for PNH match with neither bank type category, make it a bank
-                        _newCategories = insertAtIX(_newCategories, 'BANK_FINANCIAL', 1);
+                        _newCategories = insertAtIndex(_newCategories, 'BANK_FINANCIAL', 1);
                         _buttonBanner.standaloneATM = new Flag.StandaloneATM();
                         _buttonBanner.bankCorporate = new Flag.BankCorporate();
                     }// END PNH bank treatment
                 } else if (['GAS_STATION'].includes(priPNHPlaceCat)) { // for PNH gas stations, don't replace existing sub-categories
                     if (altCategories && altCategories.length) { // if PNH alts exist
-                        insertAtIX(_newCategories, altCategories, 1); //  then insert the alts into the existing category array after the GS category
+                        insertAtIndex(_newCategories, altCategories, 1); //  then insert the alts into the existing category array after the GS category
                     }
                     if (_newCategories.indexOf('GAS_STATION') !== 0) { // If no GS category in the primary, flag it
                         _buttonBanner.gasMkPrim = new Flag.GasMkPrim();
@@ -5603,9 +5602,9 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                     }
                 } else if (updatePNHName) { // if not a special category then update the name
                     _newName = pnhMatchData[phNameIdx];
-                    _newCategories = insertAtIX(_newCategories, priPNHPlaceCat, 0);
+                    _newCategories = insertAtIndex(_newCategories, priPNHPlaceCat, 0);
                     if (altCategories && altCategories.length && !specCases.includes('buttOn_addCat2') && !specCases.includes('optionCat2')) {
-                        _newCategories = insertAtIX(_newCategories, altCategories, 1);
+                        _newCategories = insertAtIndex(_newCategories, altCategories, 1);
                     }
                 } else if (!updatePNHName) {
                     // Strong title case option for non-PNH places
@@ -5636,7 +5635,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                 }
                 if (!specCases.includes('noUpdateAlias') && (!containsAll(_newAliases, _newAliasesTemp)
                     && _newAliasesTemp && _newAliasesTemp.length && !specCases.includes('optionName2'))) {
-                    _newAliases = insertAtIX(_newAliases, _newAliasesTemp, 0);
+                    _newAliases = insertAtIndex(_newAliases, _newAliasesTemp, 0);
                 }
 
                 // Remove unnecessary parent categories
@@ -5656,7 +5655,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                         _UPDATED_FIELDS.categories.updated = true;
                     } else { // if second cat is optional
                         logDev(`Primary category updated with ${priPNHPlaceCat}`);
-                        _newCategories = insertAtIX(_newCategories, priPNHPlaceCat, 0);
+                        _newCategories = insertAtIndex(_newCategories, priPNHPlaceCat, 0);
                         actions.push(new UpdateObject(item, { categories: _newCategories }));
                         _UPDATED_FIELDS.categories.updated = true;
                     }
@@ -8124,16 +8123,20 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
         return source.some(tt => target.includes(tt));
     }
 
-    // Function that inserts a string or a string array into another string array at index ix and removes any duplicates
-    function insertAtIX(array1, array2, ix) { // array1 is original string, array2 is the inserted string, at index ix
-        const arrayNew = array1.slice(); // slice the input array so it doesn't change
-        if (typeof (array2) === 'string') { array2 = [array2]; } // if a single string, convert to an array
-        if (typeof (array2) === 'object') { // only apply to inserted arrays
-            const arrayTemp = arrayNew.splice(ix); // split and hold the first part
-            arrayNew.push(...array2); // add the insert
-            arrayNew.push(...arrayTemp); // add the tail end of original
-        }
-        return _.uniq(arrayNew); // remove any duplicates (so the function can be used to move the position of a string)
+    /**
+     * Copies an array, inserts an item or array of items at a specified index, and removes any duplicates.
+     * Can be used to move the position of an item in an array.
+     *
+     * @param {Array} sourceArray Original array. This array is not modified.
+     * @param {*} toInsert Item or array of items to insert.
+     * @param {Number} atIndex The index to insert at.
+     * @return {Array} An array with the new item(s) inserted.
+     */
+    function insertAtIndex(sourceArray, toInsert, atIndex) {
+        const sourceCopy = sourceArray.slice();
+        if (!Array.isArray(toInsert)) toInsert = [toInsert];
+        sourceCopy.splice(atIndex, 0, ...toInsert);
+        return _.uniq(sourceCopy);
     }
 
     // Function to remove unnecessary aliases
@@ -8662,7 +8665,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                         // if the key is in the wl1 venue and it is active, then push any array data onto the key
                         if (wlVenue1.hasOwnProperty(wlKey) && wlVenue1[wlKey].active) {
                             if (wlVenue1[wlKey].hasOwnProperty('WLKeyArray')) {
-                                wl1[venueKey][wlKey].WLKeyArray = insertAtIX(wl1[venueKey][wlKey].WLKeyArray, wl2[venueKey][wlKey].WLKeyArray, 100);
+                                wl1[venueKey][wlKey].WLKeyArray = insertAtIndex(wl1[venueKey][wlKey].WLKeyArray, wl2[venueKey][wlKey].WLKeyArray, 100);
                             }
                         } else {
                             // if the key isn't in the wl1 venue, or if it's inactive, then copy the wl2 key across
