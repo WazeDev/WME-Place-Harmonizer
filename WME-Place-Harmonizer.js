@@ -4071,16 +4071,17 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                 this.noLock = true;
             }
 
-            static eval(categories) {
-                let result = null;
+            static #venueIsFlaggable(categories) {
                 if (categories.includes('HOSPITAL_URGENT_CARE') && !_wl.notAHospital) {
                     const testName = _newName.toLowerCase().replace(/[^a-z]/g, ' ');
                     const testNameWords = testName.split(' ');
-                    if (containsAny(testNameWords, _hospitalFullMatch) || _hospitalPartMatch.some(match => testName.includes(match))) {
-                        result = new Flag.NotAHospital();
-                    }
+                    return containsAny(testNameWords, _hospitalFullMatch) || _hospitalPartMatch.some(match => testName.includes(match));
                 }
-                return result;
+                return false;
+            }
+
+            static eval(categories) {
+                return this.#venueIsFlaggable(categories) ? new this() : null;
             }
 
             // eslint-disable-next-line class-methods-use-this
