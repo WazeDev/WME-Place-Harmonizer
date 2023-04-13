@@ -2298,19 +2298,27 @@
             }
         },
         GasMkPrim: class extends ActionFlag {
-            constructor() {
-                super(true, _SEVERITY.RED, 'Gas Station is not the primary category', 'Fix', 'Make the Gas Station '
+            constructor(venue) {
+                super(true, _SEVERITY.RED, 'Gas Station should be the primary category', 'Fix', 'Make the Gas Station '
                     + 'category the primary category.');
+                this.venue = venue;
+                this.noLock = true;
             }
 
-            // eslint-disable-next-line class-methods-use-this
+            static #venueIsFlaggable(categories) {
+                return categories.includes('GAS_STATION') && categories.indexOf('GAS_STATION') !== 0;
+            }
+
+            static eval(venue, categories) {
+                return this.#venueIsFlaggable(categories) ? new this(venue) : null;
+            }
+
             action() {
-                const venue = getSelectedVenue();
                 // Move Gas category to the first position
-                _newCategories = insertAtIndex(_newCategories, 'GAS_STATION', 0);
+                const categories = insertAtIndex(this.venue.getCategories(), 'GAS_STATION', 0);
                 _UPDATED_FIELDS.categories.updated = true;
-                addUpdateAction(venue, { categories: _newCategories });
-                harmonizePlaceGo(venue, 'harmonize');
+                addUpdateAction(this.venue, { categories });
+                harmonizePlaceGo(this.venue, 'harmonize');
             }
         },
         IsThisAPilotTravelCenter: class extends ActionFlag {
@@ -2652,6 +2660,7 @@
         BankType1: class extends FlagBase {
             constructor() { super(true, _SEVERITY.RED, 'Clarify the type of bank: the name has ATM but the primary category is Offices'); }
         },
+        // TODO: Fix if the name has "(ATM)" or " - ATM" or similar. This flag is not currently catching those.
         BankBranch: class extends ActionFlag {
             constructor(venue) {
                 super(true, _SEVERITY.BLUE, 'Is this a bank branch office? ', 'Yes', 'Is this a bank branch?');
@@ -5115,6 +5124,8 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
         _buttonBanner.isThisAPilotTravelCenter = Flag.IsThisAPilotTravelCenter.eval(item, highlightOnly, state2L, _newName, actions);
         if (_buttonBanner.isThisAPilotTravelCenter) _newName = _buttonBanner.isThisAPilotTravelCenter.newName;
 
+        _buttonBanner.gasMkPrim = Flag.GasMkPrim.eval(item, _newCategories);
+
         if (item.isGasStation()) {
             // If no gas station name, replace with brand name
             if (!highlightOnly && (!_newName || _newName.trim().length === 0) && item.attributes.brand) {
@@ -5592,15 +5603,10 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                         _buttonBanner.bankCorporate = new Flag.BankCorporate();
                     }// END PNH bank treatment
                 } else if (['GAS_STATION'].includes(priPNHPlaceCat)) { // for PNH gas stations, don't replace existing sub-categories
-                    if (altCategories && altCategories.length) { // if PNH alts exist
+                    if (altCategories?.length) { // if PNH alts exist
                         insertAtIndex(_newCategories, altCategories, 1); //  then insert the alts into the existing category array after the GS category
                     }
-                    if (_newCategories.indexOf('GAS_STATION') !== 0) { // If no GS category in the primary, flag it
-                        _buttonBanner.gasMkPrim = new Flag.GasMkPrim();
-                        lockOK = false;
-                    } else {
-                        _newName = pnhMatchData[phNameIdx];
-                    }
+                    _newName = pnhMatchData[phNameIdx];
                 } else if (updatePNHName) { // if not a special category then update the name
                     _newName = pnhMatchData[phNameIdx];
                     _newCategories = insertAtIndex(_newCategories, priPNHPlaceCat, 0);
