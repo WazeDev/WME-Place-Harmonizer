@@ -1845,13 +1845,22 @@
         return { base: splits[1], suffix: splits[2] };
     }
 
-    function addUpdateAction(venue, newAttributes, actions) {
-        const action = new UpdateObject(venue, newAttributes);
-        if (actions) {
-            actions.push(action);
-        } else {
-            W.model.actionManager.add(action);
+    function addUpdateAction(venue, newAttributes, actions, runHarmonizer = false, dontHighlightFields = false) {
+        if (Object.keys(newAttributes).length) {
+            const action = new UpdateObject(venue, newAttributes);
+            if (actions) {
+                actions.push(action);
+            } else {
+                W.model.actionManager.add(action);
+            }
+
+            if (!dontHighlightFields) {
+                if (newAttributes.hasOwnProperty('categories') && !arraysAreEqual(venue.getCategories(), newAttributes.categories)) {
+                    _UPDATED_FIELDS.categories.updated = true;
+                }
+            }
         }
+        if (runHarmonizer) harmonizePlaceGo(venue, 'harmonize');
     }
 
     function setServiceChecked(servBtn, checked, actions) {
@@ -2182,9 +2191,7 @@
                 if (ix > -1) {
                     const venue = getSelectedVenue();
                     _newCategories.splice(ix, 1);
-                    _UPDATED_FIELDS.categories.updated = true;
-                    addUpdateAction(venue, { categories: _newCategories });
-                    harmonizePlaceGo(venue, 'harmonize');
+                    addUpdateAction(venue, { categories: _newCategories }, null, true);
                 }
             }
         },
@@ -2211,9 +2218,7 @@
                 if (ix > -1) {
                     const venue = getSelectedVenue();
                     _newCategories.splice(ix, 1);
-                    _UPDATED_FIELDS.categories.updated = true;
-                    addUpdateAction(venue, { categories: _newCategories });
-                    harmonizePlaceGo(venue, 'harmonize');
+                    addUpdateAction(venue, { categories: _newCategories }, null, true);
                 }
             }
         },
@@ -2316,9 +2321,7 @@
             action() {
                 // Move Gas category to the first position
                 const categories = insertAtIndex(this.venue.getCategories(), 'GAS_STATION', 0);
-                _UPDATED_FIELDS.categories.updated = true;
-                addUpdateAction(this.venue, { categories });
-                harmonizePlaceGo(this.venue, 'harmonize');
+                addUpdateAction(this.venue, { categories }, null, true);
             }
         },
         IsThisAPilotTravelCenter: class extends ActionFlag {
@@ -2369,9 +2372,7 @@
                 const venue = getSelectedVenue();
                 // Insert/move Hotel category in the first position
                 const categories = insertAtIndex(venue.attributes.categories.slice(), 'HOTEL', 0);
-                _UPDATED_FIELDS.categories.updated = true;
-                addUpdateAction(venue, { categories });
-                harmonizePlaceGo(venue, 'harmonize');
+                addUpdateAction(venue, { categories }, null, true);
             }
         },
         ChangeToPetVet: class extends WLActionFlag {
@@ -2415,10 +2416,8 @@
                 });
                 if (updated) {
                     categories = _.uniq(categories);
-                    _UPDATED_FIELDS.categories.updated = true;
-                    addUpdateAction(venue, { categories });
                 }
-                harmonizePlaceGo(venue, 'harmonize'); // Rerun the script to update fields and lock
+                addUpdateAction(venue, { categories }, null, true);
             }
         },
         NotASchool: class extends WLFlag {
@@ -2668,13 +2667,23 @@
             }
 
             action() {
-                const categories = insertAtIndex(this.venue.getCategories(), ['BANK_FINANCIAL', 'ATM'], 0); // Change to bank and atm cats
+                const newAttributes = {};
+
+                const originalCategories = this.venue.getCategories();
+                const newCategories = insertAtIndex(originalCategories, ['BANK_FINANCIAL', 'ATM'], 0); // Change to bank and atm cats
+                if (!arraysAreEqual(originalCategories, newCategories)) {
+                    newAttributes.categories = newCategories;
+                }
+
                 // strip ATM from name if present
-                const name = this.venue.attributes.name.replace(/[- (]*ATM[- )]*/ig, ' ').replace(/^ /g, '').replace(/ $/g, '');
-                W.model.actionManager.add(new UpdateObject(this.venue, { name, categories }));
-                if (name !== this.venue.attributes.name) _UPDATED_FIELDS.name.updated = true;
-                _UPDATED_FIELDS.categories.updated = true;
-                harmonizePlaceGo(this.venue, 'harmonize');
+                const originalName = this.venue.getName();
+                const newName = originalName.replace(/[- (]*ATM[- )]*/ig, ' ').replace(/^ /g, '').replace(/ $/g, '');
+                if (originalName !== newName) {
+                    newAttributes.name = newName;
+                    _UPDATED_FIELDS.name.updated = true;
+                }
+
+                addUpdateAction(this.venue, newAttributes, null, true);
             }
         },
         StandaloneATM: class extends ActionFlag {
@@ -2684,24 +2693,20 @@
             }
 
             action() {
-                const { name } = this.venue.attributes;
                 const newAttributes = {};
-                if (!/\bATM\b/i.test(name)) {
-                    newAttributes.name = `${name} ATM`;
+
+                const originalName = this.venue.getName();
+                if (!/\bATM\b/i.test(originalName)) {
+                    newAttributes.name = `${originalName} ATM`;
                     _UPDATED_FIELDS.name.updated = true;
                 }
 
-                const { categories } = this.venue.attributes;
-                if (categories.length !== 1 || categories[0] !== 'ATM') {
-                    newAttributes.categories = ['ATM']; // Change to ATM only
-                    _UPDATED_FIELDS.categories.updated = true;
+                const atmCategory = ['ATM'];
+                if (!arraysAreEqual(this.venue.getCategories(), atmCategory)) {
+                    newAttributes.categories = atmCategory; // Change to ATM only
                 }
 
-                if (Object.keys(newAttributes).length) {
-                    W.model.actionManager.add(new UpdateObject(this.venue, newAttributes));
-                }
-
-                harmonizePlaceGo(this.venue, 'harmonize');
+                addUpdateAction(this.venue, newAttributes, null, true);
             }
         },
         BankCorporate: class extends ActionFlag {
@@ -2712,31 +2717,28 @@
 
             action() {
                 const newAttributes = {};
-                const { categories } = this.venue.attributes;
-                if (categories.length !== 1 || categories[0] !== 'OFFICES') {
-                    newAttributes.categories = ['OFFICES']; // Change to offices category
-                    _UPDATED_FIELDS.categories.updated = true;
+
+                const officesCategory = ['OFFICES'];
+                if (!arraysAreEqual(this.venue.getCategories(), officesCategory)) {
+                    newAttributes.categories = officesCategory;
                 }
 
                 // strip ATM from name if present
-                let name = this.venue.attributes.name
+                const originalName = this.venue.getName();
+                let newName = originalName
                     .replace(/[- (]*atm[- )]*/ig, ' ')
                     .replace(/^ /g, '')
                     .replace(/ $/g, '')
                     .replace(/ {2,}/g, ' ')
                     .replace(/\s*-\s*corporate\s*offices\s*$/i, '');
                 const suffix = ' - Corporate Offices';
-                if (!name.endsWith(suffix)) name += suffix;
-                if (this.venue.attributes.name !== name) {
-                    newAttributes.name = name;
+                if (!newName.endsWith(suffix)) newName += suffix;
+                if (originalName !== newName) {
+                    newAttributes.name = newName;
                     _UPDATED_FIELDS.name.updated = true;
                 }
 
-                if (Object.keys(newAttributes).length) {
-                    addUpdateAction(this.venue, newAttributes);
-                }
-
-                harmonizePlaceGo(this.venue, 'harmonize');
+                addUpdateAction(this.venue, newAttributes, null, true);
             }
         },
         CatPostOffice: class extends FlagBase {
@@ -2985,8 +2987,7 @@
                 categoryAttrClone.CHARGING_STATION.paymentMethods = newPaymentMethods;
 
                 _UPDATED_FIELDS.evPaymentMethods.updated = true;
-                addUpdateAction(this.venue, { categoryAttributes: categoryAttrClone });
-                harmonizePlaceGo(this.venue, 'harmonize');
+                addUpdateAction(this.venue, { categoryAttributes: categoryAttrClone }, null, true);
             }
         },
         RemoveUncommonEVPaymentMethods: class extends WLActionFlag {
@@ -3055,8 +3056,7 @@
                 categoryAttrClone.CHARGING_STATION.paymentMethods = newPaymentMethods;
 
                 _UPDATED_FIELDS.evPaymentMethods.updated = true;
-                addUpdateAction(this.venue, { categoryAttributes: categoryAttrClone });
-                harmonizePlaceGo(this.venue, 'harmonize');
+                addUpdateAction(this.venue, { categoryAttributes: categoryAttrClone }, null, true);
             }
         },
         AreaNotPointLow: class extends WLFlag {
@@ -3252,9 +3252,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                     const indexOfHospital = categories.indexOf('HOSPITAL_URGENT_CARE');
                     if (indexOfHospital > -1) {
                         categories[indexOfHospital] = 'DOCTOR_CLINIC';
-                        _UPDATED_FIELDS.categories.updated = true;
-                        addUpdateAction(venue, { categories });
-                        harmonizePlaceGo(venue, 'harmonize');
+                        addUpdateAction(venue, { categories }, null, true);
                     }
                 }
             }
@@ -3999,13 +3997,12 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                 let aliases = insertAtIndex(venue.attributes.aliases.slice(), this.optionalAlias, 0);
                 if (this.specCases.includes('altName2Desc') && !venue.attributes.description.toUpperCase().includes(this.optionalAlias.toUpperCase())) {
                     const description = `${this.optionalAlias}\n${venue.attributes.description}`;
-                    addUpdateAction(venue, { description });
+                    addUpdateAction(venue, { description }, null, false);
                     _UPDATED_FIELDS.description.updated = true;
                 }
                 aliases = removeSFAliases(name, aliases);
-                addUpdateAction(venue, { aliases });
+                addUpdateAction(venue, { aliases }, null, true);
                 _UPDATED_FIELDS.aliases.updated = true;
-                harmonizePlaceGo(venue, 'harmonize');
             }
         },
         AddCat2: class extends ActionFlag {
@@ -4156,10 +4153,8 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                     if (indexToReplace > -1) {
                         categories = categories.slice(); // create a copy
                         categories[indexToReplace] = 'HOSPITAL_URGENT_CARE';
-                        _UPDATED_FIELDS.categories.updated = true;
-                        addUpdateAction(this.venue, { categories });
                     }
-                    harmonizePlaceGo(this.venue, 'harmonize'); // Rerun the script to update fields and lock
+                    addUpdateAction(this.venue, { categories }, null, true);
                 }
             }
         },
@@ -8175,6 +8170,10 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
         if (!Array.isArray(toInsert)) toInsert = [toInsert];
         sourceCopy.splice(atIndex, 0, ...toInsert);
         return _.uniq(sourceCopy);
+    }
+
+    function arraysAreEqual(array1, array2) {
+        return array1.legth === array2.length && array1.every((item, index) => item === array2[index]);
     }
 
     // Function to remove unnecessary aliases
