@@ -4123,7 +4123,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
             }
         },
         NotAHospital: class extends WLActionFlag {
-            constructor() {
+            constructor(venue) {
                 super(
                     true,
                     _SEVERITY.RED,
@@ -4134,26 +4134,26 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                     'Whitelist category',
                     'notAHospital'
                 );
+                this.venue = venue;
                 this.noLock = true;
             }
 
-            static #venueIsFlaggable(categories) {
+            static #venueIsFlaggable(categories, name) {
                 if (categories.includes('HOSPITAL_URGENT_CARE') && !_wl.notAHospital) {
-                    const testName = _newName.toLowerCase().replace(/[^a-z]/g, ' ');
+                    const testName = name.toLowerCase().replace(/[^a-z]/g, ' ');
                     const testNameWords = testName.split(' ');
                     return containsAny(testNameWords, _hospitalFullMatch) || _hospitalPartMatch.some(match => testName.includes(match));
                 }
                 return false;
             }
 
-            static eval(categories) {
-                return this.#venueIsFlaggable(categories) ? new this() : null;
+            static eval(venue, categories, name) {
+                return this.#venueIsFlaggable(categories, name) ? new this(venue) : null;
             }
 
             // eslint-disable-next-line class-methods-use-this
             action() {
-                const venue = getSelectedVenue();
-                let categories = venue.attributes.categories.slice();
+                let categories = this.venue.getCategories().slice();
                 let updateIt = false;
                 if (categories.length) {
                     const idx = categories.indexOf('HOSPITAL_URGENT_CARE');
@@ -4168,9 +4168,9 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                 }
                 if (updateIt) {
                     _UPDATED_FIELDS.categories.updated = true;
-                    W.model.actionManager.add(new UpdateObject(venue, { categories }));
+                    W.model.actionManager.add(new UpdateObject(this.venue, { categories }));
                 }
-                harmonizePlaceGo(venue, 'harmonize'); // Rerun the script to update fields and lock
+                harmonizePlaceGo(this.venue, 'harmonize'); // Rerun the script to update fields and lock
             }
         },
         ChangeToDoctorClinic: class extends WLActionFlag {
@@ -6318,7 +6318,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
 
         _buttonBanner.cityMissing = Flag.CityMissing.eval(item, addr, highlightOnly);
         _buttonBanner.streetMissing = Flag.StreetMissing.eval(item, addr);
-        _buttonBanner.notAHospital = Flag.NotAHospital.eval(_newCategories);
+        _buttonBanner.notAHospital = Flag.NotAHospital.eval(item, _newCategories, _newName);
 
         // CATEGORY vs. NAME checks
         _buttonBanner.changeToPetVet = Flag.ChangeToPetVet.eval(_newName, _newCategories);
