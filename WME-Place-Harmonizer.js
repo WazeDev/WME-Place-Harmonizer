@@ -236,14 +236,8 @@
         PINK: 5
         // TODO: There is also 'lock' and 'lock1' severity. Add those here? Also investigate 'adLock' severity (is it still useful in WME???).
     };
-    let _duplicateName = '';
     let _catTransWaze2Lang; // pulls the category translations
-    let _newName;
-    let _newURL;
     let _tempPNHURL = '';
-    let _newPhone;
-    let _newAliases = [];
-    let _newAliasesTemp = [];
     const EV_PAYMENT_METHOD = {
         APP: 'APP',
         CREDIT: 'CREDIT',
@@ -4926,20 +4920,16 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
         _buttonBanner.allDayHoursFixed = Flag.AllDayHoursFixed.eval(item, highlightOnly, actions);
 
         let lockOK = true; // if nothing goes wrong, then place will be locked
-        const { categories } = item.attributes;
 
-        let newCategories = categories.slice();
+        let newCategories = item.attributes.categories.slice();
         const nameParts = getNameParts(item.attributes.name);
         let newNameSuffix = nameParts.suffix;
-        _newName = nameParts.base;
-        _newAliases = item.attributes.aliases.slice();
+        let newName = nameParts.base;
+        let newAliases = item.attributes.aliases.slice();
         let newDescripion = item.attributes.description;
-        _newURL = item.attributes.url;
-        let newURLSubmit = '';
-        if (_newURL !== null && _newURL !== '') {
-            newURLSubmit = _newURL;
-        }
-        _newPhone = item.attributes.phone;
+        let newUrl = item.attributes.url;
+        const newURLSubmit = !isNullOrWhitespace(newUrl) ? newUrl : '';
+        let newPhone = item.attributes.phone;
 
         let pnhNameRegMatch;
         let result;
@@ -5089,16 +5079,16 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
 
         // Gas station treatment (applies to all including PNH)
 
-        _buttonBanner.isThisAPilotTravelCenter = Flag.IsThisAPilotTravelCenter.eval(item, highlightOnly, state2L, _newName, actions);
-        if (_buttonBanner.isThisAPilotTravelCenter) _newName = _buttonBanner.isThisAPilotTravelCenter.newName;
+        _buttonBanner.isThisAPilotTravelCenter = Flag.IsThisAPilotTravelCenter.eval(item, highlightOnly, state2L, newName, actions);
+        if (_buttonBanner.isThisAPilotTravelCenter) newName = _buttonBanner.isThisAPilotTravelCenter.newName;
 
         _buttonBanner.gasMkPrim = Flag.GasMkPrim.eval(item, newCategories);
 
         if (item.isGasStation()) {
             // If no gas station name, replace with brand name
-            if (!highlightOnly && (!_newName || _newName.trim().length === 0) && item.attributes.brand) {
-                _newName = item.attributes.brand;
-                actions.push(new UpdateObject(item, { name: _newName }));
+            if (!highlightOnly && (!newName || newName.trim().length === 0) && item.attributes.brand) {
+                newName = item.attributes.brand;
+                actions.push(new UpdateObject(item, { name: newName }));
                 _UPDATED_FIELDS.name.updated = true;
             }
 
@@ -5109,7 +5099,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
         } // END Gas Station Checks
 
         // Note for Indiana editors to check liquor store hours if Sunday hours haven't been added yet.
-        _buttonBanner.indianaLiquorStoreHours = Flag.IndianaLiquorStoreHours.eval(item, _newName, highlightOnly);
+        _buttonBanner.indianaLiquorStoreHours = Flag.IndianaLiquorStoreHours.eval(item, newName, highlightOnly);
 
         const isLocked = item.attributes.lockRank >= (_pnhLockLevel > -1 ? _pnhLockLevel : _defaultLockLevel);
 
@@ -5156,7 +5146,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
             if (!item.isPoint()) {
                 _buttonBanner.pointNotArea = new Flag.PointNotArea();
             }
-        } else if (item.isParkingLot() || (_newName && _newName.trim().length)) { // for non-residential places
+        } else if (item.isParkingLot() || (newName && newName.trim().length)) { // for non-residential places
             // Phone formatting
             let outputPhoneFormat = '({0}) {1}-{2}';
             if (containsAny(['CA', 'CO'], [region, state2L]) && (/^\d{3}-\d{3}-\d{4}$/.test(item.attributes.phone))) {
@@ -5187,7 +5177,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                     pnhMatchData = ['NoMatch'];
                 } else {
                     // check against the PNH list
-                    pnhMatchData = harmoList(_newName, state2L, region, countryCode, newCategories, item);
+                    pnhMatchData = harmoList(newName, state2L, region, countryCode, newCategories, item);
                 }
             } else {
                 pnhMatchData = ['Highlight'];
@@ -5333,7 +5323,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                         }
 
                         // parse out optional alt-name
-                        _buttonBanner.addAlias = Flag.AddAlias.eval(specCase, specCases, _newAliases);
+                        _buttonBanner.addAlias = Flag.AddAlias.eval(specCase, specCases, newAliases);
 
                         // Gas Station forceBranding
                         if (['GAS_STATION'].includes(priPNHPlaceCat) && (match = specCase.match(/^forceBrand<>(.+)/i))) {
@@ -5350,7 +5340,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                         if (phDisplayNoteIdx > -1 && !isNullOrWhitespace(pnhMatchData[phDisplayNoteIdx])) {
                             displayNote = pnhMatchData[phDisplayNoteIdx];
                         }
-                        result = Flag.LocalizedName.eval(_newName, newNameSuffix, specCase, displayNote);
+                        result = Flag.LocalizedName.eval(newName, newNameSuffix, specCase, displayNote);
                         if (!result.showDisplayNote) {
                             showDispNote = false;
                         }
@@ -5370,7 +5360,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                 }
 
                 // If it's a place that also sells fuel, enable the button
-                if (pnhMatchData[phSpecCaseIdx] === 'subFuel' && !_newName.toUpperCase().includes('GAS') && !_newName.toUpperCase().includes('FUEL')) {
+                if (pnhMatchData[phSpecCaseIdx] === 'subFuel' && !newName.toUpperCase().includes('GAS') && !newName.toUpperCase().includes('FUEL')) {
                     _buttonBanner.subFuel = new Flag.SubFuel();
                     if (_wl.subFuel) {
                         _buttonBanner.subFuel.WLactive = false;
@@ -5484,22 +5474,22 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
 
                 // name parsing with category exceptions
                 if (['HOTEL'].includes(priPNHPlaceCat)) {
-                    const nameToCheck = _newName + (newNameSuffix || '');
+                    const nameToCheck = newName + (newNameSuffix || '');
                     if (nameToCheck.toUpperCase() === pnhMatchData[phNameIdx].toUpperCase()) { // If no localization
                         _buttonBanner.catHotel = new Flag.CatHotel(pnhMatchData[phNameIdx]);
-                        _newName = pnhMatchData[phNameIdx];
+                        newName = pnhMatchData[phNameIdx];
                     } else {
                         // Replace PNH part of name with PNH name
-                        const splix = _newName.toUpperCase().replace(/[-/]/g, ' ').indexOf(pnhMatchData[phNameIdx].toUpperCase().replace(/[-/]/g, ' '));
+                        const splix = newName.toUpperCase().replace(/[-/]/g, ' ').indexOf(pnhMatchData[phNameIdx].toUpperCase().replace(/[-/]/g, ' '));
                         if (splix > -1) {
-                            const frontText = _newName.slice(0, splix);
-                            const backText = _newName.slice(splix + pnhMatchData[phNameIdx].length);
-                            _newName = pnhMatchData[phNameIdx];
-                            if (frontText.length > 0) { _newName = `${frontText} ${_newName}`; }
-                            if (backText.length > 0) { _newName = `${_newName} ${backText}`; }
-                            _newName = _newName.replace(/ {2,}/g, ' ');
+                            const frontText = newName.slice(0, splix);
+                            const backText = newName.slice(splix + pnhMatchData[phNameIdx].length);
+                            newName = pnhMatchData[phNameIdx];
+                            if (frontText.length > 0) { newName = `${frontText} ${newName}`; }
+                            if (backText.length > 0) { newName = `${newName} ${backText}`; }
+                            newName = newName.replace(/ {2,}/g, ' ');
                         } else {
-                            _newName = pnhMatchData[phNameIdx];
+                            newName = pnhMatchData[phNameIdx];
                         }
                     }
                     if (altCategories && altCategories.length) { // if PNH alts exist
@@ -5533,7 +5523,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                     _ixATM = item.attributes.categories.indexOf('ATM');
                     _ixOffices = item.attributes.categories.indexOf('OFFICES');
                     // if the name contains ATM in it
-                    if (/\batm\b/ig.test(_newName)) {
+                    if (/\batm\b/ig.test(newName)) {
                         if (_ixOffices === 0) {
                             _buttonBanner.bankType1 = new Flag.BankType1();
                             _buttonBanner.bankBranch = new Flag.BankBranch(item);
@@ -5548,7 +5538,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                             _buttonBanner.bankBranch = new Flag.BankBranch(item);
                             _buttonBanner.standaloneATM = new Flag.StandaloneATM(item);
                         }
-                        _newName = `${pnhMatchData[phNameIdx]} ATM`;
+                        newName = `${pnhMatchData[phNameIdx]} ATM`;
                         newCategories = insertAtIndex(newCategories, 'ATM', 0);
                         // Net result: If the place has ATM cat only and ATM in the name, then it will be green and renamed Bank Name ATM
                     } else if (_ixBank > -1 || _ixATM > -1) { // if no ATM in name but with a banking category:
@@ -5563,7 +5553,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                             _buttonBanner.bankBranch = new Flag.BankBranch(item);
                             _buttonBanner.standaloneATM = new Flag.StandaloneATM(item);
                         }
-                        _newName = pnhMatchData[phNameIdx];
+                        newName = pnhMatchData[phNameIdx];
                         // Net result: If the place has Bank category first, then it will be green with PNH name replaced
                     } else { // for PNH match with neither bank type category, make it a bank
                         newCategories = insertAtIndex(newCategories, 'BANK_FINANCIAL', 1);
@@ -5574,37 +5564,37 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                     if (altCategories?.length) { // if PNH alts exist
                         insertAtIndex(newCategories, altCategories, 1); //  then insert the alts into the existing category array after the GS category
                     }
-                    _newName = pnhMatchData[phNameIdx];
+                    newName = pnhMatchData[phNameIdx];
                 } else if (updatePNHName) { // if not a special category then update the name
-                    _newName = pnhMatchData[phNameIdx];
+                    newName = pnhMatchData[phNameIdx];
                     newCategories = insertAtIndex(newCategories, priPNHPlaceCat, 0);
                     if (altCategories && altCategories.length && !specCases.includes('buttOn_addCat2') && !specCases.includes('optionCat2')) {
                         newCategories = insertAtIndex(newCategories, altCategories, 1);
                     }
                 } else if (!updatePNHName) {
                     // Strong title case option for non-PNH places
-                    _buttonBanner.titleCaseName = Flag.TitleCaseName.eval(item, _newName, newNameSuffix);
+                    _buttonBanner.titleCaseName = Flag.TitleCaseName.eval(item, newName, newNameSuffix);
                 }
 
                 // *** need to add a section above to allow other permissible categories to remain? (optional)
 
                 // Parse URL data
-                if (!(localURLcheck && _newURL && (new RegExp(localURLcheck, 'i')).test(_newURL))) {
-                    _newURL = pnhMatchData[phUrlIdx];
+                if (!(localURLcheck && newUrl && (new RegExp(localURLcheck, 'i')).test(newUrl))) {
+                    newUrl = pnhMatchData[phUrlIdx];
                 }
-                _newURL = normalizeURL(_newURL, false, true, item, region);
+                newUrl = normalizeURL(newUrl, false, true, item, region);
 
-                _buttonBanner.localURL = Flag.LocalURL.eval(_newURL, localURLcheck);
+                _buttonBanner.localURL = Flag.LocalURL.eval(newUrl, localURLcheck);
 
                 // Parse PNH Aliases
-                [_newAliasesTemp] = pnhMatchData[phAliasesIdx].match(/([^(]*)/i);
-                if (!isNullOrWhitespace(_newAliasesTemp)) { // make aliases array
-                    _newAliasesTemp = _newAliasesTemp.replace(/,[^A-za-z0-9]*/g, ','); // tighten up commas if more than one alias.
-                    _newAliasesTemp = _newAliasesTemp.split(','); // split by comma
+                let [newAliasesTemp] = pnhMatchData[phAliasesIdx].match(/([^(]*)/i);
+                if (!isNullOrWhitespace(newAliasesTemp)) { // make aliases array
+                    newAliasesTemp = newAliasesTemp.replace(/,[^A-za-z0-9]*/g, ','); // tighten up commas if more than one alias.
+                    newAliasesTemp = newAliasesTemp.split(','); // split by comma
                 }
-                if (!specCases.includes('noUpdateAlias') && (!containsAll(_newAliases, _newAliasesTemp)
-                    && _newAliasesTemp && _newAliasesTemp.length && !specCases.includes('optionName2'))) {
-                    _newAliases = insertAtIndex(_newAliases, _newAliasesTemp, 0);
+                if (!specCases.includes('noUpdateAlias') && (!containsAll(newAliases, newAliasesTemp)
+                    && newAliasesTemp && newAliasesTemp.length && !specCases.includes('optionName2'))) {
+                    newAliases = insertAtIndex(newAliases, newAliasesTemp, 0);
                 }
 
                 // Remove unnecessary parent categories
@@ -5654,16 +5644,16 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                 }
 
                 // Strong title case option for non-PNH places
-                _buttonBanner.titleCaseName = Flag.TitleCaseName.eval(item, _newName, newNameSuffix);
+                _buttonBanner.titleCaseName = Flag.TitleCaseName.eval(item, newName, newNameSuffix);
 
-                _newURL = normalizeURL(_newURL, true, false, item, region); // Normalize url
+                newUrl = normalizeURL(newUrl, true, false, item, region); // Normalize url
 
                 // Generic Bank treatment
                 _ixBank = item.attributes.categories.indexOf('BANK_FINANCIAL');
                 _ixATM = item.attributes.categories.indexOf('ATM');
                 _ixOffices = item.attributes.categories.indexOf('OFFICES');
                 // if the name contains ATM in it
-                if (_newName.match(/\batm\b/ig) !== null) {
+                if (newName.match(/\batm\b/ig) !== null) {
                     if (_ixOffices === 0) {
                         _buttonBanner.bankType1 = new Flag.BankType1();
                         _buttonBanner.bankBranch = new Flag.BankBranch(item);
@@ -5704,18 +5694,18 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
 
             if (!highlightOnly) {
                 // Update name:
-                if ((_newName + (newNameSuffix || '')) !== item.attributes.name) {
+                if ((newName + (newNameSuffix || '')) !== item.attributes.name) {
                     logDev('Name updated');
-                    actions.push(new UpdateObject(item, { name: _newName + (newNameSuffix || '') }));
+                    actions.push(new UpdateObject(item, { name: newName + (newNameSuffix || '') }));
                     // actions.push(new UpdateObject(item, { name: newName }));
                     _UPDATED_FIELDS.name.updated = true;
                 }
 
                 // Update aliases
-                _newAliases = removeSFAliases(_newName, _newAliases);
-                if (_newAliases.some(alias => !item.attributes.aliases.includes(alias)) || _newAliases.length !== item.attributes.aliases.length) {
+                newAliases = removeSFAliases(newName, newAliases);
+                if (newAliases.some(alias => !item.attributes.aliases.includes(alias)) || newAliases.length !== item.attributes.aliases.length) {
                     logDev('Alt Names updated');
-                    actions.push(new UpdateObject(item, { aliases: _newAliases }));
+                    actions.push(new UpdateObject(item, { aliases: newAliases }));
                     _UPDATED_FIELDS.aliases.updated = true;
                 }
 
@@ -5724,7 +5714,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                 let newPlaceAddon = '';
                 let approvalAddon = '';
                 const approvalMessage = `Submitted via WMEPH. PNH order number ${pnhOrderNum}`;
-                const encodedTempSubmitName = encodeURIComponent(_newName);
+                const encodedTempSubmitName = encodeURIComponent(newName);
                 const encodedPlacePL = encodeURIComponent(placePL);
                 const encodedUrlSubmit = encodeURIComponent(newURLSubmit);
                 const suffix = _USER.name + gFormState;
@@ -5966,7 +5956,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
             const anpNone = _COLLEGE_ABBREVIATIONS.split('|');
             for (let cii = 0; cii < anpNone.length; cii++) {
                 const anpNoneRE = new RegExp(`\\b${anpNone[cii]}\\b`, 'g');
-                if (_newName.match(anpNoneRE) !== null && _buttonBanner.areaNotPointLow) {
+                if (newName.match(anpNoneRE) !== null && _buttonBanner.areaNotPointLow) {
                     _buttonBanner.areaNotPointLow.severity = 0;
                     _buttonBanner.areaNotPointLow.WLactive = false;
                 }
@@ -6027,9 +6017,9 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
 
             // URL updating
             _updateURL = true;
-            if (_newURL !== item.attributes.url && !isNullOrWhitespace(_newURL)) {
-                if (pnhNameRegMatch && item.attributes.url !== null && item.attributes.url !== '' && _newURL !== 'badURL') { // for cases where there is an existing URL in the WME place, and there is a PNH url on queue:
-                    let newURLTemp = normalizeURL(_newURL, true, false, item); // normalize
+            if (newUrl !== item.attributes.url && !isNullOrWhitespace(newUrl)) {
+                if (pnhNameRegMatch && item.attributes.url !== null && item.attributes.url !== '' && newUrl !== 'badURL') { // for cases where there is an existing URL in the WME place, and there is a PNH url on queue:
+                    let newURLTemp = normalizeURL(newUrl, true, false, item); // normalize
                     const itemURL = normalizeURL(item.attributes.url, true, false, item);
                     newURLTemp = newURLTemp.replace(/^www\.(.*)$/i, '$1'); // strip www
                     const itemURLTemp = itemURL.replace(/^www\.(.*)$/i, '$1'); // strip www
@@ -6045,42 +6035,42 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                             _UPDATED_FIELDS.url.updated = true;
                         }
                         _updateURL = false;
-                        _tempPNHURL = _newURL;
+                        _tempPNHURL = newUrl;
                     }
                 }
-                if (!highlightOnly && _updateURL && _newURL !== 'badURL' && _newURL !== item.attributes.url) { // Update the URL
+                if (!highlightOnly && _updateURL && newUrl !== 'badURL' && newUrl !== item.attributes.url) { // Update the URL
                     logDev('URL updated');
-                    actions.push(new UpdateObject(item, { url: _newURL }));
+                    actions.push(new UpdateObject(item, { url: newUrl }));
                     _UPDATED_FIELDS.url.updated = true;
                 }
             }
 
             let normalizedPhone;
-            if (_newPhone) {
-                normalizedPhone = normalizePhone(_newPhone, outputPhoneFormat);
-                if (normalizedPhone !== 'badPhone') _newPhone = normalizedPhone;
+            if (newPhone) {
+                normalizedPhone = normalizePhone(newPhone, outputPhoneFormat);
+                if (normalizedPhone !== 'badPhone') newPhone = normalizedPhone;
             }
 
             _buttonBanner.phoneInvalid = Flag.PhoneInvalid.eval(normalizedPhone, outputPhoneFormat);
-            _buttonBanner.phoneMissing = Flag.PhoneMissing.eval(item, _newPhone, _wl, region, outputPhoneFormat, !!_buttonBanner.addRecommendedPhone);
+            _buttonBanner.phoneMissing = Flag.PhoneMissing.eval(item, newPhone, _wl, region, outputPhoneFormat, !!_buttonBanner.addRecommendedPhone);
 
             // Check if valid area code  #LOC# USA and CAN only
             if (!_wl.aCodeWL && (countryCode === 'USA' || countryCode === 'CAN')) {
-                if (_newPhone !== null && _newPhone.match(/[2-9]\d{2}/) !== null) {
-                    const areaCode = _newPhone.match(/[2-9]\d{2}/)[0];
+                if (newPhone !== null && newPhone.match(/[2-9]\d{2}/) !== null) {
+                    const areaCode = newPhone.match(/[2-9]\d{2}/)[0];
                     if (!_areaCodeList.includes(areaCode)) {
-                        _buttonBanner.badAreaCode = new Flag.BadAreaCode(_newPhone, outputPhoneFormat);
+                        _buttonBanner.badAreaCode = new Flag.BadAreaCode(newPhone, outputPhoneFormat);
                     }
                 }
             }
-            if (!highlightOnly && _newPhone !== item.attributes.phone) {
+            if (!highlightOnly && newPhone !== item.attributes.phone) {
                 logDev('Phone updated');
-                actions.push(new UpdateObject(item, { phone: _newPhone }));
+                actions.push(new UpdateObject(item, { phone: newPhone }));
                 _UPDATED_FIELDS.phone.updated = true;
             }
 
             // Post Office check
-            _buttonBanner.isThisAPostOffice = Flag.IsThisAPostOffice.eval(item, highlightOnly, countryCode, newCategories, _newName);
+            _buttonBanner.isThisAPostOffice = Flag.IsThisAPostOffice.eval(item, highlightOnly, countryCode, newCategories, newName);
             _buttonBanner.PlaceWebsite = Flag.PlaceWebsite.eval(highlightOnly, countryCode, newCategories, _buttonBanner.PlaceWebsite);
             if (countryCode === 'USA' && !newCategories.includes('PARKING_LOT') && newCategories.includes('POST_OFFICE')) {
                 if (!highlightOnly) {
@@ -6098,11 +6088,11 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                 } else {
                     postOfficeRegEx = /^post office [-–](?: cpu| vpo)?(?: [a-z0-9]+){1,}$/i;
                 }
-                _newName = _newName.trimLeft().replace(/ {2,}/, ' ');
+                newName = newName.trimLeft().replace(/ {2,}/, ' ');
                 if (newNameSuffix) {
                     newNameSuffix = newNameSuffix.trimRight().replace(/\bvpo\b/i, 'VPO').replace(/\bcpu\b/i, 'CPU').replace(/ {2,}/, ' ');
                 }
-                const nameToCheck = _newName + (newNameSuffix || '');
+                const nameToCheck = newName + (newNameSuffix || '');
                 if (!postOfficeRegEx.test(nameToCheck)) {
                     _buttonBanner.formatUSPS = new Flag.FormatUSPS();
                     lockOK = false;
@@ -6112,23 +6102,23 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                     }
                     _buttonBanner.catPostOffice = new Flag.CatPostOffice();
                 }
-                if (!_newAliases.some(alias => alias.toUpperCase() === 'USPS')) {
+                if (!newAliases.some(alias => alias.toUpperCase() === 'USPS')) {
                     if (!highlightOnly) {
-                        _newAliases.push('USPS');
-                        actions.push(new UpdateObject(item, { aliases: _newAliases }));
+                        newAliases.push('USPS');
+                        actions.push(new UpdateObject(item, { aliases: newAliases }));
                         _UPDATED_FIELDS.aliases.updated = true;
                     } else {
                         _buttonBanner.missingUSPSAlt = new Flag.MissingUSPSAlt();
                     }
                 }
-                if (!_newAliases.some(alias => /\d{5}/.test(alias))) {
+                if (!newAliases.some(alias => /\d{5}/.test(alias))) {
                     _buttonBanner.missingUSPSZipAlt = new Flag.MissingUSPSZipAlt();
                     if (_wl.missingUSPSZipAlt) {
                         _buttonBanner.missingUSPSZipAlt.severity = _SEVERITY.GREEN;
                         _buttonBanner.missingUSPSZipAlt.WLactive = false;
                     }
                     // If the zip code appears in the primary name, pre-fill it in the text entry box.
-                    const zipMatch = _newName.match(/\d{5}/);
+                    const zipMatch = newName.match(/\d{5}/);
                     if (zipMatch) {
                         _buttonBanner.missingUSPSZipAlt.suggestedValue = zipMatch;
                     }
@@ -6149,7 +6139,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
         // Remove non - alphanumeric characters first, for more relaxed matching.
         if (newCategories[0] === 'GAS_STATION' && item.attributes.brand) {
             const compressedName = item.attributes.name.toUpperCase().replace(/[^a-zA-Z0-9]/g, '');
-            const compressedNewName = _newName.toUpperCase().replace(/[^a-zA-Z0-9]/g, '');
+            const compressedNewName = newName.toUpperCase().replace(/[^a-zA-Z0-9]/g, '');
             // Some brands may have more than one acceptable name, or the brand listed in WME doesn't match what we want to see in the name.
             // Ideally, this would be addressed in the PNH spreadsheet somehow, but for now hardcoding is the only option.
             const compressedBrands = [newBrand.toUpperCase().replace(/[^a-zA-Z0-9]/g, '')];
@@ -6178,7 +6168,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
         _buttonBanner.removeUncommonEVPaymentMethods = Flag.RemoveUncommonEVPaymentMethods.eval(item, highlightOnly, _wl);
 
         // Name check
-        if (!item.attributes.residential && (!_newName || _newName.replace(/[^A-Za-z0-9]/g, '').length === 0)) {
+        if (!item.attributes.residential && (!newName || newName.replace(/[^A-Za-z0-9]/g, '').length === 0)) {
             if (item.isParkingLot()) {
                 // If it's a parking lot and not locked to R3...
                 if (item.attributes.lockRank < 2) {
@@ -6278,12 +6268,12 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
 
         _buttonBanner.cityMissing = Flag.CityMissing.eval(item, addr, highlightOnly);
         _buttonBanner.streetMissing = Flag.StreetMissing.eval(item, addr);
-        _buttonBanner.notAHospital = Flag.NotAHospital.eval(item, newCategories, _newName);
+        _buttonBanner.notAHospital = Flag.NotAHospital.eval(item, newCategories, newName);
 
         // CATEGORY vs. NAME checks
-        _buttonBanner.changeToPetVet = Flag.ChangeToPetVet.eval(_newName, newCategories);
+        _buttonBanner.changeToPetVet = Flag.ChangeToPetVet.eval(newName, newCategories);
         _buttonBanner.changeToDoctorClinic = Flag.ChangeToDoctorClinic.eval(item, newCategories, highlightOnly, pnhNameRegMatch);
-        _buttonBanner.notASchool = Flag.NotASchool.eval(_newName, newCategories);
+        _buttonBanner.notASchool = Flag.NotASchool.eval(newName, newCategories);
 
         // Some cats don't need PNH messages and url/phone severities
         if (['BRIDGE', 'FOREST_GROVE', 'DAM', 'TUNNEL', 'CEMETERY'].includes(item.attributes.categories[0])) {
@@ -6305,14 +6295,14 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
 
         // *** Rest Area parsing
         // check rest area name against standard formats or if has the right categories
-        const hasRestAreaCategory = categories.includes('REST_AREAS');
+        const hasRestAreaCategory = newCategories.includes('REST_AREAS');
         const oldName = item.attributes.name;
         if (/rest area/i.test(oldName) || /rest stop/i.test(oldName) || /service plaza/i.test(oldName) || hasRestAreaCategory) {
             if (hasRestAreaCategory) {
-                if (categories.includes('SCENIC_LOOKOUT_VIEWPOINT')) {
+                if (newCategories.includes('SCENIC_LOOKOUT_VIEWPOINT')) {
                     if (!_wl.restAreaScenic) _buttonBanner.restAreaScenic = new Flag.RestAreaScenic(item);
                 }
-                if (categories.includes('TRANSPORTATION')) {
+                if (newCategories.includes('TRANSPORTATION')) {
                     _buttonBanner.restAreaNoTransportation = new Flag.RestAreaNoTransportation(item);
                 }
                 if (item.isPoint()) { // needs to be area
@@ -6321,7 +6311,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                 _buttonBanner.pointNotArea = null;
                 _buttonBanner.unmappedRegion = null;
 
-                if (categories.includes('GAS_STATION')) {
+                if (newCategories.includes('GAS_STATION')) {
                     _buttonBanner.restAreaGas = new Flag.RestAreaGas();
                 }
 
@@ -6332,8 +6322,8 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                     }
                 } else if (!highlightOnly) {
                     const newSuffix = newNameSuffix.replace(/Mile/i, 'mile');
-                    if (_newName + newSuffix !== item.attributes.name) {
-                        actions.push(new UpdateObject(item, { name: _newName + newSuffix }));
+                    if (newName + newSuffix !== item.attributes.name) {
+                        actions.push(new UpdateObject(item, { name: newName + newSuffix }));
                         _UPDATED_FIELDS.name.updated = true;
                         logDev('Lower case "mile"');
                     } else {
@@ -6467,7 +6457,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
 
         // Final alerts for non-severe locations
         if (!item.attributes.residential && totalSeverity < _SEVERITY.RED) {
-            const nameShortSpace = _newName.toUpperCase().replace(/[^A-Z ']/g, '');
+            const nameShortSpace = newName.toUpperCase().replace(/[^A-Z ']/g, '');
             if (nameShortSpace.includes('\'S HOUSE') || nameShortSpace.includes('\'S HOME') || nameShortSpace.includes('\'S WORK')) {
                 if (!containsAny(newCategories, ['RESTAURANT', 'DESSERT', 'BAR']) && !pnhNameRegMatch) {
                     _buttonBanner.resiTypeNameSoft = new Flag.ResiTypeNameSoft();
@@ -6529,26 +6519,16 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
         // Run nearby duplicate place finder function
         _dupeHNRangeList = [];
         _dupeBanner = {};
-        if (_newName.replace(/[^A-Za-z0-9]/g, '').length > 0 && !item.attributes.residential && !isEmergencyRoom(item) && !isRestArea(item)) {
-            if ($('#WMEPH-DisableDFZoom').prop('checked')) { // don't zoom and pan for results outside of FOV
-                _duplicateName = findNearbyDuplicate(_newName, _newAliases, item, false);
-            } else {
-                _duplicateName = findNearbyDuplicate(_newName, _newAliases, item, true);
-            }
-            if (_duplicateName[1]) {
+        if (newName.replace(/[^A-Za-z0-9]/g, '').length > 0 && !item.attributes.residential && !isEmergencyRoom(item) && !isRestArea(item)) {
+            // don't zoom and pan for results outside of FOV
+            let duplicateName = findNearbyDuplicate(newName, newAliases, item, !$('#WMEPH-DisableDFZoom').prop('checked'));
+            if (duplicateName[1]) {
                 _buttonBanner.overlapping = new Flag.Overlapping();
             }
-            [_duplicateName] = _duplicateName;
-            if (_duplicateName.length) {
-                if (_duplicateName.length + 1 !== _dupeIDList.length && _USER.isDevUser) { // If there's an issue with the data return, allow an error report
-                    /* if (confirm('WMEPH: Dupefinder Error!\nClick OK to report this')) {
-                        // if the category doesn't translate, then pop an alert that will make a forum post to the thread
-                        reportError({
-                            subject: 'WMEPH Bug report DupeID',
-                            message: `Script version: ${_SCRIPT_VERSION}${_DEV_VERSION_STR}\nPermalink: ${placePL}\nPlace name: ${
-                                item.attributes.name}\nCountry: ${addr.country.name}\n--------\nDescribe the error:\nDupeID mismatch with dupeName list`
-                        });
-                    } */
+            [duplicateName] = duplicateName;
+            if (duplicateName.length) {
+                if (duplicateName.length + 1 !== _dupeIDList.length && _USER.isDevUser) {
+                    // If there's an issue with the data return, allow an error report
                     WazeWrap.Alerts.confirm(
                         _SCRIPT_NAME,
                         'WMEPH: Dupefinder Error!<br>Click OK to report this',
@@ -6588,11 +6568,11 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                         _dupeBanner[dID].active = false;
                         harmonizePlaceGo(item, 'harmonize');
                     };
-                    for (let ijx = 1; ijx < _duplicateName.length + 1; ijx++) {
+                    for (let ijx = 1; ijx < duplicateName.length + 1; ijx++) {
                         _dupeBanner[_dupeIDList[ijx]] = {
                             active: true,
                             severity: _SEVERITY.YELLOW,
-                            message: _duplicateName[ijx - 1],
+                            message: duplicateName[ijx - 1],
                             WLactive: false,
                             WLvalue: _WL_BUTTON_TEXT,
                             WLtitle: 'Whitelist Duplicate',
