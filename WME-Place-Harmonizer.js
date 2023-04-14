@@ -4023,23 +4023,25 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
             }
         },
         AddATM: class extends ActionFlag {
-            constructor() { super(true, _SEVERITY.GREEN, 'ATM at location? ', 'Yes', 'Add the ATM category to this place'); }
+            constructor(venue) {
+                super(true, _SEVERITY.GREEN, 'ATM at location? ', 'Yes', 'Add the ATM category to this place');
+                this.venue = venue;
+            }
 
-            // eslint-disable-next-line class-methods-use-this
             action() {
-                const venue = getSelectedVenue();
-                _newCategories = insertAtIndex(_newCategories, 'ATM', 1); // Insert ATM category in the second position
-                addUpdateAction(venue, { categories: _newCategories }, null, true);
+                const categories = insertAtIndex(this.venue.getCategories(), 'ATM', 1); // Insert ATM category in the second position
+                addUpdateAction(this.venue, { categories }, null, true);
             }
         },
         AddConvStore: class extends ActionFlag {
-            constructor() { super(true, _SEVERITY.GREEN, 'Add convenience store category? ', 'Yes', 'Add the Convenience Store category to this place'); }
+            constructor(venue) {
+                super(true, _SEVERITY.GREEN, 'Add convenience store category? ', 'Yes', 'Add the Convenience Store category to this place');
+                this.venue = venue;
+            }
 
-            // eslint-disable-next-line class-methods-use-this
             action() {
-                const venue = getSelectedVenue();
-                _newCategories = insertAtIndex(_newCategories, 'CONVENIENCE_STORE', 1); // Insert C.S. category in the second position
-                addUpdateAction(venue, { categories: _newCategories }, null, true);
+                const categories = insertAtIndex(this.venue.getCategories(), 'CONVENIENCE_STORE', 1); // Insert C.S. category in the second position
+                addUpdateAction(this.venue, { categories }, null, true);
             }
         },
         IsThisAPostOffice: class extends ActionFlag {
@@ -4065,10 +4067,9 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                 return result;
             }
 
-            // TODO: Remove reference to _newCategories. Place should have updated categories by now.
             action() {
-                _newCategories = insertAtIndex(_newCategories, 'POST_OFFICE', 0);
-                addUpdateAction(this.venue, { categories: _newCategories }, null, true);
+                const categories = insertAtIndex(this.venue.getCategories(), 'POST_OFFICE', 0);
+                addUpdateAction(this.venue, { categories }, null, true);
             }
         },
         ChangeToHospitalUrgentCare: class extends WLActionFlag {
@@ -5106,7 +5107,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
 
             // Add convenience store category to station
             if (!_newCategories.includes('CONVENIENCE_STORE') && !_buttonBanner.subFuel) {
-                _buttonBanner.addConvStore = new Flag.AddConvStore();
+                _buttonBanner.addConvStore = new Flag.AddConvStore(item);
             }
         } // END Gas Station Checks
 
@@ -5296,10 +5297,10 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                                     flag = new Flag.AppendAMPM(item);
                                     break;
                                 case 'addATM':
-                                    flag = new Flag.AddATM();
+                                    flag = new Flag.AddATM(item);
                                     break;
                                 case 'addConvStore':
-                                    flag = new Flag.AddConvStore();
+                                    flag = new Flag.AddConvStore(item);
                                     break;
                                 default:
                                     console.error('WMEPH:', `Could not process specCase value: buttOn_${scFlag}`);
@@ -5557,7 +5558,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                         if (_ixOffices === 0) {
                             _buttonBanner.bankBranch = new Flag.BankBranch(item);
                         } else if (_ixBank > -1 && _ixATM === -1) {
-                            _buttonBanner.addATM = new Flag.AddATM();
+                            _buttonBanner.addATM = new Flag.AddATM(item);
                         } else if (_ixATM === 0 && _ixBank === -1) {
                             _buttonBanner.bankBranch = new Flag.BankBranch(item);
                             _buttonBanner.standaloneATM = new Flag.StandaloneATM(item);
@@ -5697,7 +5698,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                     if (_ixOffices === 0) {
                         _buttonBanner.bankBranch = new Flag.BankBranch(item);
                     } else if (_ixBank > -1 && _ixATM === -1) {
-                        _buttonBanner.addATM = new Flag.AddATM();
+                        _buttonBanner.addATM = new Flag.AddATM(item);
                     } else if (_ixATM === 0 && _ixBank === -1) {
                         _buttonBanner.bankBranch = new Flag.BankBranch(item);
                         _buttonBanner.standaloneATM = new Flag.StandaloneATM(item);
