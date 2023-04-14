@@ -327,7 +327,7 @@
             shadowSelector: '#id',
             tab: 'general'
         },
-        lock: {
+        lockRank: {
             updated: false,
             selector: '#venue-edit-general > div.lock-edit',
             tab: 'general'
@@ -469,6 +469,22 @@
                     $(this.getTabElement(prop.tab)).css({ 'background-color': '#dfd' });
                 });
             }, 100);
+        },
+        checkNewAttributes(newAttributes, venue) {
+            const checkAttribute = name => {
+                if (newAttributes.hasOwnProperty(name)
+                    && JSON.stringify(venue.attributes[name]) !== JSON.stringify(newAttributes[name])) {
+                    _UPDATED_FIELDS[name].updated = true;
+                }
+            };
+            checkAttribute('categories');
+            checkAttribute('name');
+            checkAttribute('openingHours');
+            checkAttribute('description');
+            checkAttribute('aliases');
+            checkAttribute('url');
+            checkAttribute('phone');
+            checkAttribute('lockRank');
         }
     };
 
@@ -1847,17 +1863,15 @@
 
     function addUpdateAction(venue, newAttributes, actions, runHarmonizer = false, dontHighlightFields = false) {
         if (Object.keys(newAttributes).length) {
+            if (!dontHighlightFields) {
+                _UPDATED_FIELDS.checkNewAttributes(newAttributes, venue);
+            }
+
             const action = new UpdateObject(venue, newAttributes);
             if (actions) {
                 actions.push(action);
             } else {
                 W.model.actionManager.add(action);
-            }
-
-            if (!dontHighlightFields) {
-                if (newAttributes.hasOwnProperty('categories') && !arraysAreEqual(venue.getCategories(), newAttributes.categories)) {
-                    _UPDATED_FIELDS.categories.updated = true;
-                }
             }
         }
         if (runHarmonizer) harmonizePlaceGo(venue, 'harmonize');
@@ -2106,8 +2120,7 @@
                             const categoryAttrClone = JSON.parse(JSON.stringify(this.venue.attributes.categoryAttributes));
                             categoryAttrClone.PARKING_LOT.parkingType = lotType;
                             _UPDATED_FIELDS.lotType.updated = true;
-                            W.model.actionManager.add(new UpdateObject(this.venue, { categoryAttributes: categoryAttrClone }));
-                            harmonizePlaceGo(this.venue, 'harmonize');
+                            addUpdateAction(this.venue, { categoryAttributes: categoryAttrClone }, null, true);
                         });
                     };
                 }
@@ -2325,8 +2338,9 @@
             }
         },
         IsThisAPilotTravelCenter: class extends ActionFlag {
-            constructor(newName) {
+            constructor(venue, newName) {
                 super(true, _SEVERITY.GREEN, 'Is this a "Travel Center"?', 'Yes', '');
+                this.venue = venue;
                 this.newName = newName;
             }
 
@@ -2335,26 +2349,21 @@
                 if (!highlightOnly && state2L === 'TN') {
                     if (newName.toLowerCase().trim() === 'pilot') {
                         newName = 'Pilot Food Mart';
-                        actions.push(new UpdateObject(venue, { name: newName }));
-                        _UPDATED_FIELDS.name.updated = true;
+                        addUpdateAction(venue, { name: newName }, actions);
                     }
                     if (newName.toLowerCase().trim() === 'pilot food mart') {
-                        result = new this(newName);
+                        result = new this(venue, newName);
                     }
                 }
                 return result;
             }
 
-            // eslint-disable-next-line class-methods-use-this
             action() {
-                const venue = getSelectedVenue();
-                _UPDATED_FIELDS.name.updated = true;
-                addUpdateAction(venue, { name: 'Pilot Travel Center' });
-                harmonizePlaceGo(venue, 'harmonize');
+                addUpdateAction(this.venue, { name: 'Pilot Travel Center' }, null, true);
             }
         },
         HotelMkPrim: class extends WLActionFlag {
-            constructor() {
+            constructor(venue) {
                 super(
                     true,
                     _SEVERITY.RED,
@@ -2365,14 +2374,13 @@
                     'Whitelist hotel as secondary category',
                     'hotelMkPrim'
                 );
+                this.venue = venue;
             }
 
-            // eslint-disable-next-line class-methods-use-this
             action() {
-                const venue = getSelectedVenue();
                 // Insert/move Hotel category in the first position
-                const categories = insertAtIndex(venue.attributes.categories.slice(), 'HOTEL', 0);
-                addUpdateAction(venue, { categories }, null, true);
+                const categories = insertAtIndex(this.venue.attributes.categories.slice(), 'HOTEL', 0);
+                addUpdateAction(this.venue, { categories }, null, true);
             }
         },
         ChangeToPetVet: class extends WLActionFlag {
@@ -2868,9 +2876,7 @@
             action() {
                 const venue = getSelectedVenue();
                 if (!isNullOrWhitespace(_tempPNHURL)) {
-                    W.model.actionManager.add(new UpdateObject(venue, { url: _tempPNHURL }));
-                    _UPDATED_FIELDS.url.updated = true;
-                    harmonizePlaceGo(venue, 'harmonize');
+                    addUpdateAction(venue, { url: _tempPNHURL }, null, true);
                     _updateURL = true;
                     // // if the category doesn't translate, then pop an alert that will make a forum post to the thread
                     // reportError({
@@ -3122,8 +3128,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                         // Make sure zip hasn't already been added.
                         if (!aliases.includes(zip)) {
                             aliases.push(zip);
-                            W.model.actionManager.add(new UpdateObject(venue, { aliases }));
-                            harmonizePlaceGo(venue, 'harmonize');
+                            addUpdateAction(venue, { aliases }, null, true);
                         } else {
                             $input.css({ backgroundColor: '#FDD' }).attr('title', 'Zip code alt name already exists');
                         }
@@ -3209,15 +3214,11 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                         if (isTesla) {
                             result.postProcess = () => {
                                 $('#wmeph-tesla-supercharger').click(() => {
-                                    W.model.actionManager.add(new UpdateObject(venue, { name: 'Tesla Supercharger' }));
-                                    _UPDATED_FIELDS.name.updated = true;
-                                    harmonizePlaceGo(venue, 'harmonize');
+                                    addUpdateAction(venue, { name: 'Tesla Supercharger' }, null, true);
                                 });
 
                                 $('#wmeph-tesla-destination-charger').click(() => {
-                                    W.model.actionManager.add(new UpdateObject(venue, { name: 'Tesla Destination Charger' }));
-                                    _UPDATED_FIELDS.name.updated = true;
-                                    harmonizePlaceGo(venue, 'harmonize');
+                                    addUpdateAction(venue, { name: 'Tesla Destination Charger' }, null, true);
                                 });
                             };
                             result.severity = _SEVERITY.RED;
@@ -3355,9 +3356,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                     // this.badInput = true;
                 } else {
                     logDev(newUrl);
-                    W.model.actionManager.add(new UpdateObject(venue, { url: newUrl }));
-                    _UPDATED_FIELDS.url.updated = true;
-                    harmonizePlaceGo(venue, 'harmonize');
+                    addUpdateAction(venue, { url: newUrl }, null, true);
                 }
             }
         },
@@ -3386,9 +3385,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                 } else {
                     this.badInput = false;
                     logDev(newPhone);
-                    W.model.actionManager.add(new UpdateObject(venue, { phone: newPhone }));
-                    _UPDATED_FIELDS.phone.updated = true;
-                    harmonizePlaceGo(venue, 'harmonize');
+                    addUpdateAction(venue, { phone: newPhone }, null, true);
                 }
             }
         },
@@ -3424,9 +3421,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
             }
 
             action() {
-                W.model.actionManager.add(new UpdateObject(this.venue, { phone: this.phone }));
-                _UPDATED_FIELDS.phone.updated = true;
-                harmonizePlaceGo(this.venue, 'harmonize');
+                addUpdateAction(this.venue, { phone: this.phone }, null, true);
             }
         },
         PhoneMissing: class extends WLActionFlag {
@@ -3474,9 +3469,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                 } else {
                     this.badInput = false;
                     logDev(newPhone);
-                    W.model.actionManager.add(new UpdateObject(this.venue, { phone: newPhone }));
-                    _UPDATED_FIELDS.phone.updated = true;
-                    harmonizePlaceGo(this.venue, 'harmonize');
+                    addUpdateAction(this.venue, { phone: newPhone }, null, true);
                 }
             }
         },
@@ -3509,10 +3502,8 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                 const parseResult = parser.parseHours(pasteHours);
                 if (parseResult.hours && !parseResult.overlappingHours && !parseResult.sameOpenAndCloseTimes && !parseResult.parseError) {
                     logDev(parseResult.hours);
-                    W.model.actionManager.add(new UpdateObject(venue, { openingHours: parseResult.hours }));
-                    _UPDATED_FIELDS.openingHours.updated = true;
+                    addUpdateAction(venue, { openingHours: parseResult.hours }, null, true);
                     $('#WMEPH-HoursPaste').val(_DEFAULT_HOURS_TEXT);
-                    harmonizePlaceGo(venue, 'harmonize');
                 } else {
                     log('Can\'t parse those hours');
                     this.severity = _SEVERITY.BLUE;
@@ -3608,8 +3599,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                             const categoryAttrClone = JSON.parse(JSON.stringify(this.venue.attributes.categoryAttributes));
                             categoryAttrClone.PARKING_LOT.parkingType = lotType;
                             _UPDATED_FIELDS.lotType.updated = true;
-                            W.model.actionManager.add(new UpdateObject(this.venue, { categoryAttributes: categoryAttrClone }));
-                            harmonizePlaceGo(this.venue, 'harmonize');
+                            addUpdateAction(this.venue, { categoryAttributes: categoryAttrClone }, null, true);
                         });
                     };
                 }
@@ -3674,9 +3664,8 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                         });
                     }
                     newAttr.costType = selectedValue;
-                    W.model.actionManager.add(new UpdateObject(this.venue, { categoryAttributes: { PARKING_LOT: newAttr } }));
+                    addUpdateAction(this.venue, { categoryAttributes: { PARKING_LOT: newAttr } }, null, true);
                     _UPDATED_FIELDS.cost.updated = true;
-                    harmonizePlaceGo(this.venue, 'harmonize');
                 });
             }
         },
@@ -3739,8 +3728,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                     });
                 }
                 newAttr.lotType = ['STREET_LEVEL'];
-                W.model.actionManager.add(new UpdateObject(venue, { categoryAttributes: { PARKING_LOT: newAttr } }));
-                harmonizePlaceGo(venue, 'harmonize');
+                addUpdateAction(venue, { categoryAttributes: { PARKING_LOT: newAttr } }, null, true);
             }
         },
         PlaSpaces: class extends FlagBase {
@@ -3843,8 +3831,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                     });
                 }
                 newAttr.canExitWhileClosed = true;
-                W.model.actionManager.add(new UpdateObject(venue, { categoryAttributes: { PARKING_LOT: newAttr } }));
-                harmonizePlaceGo(venue, 'harmonize');
+                addUpdateAction(venue, { categoryAttributes: { PARKING_LOT: newAttr } }, null, true);
             }
         },
         PlaHasAccessibleParking: class extends ActionFlag {
@@ -3868,9 +3855,8 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                     services = [];
                 }
                 services.push('DISABILITY_PARKING');
-                W.model.actionManager.add(new UpdateObject(venue, { services }));
+                addUpdateAction(venue, { services }, null, true);
                 _UPDATED_FIELDS.services_DISABILITY_PARKING.updated = true;
-                harmonizePlaceGo(venue, 'harmonize');
             }
         },
         AllDayHoursFixed: class extends FlagBase {
@@ -3900,7 +3886,6 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                 }
                 if (updateHours) {
                     addUpdateAction(venue, { openingHours: newHoursEntries }, actions);
-                    _UPDATED_FIELDS.openingHours.updated = true;
                     result = new this();
                 }
                 return result;
@@ -3966,9 +3951,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
 
                 levelToLock -= 1;
                 if (this.venue.attributes.lockRank !== levelToLock) {
-                    W.model.actionManager.add(new UpdateObject(this.venue, { lockRank: levelToLock }));
-                    _UPDATED_FIELDS.lock.updated = true;
-                    harmonizePlaceGo(this.venue, 'harmonize');
+                    addUpdateAction(this.venue, { lockRank: levelToLock }, null, true);
                     _layer.redraw();
                 }
             }
@@ -3998,11 +3981,9 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                 if (this.specCases.includes('altName2Desc') && !venue.attributes.description.toUpperCase().includes(this.optionalAlias.toUpperCase())) {
                     const description = `${this.optionalAlias}\n${venue.attributes.description}`;
                     addUpdateAction(venue, { description }, null, false);
-                    _UPDATED_FIELDS.description.updated = true;
                 }
                 aliases = removeSFAliases(name, aliases);
                 addUpdateAction(venue, { aliases }, null, true);
-                _UPDATED_FIELDS.aliases.updated = true;
             }
         },
         AddCat2: class extends ActionFlag {
@@ -4022,9 +4003,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
             action() {
                 const venue = getSelectedVenue();
                 _newCategories.push(this.altCategory);
-                W.model.actionManager.add(new UpdateObject(venue, { categories: _newCategories }));
-                _UPDATED_FIELDS.categories.updated = true;
-                harmonizePlaceGo(venue, 'harmonize');
+                addUpdateAction(venue, { categories: _newCategories }, null, true);
             }
         },
         AddPharm: class extends ActionFlag {
@@ -4034,9 +4013,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
             action() {
                 const venue = getSelectedVenue();
                 _newCategories = insertAtIndex(_newCategories, 'PHARMACY', 1);
-                W.model.actionManager.add(new UpdateObject(venue, { categories: _newCategories }));
-                _UPDATED_FIELDS.categories.updated = true;
-                harmonizePlaceGo(venue, 'harmonize');
+                addUpdateAction(venue, { categories: _newCategories }, null, true);
             }
         },
         AddSuper: class extends ActionFlag {
@@ -4046,9 +4023,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
             action() {
                 const venue = getSelectedVenue();
                 _newCategories = insertAtIndex(_newCategories, 'SUPERMARKET_GROCERY', 1);
-                W.model.actionManager.add(new UpdateObject(venue, { categories: _newCategories }));
-                _UPDATED_FIELDS.categories.updated = true;
-                harmonizePlaceGo(venue, 'harmonize');
+                addUpdateAction(venue, { categories: _newCategories }, null, true);
             }
         },
         AppendAMPM: class extends ActionFlag {
@@ -4060,12 +4035,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                 _newCategories = insertAtIndex(_newCategories, 'CONVENIENCE_STORE', 1);
                 _newName = 'ARCO ampm';
                 _newURL = 'ampm.com';
-                W.model.actionManager.add(new UpdateObject(venue, { name: _newName, url: _newURL, categories: _newCategories }));
-                _UPDATED_FIELDS.name.updated = true;
-                _UPDATED_FIELDS.url.updated = true;
-                _UPDATED_FIELDS.categories.updated = true;
-                _buttonBanner.appendAMPM.active = false; // reset the display flag
-                harmonizePlaceGo(venue, 'harmonize');
+                addUpdateAction(venue, { name: _newName, url: _newURL, categories: _newCategories }, null, true);
             }
         },
         AddATM: class extends ActionFlag {
@@ -4075,9 +4045,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
             action() {
                 const venue = getSelectedVenue();
                 _newCategories = insertAtIndex(_newCategories, 'ATM', 1); // Insert ATM category in the second position
-                W.model.actionManager.add(new UpdateObject(venue, { categories: _newCategories }));
-                _UPDATED_FIELDS.categories.updated = true;
-                harmonizePlaceGo(venue, 'harmonize');
+                addUpdateAction(venue, { categories: _newCategories }, null, true);
             }
         },
         AddConvStore: class extends ActionFlag {
@@ -4087,9 +4055,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
             action() {
                 const venue = getSelectedVenue();
                 _newCategories = insertAtIndex(_newCategories, 'CONVENIENCE_STORE', 1); // Insert C.S. category in the second position
-                W.model.actionManager.add(new UpdateObject(venue, { categories: _newCategories }));
-                _UPDATED_FIELDS.categories.updated = true;
-                harmonizePlaceGo(venue, 'harmonize');
+                addUpdateAction(venue, { categories: _newCategories }, null, true);
             }
         },
         IsThisAPostOffice: class extends ActionFlag {
@@ -4118,9 +4084,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
             // TODO: Remove reference to _newCategories. Place should have updated categories by now.
             action() {
                 _newCategories = insertAtIndex(_newCategories, 'POST_OFFICE', 0);
-                W.model.actionManager.add(new UpdateObject(this.venue, { categories: _newCategories }));
-                _UPDATED_FIELDS.categories.updated = true;
-                harmonizePlaceGo(this.venue, 'harmonize');
+                addUpdateAction(this.venue, { categories: _newCategories }, null, true);
             }
         },
         ChangeToHospitalUrgentCare: class extends WLActionFlag {
@@ -4187,7 +4151,6 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                 return this.#venueIsFlaggable(categories, name) ? new this(venue) : null;
             }
 
-            // eslint-disable-next-line class-methods-use-this
             action() {
                 let categories = this.venue.getCategories().slice();
                 let updateIt = false;
@@ -4203,10 +4166,9 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                     updateIt = true;
                 }
                 if (updateIt) {
-                    _UPDATED_FIELDS.categories.updated = true;
-                    W.model.actionManager.add(new UpdateObject(this.venue, { categories }));
+                    addUpdateAction(this.venue, { categories });
                 }
-                harmonizePlaceGo(this.venue, 'harmonize'); // Rerun the script to update fields and lock
+                harmonizePlaceGo(this.venue, 'harmonize');
             }
         },
         ChangeToDoctorClinic: class extends WLActionFlag {
@@ -4256,8 +4218,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                     updateIt = true;
                 }
                 if (updateIt) {
-                    _UPDATED_FIELDS.categories.updated = true;
-                    W.model.actionManager.add(new UpdateObject(venue, { categories }));
+                    addUpdateAction(venue, { categories });
                 }
                 harmonizePlaceGo(venue, 'harmonize'); // Rerun the script to update fields and lock
             }
@@ -4277,8 +4238,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                     const parts = getNameParts(this.originalName);
                     newName = toTitleCaseStrong(parts.base);
                     if (parts.base !== newName) {
-                        W.model.actionManager.add(new UpdateObject(venue, { name: newName + (parts.suffix || '') }));
-                        _UPDATED_FIELDS.name.updated = true;
+                        addUpdateAction(venue, { name: newName + (parts.suffix || '') });
                     }
                     harmonizePlaceGo(venue, 'harmonize');
                 } else {
@@ -4301,7 +4261,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                     if (!highlightOnly) {
                         logDev('Venue locked!');
                         actions.push(new UpdateObject(venue, { lockRank: levelToLock }));
-                        _UPDATED_FIELDS.lock.updated = true;
+                        _UPDATED_FIELDS.lockRank.updated = true;
                     } else {
                         this.hlLockFlag = true;
                     }
@@ -5564,7 +5524,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                         insertAtIndex(_newCategories, altCategories, 1); //  then insert the alts into the existing category array after the GS category
                     }
                     if (_newCategories.indexOf('HOTEL') !== 0) { // If no HOTEL category in the primary, flag it
-                        _buttonBanner.hotelMkPrim = new Flag.HotelMkPrim();
+                        _buttonBanner.hotelMkPrim = new Flag.HotelMkPrim(item);
                         if (_wl.hotelMkPrim) {
                             _buttonBanner.hotelMkPrim.WLactive = false;
                         } else {
@@ -5683,14 +5643,11 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                 if (!matchSets(_.uniq(item.attributes.categories), _.uniq(_newCategories))) {
                     if (!specCases.includes('optionCat2') && !specCases.includes('buttOn_addCat2')) {
                         logDev(`Categories updated with ${_newCategories}`);
-                        actions.push(new UpdateObject(item, { categories: _newCategories }));
-                        // W.model.actionManager.add(new UpdateObject(item, { categories: newCategories }));
-                        _UPDATED_FIELDS.categories.updated = true;
+                        addUpdateAction(item, { categories: _newCategories }, actions);
                     } else { // if second cat is optional
                         logDev(`Primary category updated with ${priPNHPlaceCat}`);
                         _newCategories = insertAtIndex(_newCategories, priPNHPlaceCat, 0);
-                        actions.push(new UpdateObject(item, { categories: _newCategories }));
-                        _UPDATED_FIELDS.categories.updated = true;
+                        addUpdateAction(item, { categories: _newCategories });
                     }
                 }
                 // Enable optional 2nd category button
@@ -6488,10 +6445,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                 _buttonBanner.extProviderMissing.title = 'If no Google link exists, lock this place.\nIf there is still no Google link after '
                     + '6 months from the last update date, it will turn red as a reminder to search again.';
                 _buttonBanner.extProviderMissing.action = () => {
-                    const action = new UpdateObject(item, { lockRank: levelToLock });
-                    W.model.actionManager.add(action);
-                    _UPDATED_FIELDS.lock.updated = true;
-                    harmonizePlaceGo(item, 'harmonize');
+                    addUpdateAction(item, { lockRank: levelToLock }, null, true);
                 };
             }
         }
@@ -6923,8 +6877,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
             }
             newAttr.estimatedNumberOfSpots = selectedValue;
             _UPDATED_FIELDS.parkingSpots.updated = true;
-            W.model.actionManager.add(new UpdateObject(selectedVenue, { categoryAttributes: { PARKING_LOT: newAttr } }));
-            harmonizePlaceGo(selectedVenue, 'harmonize');
+            addUpdateAction(selectedVenue, { categoryAttributes: { PARKING_LOT: newAttr } }, null, true);
         });
 
         // If pressing enter in the HN entry box, add the HN
@@ -7490,7 +7443,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                 updateItem = true;
             }
             if (updateItem) {
-                W.model.actionManager.add(new UpdateObject(venue, cloneItems));
+                addUpdateAction(new UpdateObject(venue, cloneItems));
                 logDev('Item details cloned');
             }
 
@@ -8791,59 +8744,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
     // Sets up error reporting
     function reportError() {
         window.open('https://www.waze.com/forum/viewtopic.php?t=239985', '_blank');
-        // data.preview = 'Preview';
-        // data.attach_sig = 'on';
-        // if (_PM_USER_LIST.hasOwnProperty('WMEPH') && _PM_USER_LIST.WMEPH.approvalActive) {
-        //     data[`address_list[u][${_PM_USER_LIST.WMEPH.modID}]`] = 'to';
-        //     newForumPost('https://www.waze.com/forum/ucp.php?i=pm&mode=compose', data);
-        // } else {
-        //     data.addbbcode20 = 'to';
-        //     data.notify = 'on';
-        //     newForumPost(`${_URLS.forum}#preview`, data);
-        // }
-    } // END reportError function
-
-    // // Make a populated post on a forum thread
-    // function newForumPost(url, data) {
-    //     const form = document.createElement('form');
-    //     form.target = '_blank';
-    //     form.action = url;
-    //     form.method = 'post';
-    //     form.style.display = 'none';
-    //     Object.keys(data).forEach(k => {
-    //         let input;
-    //         if (k === 'message') {
-    //             input = document.createElement('textarea');
-    //         } else if (k === 'username') {
-    //             input = document.createElement('username_list');
-    //         } else {
-    //             input = document.createElement('input');
-    //         }
-    //         input.name = k;
-    //         input.value = data[k];
-    //         // input.type = 'hidden'; // 2018-07/10 (mapomatic) Not sure if this is required, but was causing an error when setting on the textarea object.
-    //         form.appendChild(input);
-    //     });
-    //     document.getElementById('WMEPH_formDiv').appendChild(form);
-    //     form.submit();
-    //     document.getElementById('WMEPH_formDiv').removeChild(form);
-    //     return true;
-    // } // END newForumPost function
-
-    /**
-     * Updates the geometry of a place.
-     * @param place {Waze venue object} The place to update.
-     * @param newGeometry {OpenLayers.Geometry} The new geometry for the place.
-     */
-    // function updateFeatureGeometry(place, newGeometry) {
-    //     let oldGeometry;
-    //     const model = W.model.venues;
-    //     if (place && place.CLASS_NAME === 'Waze.Feature.Vector.Venue' && newGeometry && (newGeometry instanceof OpenLayers.Geometry.Point
-    //         || newGeometry instanceof OpenLayers.Geometry.Polygon)) {
-    //         oldGeometry = place.attributes.geometry;
-    //         W.model.actionManager.add(new UpdateFeatureGeometry(place, model, oldGeometry, newGeometry));
-    //     }
-    // }
+    }
 
     function updateUserInfo() {
         _USER.ref = W.loginManager.user;
