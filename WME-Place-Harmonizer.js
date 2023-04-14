@@ -2196,15 +2196,17 @@
             constructor() { super(true, _SEVERITY.RED, 'Rest area name is out of spec. Use the Rest Area wiki button below to view formats.', true, 'Whitelist rest area name', 'restAreaName'); }
         },
         RestAreaNoTransportation: class extends ActionFlag {
-            constructor() { super(true, _SEVERITY.YELLOW, 'Rest areas should not use the Transportation category.', 'Remove it?'); }
+            constructor(venue) {
+                super(true, _SEVERITY.YELLOW, 'Rest areas should not use the Transportation category.', 'Remove it?');
+                this.venue = venue;
+            }
 
-            // eslint-disable-next-line class-methods-use-this
             action() {
-                const ix = _newCategories.indexOf('TRANSPORTATION');
-                if (ix > -1) {
-                    const venue = getSelectedVenue();
-                    _newCategories.splice(ix, 1);
-                    addUpdateAction(venue, { categories: _newCategories }, null, true);
+                const categories = this.venue.getCategories().slice(); // create a copy
+                const index = categories.indexOf('TRANSPORTATION');
+                if (index > -1) {
+                    categories.splice(index, 1); // remove the category
+                    addUpdateAction(this.venue, { categories }, null, true);
                 }
             }
         },
@@ -2212,7 +2214,7 @@
             constructor() { super(true, _SEVERITY.RED, 'Gas stations at Rest Areas should be separate area places.'); }
         },
         RestAreaScenic: class extends WLActionFlag {
-            constructor() {
+            constructor(venue) {
                 super(
                     true,
                     _SEVERITY.GREEN,
@@ -2223,15 +2225,15 @@
                     'Whitelist place',
                     'restAreaScenic'
                 );
+                this.venue = venue;
             }
 
-            // eslint-disable-next-line class-methods-use-this
             action() {
-                const ix = _newCategories.indexOf('SCENIC_LOOKOUT_VIEWPOINT');
-                if (ix > -1) {
-                    const venue = getSelectedVenue();
-                    _newCategories.splice(ix, 1);
-                    addUpdateAction(venue, { categories: _newCategories }, null, true);
+                const categories = this.venue.getCategories().slice(); // create a copy
+                const index = categories.indexOf('SCENIC_LOOKOUT_VIEWPOINT');
+                if (index > -1) {
+                    categories.splice(index, 1); // remove the category
+                    addUpdateAction(this.venue, { categories }, null, true);
                 }
             }
         },
@@ -6340,10 +6342,10 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
         if (/rest area/i.test(oldName) || /rest stop/i.test(oldName) || /service plaza/i.test(oldName) || hasRestAreaCategory) {
             if (hasRestAreaCategory) {
                 if (categories.includes('SCENIC_LOOKOUT_VIEWPOINT')) {
-                    if (!_wl.restAreaScenic) _buttonBanner.restAreaScenic = new Flag.RestAreaScenic();
+                    if (!_wl.restAreaScenic) _buttonBanner.restAreaScenic = new Flag.RestAreaScenic(item);
                 }
                 if (categories.includes('TRANSPORTATION')) {
-                    _buttonBanner.restAreaNoTransportation = new Flag.RestAreaNoTransportation();
+                    _buttonBanner.restAreaNoTransportation = new Flag.RestAreaNoTransportation(item);
                 }
                 if (item.isPoint()) { // needs to be area
                     _buttonBanner.areaNotPoint = new Flag.AreaNotPoint();
