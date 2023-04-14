@@ -266,8 +266,6 @@
         capWords: '3M|AAA|AMC|AOL|AT&T|ATM|BBC|BLT|BMV|BMW|BP|CBS|CCS|CGI|CISCO|CJ|CNG|CNN|CVS|DHL|DKNY|DMV|DSW|EMS|ER|ESPN|FCU|FCUK|FDNY|GNC|H&M|HP|HSBC|IBM|IHOP|IKEA|IRS|JBL|JCPenney|KFC|LLC|MBNA|MCA|MCI|NBC|NYPD|PDQ|PNC|TCBY|TNT|TV|UPS|USA|USPS|VW|XYZ|ZZZ'.split('|'),
         specWords: 'd\'Bronx|iFix|ExtraMile|ChargePoint|EVgo|SemaConnect'.split('|')
     };
-    let _newPlaceURL;
-    let _approveRegionURL;
     let _customStoreFinder = false; // switch indicating place-specific custom store finder url
     let _customStoreFinderLocal = false; // switch indicating place-specific custom store finder url with localization option (GPS/addr)
     let _customStoreFinderURL = ''; // switch indicating place-specific custom store finder url
@@ -1274,11 +1272,9 @@
             return matchPNHRegionData;
         }
         if (pnhNameMatch) { // if a name match was found but not for region, prod the user to get it approved
-            _buttonBanner.ApprovalSubmit = new Flag.ApprovalSubmit(_approveRegionURL);
             return ['ApprovalNeeded', pnhNameTemp, pnhOrderNum];
         }
         // if no match was found, suggest adding the place to the sheet if it's a chain
-        _buttonBanner.NewPlaceSubmit = new Flag.NewPlaceSubmit(_newPlaceURL);
         return ['NoMatch'];
     } // END harmoList function
 
@@ -4827,9 +4823,6 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
 
     // Main script
     function harmonizePlaceGo(item, useFlag, actions) {
-        let pnhOrderNum = '';
-        let pnhNameTemp = '';
-        let pnhNameTempWeb = '';
         let placePL;
         const itemID = item.attributes.id;
 
@@ -4928,7 +4921,6 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
         let newAliases = item.attributes.aliases.slice();
         let newDescripion = item.attributes.description;
         let newUrl = item.attributes.url;
-        const newURLSubmit = !isNullOrWhitespace(newUrl) ? newUrl : '';
         let newPhone = item.attributes.phone;
 
         let pnhNameRegMatch;
@@ -5178,6 +5170,100 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                 } else {
                     // check against the PNH list
                     pnhMatchData = harmoList(newName, state2L, region, countryCode, newCategories, item);
+
+                    if (['NoMatch', 'ApprovalNeeded'].includes(pnhMatchData[0])) {
+                        const newURLSubmit = !isNullOrWhitespace(newUrl) ? newUrl : '';
+                        let pnhOrderNum = '';
+                        let pnhNameTemp = '';
+                        let pnhNameTempWeb = '';
+                        if (pnhMatchData[0] === 'ApprovalNeeded') {
+                            // PNHNameTemp = PNHMatchData[1].join(', ');
+                            [, [pnhNameTemp]] = pnhMatchData; // Just do the first match
+                            pnhNameTempWeb = encodeURIComponent(pnhNameTemp);
+                            pnhOrderNum = pnhMatchData[2].join(',');
+                        }
+
+                        // Make PNH submission links
+                        let regionFormURL = '';
+                        let newPlaceAddon = '';
+                        let approvalAddon = '';
+                        const approvalMessage = `Submitted via WMEPH. PNH order number ${pnhOrderNum}`;
+                        const encodedTempSubmitName = encodeURIComponent(newName);
+                        const encodedPlacePL = encodeURIComponent(placePL);
+                        const encodedUrlSubmit = encodeURIComponent(newURLSubmit);
+                        const suffix = _USER.name + gFormState;
+                        switch (region) {
+                            case 'NWR': regionFormURL = 'https://docs.google.com/forms/d/1hv5hXBlGr1pTMmo4n3frUx1DovUODbZodfDBwwTc7HE/viewform';
+                                newPlaceAddon = `?entry.925969794=${encodedTempSubmitName}&entry.1970139752=${encodedUrlSubmit}&entry.1749047694=${suffix}`;
+                                approvalAddon = `?entry.925969794=${pnhNameTempWeb}&entry.50214576=${approvalMessage}&entry.1749047694=${suffix}`;
+                                break;
+                            case 'SWR': regionFormURL = 'https://docs.google.com/forms/d/1Qf2N4fSkNzhVuXJwPBJMQBmW0suNuy8W9itCo1qgJL4/viewform';
+                                newPlaceAddon = `?entry.1497446659=${encodedTempSubmitName}&entry.1970139752=${encodedUrlSubmit}&entry.1749047694=${suffix}`;
+                                approvalAddon = `?entry.1497446659=${pnhNameTempWeb}&entry.50214576=${approvalMessage}&entry.1749047694=${suffix}`;
+                                break;
+                            case 'HI': regionFormURL = 'https://docs.google.com/forms/d/1K7Dohm8eamIKry3KwMTVnpMdJLaMIyDGMt7Bw6iqH_A/viewform';
+                                newPlaceAddon = `?entry.1497446659=${encodedTempSubmitName}&entry.1970139752=${encodedUrlSubmit}&entry.1749047694=${suffix}`;
+                                approvalAddon = `?entry.1497446659=${pnhNameTempWeb}&entry.50214576=${approvalMessage}&entry.1749047694=${suffix}`;
+                                break;
+                            case 'PLN': regionFormURL = 'https://docs.google.com/forms/d/1ycXtAppoR5eEydFBwnghhu1hkHq26uabjUu8yAlIQuI/viewform';
+                                newPlaceAddon = `?entry.925969794=${encodedTempSubmitName}&entry.1970139752=${encodedUrlSubmit}&entry.1749047694=${suffix}`;
+                                approvalAddon = `?entry.925969794=${pnhNameTempWeb}&entry.50214576=${approvalMessage}&entry.1749047694=${suffix}`;
+                                break;
+                            case 'SCR': regionFormURL = 'https://docs.google.com/forms/d/1KZzLdlX0HLxED5Bv0wFB-rWccxUp2Mclih5QJIQFKSQ/viewform';
+                                newPlaceAddon = `?entry.925969794=${encodedTempSubmitName}&entry.1970139752=${encodedUrlSubmit}&entry.1749047694=${suffix}`;
+                                approvalAddon = `?entry.925969794=${pnhNameTempWeb}&entry.50214576=${approvalMessage}&entry.1749047694=${suffix}`;
+                                break;
+                            case 'GLR': regionFormURL = 'https://docs.google.com/forms/d/19btj-Qt2-_TCRlcS49fl6AeUT95Wnmu7Um53qzjj9BA/viewform';
+                                newPlaceAddon = `?entry.925969794=${encodedTempSubmitName}&entry.1970139752=${encodedUrlSubmit}&entry.1749047694=${suffix}`;
+                                approvalAddon = `?entry.925969794=${pnhNameTempWeb}&entry.50214576=${approvalMessage}&entry.1749047694=${suffix}`;
+                                break;
+                            case 'SAT': regionFormURL = 'https://docs.google.com/forms/d/1bxgK_20Jix2ahbmUvY1qcY0-RmzUBT6KbE5kjDEObF8/viewform';
+                                newPlaceAddon = `?entry.2063110249=${encodedTempSubmitName}&entry.2018912633=${encodedUrlSubmit}&entry.1924826395=${suffix}`;
+                                approvalAddon = `?entry.2063110249=${pnhNameTempWeb}&entry.123778794=${approvalMessage}&entry.1924826395=${suffix}`;
+                                break;
+                            case 'SER': regionFormURL = 'https://docs.google.com/forms/d/1jYBcxT3jycrkttK5BxhvPXR240KUHnoFMtkZAXzPg34/viewform';
+                                newPlaceAddon = `?entry.822075961=${encodedTempSubmitName}&entry.1422079728=${encodedUrlSubmit}&entry.1891389966=${suffix}`;
+                                approvalAddon = `?entry.822075961=${pnhNameTempWeb}&entry.607048307=${approvalMessage}&entry.1891389966=${suffix}`;
+                                break;
+                            case 'ATR': regionFormURL = 'https://docs.google.com/forms/d/1v7JhffTfr62aPSOp8qZHA_5ARkBPldWWJwDeDzEioR0/viewform';
+                                newPlaceAddon = `?entry.925969794=${encodedTempSubmitName}&entry.1970139752=${encodedUrlSubmit}&entry.1749047694=${suffix}`;
+                                approvalAddon = `?entry.925969794=${pnhNameTempWeb}&entry.50214576=${approvalMessage}&entry.1749047694=${suffix}`;
+                                break;
+                            case 'NER': regionFormURL = 'https://docs.google.com/forms/d/1UgFAMdSQuJAySHR0D86frvphp81l7qhEdJXZpyBZU6c/viewform';
+                                newPlaceAddon = `?entry.925969794=${encodedTempSubmitName}&entry.1970139752=${encodedUrlSubmit}&entry.1749047694=${suffix}`;
+                                approvalAddon = `?entry.925969794=${pnhNameTempWeb}&entry.50214576=${approvalMessage}&entry.1749047694=${suffix}`;
+                                break;
+                            case 'NOR': regionFormURL = 'https://docs.google.com/forms/d/1iYq2rd9HRd-RBsKqmbHDIEBGuyWBSyrIHC6QLESfm4c/viewform';
+                                newPlaceAddon = `?entry.925969794=${encodedTempSubmitName}&entry.1970139752=${encodedUrlSubmit}&entry.1749047694=${suffix}`;
+                                approvalAddon = `?entry.925969794=${pnhNameTempWeb}&entry.50214576=${approvalMessage}&entry.1749047694=${suffix}`;
+                                break;
+                            case 'MAR': regionFormURL = 'https://docs.google.com/forms/d/1PhL1iaugbRMc3W-yGdqESoooeOz-TJIbjdLBRScJYOk/viewform';
+                                newPlaceAddon = `?entry.925969794=${encodedTempSubmitName}&entry.1970139752=${encodedUrlSubmit}&entry.1749047694=${suffix}`;
+                                approvalAddon = `?entry.925969794=${pnhNameTempWeb}&entry.50214576=${approvalMessage}&entry.1749047694=${suffix}`;
+                                break;
+                            case 'CA_EN': regionFormURL = 'https://docs.google.com/forms/d/13JwXsrWPNmCdfGR5OVr5jnGZw-uNGohwgjim-JYbSws/viewform';
+                                newPlaceAddon = `?entry_839085807=${encodedTempSubmitName}&entry_1067461077=${encodedUrlSubmit}&entry_318793106=${
+                                    _USER.name}&entry_1149649663=${encodedPlacePL}`;
+                                approvalAddon = `?entry_839085807=${pnhNameTempWeb}&entry_1125435193=${approvalMessage}&entry_318793106=${
+                                    _USER.name}&entry_1149649663=${encodedPlacePL}`;
+                                break;
+                            case 'QC': regionFormURL = 'https://docs.google.com/forms/d/13JwXsrWPNmCdfGR5OVr5jnGZw-uNGohwgjim-JYbSws/viewform';
+                                newPlaceAddon = `?entry_839085807=${encodedTempSubmitName}&entry_1067461077=${encodedUrlSubmit}&entry_318793106=${
+                                    _USER.name}&entry_1149649663=${encodedPlacePL}`;
+                                approvalAddon = `?entry_839085807=${pnhNameTempWeb}&entry_1125435193=${approvalMessage}&entry_318793106=${
+                                    _USER.name}&entry_1149649663=${encodedPlacePL}`;
+                                break;
+                            default: regionFormURL = '';
+                        }
+                        const newPlaceUrl = regionFormURL + newPlaceAddon;
+                        const approveRegionURL = regionFormURL + approvalAddon;
+
+                        if (pnhMatchData[0] === 'ApprovalNeeded') {
+                            _buttonBanner.ApprovalSubmit = new Flag.ApprovalSubmit(approveRegionURL);
+                        } else if (pnhMatchData[0] === 'NoMatch') {
+                            _buttonBanner.NewPlaceSubmit = new Flag.NewPlaceSubmit(newPlaceUrl);
+                        }
+                    }
                 }
             } else {
                 pnhMatchData = ['Highlight'];
@@ -5636,13 +5722,6 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                     _pnhLockLevel = 4;
                 }
             } else { // if no PNH match found
-                if (pnhMatchData[0] === 'ApprovalNeeded') {
-                    // PNHNameTemp = PNHMatchData[1].join(', ');
-                    [, [pnhNameTemp]] = pnhMatchData; // Just do the first match
-                    pnhNameTempWeb = encodeURIComponent(pnhNameTemp);
-                    pnhOrderNum = pnhMatchData[2].join(',');
-                }
-
                 // Strong title case option for non-PNH places
                 _buttonBanner.titleCaseName = Flag.TitleCaseName.eval(item, newName, newNameSuffix);
 
@@ -5708,81 +5787,6 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                     actions.push(new UpdateObject(item, { aliases: newAliases }));
                     _UPDATED_FIELDS.aliases.updated = true;
                 }
-
-                // Make PNH submission links
-                let regionFormURL = '';
-                let newPlaceAddon = '';
-                let approvalAddon = '';
-                const approvalMessage = `Submitted via WMEPH. PNH order number ${pnhOrderNum}`;
-                const encodedTempSubmitName = encodeURIComponent(newName);
-                const encodedPlacePL = encodeURIComponent(placePL);
-                const encodedUrlSubmit = encodeURIComponent(newURLSubmit);
-                const suffix = _USER.name + gFormState;
-                switch (region) {
-                    case 'NWR': regionFormURL = 'https://docs.google.com/forms/d/1hv5hXBlGr1pTMmo4n3frUx1DovUODbZodfDBwwTc7HE/viewform';
-                        newPlaceAddon = `?entry.925969794=${encodedTempSubmitName}&entry.1970139752=${encodedUrlSubmit}&entry.1749047694=${suffix}`;
-                        approvalAddon = `?entry.925969794=${pnhNameTempWeb}&entry.50214576=${approvalMessage}&entry.1749047694=${suffix}`;
-                        break;
-                    case 'SWR': regionFormURL = 'https://docs.google.com/forms/d/1Qf2N4fSkNzhVuXJwPBJMQBmW0suNuy8W9itCo1qgJL4/viewform';
-                        newPlaceAddon = `?entry.1497446659=${encodedTempSubmitName}&entry.1970139752=${encodedUrlSubmit}&entry.1749047694=${suffix}`;
-                        approvalAddon = `?entry.1497446659=${pnhNameTempWeb}&entry.50214576=${approvalMessage}&entry.1749047694=${suffix}`;
-                        break;
-                    case 'HI': regionFormURL = 'https://docs.google.com/forms/d/1K7Dohm8eamIKry3KwMTVnpMdJLaMIyDGMt7Bw6iqH_A/viewform';
-                        newPlaceAddon = `?entry.1497446659=${encodedTempSubmitName}&entry.1970139752=${encodedUrlSubmit}&entry.1749047694=${suffix}`;
-                        approvalAddon = `?entry.1497446659=${pnhNameTempWeb}&entry.50214576=${approvalMessage}&entry.1749047694=${suffix}`;
-                        break;
-                    case 'PLN': regionFormURL = 'https://docs.google.com/forms/d/1ycXtAppoR5eEydFBwnghhu1hkHq26uabjUu8yAlIQuI/viewform';
-                        newPlaceAddon = `?entry.925969794=${encodedTempSubmitName}&entry.1970139752=${encodedUrlSubmit}&entry.1749047694=${suffix}`;
-                        approvalAddon = `?entry.925969794=${pnhNameTempWeb}&entry.50214576=${approvalMessage}&entry.1749047694=${suffix}`;
-                        break;
-                    case 'SCR': regionFormURL = 'https://docs.google.com/forms/d/1KZzLdlX0HLxED5Bv0wFB-rWccxUp2Mclih5QJIQFKSQ/viewform';
-                        newPlaceAddon = `?entry.925969794=${encodedTempSubmitName}&entry.1970139752=${encodedUrlSubmit}&entry.1749047694=${suffix}`;
-                        approvalAddon = `?entry.925969794=${pnhNameTempWeb}&entry.50214576=${approvalMessage}&entry.1749047694=${suffix}`;
-                        break;
-                    case 'GLR': regionFormURL = 'https://docs.google.com/forms/d/19btj-Qt2-_TCRlcS49fl6AeUT95Wnmu7Um53qzjj9BA/viewform';
-                        newPlaceAddon = `?entry.925969794=${encodedTempSubmitName}&entry.1970139752=${encodedUrlSubmit}&entry.1749047694=${suffix}`;
-                        approvalAddon = `?entry.925969794=${pnhNameTempWeb}&entry.50214576=${approvalMessage}&entry.1749047694=${suffix}`;
-                        break;
-                    case 'SAT': regionFormURL = 'https://docs.google.com/forms/d/1bxgK_20Jix2ahbmUvY1qcY0-RmzUBT6KbE5kjDEObF8/viewform';
-                        newPlaceAddon = `?entry.2063110249=${encodedTempSubmitName}&entry.2018912633=${encodedUrlSubmit}&entry.1924826395=${suffix}`;
-                        approvalAddon = `?entry.2063110249=${pnhNameTempWeb}&entry.123778794=${approvalMessage}&entry.1924826395=${suffix}`;
-                        break;
-                    case 'SER': regionFormURL = 'https://docs.google.com/forms/d/1jYBcxT3jycrkttK5BxhvPXR240KUHnoFMtkZAXzPg34/viewform';
-                        newPlaceAddon = `?entry.822075961=${encodedTempSubmitName}&entry.1422079728=${encodedUrlSubmit}&entry.1891389966=${suffix}`;
-                        approvalAddon = `?entry.822075961=${pnhNameTempWeb}&entry.607048307=${approvalMessage}&entry.1891389966=${suffix}`;
-                        break;
-                    case 'ATR': regionFormURL = 'https://docs.google.com/forms/d/1v7JhffTfr62aPSOp8qZHA_5ARkBPldWWJwDeDzEioR0/viewform';
-                        newPlaceAddon = `?entry.925969794=${encodedTempSubmitName}&entry.1970139752=${encodedUrlSubmit}&entry.1749047694=${suffix}`;
-                        approvalAddon = `?entry.925969794=${pnhNameTempWeb}&entry.50214576=${approvalMessage}&entry.1749047694=${suffix}`;
-                        break;
-                    case 'NER': regionFormURL = 'https://docs.google.com/forms/d/1UgFAMdSQuJAySHR0D86frvphp81l7qhEdJXZpyBZU6c/viewform';
-                        newPlaceAddon = `?entry.925969794=${encodedTempSubmitName}&entry.1970139752=${encodedUrlSubmit}&entry.1749047694=${suffix}`;
-                        approvalAddon = `?entry.925969794=${pnhNameTempWeb}&entry.50214576=${approvalMessage}&entry.1749047694=${suffix}`;
-                        break;
-                    case 'NOR': regionFormURL = 'https://docs.google.com/forms/d/1iYq2rd9HRd-RBsKqmbHDIEBGuyWBSyrIHC6QLESfm4c/viewform';
-                        newPlaceAddon = `?entry.925969794=${encodedTempSubmitName}&entry.1970139752=${encodedUrlSubmit}&entry.1749047694=${suffix}`;
-                        approvalAddon = `?entry.925969794=${pnhNameTempWeb}&entry.50214576=${approvalMessage}&entry.1749047694=${suffix}`;
-                        break;
-                    case 'MAR': regionFormURL = 'https://docs.google.com/forms/d/1PhL1iaugbRMc3W-yGdqESoooeOz-TJIbjdLBRScJYOk/viewform';
-                        newPlaceAddon = `?entry.925969794=${encodedTempSubmitName}&entry.1970139752=${encodedUrlSubmit}&entry.1749047694=${suffix}`;
-                        approvalAddon = `?entry.925969794=${pnhNameTempWeb}&entry.50214576=${approvalMessage}&entry.1749047694=${suffix}`;
-                        break;
-                    case 'CA_EN': regionFormURL = 'https://docs.google.com/forms/d/13JwXsrWPNmCdfGR5OVr5jnGZw-uNGohwgjim-JYbSws/viewform';
-                        newPlaceAddon = `?entry_839085807=${encodedTempSubmitName}&entry_1067461077=${encodedUrlSubmit}&entry_318793106=${
-                            _USER.name}&entry_1149649663=${encodedPlacePL}`;
-                        approvalAddon = `?entry_839085807=${pnhNameTempWeb}&entry_1125435193=${approvalMessage}&entry_318793106=${
-                            _USER.name}&entry_1149649663=${encodedPlacePL}`;
-                        break;
-                    case 'QC': regionFormURL = 'https://docs.google.com/forms/d/13JwXsrWPNmCdfGR5OVr5jnGZw-uNGohwgjim-JYbSws/viewform';
-                        newPlaceAddon = `?entry_839085807=${encodedTempSubmitName}&entry_1067461077=${encodedUrlSubmit}&entry_318793106=${
-                            _USER.name}&entry_1149649663=${encodedPlacePL}`;
-                        approvalAddon = `?entry_839085807=${pnhNameTempWeb}&entry_1125435193=${approvalMessage}&entry_318793106=${
-                            _USER.name}&entry_1149649663=${encodedPlacePL}`;
-                        break;
-                    default: regionFormURL = '';
-                }
-                _newPlaceURL = regionFormURL + newPlaceAddon;
-                _approveRegionURL = regionFormURL + approvalAddon;
 
                 // PNH specific Services:
 
