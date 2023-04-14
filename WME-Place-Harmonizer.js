@@ -244,7 +244,6 @@
     let _newPhone;
     let _newAliases = [];
     let _newAliasesTemp = [];
-    let _newCategories = [];
     const EV_PAYMENT_METHOD = {
         APP: 'APP',
         CREDIT: 'CREDIT',
@@ -1141,7 +1140,7 @@
     }
 
     // Function that checks current place against the Harmonization Data.  Returns place data or "NoMatch"
-    function harmoList(itemName, state2L, region3L, country, itemCats, item, placePL) {
+    function harmoList(itemName, state2L, region3L, country, itemCats, item) {
         if (country !== 'USA' && country !== 'CAN') {
             WazeWrap.Alerts.info(_SCRIPT_NAME, 'No PNH data exists for this country.');
             return ['NoMatch'];
@@ -2045,7 +2044,7 @@
                 this.noLock = true;
             }
 
-            static eval(venue, addr, actions, highlightOnly) {
+            static eval(venue, addr, actions, highlightOnly, categories) {
                 let result = null;
                 if (!highlightOnly) {
                     if (!addr.state || !addr.country) {
@@ -2067,7 +2066,7 @@
                                     _UPDATED_FIELDS.address.updated = true;
                                     result = new this();
                                     result.inferredAddress = inferredAddress;
-                                } else if (!['JUNCTION_INTERCHANGE'].includes(_newCategories[0])) {
+                                } else if (!['JUNCTION_INTERCHANGE'].includes(categories[0])) {
                                     _buttonBanner.cityMissing = new Flag.CityMissing();
                                 }
                             } else { //  if the inference doesn't work...
@@ -4929,7 +4928,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
         let lockOK = true; // if nothing goes wrong, then place will be locked
         const { categories } = item.attributes;
 
-        _newCategories = categories.slice();
+        let newCategories = categories.slice();
         const nameParts = getNameParts(item.attributes.name);
         let newNameSuffix = nameParts.suffix;
         _newName = nameParts.base;
@@ -4946,7 +4945,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
         let result;
 
         // Some user submitted places have no data in the country, state and address fields.
-        result = Flag.FullAddressInference.eval(item, addr, actions, highlightOnly);
+        result = Flag.FullAddressInference.eval(item, addr, actions, highlightOnly, newCategories);
         if (result?.exit) return result.severity;
         _buttonBanner.fullAddressInference = result;
         const inferredAddress = result?.inferredAddress;
@@ -5093,7 +5092,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
         _buttonBanner.isThisAPilotTravelCenter = Flag.IsThisAPilotTravelCenter.eval(item, highlightOnly, state2L, _newName, actions);
         if (_buttonBanner.isThisAPilotTravelCenter) _newName = _buttonBanner.isThisAPilotTravelCenter.newName;
 
-        _buttonBanner.gasMkPrim = Flag.GasMkPrim.eval(item, _newCategories);
+        _buttonBanner.gasMkPrim = Flag.GasMkPrim.eval(item, newCategories);
 
         if (item.isGasStation()) {
             // If no gas station name, replace with brand name
@@ -5104,7 +5103,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
             }
 
             // Add convenience store category to station
-            if (!_newCategories.includes('CONVENIENCE_STORE') && !_buttonBanner.subFuel) {
+            if (!newCategories.includes('CONVENIENCE_STORE') && !_buttonBanner.subFuel) {
                 _buttonBanner.addConvStore = new Flag.AddConvStore(item);
             }
         } // END Gas Station Checks
@@ -5128,7 +5127,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                     actions.push(new UpdateObject(item, { name: '' }));
                     // no field HL
                 }
-                _newCategories = ['RESIDENCE_HOME'];
+                newCategories = ['RESIDENCE_HOME'];
                 // newDescripion = null;
                 if (item.attributes.description !== null && item.attributes.description !== '') { // remove any description
                     logDev('Residential description cleared');
@@ -5175,7 +5174,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
             _buttonBanner.extProviderMissing = Flag.ExtProviderMissing.eval(
                 item,
                 isLocked,
-                _newCategories,
+                newCategories,
                 _USER.rank,
                 $('#WMEPH-DisablePLAExtProviderCheck').prop('checked'),
                 actions
@@ -5188,7 +5187,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                     pnhMatchData = ['NoMatch'];
                 } else {
                     // check against the PNH list
-                    pnhMatchData = harmoList(_newName, state2L, region, countryCode, _newCategories, item, placePL);
+                    pnhMatchData = harmoList(_newName, state2L, region, countryCode, newCategories, item);
                 }
             } else {
                 pnhMatchData = ['Highlight'];
@@ -5504,20 +5503,20 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                         }
                     }
                     if (altCategories && altCategories.length) { // if PNH alts exist
-                        insertAtIndex(_newCategories, altCategories, 1); //  then insert the alts into the existing category array after the GS category
+                        insertAtIndex(newCategories, altCategories, 1); //  then insert the alts into the existing category array after the GS category
                     }
-                    if (_newCategories.indexOf('HOTEL') !== 0) { // If no HOTEL category in the primary, flag it
+                    if (newCategories.indexOf('HOTEL') !== 0) { // If no HOTEL category in the primary, flag it
                         _buttonBanner.hotelMkPrim = new Flag.HotelMkPrim(item);
                         if (_wl.hotelMkPrim) {
                             _buttonBanner.hotelMkPrim.WLactive = false;
                         } else {
                             lockOK = false;
                         }
-                    } else if (_newCategories.includes('HOTEL')) {
+                    } else if (newCategories.includes('HOTEL')) {
                         // Remove LODGING if it exists
-                        const lodgingIdx = _newCategories.indexOf('LODGING');
+                        const lodgingIdx = newCategories.indexOf('LODGING');
                         if (lodgingIdx > -1) {
-                            _newCategories.splice(lodgingIdx, 1);
+                            newCategories.splice(lodgingIdx, 1);
                         }
                     }
                     // If PNH match, set wifi service.
@@ -5528,7 +5527,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                     if (!_servicesBanner.add247.checked) {
                         _servicesBanner.add247.action();
                     }
-                } else if (_newCategories.includes('BANK_FINANCIAL') && !pnhMatchData[phSpecCaseIdx].includes('notABank')) {
+                } else if (newCategories.includes('BANK_FINANCIAL') && !pnhMatchData[phSpecCaseIdx].includes('notABank')) {
                     // PNH Bank treatment
                     _ixBank = item.attributes.categories.indexOf('BANK_FINANCIAL');
                     _ixATM = item.attributes.categories.indexOf('ATM');
@@ -5550,7 +5549,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                             _buttonBanner.standaloneATM = new Flag.StandaloneATM(item);
                         }
                         _newName = `${pnhMatchData[phNameIdx]} ATM`;
-                        _newCategories = insertAtIndex(_newCategories, 'ATM', 0);
+                        newCategories = insertAtIndex(newCategories, 'ATM', 0);
                         // Net result: If the place has ATM cat only and ATM in the name, then it will be green and renamed Bank Name ATM
                     } else if (_ixBank > -1 || _ixATM > -1) { // if no ATM in name but with a banking category:
                         if (_ixOffices === 0) {
@@ -5567,20 +5566,20 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                         _newName = pnhMatchData[phNameIdx];
                         // Net result: If the place has Bank category first, then it will be green with PNH name replaced
                     } else { // for PNH match with neither bank type category, make it a bank
-                        _newCategories = insertAtIndex(_newCategories, 'BANK_FINANCIAL', 1);
+                        newCategories = insertAtIndex(newCategories, 'BANK_FINANCIAL', 1);
                         _buttonBanner.standaloneATM = new Flag.StandaloneATM(item);
                         _buttonBanner.bankCorporate = new Flag.BankCorporate(item);
                     }// END PNH bank treatment
                 } else if (['GAS_STATION'].includes(priPNHPlaceCat)) { // for PNH gas stations, don't replace existing sub-categories
                     if (altCategories?.length) { // if PNH alts exist
-                        insertAtIndex(_newCategories, altCategories, 1); //  then insert the alts into the existing category array after the GS category
+                        insertAtIndex(newCategories, altCategories, 1); //  then insert the alts into the existing category array after the GS category
                     }
                     _newName = pnhMatchData[phNameIdx];
                 } else if (updatePNHName) { // if not a special category then update the name
                     _newName = pnhMatchData[phNameIdx];
-                    _newCategories = insertAtIndex(_newCategories, priPNHPlaceCat, 0);
+                    newCategories = insertAtIndex(newCategories, priPNHPlaceCat, 0);
                     if (altCategories && altCategories.length && !specCases.includes('buttOn_addCat2') && !specCases.includes('optionCat2')) {
-                        _newCategories = insertAtIndex(_newCategories, altCategories, 1);
+                        newCategories = insertAtIndex(newCategories, altCategories, 1);
                     }
                 } else if (!updatePNHName) {
                     // Strong title case option for non-PNH places
@@ -5612,23 +5611,23 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                 const catData = _PNH_DATA.USA.categories.map(cat => cat.split('|'));
                 const catParentIdx = catData[0].indexOf('pc_catparent');
                 const catNameIdx = catData[0].indexOf('pc_wmecat');
-                const parentCats = _.uniq(_newCategories.map(catName => catData.find(cat => cat[catNameIdx] === catName)[catParentIdx]))
+                const parentCats = _.uniq(newCategories.map(catName => catData.find(cat => cat[catNameIdx] === catName)[catParentIdx]))
                     .filter(parent => parent.trim(' ').length > 0);
-                _newCategories = _newCategories.filter(cat => !parentCats.includes(cat));
+                newCategories = newCategories.filter(cat => !parentCats.includes(cat));
 
                 // update categories if different and no Cat2 option
-                if (!matchSets(_.uniq(item.attributes.categories), _.uniq(_newCategories))) {
+                if (!matchSets(_.uniq(item.attributes.categories), _.uniq(newCategories))) {
                     if (!specCases.includes('optionCat2') && !specCases.includes('buttOn_addCat2')) {
-                        logDev(`Categories updated with ${_newCategories}`);
-                        addUpdateAction(item, { categories: _newCategories }, actions);
+                        logDev(`Categories updated with ${newCategories}`);
+                        addUpdateAction(item, { categories: newCategories }, actions);
                     } else { // if second cat is optional
                         logDev(`Primary category updated with ${priPNHPlaceCat}`);
-                        _newCategories = insertAtIndex(_newCategories, priPNHPlaceCat, 0);
-                        addUpdateAction(item, { categories: _newCategories });
+                        newCategories = insertAtIndex(newCategories, priPNHPlaceCat, 0);
+                        addUpdateAction(item, { categories: newCategories });
                     }
                 }
                 // Enable optional 2nd category button
-                _buttonBanner.addCat2 = Flag.AddCat2.eval(item, specCases, _newCategories, altCategories[0]);
+                _buttonBanner.addCat2 = Flag.AddCat2.eval(item, specCases, newCategories, altCategories[0]);
 
                 // Description update
                 newDescripion = pnhMatchData[phDescriptionIdx];
@@ -5807,9 +5806,9 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                     }
                 }
 
-                if (_newCategories.length > 0) {
+                if (newCategories.length > 0) {
                     for (let iii = 0; iii < catNames.length; iii++) {
-                        if (_newCategories.includes(catNames[iii])) {
+                        if (newCategories.includes(catNames[iii])) {
                             catDataTemp = catData[iii].split('|');
                             for (let psix = 0; psix < servHeaders.length; psix++) {
                                 if (!_servicesBanner[servKeys[psix]].pnhOverride) {
@@ -5835,8 +5834,8 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
             let maxAreaSeverity = _SEVERITY.RED;
             let highestCategoryLock = -1;
 
-            for (let ixPlaceCat = 0; ixPlaceCat < _newCategories.length; ixPlaceCat++) {
-                const category = _newCategories[ixPlaceCat];
+            for (let ixPlaceCat = 0; ixPlaceCat < newCategories.length; ixPlaceCat++) {
+                const category = newCategories[ixPlaceCat];
                 const ixPNHCat = catNames.indexOf(category);
                 if (ixPNHCat > -1) {
                     catDataTemp = catData[ixPNHCat].split('|');
@@ -5855,7 +5854,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                     }
 
                     // If Post Office and VPO or CPU is in the name, always a point.
-                    if (_newCategories.includes('POST_OFFICE') && /\b(?:cpu|vpo)\b/i.test(item.attributes.name)) {
+                    if (newCategories.includes('POST_OFFICE') && /\b(?:cpu|vpo)\b/i.test(item.attributes.name)) {
                         pvaPoint = '1';
                         pvaArea = '';
                     }
@@ -5871,7 +5870,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
 
                     // display any messages regarding the category
                     const catMessage = catDataTemp[catDataHeaders.indexOf('pc_message')];
-                    _buttonBanner.pnhCatMess = Flag.PnhCatMess.eval(catMessage, _newCategories, highlightOnly);
+                    _buttonBanner.pnhCatMess = Flag.PnhCatMess.eval(catMessage, newCategories, highlightOnly);
                     // Unmapped categories
                     const catRare = catDataTemp[catDataHeaders.indexOf('pc_rare')].replace(/,[^A-Za-z0-9}]+/g, ',').split(',');
                     if (catRare.includes(state2L) || catRare.includes(region) || catRare.includes(countryCode)) {
@@ -5975,11 +5974,11 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
 
             // Check for missing hours field
             if (item.attributes.openingHours.length === 0) { // if no hours...
-                if (!containsAny(_newCategories, ['STADIUM_ARENA', 'CEMETERY', 'TRANSPORTATION', 'FERRY_PIER', 'SUBWAY_STATION',
+                if (!containsAny(newCategories, ['STADIUM_ARENA', 'CEMETERY', 'TRANSPORTATION', 'FERRY_PIER', 'SUBWAY_STATION',
                     'BRIDGE', 'TUNNEL', 'JUNCTION_INTERCHANGE', 'ISLAND', 'SEA_LAKE_POOL', 'RIVER_STREAM', 'FOREST_GROVE', 'CANAL',
                     'SWAMP_MARSH', 'DAM'])) {
                     _buttonBanner.noHours = new Flag.NoHours();
-                    if (_wl.noHours || $('#WMEPH-DisableHoursHL').prop('checked') || containsAny(_newCategories, ['SCHOOL', 'CONVENTIONS_EVENT_CENTER',
+                    if (_wl.noHours || $('#WMEPH-DisableHoursHL').prop('checked') || containsAny(newCategories, ['SCHOOL', 'CONVENTIONS_EVENT_CENTER',
                         'CAMPING_TRAILER_PARK', 'COTTAGE_CABIN', 'COLLEGE_UNIVERSITY', 'GOLF_COURSE', 'SPORTS_COURT', 'MOVIE_THEATER',
                         'SHOPPING_CENTER', 'RELIGIOUS_CENTER', 'PARKING_LOT', 'PARK', 'PLAYGROUND', 'AIRPORT', 'FIRE_DEPARTMENT', 'POLICE_STATION',
                         'SEAPORT_MARINA_HARBOR', 'FARM', 'SCENIC_LOOKOUT_VIEWPOINT'])) {
@@ -6081,9 +6080,9 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
             }
 
             // Post Office check
-            _buttonBanner.isThisAPostOffice = Flag.IsThisAPostOffice.eval(item, highlightOnly, countryCode, _newCategories, _newName);
-            _buttonBanner.PlaceWebsite = Flag.PlaceWebsite.eval(highlightOnly, countryCode, _newCategories, _buttonBanner.PlaceWebsite);
-            if (countryCode === 'USA' && !_newCategories.includes('PARKING_LOT') && _newCategories.includes('POST_OFFICE')) {
+            _buttonBanner.isThisAPostOffice = Flag.IsThisAPostOffice.eval(item, highlightOnly, countryCode, newCategories, _newName);
+            _buttonBanner.PlaceWebsite = Flag.PlaceWebsite.eval(highlightOnly, countryCode, newCategories, _buttonBanner.PlaceWebsite);
+            if (countryCode === 'USA' && !newCategories.includes('PARKING_LOT') && newCategories.includes('POST_OFFICE')) {
                 if (!highlightOnly) {
                     _buttonBanner.NewPlaceSubmit = null;
                     if (item.attributes.url !== 'usps.com') {
@@ -6148,7 +6147,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
 
         // For gas stations, check to make sure brand exists somewhere in the place name.
         // Remove non - alphanumeric characters first, for more relaxed matching.
-        if (_newCategories[0] === 'GAS_STATION' && item.attributes.brand) {
+        if (newCategories[0] === 'GAS_STATION' && item.attributes.brand) {
             const compressedName = item.attributes.name.toUpperCase().replace(/[^a-zA-Z0-9]/g, '');
             const compressedNewName = _newName.toUpperCase().replace(/[^a-zA-Z0-9]/g, '');
             // Some brands may have more than one acceptable name, or the brand listed in WME doesn't match what we want to see in the name.
@@ -6279,12 +6278,12 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
 
         _buttonBanner.cityMissing = Flag.CityMissing.eval(item, addr, highlightOnly);
         _buttonBanner.streetMissing = Flag.StreetMissing.eval(item, addr);
-        _buttonBanner.notAHospital = Flag.NotAHospital.eval(item, _newCategories, _newName);
+        _buttonBanner.notAHospital = Flag.NotAHospital.eval(item, newCategories, _newName);
 
         // CATEGORY vs. NAME checks
-        _buttonBanner.changeToPetVet = Flag.ChangeToPetVet.eval(_newName, _newCategories);
-        _buttonBanner.changeToDoctorClinic = Flag.ChangeToDoctorClinic.eval(item, _newCategories, highlightOnly, pnhNameRegMatch);
-        _buttonBanner.notASchool = Flag.NotASchool.eval(_newName, _newCategories);
+        _buttonBanner.changeToPetVet = Flag.ChangeToPetVet.eval(_newName, newCategories);
+        _buttonBanner.changeToDoctorClinic = Flag.ChangeToDoctorClinic.eval(item, newCategories, highlightOnly, pnhNameRegMatch);
+        _buttonBanner.notASchool = Flag.NotASchool.eval(_newName, newCategories);
 
         // Some cats don't need PNH messages and url/phone severities
         if (['BRIDGE', 'FOREST_GROVE', 'DAM', 'TUNNEL', 'CEMETERY'].includes(item.attributes.categories[0])) {
@@ -6392,10 +6391,10 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
             levelToLock = _defaultLockLevel;
         }
         if (region === 'SER') {
-            if (_newCategories.includes('COLLEGE_UNIVERSITY') && _newCategories.includes('PARKING_LOT')) {
+            if (newCategories.includes('COLLEGE_UNIVERSITY') && newCategories.includes('PARKING_LOT')) {
                 levelToLock = _LOCK_LEVEL_4;
-            } else if (item.isPoint() && _newCategories.includes('COLLEGE_UNIVERSITY') && (!_newCategories.includes('HOSPITAL_MEDICAL_CARE')
-                || !_newCategories.includes('HOSPITAL_URGENT_CARE'))) {
+            } else if (item.isPoint() && newCategories.includes('COLLEGE_UNIVERSITY') && (!newCategories.includes('HOSPITAL_MEDICAL_CARE')
+                || !newCategories.includes('HOSPITAL_URGENT_CARE'))) {
                 levelToLock = _LOCK_LEVEL_4;
             }
         }
@@ -6459,10 +6458,10 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
         _buttonBanner.lockRPP = Flag.LockRPP.eval(item, highlightOnly);
 
         // Turn off unnecessary buttons
-        if (_newCategories.includes('PHARMACY')) {
+        if (newCategories.includes('PHARMACY')) {
             if (_buttonBanner.addPharm) _buttonBanner.addPharm = null;
         }
-        if (_newCategories.includes('SUPERMARKET_GROCERY')) {
+        if (newCategories.includes('SUPERMARKET_GROCERY')) {
             if (_buttonBanner.addSuper) _buttonBanner.addSuper = null;
         }
 
@@ -6470,7 +6469,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
         if (!item.attributes.residential && totalSeverity < _SEVERITY.RED) {
             const nameShortSpace = _newName.toUpperCase().replace(/[^A-Z ']/g, '');
             if (nameShortSpace.includes('\'S HOUSE') || nameShortSpace.includes('\'S HOME') || nameShortSpace.includes('\'S WORK')) {
-                if (!containsAny(_newCategories, ['RESTAURANT', 'DESSERT', 'BAR']) && !pnhNameRegMatch) {
+                if (!containsAny(newCategories, ['RESTAURANT', 'DESSERT', 'BAR']) && !pnhNameRegMatch) {
                     _buttonBanner.resiTypeNameSoft = new Flag.ResiTypeNameSoft();
                 }
             }
