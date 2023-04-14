@@ -2238,7 +2238,7 @@
             }
         },
         RestAreaSpec: class extends WLActionFlag {
-            constructor() {
+            constructor(venue) {
                 super(
                     true,
                     _SEVERITY.RED,
@@ -2249,34 +2249,14 @@
                     'Whitelist place',
                     'restAreaSpec'
                 );
+                this.venue = venue;
             }
 
-            // eslint-disable-next-line class-methods-use-this
             action() {
-                const venue = getSelectedVenue();
-                const actions = [];
-                // update categories according to spec
-                _newCategories = insertAtIndex(_newCategories, 'REST_AREAS', 0);
-                actions.push(new UpdateObject(venue, { categories: _newCategories }));
-                _UPDATED_FIELDS.categories.updated = true;
-
+                const categories = insertAtIndex(this.venue.getCategories(), 'REST_AREAS', 0);
                 // make it 24/7
-                actions.push(new UpdateObject(venue, {
-                    openingHours: [new OpeningHour({ days: [1, 2, 3, 4, 5, 6, 0], fromHour: '00:00', toHour: '00:00' })]
-                }));
-                _UPDATED_FIELDS.openingHours.updated = true;
-
-                _servicesBanner.add247.checked = true;
-                _servicesBanner.addParking.actionOn(actions); // add parking service
-                _servicesBanner.addWheelchair.actionOn(actions); // add parking service
-                _buttonBanner.restAreaSpec.active = false; // reset the display flag
-
-                executeMultiAction(actions);
-
-                _disableHighlightTest = true;
-                harmonizePlaceGo(venue, 'harmonize');
-                _disableHighlightTest = false;
-                applyHighlightsTest(venue);
+                const openingHours = [new OpeningHour({ days: [1, 2, 3, 4, 5, 6, 0], fromHour: '00:00', toHour: '00:00' })];
+                addUpdateAction(this.venue, { categories, openingHours }, null, true);
             }
         },
         EVChargingStationWarning: class extends FlagBase {
@@ -3989,55 +3969,57 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
             }
         },
         AddCat2: class extends ActionFlag {
-            constructor(altCategory) {
+            constructor(venue, altCategory) {
                 super(true, _SEVERITY.GREEN, `Is there a ${_catTransWaze2Lang[altCategory]} at this location?`, 'Yes', `Add ${_catTransWaze2Lang[altCategory]}`);
                 this.altCategory = altCategory;
+                this.venue = venue;
             }
 
-            static eval(specCases, altCategory) {
+            static eval(venue, specCases, newCategories, altCategory) {
                 let result = null;
-                if (specCases.includes('buttOn_addCat2') && !_newCategories.includes(altCategory)) {
-                    result = new this(altCategory);
+                if (specCases.includes('buttOn_addCat2') && !newCategories.includes(altCategory)) {
+                    result = new this(venue, altCategory);
                 }
                 return result;
             }
 
             action() {
                 const venue = getSelectedVenue();
-                _newCategories.push(this.altCategory);
-                addUpdateAction(venue, { categories: _newCategories }, null, true);
+                const categories = insertAtIndex(this.venue.getCategories(), this.altCategory, 1);
+                addUpdateAction(venue, { categories }, null, true);
             }
         },
         AddPharm: class extends ActionFlag {
-            constructor() { super(true, _SEVERITY.GREEN, 'Is there a Pharmacy at this location?', 'Yes', 'Add Pharmacy category'); }
+            constructor(venue) {
+                super(true, _SEVERITY.GREEN, 'Is there a Pharmacy at this location?', 'Yes', 'Add Pharmacy category');
+                this.venue = venue;
+            }
 
-            // eslint-disable-next-line class-methods-use-this
             action() {
-                const venue = getSelectedVenue();
-                _newCategories = insertAtIndex(_newCategories, 'PHARMACY', 1);
-                addUpdateAction(venue, { categories: _newCategories }, null, true);
+                const categories = insertAtIndex(this.venue.getCategories(), 'PHARMACY', 1);
+                addUpdateAction(this.venue, { categories }, null, true);
             }
         },
         AddSuper: class extends ActionFlag {
-            constructor() { super(true, _SEVERITY.GREEN, 'Does this location have a supermarket?', 'Yes', 'Add Supermarket category'); }
+            constructor(venue) {
+                super(true, _SEVERITY.GREEN, 'Does this location have a supermarket?', 'Yes', 'Add Supermarket category');
+                this.venue = venue;
+            }
 
-            // eslint-disable-next-line class-methods-use-this
             action() {
-                const venue = getSelectedVenue();
-                _newCategories = insertAtIndex(_newCategories, 'SUPERMARKET_GROCERY', 1);
-                addUpdateAction(venue, { categories: _newCategories }, null, true);
+                const categories = insertAtIndex(this.venue.getCategories(), 'SUPERMARKET_GROCERY', 1);
+                addUpdateAction(this.venue, { categories }, null, true);
             }
         },
         AppendAMPM: class extends ActionFlag {
-            constructor() { super(true, _SEVERITY.GREEN, 'Is there an ampm at this location?', 'Yes', 'Add ampm to the place'); }
+            constructor(venue) {
+                super(true, _SEVERITY.GREEN, 'Is there an ampm at this location?', 'Yes', 'Add ampm to the place');
+                this.venue = venue;
+            }
 
-            // eslint-disable-next-line class-methods-use-this
             action() {
-                const venue = getSelectedVenue();
-                _newCategories = insertAtIndex(_newCategories, 'CONVENIENCE_STORE', 1);
-                _newName = 'ARCO ampm';
-                _newURL = 'ampm.com';
-                addUpdateAction(venue, { name: _newName, url: _newURL, categories: _newCategories }, null, true);
+                const categories = insertAtIndex(this.venue.getCategories(), 'CONVENIENCE_STORE', 1);
+                addUpdateAction(this.venue, { name: 'ARCO ampm', url: 'ampm.com', categories }, null, true);
             }
         },
         AddATM: class extends ActionFlag {
@@ -5305,13 +5287,13 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                                     // flag = new Flag.AddCat2();
                                     break;
                                 case 'addPharm':
-                                    flag = new Flag.AddPharm();
+                                    flag = new Flag.AddPharm(item);
                                     break;
                                 case 'addSuper':
-                                    flag = new Flag.AddSuper();
+                                    flag = new Flag.AddSuper(item);
                                     break;
                                 case 'appendAMPM':
-                                    flag = new Flag.AppendAMPM();
+                                    flag = new Flag.AppendAMPM(item);
                                     break;
                                 case 'addATM':
                                     flag = new Flag.AddATM();
@@ -5653,7 +5635,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                     }
                 }
                 // Enable optional 2nd category button
-                _buttonBanner.addCat2 = Flag.AddCat2.eval(specCases, altCategories[0]);
+                _buttonBanner.addCat2 = Flag.AddCat2.eval(item, specCases, _newCategories, altCategories[0]);
 
                 // Description update
                 newDescripion = pnhMatchData[phDescriptionIdx];
@@ -6402,7 +6384,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                     _buttonBanner.phoneMissing.WLactive = false;
                 }
             } else if (!_wl.restAreaSpec) {
-                _buttonBanner.restAreaSpec = new Flag.RestAreaSpec();
+                _buttonBanner.restAreaSpec = new Flag.RestAreaSpec(item);
             }
         }
 
