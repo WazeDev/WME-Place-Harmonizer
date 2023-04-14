@@ -4103,8 +4103,9 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                         categories = categories.slice(); // create a copy
                         categories[indexToReplace] = 'HOSPITAL_URGENT_CARE';
                     }
-                    addUpdateAction(this.venue, { categories }, null, true);
+                    addUpdateAction(this.venue, { categories });
                 }
+                harmonizePlaceGo(this.venue, 'harmonize');
             }
         },
         NotAHospital: class extends WLActionFlag {
@@ -4157,7 +4158,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
             }
         },
         ChangeToDoctorClinic: class extends WLActionFlag {
-            constructor() {
+            constructor(venue) {
                 super(
                     true,
                     _SEVERITY.GREEN,
@@ -4168,6 +4169,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                     'Whitelist category',
                     'changeToDoctorClinic'
                 );
+                this.venue = venue;
             }
 
             static eval(venue, newCategories, highlightOnly, pnhNameRegMatch) {
@@ -4178,16 +4180,14 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                     // The date criteria was added because Doctor/Clinic category was added around then, and it's assumed if the
                     // place has been edited since then, people would have already updated the category.
 
-                    result = new this();
+                    result = new this(venue);
                     result.WLactive = null;
                 }
                 return result;
             }
 
-            // eslint-disable-next-line class-methods-use-this
             action() {
-                const venue = getSelectedVenue();
-                let categories = venue.attributes.categories.slice();
+                let categories = this.venue.getCategories().slice();
                 let updateIt = false;
                 if (categories.length) {
                     ['OFFICES', 'PERSONAL_CARE'].forEach(cat => {
@@ -4203,32 +4203,44 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                     updateIt = true;
                 }
                 if (updateIt) {
-                    addUpdateAction(venue, { categories });
+                    addUpdateAction(this.venue, { categories });
                 }
-                harmonizePlaceGo(venue, 'harmonize'); // Rerun the script to update fields and lock
+                harmonizePlaceGo(this.venue, 'harmonize');
             }
         },
-        STC: class extends ActionFlag {
-            constructor() {
-                super(true, _SEVERITY.GREEN, '', 'Force Title Case?', 'Force title case to: ');
-                this.originalName = null;
-                this.confirmChange = false;
+        TitleCaseName: class extends ActionFlag {
+            #confirmChange = false;
+            #originalName;
+
+            constructor(venue, name, nameSuffix) {
+                const titleCaseName = toTitleCaseStrong(name);
+                super(true, _SEVERITY.GREEN, '', 'Force Title Case?', `Force title case to: ${titleCaseName}`);
+                this.#originalName = name + (nameSuffix || '');
+                this.suffixMessage = `<span style="margin-left: 4px;font-size: 14px">&bull; ${titleCaseName}${nameSuffix || ''}</span>`;
                 this.noBannerAssemble = true;
+                this.venue = venue;
+            }
+
+            static #venueIsFlaggable(name) {
+                return name !== toTitleCaseStrong(name);
+            }
+
+            static eval(venue, name, nameSuffix) {
+                return this.#venueIsFlaggable(name) ? new this(venue, name, nameSuffix) : null;
             }
 
             action() {
-                const venue = getSelectedVenue();
-                let newName = venue.attributes.name;
-                if (newName === this.originalName || this.confirmChange) {
-                    const parts = getNameParts(this.originalName);
-                    newName = toTitleCaseStrong(parts.base);
-                    if (parts.base !== newName) {
-                        addUpdateAction(venue, { name: newName + (parts.suffix || '') });
+                let name = this.venue.getName();
+                if (name === this.#originalName || this.#confirmChange) {
+                    const parts = getNameParts(this.#originalName);
+                    name = toTitleCaseStrong(parts.base);
+                    if (parts.base !== name) {
+                        addUpdateAction(this.venue, { name: name + (parts.suffix || '') });
                     }
-                    harmonizePlaceGo(venue, 'harmonize');
+                    harmonizePlaceGo(this.venue, 'harmonize');
                 } else {
-                    $('button#WMEPH_STC').text('Are you sure?').after(' The name has changed.  This will overwrite the new name.');
-                    _buttonBanner.STC.confirmChange = true;
+                    $('button#WMEPH_titleCaseName').text('Are you sure?').after(' The name has changed. This will overwrite the new name.');
+                    this.#confirmChange = true;
                 }
             }
         },
@@ -4465,7 +4477,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
             addATM: null,
             addConvStore: null,
             isThisAPostOffice: null,
-            STC: null,
+            titleCaseName: null,
             changeToHospitalUrgentCare: null,
             sfAliases: null,
             placeMatched: null,
@@ -5586,13 +5598,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                     }
                 } else if (!updatePNHName) {
                     // Strong title case option for non-PNH places
-                    const titleCaseName = toTitleCaseStrong(_newName);
-                    if (_newName !== titleCaseName) {
-                        _buttonBanner.STC = new Flag.STC();
-                        _buttonBanner.STC.suffixMessage = `<span style="margin-left: 4px;font-size: 14px">&bull; ${titleCaseName}${newNameSuffix || ''}</span>`;
-                        _buttonBanner.STC.title += titleCaseName;
-                        _buttonBanner.STC.originalName = _newName + (newNameSuffix || '');
-                    }
+                    _buttonBanner.titleCaseName = Flag.TitleCaseName.eval(item, _newName, newNameSuffix);
                 }
 
                 // *** need to add a section above to allow other permissible categories to remain? (optional)
@@ -5663,13 +5669,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                 }
 
                 // Strong title case option for non-PNH places
-                const titleCaseName = toTitleCaseStrong(_newName);
-                if (_newName !== titleCaseName) {
-                    _buttonBanner.STC = new Flag.STC();
-                    _buttonBanner.STC.suffixMessage = `<span style="margin-left: 4px;font-size: 14px">&bull; ${titleCaseName}${newNameSuffix || ''}</span>`;
-                    _buttonBanner.STC.title += titleCaseName;
-                    _buttonBanner.STC.originalName = _newName + (newNameSuffix || '');
-                }
+                _buttonBanner.titleCaseName = Flag.TitleCaseName.eval(item, _newName, newNameSuffix);
 
                 _newURL = normalizeURL(_newURL, true, false, item, region); // Normalize url
 
