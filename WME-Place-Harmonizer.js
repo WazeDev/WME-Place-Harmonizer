@@ -1281,11 +1281,11 @@
             return matchPNHRegionData;
         }
         if (pnhNameMatch) { // if a name match was found but not for region, prod the user to get it approved
-            _buttonBanner.ApprovalSubmit = new Flag.ApprovalSubmit(region3L, pnhOrderNum, pnhNameTemp, placePL);
+            _buttonBanner.ApprovalSubmit = new Flag.ApprovalSubmit(_approveRegionURL);
             return ['ApprovalNeeded', pnhNameTemp, pnhOrderNum];
         }
         // if no match was found, suggest adding the place to the sheet if it's a chain
-        _buttonBanner.NewPlaceSubmit = new Flag.NewPlaceSubmit();
+        _buttonBanner.NewPlaceSubmit = new Flag.NewPlaceSubmit(_newPlaceURL);
         return ['NoMatch'];
     } // END harmoList function
 
@@ -4274,41 +4274,27 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
             }
         },
         NewPlaceSubmit: class extends ActionFlag {
-            constructor() {
+            #newPlaceUrl;
+
+            constructor(newPlaceUrl) {
                 super(true, _SEVERITY.GREEN, 'No PNH match. If it\'s a chain: ', 'Submit new chain data', 'Submit info for a new chain through the linked form');
+                this.#newPlaceUrl = newPlaceUrl;
             }
 
-            // eslint-disable-next-line class-methods-use-this
             action() {
-                window.open(_newPlaceURL);
+                window.open(this.#newPlaceUrl);
             }
         },
         ApprovalSubmit: class extends ActionFlag {
-            constructor(region, pnhOrderNum, pnhNameTemp, placePL) {
+            #approveRegionURL;
+
+            constructor(approveRegionURL) {
                 super(true, _SEVERITY.GREEN, 'PNH data exists but is not approved for this region: ', 'Request approval', 'Request region/country approval of this place');
-                this.region = region;
-                this.pnhOrderNum = pnhOrderNum;
-                this.pnhNameTemp = pnhNameTemp;
-                this.placePL = placePL;
+                this.#approveRegionURL = approveRegionURL;
             }
 
-            // eslint-disable-next-line class-methods-use-this
             action() {
-                // if (_PM_USER_LIST.hasOwnProperty(this.region) && _PM_USER_LIST[this.region].approvalActive) {
-                //     const forumPMInputs = {
-                //         subject: `${this.pnhOrderNum} PNH approval for "${this.pnhNameTemp}"`,
-                //         message: `Please approve "${this.pnhNameTemp}" for the ${this.region} region.  Thanks\n \nPNH order number: ${
-                //             this.pnhOrderNum}\n \nPermalink: ${this.placePL}\n \nPNH Link: ${_URLS.usaPnh}`,
-                //         preview: 'Preview',
-                //         attach_sig: 'on'
-                //     };
-                //     _PM_USER_LIST[this.region].mods.forEach(obj => {
-                //         forumPMInputs[`address_list[u][${obj.id}]`] = 'to';
-                //     });
-                //     newForumPost('https://www.waze.com/forum/ucp.php?i=pm&mode=compose', forumPMInputs);
-                // } else {
-                window.open(_approveRegionURL);
-                // }
+                window.open(this.#approveRegionURL);
             }
         },
         PlaceWebsite: class extends ActionFlag {
