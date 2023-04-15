@@ -173,9 +173,6 @@
 
     // Whitelisting vars
     let _venueWhitelist;
-    let _venueWhitelistStr;
-    let _WLSToMerge;
-    let _wlKeyName;
     const _WL_BUTTON_TEXT = 'WL';
     const _WL_LOCAL_STORE_NAME = 'WMEPH-venueWhitelistNew';
     const _WL_LOCAL_STORE_NAME_COMPRESSED = 'WMEPH-venueWhitelistCompressed';
@@ -224,8 +221,7 @@
     // lock levels are offset by one
     const _LOCK_LEVEL_2 = 1;
     const _LOCK_LEVEL_4 = 3;
-    let _defaultLockLevel = _LOCK_LEVEL_2;
-    let _pnhLockLevel;
+
     // An enum to help clarify flag severity levels
     const _SEVERITY = {
         GREEN: 0,
@@ -952,33 +948,34 @@
 
     // Whitelist stringifying and parsing
     function saveWhitelistToLS(compress) {
-        _venueWhitelistStr = JSON.stringify(_venueWhitelist);
+        let wlString = JSON.stringify(_venueWhitelist);
         if (compress) {
-            if (_venueWhitelistStr.length < 4800000) { // Also save to regular storage as a back up
-                localStorage.setItem(_WL_LOCAL_STORE_NAME, _venueWhitelistStr);
+            if (wlString.length < 4800000) { // Also save to regular storage as a back up
+                localStorage.setItem(_WL_LOCAL_STORE_NAME, wlString);
             }
-            _venueWhitelistStr = LZString.compressToUTF16(_venueWhitelistStr);
-            localStorage.setItem(_WL_LOCAL_STORE_NAME_COMPRESSED, _venueWhitelistStr);
+            wlString = LZString.compressToUTF16(wlString);
+            localStorage.setItem(_WL_LOCAL_STORE_NAME_COMPRESSED, wlString);
         } else {
-            localStorage.setItem(_WL_LOCAL_STORE_NAME, _venueWhitelistStr);
+            localStorage.setItem(_WL_LOCAL_STORE_NAME, wlString);
         }
     }
     function loadWhitelistFromLS(decompress) {
+        let wlString;
         if (decompress) {
-            _venueWhitelistStr = localStorage.getItem(_WL_LOCAL_STORE_NAME_COMPRESSED);
-            _venueWhitelistStr = LZString.decompressFromUTF16(_venueWhitelistStr);
+            wlString = localStorage.getItem(_WL_LOCAL_STORE_NAME_COMPRESSED);
+            wlString = LZString.decompressFromUTF16(wlString);
         } else {
-            _venueWhitelistStr = localStorage.getItem(_WL_LOCAL_STORE_NAME);
+            wlString = localStorage.getItem(_WL_LOCAL_STORE_NAME);
         }
-        _venueWhitelist = JSON.parse(_venueWhitelistStr);
+        _venueWhitelist = JSON.parse(wlString);
     }
     function backupWhitelistToLS(compress) {
-        _venueWhitelistStr = JSON.stringify(_venueWhitelist);
+        let wlString = JSON.stringify(_venueWhitelist);
         if (compress) {
-            _venueWhitelistStr = LZString.compressToUTF16(_venueWhitelistStr);
-            localStorage.setItem(_WL_LOCAL_STORE_NAME_COMPRESSED + Math.floor(Date.now() / 1000), _venueWhitelistStr);
+            wlString = LZString.compressToUTF16(wlString);
+            localStorage.setItem(_WL_LOCAL_STORE_NAME_COMPRESSED + Math.floor(Date.now() / 1000), wlString);
         } else {
-            localStorage.setItem(_WL_LOCAL_STORE_NAME + Math.floor(Date.now() / 1000), _venueWhitelistStr);
+            localStorage.setItem(_WL_LOCAL_STORE_NAME + Math.floor(Date.now() / 1000), wlString);
         }
     }
 
@@ -3884,12 +3881,14 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
             }
         },
         LockRPP: class extends ActionFlag {
-            constructor(venue) {
+            #defaultLockLevel;
+
+            constructor(venue, defaultLockLevel) {
                 let message = 'Lock at <select id="RPPLockLevel">';
                 let ddlSelected = false;
                 for (let llix = 1; llix < 6; llix++) {
                     if (llix < _USER.rank + 1) {
-                        if (!ddlSelected && (_defaultLockLevel === llix - 1 || llix === _USER.rank)) {
+                        if (!ddlSelected && (defaultLockLevel === llix - 1 || llix === _USER.rank)) {
                             message += `<option value="${llix}" selected="selected">${llix}</option>`;
                             ddlSelected = true;
                         } else {
@@ -3901,6 +3900,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                 message = `Current lock: ${parseInt(venue.attributes.lockRank, 10) + 1}. ${message} ?`;
                 super(true, _SEVERITY.GREEN, message, 'Lock', 'Lock the residential point');
                 this.venue = venue;
+                this.defaultLockLevel = defaultLockLevel;
             }
 
             static #venueIsFlaggable(venue, highlightOnly) {
@@ -3908,16 +3908,16 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                 return !highlightOnly && venue.isResidential() && (_USER.isDevUser || _USER.isBetaUser || _USER.rank >= 3);
             }
 
-            static eval(venue, highlightOnly) {
+            static eval(venue, highlightOnly, defaultLockLevel) {
                 let result = null;
                 if (this.#venueIsFlaggable(venue, highlightOnly)) {
-                    result = new this(venue);
+                    result = new this(venue, defaultLockLevel);
                 }
                 return result;
             }
 
             action() {
-                let levelToLock = $('#RPPLockLevel :selected').val() || _defaultLockLevel + 1;
+                let levelToLock = $('#RPPLockLevel :selected').val() || this.#defaultLockLevel + 1;
                 logDev(`RPPlevelToLock: ${levelToLock}`);
 
                 levelToLock -= 1;
@@ -4873,7 +4873,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
         }
 
         _buttonBanner = getButtonBanner();
-
+        let pnhLockLevel;
         if (!highlightOnly) {
             // Uncomment this to test all field highlights.
             // _UPDATED_FIELDS.getFieldProperties().forEach(prop => {
@@ -4906,7 +4906,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
             }
 
             // reset PNH lock level
-            _pnhLockLevel = -1;
+            pnhLockLevel = -1;
         }
 
         // If place has hours of 0:00-23:59, highlight yellow or if harmonizing, convert to All Day.
@@ -5001,6 +5001,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
         let state2L = 'Unknown';
         let region = 'Unknown';
         let gFormState = '';
+        let defaultLockLevel = _LOCK_LEVEL_2;
         for (let usdix = 1; usdix < _PNH_DATA.states.length; usdix++) {
             _stateDataTemp = _PNH_DATA.states[usdix].split('|');
             if (stateName === _stateDataTemp[_psStateIx]) {
@@ -5008,7 +5009,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                 region = _stateDataTemp[_psRegionIx];
                 gFormState = _stateDataTemp[_psGoogleFormStateIx];
                 if (_stateDataTemp[_psDefaultLockLevelIx].match(/[1-5]{1}/) !== null) {
-                    _defaultLockLevel = _stateDataTemp[_psDefaultLockLevelIx] - 1; // normalize by -1
+                    defaultLockLevel = _stateDataTemp[_psDefaultLockLevelIx] - 1; // normalize by -1
                 } else if (!highlightOnly) {
                     WazeWrap.Alerts.warning(_SCRIPT_NAME, 'Lock level sheet data is not correct');
                 } else {
@@ -5023,7 +5024,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                 region = _stateDataTemp[_psRegionIx];
                 gFormState = _stateDataTemp[_psGoogleFormStateIx];
                 if (_stateDataTemp[_psDefaultLockLevelIx].match(/[1-5]{1}/) !== null) {
-                    _defaultLockLevel = _stateDataTemp[_psDefaultLockLevelIx] - 1; // normalize by -1
+                    defaultLockLevel = _stateDataTemp[_psDefaultLockLevelIx] - 1; // normalize by -1
                 } else if (!highlightOnly) {
                     WazeWrap.Alerts.warning(_SCRIPT_NAME, 'Lock level sheet data is not correct');
                 } else {
@@ -5093,7 +5094,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
         // Note for Indiana editors to check liquor store hours if Sunday hours haven't been added yet.
         _buttonBanner.indianaLiquorStoreHours = Flag.IndianaLiquorStoreHours.eval(item, newName, highlightOnly);
 
-        const isLocked = item.attributes.lockRank >= (_pnhLockLevel > -1 ? _pnhLockLevel : _defaultLockLevel);
+        const isLocked = item.attributes.lockRank >= (pnhLockLevel > -1 ? pnhLockLevel : defaultLockLevel);
 
         // Set up a variable (newBrand) to contain the brand. When harmonizing, it may be forced to a new value.
         // Other brand flags should use it since it won't be updated on the actual venue until later.
@@ -5719,7 +5720,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
 
                 // Special Lock by PNH
                 if (specCases.includes('lockAt5')) {
-                    _pnhLockLevel = 4;
+                    pnhLockLevel = 4;
                 }
             } else { // if no PNH match found
                 // Strong title case option for non-PNH places
@@ -5906,13 +5907,13 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
             }
 
             if (highestCategoryLock > -1) {
-                _defaultLockLevel = highestCategoryLock;
+                defaultLockLevel = highestCategoryLock;
             }
 
             if (isPoint) {
                 if (maxPointSeverity === _SEVERITY.RED) {
                     _buttonBanner.areaNotPoint = new Flag.AreaNotPoint();
-                    if (_wl.areaNotPoint || item.attributes.lockRank >= _defaultLockLevel) {
+                    if (_wl.areaNotPoint || item.attributes.lockRank >= defaultLockLevel) {
                         _buttonBanner.areaNotPoint.WLactive = false;
                         _buttonBanner.areaNotPoint.severity = _SEVERITY.GREEN;
                     } else {
@@ -5920,7 +5921,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                     }
                 } else if (maxPointSeverity === _SEVERITY.YELLOW) {
                     _buttonBanner.areaNotPointMid = new Flag.AreaNotPointMid();
-                    if (_wl.areaNotPoint || item.attributes.lockRank >= _defaultLockLevel) {
+                    if (_wl.areaNotPoint || item.attributes.lockRank >= defaultLockLevel) {
                         _buttonBanner.areaNotPointMid.WLactive = false;
                         _buttonBanner.areaNotPointMid.severity = _SEVERITY.GREEN;
                     } else {
@@ -5928,14 +5929,14 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                     }
                 } else if (maxPointSeverity === _SEVERITY.BLUE) {
                     _buttonBanner.areaNotPointLow = new Flag.AreaNotPointLow();
-                    if (_wl.areaNotPoint || item.attributes.lockRank >= _defaultLockLevel) {
+                    if (_wl.areaNotPoint || item.attributes.lockRank >= defaultLockLevel) {
                         _buttonBanner.areaNotPointLow.WLactive = false;
                         _buttonBanner.areaNotPointLow.severity = 0;
                     }
                 }
             } else if (maxAreaSeverity === _SEVERITY.RED) {
                 _buttonBanner.pointNotArea = new Flag.PointNotArea();
-                if (_wl.pointNotArea || item.attributes.lockRank >= _defaultLockLevel) {
+                if (_wl.pointNotArea || item.attributes.lockRank >= defaultLockLevel) {
                     _buttonBanner.pointNotArea.WLactive = false;
                     _buttonBanner.pointNotArea.severity = 0;
                 } else {
@@ -5943,7 +5944,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                 }
             } else if (maxAreaSeverity === _SEVERITY.YELLOW) {
                 _buttonBanner.pointNotAreaMid = new Flag.PointNotAreaMid();
-                if (_wl.pointNotArea || item.attributes.lockRank >= _defaultLockLevel) {
+                if (_wl.pointNotArea || item.attributes.lockRank >= defaultLockLevel) {
                     _buttonBanner.pointNotAreaMid.WLactive = false;
                     _buttonBanner.pointNotAreaMid.severity = 0;
                 } else {
@@ -5951,7 +5952,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                 }
             } else if (maxAreaSeverity === _SEVERITY.BLUE) {
                 _buttonBanner.pointNotAreaLow = new Flag.PointNotAreaLow();
-                if (_wl.pointNotArea || item.attributes.lockRank >= _defaultLockLevel) {
+                if (_wl.pointNotArea || item.attributes.lockRank >= defaultLockLevel) {
                     _buttonBanner.pointNotAreaLow.WLactive = false;
                     _buttonBanner.pointNotAreaLow.severity = 0;
                 }
@@ -6378,11 +6379,11 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
         // Place locking
         // final formatting of desired lock levels
         let levelToLock;
-        if (_pnhLockLevel !== -1 && !highlightOnly) {
-            logDev(`PNHLockLevel: ${_pnhLockLevel}`);
-            levelToLock = _pnhLockLevel;
+        if (pnhLockLevel !== -1 && !highlightOnly) {
+            logDev(`PNHLockLevel: ${pnhLockLevel}`);
+            levelToLock = pnhLockLevel;
         } else {
-            levelToLock = _defaultLockLevel;
+            levelToLock = defaultLockLevel;
         }
         if (region === 'SER') {
             if (newCategories.includes('COLLEGE_UNIVERSITY') && newCategories.includes('PARKING_LOT')) {
@@ -6449,7 +6450,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
         }
 
         // RPP Locking option for R3+
-        _buttonBanner.lockRPP = Flag.LockRPP.eval(item, highlightOnly);
+        _buttonBanner.lockRPP = Flag.LockRPP.eval(item, highlightOnly, defaultLockLevel);
 
         // Turn off unnecessary buttons
         if (newCategories.includes('PHARMACY')) {
@@ -6548,12 +6549,12 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                     );
                 } else {
                     const wlAction = dID => {
-                        _wlKeyName = 'dupeWL';
+                        const wlKey = 'dupeWL';
                         if (!_venueWhitelist.hasOwnProperty(itemID)) { // If venue is NOT on WL, then add it.
                             _venueWhitelist[itemID] = { dupeWL: [] };
                         }
-                        if (!_venueWhitelist[itemID].hasOwnProperty(_wlKeyName)) { // If dupeWL key is not in venue WL, then initialize it.
-                            _venueWhitelist[itemID][_wlKeyName] = [];
+                        if (!_venueWhitelist[itemID].hasOwnProperty(wlKey)) { // If dupeWL key is not in venue WL, then initialize it.
+                            _venueWhitelist[itemID][wlKey] = [];
                         }
                         _venueWhitelist[itemID].dupeWL.push(dID); // WL the id for the duplicate venue
                         _venueWhitelist[itemID].dupeWL = _.uniq(_venueWhitelist[itemID].dupeWL);
@@ -6561,8 +6562,8 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                         if (!_venueWhitelist.hasOwnProperty(dID)) { // If venue is NOT on WL, then add it.
                             _venueWhitelist[dID] = { dupeWL: [] };
                         }
-                        if (!_venueWhitelist[dID].hasOwnProperty(_wlKeyName)) { // If dupeWL key is not in venue WL, then initialize it.
-                            _venueWhitelist[dID][_wlKeyName] = [];
+                        if (!_venueWhitelist[dID].hasOwnProperty(wlKey)) { // If dupeWL key is not in venue WL, then initialize it.
+                            _venueWhitelist[dID][wlKey] = [];
                         }
                         _venueWhitelist[dID].dupeWL.push(itemID); // WL the id for the duplicate venue
                         _venueWhitelist[dID].dupeWL = _.uniq(_venueWhitelist[dID].dupeWL);
@@ -8221,18 +8222,18 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                 () => { }
             );
         } else { // try to merge uncompressed WL data
-            _WLSToMerge = validateWLS($('#WMEPH-WLInput').val());
-            if (_WLSToMerge) {
+            let wlStringToMerge = validateWLS($('#WMEPH-WLInput').val());
+            if (wlStringToMerge) {
                 log('Whitelists merged!');
-                _venueWhitelist = mergeWL(_venueWhitelist, _WLSToMerge);
+                _venueWhitelist = mergeWL(_venueWhitelist, wlStringToMerge);
                 saveWhitelistToLS(true);
                 $wlToolsMsg.append('<p style="color:green">Whitelist data merged<p>');
                 $wlInput.val('');
             } else { // try compressed WL
-                _WLSToMerge = validateWLS(LZString.decompressFromUTF16($('#WMEPH-WLInput').val()));
-                if (_WLSToMerge) {
+                wlStringToMerge = validateWLS(LZString.decompressFromUTF16($('#WMEPH-WLInput').val()));
+                if (wlStringToMerge) {
                     log('Whitelists merged!');
-                    _venueWhitelist = mergeWL(_venueWhitelist, _WLSToMerge);
+                    _venueWhitelist = mergeWL(_venueWhitelist, wlStringToMerge);
                     saveWhitelistToLS(true);
                     $wlToolsMsg.append('<p style="color:green">Whitelist data merged<p>');
                     $wlInput.val('');
