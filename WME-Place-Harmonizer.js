@@ -692,32 +692,6 @@
         return !str?.trim().length;
     }
 
-    function getHoursHtml(label, defaultText) {
-        defaultText = defaultText || _DEFAULT_HOURS_TEXT;
-        return $('<span>').append(
-            `${label}:`,
-            $('<input>', {
-                class: 'btn btn-default btn-xs wmeph-btn',
-                id: 'WMEPH_noHours',
-                title: 'Add pasted hours to existing',
-                type: 'button',
-                value: 'Add hours',
-                style: 'margin-bottom:4px; margin-right:0px'
-            }),
-            $('<input>', {
-                class: 'btn btn-default btn-xs wmeph-btn',
-                id: 'WMEPH_noHours_2',
-                title: 'Replace existing hours with pasted hours',
-                type: 'button',
-                value: 'Replace all hours',
-                style: 'margin-bottom:4px; margin-right:0px'
-            }),
-            // jquery throws an error when setting autocomplete="off" in a jquery object (must use .autocomplete() function), so just use a string here.
-            // eslint-disable-next-line max-len
-            `<textarea id="WMEPH-HoursPaste" wrap="off" autocomplete="off" style="overflow:auto;width:85%;max-width:85%;min-width:85%;font-size:0.85em;height:24px;min-height:24px;max-height:300px;padding-left:3px;color:#AAA">${defaultText}`
-        )[0].outerHTML;
-    }
-
     function getSelectedVenue() {
         const features = WazeWrap.getSelectedFeatures();
         // Be sure to check for features.length === 1, in case multiple venues are currently selected.
@@ -2210,6 +2184,10 @@
         },
         HoursOverlap: class extends FlagBase {
             constructor() { super(true, _SEVERITY.RED, 'Overlapping hours of operation. Place might not save.'); }
+
+            static eval(hoursOverlap) {
+                return hoursOverlap ? new this() : null;
+            }
         },
         UnmappedRegion: class extends WLFlag {
             constructor() { super(true, _SEVERITY.RED, 'This category is usually not mapped in this region.', true, 'Whitelist unmapped category', 'unmappedRegion'); }
@@ -2821,6 +2799,21 @@
         },
         Mismatch247: class extends FlagBase {
             constructor() { super(true, _SEVERITY.YELLOW, 'Hours of operation listed as open 24hrs but not for all 7 days.'); }
+
+            static #venueIsFlaggable(venue) {
+                if (venue.attributes.openingHours.length === 1) { // if one set of hours exist, check for partial 24hrs setting
+                    const hoursEntry = venue.attributes.openingHours[0];
+                    if (hoursEntry.days.length < 7 && /^0?0:00$/.test(hoursEntry.fromHour)
+                        && (/^0?0:00$/.test(hoursEntry.toHour) || hoursEntry.toHour === '23:59')) {
+                        return true;
+                    }
+                }
+                return false;
+            }
+
+            static eval(venue) {
+                return this.#venueIsFlaggable(venue) ? new this() : null;
+            }
         },
         PhoneInvalid: class extends FlagBase {
             constructor() { super(true, _SEVERITY.YELLOW, 'Phone # is invalid.'); }
@@ -3470,9 +3463,77 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
             }
         },
         NoHours: class extends WLFlag {
-            constructor(venue) {
-                super(true, _SEVERITY.BLUE, getHoursHtml('No hours'), true, 'Whitelist "No hours"', 'noHours');
+            constructor(venue, categories, wl, highlightOnly) {
+                let severity;
+                let wlActive = true;
+                let message;
+                if (!venue.attributes.openingHours.length) { // if no hours...
+                    if (!highlightOnly) message = Flag.NoHours.getHoursHtml('No hours');
+                    if (Flag.NoHours.#noHoursIsOk(categories, wl)) {
+                        severity = _SEVERITY.GREEN;
+                        wlActive = false;
+                    } else {
+                        severity = _SEVERITY.BLUE;
+                        wlActive = true;
+                    }
+                } else {
+                    if (!highlightOnly) message = Flag.NoHours.getHoursHtml('Hours', true);
+                    severity = _SEVERITY.GREEN;
+                    wlActive = false;
+                }
+                super(true, severity, message, wlActive, 'Whitelist "No hours"', 'noHours');
                 this.venue = venue;
+                if (!highlightOnly) {
+                    this.postProcess = () => {
+                        // NOTE: Leave these wrapped in the "() => ..." functions, to make sure "this" is bound properly.
+                        $('#WMEPH_noHours').click(() => this.onAddHoursClick());
+                        $('#WMEPH_noHours_2').click(() => this.onReplaceHoursClick());
+                    };
+                }
+            }
+
+            static #venueIsFlaggable(categories) {
+                return !containsAny(categories, ['STADIUM_ARENA', 'CEMETERY', 'TRANSPORTATION', 'FERRY_PIER', 'SUBWAY_STATION',
+                    'BRIDGE', 'TUNNEL', 'JUNCTION_INTERCHANGE', 'ISLAND', 'SEA_LAKE_POOL', 'RIVER_STREAM', 'FOREST_GROVE', 'CANAL',
+                    'SWAMP_MARSH', 'DAM']);
+            }
+
+            static eval(venue, categories, wl, highlightOnly) {
+                return this.#venueIsFlaggable(categories) ? new this(venue, categories, wl, highlightOnly) : null;
+            }
+
+            static #noHoursIsOk(categories, wl) {
+                return wl.noHours
+                    || $('#WMEPH-DisableHoursHL').prop('checked')
+                    || containsAny(categories, ['SCHOOL', 'CONVENTIONS_EVENT_CENTER',
+                        'CAMPING_TRAILER_PARK', 'COTTAGE_CABIN', 'COLLEGE_UNIVERSITY', 'GOLF_COURSE', 'SPORTS_COURT', 'MOVIE_THEATER',
+                        'SHOPPING_CENTER', 'RELIGIOUS_CENTER', 'PARKING_LOT', 'PARK', 'PLAYGROUND', 'AIRPORT', 'FIRE_DEPARTMENT', 'POLICE_STATION',
+                        'SEAPORT_MARINA_HARBOR', 'FARM', 'SCENIC_LOOKOUT_VIEWPOINT']);
+            }
+
+            static getHoursHtml(label, hasExistingHours = false) {
+                return $('<span>').append(
+                    `${label}:`,
+                    $('<input>', {
+                        class: 'btn btn-default btn-xs wmeph-btn',
+                        id: 'WMEPH_noHours',
+                        title: 'Add pasted hours to existing',
+                        type: 'button',
+                        value: 'Add hours',
+                        style: 'margin-bottom:4px; margin-right:0px; margin-left:3px;'
+                    }),
+                    hasExistingHours ? $('<input>', {
+                        class: 'btn btn-default btn-xs wmeph-btn',
+                        id: 'WMEPH_noHours_2',
+                        title: 'Replace existing hours with pasted hours',
+                        type: 'button',
+                        value: 'Replace all hours',
+                        style: 'margin-bottom:4px; margin-right:0px; margin-left:3px;'
+                    }) : '',
+                    // jquery throws an error when setting autocomplete="off" in a jquery object (must use .autocomplete() function), so just use a string here.
+                    // eslint-disable-next-line max-len
+                    `<textarea id="WMEPH-HoursPaste" wrap="off" autocomplete="off" style="overflow:auto;width:85%;max-width:85%;min-width:85%;font-size:0.85em;height:24px;min-height:24px;max-height:300px;padding-left:3px;color:#AAA">${_DEFAULT_HOURS_TEXT}`
+                )[0].outerHTML;
             }
 
             // eslint-disable-next-line class-methods-use-this
@@ -3510,11 +3571,11 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                 }
             }
 
-            addHoursAction() {
+            onAddHoursClick() {
                 this.applyHours();
             }
 
-            replaceHoursAction() {
+            onReplaceHoursClick() {
                 this.applyHours(true);
             }
         },
@@ -5970,37 +6031,11 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                 }
             }
 
-            // Check for missing hours field
-            if (item.attributes.openingHours.length === 0) { // if no hours...
-                if (!containsAny(newCategories, ['STADIUM_ARENA', 'CEMETERY', 'TRANSPORTATION', 'FERRY_PIER', 'SUBWAY_STATION',
-                    'BRIDGE', 'TUNNEL', 'JUNCTION_INTERCHANGE', 'ISLAND', 'SEA_LAKE_POOL', 'RIVER_STREAM', 'FOREST_GROVE', 'CANAL',
-                    'SWAMP_MARSH', 'DAM'])) {
-                    _buttonBanner.noHours = new Flag.NoHours(item);
-                    if (wl.noHours || $('#WMEPH-DisableHoursHL').prop('checked') || containsAny(newCategories, ['SCHOOL', 'CONVENTIONS_EVENT_CENTER',
-                        'CAMPING_TRAILER_PARK', 'COTTAGE_CABIN', 'COLLEGE_UNIVERSITY', 'GOLF_COURSE', 'SPORTS_COURT', 'MOVIE_THEATER',
-                        'SHOPPING_CENTER', 'RELIGIOUS_CENTER', 'PARKING_LOT', 'PARK', 'PLAYGROUND', 'AIRPORT', 'FIRE_DEPARTMENT', 'POLICE_STATION',
-                        'SEAPORT_MARINA_HARBOR', 'FARM', 'SCENIC_LOOKOUT_VIEWPOINT'])) {
-                        _buttonBanner.noHours.WLactive = false;
-                        _buttonBanner.noHours.severity = _SEVERITY.GREEN;
-                    }
-                }
-            } else {
-                if (item.attributes.openingHours.length === 1) { // if one set of hours exist, check for partial 24hrs setting
-                    const hoursEntry = item.attributes.openingHours[0];
-                    if (hoursEntry.days.length < 7 && /^0?0:00$/.test(hoursEntry.fromHour)
-                        && (/^0?0:00$/.test(hoursEntry.toHour) || hoursEntry.toHour === '23:59')) {
-                        _buttonBanner.mismatch247 = new Flag.Mismatch247();
-                    }
-                }
-                _buttonBanner.noHours = new Flag.NoHours(item);
-                _buttonBanner.noHours.severity = _SEVERITY.GREEN;
-                _buttonBanner.noHours.WLactive = false;
-                _buttonBanner.noHours.message = getHoursHtml('Hours');
-            }
-            if (!checkHours(item.attributes.openingHours)) {
-                _buttonBanner.hoursOverlap = new Flag.HoursOverlap();
-                _buttonBanner.noHours = new Flag.NoHours(item);
-            } else {
+            _buttonBanner.noHours = Flag.NoHours.eval(item, newCategories, wl, highlightOnly);
+            _buttonBanner.mismatch247 = Flag.Mismatch247.eval(item);
+
+            const hoursOverlap = venueHasOverlappingHours(item);
+            if (!hoursOverlap) {
                 const tempHours = item.attributes.openingHours.slice();
                 for (let ohix = 0; ohix < item.attributes.openingHours.length; ohix++) {
                     if (tempHours[ohix].days.length === 2 && tempHours[ohix].days[0] === 1 && tempHours[ohix].days[1] === 0) {
@@ -6008,11 +6043,12 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                         logDev('Correcting M-S entry...');
                         tempHours.push(new OpeningHour({ days: [0], fromHour: tempHours[ohix].fromHour, toHour: tempHours[ohix].toHour }));
                         tempHours[ohix].days = [1];
-                        actions.push(new UpdateObject(item, { openingHours: tempHours }));
+                        addUpdateAction(item, { openingHours: tempHours }, actions);
                     }
                 }
             }
 
+            _buttonBanner.hoursOverlap = Flag.HoursOverlap.eval(hoursOverlap);
             _buttonBanner.oldHours = Flag.OldHours.eval(item, catData);
 
             if (!highlightOnly) {
@@ -6928,12 +6964,6 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
         // Format "no hours" section and hook up button events.
         $('#WMEPH_WLnoHours').css({ 'vertical-align': 'top' });
 
-        // NOTE: Leave these wrapped in the "() => ..." functions, to make sure "this" is bound properly.
-        if (_buttonBanner.noHours) {
-            $('#WMEPH_noHours').click(() => _buttonBanner.noHours.addHoursAction());
-            $('#WMEPH_noHours_2').click(() => _buttonBanner.noHours.replaceHoursAction());
-        }
-
         if (_textEntryValues) {
             _textEntryValues.forEach(entry => $(`#${entry.id}`).val(entry.val));
         }
@@ -7427,18 +7457,18 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
         return venue && venue.attributes.openingHours && venue.attributes.openingHours.map(formatOpeningHour);
     }
 
-    // function to check overlapping hours
-    function checkHours(hoursObj) {
-        if (hoursObj.length === 1) {
-            return true;
+    function venueHasOverlappingHours(venue) {
+        const hours = venue.attributes.openingHours;
+        if (hours.length < 2) {
+            return false;
         }
 
         for (let day2Ch = 0; day2Ch < 7; day2Ch++) { // Go thru each day of the week
             const daysObj = [];
-            for (let hourSet = 0; hourSet < hoursObj.length; hourSet++) { // For each set of hours
-                if (hoursObj[hourSet].days.includes(day2Ch)) { // pull out hours that are for the current day, add 2400 if it goes past midnight, and store
-                    const fromHourTemp = hoursObj[hourSet].fromHour.replace(/:/g, '');
-                    let toHourTemp = hoursObj[hourSet].toHour.replace(/:/g, '');
+            for (let hourSet = 0; hourSet < hours.length; hourSet++) { // For each set of hours
+                if (hours[hourSet].days.includes(day2Ch)) { // pull out hours that are for the current day, add 2400 if it goes past midnight, and store
+                    const fromHourTemp = hours[hourSet].fromHour.replace(/:/g, '');
+                    let toHourTemp = hours[hourSet].toHour.replace(/:/g, '');
                     if (toHourTemp <= fromHourTemp) {
                         toHourTemp = parseInt(toHourTemp, 10) + 2400;
                     }
@@ -7449,16 +7479,16 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                 for (let hourSetCheck2 = 1; hourSetCheck2 < daysObj.length; hourSetCheck2++) {
                     for (let hourSetCheck1 = 0; hourSetCheck1 < hourSetCheck2; hourSetCheck1++) {
                         if (daysObj[hourSetCheck2][0] > daysObj[hourSetCheck1][0] && daysObj[hourSetCheck2][0] < daysObj[hourSetCheck1][1]) {
-                            return false;
+                            return true;
                         }
                         if (daysObj[hourSetCheck2][1] > daysObj[hourSetCheck1][0] && daysObj[hourSetCheck2][1] < daysObj[hourSetCheck1][1]) {
-                            return false;
+                            return true;
                         }
                     }
                 }
             }
         }
-        return true;
+        return false;
     }
 
     // Duplicate place finder  ###bmtg
