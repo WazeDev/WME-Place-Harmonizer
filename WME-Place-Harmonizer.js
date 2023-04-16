@@ -2026,9 +2026,10 @@
         //     constructor() { super(true, SEVERITY.GREEN, 'Dash removed from house number. Verify'); }
         // },
         FullAddressInference: class extends FlagBase {
-            constructor() {
+            constructor(inferredAddress) {
                 super(true, _SEVERITY.RED, 'Missing address was inferred from nearby segments. Verify the address and run script again.');
                 this.noLock = true;
+                this.inferAddress = inferredAddress;
             }
 
             static eval(venue, addr, actions, highlightOnly, categories) {
@@ -2045,14 +2046,13 @@
                             result = { exit: true }; // Don't bother returning a Flag. This will exit the rest of the harmonizePlaceGo function.
                         } else {
                             let inferredAddress = inferAddress(venue, 7); // Pull address info from nearby segments
-                            if (inferredAddress && inferredAddress.attributes) inferredAddress = inferredAddress.attributes;
+                            inferredAddress = inferredAddress.attributes ?? inferredAddress;
 
-                            if (inferredAddress && inferredAddress.state && inferredAddress.country) {
+                            if (inferredAddress?.state && inferredAddress.country) {
                                 if ($('#WMEPH-AddAddresses').prop('checked')) { // update the item's address if option is enabled
                                     updateAddress(venue, inferredAddress, actions);
                                     _UPDATED_FIELDS.address.updated = true;
-                                    result = new this();
-                                    result.inferredAddress = inferredAddress;
+                                    result = new this(inferredAddress);
                                 } else if (!['JUNCTION_INTERCHANGE'].includes(categories[0])) {
                                     _buttonBanner.cityMissing = new Flag.CityMissing();
                                 }
@@ -4898,7 +4898,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
         if (result?.exit) return result.severity;
         _buttonBanner.fullAddressInference = result;
         const inferredAddress = result?.inferredAddress;
-        addr ||= inferredAddress;
+        addr = inferredAddress ?? addr;
 
         // Check parking lot attributes.
         if (!highlightOnly && item.isParkingLot()) _servicesBanner.addDisabilityParking.active = true;
@@ -8991,7 +8991,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
 
     function devTestCode() {
         if (W.loginManager.user.userName === 'MapOMatic') {
-            // add experimental code here
+            unsafeWindow.inferAddress = inferAddress;
         }
     }
 
