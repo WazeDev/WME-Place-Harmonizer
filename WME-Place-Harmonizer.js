@@ -2082,7 +2082,19 @@
             }
         },
         NameMissing: class extends FlagBase {
-            constructor() { super(true, _SEVERITY.RED, 'Name is missing.'); }
+            constructor() {
+                super(true, _SEVERITY.RED, 'Name is missing.');
+                this.noLock = true;
+            }
+
+            static #venueIsFlaggable(venue, name) {
+                return !venue.isResidential() && (!name || !name.replace(/[^A-Za-z0-9]/g, '').length)
+                    && !['ISLAND', 'FOREST_GROVE', 'SEA_LAKE_POOL', 'RIVER_STREAM', 'CANAL'].includes(venue.attributes.categories[0]);
+            }
+
+            static eval(venue, name) {
+                return this.#venueIsFlaggable(venue, name) ? new Flag.NameMissing() : null;
+            }
         },
         PlaIsPublic: class extends FlagBase {
             constructor(venue, highlightOnly) {
@@ -2112,38 +2124,62 @@
                 }
             }
 
+            static #venueIsFlaggable(venue) {
+                return venue.isParkingLot() && venue.attributes.categoryAttributes?.PARKING_LOT?.parkingType === 'PUBLIC';
+            }
+
             static eval(venue, highlightOnly) {
-                if (!venue.isParkingLot()) return null;
-                let result = null;
-                const parkingAttr = venue.attributes.categoryAttributes?.PARKING_LOT;
-                if (parkingAttr?.parkingType === 'PUBLIC') {
-                    result = new this(venue, highlightOnly);
-                }
-                return result;
+                return this.#venueIsFlaggable(venue) ? new this(venue, highlightOnly) : null;
             }
         },
         PlaNameMissing: class extends FlagBase {
-            constructor() {
-                super(true, _SEVERITY.BLUE, 'Name is missing.');
-                this.message += _USER.rank < 3 ? ' Request an R3+ lock to confirm unnamed parking lot.' : ' Lock to 3+ to confirm unnamed parking lot.';
+            constructor(userNormalizedRank) {
+                super(
+                    true,
+                    _SEVERITY.BLUE,
+                    `Name is missing. ${userNormalizedRank < 3 ? 'Request an R3+ lock' : 'Lock to 3+'} to confirm unnamed parking lot.`
+                );
+                this.noLock = true;
+            }
+
+            static #venueIsFlaggable(venue, name) {
+                return venue.isParkingLot()
+                    && (!name || !name.replace(/[^A-Za-z0-9]/g, '').length)
+                    && venue.attributes.lockRank < 2;
+            }
+
+            static eval(venue, name, userNormalizedRank) {
+                return this.#venueIsFlaggable(venue, name) ? new Flag.PlaNameMissing(userNormalizedRank) : null;
             }
         },
         PlaNameNonStandard: class extends WLFlag {
             constructor() {
-                super(true, _SEVERITY.YELLOW, 'Parking lot names typically contain words like "Parking", "Lot", and/or "Garage"', true, 'Whitelist non-standard PLA name', 'plaNameNonStandard');
+                super(
+                    true,
+                    _SEVERITY.YELLOW,
+                    'Parking lot names typically contain words like "Parking", "Lot", and/or "Garage"',
+                    true,
+                    'Whitelist non-standard PLA name',
+                    'plaNameNonStandard'
+                );
+            }
+
+            static #venueIsFlaggable(venue, wl) {
+                if (!wl.plaNameNonStandard && venue.isParkingLot()) {
+                    const { name } = venue.attributes;
+                    if (name) {
+                        const state = venue.getAddress().getStateName();
+                        const re = state === 'Quebec' ? /\b(parking|stationnement)\b/i : /\b((park[ -](and|&|'?n'?)[ -]ride)|parking|lot|garage|ramp)\b/i;
+                        if (!re.test(name)) {
+                            return true;
+                        }
+                    }
+                }
+                return false;
             }
 
             static eval(venue, wl) {
-                let result = null;
-                if (!wl.plaNameNonStandard) {
-                    const { name } = venue.attributes;
-                    const state = venue.getAddress().getStateName();
-                    const re = state === 'Quebec' ? /\b(parking|stationnement)\b/i : /\b((park[ -](and|&|'?n'?)[ -]ride)|parking|lot|garage|ramp)\b/i;
-                    if (venue.isParkingLot() && name && !re.test(name)) {
-                        result = new this();
-                    }
-                }
-                return result;
+                return this.#venueIsFlaggable(venue, wl) ? new this() : null;
             }
         },
         IndianaLiquorStoreHours: class extends WLFlag {
@@ -6140,20 +6176,10 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
         _buttonBanner.removeUncommonEVPaymentMethods = Flag.RemoveUncommonEVPaymentMethods.eval(item, highlightOnly, wl);
 
         // Name check
-        if (!item.attributes.residential && (!newName || newName.replace(/[^A-Za-z0-9]/g, '').length === 0)) {
-            if (item.isParkingLot()) {
-                // If it's a parking lot and not locked to R3...
-                if (item.attributes.lockRank < 2) {
-                    lockOK = false;
-                    _buttonBanner.plaNameMissing = new Flag.PlaNameMissing();
-                }
-            } else if (!['ISLAND', 'FOREST_GROVE', 'SEA_LAKE_POOL', 'RIVER_STREAM', 'CANAL'].includes(item.attributes.categories[0])) {
-                _buttonBanner.nameMissing = new Flag.NameMissing();
-                lockOK = false;
-            }
-        }
-
+        _buttonBanner.nameMissing = Flag.NameMissing.eval(item, newName);
+        _buttonBanner.plaNameMissing = Flag.PlaNameMissing.eval(item, newName, _USER.rank);
         _buttonBanner.plaNameNonStandard = Flag.PlaNameNonStandard.eval(item, wl);
+
         _buttonBanner.plaIsPublic = Flag.PlaIsPublic.eval(item, highlightOnly);
 
         // House number / HN check
