@@ -2193,12 +2193,37 @@
             constructor() { super(true, _SEVERITY.RED, 'This category is usually not mapped in this region.', true, 'Whitelist unmapped category', 'unmappedRegion'); }
         },
         RestAreaName: class extends WLFlag {
-            constructor() { super(true, _SEVERITY.RED, 'Rest area name is out of spec. Use the Rest Area wiki button below to view formats.', true, 'Whitelist rest area name', 'restAreaName'); }
+            constructor(wl) {
+                super(
+                    true,
+                    wl.restAreaName ? _SEVERITY.GREEN : _SEVERITY.RED,
+                    'Rest area name is out of spec. Use the Rest Area wiki button below to view formats.',
+                    !wl.restAreaName,
+                    'Whitelist rest area name',
+                    'restAreaName'
+                );
+            }
+
+            static #venueIsFlaggable(venue, hasRestAreaCategory) {
+                return hasRestAreaCategory && !/^Rest Area.* - /.test(venue.attributes.name);
+            }
+
+            static eval(venue, hasRestAreaCategory, wl) {
+                return this.#venueIsFlaggable(venue, hasRestAreaCategory, wl) ? new Flag.RestAreaName(wl) : null;
+            }
         },
         RestAreaNoTransportation: class extends ActionFlag {
             constructor(venue) {
                 super(true, _SEVERITY.YELLOW, 'Rest areas should not use the Transportation category.', 'Remove it?');
                 this.venue = venue;
+            }
+
+            static #venueIsFlaggable(hasRestAreaCategory, categories) {
+                return hasRestAreaCategory && categories.includes('TRANSPORTATION');
+            }
+
+            static eval(venue, hasRestAreaCategory, categories) {
+                return this.#venueIsFlaggable(hasRestAreaCategory, categories) ? new Flag.RestAreaNoTransportation(venue) : null;
             }
 
             action() {
@@ -2212,6 +2237,10 @@
         },
         RestAreaGas: class extends FlagBase {
             constructor() { super(true, _SEVERITY.RED, 'Gas stations at Rest Areas should be separate area places.'); }
+
+            static eval(hasRestAreaCategory, categories) {
+                return hasRestAreaCategory && categories.includes('GAS_STATION') ? new Flag.RestAreaGas() : null;
+            }
         },
         RestAreaScenic: class extends WLActionFlag {
             constructor(venue) {
@@ -2226,6 +2255,16 @@
                     'restAreaScenic'
                 );
                 this.venue = venue;
+            }
+
+            static #venueIsFlaggable(hasRestAreaCategory, categories, wl) {
+                return !wl.restAreaScenic
+                    && hasRestAreaCategory
+                    && categories.includes('SCENIC_LOOKOUT_VIEWPOINT');
+            }
+
+            static eval(venue, hasRestAreaCategory, categories, wl) {
+                return this.#venueIsFlaggable(hasRestAreaCategory, categories, wl) ? new Flag.RestAreaScenic(venue) : null;
             }
 
             action() {
@@ -2250,6 +2289,16 @@
                     'restAreaSpec'
                 );
                 this.venue = venue;
+            }
+
+            static #venueIsFlaggable(hasRestAreaCategory, name, wl) {
+                return !wl.restAreaSpec
+                    && !hasRestAreaCategory
+                    && (/rest (?:area|stop)|service plaza/i.test(name));
+            }
+
+            static eval(venue, hasRestAreaCategory, name, wl) {
+                return this.#venueIsFlaggable(hasRestAreaCategory, name, wl) ? new Flag.RestAreaSpec(venue) : null;
             }
 
             action() {
@@ -2610,6 +2659,18 @@
                 }
             }
 
+            static #venueIsFlaggable(venue, addr) {
+                return addr.city
+                    && (!addr.street || addr.street.isEmpty)
+                    && !['BRIDGE', 'ISLAND', 'FOREST_GROVE', 'SEA_LAKE_POOL', 'RIVER_STREAM', 'CANAL',
+                        'DAM', 'TUNNEL', 'JUNCTION_INTERCHANGE'].includes(venue.attributes.categories[0])
+                    && !venue.attributes.categories.includes('REST_AREAS');
+            }
+
+            static eval(venue, addr) {
+                return this.#venueIsFlaggable(venue, addr) ? new this(venue.attributes.categories[0]) : null;
+            }
+
             // eslint-disable-next-line class-methods-use-this
             action() {
                 clickGeneralTab();
@@ -2627,15 +2688,6 @@
                     }, 100);
                 }, 100);
             }
-
-            static eval(venue, addr) {
-                let result = null;
-                if (addr.city && (!addr.street || addr.street.isEmpty)
-                    && !'BRIDGE|ISLAND|FOREST_GROVE|SEA_LAKE_POOL|RIVER_STREAM|CANAL|DAM|TUNNEL|JUNCTION_INTERCHANGE'.split('|').includes(venue.attributes.categories[0])) {
-                    result = new this(venue.attributes.categories[0]);
-                }
-                return result;
-            }
         },
         CityMissing: class extends ActionFlag {
             constructor(isResidential, highlightOnly) {
@@ -2644,6 +2696,17 @@
                 if (isResidential && highlightOnly) {
                     this.severity = _SEVERITY.BLUE;
                 }
+            }
+
+            static #venueIsFlaggable(venue, addr) {
+                return (!addr.city || addr.city.attributes.isEmpty)
+                    && !['BRIDGE', 'ISLAND', 'FOREST_GROVE', 'SEA_LAKE_POOL', 'RIVER_STREAM', 'CANAL',
+                        'DAM', 'TUNNEL', 'JUNCTION_INTERCHANGE'].includes(venue.attributes.categories[0])
+                    && !venue.attributes.categories.includes('REST_AREAS');
+            }
+
+            static eval(venue, addr, highlightOnly) {
+                return this.#venueIsFlaggable(venue, addr) ? new this(venue.attributes.residential, highlightOnly) : null;
             }
 
             // eslint-disable-next-line class-methods-use-this
@@ -2664,15 +2727,6 @@
                 }, 100);
 
                 $('.city-name').focus();
-            }
-
-            static eval(venue, addr, highlightOnly) {
-                let result = null;
-                if ((!addr.city || addr.city.attributes.isEmpty)
-                    && !'BRIDGE|ISLAND|FOREST_GROVE|SEA_LAKE_POOL|RIVER_STREAM|CANAL|DAM|TUNNEL|JUNCTION_INTERCHANGE'.split('|').includes(venue.attributes.categories[0])) {
-                    result = new this(venue.attributes.residential, highlightOnly);
-                }
-                return result;
             }
         },
         BankType1: class extends FlagBase {
@@ -6234,7 +6288,9 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
         const hasStreet = item.attributes.streetID || (inferredAddress && inferredAddress.street);
 
         if (hasStreet && (!currentHN || currentHN.replace(/\D/g, '').length === 0)) {
-            if (!'BRIDGE|ISLAND|FOREST_GROVE|SEA_LAKE_POOL|RIVER_STREAM|CANAL|DAM|TUNNEL|JUNCTION_INTERCHANGE'.split('|').includes(item.attributes.categories[0])) {
+            if (!['BRIDGE', 'ISLAND', 'FOREST_GROVE', 'SEA_LAKE_POOL', 'RIVER_STREAM', 'CANAL',
+                'DAM', 'TUNNEL', 'JUNCTION_INTERCHANGE'].includes(item.attributes.categories[0])
+                && !item.attributes.categories.includes('REST_AREAS')) {
                 _buttonBanner.hnMissing = new Flag.HnMissing(item);
                 if (state2L === 'PR' || ['SCENIC_LOOKOUT_VIEWPOINT'].includes(item.attributes.categories[0])) {
                     _buttonBanner.hnMissing.severity = _SEVERITY.GREEN;
@@ -6336,72 +6392,55 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
 
         // *** Rest Area parsing
         // check rest area name against standard formats or if has the right categories
-        const hasRestAreaCategory = newCategories.includes('REST_AREAS');
         const oldName = item.attributes.name;
-        if (/rest area/i.test(oldName) || /rest stop/i.test(oldName) || /service plaza/i.test(oldName) || hasRestAreaCategory) {
-            if (hasRestAreaCategory) {
-                if (newCategories.includes('SCENIC_LOOKOUT_VIEWPOINT')) {
-                    if (!wl.restAreaScenic) _buttonBanner.restAreaScenic = new Flag.RestAreaScenic(item);
-                }
-                if (newCategories.includes('TRANSPORTATION')) {
-                    _buttonBanner.restAreaNoTransportation = new Flag.RestAreaNoTransportation(item);
-                }
-                if (item.isPoint()) { // needs to be area
-                    _buttonBanner.areaNotPoint = new Flag.AreaNotPoint(item);
-                }
-                _buttonBanner.pointNotArea = null;
-                _buttonBanner.unmappedRegion = null;
+        const hasRestAreaCategory = newCategories.includes('REST_AREAS');
+        _buttonBanner.restAreaSpec = Flag.RestAreaSpec.eval(item, hasRestAreaCategory, newName, wl);
+        _buttonBanner.restAreaScenic = Flag.RestAreaScenic.eval(item, hasRestAreaCategory, newCategories, wl);
+        _buttonBanner.restAreaNoTransportation = Flag.RestAreaNoTransportation.eval(item, hasRestAreaCategory, newCategories);
+        _buttonBanner.restAreaGas = Flag.RestAreaGas.eval(hasRestAreaCategory, newCategories);
+        _buttonBanner.restAreaName = Flag.RestAreaName.eval(item, hasRestAreaCategory, wl);
 
-                if (newCategories.includes('GAS_STATION')) {
-                    _buttonBanner.restAreaGas = new Flag.RestAreaGas();
-                }
+        if (hasRestAreaCategory) {
+            if (item.isPoint()) { // needs to be area
+                _buttonBanner.areaNotPoint = new Flag.AreaNotPoint(item);
+            }
+            _buttonBanner.pointNotArea = null;
+            _buttonBanner.unmappedRegion = null;
 
-                if (oldName.match(/^Rest Area.* - /) === null) {
-                    _buttonBanner.restAreaName = new Flag.RestAreaName();
-                    if (wl.restAreaName) {
-                        _buttonBanner.restAreaName.WLactive = false;
-                    }
-                } else if (!highlightOnly) {
-                    const newSuffix = newNameSuffix.replace(/Mile/i, 'mile');
-                    if (newName + newSuffix !== item.attributes.name) {
-                        actions.push(new UpdateObject(item, { name: newName + newSuffix }));
-                        _UPDATED_FIELDS.name.updated = true;
-                        logDev('Lower case "mile"');
-                    } else {
-                        // The new name matches the original name, so the only change would have been to capitalize "Mile", which
-                        // we don't want. So remove any previous name-change action.  Note: this feels like a hack and is probably
-                        // a fragile workaround.  The name shouldn't be capitalized in the first place, unless necessary.
-                        for (let i = 0; i < actions.length; i++) {
-                            const action = actions[i];
-                            if (action.newAttributes.name) {
-                                actions.splice(i, 1);
-                                _UPDATED_FIELDS.name.updated = false;
-                                break;
-                            }
+            if (!highlightOnly && oldName.match(/^Rest Area.* - /) !== null) {
+                const newSuffix = newNameSuffix.replace(/Mile/i, 'mile');
+                if (newName + newSuffix !== item.attributes.name) {
+                    actions.push(new UpdateObject(item, { name: newName + newSuffix }));
+                    _UPDATED_FIELDS.name.updated = true;
+                    logDev('Lower case "mile"');
+                } else {
+                    // The new name matches the original name, so the only change would have been to capitalize "Mile", which
+                    // we don't want. So remove any previous name-change action.  Note: this feels like a hack and is probably
+                    // a fragile workaround.  The name shouldn't be capitalized in the first place, unless necessary.
+                    for (let i = 0; i < actions.length; i++) {
+                        const action = actions[i];
+                        if (action.newAttributes.name) {
+                            actions.splice(i, 1);
+                            _UPDATED_FIELDS.name.updated = false;
+                            break;
                         }
                     }
                 }
+            }
 
-                // switch to rest area wiki button
-                if (!highlightOnly) {
-                    _buttonBanner2.restAreaWiki.active = true;
-                    _buttonBanner2.placesWiki.active = false;
-                }
+            // switch to rest area wiki button
+            if (!highlightOnly) {
+                _buttonBanner2.restAreaWiki.active = true;
+                _buttonBanner2.placesWiki.active = false;
+            }
 
-                // missing address ok
-                _buttonBanner.streetMissing = null;
-                _buttonBanner.cityMissing = null;
-                _buttonBanner.hnMissing = null;
-                if (_buttonBanner.urlMissing) {
-                    _buttonBanner.urlMissing.WLactive = false;
-                    _buttonBanner.urlMissing.severity = _SEVERITY.GREEN;
-                }
-                if (_buttonBanner.phoneMissing) {
-                    _buttonBanner.phoneMissing.severity = _SEVERITY.GREEN;
-                    _buttonBanner.phoneMissing.WLactive = false;
-                }
-            } else if (!wl.restAreaSpec) {
-                _buttonBanner.restAreaSpec = new Flag.RestAreaSpec(item);
+            if (_buttonBanner.urlMissing) {
+                _buttonBanner.urlMissing.WLactive = false;
+                _buttonBanner.urlMissing.severity = _SEVERITY.GREEN;
+            }
+            if (_buttonBanner.phoneMissing) {
+                _buttonBanner.phoneMissing.severity = _SEVERITY.GREEN;
+                _buttonBanner.phoneMissing.WLactive = false;
             }
         }
 
