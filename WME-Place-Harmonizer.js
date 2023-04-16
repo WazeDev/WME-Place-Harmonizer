@@ -2274,15 +2274,47 @@
             }
         },
         GasMismatch: class extends WLFlag {
-            constructor() {
+            constructor(wl) {
                 super(
                     true,
                     _SEVERITY.RED,
                     '<a href="https://wazeopedia.waze.com/wiki/USA/Places/Gas_station#Name" target="_blank" class="red">Gas brand should typically be included in the place name.</a>',
-                    true,
+                    !wl.gasMismatch,
                     'Whitelist gas brand / name mismatch',
                     'gasMismatch'
                 );
+                if (!wl.gasMismatch) {
+                    this.noLock = true;
+                }
+            }
+
+            static #venueIsFlaggable(venue, categories, brand, name) {
+                // For gas stations, check to make sure brand exists somewhere in the place name.
+                // Remove non - alphanumeric characters first, for more relaxed matching.
+                if (categories[0] === 'GAS_STATION' && venue.attributes.brand) {
+                    const compressedName = venue.attributes.name.toUpperCase().replace(/[^a-zA-Z0-9]/g, '');
+                    const compressedNewName = name.toUpperCase().replace(/[^a-zA-Z0-9]/g, '');
+                    // Some brands may have more than one acceptable name, or the brand listed in WME doesn't match what we want to see in the name.
+                    // Ideally, this would be addressed in the PNH spreadsheet somehow, but for now hardcoding is the only option.
+                    const compressedBrands = [brand.toUpperCase().replace(/[^a-zA-Z0-9]/g, '')];
+                    if (brand === 'Diamond Gasoline') {
+                        compressedBrands.push('DIAMONDOIL');
+                    } else if (brand === 'Murphy USA') {
+                        compressedBrands.push('MURPHY');
+                    } else if (brand === 'Mercury Fuel') {
+                        compressedBrands.push('MERCURY', 'MERCURYPRICECUTTER');
+                    } else if (brand === 'Carrollfuel') {
+                        compressedBrands.push('CARROLLMOTORFUEL', 'CARROLLMOTORFUELS');
+                    }
+                    if (compressedBrands.every(compressedBrand => !compressedName.includes(compressedBrand) && !compressedNewName.includes(compressedBrand))) {
+                        return true;
+                    }
+                }
+                return false;
+            }
+
+            static eval(venue, categories, brand, name, wl) {
+                return this.#venueIsFlaggable(venue, categories, brand, name) ? new this(wl) : null;
             }
         },
         GasUnbranded: class extends FlagBase {
@@ -6179,32 +6211,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
             } // END Post Office check
         } // END if (!residential && has name)
 
-        // For gas stations, check to make sure brand exists somewhere in the place name.
-        // Remove non - alphanumeric characters first, for more relaxed matching.
-        if (newCategories[0] === 'GAS_STATION' && item.attributes.brand) {
-            const compressedName = item.attributes.name.toUpperCase().replace(/[^a-zA-Z0-9]/g, '');
-            const compressedNewName = newName.toUpperCase().replace(/[^a-zA-Z0-9]/g, '');
-            // Some brands may have more than one acceptable name, or the brand listed in WME doesn't match what we want to see in the name.
-            // Ideally, this would be addressed in the PNH spreadsheet somehow, but for now hardcoding is the only option.
-            const compressedBrands = [newBrand.toUpperCase().replace(/[^a-zA-Z0-9]/g, '')];
-            if (newBrand === 'Diamond Gasoline') {
-                compressedBrands.push('DIAMONDOIL');
-            } else if (newBrand === 'Murphy USA') {
-                compressedBrands.push('MURPHY');
-            } else if (newBrand === 'Mercury Fuel') {
-                compressedBrands.push('MERCURY', 'MERCURYPRICECUTTER');
-            } else if (newBrand === 'Carrollfuel') {
-                compressedBrands.push('CARROLLMOTORFUEL', 'CARROLLMOTORFUELS');
-            }
-            if (compressedBrands.every(compressedBrand => !compressedName.includes(compressedBrand) && !compressedNewName.includes(compressedBrand))) {
-                _buttonBanner.gasMismatch = new Flag.GasMismatch();
-                if (wl.gasMismatch) {
-                    _buttonBanner.gasMismatch.WLactive = false;
-                } else {
-                    lockOK = false;
-                }
-            }
-        }
+        _buttonBanner.gasMismatch = Flag.GasMismatch.eval(item, newCategories, newBrand, newName, wl);
 
         // Check EV charging stations:
         _buttonBanner.evChargingStationWarning = Flag.EVChargingStationWarning.eval(item, highlightOnly);
