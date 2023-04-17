@@ -2062,12 +2062,37 @@
             }
 
             static #venueIsFlaggable(venue, name) {
-                return !venue.isResidential() && (!name || !name.replace(/[^A-Za-z0-9]/g, '').length)
-                    && !['ISLAND', 'FOREST_GROVE', 'SEA_LAKE_POOL', 'RIVER_STREAM', 'CANAL'].includes(venue.attributes.categories[0]);
+                return !venue.isResidential()
+                    && (!name || !name.replace(/[^A-Za-z0-9]/g, '').length)
+                    && !['ISLAND', 'FOREST_GROVE', 'SEA_LAKE_POOL', 'RIVER_STREAM', 'CANAL'].includes(venue.attributes.categories[0])
+                    && !(venue.isGasStation() && venue.attributes.brand);
             }
 
             static eval(venue, name) {
-                return this.#venueIsFlaggable(venue, name) ? new Flag.NameMissing() : null;
+                return this.#venueIsFlaggable(venue, name) ? new this() : null;
+            }
+        },
+        GasNameMissing: class extends ActionFlag {
+            constructor(venue, brand, highlightOnly) {
+                let message;
+                if (!highlightOnly) message = `Name is missing. Use "${brand}"?`;
+                super(true, _SEVERITY.RED, message, 'Yes', 'Use gas brand as station name');
+                this.brand = brand;
+                this.venue = venue;
+            }
+
+            static #venueIsFlaggable(venue, name, brand) {
+                return venue.isGasStation()
+                    && isNullOrWhitespace(name)
+                    && !isNullOrWhitespace(brand);
+            }
+
+            static eval(venue, name, brand, highlightOnly) {
+                return this.#venueIsFlaggable(venue, name, brand) ? new this(venue, brand, highlightOnly) : null;
+            }
+
+            action() {
+                addUpdateAction(this.venue, { name: this.brand }, null, true);
             }
         },
         PlaIsPublic: class extends FlagBase {
@@ -4207,8 +4232,19 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                 this.venue = venue;
             }
 
+            static #venueIsFlaggable(venue, categories) {
+                return venue.isGasStation()
+                    && !categories.includes('CONVENIENCE_STORE')
+                    && !_buttonBanner.subFuel; // Don't flag if already asking if this is really a gas station
+            }
+
+            static eval(venue, categories) {
+                return this.#venueIsFlaggable(venue, categories) ? new Flag.AddConvStore(venue) : null;
+            }
+
             action() {
-                const categories = insertAtIndex(this.venue.getCategories(), 'CONVENIENCE_STORE', 1); // Insert C.S. category in the second position
+                // Insert C.S. category in the second position
+                const categories = insertAtIndex(this.venue.getCategories(), 'CONVENIENCE_STORE', 1);
                 addUpdateAction(this.venue, { categories }, null, true);
             }
         },
@@ -4548,6 +4584,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
             hnDashRemoved: null,
             fullAddressInference: null,
             nameMissing: null,
+            gasNameMissing: null,
             plaIsPublic: null,
             plaNameMissing: null,
             plaNameNonStandard: null,
@@ -5226,20 +5263,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
         if (_buttonBanner.isThisAPilotTravelCenter) newName = _buttonBanner.isThisAPilotTravelCenter.newName;
 
         _buttonBanner.gasMkPrim = Flag.GasMkPrim.eval(item, newCategories);
-
-        if (item.isGasStation()) {
-            // If no gas station name, replace with brand name
-            if (!highlightOnly && (!newName || newName.trim().length === 0) && item.attributes.brand) {
-                newName = item.attributes.brand;
-                actions.push(new UpdateObject(item, { name: newName }));
-                _UPDATED_FIELDS.name.updated = true;
-            }
-
-            // Add convenience store category to station
-            if (!newCategories.includes('CONVENIENCE_STORE') && !_buttonBanner.subFuel) {
-                _buttonBanner.addConvStore = new Flag.AddConvStore(item);
-            }
-        } // END Gas Station Checks
+        _buttonBanner.addConvStore = Flag.AddConvStore.eval(item, newCategories);
 
         // Note for Indiana editors to check liquor store hours if Sunday hours haven't been added yet.
         _buttonBanner.indianaLiquorStoreHours = Flag.IndianaLiquorStoreHours.eval(item, newName, highlightOnly, wl);
@@ -6276,6 +6300,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
         _buttonBanner.nameMissing = Flag.NameMissing.eval(item, newName);
         _buttonBanner.plaNameMissing = Flag.PlaNameMissing.eval(item, newName, _USER.rank);
         _buttonBanner.plaNameNonStandard = Flag.PlaNameNonStandard.eval(item, wl);
+        _buttonBanner.gasNameMissing = Flag.GasNameMissing.eval(item, newName, newBrand, highlightOnly);
 
         _buttonBanner.plaIsPublic = Flag.PlaIsPublic.eval(item, highlightOnly);
 
