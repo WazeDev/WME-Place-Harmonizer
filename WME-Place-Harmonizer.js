@@ -2064,7 +2064,7 @@
             static #venueIsFlaggable(venue, name) {
                 return !venue.isResidential()
                     && (!name || !name.replace(/[^A-Za-z0-9]/g, '').length)
-                    && !['ISLAND', 'FOREST_GROVE', 'SEA_LAKE_POOL', 'RIVER_STREAM', 'CANAL'].includes(venue.attributes.categories[0])
+                    && !['ISLAND', 'FOREST_GROVE', 'SEA_LAKE_POOL', 'RIVER_STREAM', 'CANAL', 'PARKING_LOT'].includes(venue.attributes.categories[0])
                     && !(venue.isGasStation() && venue.attributes.brand);
             }
 
@@ -2110,16 +2110,6 @@
                             .text(btnInfo[1])
                             .prop('outerHTML')
                     ).join('');
-
-                    this.postProcess = () => {
-                        $('.wmeph-pla-lot-type-btn').click(evt => {
-                            const lotType = $(evt.currentTarget).data('lot-type');
-                            const categoryAttrClone = JSON.parse(JSON.stringify(this.venue.attributes.categoryAttributes));
-                            categoryAttrClone.PARKING_LOT.parkingType = lotType;
-                            _UPDATED_FIELDS.lotType.updated = true;
-                            addUpdateAction(this.venue, { categoryAttributes: categoryAttrClone }, null, true);
-                        });
-                    };
                 }
             }
 
@@ -2129,6 +2119,16 @@
 
             static eval(venue, highlightOnly) {
                 return this.#venueIsFlaggable(venue) ? new this(venue, highlightOnly) : null;
+            }
+
+            postProcess() {
+                $('.wmeph-pla-lot-type-btn').click(evt => {
+                    const lotType = $(evt.currentTarget).data('lot-type');
+                    const categoryAttrClone = JSON.parse(JSON.stringify(this.venue.attributes.categoryAttributes));
+                    categoryAttrClone.PARKING_LOT.parkingType = lotType;
+                    _UPDATED_FIELDS.lotType.updated = true;
+                    addUpdateAction(this.venue, { categoryAttributes: categoryAttrClone }, null, true);
+                });
             }
         },
         PlaNameMissing: class extends FlagBase {
@@ -3579,7 +3579,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                 let wlActive = true;
                 let message;
                 if (!venue.attributes.openingHours.length) { // if no hours...
-                    if (!highlightOnly) message = Flag.NoHours.getHoursHtml('No hours');
+                    if (!highlightOnly) message = Flag.NoHours.getHoursHtml();
                     if (Flag.NoHours.#noHoursIsOk(categories, wl)) {
                         severity = _SEVERITY.GREEN;
                         wlActive = false;
@@ -3588,19 +3588,12 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                         wlActive = true;
                     }
                 } else {
-                    if (!highlightOnly) message = Flag.NoHours.getHoursHtml('Hours', true, isAlwaysOpen(venue));
+                    if (!highlightOnly) message = Flag.NoHours.getHoursHtml(true, isAlwaysOpen(venue));
                     severity = _SEVERITY.GREEN;
                     wlActive = false;
                 }
                 super(true, severity, message, wlActive, 'Whitelist "No hours"', 'noHours');
                 this.venue = venue;
-                if (!highlightOnly) {
-                    this.postProcess = () => {
-                        // NOTE: Leave these wrapped in the "() => ..." functions, to make sure "this" is bound properly.
-                        $('#WMEPH_noHours').click(() => this.onAddHoursClick());
-                        $('#WMEPH_noHours_2').click(() => this.onReplaceHoursClick());
-                    };
-                }
             }
 
             static #venueIsFlaggable(categories) {
@@ -3622,9 +3615,9 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                         'SEAPORT_MARINA_HARBOR', 'FARM', 'SCENIC_LOOKOUT_VIEWPOINT']);
             }
 
-            static getHoursHtml(label, hasExistingHours = false, alwaysOpen = false) {
+            static getHoursHtml(hasExistingHours = false, alwaysOpen = false) {
                 return $('<span>').append(
-                    `${label}:`,
+                    `${hasExistingHours ? 'Hours' : 'No hours'}:`,
                     !alwaysOpen ? $('<input>', {
                         class: 'btn btn-default btn-xs wmeph-btn',
                         id: 'WMEPH_noHours',
@@ -3688,6 +3681,77 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
 
             onReplaceHoursClick() {
                 this.applyHours(true);
+            }
+
+            postProcess() {
+                // NOTE: Leave these wrapped in the "() => ..." functions, to make sure "this" is bound properly.
+                $('#WMEPH_noHours').click(() => this.onAddHoursClick());
+                $('#WMEPH_noHours_2').click(() => this.onReplaceHoursClick());
+
+                // If pasting or dropping into hours entry box
+                function resetHoursEntryHeight() {
+                    const $sel = $('#WMEPH-HoursPaste');
+                    $sel.focus();
+                    const oldText = $sel.val();
+                    if (oldText === _DEFAULT_HOURS_TEXT) {
+                        $sel.val('');
+                    }
+
+                    // A small delay to allow window to process pasted text before running.
+                    setTimeout(() => {
+                        const text = $sel.val();
+                        const elem = $sel[0];
+                        const lineCount = (text.match(/\n/g) || []).length + 1;
+                        const height = lineCount * 18 + 6 + (elem.scrollWidth > elem.clientWidth ? 20 : 0);
+                        $sel.css({ height: `${height}px` });
+                    }, 100);
+                }
+                $('#WMEPH-HoursPaste')
+                    .bind('paste', resetHoursEntryHeight)
+                    .bind('drop', resetHoursEntryHeight)
+                    .bind('dragenter', evt => {
+                        const $control = $(evt.currentTarget);
+                        const text = $control.val();
+                        if (text === _DEFAULT_HOURS_TEXT) {
+                            $control.val('');
+                        }
+                    }).keydown(evt => {
+                        // If pressing enter in the hours entry box then parse the entry, or newline if CTRL or SHIFT.
+                        resetHoursEntryHeight();
+                        if (evt.keyCode === 13) {
+                            if (evt.ctrlKey) {
+                                // Simulate a newline event (shift + enter)
+                                const target = evt.currentTarget;
+                                const text = target.value;
+                                const selStart = target.selectionStart;
+                                target.value = `${text.substr(0, selStart)}\n${text.substr(target.selectionEnd, text.length - 1)}`;
+                                target.selectionStart = selStart + 1;
+                                target.selectionEnd = selStart + 1;
+                                return true;
+                            }
+                            if (!(evt.shiftKey || evt.ctrlKey) && $(evt.currentTarget).val().length) {
+                                evt.stopPropagation();
+                                evt.preventDefault();
+                                evt.returnValue = false;
+                                evt.cancelBubble = true;
+                                $('#WMEPH_noHours').click();
+                                return false;
+                            }
+                        }
+                        return true;
+                    }).focus(evt => {
+                        const target = evt.currentTarget;
+                        if (target.value === _DEFAULT_HOURS_TEXT) {
+                            target.value = '';
+                        }
+                        target.style.color = 'black';
+                    }).blur(evt => {
+                        const target = evt.currentTarget;
+                        if (target.value === '') {
+                            target.value = _DEFAULT_HOURS_TEXT;
+                            target.style.color = '#999';
+                        }
+                    });
             }
         },
         OldHours: class extends ActionFlag {
@@ -3762,16 +3826,6 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                             .text(btnInfo[1])
                             .prop('outerHTML')
                     ).join('');
-
-                    this.postProcess = () => {
-                        $('.wmeph-pla-lot-type-btn').click(evt => {
-                            const lotType = $(evt.currentTarget).data('lot-type');
-                            const categoryAttrClone = JSON.parse(JSON.stringify(this.venue.attributes.categoryAttributes));
-                            categoryAttrClone.PARKING_LOT.parkingType = lotType;
-                            _UPDATED_FIELDS.lotType.updated = true;
-                            addUpdateAction(this.venue, { categoryAttributes: categoryAttrClone }, null, true);
-                        });
-                    };
                 }
             }
 
@@ -3785,6 +3839,17 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                     }
                 }
                 return result;
+            }
+
+            postProcess() {
+                $('.wmeph-pla-lot-type-btn').click(evt => {
+                    const lotType = $(evt.currentTarget).data('lot-type');
+                    const categoryAttrClone = JSON.parse(JSON.stringify(this.venue.attributes.categoryAttributes));
+                    categoryAttrClone.PARKING_LOT = categoryAttrClone.PARKING_LOT ?? {};
+                    categoryAttrClone.PARKING_LOT.parkingType = lotType;
+                    _UPDATED_FIELDS.lotType.updated = true;
+                    addUpdateAction(this.venue, { categoryAttributes: categoryAttrClone }, null, true);
+                });
             }
         },
         PlaCostTypeMissing: class extends FlagBase {
@@ -3981,29 +4046,22 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                 this.venue = venue;
             }
 
+            static #venueIsFlaggable(venue, highlightOnly) {
+                return !highlightOnly
+                    && venue.isParkingLot()
+                    && !venue.attributes.categoryAttributes?.PARKING_LOT?.canExitWhileClosed
+                    && ($('#WMEPH-ShowPLAExitWhileClosed').prop('checked') || !(venue.attributes.openingHours.length === 0 || isAlwaysOpen(venue)));
+            }
+
             static eval(venue, highlightOnly) {
-                let result = null;
-                if (!highlightOnly && venue.isParkingLot()) {
-                    const catAttr = venue.attributes.categoryAttributes;
-                    if (!catAttr?.PARKING_LOT?.canExitWhileClosed && ($('#WMEPH-ShowPLAExitWhileClosed').prop('checked') || !(isAlwaysOpen(venue) || venue.attributes.openingHours.length === 0))) {
-                        result = new this(venue);
-                    }
-                }
-                return result;
+                return this.#venueIsFlaggable(venue, highlightOnly) ? new this(venue) : null;
             }
 
             action() {
-                const existingAttr = this.venue.attributes.categoryAttributes.PARKING_LOT;
-                const newAttr = {};
-                if (existingAttr) {
-                    Object.keys(existingAttr).forEach(prop => {
-                        let value = existingAttr[prop];
-                        if (Array.isArray(value)) value = [].concat(value);
-                        newAttr[prop] = value;
-                    });
-                }
-                newAttr.canExitWhileClosed = true;
-                addUpdateAction(this.venue, { categoryAttributes: { PARKING_LOT: newAttr } }, null, true);
+                const attrClone = JSON.parse(JSON.stringify(this.venue.attributes.categoryAttributes));
+                attrClone.PARKING_LOT = attrClone.PARKING_LOT ?? {};
+                attrClone.PARKING_LOT.canExitWhileClosed = true;
+                addUpdateAction(this.venue, { categoryAttributes: attrClone }, null, true);
             }
         },
         PlaHasAccessibleParking: class extends ActionFlag {
@@ -6963,74 +7021,6 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                 $('#WMEPH_missingUSPSZipAlt').click();
             }
         });
-
-        // If pasting or dropping into hours entry box
-        function resetHoursEntryHeight() {
-            const $sel = $('#WMEPH-HoursPaste');
-            $sel.focus();
-            const oldText = $sel.val();
-            if (oldText === _DEFAULT_HOURS_TEXT) {
-                $sel.val('');
-            }
-
-            // A small delay to allow window to process pasted text before running.
-            setTimeout(() => {
-                const text = $sel.val();
-                const elem = $sel[0];
-                const lineCount = (text.match(/\n/g) || []).length + 1;
-                const height = lineCount * 18 + 6 + (elem.scrollWidth > elem.clientWidth ? 20 : 0);
-                $sel.css({ height: `${height}px` });
-            }, 100);
-        }
-        $('#WMEPH-HoursPaste')
-            .bind('paste', resetHoursEntryHeight)
-            .bind('drop', resetHoursEntryHeight)
-            .bind('dragenter', evt => {
-                const $control = $(evt.currentTarget);
-                const text = $control.val();
-                if (text === _DEFAULT_HOURS_TEXT) {
-                    $control.val('');
-                }
-            })
-            .keydown(evt => {
-                // If pressing enter in the hours entry box then parse the entry, or newline if CTRL or SHIFT.
-                resetHoursEntryHeight();
-                if (evt.keyCode === 13) {
-                    if (evt.ctrlKey) {
-                        // Simulate a newline event (shift + enter)
-                        const target = evt.currentTarget;
-                        const text = target.value;
-                        const selStart = target.selectionStart;
-                        target.value = `${text.substr(0, selStart)}\n${text.substr(target.selectionEnd, text.length - 1)}`;
-                        target.selectionStart = selStart + 1;
-                        target.selectionEnd = selStart + 1;
-                        return true;
-                    }
-                    if (!(evt.shiftKey || evt.ctrlKey) && $(evt.currentTarget).val().length) {
-                        evt.stopPropagation();
-                        evt.preventDefault();
-                        evt.returnValue = false;
-                        evt.cancelBubble = true;
-                        $('#WMEPH_noHours').click();
-                        return false;
-                    }
-                }
-                return true;
-            })
-            .focus(evt => {
-                const target = evt.currentTarget;
-                if (target.value === _DEFAULT_HOURS_TEXT) {
-                    target.value = '';
-                }
-                target.style.color = 'black';
-            })
-            .blur(evt => {
-                const target = evt.currentTarget;
-                if (target.value === '') {
-                    target.value = _DEFAULT_HOURS_TEXT;
-                    target.style.color = '#999';
-                }
-            });
 
         // Format "no hours" section and hook up button events.
         $('#WMEPH_WLnoHours').css({ 'vertical-align': 'top' });
