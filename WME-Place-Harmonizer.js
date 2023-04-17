@@ -3206,19 +3206,41 @@
             constructor() { super(true, _SEVERITY.BLUE, 'USPS post offices must have an alternate name of "USPS".'); }
         },
         MissingUSPSZipAlt: class extends WLActionFlag {
-            constructor(venue) {
-                super(
-                    true,
-                    _SEVERITY.BLUE,
-                    `No <a href="${_URLS.uspsWiki}" style="color:#3232e6;" target="_blank">ZIP code alt name</a>: <input type="text" \
-id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;padding-left:2px;color:#000;" title="Enter the ZIP code and click Add">`,
-                    'Add',
-                    true,
-                    'Whitelist missing USPS zip alt name',
-                    'missingUSPSZipAlt'
-                );
+            constructor(venue, name, wl, highlightOnly) {
+                let severity;
+                let wlActive;
+                let message;
+                let zipMatch;
+
+                if (!highlightOnly) {
+                    message = `No <a href="${_URLS.uspsWiki}" style="color:#3232e6;" target="_blank">ZIP code alt name</a>: <input type="text" \
+id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;padding-left:2px;color:#000;" title="Enter the ZIP code and click Add">`;
+                    zipMatch = name.match(/\d{5}/);
+                }
+
+                if (wl.missingUSPSZipAlt) {
+                    severity = _SEVERITY.GREEN;
+                    wlActive = false;
+                } else {
+                    severity = _SEVERITY.BLUE;
+                    wlActive = true;
+                }
+
+                super(true, severity, message, 'Add', wlActive, 'Whitelist missing USPS zip alt name', 'missingUSPSZipAlt');
                 this.venue = venue;
                 this.noBannerAssemble = true;
+
+                // If the zip code appears in the primary name, pre-fill it in the text entry box.
+                if (zipMatch) this.suggestedValue = zipMatch;
+            }
+
+            static #venueIsFlaggable(isUspsPostOffice, aliases) {
+                return isUspsPostOffice
+                    && !aliases.some(alias => /\d{5}/.test(alias));
+            }
+
+            static eval(venue, isUspsPostOffice, name, aliases, wl, highlightOnly) {
+                return this.#venueIsFlaggable(isUspsPostOffice, aliases) ? new this(venue, name, wl, highlightOnly) : null;
             }
 
             action() {
@@ -3237,6 +3259,20 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                     } else {
                         $input.css({ backgroundColor: '#FDD' }).attr('title', 'Zip code format error');
                     }
+                }
+            }
+
+            postProcess() {
+                // If pressing enter in the USPS zip code alt entry box...
+                $('#WMEPH-zipAltNameAdd').keyup(evt => {
+                    if (evt.keyCode === 13 && $(evt.currentTarget).val() !== '') {
+                        $('#WMEPH_missingUSPSZipAlt').click();
+                    }
+                });
+
+                // Prefill zip code text box
+                if (this.suggestedValue) {
+                    $('input#WMEPH-zipAltNameAdd').val(this.suggestedValue);
                 }
             }
         },
@@ -6284,7 +6320,10 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
             // Post Office check
             _buttonBanner.isThisAPostOffice = Flag.IsThisAPostOffice.eval(item, highlightOnly, countryCode, newCategories, newName);
             _buttonBanner.PlaceWebsite = Flag.PlaceWebsite.eval(item, highlightOnly, countryCode, newCategories, _buttonBanner.PlaceWebsite);
-            if (countryCode === 'USA' && !newCategories.includes('PARKING_LOT') && newCategories.includes('POST_OFFICE')) {
+
+            const isUspsPostOffice = countryCode === 'USA' && !newCategories.includes('PARKING_LOT') && newCategories.includes('POST_OFFICE');
+            _buttonBanner.missingUSPSZipAlt = Flag.MissingUSPSZipAlt.eval(item, isUspsPostOffice, newName, newAliases, wl, highlightOnly);
+            if (isUspsPostOffice) {
                 if (!highlightOnly) {
                     _buttonBanner.NewPlaceSubmit = null;
                     if (item.attributes.url !== 'usps.com') {
@@ -6323,18 +6362,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                         _buttonBanner.missingUSPSAlt = new Flag.MissingUSPSAlt();
                     }
                 }
-                if (!newAliases.some(alias => /\d{5}/.test(alias))) {
-                    _buttonBanner.missingUSPSZipAlt = new Flag.MissingUSPSZipAlt(item);
-                    if (wl.missingUSPSZipAlt) {
-                        _buttonBanner.missingUSPSZipAlt.severity = _SEVERITY.GREEN;
-                        _buttonBanner.missingUSPSZipAlt.WLactive = false;
-                    }
-                    // If the zip code appears in the primary name, pre-fill it in the text entry box.
-                    const zipMatch = newName.match(/\d{5}/);
-                    if (zipMatch) {
-                        _buttonBanner.missingUSPSZipAlt.suggestedValue = zipMatch;
-                    }
-                }
+
                 const descr = item.attributes.description;
                 const lines = descr.split('\n');
                 if (lines.length < 1 || !/^.{2,}, [A-Z]{2}\s{1,2}\d{5}$/.test(lines[0])) {
@@ -6970,11 +6998,6 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
         // Setup bannButt2 onclicks
         setupButtons(_buttonBanner2);
 
-        // Prefill zip code text box
-        if (_buttonBanner.missingUSPSZipAlt && _buttonBanner.missingUSPSZipAlt.suggestedValue) {
-            $('input#WMEPH-zipAltNameAdd').val(_buttonBanner.missingUSPSZipAlt.suggestedValue);
-        }
-
         // Add click handlers for parking lot helper buttons.
         $('.wmeph-pla-spaces-btn').click(evt => {
             const selectedVenue = getSelectedVenue();
@@ -7012,13 +7035,6 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
         $('#WMEPH-UrlAdd').keyup(evt => {
             if (evt.keyCode === 13 && $('#WMEPH-UrlAdd').val() !== '') {
                 $('#WMEPH_urlMissing').click();
-            }
-        });
-
-        // If pressing enter in the USPS zip code alt entry box...
-        $('#WMEPH-zipAltNameAdd').keyup(evt => {
-            if (evt.keyCode === 13 && $(evt.currentTarget).val() !== '') {
-                $('#WMEPH_missingUSPSZipAlt').click();
             }
         });
 
