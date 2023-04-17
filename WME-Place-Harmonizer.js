@@ -3588,7 +3588,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                         wlActive = true;
                     }
                 } else {
-                    if (!highlightOnly) message = Flag.NoHours.getHoursHtml('Hours', true);
+                    if (!highlightOnly) message = Flag.NoHours.getHoursHtml('Hours', true, isAlwaysOpen(venue));
                     severity = _SEVERITY.GREEN;
                     wlActive = false;
                 }
@@ -3622,17 +3622,17 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                         'SEAPORT_MARINA_HARBOR', 'FARM', 'SCENIC_LOOKOUT_VIEWPOINT']);
             }
 
-            static getHoursHtml(label, hasExistingHours = false) {
+            static getHoursHtml(label, hasExistingHours = false, alwaysOpen = false) {
                 return $('<span>').append(
                     `${label}:`,
-                    $('<input>', {
+                    !alwaysOpen ? $('<input>', {
                         class: 'btn btn-default btn-xs wmeph-btn',
                         id: 'WMEPH_noHours',
-                        title: 'Add pasted hours to existing',
+                        title: `Add pasted hours${hasExistingHours ? ' to existing hours' : ''}`,
                         type: 'button',
                         value: 'Add hours',
                         style: 'margin-bottom:4px; margin-right:0px; margin-left:3px;'
-                    }),
+                    }) : '',
                     hasExistingHours ? $('<input>', {
                         class: 'btn btn-default btn-xs wmeph-btn',
                         id: 'WMEPH_noHours_2',
