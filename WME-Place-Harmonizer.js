@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name        WME Place Harmonizer Beta
 // @namespace   WazeUSA
-// @version     2023.04.11.001
+// @version     2023.04.18.001
 // @description Harmonizes, formats, and locks a selected place
 // @author      WMEPH Development Group
 // @include     /^https:\/\/(www|beta)\.waze\.com\/(?!user\/)(.{2,6}\/)?editor\/?.*$/
@@ -3719,7 +3719,100 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                 this.applyHours(true);
             }
 
+            getHoursStringArray() {
+                const hours = this.venue.attributes.openingHours;
+                const dayEnum = {
+                    1: 'Mon',
+                    2: 'Tue',
+                    3: 'Wed',
+                    4: 'Thu',
+                    5: 'Fri',
+                    6: 'Sat',
+                    7: 'Sun'
+                };
+                return hours.map(entry => {
+                    const days = entry.days.slice();
+                    // Change Sunday value from 0 to 7
+                    const sundayIndex = days.indexOf(0);
+                    if (sundayIndex > -1) {
+                        days.splice(sundayIndex, 1);
+                        days.push(7);
+                    }
+                    days.sort(); // Maybe not needed, but just in case
+
+                    // Create groups of consecutive days
+                    const dayGroups = [];
+                    let lastGroup;
+                    let lastGroupDay = -1;
+                    days.forEach(day => {
+                        if (day !== lastGroupDay + 1) {
+                            // Not a consecutive day. Start a new group.
+                            lastGroup = [];
+                            dayGroups.push(lastGroup);
+                        }
+                        lastGroup.push(day);
+                        lastGroupDay = day;
+                    });
+
+                    // Process the groups into strings
+                    const groupString = [];
+                    dayGroups.forEach(group => {
+                        if (group.length < 3) {
+                            group.forEach(day => {
+                                groupString.push(dayEnum[day]);
+                            });
+                        } else {
+                            const firstDay = dayEnum[group[0]];
+                            const lastDay = dayEnum[group[group.length - 1]];
+                            groupString.push(`${firstDay}-${lastDay}`);
+                        }
+                    });
+
+                    const formatAmPm = time24Hrs => {
+                        const re = /(\d{2}):(\d{2})/;
+                        const match = time24Hrs.match(re);
+                        if (match) {
+                            let hour = parseInt(match[1], 10);
+                            const minute = match[2];
+                            let suffix;
+                            if (hour === 12 && minute === '00') {
+                                return 'Noon';
+                            }
+                            if (hour === 0) {
+                                if (minute === '00') {
+                                    return 'Midnight';
+                                }
+                                hour = 12;
+                                suffix = 'AM';
+                            } else if (hour < 12) {
+                                suffix = 'AM';
+                            } else {
+                                suffix = 'PM';
+                                if (hour > 12) hour -= 12;
+                            }
+                            return `${hour}${minute === '00' ? '' : `:${minute}`} ${suffix}`;
+                        }
+                        return time24Hrs;
+                    };
+                    let fromHour;
+                    let toHour;
+                    if (!entry.isAllDay()) {
+                        fromHour = formatAmPm(entry.fromHour);
+                        toHour = formatAmPm(entry.toHour);
+                    }
+                    // Concatenate the group strings and append hours range
+                    const hourRange = entry.isAllDay() ? 'All day' : `${fromHour} - ${toHour}`;
+                    return `${groupString.join(', ')}&nbsp&nbsp${hourRange}`;
+                });
+            }
+
             postProcess() {
+                if (this.venue.attributes.openingHours.length) {
+                    $('#WMEPH-HoursPaste').after(`<div style="display: inline-block;font-size: 13px;font-style: italic;border: 1px solid #bbbbbb;margin: 0px 2px 2px 6px;border-radius: 4px;background-color: #f5f5f5;color: #727272;padding: 1px 10px 0px 5px !important;">${
+                        this.getHoursStringArray()
+                            .map(entry => `<div>${entry}</div>`)
+                            .join('')}</div>`);
+                }
                 // NOTE: Leave these wrapped in the "() => ..." functions, to make sure "this" is bound properly.
                 $('#WMEPH_noHours').click(() => this.onAddHoursClick());
                 $('#WMEPH_noHours_2').click(() => this.onReplaceHoursClick());
@@ -5060,9 +5153,11 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                 action(actions) {
                     if (!_servicesBanner.add247.checked) {
                         const venue = getSelectedVenue();
-                        addUpdateAction(venue, { openingHours: [new OpeningHour({ days: [1, 2, 3, 4, 5, 6, 0], fromHour: '00:00', toHour: '00:00' })] }, actions);
                         _servicesBanner.add247.checked = true;
-                        harmonizePlaceGo(venue, 'harmonize');
+                        addUpdateAction(venue, { openingHours: [new OpeningHour({ days: [1, 2, 3, 4, 5, 6, 0], fromHour: '00:00', toHour: '00:00' })] }, actions);
+                        // _buttonBanner.noHours = null;
+                        // TODO: figure out how to keep the noHours flag without causing an infinite loop when
+                        // called from psOn_add247 speccase. Don't call harmonizePlaceGo here.
                     }
                 },
                 actionOn(actions) {
@@ -6253,7 +6348,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
             }
 
             _buttonBanner.hoursOverlap = Flag.HoursOverlap.eval(hoursOverlap);
-            _buttonBanner.oldHours = Flag.OldHours.eval(item, catData);
+            _buttonBanner.oldHours = Flag.OldHours.eval(item, catData, highlightOnly);
 
             if (!highlightOnly) {
                 // Highlight 24/7 button if hours are set that way, and add button for all places
