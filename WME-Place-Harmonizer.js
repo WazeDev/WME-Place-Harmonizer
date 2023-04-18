@@ -3776,11 +3776,11 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                             const minute = match[2];
                             let suffix;
                             if (hour === 12 && minute === '00') {
-                                return 'Noon';
+                                return 'noon';
                             }
                             if (hour === 0) {
                                 if (minute === '00') {
-                                    return 'Midnight';
+                                    return 'midnight';
                                 }
                                 hour = 12;
                                 suffix = 'am';
@@ -3790,7 +3790,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                                 suffix = 'pm';
                                 if (hour > 12) hour -= 12;
                             }
-                            return `${hour}${minute === '00' ? '' : `:${minute}`} ${suffix}`;
+                            return `${hour}${minute === '00' ? '' : `:${minute}`}${suffix}`;
                         }
                         return time24Hrs;
                     };
@@ -3801,8 +3801,8 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                         toHour = formatAmPm(entry.toHour);
                     }
                     // Concatenate the group strings and append hours range
-                    const hourRange = entry.isAllDay() ? 'All day' : `${fromHour}–${toHour}`;
-                    return `${groupString.join(', ')}&nbsp&nbsp${hourRange}`;
+                    const hourRange = entry.isAllDay() ? 'All day' : `${fromHour} – ${toHour}`;
+                    return `${groupString.join(', ')}:&nbsp&nbsp${hourRange}`;
                 });
             }
 
