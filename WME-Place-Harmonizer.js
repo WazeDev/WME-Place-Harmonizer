@@ -3764,7 +3764,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                         } else {
                             const firstDay = dayEnum[group[0]];
                             const lastDay = dayEnum[group[group.length - 1]];
-                            groupString.push(`${firstDay}-${lastDay}`);
+                            groupString.push(`${firstDay}–${lastDay}`);
                         }
                     });
 
@@ -3783,11 +3783,11 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                                     return 'Midnight';
                                 }
                                 hour = 12;
-                                suffix = 'AM';
+                                suffix = 'am';
                             } else if (hour < 12) {
-                                suffix = 'AM';
+                                suffix = 'am';
                             } else {
-                                suffix = 'PM';
+                                suffix = 'pm';
                                 if (hour > 12) hour -= 12;
                             }
                             return `${hour}${minute === '00' ? '' : `:${minute}`} ${suffix}`;
@@ -3801,7 +3801,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                         toHour = formatAmPm(entry.toHour);
                     }
                     // Concatenate the group strings and append hours range
-                    const hourRange = entry.isAllDay() ? 'All day' : `${fromHour} - ${toHour}`;
+                    const hourRange = entry.isAllDay() ? 'All day' : `${fromHour}–${toHour}`;
                     return `${groupString.join(', ')}&nbsp&nbsp${hourRange}`;
                 });
             }
