@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name        WME Place Harmonizer Beta
 // @namespace   WazeUSA
-// @version     2023.04.19.001
+// @version     2023.04.19.002
 // @description Harmonizes, formats, and locks a selected place
 // @author      WMEPH Development Group
 // @include     /^https:\/\/(www|beta)\.waze\.com\/(?!user\/)(.{2,6}\/)?editor\/?.*$/
@@ -363,6 +363,12 @@
             updated: false,
             selector: '#venue-edit-general > div.charging-station-controls div.wz-multiselect > wz-card',
             shadowSelector: 'div',
+            tab: 'general'
+        },
+        evCostType: {
+            updated: false,
+            selector: '#venue-edit-general > div.charging-station-controls > wz-select',
+            shadowSelector: '#select-wrapper > div > div',
             tab: 'general'
         },
 
@@ -2347,8 +2353,57 @@
                 return !highlightOnly && venue.isChargingStation() ? new this() : null;
             }
         },
-        EVChargingStationPriceMissing: class extends FlagBase {
+        EVCSPriceMissing: class extends FlagBase {
+            constructor(venue, highlightOnly) {
+                super(true, _SEVERITY.BLUE, 'EVCS price: ');
+                if (!highlightOnly) {
+                    [['FREE', 'Free', 'Free'], ['FEE', 'Paid', 'Paid']].forEach(btnInfo => {
+                        this.message += $('<button>', {
+                            id: `wmeph_${btnInfo[0]}`,
+                            class: 'wmeph-evcs-cost-type-btn btn btn-default btn-xs wmeph-btn',
+                            title: btnInfo[2]
+                        })
+                            .text(btnInfo[1])
+                            .css({
+                                padding: '3px',
+                                height: '20px',
+                                lineHeight: '0px',
+                                marginRight: '2px',
+                                marginBottom: '1px',
+                                minWidth: '18px'
+                            })
+                            .prop('outerHTML');
+                    });
+                    this.venue = venue;
+                    this.noLock = true;
+                }
+            }
 
+            static #venueIsFlaggable(venue) {
+                const evcsAttr = venue.attributes.categoryAttributes?.CHARGING_STATION;
+                return venue.isChargingStation()
+                    && (!evcsAttr?.costType || evcsAttr.costType === 'COST_TYPE_UNSPECIFIED');
+            }
+
+            static eval(venue, highlightOnly) {
+                return this.#venueIsFlaggable(venue) ? new this(venue, highlightOnly) : null;
+            }
+
+            postProcess() {
+                $('.wmeph-evcs-cost-type-btn').click(evt => {
+                    const selectedValue = $(evt.currentTarget).attr('id').replace('wmeph_', '');
+                    let attrClone;
+                    if (this.venue.attributes.categoryAttributes) {
+                        attrClone = JSON.parse(JSON.stringify(this.venue.attributes.categoryAttributes));
+                    } else {
+                        attrClone = {};
+                    }
+                    attrClone.CHARGING_STATION ??= {};
+                    attrClone.CHARGING_STATION.costType = selectedValue;
+                    addUpdateAction(this.venue, { categoryAttributes: attrClone }, null, true);
+                    _UPDATED_FIELDS.evCostType.updated = true;
+                });
+            }
         },
         GasMismatch: class extends WLFlag {
             constructor(wl) {
@@ -4857,6 +4912,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
             phoneMissing: null,
             oldHours: null,
             noHours: null,
+            evcsPriceMissing: null,
             plaLotTypeMissing: null,
             plaCostTypeMissing: null,
             plaPaymentTypeMissing: null,
@@ -6497,6 +6553,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
         _buttonBanner.evChargingStationWarning = Flag.EVChargingStationWarning.eval(item, highlightOnly);
         _buttonBanner.addCommonEVPaymentMethods = Flag.AddCommonEVPaymentMethods.eval(item, highlightOnly, wl);
         _buttonBanner.removeUncommonEVPaymentMethods = Flag.RemoveUncommonEVPaymentMethods.eval(item, highlightOnly, wl);
+        _buttonBanner.evcsPriceMissing = Flag.EVCSPriceMissing.eval(item, highlightOnly);
 
         // Name check
         _buttonBanner.nameMissing = Flag.NameMissing.eval(item, newName);
