@@ -3757,6 +3757,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                         groupString.push(`${firstDay}–${lastDay}`);
                     }
                 });
+                if (groupString.length === 1 && groupString[0] === 'Mon–Sun') return 'Every day';
                 return groupString.join(', ');
             }
 
@@ -3829,7 +3830,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
             postProcess() {
                 if (this.hours.length) {
                     const hoursStringArray = Flag.NoHours.#getHoursStringArray(this.hours);
-                    $('#WMEPH-HoursPaste').after(`<div style="display: inline-block;font-size: 13px;font-style: italic;border: 1px solid #bbbbbb;margin: 0px 2px 2px 6px;border-radius: 4px;background-color: #f5f5f5;color: #727272;padding: 1px 10px 0px 5px !important;">${
+                    $('#WMEPH-HoursPaste').after(`<div style="display: inline-block;font-size: 13px;border: 1px solid #bbbbbb;margin: 0px 2px 2px 6px;border-radius: 4px;background-color: #f5f5f5;color: #727272;padding: 1px 10px 0px 5px !important;">${
                         hoursStringArray
                             .map((entry, idx) => `<div${idx < hoursStringArray.length - 1 ? ' style="border-bottom: 1px solid #ddd;"' : ''}>${entry}</div>`)
                             .join('')}</div>`);
