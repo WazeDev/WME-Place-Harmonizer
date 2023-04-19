@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name        WME Place Harmonizer Beta
 // @namespace   WazeUSA
-// @version     2023.04.19.002
+// @version     2023.04.19.003
 // @description Harmonizes, formats, and locks a selected place
 // @author      WMEPH Development Group
 // @include     /^https:\/\/(www|beta)\.waze\.com\/(?!user\/)(.{2,6}\/)?editor\/?.*$/
@@ -3820,7 +3820,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
             }
 
             static #formatAmPm(time24Hrs) {
-                const re = /(\d{2}):(\d{2})/;
+                const re = /^(\d{1,2}):(\d{2})/;
                 const match = time24Hrs.match(re);
                 if (match) {
                     let hour = parseInt(match[1], 10);
