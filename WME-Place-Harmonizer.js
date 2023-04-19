@@ -3610,11 +3610,13 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
             }
         },
         NoHours: class extends WLFlag {
-            constructor(venue, categories, wl, highlightOnly) {
+            constructor(venue, categories, wl, highlightOnly, actions) {
                 let severity;
                 let wlActive = true;
                 let message;
-                if (!venue.attributes.openingHours.length) { // if no hours...
+                const hours = actions?.find(action => action.object === venue && action.newAttributes?.openingHours)?.newAttributes.openingHours
+                    || venue.attributes.openingHours;
+                if (!hours.length) { // if no hours...
                     if (!highlightOnly) message = Flag.NoHours.getHoursHtml();
                     if (Flag.NoHours.#noHoursIsOk(categories, wl)) {
                         severity = _SEVERITY.GREEN;
@@ -3630,6 +3632,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                 }
                 super(true, severity, message, wlActive, 'Whitelist "No hours"', 'noHours');
                 this.venue = venue;
+                this.hours = hours;
             }
 
             static #venueIsFlaggable(categories) {
@@ -3638,8 +3641,8 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                     'SWAMP_MARSH', 'DAM']);
             }
 
-            static eval(venue, categories, wl, highlightOnly) {
-                return this.#venueIsFlaggable(categories) ? new this(venue, categories, wl, highlightOnly) : null;
+            static eval(venue, categories, wl, highlightOnly, actions) {
+                return this.#venueIsFlaggable(categories) ? new this(venue, categories, wl, highlightOnly, actions) : null;
             }
 
             static #noHoursIsOk(categories, wl) {
@@ -3720,7 +3723,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
             }
 
             getHoursStringArray() {
-                const hours = this.venue.attributes.openingHours;
+                const { hours } = this;
                 const dayEnum = {
                     1: 'Mon',
                     2: 'Tue',
@@ -3807,7 +3810,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
             }
 
             postProcess() {
-                if (this.venue.attributes.openingHours.length) {
+                if (this.hours.length) {
                     $('#WMEPH-HoursPaste').after(`<div style="display: inline-block;font-size: 13px;font-style: italic;border: 1px solid #bbbbbb;margin: 0px 2px 2px 6px;border-radius: 4px;background-color: #f5f5f5;color: #727272;padding: 1px 10px 0px 5px !important;">${
                         this.getHoursStringArray()
                             .map(entry => `<div>${entry}</div>`)
@@ -5704,6 +5707,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                 // Check special cases
                 let specCases;
                 let localURLcheck = '';
+                let hoursWereAdded = false;
                 if (phSpecCaseIdx > -1) { // If the special cases column exists
                     specCases = pnhMatchData[phSpecCaseIdx]; // pulls the speccases field from the PNH line
                     if (!isNullOrWhitespace(specCases)) {
@@ -6330,7 +6334,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                 }
             }
 
-            _buttonBanner.noHours = Flag.NoHours.eval(item, newCategories, wl, highlightOnly);
+            _buttonBanner.noHours = Flag.NoHours.eval(item, newCategories, wl, highlightOnly, actions);
             _buttonBanner.mismatch247 = Flag.Mismatch247.eval(item);
 
             const hoursOverlap = venueHasOverlappingHours(item);
