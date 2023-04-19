@@ -3617,7 +3617,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                 const hours = actions?.find(action => action.object === venue && action.newAttributes?.openingHours)?.newAttributes.openingHours
                     || venue.attributes.openingHours;
                 if (!hours.length) { // if no hours...
-                    if (!highlightOnly) message = Flag.NoHours.getHoursHtml();
+                    if (!highlightOnly) message = Flag.NoHours.#getHoursHtml();
                     if (Flag.NoHours.#noHoursIsOk(categories, wl)) {
                         severity = _SEVERITY.GREEN;
                         wlActive = false;
@@ -3626,7 +3626,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                         wlActive = true;
                     }
                 } else {
-                    if (!highlightOnly) message = Flag.NoHours.getHoursHtml(true, isAlwaysOpen(venue));
+                    if (!highlightOnly) message = Flag.NoHours.#getHoursHtml(true, isAlwaysOpen(venue));
                     severity = _SEVERITY.GREEN;
                     wlActive = false;
                 }
@@ -3654,7 +3654,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                         'SEAPORT_MARINA_HARBOR', 'FARM', 'SCENIC_LOOKOUT_VIEWPOINT']);
             }
 
-            static getHoursHtml(hasExistingHours = false, alwaysOpen = false) {
+            static #getHoursHtml(hasExistingHours = false, alwaysOpen = false) {
                 return $('<span>').append(
                     `${hasExistingHours ? 'Hours' : 'No hours'}:`,
                     !alwaysOpen ? $('<input>', {
@@ -3679,8 +3679,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                 )[0].outerHTML;
             }
 
-            // eslint-disable-next-line class-methods-use-this
-            getTitle(parseResult) {
+            static #getTitle(parseResult) {
                 let title;
                 if (parseResult.overlappingHours) {
                     title = 'Overlapping hours.  Check the existing hours.';
@@ -3710,7 +3709,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                     log('Can\'t parse those hours');
                     this.severity = _SEVERITY.BLUE;
                     this.WLactive = true;
-                    $('#WMEPH-HoursPaste').css({ 'background-color': '#FDD' }).attr({ title: this.getTitle(parseResult) });
+                    $('#WMEPH-HoursPaste').css({ 'background-color': '#FDD' }).attr({ title: Flag.NoHours.#getTitle(parseResult) });
                 }
             }
 
@@ -3722,8 +3721,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                 this.applyHours(true);
             }
 
-            getHoursStringArray() {
-                const { hours } = this;
+            static #getDaysString(days) {
                 const dayEnum = {
                     1: 'Mon',
                     2: 'Tue',
@@ -3733,87 +3731,107 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                     6: 'Sat',
                     7: 'Sun'
                 };
-                return hours.map(entry => {
-                    const days = entry.days.slice();
-                    // Change Sunday value from 0 to 7
-                    const sundayIndex = days.indexOf(0);
-                    if (sundayIndex > -1) {
-                        days.splice(sundayIndex, 1);
-                        days.push(7);
+                const dayGroups = [];
+                let lastGroup;
+                let lastGroupDay = -1;
+                days.forEach(day => {
+                    if (day !== lastGroupDay + 1) {
+                        // Not a consecutive day. Start a new group.
+                        lastGroup = [];
+                        dayGroups.push(lastGroup);
                     }
-                    days.sort(); // Maybe not needed, but just in case
-
-                    // Create groups of consecutive days
-                    const dayGroups = [];
-                    let lastGroup;
-                    let lastGroupDay = -1;
-                    days.forEach(day => {
-                        if (day !== lastGroupDay + 1) {
-                            // Not a consecutive day. Start a new group.
-                            lastGroup = [];
-                            dayGroups.push(lastGroup);
-                        }
-                        lastGroup.push(day);
-                        lastGroupDay = day;
-                    });
-
-                    // Process the groups into strings
-                    const groupString = [];
-                    dayGroups.forEach(group => {
-                        if (group.length < 3) {
-                            group.forEach(day => {
-                                groupString.push(dayEnum[day]);
-                            });
-                        } else {
-                            const firstDay = dayEnum[group[0]];
-                            const lastDay = dayEnum[group[group.length - 1]];
-                            groupString.push(`${firstDay}–${lastDay}`);
-                        }
-                    });
-
-                    const formatAmPm = time24Hrs => {
-                        const re = /(\d{2}):(\d{2})/;
-                        const match = time24Hrs.match(re);
-                        if (match) {
-                            let hour = parseInt(match[1], 10);
-                            const minute = match[2];
-                            let suffix;
-                            if (hour === 12 && minute === '00') {
-                                return 'noon';
-                            }
-                            if (hour === 0) {
-                                if (minute === '00') {
-                                    return 'midnight';
-                                }
-                                hour = 12;
-                                suffix = 'am';
-                            } else if (hour < 12) {
-                                suffix = 'am';
-                            } else {
-                                suffix = 'pm';
-                                if (hour > 12) hour -= 12;
-                            }
-                            return `${hour}${minute === '00' ? '' : `:${minute}`}${suffix}`;
-                        }
-                        return time24Hrs;
-                    };
-                    let fromHour;
-                    let toHour;
-                    if (!entry.isAllDay()) {
-                        fromHour = formatAmPm(entry.fromHour);
-                        toHour = formatAmPm(entry.toHour);
-                    }
-                    // Concatenate the group strings and append hours range
-                    const hourRange = entry.isAllDay() ? 'All day' : `${fromHour} – ${toHour}`;
-                    return `${groupString.join(', ')}:&nbsp&nbsp${hourRange}`;
+                    lastGroup.push(day);
+                    lastGroupDay = day;
                 });
+
+                // Process the groups into strings
+                const groupString = [];
+                dayGroups.forEach(group => {
+                    if (group.length < 3) {
+                        group.forEach(day => {
+                            groupString.push(dayEnum[day]);
+                        });
+                    } else {
+                        const firstDay = dayEnum[group[0]];
+                        const lastDay = dayEnum[group[group.length - 1]];
+                        groupString.push(`${firstDay}–${lastDay}`);
+                    }
+                });
+                return groupString.join(', ');
+            }
+
+            static #formatAmPm(time24Hrs) {
+                const re = /(\d{2}):(\d{2})/;
+                const match = time24Hrs.match(re);
+                if (match) {
+                    let hour = parseInt(match[1], 10);
+                    const minute = match[2];
+                    let suffix;
+                    if (hour === 12 && minute === '00') {
+                        return 'noon';
+                    }
+                    if (hour === 0) {
+                        if (minute === '00') {
+                            return 'midnight';
+                        }
+                        hour = 12;
+                        suffix = 'am';
+                    } else if (hour < 12) {
+                        suffix = 'am';
+                    } else {
+                        suffix = 'pm';
+                        if (hour > 12) hour -= 12;
+                    }
+                    return `${hour}${minute === '00' ? '' : `:${minute}`} ${suffix}`;
+                }
+                return time24Hrs;
+            }
+
+            static #getHoursString(hoursObject) {
+                if (hoursObject.isAllDay()) return 'All day';
+                const fromHour = this.#formatAmPm(hoursObject.fromHour);
+                const toHour = this.#formatAmPm(hoursObject.toHour);
+                return `${fromHour}–${toHour}`;
+            }
+
+            static #getOrderedDaysArray(hoursObject) {
+                const days = hoursObject.days.slice();
+                // Change Sunday value from 0 to 7
+                const sundayIndex = days.indexOf(0);
+                if (sundayIndex > -1) {
+                    days.splice(sundayIndex, 1);
+                    days.push(7);
+                }
+                days.sort(); // Maybe not needed, but just in case
+                return days;
+            }
+
+            static #getHoursStringArray(hoursObjects) {
+                const daysWithHours = [];
+                const outputArray = hoursObjects.map(hoursObject => {
+                    const days = this.#getOrderedDaysArray(hoursObject);
+                    daysWithHours.push(...days);
+
+                    // Concatenate the group strings and append hours range
+                    const daysString = this.#getDaysString(days);
+                    const hoursString = this.#getHoursString(hoursObject);
+                    return `${daysString}:&nbsp&nbsp${hoursString}`;
+                });
+
+                // Find closed days
+                const closedDays = [1, 2, 3, 4, 5, 6, 7].filter(day => !daysWithHours.includes(day));
+                if (closedDays.length) {
+                    outputArray.push(`${this.#getDaysString(closedDays)}:&nbsp&nbspCLOSED`);
+                }
+                return outputArray;
             }
 
             postProcess() {
                 if (this.hours.length) {
+                    const hoursStringArray = Flag.NoHours.#getHoursStringArray(this.hours);
                     $('#WMEPH-HoursPaste').after(`<div style="display: inline-block;font-size: 13px;font-style: italic;border: 1px solid #bbbbbb;margin: 0px 2px 2px 6px;border-radius: 4px;background-color: #f5f5f5;color: #727272;padding: 1px 10px 0px 5px !important;">${
-                        this.getHoursStringArray()
-                            .map(entry => `<div>${entry}</div>`)
+                        hoursStringArray
+                            .map((entry, idx) => `<div${idx < hoursStringArray.length - 1 ? ' style="border-bottom: 1px solid #ddd;"' : ''}>${entry}</div>`)
                             .join('')}</div>`);
                 }
                 // NOTE: Leave these wrapped in the "() => ..." functions, to make sure "this" is bound properly.
@@ -5707,7 +5725,6 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                 // Check special cases
                 let specCases;
                 let localURLcheck = '';
-                let hoursWereAdded = false;
                 if (phSpecCaseIdx > -1) { // If the special cases column exists
                     specCases = pnhMatchData[phSpecCaseIdx]; // pulls the speccases field from the PNH line
                     if (!isNullOrWhitespace(specCases)) {
