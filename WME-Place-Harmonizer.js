@@ -21,6 +21,7 @@
 /* global LZString */
 /* global HoursParser */
 /* global I18n */
+/* global google */
 
 /* eslint-disable max-classes-per-file */
 
@@ -163,6 +164,9 @@
     let _animalFullMatch;
     let _schoolPartMatch;
     let _schoolFullMatch;
+
+    let _attributionEl;
+    let _placesService;
 
     // Userlists
     let _wmephDevList;
@@ -7225,7 +7229,76 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
             .forEach(flag => {
                 flag.postProcess?.();
             });
+
+        $('#WMEPH_banner').append(
+            $('<div>', { id: 'wmeph-google-link-info' })
+        );
+
+        processGoogleLinks(venue);
     } // END assemble Banner function
+
+    let _lastToken = null;
+    async function processGoogleLinks(venue) {
+        const token = Date.now();
+        _lastToken = token;
+        const promises = venue.attributes.externalProviderIDs.map(link => fetchGoogleLinkInfo(link.attributes.uuid, token));
+        const results = await Promise.all(promises);
+        if (results.length && results[0].token === _lastToken) {
+            $('#wmeph-google-link-info').append(
+                $('<div>', { class: 'banner-row gray', style: 'background-color: #fff;padding-top: 3px;text-align: center;' }).text('LINKED GOOGLE PLACES')
+            );
+            venue.attributes.externalProviderIDs.forEach(link => {
+                const result = results.find(r => r.uuid === link.attributes.uuid);
+                if (result && result.token === _lastToken) {
+                    const $row = $('<div>', { class: 'banner-row', style: 'border-top: 1px solid #ccc' })
+                        .append('&bull;', $('<span>', { style: 'margin-left: 3px;font-weight: 500;' }).text(`${result.result.name}`))
+                        .append('<br>');
+
+                    if (result.result.business_status === 'CLOSED_PERMANENTLY') {
+                        $row.addClass('red');
+                        $row.attr('title', 'Google indicates this linked place is permanently closed. Please verify.');
+                    } else if (results.find(otherResult => otherResult !== result && otherResult.uuid === result.uuid)) {
+                        $row.addClass('yellow');
+                        $row.attr('title', 'This place is linked more than once. Please remove extra links.');
+                    } else {
+                        $row.addClass('gray');
+                    }
+
+                    const linkStyle = 'margin-left: 5px;text-decoration: none;color: cadetblue;';
+                    if (result.result.url) {
+                        $row.append($('<a>', {
+                            style: linkStyle,
+                            href: result.result.url,
+                            target: '__blank',
+                            title: 'Open this place in Google Maps'
+                        }).text('GMaps'));
+                    }
+
+                    if (result.result.website) {
+                        $row.append($('<a>', {
+                            style: linkStyle,
+                            href: result.result.website,
+                            target: '__blank',
+                            title: 'Open the place\'s website, according to Google'
+                        }).text('Website'));
+                    }
+
+                    $('#wmeph-google-link-info').append($row);
+                }
+            });
+        }
+    }
+
+    function fetchGoogleLinkInfo(uuid, token) {
+        return new Promise(resolve => {
+            _placesService.getDetails({
+                placeId: uuid,
+                fields: ['website', 'business_status', 'url', 'name']
+            }, result => {
+                resolve({ token, result, uuid });
+            });
+        });
+    }
 
     function assembleServicesBanner() {
         const venue = getSelectedVenue();
@@ -8999,6 +9072,10 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
         // Check for script updates.
         checkWmephVersion();
         setInterval(checkWmephVersion, VERSION_CHECK_MINUTES * 60 * 1000);
+
+        // Set up Google place info service.
+        _attributionEl = document.createElement('div');
+        _placesService = new google.maps.places.PlacesService(_attributionEl);
 
         _layer = W.map.venueLayer;
 
