@@ -2347,6 +2347,9 @@
                 return !highlightOnly && venue.isChargingStation() ? new this() : null;
             }
         },
+        EVChargingStationPriceMissing: class extends FlagBase {
+
+        },
         GasMismatch: class extends WLFlag {
             constructor(wl) {
                 super(
@@ -4025,32 +4028,28 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                 }
             }
 
+            static #venueIsFlaggable(venue) {
+                const parkingAttr = venue.attributes.categoryAttributes?.PARKING_LOT;
+                return venue.isParkingLot()
+                    && (!parkingAttr?.costType || parkingAttr.costType === 'UNKNOWN');
+            }
+
             static eval(venue, highlightOnly) {
-                let result = null;
-                if (venue.isParkingLot()) {
-                    const catAttr = venue.attributes.categoryAttributes;
-                    const parkAttr = catAttr ? catAttr.PARKING_LOT : undefined;
-                    if (!parkAttr || !parkAttr.costType || parkAttr.costType === 'UNKNOWN') {
-                        result = new this(venue, highlightOnly);
-                    }
-                }
-                return result;
+                return this.#venueIsFlaggable(venue) ? new this(venue, highlightOnly) : null;
             }
 
             postProcess() {
                 $('.wmeph-pla-cost-type-btn').click(evt => {
                     const selectedValue = $(evt.currentTarget).attr('id').replace('wmeph_', '');
-                    const existingAttr = this.venue.attributes.categoryAttributes.PARKING_LOT;
-                    const newAttr = {};
-                    if (existingAttr) {
-                        Object.keys(existingAttr).forEach(prop => {
-                            let value = existingAttr[prop];
-                            if (Array.isArray(value)) value = [].concat(value);
-                            newAttr[prop] = value;
-                        });
+                    let attrClone;
+                    if (this.venue.attributes.categoryAttributes) {
+                        attrClone = JSON.parse(JSON.stringify(this.venue.attributes.categoryAttributes));
+                    } else {
+                        attrClone = {};
                     }
-                    newAttr.costType = selectedValue;
-                    addUpdateAction(this.venue, { categoryAttributes: { PARKING_LOT: newAttr } }, null, true);
+                    attrClone.PARKING_LOT ??= {};
+                    attrClone.PARKING_LOT.costType = selectedValue;
+                    addUpdateAction(this.venue, { categoryAttributes: attrClone }, null, true);
                     _UPDATED_FIELDS.cost.updated = true;
                 });
             }
