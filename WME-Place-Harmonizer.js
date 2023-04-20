@@ -63,6 +63,7 @@
     
     #WMEPH_banner .banner-row {
         padding:2px 4px;
+        cursor: default;
     }
     #WMEPH_banner .banner-row.red {
         color:#b51212;
@@ -149,6 +150,22 @@
     
     .highlight {
         animation: highlight 1.5s;
+    }
+
+    .google-logo {
+        /*font-size: 16px*/
+    }
+    .google-logo.red{
+        color: #ea4335
+    }
+    .google-logo.blue {
+        color: #4285f4
+    }
+    .google-logo.orange {
+        color: #fbbc05
+    }
+    .google-logo.green {
+        color: #34a853
     }
     `;
 
@@ -7254,11 +7271,19 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
         // Compare to venue to make sure a different place hasn't been selected since the results were requested.
         if (googleResults.length && venue === getSelectedVenue()) {
             const $bannerDiv = $('<div>', { id: 'wmeph-google-link-info' });
+            const googleLogoLetter = (letter, colorClass) => $('<span>', { class: 'google-logo' }).addClass(colorClass).text(letter);
             $bannerDiv.append(
                 $('<div>', {
                     class: 'banner-row gray',
-                    style: 'background-color: #fff;padding-top: 3px;text-align: center;color: #878585;'
-                }).text('LINKED GOOGLE PLACES').prepend(
+                    style: 'padding-top: 4px;color: #646464;padding-left: 8px;'
+                }).text(' Links').prepend(
+                    googleLogoLetter('G', 'blue'),
+                    googleLogoLetter('o', 'red'),
+                    googleLogoLetter('o', 'orange'),
+                    googleLogoLetter('g', 'blue'),
+                    googleLogoLetter('l', 'green'),
+                    googleLogoLetter('e', 'red')
+                ).prepend(
                     $('<i>', {
                         id: 'wmeph-ext-prov-jump',
                         title: 'Jump to external providers section',
@@ -7271,13 +7296,14 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                 const result = googleResults.find(r => r.uuid === link.attributes.uuid);
                 if (result) {
                     const linkStyle = 'margin-left: 5px;text-decoration: none;color: cadetblue;';
+                    let $nameSpan;
                     const $row = $('<div>', { class: 'banner-row', style: 'border-top: 1px solid #ccc' }).append(
                         $('<table>', { style: 'width: 100%' }).append(
                             $('<tbody>').append(
                                 $('<tr>').append(
                                     $('<td>').append(
                                         '&bull;',
-                                        $('<span>', {
+                                        $nameSpan = $('<span>', {
                                             class:
                                             'wmeph-google-place-name',
                                             style: 'margin-left: 3px;font-weight: normal;'
@@ -7291,7 +7317,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                                             title: 'Open the place\'s website, according to Google'
                                         }).append(
                                             $('<i>', {
-                                                class: 'fa fa-link',
+                                                class: 'fa fa-external-link',
                                                 style: 'font-size: 16px;'
                                             })
                                         ),
@@ -7316,9 +7342,15 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                     );
 
                     if (result.business_status === 'CLOSED_PERMANENTLY') {
+                        $nameSpan.append(' [CLOSED]');
                         $row.addClass('red');
                         $row.attr('title', 'Google indicates this linked place is permanently closed. Please verify.');
+                    } else if (result.business_status === 'CLOSED_TEMPORARILY') {
+                        $nameSpan.append(' [TEMPORARILY&nbps;CLOSED]');
+                        $row.addClass('yellow');
+                        $row.attr('title', 'Google indicates this linked place is TEMPORARILY closed. Please verify.');
                     } else if (googleResults.find(otherResult => otherResult !== result && otherResult.uuid === result.uuid)) {
+                        $nameSpan.append(' [DUPLICATE]');
                         $row.css('background-color', '#fde5c8');
                         $row.attr('title', 'This place is linked more than once. Please remove extra links.');
                     } else {
