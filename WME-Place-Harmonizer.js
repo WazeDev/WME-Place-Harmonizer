@@ -136,7 +136,21 @@
     }
     .wmeph-hr {
         border-color: #ccc;
-    }`;
+    }
+    
+    @keyframes highlight {
+        0% {
+            background: #ffff99; 
+        }
+        100% {
+            background: none;
+        }
+    }
+    
+    .highlight {
+        animation: highlight 2s;
+    }
+    `;
 
     let MultiAction;
     let UpdateObject;
@@ -7001,10 +7015,10 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
 
             // Add green highlighting to edit panel fields that have been updated by WMEPH
             _UPDATED_FIELDS.updateEditPanelHighlights();
-        }
 
-        // Assemble the banners
-        assembleBanner(); // Make Messaging banners
+            // Assemble the banners
+            assembleBanner(); // Make Messaging banners
+        }
 
         // showOpenPlaceWebsiteButton();
         // showSearchButton();
@@ -7230,55 +7244,56 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                 flag.postProcess?.();
             });
 
+        $('#wmeph-google-link-info').remove();
         $('#WMEPH_banner').append(
             $('<div>', { id: 'wmeph-google-link-info' })
         );
-
         processGoogleLinks(venue);
     } // END assemble Banner function
 
-    let _lastToken = null;
     async function processGoogleLinks(venue) {
-        const token = Date.now();
-        _lastToken = token;
-        const promises = venue.attributes.externalProviderIDs.map(link => fetchGoogleLinkInfo(link.attributes.uuid, token));
-        const results = await Promise.all(promises);
-        if (results.length && results[0].token === _lastToken) {
+        const promises = venue.attributes.externalProviderIDs.map(link => fetchGoogleLinkInfo(link.attributes.uuid));
+        const googleResults = await Promise.all(promises);
+        // Compare to venue to make sure a different place hasn't been selected since the results were requested.
+        if (googleResults.length && venue === getSelectedVenue()) {
             $('#wmeph-google-link-info').append(
-                $('<div>', { class: 'banner-row gray', style: 'background-color: #fff;padding-top: 3px;text-align: center;' }).text('LINKED GOOGLE PLACES')
+                $('<div>', {
+                    class: 'banner-row gray',
+                    style: 'background-color: #fff;padding-top: 3px;text-align: center;color: #878585;'
+                }).text('LINKED GOOGLE PLACES')
             );
             venue.attributes.externalProviderIDs.forEach(link => {
-                const result = results.find(r => r.uuid === link.attributes.uuid);
-                if (result && result.token === _lastToken) {
+                const result = googleResults.find(r => r.uuid === link.attributes.uuid);
+                if (result) {
                     const $row = $('<div>', { class: 'banner-row', style: 'border-top: 1px solid #ccc' })
-                        .append('&bull;', $('<span>', { style: 'margin-left: 3px;font-weight: 500;' }).text(`${result.result.name}`))
+                        .append('&bull;', $('<span>', { class: 'wmeph-google-place-name', style: 'margin-left: 3px;font-weight: 500;cursor: pointer;' }).text(`${result.name}`))
                         .append('<br>');
 
-                    if (result.result.business_status === 'CLOSED_PERMANENTLY') {
+                    if (result.business_status === 'CLOSED_PERMANENTLY') {
                         $row.addClass('red');
                         $row.attr('title', 'Google indicates this linked place is permanently closed. Please verify.');
-                    } else if (results.find(otherResult => otherResult !== result && otherResult.uuid === result.uuid)) {
-                        $row.addClass('yellow');
+                    } else if (googleResults.find(otherResult => otherResult !== result && otherResult.uuid === result.uuid)) {
+                        $row.css('background-color', '#fde5c8');
                         $row.attr('title', 'This place is linked more than once. Please remove extra links.');
                     } else {
                         $row.addClass('gray');
                     }
 
                     const linkStyle = 'margin-left: 5px;text-decoration: none;color: cadetblue;';
-                    if (result.result.url) {
+                    if (result.url) {
                         $row.append($('<a>', {
                             style: linkStyle,
-                            href: result.result.url,
-                            target: '__blank',
+                            href: result.url,
+                            target: '_blank',
                             title: 'Open this place in Google Maps'
                         }).text('GMaps'));
                     }
 
-                    if (result.result.website) {
+                    if (result.website) {
                         $row.append($('<a>', {
                             style: linkStyle,
-                            href: result.result.website,
-                            target: '__blank',
+                            href: result.website,
+                            target: '_blank',
                             title: 'Open the place\'s website, according to Google'
                         }).text('Website'));
                     }
@@ -7286,16 +7301,47 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                     $('#wmeph-google-link-info').append($row);
                 }
             });
+            $('.wmeph-google-place-name').click(() => {
+                const extProvSelector = '#venue-edit-general > div.external-providers-control.form-group';
+                document.querySelector(extProvSelector).scrollIntoView({ behavior: 'instant' });
+                $(extProvSelector).addClass('highlight');
+                setTimeout(() => {
+                    $(extProvSelector).removeClass('highlight');
+                }, 2000);
+            });
         }
     }
 
-    function fetchGoogleLinkInfo(uuid, token) {
+    const _googleResults = {};
+
+    function fetchGoogleLinkInfo(uuid) {
+        const refreshInterval = 5 * 60 * 1000; // silently refresh data if it's over 5 minutes old
+        const staleLimit = 15 * 60 * 1000; // require new data if it's over 15 minutes old
+        if (_googleResults.hasOwnProperty(uuid)) {
+            const result = _googleResults[uuid];
+            const age = Date.now() - result.timestamp;
+            if (age < staleLimit) {
+                if (age > refreshInterval) {
+                    // Refresh the data in the background.
+                    fetchGooglePlace(uuid);
+                }
+                return Promise.resolve(result);
+            }
+        }
+        return fetchGooglePlace(uuid);
+    }
+
+    function fetchGooglePlace(uuid) {
+        logDev(`fetching ${uuid}`);
         return new Promise(resolve => {
             _placesService.getDetails({
                 placeId: uuid,
                 fields: ['website', 'business_status', 'url', 'name']
-            }, result => {
-                resolve({ token, result, uuid });
+            }, googleResult => {
+                googleResult.uuid = uuid;
+                googleResult.timestamp = Date.now();
+                _googleResults[uuid] = googleResult;
+                resolve(googleResult);
             });
         });
     }
@@ -7401,7 +7447,6 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
             }
             b[bKey].WLactive = false;
             b[bKey].severity = _SEVERITY.GREEN;
-            assembleBanner();
         };
         return button;
     }
