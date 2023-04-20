@@ -148,7 +148,7 @@
     }
     
     .highlight {
-        animation: highlight 2s;
+        animation: highlight 1.5s;
     }
     `;
 
@@ -7244,30 +7244,76 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                 flag.postProcess?.();
             });
 
-        $('#wmeph-google-link-info').remove();
-        $('#WMEPH_banner').append(
-            $('<div>', { id: 'wmeph-google-link-info' })
-        );
         processGoogleLinks(venue);
     } // END assemble Banner function
 
     async function processGoogleLinks(venue) {
         const promises = venue.attributes.externalProviderIDs.map(link => fetchGoogleLinkInfo(link.attributes.uuid));
         const googleResults = await Promise.all(promises);
+        $('#wmeph-google-link-info').remove();
         // Compare to venue to make sure a different place hasn't been selected since the results were requested.
         if (googleResults.length && venue === getSelectedVenue()) {
-            $('#wmeph-google-link-info').append(
+            const $bannerDiv = $('<div>', { id: 'wmeph-google-link-info' });
+            $bannerDiv.append(
                 $('<div>', {
                     class: 'banner-row gray',
                     style: 'background-color: #fff;padding-top: 3px;text-align: center;color: #878585;'
-                }).text('LINKED GOOGLE PLACES')
+                }).text('LINKED GOOGLE PLACES').prepend(
+                    $('<i>', {
+                        id: 'wmeph-ext-prov-jump',
+                        title: 'Jump to external providers section',
+                        class: 'fa fa-level-down',
+                        style: 'font-size: 15px;float: right;color: cadetblue;cursor: pointer;'
+                    })
+                )
             );
             venue.attributes.externalProviderIDs.forEach(link => {
                 const result = googleResults.find(r => r.uuid === link.attributes.uuid);
                 if (result) {
-                    const $row = $('<div>', { class: 'banner-row', style: 'border-top: 1px solid #ccc' })
-                        .append('&bull;', $('<span>', { class: 'wmeph-google-place-name', style: 'margin-left: 3px;font-weight: 500;cursor: pointer;' }).text(`${result.name}`))
-                        .append('<br>');
+                    const linkStyle = 'margin-left: 5px;text-decoration: none;color: cadetblue;';
+                    const $row = $('<div>', { class: 'banner-row', style: 'border-top: 1px solid #ccc' }).append(
+                        $('<table>', { style: 'width: 100%' }).append(
+                            $('<tbody>').append(
+                                $('<tr>').append(
+                                    $('<td>').append(
+                                        '&bull;',
+                                        $('<span>', {
+                                            class:
+                                            'wmeph-google-place-name',
+                                            style: 'margin-left: 3px;font-weight: normal;'
+                                        }).text(`${result.name}`)
+                                    ),
+                                    $('<td>', { style: 'text-align: right;font-weight: 500;padding: 2px 2px 2px 0px;min-width: 65px;' }).append(
+                                        result.website ? [$('<a>', {
+                                            style: linkStyle,
+                                            href: result.website,
+                                            target: '_blank',
+                                            title: 'Open the place\'s website, according to Google'
+                                        }).append(
+                                            $('<i>', {
+                                                class: 'fa fa-link',
+                                                style: 'font-size: 16px;'
+                                            })
+                                        ),
+                                        $('<span>', {
+                                            style: 'text-align: center;margin-left: 8px;margin-right: 4px;color: #c5c5c5;cursor: default;'
+                                        }).text('|')] : null,
+                                        $('<a>', {
+                                            style: linkStyle,
+                                            href: result.url,
+                                            target: '_blank',
+                                            title: 'Open the place in Google Maps'
+                                        }).append(
+                                            $('<i>', {
+                                                class: 'fa fa-map-o',
+                                                style: 'font-size: 16px;'
+                                            })
+                                        )
+                                    )
+                                )
+                            )
+                        )
+                    );
 
                     if (result.business_status === 'CLOSED_PERMANENTLY') {
                         $row.addClass('red');
@@ -7279,35 +7325,22 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                         $row.addClass('gray');
                     }
 
-                    const linkStyle = 'margin-left: 5px;text-decoration: none;color: cadetblue;';
-                    if (result.url) {
-                        $row.append($('<a>', {
-                            style: linkStyle,
-                            href: result.url,
-                            target: '_blank',
-                            title: 'Open this place in Google Maps'
-                        }).text('GMaps'));
-                    }
-
-                    if (result.website) {
-                        $row.append($('<a>', {
-                            style: linkStyle,
-                            href: result.website,
-                            target: '_blank',
-                            title: 'Open the place\'s website, according to Google'
-                        }).text('Website'));
-                    }
-
-                    $('#wmeph-google-link-info').append($row);
+                    $bannerDiv.append($row);
                 }
             });
-            $('.wmeph-google-place-name').click(() => {
+            $('#WMEPH_banner').append($bannerDiv);
+            $('#wmeph-ext-prov-jump').click(() => {
                 const extProvSelector = '#venue-edit-general > div.external-providers-control.form-group';
-                document.querySelector(extProvSelector).scrollIntoView({ behavior: 'instant' });
-                $(extProvSelector).addClass('highlight');
+                document.querySelector('#edit-panel wz-tab.venue-edit-tab-general').isActive = true;
                 setTimeout(() => {
-                    $(extProvSelector).removeClass('highlight');
-                }, 2000);
+                    document.querySelector(extProvSelector).scrollIntoView({ behavior: 'smooth' });
+                    setTimeout(() => {
+                        $(extProvSelector).addClass('highlight');
+                        setTimeout(() => {
+                            $(extProvSelector).removeClass('highlight');
+                        }, 1500);
+                    }, 250);
+                }, 0);
             });
         }
     }
