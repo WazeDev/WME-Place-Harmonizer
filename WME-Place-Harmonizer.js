@@ -7330,7 +7330,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                 if (result) {
                     const linkStyle = 'margin-left: 5px;text-decoration: none;color: cadetblue;';
                     let $nameSpan;
-                    const $row = $('<div>', { class: 'banner-row', style: 'border-top: 1px solid #ccc' }).append(
+                    const $row = $('<div>', { class: 'banner-row', style: 'border-top: 1px solid #ccc;background-color: #f5f5f5;' }).append(
                         $('<table>', { style: 'width: 100%' }).append(
                             $('<tbody>').append(
                                 $('<tr>').append(
