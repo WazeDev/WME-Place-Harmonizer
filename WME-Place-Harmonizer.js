@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name        WME Place Harmonizer Beta
 // @namespace   WazeUSA
-// @version     2023.04.19.005
+// @version     2023.04.21.002
 // @description Harmonizes, formats, and locks a selected place
 // @author      WMEPH Development Group
 // @include     /^https:\/\/(www|beta)\.waze\.com\/(?!user\/)(.{2,6}\/)?editor\/?.*$/
@@ -3768,7 +3768,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                     }) : '',
                     // jquery throws an error when setting autocomplete="off" in a jquery object (must use .autocomplete() function), so just use a string here.
                     // eslint-disable-next-line max-len
-                    `<textarea id="WMEPH-HoursPaste" wrap="off" autocomplete="off" style="overflow:auto;width:90%;font-size:0.85em;height:24px;min-height:24px;max-height:300px;padding-left:3px;color:#AAA;position:relative;z-index:1;">${_DEFAULT_HOURS_TEXT}`
+                    `<textarea id="WMEPH-HoursPaste" wrap="off" autocomplete="off" style="overflow:auto;width:84%;max-width:84%;min-width:84%;font-size:0.85em;height:24px;min-height:24px;max-height:300px;margin-bottom:-2px;padding-left:3px;color:#AAA;position:relative;z-index:1;">${_DEFAULT_HOURS_TEXT}`
                 )[0].outerHTML;
             }
 
@@ -3926,7 +3926,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                     const $hoursTable = $('<div>', {
                         id: 'wmeph-hours-list',
                         style: 'display: inline-block;font-size: 13px;border: 1px solid #aaa;margin: -6px 2px 2px 0px;border-radius: 0px 0px 5px 5px;background-color: #f5f5f5;color: #727272;'
-                            + 'padding: 3px 10px 0px 5px !important;z-index: 0;position: relative;min-width: 90%',
+                            + 'padding: 3px 10px 0px 5px !important;z-index: 0;position: relative;min-width: 84%',
                         title: 'Current hours'
                     }).append(
                         hoursStringArray
@@ -3962,7 +3962,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                 $('#WMEPH-HoursPaste').after($('<i>', {
                     id: 'wmeph-paste-hours-btn',
                     class: 'fa fa-paste',
-                    style: 'font-size: 17px;position: relative;right: -5px;bottom: 6px;color: #6c6c6c;cursor: pointer;',
+                    style: 'font-size: 17px;position: relative;vertical-align: top;top: 2px;right: -5px;margin-right: 3px;color: #6c6c6c;cursor: pointer;',
                     title: 'Paste from the clipboard'
                 })); // , $('<i>', {
                 //     id: 'wmeph-clear-hours-btn',
@@ -7351,7 +7351,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                                         }).append(
                                             $('<i>', {
                                                 class: 'fa fa-external-link',
-                                                style: 'font-size: 16px;'
+                                                style: 'font-size: 16px;position: relative;top: 1px;'
                                             })
                                         ),
                                         $('<span>', {
