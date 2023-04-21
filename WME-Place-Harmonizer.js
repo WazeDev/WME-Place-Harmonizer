@@ -3768,7 +3768,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                     }) : '',
                     // jquery throws an error when setting autocomplete="off" in a jquery object (must use .autocomplete() function), so just use a string here.
                     // eslint-disable-next-line max-len
-                    `<textarea id="WMEPH-HoursPaste" wrap="off" autocomplete="off" style="overflow:auto;width:85%;max-width:85%;min-width:85%;font-size:0.85em;height:24px;min-height:24px;max-height:300px;padding-left:3px;color:#AAA">${_DEFAULT_HOURS_TEXT}`
+                    `<textarea id="WMEPH-HoursPaste" wrap="off" autocomplete="off" style="overflow:auto;width:90%;font-size:0.85em;height:24px;min-height:24px;max-height:300px;padding-left:3px;color:#AAA;position:relative;z-index:1;">${_DEFAULT_HOURS_TEXT}`
                 )[0].outerHTML;
             }
 
@@ -3923,10 +3923,18 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
             postProcess() {
                 if (this.hours.length) {
                     const hoursStringArray = Flag.NoHours.#getHoursStringArray(this.hours);
-                    $('#WMEPH-HoursPaste').after(`<div style="display: inline-block;font-size: 13px;border: 1px solid #bbbbbb;margin: 0px 2px 2px 6px;border-radius: 4px;background-color: #f5f5f5;color: #727272;padding: 1px 10px 0px 5px !important;">${
+                    const $hoursTable = $('<div>', {
+                        id: 'wmeph-hours-list',
+                        style: 'display: inline-block;font-size: 13px;border: 1px solid #aaa;margin: -6px 2px 2px 0px;border-radius: 0px 0px 5px 5px;background-color: #f5f5f5;color: #727272;'
+                            + 'padding: 3px 10px 0px 5px !important;z-index: 0;position: relative;min-width: 90%',
+                        title: 'Current hours'
+                    }).append(
                         hoursStringArray
                             .map((entry, idx) => `<div${idx < hoursStringArray.length - 1 ? ' style="border-bottom: 1px solid #ddd;"' : ''}>${entry}</div>`)
-                            .join('')}</div>`);
+                            .join('')
+                    );
+
+                    $('#WMEPH-HoursPaste').after($hoursTable);
                 }
                 // NOTE: Leave these wrapped in the "() => ..." functions, to make sure "this" is bound properly.
                 $('#WMEPH_noHours').click(() => this.onAddHoursClick());
@@ -3948,8 +3956,33 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                         const lineCount = (text.match(/\n/g) || []).length + 1;
                         const height = lineCount * 18 + 6 + (elem.scrollWidth > elem.clientWidth ? 20 : 0);
                         $sel.css({ height: `${height}px` });
-                    }, 100);
+                    }, 0);
                 }
+
+                $('#WMEPH-HoursPaste').after($('<i>', {
+                    id: 'wmeph-paste-hours-btn',
+                    class: 'fa fa-paste',
+                    style: 'font-size: 17px;position: relative;right: -5px;bottom: 6px;color: #6c6c6c;cursor: pointer;',
+                    title: 'Paste from the clipboard'
+                })); // , $('<i>', {
+                //     id: 'wmeph-clear-hours-btn',
+                //     class: 'fa fa-trash-o',
+                //     style: 'font-size: 17px;position: relative;right: -5px;bottom: 6px;color: #6c6c6c;cursor: pointer;margin-left: 5px;',
+                //     title: 'Clear pasted hours'
+                // }));
+
+                $('#wmeph-paste-hours-btn').click(() => {
+                    navigator.clipboard.readText().then(cliptext => {
+                        $('#WMEPH-HoursPaste').val(cliptext);
+                        resetHoursEntryHeight();
+                    }, err => console.error(err));
+                });
+
+                // $('#wmeph-clear-hours-btn').click(() => {
+                //     $('#WMEPH-HoursPaste').val(null);
+                //     resetHoursEntryHeight();
+                // });
+
                 $('#WMEPH-HoursPaste')
                     .bind('paste', resetHoursEntryHeight)
                     .bind('drop', resetHoursEntryHeight)
@@ -7346,7 +7379,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                         $row.addClass('red');
                         $row.attr('title', 'Google indicates this linked place is permanently closed. Please verify.');
                     } else if (result.business_status === 'CLOSED_TEMPORARILY') {
-                        $nameSpan.append(' [TEMPORARILY&nbps;CLOSED]');
+                        $nameSpan.append(' [TEMPORARILY&nbsp;CLOSED]');
                         $row.addClass('yellow');
                         $row.attr('title', 'Google indicates this linked place is TEMPORARILY closed. Please verify.');
                     } else if (googleResults.find(otherResult => otherResult !== result && otherResult.uuid === result.uuid)) {
