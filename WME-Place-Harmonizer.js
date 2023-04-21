@@ -81,6 +81,10 @@
         color:#3a3a3a;
         background-color:#eeeeee;
     }
+    #WMEPH_banner .banner-row.lightgray {
+        color:#3a3a3a;
+        background-color: #f5f5f5;
+    }
     #WMEPH_banner .banner-row .dupe {
         padding-left:8px;
     }
@@ -7321,7 +7325,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                         id: 'wmeph-ext-prov-jump',
                         title: 'Jump to external providers section',
                         class: 'fa fa-level-down',
-                        style: 'font-size: 15px;float: right;color: cadetblue;cursor: pointer;'
+                        style: 'font-size: 15px;float: right;color: cadetblue;cursor: pointer;padding-left: 6px;'
                     })
                 )
             );
@@ -7330,7 +7334,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                 if (result) {
                     const linkStyle = 'margin-left: 5px;text-decoration: none;color: cadetblue;';
                     let $nameSpan;
-                    const $row = $('<div>', { class: 'banner-row', style: 'border-top: 1px solid #ccc;background-color: #f5f5f5;' }).append(
+                    const $row = $('<div>', { class: 'banner-row', style: 'border-top: 1px solid #ccc;' }).append(
                         $('<table>', { style: 'width: 100%' }).append(
                             $('<tbody>').append(
                                 $('<tr>').append(
@@ -7387,7 +7391,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                         $row.css('background-color', '#fde5c8');
                         $row.attr('title', 'This place is linked more than once. Please remove extra links.');
                     } else {
-                        $row.addClass('gray');
+                        $row.addClass('lightgray');
                     }
 
                     $bannerDiv.append($row);
