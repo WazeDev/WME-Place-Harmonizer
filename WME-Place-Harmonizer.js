@@ -187,6 +187,9 @@
     const _CATEGORY_LOOKUP = {};
     const _DEFAULT_HOURS_TEXT = 'Paste hours here';
     const _MAX_CACHE_SIZE = 25000;
+    const PROD_DOWNLOAD_URL = 'https://greasyfork.org/scripts/28690-wme-place-harmonizer/code/WME%20Place%20Harmonizer.user.js';
+    const BETA_DOWNLOAD_URL = 'YUhSMGNITTZMeTluY21WaGMzbG1iM0pyTG05eVp5OXpZM0pwY0hSekx6STROamc1TFhkdFpTMXdiR0ZqWlMxb1lYSnRiMjVwZW1WeUxXSmxkR0V2WTI5a1pTOVhUVVVsTWpCUWJHRmpaU1V5TUVoaGNtMXZibWw2WlhJbE1qQkNaWFJoTG5WelpYSXVhbk09';
+
     let _wordVariations;
     let _resultsCache = {};
     let _initAlreadyRun = false; // This is used to skip a couple things if already run once.  This could probably be handled better...
@@ -9217,8 +9220,15 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
         logDev('placeHarmonizerInit'); // Be sure to update User info before calling logDev()
 
         // Check for script updates.
-        checkWmephVersion();
-        setInterval(checkWmephVersion, VERSION_CHECK_MINUTES * 60 * 1000);
+        const downloadUrl = _IS_BETA_VERSION ? dec(BETA_DOWNLOAD_URL) : PROD_DOWNLOAD_URL;
+        let scriptUpdateMonitor;
+        try {
+            scriptUpdateMonitor = new ScriptUpdateMonitor(_SCRIPT_NAME, _SCRIPT_VERSION, downloadUrl);
+            scriptUpdateMonitor.start();
+        } catch (ex) {
+            // Report, but don't stop if ScriptUpdateMonitor fails.
+            console.error('WMEPH:', ex);
+        }
 
         // Set up Google place info service.
         _attributionEl = document.createElement('div');
@@ -9417,47 +9427,136 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
     const SPREADSHEET_ID = '1pBz4l4cNapyGyzfMJKqA4ePEFLkmz2RryAt1UV39B4g';
     const SPREADSHEET_RANGE = '2019.01.20.001!A2:L';
     const API_KEY = 'YTJWNVBVRkplbUZUZVVObU1YVXpSRVZ3ZW5OaFRFSk1SbTR4VGxKblRURjJlRTFYY3pOQ2NXZElPQT09';
-    const BETA_URL = 'YUhSMGNITTZMeTluY21WaGMzbG1iM0pyTG05eVp5OWxiaTl6WTNKcGNIUnpMekk0TmpnNUxYZHRaUzF3YkdGalpTMW9ZWEp0YjI1cGVtVnlMV0psZEdFPQ==';
-    const BETA_META_URL = 'YUhSMGNITTZMeTluY21WaGMzbG1iM0pyTG05eVp5OXpZM0pwY0hSekx6STROamc1TFhkdFpTMXdiR0ZqWlMxb1lYSnRiMjVwZW1WeUxXSmxkR0V2WTI5a1pTOVhUVVVsTWpCUWJHRmpaU1V5TUVoaGNtMXZibWw2WlhJbE1qQkNaWFJoTG0xbGRHRXVhbk09';
-    const PROD_URL = 'https://greasyfork.org/scripts/28690-wme-place-harmonizer/code/WME%20Place%20Harmonizer.user.js';
-    const PROD_META_URL = 'https://greasyfork.org/scripts/28690-wme-place-harmonizer/code/WME%20Place%20Harmonizer.meta.js';
     const dec = s => atob(atob(s));
-    let _lastVersionChecked = '0';
-    const VERSION_CHECK_MINUTES = 60; // How frequently to check for script updates, in minutes.
 
-    function checkWmephVersion() {
-        try {
-            let url = _IS_BETA_VERSION ? dec(BETA_META_URL) : PROD_META_URL;
-            GM_xmlhttpRequest({
-                url,
-                onload(res) {
-                    try {
-                        const latestVersion = res.responseText.match(/@version\s+(.*)/)[1];
-                        if (latestVersion > _SCRIPT_VERSION && latestVersion > (_lastVersionChecked || '0')) {
-                            _lastVersionChecked = latestVersion;
-                            url = _IS_BETA_VERSION ? dec(BETA_URL) : PROD_URL;
-                            WazeWrap.Alerts.info(
-                                _SCRIPT_NAME,
-                                `<a href="${url}" target = "_blank">Version ${
-                                    latestVersion}</a> is available.<br>Update now to get the latest features and fixes.`,
-                                true,
-                                false
-                            );
+    class ScriptUpdateMonitor {
+        #lastVersionChecked = '0';
+        #scriptName;
+        #currentVersion;
+        #downloadUrl;
+        #metaUrl;
+        #metaRegExp;
+        #intervalChecker = null;
+
+        /**
+         * Creates an instance of ScriptUpdateMonitor.
+         * @param {string} scriptName The name of your script. Used as the alert title and in console error messages.
+         * @param {string|number} currentVersion The current installed version of the script.
+         * @param {string} downloadUrl The download URL of the script. If using Greasy Fork, the URL should end with ".user.js".
+         * @param {string} [metaUrl] The URL to a page containing the latest script version number.
+         * Optional for Greasy Fork scripts (uses download URL path, replacing ".user.js" with ".meta.js").
+         * @param {RegExp} [metaRegExp] A regular expression with a single capture group to extract the
+         * version number from the metaUrl page. e.g. /@version\s+(.+)/i. Required if metaUrl is specified.
+         * Ignored if metaUrl is a falsy value.
+         * @memberof ScriptUpdateMonitor
+         */
+        constructor(scriptName, currentVersion, downloadUrl, metaUrl = null, metaRegExp = null) {
+            this.#scriptName = scriptName;
+            this.#currentVersion = currentVersion;
+            this.#downloadUrl = downloadUrl;
+            this.#metaUrl = metaUrl;
+            this.#metaRegExp = metaRegExp || /@version\s+(.+)/i;
+            this.#validateParameters();
+        }
+
+        /**
+         * Starts checking for script updates at a specified interval.
+         *
+         * @memberof ScriptUpdateMonitor
+         * @param {number} [intervalMinutes = 60] The interval (in minutes) to check for script updates. Default is 60.
+         * @param {boolean} [checkImmediately = true] If true, checks for a script update immediately when called. Default is true.
+         */
+        start(intervalMinutes = 60, checkImmediately = true) {
+            if (!this.#intervalChecker) {
+                if (checkImmediately) this.#postAlertIfNewReleaseAvailable();
+                this.#intervalChecker = setInterval(this.#postAlertIfNewReleaseAvailable, intervalMinutes * 60 * 1000);
+            }
+        }
+
+        /**
+         * Stops checking for script updates.
+         *
+         * @memberof ScriptUpdateMonitor
+         */
+        stop() {
+            if (this.#intervalChecker) {
+                clearInterval(this.#intervalChecker);
+                this.#intervalChecker = null;
+            }
+        }
+
+        #validateParameters() {
+            if (this.#metaUrl) {
+                if (!this.#metaRegExp) {
+                    throw new Error('metaRegExp must be defined if metaUrl is defined.');
+                }
+                if (!(this.#metaRegExp instanceof RegExp)) {
+                    throw new Error('metaUrl must be a regular expression.');
+                }
+            } else {
+                if (!/\.user\.js$/.test(this.#downloadUrl)) {
+                    throw new Error('Invalid downloadUrl paramenter. Must end with ".user.js" [', this.#downloadUrl, ']');
+                }
+                this.#metaUrl = this.#downloadUrl.replace(/\.user\.js$/, '.meta.js');
+            }
+        }
+
+        async #postAlertIfNewReleaseAvailable() {
+            let latestVersion;
+            try {
+                latestVersion = await this.#fetchLatestReleaseVersion();
+            } catch (ex) {
+                console.error(`${this.#scriptName}: Error while checking for latest version.`, ex);
+                return;
+            }
+            if (latestVersion > this.#currentVersion && latestVersion > (this.#lastVersionChecked || '0')) {
+                this.#lastVersionChecked = latestVersion;
+                this.#clearPreviousAlerts();
+                this.#postNewVersionAlert(latestVersion);
+            }
+        }
+
+        #postNewVersionAlert(newVersion) {
+            const message = `<a href="${this.#downloadUrl}" target = "_blank">Version ${
+                newVersion}</a> is available.<br>Update now to get the latest features and fixes.`;
+            WazeWrap.Alerts.info(_SCRIPT_NAME, message, true, false);
+        }
+
+        #fetchLatestReleaseVersion() {
+            const metaUrl = this.#metaUrl;
+            const metaRegExp = this.#metaRegExp;
+            return new Promise((resolve, reject) => {
+                GM_xmlhttpRequest({
+                    url: metaUrl,
+                    onload(res) {
+                        const versionMatch = res.responseText.match(metaRegExp);
+                        if (!versionMatch?.length === 2) {
+                            throw new Error(`Invalid RegExp expression (${metaRegExp}) or version # could not be found at this URL: ${metaUrl}`);
                         }
-                    } catch (ex) {
-                        console.error('WMEPH upgrade version check:', ex);
+                        resolve(res.responseText.match(metaRegExp)[1]);
+                    },
+                    onerror(res) {
+                        reject(res);
                     }
-                },
-                onerror(res) {
-                    // Silently fail with an error message in the console.
-                    console.error('WMEPH upgrade version check:', res);
+                });
+            });
+        }
+
+        #clearPreviousAlerts() {
+            $('.toast-container-wazedev .toast-info:visible').toArray().forEach(elem => {
+                const $alert = $(elem);
+                const title = $alert.find('.toast-title').text();
+                if (title === this.#scriptName) {
+                    const message = $alert.find('.toast-message').text();
+                    if (/version .* is available/i.test(message)) {
+                        // Force a click to make the alert go away.
+                        $alert.click();
+                    }
                 }
             });
-        } catch (ex) {
-            // Silently fail with an error message in the console.
-            console.error('WMEPH upgrade version check:', ex);
         }
     }
+
     function getSpreadsheetUrl(id, range, key) {
         return `https://sheets.googleapis.com/v4/spreadsheets/${id}/values/${range}?${dec(key)}`;
     }
@@ -9522,6 +9621,8 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
     function devTestCode() {
         if (W.loginManager.user.userName === 'MapOMatic') {
             // test code here
+
+            unsafeWindow.ScriptUpdateMonitor = ScriptUpdateMonitor;
         }
     }
 
