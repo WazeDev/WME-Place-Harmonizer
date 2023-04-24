@@ -9622,7 +9622,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
         if (W.loginManager.user.userName === 'MapOMatic') {
             // test code here
 
-            unsafeWindow.ScriptUpdateMonitor = ScriptUpdateMonitor;
+            console.log(typeof GM_xmlhttpRequest);
         }
     }
 
