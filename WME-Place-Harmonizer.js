@@ -9519,7 +9519,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
         #postNewVersionAlert(newVersion) {
             const message = `<a href="${this.#downloadUrl}" target = "_blank">Version ${
                 newVersion}</a> is available.<br>Update now to get the latest features and fixes.`;
-            WazeWrap.Alerts.info(_SCRIPT_NAME, message, true, false);
+            WazeWrap.Alerts.info(this.#scriptName, message, true, false);
         }
 
         #fetchLatestReleaseVersion() {
