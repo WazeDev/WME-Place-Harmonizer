@@ -7389,7 +7389,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                         $nameSpan.append(' [TEMPORARILY&nbsp;CLOSED]');
                         $row.addClass('yellow');
                         $row.attr('title', 'Google indicates this linked place is TEMPORARILY closed. Please verify.');
-                    } else if (googleResults.find(otherResult => otherResult !== result && otherResult.uuid === result.uuid)) {
+                    } else if (googleResults.filter(otherResult => otherResult.uuid === result.uuid).length > 1) {
                         $nameSpan.append(' [DUPLICATE]');
                         $row.css('background-color', '#fde5c8');
                         $row.attr('title', 'This place is linked more than once. Please remove extra links.');
