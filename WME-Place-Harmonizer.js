@@ -304,6 +304,10 @@
         capWords: '3M|AAA|AMC|AOL|AT&T|ATM|BBC|BLT|BMV|BMW|BP|CBS|CCS|CGI|CISCO|CJ|CNG|CNN|CVS|DHL|DKNY|DMV|DSW|EMS|ER|ESPN|FCU|FCUK|FDNY|GNC|H&M|HP|HSBC|IBM|IHOP|IKEA|IRS|JBL|JCPenney|KFC|LLC|MBNA|MCA|MCI|NBC|NYPD|PDQ|PNC|TCBY|TNT|TV|UPS|USA|USPS|VW|XYZ|ZZZ'.split('|'),
         specWords: 'd\'Bronx|iFix|ExtraMile|ChargePoint|EVgo|SemaConnect'.split('|')
     };
+    const PRIMARY_CATS_TO_IGNORE_MISSING_PHONE_URL = ['ISLAND', 'SEA_LAKE_POOL', 'RIVER_STREAM', 'CANAL', 'JUNCTION_INTERCHANGE', 'SCENIC_LOOKOUT_VIEWPOINT'];
+    const PRIMARY_CATS_TO_FLAG_GREEN_MISSING_PHONE_URL = ['BRIDGE', 'FOREST_GROVE', 'DAM', 'TUNNEL', 'CEMETERY'];
+    const ANY_CATS_TO_FLAG_GREEN_MISSING_PHONE_URL = ['REST_AREAS'];
+    const REGIONS_THAT_WANT_PLA_PHONE_URL = ['SER'];
     let _customStoreFinder = false; // switch indicating place-specific custom store finder url
     let _customStoreFinderLocal = false; // switch indicating place-specific custom store finder url with localization option (GPS/addr)
     let _customStoreFinderURL = ''; // switch indicating place-specific custom store finder url
@@ -3574,18 +3578,13 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
             }
         },
         UrlMissing: class extends WLActionFlag {
-            static #regionsThatWantPlaUrls = ['SER'];
-            static #primaryCategoriesToIgnore = ['ISLAND', 'SEA_LAKE_POOL', 'RIVER_STREAM', 'CANAL', 'JUNCTION_INTERCHANGE', 'SCENIC_LOOKOUT_VIEWPOINT'];
-            static #primaryCategoriesToFlagGreen = ['BRIDGE', 'FOREST_GROVE', 'DAM', 'TUNNEL', 'CEMETERY'];
-            static #anyCategoryToFlagGreen = ['REST_AREAS'];
-
             constructor(venue, categories, wl) {
                 let wlActive = true;
                 let severity = _SEVERITY.BLUE;
                 if (wl.urlWL
                     || (venue.isParkingLot() && !Flag.UrlMissing.#venueHasOperator(venue))
-                    || Flag.UrlMissing.#primaryCategoriesToFlagGreen.includes(categories[0])
-                    || Flag.UrlMissing.#anyCategoryToFlagGreen.some(category => categories.includes(category))) {
+                    || PRIMARY_CATS_TO_FLAG_GREEN_MISSING_PHONE_URL.includes(categories[0])
+                    || ANY_CATS_TO_FLAG_GREEN_MISSING_PHONE_URL.some(category => categories.includes(category))) {
                     severity = _SEVERITY.GREEN;
                     wlActive = false;
                 }
@@ -3605,8 +3604,6 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                 this.wl = wl;
             }
 
-            static get regionsThatWantPlaUrls() { return this.#regionsThatWantPlaUrls; }
-
             static #venueHasOperator(venue) {
                 return venue.attributes.brand && W.model.categoryBrands.PARKING_LOT.includes(venue.attributes.brand);
             }
@@ -3614,8 +3611,8 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
             static #venueIsFlaggable(venue, url, categories, region) {
                 return !url?.trim().length
                     && (!venue.isParkingLot()
-                        || (venue.isParkingLot() && (this.#regionsThatWantPlaUrls.includes(region) || this.#venueHasOperator(venue))))
-                    && !this.#primaryCategoriesToIgnore.includes(categories[0]);
+                        || (venue.isParkingLot() && (REGIONS_THAT_WANT_PLA_PHONE_URL.includes(region) || this.#venueHasOperator(venue))))
+                    && !PRIMARY_CATS_TO_IGNORE_MISSING_PHONE_URL.includes(categories[0]);
             }
 
             static eval(venue, url, categories, region, wl) {
@@ -3699,7 +3696,8 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
         },
         PhoneMissing: class extends WLActionFlag {
             static whitelistKey = 'phoneWL';
-            constructor(venue, hasOperator, wl, outputFormat, isPLA) {
+
+            constructor(venue, categories, wl, outputFormat) {
                 super(
                     true,
                     _SEVERITY.BLUE,
@@ -3714,24 +3712,29 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                 this.badInput = false;
                 this.outputFormat = outputFormat;
                 this.venue = venue;
-                if ((isPLA && !hasOperator) || wl[this.WLkeyName]) {
+                if ((venue.isParkingLot() && !Flag.PhoneMissing.#venueHasOperator(venue))
+                    || wl[this.WLkeyName]
+                    || PRIMARY_CATS_TO_FLAG_GREEN_MISSING_PHONE_URL.includes(categories[0])
+                    || ANY_CATS_TO_FLAG_GREEN_MISSING_PHONE_URL.some(category => categories.includes(category))) {
                     this.severity = _SEVERITY.GREEN;
                     this.WLactive = false;
                 }
             }
 
-            static get _regionsThatWantPlaPhones() { return ['SER']; }
+            static #venueHasOperator(venue) {
+                return venue.attributes.brand && W.model.categoryBrands.PARKING_LOT.includes(venue.attributes.brand);
+            }
 
-            static eval(venue, newPhone, wl, region, outputFormat, skipPhoneCheck) {
-                let result = null;
-                if (!newPhone && !skipPhoneCheck && !wl[this.whitelistKey]) {
-                    const hasOperator = venue.attributes.brand && W.model.categoryBrands?.PARKING_LOT?.includes(venue.attributes.brand);
-                    const isPLA = venue.isParkingLot();
-                    if (!isPLA || (isPLA && (this._regionsThatWantPlaPhones.includes(region) || hasOperator))) {
-                        result = new this(venue, hasOperator, wl, outputFormat, isPLA);
-                    }
-                }
-                return result;
+            static #venueIsFlaggable(venue, newPhone, categories, region, skipPhoneCheck) {
+                return !newPhone
+                    && !skipPhoneCheck
+                    && (!venue.isParkingLot()
+                        || (venue.isParkingLot() && (REGIONS_THAT_WANT_PLA_PHONE_URL.includes(region) || this.#venueHasOperator(venue))))
+                    && !PRIMARY_CATS_TO_IGNORE_MISSING_PHONE_URL.includes(categories[0]);
+            }
+
+            static eval(venue, newPhone, categories, wl, region, outputFormat, skipPhoneCheck) {
+                return this.#venueIsFlaggable(venue, newPhone, categories, region, skipPhoneCheck) ? new this(venue, categories, wl, outputFormat) : null;
             }
 
             action() {
@@ -3744,6 +3747,18 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                     logDev(newPhone);
                     addUpdateAction(this.venue, { phone: newPhone }, null, true);
                 }
+            }
+
+            // eslint-disable-next-line class-methods-use-this
+            postProcess() {
+                // TODO: Is this needed???
+                // If pressing enter in the phone entry box, add the phone
+                $('#WMEPH-PhoneAdd').keyup(evt => {
+                    if (evt.keyCode === 13 && $('#WMEPH-PhoneAdd').val() !== '') {
+                        $('#WMEPH_phoneMissing').click();
+                        $('#WMEPH_badAreaCode').click();
+                    }
+                });
             }
         },
         NoHours: class extends WLFlag {
@@ -6585,7 +6600,15 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
             }
 
             _buttonBanner.phoneInvalid = Flag.PhoneInvalid.eval(normalizedPhone, outputPhoneFormat);
-            _buttonBanner.phoneMissing = Flag.PhoneMissing.eval(item, newPhone, wl, region, outputPhoneFormat, !!_buttonBanner.addRecommendedPhone);
+            _buttonBanner.phoneMissing = Flag.PhoneMissing.eval(
+                item,
+                newPhone,
+                newCategories,
+                wl,
+                region,
+                outputPhoneFormat,
+                !!_buttonBanner.addRecommendedPhone
+            );
 
             // Check if valid area code  #LOC# USA and CAN only
             if (!wl.aCodeWL && (countryCode === 'USA' || countryCode === 'CAN')) {
@@ -6598,8 +6621,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
             }
             if (!highlightOnly && newPhone !== item.attributes.phone) {
                 logDev('Phone updated');
-                actions.push(new UpdateObject(item, { phone: newPhone }));
-                _UPDATED_FIELDS.phone.updated = true;
+                addUpdateAction(item, { phone: newPhone }, actions);
             }
 
             // Post Office check
@@ -6773,14 +6795,9 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
         // Some cats don't need PNH messages and url/phone severities
         if (['BRIDGE', 'FOREST_GROVE', 'DAM', 'TUNNEL', 'CEMETERY'].includes(item.attributes.categories[0])) {
             _buttonBanner.NewPlaceSubmit = null;
-            if (_buttonBanner.phoneMissing) {
-                _buttonBanner.phoneMissing.severity = _SEVERITY.GREEN;
-                _buttonBanner.phoneMissing.WLactive = false;
-            }
         } else if (['ISLAND', 'SEA_LAKE_POOL', 'RIVER_STREAM', 'CANAL', 'JUNCTION_INTERCHANGE', 'SCENIC_LOOKOUT_VIEWPOINT'].includes(item.attributes.categories[0])) {
             // Some cats don't need PNH messages and url/phone messages
             _buttonBanner.NewPlaceSubmit = null;
-            _buttonBanner.phoneMissing = null;
         }
 
         // *** Rest Area parsing
@@ -6825,10 +6842,6 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
             if (!highlightOnly) {
                 _buttonBanner2.restAreaWiki.active = true;
                 _buttonBanner2.placesWiki.active = false;
-            }
-            if (_buttonBanner.phoneMissing) {
-                _buttonBanner.phoneMissing.severity = _SEVERITY.GREEN;
-                _buttonBanner.phoneMissing.WLactive = false;
             }
         }
 
@@ -7297,14 +7310,6 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
         $('#WMEPH-HNAdd').keyup(evt => {
             if (evt.keyCode === 13 && $('#WMEPH-HNAdd').val() !== '') {
                 $('#WMEPH_hnMissing').click();
-            }
-        });
-
-        // If pressing enter in the phone entry box, add the phone
-        $('#WMEPH-PhoneAdd').keyup(evt => {
-            if (evt.keyCode === 13 && $('#WMEPH-PhoneAdd').val() !== '') {
-                $('#WMEPH_phoneMissing').click();
-                $('#WMEPH_badAreaCode').click();
             }
         });
 
