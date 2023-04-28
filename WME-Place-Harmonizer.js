@@ -3634,8 +3634,8 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
             constructor(venue, textValue, outputFormat) {
                 super(
                     true,
-                    _SEVERITY.BLUE,
-                    `Area Code mismatch:<br><input type="text" id="WMEPH-PhoneAdd" autocomplete="off" style="font-size:0.85em;width:100px;padding-left:2px;color:#000;" value="${textValue || ''}">`,
+                    _SEVERITY.YELLOW,
+                    `Area Code appears to be invalid for this region:<br><input type="text" id="WMEPH-PhoneAdd" autocomplete="off" style="font-size:0.85em;width:100px;padding-left:2px;color:#000;" value="${textValue || ''}">`,
                     'Update',
                     'Update phone #',
                     true,
@@ -3645,6 +3645,18 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                 this.venue = venue;
                 this.outputFormat = outputFormat;
                 this.noBannerAssemble = true;
+                this.noLock = true;
+            }
+
+            static #venueIsFlaggable(phone, countryCode, wl) {
+                return phone
+                    && !wl.aCodeWL
+                    && ['USA', 'CAN'].includes(countryCode)
+                    && !_areaCodeList.includes(phone.match(/[2-9]\d{2}/)?.[0]);
+            }
+
+            static eval(venue, phone, outputPhoneFormat, countryCode, wl) {
+                return this.#venueIsFlaggable(phone, countryCode, wl) ? new this(venue, phone, outputPhoneFormat) : null;
             }
 
             action() {
@@ -6611,14 +6623,8 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
             );
 
             // Check if valid area code  #LOC# USA and CAN only
-            if (!wl.aCodeWL && (countryCode === 'USA' || countryCode === 'CAN')) {
-                if (newPhone !== null && newPhone.match(/[2-9]\d{2}/) !== null) {
-                    const areaCode = newPhone.match(/[2-9]\d{2}/)[0];
-                    if (!_areaCodeList.includes(areaCode)) {
-                        _buttonBanner.badAreaCode = new Flag.BadAreaCode(item, newPhone, outputPhoneFormat);
-                    }
-                }
-            }
+            _buttonBanner.badAreaCode = Flag.BadAreaCode.eval(item, newPhone, outputPhoneFormat, countryCode, wl);
+
             if (!highlightOnly && newPhone !== item.attributes.phone) {
                 logDev('Phone updated');
                 addUpdateAction(item, { phone: newPhone }, actions);
