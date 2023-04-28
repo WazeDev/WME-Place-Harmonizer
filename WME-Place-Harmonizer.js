@@ -1975,7 +1975,7 @@
     function harmonizePlace() {
         // Beta version for approved users only
         if (_IS_BETA_VERSION && !_USER.isBetaUser) {
-            WazeWrap.Alerts.error(_SCRIPT_NAME, 'Please sign up to beta-test this script version.<br>Send a PM or Slack-DM to MapOMatic or Tonestertm, or post in the WMEPH forum thread. Thanks.');
+            WazeWrap.Alerts.error(_SCRIPT_NAME, 'Please sign up to beta-test this script version.<br>Contact MapOMatic or Tonestertm in Discord, or post in the WMEPH forum thread. Thanks.');
             return;
         }
         // Only run if a single place is selected
