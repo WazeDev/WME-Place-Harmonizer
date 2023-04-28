@@ -6613,8 +6613,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                     _buttonBanner.NewPlaceSubmit = null;
                     if (item.attributes.url !== 'usps.com') {
                         newUrl = 'usps.com';
-                        actions.push(new UpdateObject(item, { url: newUrl }));
-                        _UPDATED_FIELDS.url.updated = true;
+                        addUpdateAction(item, { url: newUrl }, actions);
                     }
                 }
 
