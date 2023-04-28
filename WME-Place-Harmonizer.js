@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name        WME Place Harmonizer Beta
 // @namespace   WazeUSA
-// @version     2023.04.21.002
+// @version     2023.04.27.001
 // @description Harmonizes, formats, and locks a selected place
 // @author      WMEPH Development Group
 // @include     /^https:\/\/(www|beta)\.waze\.com\/(?!user\/)(.{2,6}\/)?editor\/?.*$/
@@ -3438,13 +3438,20 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                             }
                         }
                     } else {
-                        // 3/23/2023 - This is a temporary solution to add a disambiguator for Tesla chargers.
+                        // 3/23/2023 - This is a temporary solution to add a disambiguator for Tesla & Rivian chargers.
                         const teslaSC = /tesla supercharger/i;
                         const teslaDC = /tesla destination charger/i;
                         const isTesla = teslaSC.test(message) && teslaDC.test(message);
                         if (isTesla) {
                             message = message.replace(teslaSC, '<button id="wmeph-tesla-supercharger" class="btn wmeph-btn">Tesla SuperCharger</button>');
                             message = message.replace(teslaDC, '<button id="wmeph-tesla-destination-charger" class="btn wmeph-btn">Tesla Destination Charger</button>');
+                        }
+                        const rivianAN = /<b>rivian adventure network<\/b> charger/i;
+                        const rivianW = /<b>rivian waypoints<\/b> charger/i;
+                        const isRivian = rivianAN.test(message) && rivianW.test(message);
+                        if (isRivian) {
+                            message = message.replace(rivianAN, '<button id="wmeph-rivian-adventure-network" class="btn wmeph-btn">Rivian Adventure Network charger</button>');
+                            message = message.replace(rivianW, '<button id="wmeph-rivian-waypoints" class="btn wmeph-btn">Rivian Waypoints charger</button>');
                         }
 
                         result = new Flag.SpecCaseMessageLow(message); // KEEP THIS LINE (not part of Tesla stuff)
@@ -3461,6 +3468,16 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                             };
                             result.severity = _SEVERITY.RED;
                             result.noLock = true;
+                        }
+                        if (isRivian) {
+                            result.postProcess = () => {
+                                $('#wmeph-rivian-adventure-network').click(() => {
+                                    addUpdateAction(venue, { name: 'Rivian Adventure Network' }, null, true);
+                                });
+                                $('#wmeph-rivian-waypoints').click(() => {
+                                    addUpdateAction(venue, { name: 'Rivian Waypoints' }, null, true);
+                                });
+                            };
                         }
                     }
                 }
