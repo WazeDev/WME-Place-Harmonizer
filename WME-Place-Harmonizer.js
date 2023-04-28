@@ -1929,47 +1929,36 @@
     }
 
     // Normalize url
-    function normalizeURL(s, lc, skipBannerActivate, venue, region, wl) {
-        const regionsThatWantPLAUrls = ['SER'];
-
-        if ((!s || s.trim().length === 0) && !skipBannerActivate) {
-            // Notify that url is missing and provide web search to find website and gather data (provided for all editors)
-            const hasOperator = venue.attributes.brand && W.model.categoryBrands.PARKING_LOT.includes(venue.attributes.brand);
-            if (!venue.isParkingLot() || (venue.isParkingLot() && (regionsThatWantPLAUrls.includes(region) || hasOperator))) {
-                _buttonBanner.urlMissing = new Flag.UrlMissing(venue, wl);
-                if (wl.urlWL || (venue.isParkingLot() && !hasOperator)) {
-                    _buttonBanner.urlMissing.severity = _SEVERITY.GREEN;
-                    _buttonBanner.urlMissing.WLactive = false;
-                }
-            }
-            return s;
+    function normalizeURL(url, makeLowerCase = true) {
+        if (!url?.trim().length) {
+            return url;
         }
 
-        s = s.replace(/ \(.*/g, ''); // remove anything with parentheses after it
-        s = s.replace(/ /g, ''); // remove any spaces
-        let m = s.match(/^http:\/\/(.*)$/i); // remove http://
-        if (m) { [, s] = m; }
-        if (lc) { // lowercase the entire domain
-            s = s.replace(/[^/]+/i, txt => ((txt === txt.toLowerCase()) ? txt : txt.toLowerCase()));
+        url = url.replace(/ \(.*/g, ''); // remove anything with parentheses after it
+        url = url.replace(/ /g, ''); // remove any spaces
+        let m = url.match(/^http:\/\/(.*)$/i); // remove http://
+        if (m) { [, url] = m; }
+        if (makeLowerCase) { // lowercase the entire domain
+            url = url.replace(/[^/]+/i, txt => ((txt === txt.toLowerCase()) ? txt : txt.toLowerCase()));
         } else { // lowercase only the www and com
-            s = s.replace(/www\./i, 'www.');
-            s = s.replace(/\.com/i, '.com');
+            url = url.replace(/www\./i, 'www.');
+            url = url.replace(/\.com/i, '.com');
         }
-        m = s.match(/^(.*)\/pages\/welcome.aspx$/i); // remove unneeded terms
-        if (m) { [, s] = m; }
-        m = s.match(/^(.*)\/pages\/default.aspx$/i); // remove unneeded terms
-        if (m) { [, s] = m; }
+        m = url.match(/^(.*)\/pages\/welcome.aspx$/i); // remove unneeded terms
+        if (m) { [, url] = m; }
+        m = url.match(/^(.*)\/pages\/default.aspx$/i); // remove unneeded terms
+        if (m) { [, url] = m; }
         // m = s.match(/^(.*)\/index.html$/i); // remove unneeded terms
         // if (m) { s = m[1]; }
         // m = s.match(/^(.*)\/index.htm$/i); // remove unneeded terms
         // if (m) { s = m[1]; }
         // m = s.match(/^(.*)\/index.php$/i); // remove unneeded terms
         // if (m) { s = m[1]; }
-        m = s.match(/^(.*)\/$/i); // remove final slash
-        if (m) { [, s] = m; }
-        if (!s || s.trim().length === 0 || !/(^https?:\/\/)?\w+\.\w+/.test(s)) s = 'badURL';
-        return s;
-    } // END normalizeURL function
+        m = url.match(/^(.*)\/$/i); // remove final slash
+        if (m) { [, url] = m; }
+        if (!url || url.trim().length === 0 || !/(^https?:\/\/)?\w+\.\w+/.test(url)) url = 'badURL';
+        return url;
+    }
 
     // Only run the harmonization if a venue is selected
     function harmonizePlace() {
@@ -3585,14 +3574,28 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
             }
         },
         UrlMissing: class extends WLActionFlag {
-            constructor(venue, wl) {
+            static #regionsThatWantPlaUrls = ['SER'];
+            static #primaryCategoriesToIgnore = ['ISLAND', 'SEA_LAKE_POOL', 'RIVER_STREAM', 'CANAL', 'JUNCTION_INTERCHANGE', 'SCENIC_LOOKOUT_VIEWPOINT'];
+            static #primaryCategoriesToFlagGreen = ['BRIDGE', 'FOREST_GROVE', 'DAM', 'TUNNEL', 'CEMETERY'];
+            static #anyCategoryToFlagGreen = ['REST_AREAS'];
+
+            constructor(venue, categories, wl) {
+                let wlActive = true;
+                let severity = _SEVERITY.BLUE;
+                if (wl.urlWL
+                    || (venue.isParkingLot() && !Flag.UrlMissing.#venueHasOperator(venue))
+                    || Flag.UrlMissing.#primaryCategoriesToFlagGreen.includes(categories[0])
+                    || Flag.UrlMissing.#anyCategoryToFlagGreen.some(category => categories.includes(category))) {
+                    severity = _SEVERITY.GREEN;
+                    wlActive = false;
+                }
                 super(
                     true,
-                    _SEVERITY.BLUE,
+                    severity,
                     'No URL: <input type="text" id="WMEPH-UrlAdd" autocomplete="off" style="font-size:0.85em;width:100px;padding-left:2px;color:#000;">',
                     'Add',
                     'Add URL to place',
-                    true,
+                    wlActive,
                     'Whitelist empty URL',
                     'urlWL'
                 );
@@ -3602,8 +3605,25 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                 this.wl = wl;
             }
 
+            static get regionsThatWantPlaUrls() { return this.#regionsThatWantPlaUrls; }
+
+            static #venueHasOperator(venue) {
+                return venue.attributes.brand && W.model.categoryBrands.PARKING_LOT.includes(venue.attributes.brand);
+            }
+
+            static #venueIsFlaggable(venue, url, categories, region) {
+                return !url?.trim().length
+                    && (!venue.isParkingLot()
+                        || (venue.isParkingLot() && (this.#regionsThatWantPlaUrls.includes(region) || this.#venueHasOperator(venue))))
+                    && !this.#primaryCategoriesToIgnore.includes(categories[0]);
+            }
+
+            static eval(venue, url, categories, region, wl) {
+                return this.#venueIsFlaggable(venue, url, categories, region, wl) ? new this(venue, categories, wl) : null;
+            }
+
             action() {
-                const newUrl = normalizeURL($('#WMEPH-UrlAdd').val(), true, false, this.venue, null, this.wl);
+                const newUrl = normalizeURL($('#WMEPH-UrlAdd').val());
                 if ((!newUrl || newUrl.trim().length === 0) || newUrl === 'badURL') {
                     $('input#WMEPH-UrlAdd').css({ backgroundColor: '#FDD' }).attr('title', 'Invalid URL format');
                     // this.badInput = true;
@@ -6201,7 +6221,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                 if (!(localURLcheck && newUrl && (new RegExp(localURLcheck, 'i')).test(newUrl))) {
                     newUrl = pnhMatchData[phUrlIdx];
                 }
-                newUrl = normalizeURL(newUrl, false, true, item, region, wl);
+                newUrl = normalizeURL(newUrl, false);
 
                 _buttonBanner.localURL = Flag.LocalURL.eval(newUrl, localURLcheck);
 
@@ -6258,7 +6278,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                 // Strong title case option for non-PNH places
                 _buttonBanner.titleCaseName = Flag.TitleCaseName.eval(item, newName, newNameSuffix);
 
-                newUrl = normalizeURL(newUrl, true, false, item, region, wl); // Normalize url
+                newUrl = normalizeURL(newUrl);
 
                 // Generic Bank treatment
                 _ixBank = item.attributes.categories.indexOf('BANK_FINANCIAL');
@@ -6530,9 +6550,10 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
             // URL updating
             _updateURL = true;
             if (newUrl !== item.attributes.url && !isNullOrWhitespace(newUrl)) {
-                if (pnhNameRegMatch && item.attributes.url !== null && item.attributes.url !== '' && newUrl !== 'badURL') { // for cases where there is an existing URL in the WME place, and there is a PNH url on queue:
-                    let newURLTemp = normalizeURL(newUrl, true, false, item, null, wl); // normalize
-                    const itemURL = normalizeURL(item.attributes.url, true, false, item, null, wl);
+                // for cases where there is an existing URL in the WME place, and there is a PNH url on queue:
+                if (pnhNameRegMatch && item.attributes.url !== null && item.attributes.url !== '' && newUrl !== 'badURL') {
+                    let newURLTemp = normalizeURL(newUrl);
+                    const itemURL = normalizeURL(item.attributes.url);
                     newURLTemp = newURLTemp.replace(/^www\.(.*)$/i, '$1'); // strip www
                     const itemURLTemp = itemURL.replace(/^www\.(.*)$/i, '$1'); // strip www
                     if (newURLTemp !== itemURLTemp) { // if formatted URLs don't match, then alert the editor to check the existing URL
@@ -6591,9 +6612,9 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                 if (!highlightOnly) {
                     _buttonBanner.NewPlaceSubmit = null;
                     if (item.attributes.url !== 'usps.com') {
-                        actions.push(new UpdateObject(item, { url: 'usps.com' }));
+                        newUrl = 'usps.com';
+                        actions.push(new UpdateObject(item, { url: newUrl }));
                         _UPDATED_FIELDS.url.updated = true;
-                        _buttonBanner.urlMissing = null;
                     }
                 }
 
@@ -6637,6 +6658,8 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                     }
                 }
             } // END Post Office check
+
+            _buttonBanner.urlMissing = Flag.UrlMissing.eval(item, newUrl, newCategories, region, wl);
         } // END if (!residential && has name)
 
         _buttonBanner.gasMismatch = Flag.GasMismatch.eval(item, newCategories, newBrand, newName, wl);
@@ -6755,15 +6778,10 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                 _buttonBanner.phoneMissing.severity = _SEVERITY.GREEN;
                 _buttonBanner.phoneMissing.WLactive = false;
             }
-            if (_buttonBanner.urlMissing) {
-                _buttonBanner.urlMissing.severity = _SEVERITY.GREEN;
-                _buttonBanner.urlMissing.WLactive = false;
-            }
         } else if (['ISLAND', 'SEA_LAKE_POOL', 'RIVER_STREAM', 'CANAL', 'JUNCTION_INTERCHANGE', 'SCENIC_LOOKOUT_VIEWPOINT'].includes(item.attributes.categories[0])) {
             // Some cats don't need PNH messages and url/phone messages
             _buttonBanner.NewPlaceSubmit = null;
             _buttonBanner.phoneMissing = null;
-            _buttonBanner.urlMissing = null;
         }
 
         // *** Rest Area parsing
@@ -6808,11 +6826,6 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
             if (!highlightOnly) {
                 _buttonBanner2.restAreaWiki.active = true;
                 _buttonBanner2.placesWiki.active = false;
-            }
-
-            if (_buttonBanner.urlMissing) {
-                _buttonBanner.urlMissing.WLactive = false;
-                _buttonBanner.urlMissing.severity = _SEVERITY.GREEN;
             }
             if (_buttonBanner.phoneMissing) {
                 _buttonBanner.phoneMissing.severity = _SEVERITY.GREEN;
