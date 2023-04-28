@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name        WME Place Harmonizer
 // @namespace   WazeUSA
-// @version     2023.04.21.005
+// @version     2023.04.27.001
 // @description Harmonizes, formats, and locks a selected place
 // @author      WMEPH Development Group
 // @include     /^https:\/\/(www|beta)\.waze\.com\/(?!user\/)(.{2,6}\/)?editor\/?.*$/
@@ -187,6 +187,9 @@
     const _CATEGORY_LOOKUP = {};
     const _DEFAULT_HOURS_TEXT = 'Paste hours here';
     const _MAX_CACHE_SIZE = 25000;
+    const PROD_DOWNLOAD_URL = 'https://greasyfork.org/scripts/28690-wme-place-harmonizer/code/WME%20Place%20Harmonizer.user.js';
+    const BETA_DOWNLOAD_URL = 'YUhSMGNITTZMeTluY21WaGMzbG1iM0pyTG05eVp5OXpZM0pwY0hSekx6STROamc1TFhkdFpTMXdiR0ZqWlMxb1lYSnRiMjVwZW1WeUxXSmxkR0V2WTI5a1pTOVhUVVVsTWpCUWJHRmpaU1V5TUVoaGNtMXZibWw2WlhJbE1qQkNaWFJoTG5WelpYSXVhbk09';
+
     let _wordVariations;
     let _resultsCache = {};
     let _initAlreadyRun = false; // This is used to skip a couple things if already run once.  This could probably be handled better...
@@ -1972,7 +1975,7 @@
     function harmonizePlace() {
         // Beta version for approved users only
         if (_IS_BETA_VERSION && !_USER.isBetaUser) {
-            WazeWrap.Alerts.error(_SCRIPT_NAME, 'Please sign up to beta-test this script version.<br>Send a PM or Slack-DM to MapOMatic or Tonestertm, or post in the WMEPH forum thread. Thanks.');
+            WazeWrap.Alerts.error(_SCRIPT_NAME, 'Please sign up to beta-test this script version.<br>Contact MapOMatic or Tonestertm in Discord, or post in the WMEPH forum thread. Thanks.');
             return;
         }
         // Only run if a single place is selected
@@ -3435,13 +3438,20 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                             }
                         }
                     } else {
-                        // 3/23/2023 - This is a temporary solution to add a disambiguator for Tesla chargers.
+                        // 3/23/2023 - This is a temporary solution to add a disambiguator for Tesla & Rivian chargers.
                         const teslaSC = /tesla supercharger/i;
                         const teslaDC = /tesla destination charger/i;
                         const isTesla = teslaSC.test(message) && teslaDC.test(message);
                         if (isTesla) {
                             message = message.replace(teslaSC, '<button id="wmeph-tesla-supercharger" class="btn wmeph-btn">Tesla SuperCharger</button>');
                             message = message.replace(teslaDC, '<button id="wmeph-tesla-destination-charger" class="btn wmeph-btn">Tesla Destination Charger</button>');
+                        }
+                        const rivianAN = /<b>rivian adventure network<\/b> charger/i;
+                        const rivianW = /<b>rivian waypoints<\/b> charger/i;
+                        const isRivian = rivianAN.test(message) && rivianW.test(message);
+                        if (isRivian) {
+                            message = message.replace(rivianAN, '<button id="wmeph-rivian-adventure-network" class="btn wmeph-btn">Rivian Adventure Network charger</button>');
+                            message = message.replace(rivianW, '<button id="wmeph-rivian-waypoints" class="btn wmeph-btn">Rivian Waypoints charger</button>');
                         }
 
                         result = new Flag.SpecCaseMessageLow(message); // KEEP THIS LINE (not part of Tesla stuff)
@@ -3458,6 +3468,16 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                             };
                             result.severity = _SEVERITY.RED;
                             result.noLock = true;
+                        }
+                        if (isRivian) {
+                            result.postProcess = () => {
+                                $('#wmeph-rivian-adventure-network').click(() => {
+                                    addUpdateAction(venue, { name: 'Rivian Adventure Network' }, null, true);
+                                });
+                                $('#wmeph-rivian-waypoints').click(() => {
+                                    addUpdateAction(venue, { name: 'Rivian Waypoints' }, null, true);
+                                });
+                            };
                         }
                     }
                 }
@@ -7386,7 +7406,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                         $nameSpan.append(' [TEMPORARILY&nbsp;CLOSED]');
                         $row.addClass('yellow');
                         $row.attr('title', 'Google indicates this linked place is TEMPORARILY closed. Please verify.');
-                    } else if (googleResults.find(otherResult => otherResult !== result && otherResult.uuid === result.uuid)) {
+                    } else if (googleResults.filter(otherResult => otherResult.uuid === result.uuid).length > 1) {
                         $nameSpan.append(' [DUPLICATE]');
                         $row.css('background-color', '#fde5c8');
                         $row.attr('title', 'This place is linked more than once. Please remove extra links.');
@@ -9217,8 +9237,15 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
         logDev('placeHarmonizerInit'); // Be sure to update User info before calling logDev()
 
         // Check for script updates.
-        checkWmephVersion();
-        setInterval(checkWmephVersion, VERSION_CHECK_MINUTES * 60 * 1000);
+        const downloadUrl = _IS_BETA_VERSION ? dec(BETA_DOWNLOAD_URL) : PROD_DOWNLOAD_URL;
+        let updateMonitor;
+        try {
+            updateMonitor = new WazeWrap.Alerts.ScriptUpdateMonitor(_SCRIPT_NAME, _SCRIPT_VERSION, downloadUrl, GM_xmlhttpRequest);
+            updateMonitor.start();
+        } catch (ex) {
+            // Report, but don't stop if ScriptUpdateMonitor fails.
+            console.error('WMEPH:', ex);
+        }
 
         // Set up Google place info service.
         _attributionEl = document.createElement('div');
@@ -9417,47 +9444,8 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
     const SPREADSHEET_ID = '1pBz4l4cNapyGyzfMJKqA4ePEFLkmz2RryAt1UV39B4g';
     const SPREADSHEET_RANGE = '2019.01.20.001!A2:L';
     const API_KEY = 'YTJWNVBVRkplbUZUZVVObU1YVXpSRVZ3ZW5OaFRFSk1SbTR4VGxKblRURjJlRTFYY3pOQ2NXZElPQT09';
-    const BETA_URL = 'YUhSMGNITTZMeTluY21WaGMzbG1iM0pyTG05eVp5OWxiaTl6WTNKcGNIUnpMekk0TmpnNUxYZHRaUzF3YkdGalpTMW9ZWEp0YjI1cGVtVnlMV0psZEdFPQ==';
-    const BETA_META_URL = 'YUhSMGNITTZMeTluY21WaGMzbG1iM0pyTG05eVp5OXpZM0pwY0hSekx6STROamc1TFhkdFpTMXdiR0ZqWlMxb1lYSnRiMjVwZW1WeUxXSmxkR0V2WTI5a1pTOVhUVVVsTWpCUWJHRmpaU1V5TUVoaGNtMXZibWw2WlhJbE1qQkNaWFJoTG0xbGRHRXVhbk09';
-    const PROD_URL = 'https://greasyfork.org/scripts/28690-wme-place-harmonizer/code/WME%20Place%20Harmonizer.user.js';
-    const PROD_META_URL = 'https://greasyfork.org/scripts/28690-wme-place-harmonizer/code/WME%20Place%20Harmonizer.meta.js';
     const dec = s => atob(atob(s));
-    let _lastVersionChecked = '0';
-    const VERSION_CHECK_MINUTES = 60; // How frequently to check for script updates, in minutes.
 
-    function checkWmephVersion() {
-        try {
-            let url = _IS_BETA_VERSION ? dec(BETA_META_URL) : PROD_META_URL;
-            GM_xmlhttpRequest({
-                url,
-                onload(res) {
-                    try {
-                        const latestVersion = res.responseText.match(/@version\s+(.*)/)[1];
-                        if (latestVersion > _SCRIPT_VERSION && latestVersion > (_lastVersionChecked || '0')) {
-                            _lastVersionChecked = latestVersion;
-                            url = _IS_BETA_VERSION ? dec(BETA_URL) : PROD_URL;
-                            WazeWrap.Alerts.info(
-                                _SCRIPT_NAME,
-                                `<a href="${url}" target = "_blank">Version ${
-                                    latestVersion}</a> is available.<br>Update now to get the latest features and fixes.`,
-                                true,
-                                false
-                            );
-                        }
-                    } catch (ex) {
-                        console.error('WMEPH upgrade version check:', ex);
-                    }
-                },
-                onerror(res) {
-                    // Silently fail with an error message in the console.
-                    console.error('WMEPH upgrade version check:', res);
-                }
-            });
-        } catch (ex) {
-            // Silently fail with an error message in the console.
-            console.error('WMEPH upgrade version check:', ex);
-        }
-    }
     function getSpreadsheetUrl(id, range, key) {
         return `https://sheets.googleapis.com/v4/spreadsheets/${id}/values/${range}?${dec(key)}`;
     }
