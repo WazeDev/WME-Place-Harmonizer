@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name        WME Place Harmonizer Beta
 // @namespace   WazeUSA
-// @version     2023.04.27.001
+// @version     2023.04.28.001
 // @description Harmonizes, formats, and locks a selected place
 // @author      WMEPH Development Group
 // @include     /^https:\/\/(www|beta)\.waze\.com\/(?!user\/)(.{2,6}\/)?editor\/?.*$/
@@ -366,6 +366,8 @@
     const PRIMARY_CATS_TO_FLAG_GREEN_MISSING_PHONE_URL = ['BRIDGE', 'FOREST_GROVE', 'DAM', 'TUNNEL', 'CEMETERY'];
     const ANY_CATS_TO_FLAG_GREEN_MISSING_PHONE_URL = ['REST_AREAS'];
     const REGIONS_THAT_WANT_PLA_PHONE_URL = ['SER'];
+    const CHAIN_APPROVAL_PRIMARY_CATS_TO_IGNORE = ['BRIDGE', 'FOREST_GROVE', 'DAM', 'TUNNEL', 'CEMETERY',
+        'ISLAND', 'SEA_LAKE_POOL', 'RIVER_STREAM', 'CANAL', 'JUNCTION_INTERCHANGE', 'SCENIC_LOOKOUT_VIEWPOINT'];
     let _customStoreFinder = false; // switch indicating place-specific custom store finder url
     let _customStoreFinderLocal = false; // switch indicating place-specific custom store finder url with localization option (GPS/addr)
     let _customStoreFinderURL = ''; // switch indicating place-specific custom store finder url
@@ -1216,6 +1218,9 @@
     function harmoList(itemName, state2L, region3L, country, itemCats, item) {
         if (country !== 'USA' && country !== 'CAN') {
             WazeWrap.Alerts.info(_SCRIPT_NAME, 'No PNH data exists for this country.');
+            return ['NoMatch'];
+        }
+        if (item.isParkingLot()) {
             return ['NoMatch'];
         }
         const { pnhNames, pnh: pnhData } = _PNH_DATA[country];
@@ -4938,9 +4943,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
             }
         },
         NewPlaceSubmit: class extends ActionFlag {
-            #newPlaceUrl;
-            static #primaryCategoriesToIgnore = ['BRIDGE', 'FOREST_GROVE', 'DAM', 'TUNNEL', 'CEMETERY',
-                'ISLAND', 'SEA_LAKE_POOL', 'RIVER_STREAM', 'CANAL', 'JUNCTION_INTERCHANGE', 'SCENIC_LOOKOUT_VIEWPOINT'];
+            #formUrl;
 
             constructor(newUrl, newName, placePL, gFormState, region) {
                 super(true, _SEVERITY.GREEN, 'No PNH match. If it\'s a chain: ', 'Submit new chain data', 'Submit info for a new chain through the linked form');
@@ -4956,14 +4959,14 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                 } else {
                     entryValues = [encodedName, encodedUrl, _USER.name + gFormState];
                 }
-                this.#newPlaceUrl = regionSettings.getNewChainFormUrl(entryValues);
+                this.#formUrl = regionSettings.getNewChainFormUrl(entryValues);
             }
 
             static #venueIsFlaggable(venue, categories, highlightOnly, pnhMatchData) {
                 return !highlightOnly
                     && pnhMatchData[0] === 'NoMatch'
                     && !venue.isParkingLot()
-                    && !this.#primaryCategoriesToIgnore.includes(categories[0])
+                    && !CHAIN_APPROVAL_PRIMARY_CATS_TO_IGNORE.includes(categories[0])
                     && !categories.includes('REST_AREAS');
             }
 
@@ -4973,19 +4976,44 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
             }
 
             action() {
-                window.open(this.#newPlaceUrl);
+                window.open(this.#formUrl);
             }
         },
         ApprovalSubmit: class extends ActionFlag {
-            #approveRegionURL;
+            #formUrl;
 
-            constructor(approveRegionURL) {
+            constructor(placePL, pnhMatchData, gFormState, region) {
                 super(true, _SEVERITY.GREEN, 'PNH data exists but is not approved for this region: ', 'Request approval', 'Request region/country approval of this place');
-                this.#approveRegionURL = approveRegionURL;
+
+                const encodedName = encodeURIComponent(pnhMatchData[1][0]); // Just do the first match
+                const pnhOrderNum = pnhMatchData[2].join(',');
+                const approvalMessage = `Submitted via WMEPH. PNH order number ${pnhOrderNum}`;
+                const encodedPermalink = encodeURIComponent(placePL);
+                const regionSettings = REGION_SETTINGS[region];
+                let entryValues;
+                if (['CA_EN', 'QC'].includes(region)) {
+                    entryValues = [encodedName, approvalMessage, _USER.name, encodedPermalink];
+                } else {
+                    entryValues = [encodedName, approvalMessage, _USER.name + gFormState];
+                }
+                this.#formUrl = regionSettings.getApproveChainFormUrl(entryValues);
+            }
+
+            static #venueIsFlaggable(venue, categories, highlightOnly, pnhMatchData) {
+                return !highlightOnly
+                    && pnhMatchData[0] === 'ApprovalNeeded'
+                    && !venue.isParkingLot()
+                    && !CHAIN_APPROVAL_PRIMARY_CATS_TO_IGNORE.includes(categories[0])
+                    && !categories.includes('REST_AREAS');
+            }
+
+            static eval(venue, categories, highlightOnly, pnhMatchData, placePL, gFormState, region) {
+                return this.#venueIsFlaggable(venue, categories, highlightOnly, pnhMatchData)
+                    ? new this(placePL, pnhMatchData, gFormState, region) : null;
             }
 
             action() {
-                window.open(this.#approveRegionURL);
+                window.open(this.#formUrl);
             }
         },
         PlaceWebsite: class extends ActionFlag {
@@ -5835,77 +5863,6 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                 } else {
                     // check against the PNH list
                     pnhMatchData = harmoList(newName, state2L, region, countryCode, newCategories, item);
-
-                    if (['NoMatch', 'ApprovalNeeded'].includes(pnhMatchData[0])) {
-                        let pnhOrderNum = '';
-                        let pnhNameTemp = '';
-                        let pnhNameTempWeb = '';
-                        if (pnhMatchData[0] === 'ApprovalNeeded') {
-                            // PNHNameTemp = PNHMatchData[1].join(', ');
-                            [, [pnhNameTemp]] = pnhMatchData; // Just do the first match
-                            pnhNameTempWeb = encodeURIComponent(pnhNameTemp);
-                            pnhOrderNum = pnhMatchData[2].join(',');
-                        }
-
-                        // Make PNH submission links
-                        let regionFormURL = '';
-                        let approvalAddon = '';
-                        const approvalMessage = `Submitted via WMEPH. PNH order number ${pnhOrderNum}`;
-                        const encodedPlacePL = encodeURIComponent(placePL);
-                        const suffix = _USER.name + gFormState;
-                        switch (region) {
-                            case 'NWR': regionFormURL = 'https://docs.google.com/forms/d/1hv5hXBlGr1pTMmo4n3frUx1DovUODbZodfDBwwTc7HE/viewform';
-                                approvalAddon = `?entry.925969794=${pnhNameTempWeb}&entry.50214576=${approvalMessage}&entry.1749047694=${suffix}`;
-                                break;
-                            case 'SWR': regionFormURL = 'https://docs.google.com/forms/d/1Qf2N4fSkNzhVuXJwPBJMQBmW0suNuy8W9itCo1qgJL4/viewform';
-                                approvalAddon = `?entry.1497446659=${pnhNameTempWeb}&entry.50214576=${approvalMessage}&entry.1749047694=${suffix}`;
-                                break;
-                            case 'HI': regionFormURL = 'https://docs.google.com/forms/d/1K7Dohm8eamIKry3KwMTVnpMdJLaMIyDGMt7Bw6iqH_A/viewform';
-                                approvalAddon = `?entry.1497446659=${pnhNameTempWeb}&entry.50214576=${approvalMessage}&entry.1749047694=${suffix}`;
-                                break;
-                            case 'PLN': regionFormURL = 'https://docs.google.com/forms/d/1ycXtAppoR5eEydFBwnghhu1hkHq26uabjUu8yAlIQuI/viewform';
-                                approvalAddon = `?entry.925969794=${pnhNameTempWeb}&entry.50214576=${approvalMessage}&entry.1749047694=${suffix}`;
-                                break;
-                            case 'SCR': regionFormURL = 'https://docs.google.com/forms/d/1KZzLdlX0HLxED5Bv0wFB-rWccxUp2Mclih5QJIQFKSQ/viewform';
-                                approvalAddon = `?entry.925969794=${pnhNameTempWeb}&entry.50214576=${approvalMessage}&entry.1749047694=${suffix}`;
-                                break;
-                            case 'GLR': regionFormURL = 'https://docs.google.com/forms/d/19btj-Qt2-_TCRlcS49fl6AeUT95Wnmu7Um53qzjj9BA/viewform';
-                                approvalAddon = `?entry.925969794=${pnhNameTempWeb}&entry.50214576=${approvalMessage}&entry.1749047694=${suffix}`;
-                                break;
-                            case 'SAT': regionFormURL = 'https://docs.google.com/forms/d/1bxgK_20Jix2ahbmUvY1qcY0-RmzUBT6KbE5kjDEObF8/viewform';
-                                approvalAddon = `?entry.2063110249=${pnhNameTempWeb}&entry.123778794=${approvalMessage}&entry.1924826395=${suffix}`;
-                                break;
-                            case 'SER': regionFormURL = 'https://docs.google.com/forms/d/1jYBcxT3jycrkttK5BxhvPXR240KUHnoFMtkZAXzPg34/viewform';
-                                approvalAddon = `?entry.822075961=${pnhNameTempWeb}&entry.607048307=${approvalMessage}&entry.1891389966=${suffix}`;
-                                break;
-                            case 'ATR': regionFormURL = 'https://docs.google.com/forms/d/1v7JhffTfr62aPSOp8qZHA_5ARkBPldWWJwDeDzEioR0/viewform';
-                                approvalAddon = `?entry.925969794=${pnhNameTempWeb}&entry.50214576=${approvalMessage}&entry.1749047694=${suffix}`;
-                                break;
-                            case 'NER': regionFormURL = 'https://docs.google.com/forms/d/1UgFAMdSQuJAySHR0D86frvphp81l7qhEdJXZpyBZU6c/viewform';
-                                approvalAddon = `?entry.925969794=${pnhNameTempWeb}&entry.50214576=${approvalMessage}&entry.1749047694=${suffix}`;
-                                break;
-                            case 'NOR': regionFormURL = 'https://docs.google.com/forms/d/1iYq2rd9HRd-RBsKqmbHDIEBGuyWBSyrIHC6QLESfm4c/viewform';
-                                approvalAddon = `?entry.925969794=${pnhNameTempWeb}&entry.50214576=${approvalMessage}&entry.1749047694=${suffix}`;
-                                break;
-                            case 'MAR': regionFormURL = 'https://docs.google.com/forms/d/1PhL1iaugbRMc3W-yGdqESoooeOz-TJIbjdLBRScJYOk/viewform';
-                                approvalAddon = `?entry.925969794=${pnhNameTempWeb}&entry.50214576=${approvalMessage}&entry.1749047694=${suffix}`;
-                                break;
-                            case 'CA_EN': regionFormURL = 'https://docs.google.com/forms/d/13JwXsrWPNmCdfGR5OVr5jnGZw-uNGohwgjim-JYbSws/viewform';
-                                approvalAddon = `?entry_839085807=${pnhNameTempWeb}&entry_1125435193=${approvalMessage}&entry_318793106=${
-                                    _USER.name}&entry_1149649663=${encodedPlacePL}`;
-                                break;
-                            case 'QC': regionFormURL = 'https://docs.google.com/forms/d/13JwXsrWPNmCdfGR5OVr5jnGZw-uNGohwgjim-JYbSws/viewform';
-                                approvalAddon = `?entry_839085807=${pnhNameTempWeb}&entry_1125435193=${approvalMessage}&entry_318793106=${
-                                    _USER.name}&entry_1149649663=${encodedPlacePL}`;
-                                break;
-                            default: regionFormURL = '';
-                        }
-                        const approveRegionURL = regionFormURL + approvalAddon;
-
-                        if (pnhMatchData[0] === 'ApprovalNeeded') {
-                            _buttonBanner.ApprovalSubmit = new Flag.ApprovalSubmit(approveRegionURL);
-                        }
-                    }
                 }
             } else {
                 pnhMatchData = ['Highlight'];
@@ -5916,6 +5873,15 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                 newName,
                 newCategories,
                 newUrl,
+                highlightOnly,
+                pnhMatchData,
+                placePL,
+                gFormState,
+                region
+            );
+            _buttonBanner.ApprovalSubmit = Flag.ApprovalSubmit.eval(
+                item,
+                newCategories,
                 highlightOnly,
                 pnhMatchData,
                 placePL,
