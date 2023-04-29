@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name        WME Place Harmonizer Beta
 // @namespace   WazeUSA
-// @version     2023.04.27.001
+// @version     2023.04.28.001
 // @description Harmonizes, formats, and locks a selected place
 // @author      WMEPH Development Group
 // @include     /^https:\/\/(www|beta)\.waze\.com\/(?!user\/)(.{2,6}\/)?editor\/?.*$/
@@ -259,6 +259,64 @@
         uspsWiki: 'https://wazeopedia.waze.com/wiki/USA/Places/Post_office',
         uspsLocationFinder: 'https://tools.usps.com/find-location.htm'
     };
+    class Region {
+        static #defaultNewChainRequestEntryIds = ['entry.925969794', 'entry.1970139752', 'entry.1749047694'];
+        static #defaultApproveChainRequestEntryIds = ['entry.925969794', 'entry.50214576', 'entry.1749047694'];
+        #formId;
+        #newChainRequestEntryIds;
+        #approveChainRequestEntryIds;
+
+        constructor(formId, newChainRequestEntryIds, approveChainRequestEntryIds) {
+            this.#formId = formId;
+            this.#newChainRequestEntryIds = newChainRequestEntryIds ?? Region.#defaultNewChainRequestEntryIds;
+            this.#approveChainRequestEntryIds = approveChainRequestEntryIds ?? Region.#defaultApproveChainRequestEntryIds;
+        }
+
+        #getFormUrl(entryIds, entryValues) {
+            const entryValuesUrl = entryValues.map((value, idx) => `${entryIds[idx]}=${value}`).join('&');
+            return `https://docs.google.com/forms/d/${this.#formId}/viewform?${entryValuesUrl}`;
+        }
+
+        getNewChainFormUrl(entryValues) {
+            return this.#getFormUrl(this.#newChainRequestEntryIds, entryValues);
+        }
+
+        getApproveChainFormUrl(entryValues) {
+            return this.#getFormUrl(this.#approveChainRequestEntryIds, entryValues);
+        }
+    }
+    const REGION_SETTINGS = {
+        NWR: new Region('1hv5hXBlGr1pTMmo4n3frUx1DovUODbZodfDBwwTc7HE'),
+        SWR: new Region('1Qf2N4fSkNzhVuXJwPBJMQBmW0suNuy8W9itCo1qgJL4'),
+        HI: new Region('1K7Dohm8eamIKry3KwMTVnpMdJLaMIyDGMt7Bw6iqH_A', null, ['entry.1497446659', 'entry.50214576', 'entry.1749047694']),
+        PLN: new Region('1ycXtAppoR5eEydFBwnghhu1hkHq26uabjUu8yAlIQuI'),
+        SCR: new Region('1KZzLdlX0HLxED5Bv0wFB-rWccxUp2Mclih5QJIQFKSQ'),
+        GLR: new Region('19btj-Qt2-_TCRlcS49fl6AeUT95Wnmu7Um53qzjj9BA'),
+        SAT: new Region(
+            '1bxgK_20Jix2ahbmUvY1qcY0-RmzUBT6KbE5kjDEObF8',
+            ['entry.2063110249', 'entry.2018912633', 'entry.1924826395'],
+            ['entry.2063110249', 'entry.123778794', 'entry.1924826395']
+        ),
+        SER: new Region(
+            '1jYBcxT3jycrkttK5BxhvPXR240KUHnoFMtkZAXzPg34',
+            ['entry.822075961', 'entry.1422079728', 'entry.1891389966'],
+            ['entry.822075961', 'entry.607048307', 'entry.1891389966']
+        ),
+        ATR: new Region('1v7JhffTfr62aPSOp8qZHA_5ARkBPldWWJwDeDzEioR0'),
+        NER: new Region('1UgFAMdSQuJAySHR0D86frvphp81l7qhEdJXZpyBZU6c'),
+        NOR: new Region('1iYq2rd9HRd-RBsKqmbHDIEBGuyWBSyrIHC6QLESfm4c'),
+        MAR: new Region('1PhL1iaugbRMc3W-yGdqESoooeOz-TJIbjdLBRScJYOk'),
+        CA_EN: new Region(
+            '13JwXsrWPNmCdfGR5OVr5jnGZw-uNGohwgjim-JYbSws',
+            ['entry_839085807', 'entry_1067461077', 'entry_318793106', 'entry_1149649663'],
+            ['entry_839085807', 'entry_1125435193', 'entry_318793106', 'entry_1149649663']
+        ),
+        QC: new Region(
+            '13JwXsrWPNmCdfGR5OVr5jnGZw-uNGohwgjim-JYbSws',
+            ['entry_839085807', 'entry_1067461077', 'entry_318793106', 'entry_1149649663'],
+            ['entry_839085807', 'entry_1125435193', 'entry_318793106', 'entry_1149649663']
+        )
+    };
     let _userLanguage;
     // lock levels are offset by one
     const _LOCK_LEVEL_2 = 1;
@@ -304,6 +362,12 @@
         capWords: '3M|AAA|AMC|AOL|AT&T|ATM|BBC|BLT|BMV|BMW|BP|CBS|CCS|CGI|CISCO|CJ|CNG|CNN|CVS|DHL|DKNY|DMV|DSW|EMS|ER|ESPN|FCU|FCUK|FDNY|GNC|H&M|HP|HSBC|IBM|IHOP|IKEA|IRS|JBL|JCPenney|KFC|LLC|MBNA|MCA|MCI|NBC|NYPD|PDQ|PNC|TCBY|TNT|TV|UPS|USA|USPS|VW|XYZ|ZZZ'.split('|'),
         specWords: 'd\'Bronx|iFix|ExtraMile|ChargePoint|EVgo|SemaConnect'.split('|')
     };
+    const PRIMARY_CATS_TO_IGNORE_MISSING_PHONE_URL = ['ISLAND', 'SEA_LAKE_POOL', 'RIVER_STREAM', 'CANAL', 'JUNCTION_INTERCHANGE', 'SCENIC_LOOKOUT_VIEWPOINT'];
+    const PRIMARY_CATS_TO_FLAG_GREEN_MISSING_PHONE_URL = ['BRIDGE', 'FOREST_GROVE', 'DAM', 'TUNNEL', 'CEMETERY'];
+    const ANY_CATS_TO_FLAG_GREEN_MISSING_PHONE_URL = ['REST_AREAS'];
+    const REGIONS_THAT_WANT_PLA_PHONE_URL = ['SER'];
+    const CHAIN_APPROVAL_PRIMARY_CATS_TO_IGNORE = ['BRIDGE', 'FOREST_GROVE', 'DAM', 'TUNNEL', 'CEMETERY',
+        'ISLAND', 'SEA_LAKE_POOL', 'RIVER_STREAM', 'CANAL', 'JUNCTION_INTERCHANGE', 'SCENIC_LOOKOUT_VIEWPOINT'];
     let _customStoreFinder = false; // switch indicating place-specific custom store finder url
     let _customStoreFinderLocal = false; // switch indicating place-specific custom store finder url with localization option (GPS/addr)
     let _customStoreFinderURL = ''; // switch indicating place-specific custom store finder url
@@ -1156,6 +1220,9 @@
             WazeWrap.Alerts.info(_SCRIPT_NAME, 'No PNH data exists for this country.');
             return ['NoMatch'];
         }
+        if (item.isParkingLot()) {
+            return ['NoMatch'];
+        }
         const { pnhNames, pnh: pnhData } = _PNH_DATA[country];
         const pnhHeaders = pnhData[0].split('|');
         const phNameIdx = pnhHeaders.indexOf('ph_name');
@@ -1929,47 +1996,36 @@
     }
 
     // Normalize url
-    function normalizeURL(s, lc, skipBannerActivate, venue, region, wl) {
-        const regionsThatWantPLAUrls = ['SER'];
-
-        if ((!s || s.trim().length === 0) && !skipBannerActivate) {
-            // Notify that url is missing and provide web search to find website and gather data (provided for all editors)
-            const hasOperator = venue.attributes.brand && W.model.categoryBrands.PARKING_LOT.includes(venue.attributes.brand);
-            if (!venue.isParkingLot() || (venue.isParkingLot() && (regionsThatWantPLAUrls.includes(region) || hasOperator))) {
-                _buttonBanner.urlMissing = new Flag.UrlMissing(venue, wl);
-                if (wl.urlWL || (venue.isParkingLot() && !hasOperator)) {
-                    _buttonBanner.urlMissing.severity = _SEVERITY.GREEN;
-                    _buttonBanner.urlMissing.WLactive = false;
-                }
-            }
-            return s;
+    function normalizeURL(url, makeLowerCase = true) {
+        if (!url?.trim().length) {
+            return url;
         }
 
-        s = s.replace(/ \(.*/g, ''); // remove anything with parentheses after it
-        s = s.replace(/ /g, ''); // remove any spaces
-        let m = s.match(/^http:\/\/(.*)$/i); // remove http://
-        if (m) { [, s] = m; }
-        if (lc) { // lowercase the entire domain
-            s = s.replace(/[^/]+/i, txt => ((txt === txt.toLowerCase()) ? txt : txt.toLowerCase()));
+        url = url.replace(/ \(.*/g, ''); // remove anything with parentheses after it
+        url = url.replace(/ /g, ''); // remove any spaces
+        let m = url.match(/^http:\/\/(.*)$/i); // remove http://
+        if (m) { [, url] = m; }
+        if (makeLowerCase) { // lowercase the entire domain
+            url = url.replace(/[^/]+/i, txt => ((txt === txt.toLowerCase()) ? txt : txt.toLowerCase()));
         } else { // lowercase only the www and com
-            s = s.replace(/www\./i, 'www.');
-            s = s.replace(/\.com/i, '.com');
+            url = url.replace(/www\./i, 'www.');
+            url = url.replace(/\.com/i, '.com');
         }
-        m = s.match(/^(.*)\/pages\/welcome.aspx$/i); // remove unneeded terms
-        if (m) { [, s] = m; }
-        m = s.match(/^(.*)\/pages\/default.aspx$/i); // remove unneeded terms
-        if (m) { [, s] = m; }
+        m = url.match(/^(.*)\/pages\/welcome.aspx$/i); // remove unneeded terms
+        if (m) { [, url] = m; }
+        m = url.match(/^(.*)\/pages\/default.aspx$/i); // remove unneeded terms
+        if (m) { [, url] = m; }
         // m = s.match(/^(.*)\/index.html$/i); // remove unneeded terms
         // if (m) { s = m[1]; }
         // m = s.match(/^(.*)\/index.htm$/i); // remove unneeded terms
         // if (m) { s = m[1]; }
         // m = s.match(/^(.*)\/index.php$/i); // remove unneeded terms
         // if (m) { s = m[1]; }
-        m = s.match(/^(.*)\/$/i); // remove final slash
-        if (m) { [, s] = m; }
-        if (!s || s.trim().length === 0 || !/(^https?:\/\/)?\w+\.\w+/.test(s)) s = 'badURL';
-        return s;
-    } // END normalizeURL function
+        m = url.match(/^(.*)\/$/i); // remove final slash
+        if (m) { [, url] = m; }
+        if (!url || url.trim().length === 0 || !/(^https?:\/\/)?\w+\.\w+/.test(url)) url = 'badURL';
+        return url;
+    }
 
     // Only run the harmonization if a venue is selected
     function harmonizePlace() {
@@ -3585,14 +3641,23 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
             }
         },
         UrlMissing: class extends WLActionFlag {
-            constructor(venue, wl) {
+            constructor(venue, categories, wl) {
+                let wlActive = true;
+                let severity = _SEVERITY.BLUE;
+                if (wl.urlWL
+                    || (venue.isParkingLot() && !Flag.UrlMissing.#venueHasOperator(venue))
+                    || PRIMARY_CATS_TO_FLAG_GREEN_MISSING_PHONE_URL.includes(categories[0])
+                    || ANY_CATS_TO_FLAG_GREEN_MISSING_PHONE_URL.some(category => categories.includes(category))) {
+                    severity = _SEVERITY.GREEN;
+                    wlActive = false;
+                }
                 super(
                     true,
-                    _SEVERITY.BLUE,
+                    severity,
                     'No URL: <input type="text" id="WMEPH-UrlAdd" autocomplete="off" style="font-size:0.85em;width:100px;padding-left:2px;color:#000;">',
                     'Add',
                     'Add URL to place',
-                    true,
+                    wlActive,
                     'Whitelist empty URL',
                     'urlWL'
                 );
@@ -3602,8 +3667,23 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                 this.wl = wl;
             }
 
+            static #venueHasOperator(venue) {
+                return venue.attributes.brand && W.model.categoryBrands.PARKING_LOT.includes(venue.attributes.brand);
+            }
+
+            static #venueIsFlaggable(venue, url, categories, region) {
+                return !url?.trim().length
+                    && (!venue.isParkingLot()
+                        || (venue.isParkingLot() && (REGIONS_THAT_WANT_PLA_PHONE_URL.includes(region) || this.#venueHasOperator(venue))))
+                    && !PRIMARY_CATS_TO_IGNORE_MISSING_PHONE_URL.includes(categories[0]);
+            }
+
+            static eval(venue, url, categories, region, wl) {
+                return this.#venueIsFlaggable(venue, url, categories, region, wl) ? new this(venue, categories, wl) : null;
+            }
+
             action() {
-                const newUrl = normalizeURL($('#WMEPH-UrlAdd').val(), true, false, this.venue, null, this.wl);
+                const newUrl = normalizeURL($('#WMEPH-UrlAdd').val());
                 if ((!newUrl || newUrl.trim().length === 0) || newUrl === 'badURL') {
                     $('input#WMEPH-UrlAdd').css({ backgroundColor: '#FDD' }).attr('title', 'Invalid URL format');
                     // this.badInput = true;
@@ -3617,8 +3697,8 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
             constructor(venue, textValue, outputFormat) {
                 super(
                     true,
-                    _SEVERITY.BLUE,
-                    `Area Code mismatch:<br><input type="text" id="WMEPH-PhoneAdd" autocomplete="off" style="font-size:0.85em;width:100px;padding-left:2px;color:#000;" value="${textValue || ''}">`,
+                    _SEVERITY.YELLOW,
+                    `Area Code appears to be invalid for this region:<br><input type="text" id="WMEPH-PhoneAdd" autocomplete="off" style="font-size:0.85em;width:100px;padding-left:2px;color:#000;" value="${textValue || ''}">`,
                     'Update',
                     'Update phone #',
                     true,
@@ -3628,6 +3708,18 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                 this.venue = venue;
                 this.outputFormat = outputFormat;
                 this.noBannerAssemble = true;
+                this.noLock = true;
+            }
+
+            static #venueIsFlaggable(phone, countryCode, wl) {
+                return phone
+                    && !wl.aCodeWL
+                    && ['USA', 'CAN'].includes(countryCode)
+                    && !_areaCodeList.includes(phone.match(/[2-9]\d{2}/)?.[0]);
+            }
+
+            static eval(venue, phone, outputPhoneFormat, countryCode, wl) {
+                return this.#venueIsFlaggable(phone, countryCode, wl) ? new this(venue, phone, outputPhoneFormat) : null;
             }
 
             action() {
@@ -3679,7 +3771,8 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
         },
         PhoneMissing: class extends WLActionFlag {
             static whitelistKey = 'phoneWL';
-            constructor(venue, hasOperator, wl, outputFormat, isPLA) {
+
+            constructor(venue, categories, wl, outputFormat) {
                 super(
                     true,
                     _SEVERITY.BLUE,
@@ -3694,24 +3787,29 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                 this.badInput = false;
                 this.outputFormat = outputFormat;
                 this.venue = venue;
-                if ((isPLA && !hasOperator) || wl[this.WLkeyName]) {
+                if ((venue.isParkingLot() && !Flag.PhoneMissing.#venueHasOperator(venue))
+                    || wl[this.WLkeyName]
+                    || PRIMARY_CATS_TO_FLAG_GREEN_MISSING_PHONE_URL.includes(categories[0])
+                    || ANY_CATS_TO_FLAG_GREEN_MISSING_PHONE_URL.some(category => categories.includes(category))) {
                     this.severity = _SEVERITY.GREEN;
                     this.WLactive = false;
                 }
             }
 
-            static get _regionsThatWantPlaPhones() { return ['SER']; }
+            static #venueHasOperator(venue) {
+                return venue.attributes.brand && W.model.categoryBrands.PARKING_LOT.includes(venue.attributes.brand);
+            }
 
-            static eval(venue, newPhone, wl, region, outputFormat, skipPhoneCheck) {
-                let result = null;
-                if (!newPhone && !skipPhoneCheck && !wl[this.whitelistKey]) {
-                    const hasOperator = venue.attributes.brand && W.model.categoryBrands?.PARKING_LOT?.includes(venue.attributes.brand);
-                    const isPLA = venue.isParkingLot();
-                    if (!isPLA || (isPLA && (this._regionsThatWantPlaPhones.includes(region) || hasOperator))) {
-                        result = new this(venue, hasOperator, wl, outputFormat, isPLA);
-                    }
-                }
-                return result;
+            static #venueIsFlaggable(venue, newPhone, categories, region, skipPhoneCheck) {
+                return !newPhone
+                    && !skipPhoneCheck
+                    && (!venue.isParkingLot()
+                        || (venue.isParkingLot() && (REGIONS_THAT_WANT_PLA_PHONE_URL.includes(region) || this.#venueHasOperator(venue))))
+                    && !PRIMARY_CATS_TO_IGNORE_MISSING_PHONE_URL.includes(categories[0]);
+            }
+
+            static eval(venue, newPhone, categories, wl, region, outputFormat, skipPhoneCheck) {
+                return this.#venueIsFlaggable(venue, newPhone, categories, region, skipPhoneCheck) ? new this(venue, categories, wl, outputFormat) : null;
             }
 
             action() {
@@ -3724,6 +3822,18 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                     logDev(newPhone);
                     addUpdateAction(this.venue, { phone: newPhone }, null, true);
                 }
+            }
+
+            // eslint-disable-next-line class-methods-use-this
+            postProcess() {
+                // TODO: Is this needed???
+                // If pressing enter in the phone entry box, add the phone
+                $('#WMEPH-PhoneAdd').keyup(evt => {
+                    if (evt.keyCode === 13 && $('#WMEPH-PhoneAdd').val() !== '') {
+                        $('#WMEPH_phoneMissing').click();
+                        $('#WMEPH_badAreaCode').click();
+                    }
+                });
             }
         },
         NoHours: class extends WLFlag {
@@ -4833,27 +4943,77 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
             }
         },
         NewPlaceSubmit: class extends ActionFlag {
-            #newPlaceUrl;
+            #formUrl;
 
-            constructor(newPlaceUrl) {
+            constructor(newUrl, newName, placePL, gFormState, region) {
                 super(true, _SEVERITY.GREEN, 'No PNH match. If it\'s a chain: ', 'Submit new chain data', 'Submit info for a new chain through the linked form');
-                this.#newPlaceUrl = newPlaceUrl;
+
+                // Make PNH submission link
+                const encodedName = encodeURIComponent(newName);
+                const encodedPermalink = encodeURIComponent(placePL);
+                const encodedUrl = encodeURIComponent(newUrl?.trim() ?? '');
+                const regionSettings = REGION_SETTINGS[region];
+                let entryValues;
+                if (['CA_EN', 'QC'].includes(region)) {
+                    entryValues = [encodedName, encodedUrl, _USER.name, encodedPermalink];
+                } else {
+                    entryValues = [encodedName, encodedUrl, _USER.name + gFormState];
+                }
+                this.#formUrl = regionSettings.getNewChainFormUrl(entryValues);
+            }
+
+            static #venueIsFlaggable(venue, categories, highlightOnly, pnhMatchData) {
+                return !highlightOnly
+                    && pnhMatchData[0] === 'NoMatch'
+                    && !venue.isParkingLot()
+                    && !CHAIN_APPROVAL_PRIMARY_CATS_TO_IGNORE.includes(categories[0])
+                    && !categories.includes('REST_AREAS');
+            }
+
+            static eval(venue, name, categories, url, highlightOnly, pnhMatchData, placePL, gFormState, region) {
+                return this.#venueIsFlaggable(venue, categories, highlightOnly, pnhMatchData)
+                    ? new this(url, name, placePL, gFormState, region) : null;
             }
 
             action() {
-                window.open(this.#newPlaceUrl);
+                window.open(this.#formUrl);
             }
         },
         ApprovalSubmit: class extends ActionFlag {
-            #approveRegionURL;
+            #formUrl;
 
-            constructor(approveRegionURL) {
+            constructor(placePL, pnhMatchData, gFormState, region) {
                 super(true, _SEVERITY.GREEN, 'PNH data exists but is not approved for this region: ', 'Request approval', 'Request region/country approval of this place');
-                this.#approveRegionURL = approveRegionURL;
+
+                const encodedName = encodeURIComponent(pnhMatchData[1][0]); // Just do the first match
+                const pnhOrderNum = pnhMatchData[2].join(',');
+                const approvalMessage = `Submitted via WMEPH. PNH order number ${pnhOrderNum}`;
+                const encodedPermalink = encodeURIComponent(placePL);
+                const regionSettings = REGION_SETTINGS[region];
+                let entryValues;
+                if (['CA_EN', 'QC'].includes(region)) {
+                    entryValues = [encodedName, approvalMessage, _USER.name, encodedPermalink];
+                } else {
+                    entryValues = [encodedName, approvalMessage, _USER.name + gFormState];
+                }
+                this.#formUrl = regionSettings.getApproveChainFormUrl(entryValues);
+            }
+
+            static #venueIsFlaggable(venue, categories, highlightOnly, pnhMatchData) {
+                return !highlightOnly
+                    && pnhMatchData[0] === 'ApprovalNeeded'
+                    && !venue.isParkingLot()
+                    && !CHAIN_APPROVAL_PRIMARY_CATS_TO_IGNORE.includes(categories[0])
+                    && !categories.includes('REST_AREAS');
+            }
+
+            static eval(venue, categories, highlightOnly, pnhMatchData, placePL, gFormState, region) {
+                return this.#venueIsFlaggable(venue, categories, highlightOnly, pnhMatchData)
+                    ? new this(placePL, pnhMatchData, gFormState, region) : null;
             }
 
             action() {
-                window.open(this.#approveRegionURL);
+                window.open(this.#formUrl);
             }
         },
         PlaceWebsite: class extends ActionFlag {
@@ -5703,104 +5863,31 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                 } else {
                     // check against the PNH list
                     pnhMatchData = harmoList(newName, state2L, region, countryCode, newCategories, item);
-
-                    if (['NoMatch', 'ApprovalNeeded'].includes(pnhMatchData[0])) {
-                        const newURLSubmit = !isNullOrWhitespace(newUrl) ? newUrl : '';
-                        let pnhOrderNum = '';
-                        let pnhNameTemp = '';
-                        let pnhNameTempWeb = '';
-                        if (pnhMatchData[0] === 'ApprovalNeeded') {
-                            // PNHNameTemp = PNHMatchData[1].join(', ');
-                            [, [pnhNameTemp]] = pnhMatchData; // Just do the first match
-                            pnhNameTempWeb = encodeURIComponent(pnhNameTemp);
-                            pnhOrderNum = pnhMatchData[2].join(',');
-                        }
-
-                        // Make PNH submission links
-                        let regionFormURL = '';
-                        let newPlaceAddon = '';
-                        let approvalAddon = '';
-                        const approvalMessage = `Submitted via WMEPH. PNH order number ${pnhOrderNum}`;
-                        const encodedTempSubmitName = encodeURIComponent(newName);
-                        const encodedPlacePL = encodeURIComponent(placePL);
-                        const encodedUrlSubmit = encodeURIComponent(newURLSubmit);
-                        const suffix = _USER.name + gFormState;
-                        switch (region) {
-                            case 'NWR': regionFormURL = 'https://docs.google.com/forms/d/1hv5hXBlGr1pTMmo4n3frUx1DovUODbZodfDBwwTc7HE/viewform';
-                                newPlaceAddon = `?entry.925969794=${encodedTempSubmitName}&entry.1970139752=${encodedUrlSubmit}&entry.1749047694=${suffix}`;
-                                approvalAddon = `?entry.925969794=${pnhNameTempWeb}&entry.50214576=${approvalMessage}&entry.1749047694=${suffix}`;
-                                break;
-                            case 'SWR': regionFormURL = 'https://docs.google.com/forms/d/1Qf2N4fSkNzhVuXJwPBJMQBmW0suNuy8W9itCo1qgJL4/viewform';
-                                newPlaceAddon = `?entry.1497446659=${encodedTempSubmitName}&entry.1970139752=${encodedUrlSubmit}&entry.1749047694=${suffix}`;
-                                approvalAddon = `?entry.1497446659=${pnhNameTempWeb}&entry.50214576=${approvalMessage}&entry.1749047694=${suffix}`;
-                                break;
-                            case 'HI': regionFormURL = 'https://docs.google.com/forms/d/1K7Dohm8eamIKry3KwMTVnpMdJLaMIyDGMt7Bw6iqH_A/viewform';
-                                newPlaceAddon = `?entry.1497446659=${encodedTempSubmitName}&entry.1970139752=${encodedUrlSubmit}&entry.1749047694=${suffix}`;
-                                approvalAddon = `?entry.1497446659=${pnhNameTempWeb}&entry.50214576=${approvalMessage}&entry.1749047694=${suffix}`;
-                                break;
-                            case 'PLN': regionFormURL = 'https://docs.google.com/forms/d/1ycXtAppoR5eEydFBwnghhu1hkHq26uabjUu8yAlIQuI/viewform';
-                                newPlaceAddon = `?entry.925969794=${encodedTempSubmitName}&entry.1970139752=${encodedUrlSubmit}&entry.1749047694=${suffix}`;
-                                approvalAddon = `?entry.925969794=${pnhNameTempWeb}&entry.50214576=${approvalMessage}&entry.1749047694=${suffix}`;
-                                break;
-                            case 'SCR': regionFormURL = 'https://docs.google.com/forms/d/1KZzLdlX0HLxED5Bv0wFB-rWccxUp2Mclih5QJIQFKSQ/viewform';
-                                newPlaceAddon = `?entry.925969794=${encodedTempSubmitName}&entry.1970139752=${encodedUrlSubmit}&entry.1749047694=${suffix}`;
-                                approvalAddon = `?entry.925969794=${pnhNameTempWeb}&entry.50214576=${approvalMessage}&entry.1749047694=${suffix}`;
-                                break;
-                            case 'GLR': regionFormURL = 'https://docs.google.com/forms/d/19btj-Qt2-_TCRlcS49fl6AeUT95Wnmu7Um53qzjj9BA/viewform';
-                                newPlaceAddon = `?entry.925969794=${encodedTempSubmitName}&entry.1970139752=${encodedUrlSubmit}&entry.1749047694=${suffix}`;
-                                approvalAddon = `?entry.925969794=${pnhNameTempWeb}&entry.50214576=${approvalMessage}&entry.1749047694=${suffix}`;
-                                break;
-                            case 'SAT': regionFormURL = 'https://docs.google.com/forms/d/1bxgK_20Jix2ahbmUvY1qcY0-RmzUBT6KbE5kjDEObF8/viewform';
-                                newPlaceAddon = `?entry.2063110249=${encodedTempSubmitName}&entry.2018912633=${encodedUrlSubmit}&entry.1924826395=${suffix}`;
-                                approvalAddon = `?entry.2063110249=${pnhNameTempWeb}&entry.123778794=${approvalMessage}&entry.1924826395=${suffix}`;
-                                break;
-                            case 'SER': regionFormURL = 'https://docs.google.com/forms/d/1jYBcxT3jycrkttK5BxhvPXR240KUHnoFMtkZAXzPg34/viewform';
-                                newPlaceAddon = `?entry.822075961=${encodedTempSubmitName}&entry.1422079728=${encodedUrlSubmit}&entry.1891389966=${suffix}`;
-                                approvalAddon = `?entry.822075961=${pnhNameTempWeb}&entry.607048307=${approvalMessage}&entry.1891389966=${suffix}`;
-                                break;
-                            case 'ATR': regionFormURL = 'https://docs.google.com/forms/d/1v7JhffTfr62aPSOp8qZHA_5ARkBPldWWJwDeDzEioR0/viewform';
-                                newPlaceAddon = `?entry.925969794=${encodedTempSubmitName}&entry.1970139752=${encodedUrlSubmit}&entry.1749047694=${suffix}`;
-                                approvalAddon = `?entry.925969794=${pnhNameTempWeb}&entry.50214576=${approvalMessage}&entry.1749047694=${suffix}`;
-                                break;
-                            case 'NER': regionFormURL = 'https://docs.google.com/forms/d/1UgFAMdSQuJAySHR0D86frvphp81l7qhEdJXZpyBZU6c/viewform';
-                                newPlaceAddon = `?entry.925969794=${encodedTempSubmitName}&entry.1970139752=${encodedUrlSubmit}&entry.1749047694=${suffix}`;
-                                approvalAddon = `?entry.925969794=${pnhNameTempWeb}&entry.50214576=${approvalMessage}&entry.1749047694=${suffix}`;
-                                break;
-                            case 'NOR': regionFormURL = 'https://docs.google.com/forms/d/1iYq2rd9HRd-RBsKqmbHDIEBGuyWBSyrIHC6QLESfm4c/viewform';
-                                newPlaceAddon = `?entry.925969794=${encodedTempSubmitName}&entry.1970139752=${encodedUrlSubmit}&entry.1749047694=${suffix}`;
-                                approvalAddon = `?entry.925969794=${pnhNameTempWeb}&entry.50214576=${approvalMessage}&entry.1749047694=${suffix}`;
-                                break;
-                            case 'MAR': regionFormURL = 'https://docs.google.com/forms/d/1PhL1iaugbRMc3W-yGdqESoooeOz-TJIbjdLBRScJYOk/viewform';
-                                newPlaceAddon = `?entry.925969794=${encodedTempSubmitName}&entry.1970139752=${encodedUrlSubmit}&entry.1749047694=${suffix}`;
-                                approvalAddon = `?entry.925969794=${pnhNameTempWeb}&entry.50214576=${approvalMessage}&entry.1749047694=${suffix}`;
-                                break;
-                            case 'CA_EN': regionFormURL = 'https://docs.google.com/forms/d/13JwXsrWPNmCdfGR5OVr5jnGZw-uNGohwgjim-JYbSws/viewform';
-                                newPlaceAddon = `?entry_839085807=${encodedTempSubmitName}&entry_1067461077=${encodedUrlSubmit}&entry_318793106=${
-                                    _USER.name}&entry_1149649663=${encodedPlacePL}`;
-                                approvalAddon = `?entry_839085807=${pnhNameTempWeb}&entry_1125435193=${approvalMessage}&entry_318793106=${
-                                    _USER.name}&entry_1149649663=${encodedPlacePL}`;
-                                break;
-                            case 'QC': regionFormURL = 'https://docs.google.com/forms/d/13JwXsrWPNmCdfGR5OVr5jnGZw-uNGohwgjim-JYbSws/viewform';
-                                newPlaceAddon = `?entry_839085807=${encodedTempSubmitName}&entry_1067461077=${encodedUrlSubmit}&entry_318793106=${
-                                    _USER.name}&entry_1149649663=${encodedPlacePL}`;
-                                approvalAddon = `?entry_839085807=${pnhNameTempWeb}&entry_1125435193=${approvalMessage}&entry_318793106=${
-                                    _USER.name}&entry_1149649663=${encodedPlacePL}`;
-                                break;
-                            default: regionFormURL = '';
-                        }
-                        const newPlaceUrl = regionFormURL + newPlaceAddon;
-                        const approveRegionURL = regionFormURL + approvalAddon;
-
-                        if (pnhMatchData[0] === 'ApprovalNeeded') {
-                            _buttonBanner.ApprovalSubmit = new Flag.ApprovalSubmit(approveRegionURL);
-                        } else if (pnhMatchData[0] === 'NoMatch') {
-                            _buttonBanner.NewPlaceSubmit = new Flag.NewPlaceSubmit(newPlaceUrl);
-                        }
-                    }
                 }
             } else {
                 pnhMatchData = ['Highlight'];
             }
+
+            _buttonBanner.NewPlaceSubmit = Flag.NewPlaceSubmit.eval(
+                item,
+                newName,
+                newCategories,
+                newUrl,
+                highlightOnly,
+                pnhMatchData,
+                placePL,
+                gFormState,
+                region
+            );
+            _buttonBanner.ApprovalSubmit = Flag.ApprovalSubmit.eval(
+                item,
+                newCategories,
+                highlightOnly,
+                pnhMatchData,
+                placePL,
+                gFormState,
+                region
+            );
 
             pnhNameRegMatch = false;
             if (pnhMatchData[0] !== 'NoMatch' && pnhMatchData[0] !== 'ApprovalNeeded' && pnhMatchData[0] !== 'Highlight') { // *** Replace place data with PNH data
@@ -6201,7 +6288,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                 if (!(localURLcheck && newUrl && (new RegExp(localURLcheck, 'i')).test(newUrl))) {
                     newUrl = pnhMatchData[phUrlIdx];
                 }
-                newUrl = normalizeURL(newUrl, false, true, item, region, wl);
+                newUrl = normalizeURL(newUrl, false);
 
                 _buttonBanner.localURL = Flag.LocalURL.eval(newUrl, localURLcheck);
 
@@ -6258,7 +6345,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                 // Strong title case option for non-PNH places
                 _buttonBanner.titleCaseName = Flag.TitleCaseName.eval(item, newName, newNameSuffix);
 
-                newUrl = normalizeURL(newUrl, true, false, item, region, wl); // Normalize url
+                newUrl = normalizeURL(newUrl);
 
                 // Generic Bank treatment
                 _ixBank = item.attributes.categories.indexOf('BANK_FINANCIAL');
@@ -6530,9 +6617,10 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
             // URL updating
             _updateURL = true;
             if (newUrl !== item.attributes.url && !isNullOrWhitespace(newUrl)) {
-                if (pnhNameRegMatch && item.attributes.url !== null && item.attributes.url !== '' && newUrl !== 'badURL') { // for cases where there is an existing URL in the WME place, and there is a PNH url on queue:
-                    let newURLTemp = normalizeURL(newUrl, true, false, item, null, wl); // normalize
-                    const itemURL = normalizeURL(item.attributes.url, true, false, item, null, wl);
+                // for cases where there is an existing URL in the WME place, and there is a PNH url on queue:
+                if (pnhNameRegMatch && item.attributes.url !== null && item.attributes.url !== '' && newUrl !== 'badURL') {
+                    let newURLTemp = normalizeURL(newUrl);
+                    const itemURL = normalizeURL(item.attributes.url);
                     newURLTemp = newURLTemp.replace(/^www\.(.*)$/i, '$1'); // strip www
                     const itemURLTemp = itemURL.replace(/^www\.(.*)$/i, '$1'); // strip www
                     if (newURLTemp !== itemURLTemp) { // if formatted URLs don't match, then alert the editor to check the existing URL
@@ -6564,21 +6652,22 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
             }
 
             _buttonBanner.phoneInvalid = Flag.PhoneInvalid.eval(normalizedPhone, outputPhoneFormat);
-            _buttonBanner.phoneMissing = Flag.PhoneMissing.eval(item, newPhone, wl, region, outputPhoneFormat, !!_buttonBanner.addRecommendedPhone);
+            _buttonBanner.phoneMissing = Flag.PhoneMissing.eval(
+                item,
+                newPhone,
+                newCategories,
+                wl,
+                region,
+                outputPhoneFormat,
+                !!_buttonBanner.addRecommendedPhone
+            );
 
             // Check if valid area code  #LOC# USA and CAN only
-            if (!wl.aCodeWL && (countryCode === 'USA' || countryCode === 'CAN')) {
-                if (newPhone !== null && newPhone.match(/[2-9]\d{2}/) !== null) {
-                    const areaCode = newPhone.match(/[2-9]\d{2}/)[0];
-                    if (!_areaCodeList.includes(areaCode)) {
-                        _buttonBanner.badAreaCode = new Flag.BadAreaCode(item, newPhone, outputPhoneFormat);
-                    }
-                }
-            }
+            _buttonBanner.badAreaCode = Flag.BadAreaCode.eval(item, newPhone, outputPhoneFormat, countryCode, wl);
+
             if (!highlightOnly && newPhone !== item.attributes.phone) {
                 logDev('Phone updated');
-                actions.push(new UpdateObject(item, { phone: newPhone }));
-                _UPDATED_FIELDS.phone.updated = true;
+                addUpdateAction(item, { phone: newPhone }, actions);
             }
 
             // Post Office check
@@ -6591,9 +6680,8 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                 if (!highlightOnly) {
                     _buttonBanner.NewPlaceSubmit = null;
                     if (item.attributes.url !== 'usps.com') {
-                        actions.push(new UpdateObject(item, { url: 'usps.com' }));
-                        _UPDATED_FIELDS.url.updated = true;
-                        _buttonBanner.urlMissing = null;
+                        newUrl = 'usps.com';
+                        addUpdateAction(item, { url: newUrl }, actions);
                     }
                 }
 
@@ -6637,6 +6725,8 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                     }
                 }
             } // END Post Office check
+
+            _buttonBanner.urlMissing = Flag.UrlMissing.eval(item, newUrl, newCategories, region, wl);
         } // END if (!residential && has name)
 
         _buttonBanner.gasMismatch = Flag.GasMismatch.eval(item, newCategories, newBrand, newName, wl);
@@ -6748,24 +6838,6 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
         _buttonBanner.changeToDoctorClinic = Flag.ChangeToDoctorClinic.eval(item, newCategories, highlightOnly, pnhNameRegMatch);
         _buttonBanner.notASchool = Flag.NotASchool.eval(newName, newCategories, wl);
 
-        // Some cats don't need PNH messages and url/phone severities
-        if (['BRIDGE', 'FOREST_GROVE', 'DAM', 'TUNNEL', 'CEMETERY'].includes(item.attributes.categories[0])) {
-            _buttonBanner.NewPlaceSubmit = null;
-            if (_buttonBanner.phoneMissing) {
-                _buttonBanner.phoneMissing.severity = _SEVERITY.GREEN;
-                _buttonBanner.phoneMissing.WLactive = false;
-            }
-            if (_buttonBanner.urlMissing) {
-                _buttonBanner.urlMissing.severity = _SEVERITY.GREEN;
-                _buttonBanner.urlMissing.WLactive = false;
-            }
-        } else if (['ISLAND', 'SEA_LAKE_POOL', 'RIVER_STREAM', 'CANAL', 'JUNCTION_INTERCHANGE', 'SCENIC_LOOKOUT_VIEWPOINT'].includes(item.attributes.categories[0])) {
-            // Some cats don't need PNH messages and url/phone messages
-            _buttonBanner.NewPlaceSubmit = null;
-            _buttonBanner.phoneMissing = null;
-            _buttonBanner.urlMissing = null;
-        }
-
         // *** Rest Area parsing
         // check rest area name against standard formats or if has the right categories
         const oldName = item.attributes.name;
@@ -6808,15 +6880,6 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
             if (!highlightOnly) {
                 _buttonBanner2.restAreaWiki.active = true;
                 _buttonBanner2.placesWiki.active = false;
-            }
-
-            if (_buttonBanner.urlMissing) {
-                _buttonBanner.urlMissing.WLactive = false;
-                _buttonBanner.urlMissing.severity = _SEVERITY.GREEN;
-            }
-            if (_buttonBanner.phoneMissing) {
-                _buttonBanner.phoneMissing.severity = _SEVERITY.GREEN;
-                _buttonBanner.phoneMissing.WLactive = false;
             }
         }
 
@@ -7285,14 +7348,6 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
         $('#WMEPH-HNAdd').keyup(evt => {
             if (evt.keyCode === 13 && $('#WMEPH-HNAdd').val() !== '') {
                 $('#WMEPH_hnMissing').click();
-            }
-        });
-
-        // If pressing enter in the phone entry box, add the phone
-        $('#WMEPH-PhoneAdd').keyup(evt => {
-            if (evt.keyCode === 13 && $('#WMEPH-PhoneAdd').val() !== '') {
-                $('#WMEPH_phoneMissing').click();
-                $('#WMEPH_badAreaCode').click();
             }
         });
 
