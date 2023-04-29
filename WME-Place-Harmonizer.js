@@ -3353,8 +3353,30 @@
                 );
             }
         },
-        MissingUSPSAlt: class extends FlagBase {
-            constructor() { super(true, _SEVERITY.BLUE, 'USPS post offices must have an alternate name of "USPS".'); }
+        MissingUSPSAlt: class extends ActionFlag {
+            constructor(venue) {
+                super(true, _SEVERITY.BLUE, 'USPS post offices must have an alternate name of "USPS".', 'Add it', 'Add USPS alternate name');
+                this.venue = venue;
+            }
+
+            static #venueIsFlaggable(isUspsPostOffice, aliases) {
+                return isUspsPostOffice
+                    && !aliases.some(alias => alias.toUpperCase() === 'USPS');
+            }
+
+            static eval(venue, isUspsPostOffice, aliases) {
+                return this.#venueIsFlaggable(isUspsPostOffice, aliases) ? new this(venue) : null;
+            }
+
+            action() {
+                const aliases = this.venue.attributes.aliases.slice();
+                if (!aliases.some(alias => alias === 'USPS')) {
+                    aliases.push('USPS');
+                    addUpdateAction(this.venue, { aliases }, null, true);
+                } else {
+                    harmonizePlaceGo(this.venue, 'harmonize');
+                }
+            }
         },
         MissingUSPSZipAlt: class extends WLActionFlag {
             constructor(venue, name, wl, highlightOnly) {
@@ -6658,6 +6680,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
             _buttonBanner.isThisAPostOffice = Flag.IsThisAPostOffice.eval(item, highlightOnly, countryCode, newCategories, newName);
             const isUspsPostOffice = countryCode === 'USA' && !newCategories.includes('PARKING_LOT') && newCategories.includes('POST_OFFICE');
             _buttonBanner.missingUSPSZipAlt = Flag.MissingUSPSZipAlt.eval(item, isUspsPostOffice, newName, newAliases, wl, highlightOnly);
+
             if (isUspsPostOffice) {
                 if (!highlightOnly) {
                     _buttonBanner.NewPlaceSubmit = null;
@@ -6687,15 +6710,11 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                     }
                     _buttonBanner.catPostOffice = new Flag.CatPostOffice();
                 }
-                if (!newAliases.some(alias => alias.toUpperCase() === 'USPS')) {
-                    if (!highlightOnly) {
-                        newAliases.push('USPS');
-                        actions.push(new UpdateObject(item, { aliases: newAliases }));
-                        _UPDATED_FIELDS.aliases.updated = true;
-                    } else {
-                        _buttonBanner.missingUSPSAlt = new Flag.MissingUSPSAlt();
-                    }
-                }
+                // if (!highlightOnly && !newAliases.some(alias => alias.toUpperCase() === 'USPS')) {
+                //     newAliases.push('USPS');
+                //     actions.push(new UpdateObject(item, { aliases: newAliases }));
+                //     _UPDATED_FIELDS.aliases.updated = true;
+                // }
 
                 const descr = item.attributes.description;
                 const lines = descr.split('\n');
@@ -6707,6 +6726,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                     }
                 }
             } // END Post Office check
+            _buttonBanner.missingUSPSAlt = Flag.MissingUSPSAlt.eval(item, isUspsPostOffice, newAliases);
 
             _buttonBanner.urlMissing = Flag.UrlMissing.eval(item, newUrl, newCategories, region, wl);
 
