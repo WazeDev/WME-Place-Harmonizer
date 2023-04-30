@@ -233,7 +233,6 @@
     let _cloneMaster = null;
 
     // Banner Buttons objects
-    let _buttonBanner;
     let _buttonBanner2;
     let _servicesBanner;
     let _dupeBanner;
@@ -1326,7 +1325,7 @@
                         || approvedRegions.includes(country) //  OR if the country code is in the data then it is approved for all regions therein
                         || $('#WMEPH-RegionOverride').prop('checked')) { // OR if region override is selected (dev setting)
                         matchPNHRegionData.push(pnhEntry);
-                        _buttonBanner.placeMatched = new Flag.PlaceMatched();
+                        new Flag.PlaceMatched();
                         if (!allowMultiMatch) {
                             // Return the PNH data string array to the main script
                             return matchPNHRegionData;
@@ -1349,7 +1348,7 @@
         } // END loop through PNH places
 
         // If NO (name & region) match was found:
-        if (_buttonBanner.placeMatched) {
+        if (FlagBase.currentFlags.hasFlag(Flag.PlaceMatched)) {
             return matchPNHRegionData;
         }
         if (pnhNameMatch) { // if a name match was found but not for region, prod the user to get it approved
@@ -1708,7 +1707,6 @@
             venues = [];
         }
 
-        const storedBannButt = _buttonBanner;
         const storedBannServ = _servicesBanner;
         const storedBannButt2 = _buttonBanner2;
         const t0 = performance.now();
@@ -1754,7 +1752,6 @@
         const venue = getSelectedVenue();
         if (venue) {
             venue.attributes.wmephSeverity = harmonizePlaceGo(venue, 'highlight');
-            _buttonBanner = storedBannButt;
             _servicesBanner = storedBannServ;
             _buttonBanner2 = storedBannButt2;
         }
@@ -2045,10 +2042,13 @@
 
     // Abstract flag classes.  Must be declared outside the "Flag" namespace.
     class FlagBase {
+        static currentFlags; // = new FlagContainer();
+
         constructor(active, severity, message) {
             this.active = active;
             this.severity = severity;
             this.message = message;
+            FlagBase.currentFlags.add(this);
         }
     }
     class ActionFlag extends FlagBase {
@@ -2127,7 +2127,7 @@
                                     _UPDATED_FIELDS.address.updated = true;
                                     result = new this(inferredAddress);
                                 } else if (!['JUNCTION_INTERCHANGE'].includes(categories[0])) {
-                                    _buttonBanner.cityMissing = new Flag.CityMissing();
+                                    new Flag.CityMissing();
                                 }
                             } else { //  if the inference doesn't work...
                                 WazeWrap.Alerts.error(_SCRIPT_NAME, 'This place has no address data and the address cannot be inferred from nearby segments. Please edit the address and run WMEPH again.');
@@ -2314,7 +2314,50 @@
             }
         },
         UnmappedRegion: class extends WLFlag {
-            constructor() { super(true, _SEVERITY.RED, 'This category is usually not mapped in this region.', true, 'Whitelist unmapped category', 'unmappedRegion'); }
+            static #regionsToFlagOther = ['HI', 'NER', 'NOR', 'NWR', 'PLN', 'ATR'];
+
+            constructor(catDataTemp, region, isLocked, wl) {
+                let wlActive = true;
+                let severity = _SEVERITY.RED;
+                let noLock = false;
+                let message = 'This category is usually not mapped in this region.';
+                if (catDataTemp[0] === 'OTHER' && Flag.UnmappedRegion.#regionsToFlagOther.includes(region)) {
+                    if (!isLocked) {
+                        wlActive = false;
+                        severity = _SEVERITY.BLUE;
+                        message = 'The "Other" category should only be used if no other category applies. '
+                            + 'Manually lock the place to override this flag.';
+                        noLock = true;
+                    }
+                } else if (wl.unmappedRegion) {
+                    wlActive = false;
+                    severity = _SEVERITY.GREEN;
+                } else {
+                    noLock = true;
+                }
+                super(true, severity, message, wlActive, 'Whitelist unmapped category', 'unmappedRegion');
+                this.noLock = noLock;
+            }
+
+            static #venueIsFlaggable(catDataTemp, unmappedRegions, state2L, region, countryCode, isLocked) {
+                if (unmappedRegions.includes(state2L) || unmappedRegions.includes(region) || unmappedRegions.includes(countryCode)) {
+                    if (catDataTemp[0] === 'OTHER' && this.#regionsToFlagOther.includes(region)) {
+                        if (!isLocked) {
+                            return true;
+                        }
+                    } else {
+                        return true;
+                    }
+                }
+                return false;
+            }
+
+            static eval(catDataTemp, catDataHeaders, state2L, region, countryCode, isLocked, wl) {
+                const unmappedRegions = catDataTemp[catDataHeaders.indexOf('pc_rare')].replace(/,[^A-Za-z0-9}]+/g, ',').split(',');
+                return this.#venueIsFlaggable(catDataTemp, unmappedRegions, state2L, region, countryCode, isLocked)
+                    ? new this(catDataTemp, region, isLocked, wl)
+                    : null;
+            }
         },
         RestAreaName: class extends WLFlag {
             constructor(wl) {
@@ -2602,18 +2645,28 @@
             }
         },
         HotelMkPrim: class extends WLActionFlag {
-            constructor(venue) {
+            constructor(venue, wl) {
                 super(
                     true,
-                    _SEVERITY.RED,
+                    wl.hotelMkPrim ? _SEVERITY.GREEN : _SEVERITY.RED,
                     'Hotel category is not first',
                     'Fix',
                     'Make the Hotel category the primary category.',
-                    true,
+                    !wl.hotelMkPrim,
                     'Whitelist hotel as secondary category',
                     'hotelMkPrim'
                 );
                 this.venue = venue;
+                this.noLock = true;
+            }
+
+            static #venueIsFlaggable(categories, priPNHPlaceCat) {
+                return priPNHPlaceCat === 'HOTEL'
+                    && categories.indexOf('HOTEL') !== 0;
+            }
+
+            static eval(venue, categories, priPNHPlaceCat, wl) {
+                return this.#venueIsFlaggable(categories, priPNHPlaceCat) ? new this(venue, wl) : null;
             }
 
             action() {
@@ -3029,15 +3082,24 @@
             }
         },
         ParentCategory: class extends WLFlag {
-            constructor() {
+            constructor(wl) {
                 super(
                     true,
-                    _SEVERITY.YELLOW,
+                    wl.ParentCategory ? _SEVERITY.GREEN : _SEVERITY.YELLOW,
                     'This parent category is usually not mapped in this region.',
-                    true,
+                    !wl.ParentCategory,
                     'Whitelist parent Category',
                     'parentCategory'
                 );
+            }
+
+            static #venueIsFlaggable(catParent, state2L, region, countryCode) {
+                return catParent.includes(state2L) || catParent.includes(region) || catParent.includes(countryCode);
+            }
+
+            static eval(catDataTemp, catDataHeaders, state2L, region, countryCode, wl) {
+                const catParent = catDataTemp[catDataHeaders.indexOf('pc_parent')].replace(/,[^A-Za-z0-9}]+/g, ',').split(',');
+                return this.#venueIsFlaggable(catParent, state2L, region, countryCode) ? new this(wl) : null;
             }
         },
         CheckDescription: class extends FlagBase {
@@ -3185,6 +3247,17 @@
                     'Whitelist no gas brand',
                     'subFuel'
                 );
+            }
+
+            static #venueIsFlaggable(pnhMatchData, phSpecCaseIdx, name, wl) {
+                return !wl.subFuel
+                    && pnhMatchData[phSpecCaseIdx] === 'subFuel'
+                    && !/\bgas\b/i.test(name)
+                    && !/\bfueld\b/i.test(name);
+            }
+
+            static eval(pnhMatchData, phSpecCaseIdx, name, wl) {
+                return this.#venueIsFlaggable(pnhMatchData, phSpecCaseIdx, name, wl) ? new this() : null;
             }
         },
         AddCommonEVPaymentMethods: class extends WLActionFlag {
@@ -3626,12 +3699,13 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                 this.venue = venue;
             }
 
-            static eval(venue, message, categories, highlightOnly) {
-                let result = null;
-                if (!highlightOnly && !isNullOrWhitespace(message)) {
-                    result = new this(venue, message, categories);
-                }
-                return result;
+            static #venueIsFlaggable(highlightOnly, message) {
+                return !highlightOnly && !isNullOrWhitespace(message);
+            }
+
+            static eval(venue, catDataTemp, catDataHeaders, categories, highlightOnly) {
+                const message = catDataTemp[catDataHeaders.indexOf('pc_message')];
+                return this.#venueIsFlaggable(highlightOnly, message) ? new this(venue, message, categories) : null;
             }
 
             action() {
@@ -3885,7 +3959,9 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
             }
 
             static eval(venue, newPhone, categories, wl, region, outputFormat, skipPhoneCheck) {
-                return this.#venueIsFlaggable(venue, newPhone, categories, region, skipPhoneCheck) ? new this(venue, categories, wl, outputFormat) : null;
+                return this.#venueIsFlaggable(venue, newPhone, categories, region, skipPhoneCheck)
+                    ? new this(venue, categories, wl, outputFormat)
+                    : null;
             }
 
             action() {
@@ -4776,7 +4852,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
             static #venueIsFlaggable(venue, categories) {
                 return venue.isGasStation()
                     && !categories.includes('CONVENIENCE_STORE')
-                    && !_buttonBanner.subFuel; // Don't flag if already asking if this is really a gas station
+                    && !this.currentFlags.hasFlag(Flag.SubFuel); // Don't flag if already asking if this is really a gas station
             }
 
             static eval(venue, categories) {
@@ -5235,121 +5311,153 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
         }
     }; // END Flag namespace
 
-    function getButtonBanner() {
-        // **** Set up banner action buttons.  Structure:
-        // active: false until activated in the script
-        // severity: determines the color of the banners and whether locking occurs
-        // message: The text before the button option
-        // value: button text
-        // title: tooltip text
-        // action: The action that happens if the button is pressed
-        // WL terms are for whitelisting
+    class FlagContainer {
+        static #flagOrder = [
+            Flag.EVChargingStationWarning,
+            Flag.PnhCatMess,
+            Flag.NotAHospital,
+            Flag.NotASchool,
+            Flag.FullAddressInference,
+            Flag.NameMissing,
+            Flag.GasNameMissing,
+            Flag.PlaIsPublic,
+            Flag.PlaNameMissing,
+            Flag.PlaNameNonStandard,
+            Flag.IndianaLiquorStoreHours,
+            Flag.HoursOverlap,
+            Flag.UnmappedRegion,
+            Flag.RestAreaName,
+            Flag.RestAreaNoTransportation,
+            Flag.RestAreaGas,
+            Flag.RestAreaScenic,
+            Flag.RestAreaSpec,
+            Flag.GasMismatch,
+            Flag.GasUnbranded,
+            Flag.GasMkPrim,
+            Flag.IsThisAPilotTravelCenter,
+            Flag.HotelMkPrim,
+            Flag.ChangeToPetVet,
+            Flag.PointNotArea,
+            Flag.AreaNotPoint,
+            Flag.HnMissing,
+            Flag.HnTooManyDigits,
+            Flag.HNRange,
+            Flag.StreetMissing,
+            Flag.CityMissing,
+            Flag.BankType1,
+            Flag.BankBranch,
+            Flag.StandaloneATM,
+            Flag.BankCorporate,
+            Flag.CatPostOffice,
+            Flag.IgnEdited,
+            Flag.WazeBot,
+            Flag.ParentCategory,
+            Flag.CheckDescription,
+            Flag.Overlapping,
+            Flag.SuspectDesc,
+            Flag.ResiTypeName,
+            Flag.Mismatch247,
+            Flag.PhoneInvalid,
+            Flag.AreaNotPointMid,
+            Flag.PointNotAreaMid,
+            Flag.LongURL,
+            Flag.GasNoBrand,
+            Flag.SubFuel,
+            Flag.AreaNotPointLow,
+            Flag.PointNotAreaLow,
+            Flag.FormatUSPS,
+            Flag.MissingUSPSAlt,
+            Flag.MissingUSPSZipAlt,
+            Flag.MissingUSPSDescription,
+            Flag.CatHotel,
+            Flag.LocalizedName,
+            Flag.SpecCaseMessage,
+            Flag.SpecCaseMessageLow,
+            Flag.ChangeToDoctorClinic,
+            Flag.ExtProviderMissing,
+            Flag.AddCommonEVPaymentMethods,
+            Flag.RemoveUncommonEVPaymentMethods,
+            Flag.UrlMissing,
+            Flag.AddRecommendedPhone,
+            Flag.BadAreaCode,
+            Flag.PhoneMissing,
+            Flag.OldHours,
+            Flag.NoHours,
+            Flag.EVCSPriceMissing,
+            Flag.PlaLotTypeMissing,
+            Flag.PlaCostTypeMissing,
+            Flag.PlaPaymentTypeMissing,
+            Flag.PlaLotElevationMissing,
+            Flag.PlaSpaces,
+            Flag.NoPlaStopPoint,
+            Flag.PlaStopPointUnmoved,
+            Flag.PlaCanExitWhileClosed,
+            Flag.PlaHasAccessibleParking,
+            Flag.AllDayHoursFixed,
+            Flag.ResiTypeNameSoft, // TODO add ResiTypeName?
+            Flag.LocalURL,
+            Flag.LockRPP,
+            Flag.AddAlias,
+            Flag.AddCat2,
+            Flag.AddPharm,
+            Flag.AddSuper,
+            Flag.AppendAMPM,
+            Flag.AddATM,
+            Flag.AddConvStore,
+            Flag.IsThisAPostOffice,
+            Flag.TitleCaseName,
+            Flag.ChangeToHospitalUrgentCare,
+            Flag.SFAliases,
+            Flag.PlaceMatched,
+            Flag.PlaceLocked,
+            Flag.NewPlaceSubmit,
+            Flag.ApprovalSubmit,
+            Flag.LocationFinder
+        ];
 
-        return {
-            evChargingStationWarning: null,
-            pnhCatMess: null,
-            notAHospital: null,
-            notASchool: null,
-            hnDashRemoved: null,
-            fullAddressInference: null,
-            nameMissing: null,
-            gasNameMissing: null,
-            plaIsPublic: null,
-            plaNameMissing: null,
-            plaNameNonStandard: null,
-            indianaLiquorStoreHours: null,
-            hoursOverlap: null,
-            unmappedRegion: null,
-            restAreaName: null,
-            restAreaNoTransportation: null,
-            restAreaGas: null,
-            restAreaScenic: null,
-            restAreaSpec: null,
-            gasMismatch: null,
-            gasUnbranded: null,
-            gasMkPrim: null,
-            isThisAPilotTravelCenter: null,
-            hotelMkPrim: null,
-            changeToPetVet: null,
-            pointNotArea: null,
-            areaNotPoint: null,
-            hnMissing: null,
-            hnTooManyDigits: null,
-            hnNonStandard: null,
-            HNRange: null,
-            streetMissing: null,
-            cityMissing: null,
-            bankType1: null,
-            bankBranch: null,
-            standaloneATM: null,
-            bankCorporate: null,
-            catPostOffice: null,
-            ignEdited: null,
-            wazeBot: null,
-            parentCategory: null,
-            checkDescription: null,
-            overlapping: null,
-            suspectDesc: null,
-            resiTypeName: null,
-            mismatch247: null,
-            phoneInvalid: null,
-            areaNotPointMid: null,
-            pointNotAreaMid: null,
-            longURL: null,
-            gasNoBrand: null,
-            subFuel: null,
-            areaNotPointLow: null,
-            pointNotAreaLow: null,
-            formatUSPS: null,
-            missingUSPSAlt: null,
-            missingUSPSZipAlt: null,
-            missingUSPSDescription: null,
-            catHotel: null,
-            localizedName: null,
-            specCaseMessage: null,
-            specCaseMessageLow: null,
-            changeToDoctorClinic: null,
-            extProviderMissing: null,
-            addCommonEVPaymentMethods: null,
-            removeUncommonEVPaymentMethods: null,
-            urlMissing: null,
-            addRecommendedPhone: null,
-            badAreaCode: null,
-            phoneMissing: null,
-            oldHours: null,
-            noHours: null,
-            evcsPriceMissing: null,
-            plaLotTypeMissing: null,
-            plaCostTypeMissing: null,
-            plaPaymentTypeMissing: null,
-            plaLotElevationMissing: null,
-            plaSpaces: null,
-            noPlaStopPoint: null,
-            plaStopPointUnmoved: null,
-            plaCanExitWhileClosed: null,
-            plaHasAccessibleParking: null,
-            allDayHoursFixed: null,
-            resiTypeNameSoft: null,
-            localURL: null,
-            lockRPP: null,
-            addAlias: null,
-            addCat2: null,
-            addPharm: null,
-            addSuper: null,
-            appendAMPM: null,
-            addATM: null,
-            addConvStore: null,
-            isThisAPostOffice: null,
-            titleCaseName: null,
-            changeToHospitalUrgentCare: null,
-            sfAliases: null,
-            placeMatched: null,
-            placeLocked: null,
-            NewPlaceSubmit: null,
-            ApprovalSubmit: null,
-            LocationFinder: null
-        };
+        static #isIndexed = false;
+        #flags = [];
+
+        constructor() {
+            FlagContainer.#indexFlags();
+        }
+
+        static #indexFlags() {
+            if (!this.#isIndexed) {
+                let displayIndex = 1;
+                this.#flagOrder.forEach(flagClass => (flagClass.displayIndex = displayIndex++));
+                this.#isIndexed = true;
+            }
+        }
+
+        add(flag) {
+            if (flag) this.#flags.push(flag);
+        }
+
+        remove(flagClass) {
+            const idx = this.#flags.indexOf(flagClass);
+            this.#flags.splice(idx, 1);
+        }
+
+        getOrderedFlags() {
+            return this.#flags.slice().sort((f1, f2) => {
+                const idx1 = f1.constructor.displayIndex;
+                const idx2 = f2.constructor.displayIndex;
+
+                if (idx1 > idx2) return 1;
+                if (idx1 < idx2) return -1;
+                return 0;
+            });
+        }
+
+        hasFlag(flagClass) {
+            return this.#flags.some(flag => flag.constructor === flagClass);
+        }
     }
+
+    // function addFlag(buttonBanner, flag) {
+    //     if (flag) buttonBanner[flag.constructor.name] = flag;
+    // }
 
     function getServicesBanner() {
         // set up banner action buttons.  Structure:
@@ -5731,7 +5839,8 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
             addr = addr.attributes;
         }
 
-        _buttonBanner = getButtonBanner();
+        FlagBase.currentFlags = new FlagContainer();
+
         let pnhLockLevel;
         if (!highlightOnly) {
             // Uncomment this to test all field highlights.
@@ -5769,7 +5878,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
         }
 
         // If place has hours of 0:00-23:59, highlight yellow or if harmonizing, convert to All Day.
-        _buttonBanner.allDayHoursFixed = Flag.AllDayHoursFixed.eval(item, highlightOnly, actions);
+        Flag.AllDayHoursFixed.eval(item, highlightOnly, actions);
 
         let lockOK = true; // if nothing goes wrong, then place will be locked
 
@@ -5788,25 +5897,24 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
         // Some user submitted places have no data in the country, state and address fields.
         result = Flag.FullAddressInference.eval(item, addr, actions, highlightOnly, newCategories);
         if (result?.exit) return result.severity;
-        _buttonBanner.fullAddressInference = result;
         const inferredAddress = result?.inferredAddress;
         addr = inferredAddress ?? addr;
 
         // Check parking lot attributes.
         if (!highlightOnly && item.isParkingLot()) _servicesBanner.addDisabilityParking.active = true;
 
-        _buttonBanner.plaCostTypeMissing = Flag.PlaCostTypeMissing.eval(item, highlightOnly);
-        _buttonBanner.plaLotElevationMissing = Flag.PlaLotElevationMissing.eval(item);
-        _buttonBanner.plaSpaces = Flag.PlaSpaces.eval(item, highlightOnly);
-        _buttonBanner.plaLotTypeMissing = Flag.PlaLotTypeMissing.eval(item, highlightOnly);
-        _buttonBanner.noPlaStopPoint = Flag.NoPlaStopPoint.eval(item);
-        _buttonBanner.plaStopPointUnmoved = Flag.PlaStopPointUnmoved.eval(item);
-        _buttonBanner.plaCanExitWhileClosed = Flag.PlaCanExitWhileClosed.eval(item, highlightOnly);
-        _buttonBanner.plaPaymentTypeMissing = Flag.PlaPaymentTypeMissing.eval(item);
-        _buttonBanner.plaHasAccessibleParking = Flag.PlaHasAccessibleParking.eval(item, highlightOnly);
+        Flag.PlaCostTypeMissing.eval(item, highlightOnly);
+        Flag.PlaLotElevationMissing.eval(item);
+        Flag.PlaSpaces.eval(item, highlightOnly);
+        Flag.PlaLotTypeMissing.eval(item, highlightOnly);
+        Flag.NoPlaStopPoint.eval(item);
+        Flag.PlaStopPointUnmoved.eval(item);
+        Flag.PlaCanExitWhileClosed.eval(item, highlightOnly);
+        Flag.PlaPaymentTypeMissing.eval(item);
+        Flag.PlaHasAccessibleParking.eval(item, highlightOnly);
 
         // Check categories that maybe should be Hospital / Urgent Care, or Doctor / Clinic.
-        _buttonBanner.changeToHospitalUrgentCare = Flag.ChangeToHospitalUrgentCare.eval(item, newCategories, highlightOnly);
+        Flag.ChangeToHospitalUrgentCare.eval(item, newCategories, highlightOnly);
 
         // Whitelist breakout if place exists on the Whitelist and the option is enabled
 
@@ -5931,20 +6039,21 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
 
         // Gas station treatment (applies to all including PNH)
 
-        _buttonBanner.isThisAPilotTravelCenter = Flag.IsThisAPilotTravelCenter.eval(item, highlightOnly, state2L, newName, actions);
-        if (_buttonBanner.isThisAPilotTravelCenter) newName = _buttonBanner.isThisAPilotTravelCenter.newName;
+        const res = Flag.IsThisAPilotTravelCenter.eval(item, highlightOnly, state2L, newName, actions);
+        if (res) newName = result.newName;
 
-        _buttonBanner.gasMkPrim = Flag.GasMkPrim.eval(item, newCategories);
-        _buttonBanner.addConvStore = Flag.AddConvStore.eval(item, newCategories);
+        Flag.GasMkPrim.eval(item, newCategories);
+        Flag.AddConvStore.eval(item, newCategories);
 
         // Note for Indiana editors to check liquor store hours if Sunday hours haven't been added yet.
-        _buttonBanner.indianaLiquorStoreHours = Flag.IndianaLiquorStoreHours.eval(item, newName, highlightOnly, wl);
+        Flag.IndianaLiquorStoreHours.eval(item, newName, highlightOnly, wl);
 
         const isLocked = item.attributes.lockRank >= (pnhLockLevel > -1 ? pnhLockLevel : defaultLockLevel);
 
         // Set up a variable (newBrand) to contain the brand. When harmonizing, it may be forced to a new value.
         // Other brand flags should use it since it won't be updated on the actual venue until later.
         let { brand: newBrand } = item.attributes;
+        let extProvMissingFlag;
         // Clear attributes from residential places
         if (item.attributes.residential) {
             if (!highlightOnly) {
@@ -5983,7 +6092,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
             }
             // NOTE: do not use is2D() function. It doesn't seem to be 100% reliable.
             if (!item.isPoint()) {
-                _buttonBanner.pointNotArea = new Flag.PointNotArea(item);
+                new Flag.PointNotArea(item);
             }
         } else if (item.isParkingLot() || (newName && newName.trim().length)) { // for non-residential places
             // Phone formatting
@@ -6000,7 +6109,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                 outputPhoneFormat = '+1-{0}-{1}-{2}';
             }
 
-            _buttonBanner.extProviderMissing = Flag.ExtProviderMissing.eval(
+            extProvMissingFlag = Flag.ExtProviderMissing.eval(
                 item,
                 isLocked,
                 newCategories,
@@ -6022,7 +6131,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                 pnhMatchData = ['Highlight'];
             }
 
-            _buttonBanner.NewPlaceSubmit = Flag.NewPlaceSubmit.eval(
+            Flag.NewPlaceSubmit.eval(
                 item,
                 newName,
                 newCategories,
@@ -6033,7 +6142,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                 gFormState,
                 region
             );
-            _buttonBanner.ApprovalSubmit = Flag.ApprovalSubmit.eval(
+            Flag.ApprovalSubmit.eval(
                 item,
                 newCategories,
                 highlightOnly,
@@ -6128,39 +6237,43 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                         // find any button/message flags in the special case (format: buttOn_xyzXyz, etc.)
                         if (match = specCase.match(/^buttOn_(.+)/i)) {
                             [, scFlag] = match;
-                            let flag = null;
                             switch (scFlag) {
                                 case 'addCat2':
                                     // flag = new Flag.AddCat2();
                                     break;
                                 case 'addPharm':
-                                    flag = new Flag.AddPharm(item);
+                                    new Flag.AddPharm(item);
                                     break;
                                 case 'addSuper':
-                                    flag = new Flag.AddSuper(item);
+                                    new Flag.AddSuper(item);
                                     break;
                                 case 'appendAMPM':
-                                    flag = new Flag.AppendAMPM(item);
+                                    new Flag.AppendAMPM(item);
                                     break;
                                 case 'addATM':
-                                    flag = new Flag.AddATM(item);
+                                    new Flag.AddATM(item);
                                     break;
                                 case 'addConvStore':
-                                    flag = new Flag.AddConvStore(item);
+                                    new Flag.AddConvStore(item);
                                     break;
                                 default:
                                     console.error('WMEPH:', `Could not process specCase value: buttOn_${scFlag}`);
                             }
-                            _buttonBanner[scFlag] = flag;
                         } else if (match = specCase.match(/^buttOff_(.+)/i)) {
                             [, scFlag] = match;
-                            _buttonBanner[scFlag] = null;
-                        } else if (match = specCase.match(/^messOn_(.+)/i)) {
-                            [, scFlag] = match;
-                            _buttonBanner[scFlag].active = true;
-                        } else if (match = specCase.match(/^messOff_(.+)/i)) {
-                            [, scFlag] = match;
-                            _buttonBanner[scFlag].active = false;
+                            switch (scFlag) {
+                                case 'addConvStore':
+                                    FlagBase.currentFlags.remove(Flag.AddConvStore);
+                                    break;
+                                default:
+                                    console.error(`WMEPH: Could not process specCase value: buttOff_${scFlag}`);
+                            }
+                        // } else if (match = specCase.match(/^messOn_(.+)/i)) {
+                        //    [, scFlag] = match;
+                        //    _buttonBanner[scFlag].active = true;
+                        // } else if (match = specCase.match(/^messOff_(.+)/i)) {
+                        //    [, scFlag] = match;
+                        //    _buttonBanner[scFlag].active = false;
                         } else if (match = specCase.match(/^psOn_(.+)/i)) {
                             [, scFlag] = match;
                             _servicesBanner[scFlag].actionOn(actions);
@@ -6182,7 +6295,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                         }
 
                         // parse out optional alt-name
-                        _buttonBanner.addAlias = Flag.AddAlias.eval(item, specCase, specCases, newAliases);
+                        Flag.AddAlias.eval(item, specCase, specCases, newAliases);
 
                         // Gas Station forceBranding
                         if (['GAS_STATION'].includes(priPNHPlaceCat) && (match = specCase.match(/^forceBrand<>(.+)/i))) {
@@ -6203,9 +6316,6 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                         if (!result.showDisplayNote) {
                             showDispNote = false;
                         }
-                        if (result.flag) {
-                            _buttonBanner.localizedName = result.flag;
-                        }
 
                         /* eslint-enable no-cond-assign */
 
@@ -6214,20 +6324,15 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                             updatePNHName = false;
                         }
 
-                        _buttonBanner.addRecommendedPhone = Flag.AddRecommendedPhone.eval(item, pnhMatchData[phSpecCaseIdx], outputPhoneFormat, wl);
+                        Flag.AddRecommendedPhone.eval(item, pnhMatchData[phSpecCaseIdx], outputPhoneFormat, wl);
                     }
                 }
 
                 // If it's a place that also sells fuel, enable the button
-                if (pnhMatchData[phSpecCaseIdx] === 'subFuel' && !newName.toUpperCase().includes('GAS') && !newName.toUpperCase().includes('FUEL')) {
-                    _buttonBanner.subFuel = new Flag.SubFuel();
-                    if (wl.subFuel) {
-                        _buttonBanner.subFuel.WLactive = false;
-                    }
-                }
+                Flag.SubFuel.eval(pnhMatchData, phSpecCaseIdx, newName, wl);
 
                 // Display any notes for the specific place
-                _buttonBanner.specCaseMessage = Flag.SpecCaseMessage.eval(item, pnhMatchData[phDisplayNoteIdx], showDispNote, specCases);
+                Flag.SpecCaseMessage.eval(item, pnhMatchData[phDisplayNoteIdx], showDispNote, specCases);
 
                 // Category translations
                 let altCategories = pnhMatchData[phCategory2Idx];
@@ -6247,7 +6352,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                 if (['HOTEL'].includes(priPNHPlaceCat)) {
                     const nameToCheck = newName + (newNameSuffix || '');
                     if (nameToCheck.toUpperCase() === pnhMatchData[phNameIdx].toUpperCase()) { // If no localization
-                        _buttonBanner.catHotel = new Flag.CatHotel(pnhMatchData[phNameIdx]);
+                        new Flag.CatHotel(pnhMatchData[phNameIdx]);
                         newName = pnhMatchData[phNameIdx];
                     } else {
                         // Replace PNH part of name with PNH name
@@ -6266,14 +6371,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                     if (altCategories && altCategories.length) { // if PNH alts exist
                         insertAtIndex(newCategories, altCategories, 1); //  then insert the alts into the existing category array after the GS category
                     }
-                    if (newCategories.indexOf('HOTEL') !== 0) { // If no HOTEL category in the primary, flag it
-                        _buttonBanner.hotelMkPrim = new Flag.HotelMkPrim(item);
-                        if (wl.hotelMkPrim) {
-                            _buttonBanner.hotelMkPrim.WLactive = false;
-                        } else {
-                            lockOK = false;
-                        }
-                    } else if (newCategories.includes('HOTEL')) {
+                    if (newCategories.includes('HOTEL')) {
                         // Remove LODGING if it exists
                         const lodgingIdx = newCategories.indexOf('LODGING');
                         if (lodgingIdx > -1) {
@@ -6296,40 +6394,40 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                     // if the name contains ATM in it
                     if (/\batm\b/ig.test(newName)) {
                         if (_ixOffices === 0) {
-                            _buttonBanner.bankType1 = new Flag.BankType1();
-                            _buttonBanner.bankBranch = new Flag.BankBranch(item);
-                            _buttonBanner.standaloneATM = new Flag.StandaloneATM(item);
-                            _buttonBanner.bankCorporate = new Flag.BankCorporate(item);
+                            new Flag.BankType1();
+                            new Flag.BankBranch(item);
+                            new Flag.StandaloneATM(item);
+                            new Flag.BankCorporate(item);
                         } else if (_ixBank === -1 && _ixATM === -1) {
-                            _buttonBanner.bankBranch = new Flag.BankBranch(item);
-                            _buttonBanner.standaloneATM = new Flag.StandaloneATM(item);
+                            new Flag.BankBranch(item);
+                            new Flag.StandaloneATM(item);
                         } else if (_ixATM === 0 && _ixBank > 0) {
-                            _buttonBanner.bankBranch = new Flag.BankBranch(item);
+                            new Flag.BankBranch(item);
                         } else if (_ixBank > -1) {
-                            _buttonBanner.bankBranch = new Flag.BankBranch(item);
-                            _buttonBanner.standaloneATM = new Flag.StandaloneATM(item);
+                            new Flag.BankBranch(item);
+                            new Flag.StandaloneATM(item);
                         }
                         newName = `${pnhMatchData[phNameIdx]} ATM`;
                         newCategories = insertAtIndex(newCategories, 'ATM', 0);
                         // Net result: If the place has ATM cat only and ATM in the name, then it will be green and renamed Bank Name ATM
                     } else if (_ixBank > -1 || _ixATM > -1) { // if no ATM in name but with a banking category:
                         if (_ixOffices === 0) {
-                            _buttonBanner.bankBranch = new Flag.BankBranch(item);
+                            new Flag.BankBranch(item);
                         } else if (_ixBank > -1 && _ixATM === -1) {
-                            _buttonBanner.addATM = new Flag.AddATM(item);
+                            new Flag.AddATM(item);
                         } else if (_ixATM === 0 && _ixBank === -1) {
-                            _buttonBanner.bankBranch = new Flag.BankBranch(item);
-                            _buttonBanner.standaloneATM = new Flag.StandaloneATM(item);
+                            new Flag.BankBranch(item);
+                            new Flag.StandaloneATM(item);
                         } else if (_ixBank > 0 && _ixATM > 0) {
-                            _buttonBanner.bankBranch = new Flag.BankBranch(item);
-                            _buttonBanner.standaloneATM = new Flag.StandaloneATM(item);
+                            new Flag.BankBranch(item);
+                            new Flag.StandaloneATM(item);
                         }
                         newName = pnhMatchData[phNameIdx];
                         // Net result: If the place has Bank category first, then it will be green with PNH name replaced
                     } else { // for PNH match with neither bank type category, make it a bank
                         newCategories = insertAtIndex(newCategories, 'BANK_FINANCIAL', 1);
-                        _buttonBanner.standaloneATM = new Flag.StandaloneATM(item);
-                        _buttonBanner.bankCorporate = new Flag.BankCorporate(item);
+                        new Flag.StandaloneATM(item);
+                        new Flag.BankCorporate(item);
                     }// END PNH bank treatment
                 } else if (['GAS_STATION'].includes(priPNHPlaceCat)) { // for PNH gas stations, don't replace existing sub-categories
                     if (altCategories?.length) { // if PNH alts exist
@@ -6344,9 +6442,10 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                     }
                 } else if (!updatePNHName) {
                     // Strong title case option for non-PNH places
-                    _buttonBanner.titleCaseName = Flag.TitleCaseName.eval(item, newName, newNameSuffix);
+                    Flag.TitleCaseName.eval(item, newName, newNameSuffix);
                 }
 
+                Flag.HotelMkPrim.eval(item, newCategories, priPNHPlaceCat, wl);
                 // *** need to add a section above to allow other permissible categories to remain? (optional)
 
                 // Parse URL data
@@ -6355,7 +6454,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                 }
                 newUrl = normalizeURL(newUrl, false);
 
-                _buttonBanner.localURL = Flag.LocalURL.eval(newUrl, localURLcheck);
+                Flag.LocalURL.eval(newUrl, localURLcheck);
 
                 // Parse PNH Aliases
                 let [newAliasesTemp] = pnhMatchData[phAliasesIdx].match(/([^(]*)/i);
@@ -6388,13 +6487,13 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                     }
                 }
                 // Enable optional 2nd category button
-                _buttonBanner.addCat2 = Flag.AddCat2.eval(item, specCases, newCategories, altCategories[0]);
+                Flag.AddCat2.eval(item, specCases, newCategories, altCategories[0]);
 
                 // Description update
                 newDescripion = pnhMatchData[phDescriptionIdx];
                 if (!isNullOrWhitespace(newDescripion) && !item.attributes.description.toUpperCase().includes(newDescripion.toUpperCase())) {
                     if (item.attributes.description !== '' && item.attributes.description !== null && item.attributes.description !== ' ') {
-                        _buttonBanner.checkDescription = new Flag.CheckDescription();
+                        new Flag.CheckDescription();
                     }
                     logDev('Description updated');
                     newDescripion = `${newDescripion}\n${item.attributes.description}`;
@@ -6408,7 +6507,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                 }
             } else { // if no PNH match found
                 // Strong title case option for non-PNH places
-                _buttonBanner.titleCaseName = Flag.TitleCaseName.eval(item, newName, newNameSuffix);
+                Flag.TitleCaseName.eval(item, newName, newNameSuffix);
 
                 newUrl = normalizeURL(newUrl);
 
@@ -6419,31 +6518,31 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                 // if the name contains ATM in it
                 if (newName.match(/\batm\b/ig) !== null) {
                     if (_ixOffices === 0) {
-                        _buttonBanner.bankType1 = new Flag.BankType1();
-                        _buttonBanner.bankBranch = new Flag.BankBranch(item);
-                        _buttonBanner.standaloneATM = new Flag.StandaloneATM(item);
-                        _buttonBanner.bankCorporate = new Flag.BankCorporate(item);
+                        new Flag.BankType1();
+                        new Flag.BankBranch(item);
+                        new Flag.StandaloneATM(item);
+                        new Flag.BankCorporate(item);
                     } else if (_ixBank === -1 && _ixATM === -1) {
-                        _buttonBanner.bankBranch = new Flag.BankBranch(item);
-                        _buttonBanner.standaloneATM = new Flag.StandaloneATM(item);
+                        new Flag.BankBranch(item);
+                        new Flag.StandaloneATM(item);
                     } else if (_ixATM === 0 && _ixBank > 0) {
-                        _buttonBanner.bankBranch = new Flag.BankBranch(item);
+                        new Flag.BankBranch(item);
                     } else if (_ixBank > -1) {
-                        _buttonBanner.bankBranch = new Flag.BankBranch(item);
-                        _buttonBanner.standaloneATM = new Flag.StandaloneATM(item);
+                        new Flag.BankBranch(item);
+                        new Flag.StandaloneATM(item);
                     }
                     // Net result: If the place has ATM cat only and ATM in the name, then it will be green
                 } else if (_ixBank > -1 || _ixATM > -1) { // if no ATM in name:
                     if (_ixOffices === 0) {
-                        _buttonBanner.bankBranch = new Flag.BankBranch(item);
+                        new Flag.BankBranch(item);
                     } else if (_ixBank > -1 && _ixATM === -1) {
-                        _buttonBanner.addATM = new Flag.AddATM(item);
+                        new Flag.AddATM(item);
                     } else if (_ixATM === 0 && _ixBank === -1) {
-                        _buttonBanner.bankBranch = new Flag.BankBranch(item);
-                        _buttonBanner.standaloneATM = new Flag.StandaloneATM(item);
+                        new Flag.BankBranch(item);
+                        new Flag.StandaloneATM(item);
                     } else if (_ixBank > 0 && _ixATM > 0) {
-                        _buttonBanner.bankBranch = new Flag.BankBranch(item);
-                        _buttonBanner.standaloneATM = new Flag.StandaloneATM(item);
+                        new Flag.BankBranch(item);
+                        new Flag.StandaloneATM(item);
                     }
                     // Net result: If the place has Bank category first, then it will be green
                 } // END generic bank treatment
@@ -6516,6 +6615,8 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
             for (let ixPlaceCat = 0; ixPlaceCat < newCategories.length; ixPlaceCat++) {
                 const category = newCategories[ixPlaceCat];
                 const ixPNHCat = catNames.indexOf(category);
+                let unmappedRegionFlag;
+                let parentCategoryFlag;
                 if (ixPNHCat > -1) {
                     catDataTemp = catData[ixPNHCat].split('|');
                     // CH_DATA_headers
@@ -6547,38 +6648,14 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                         maxAreaSeverity = Math.min(areaSeverity, maxAreaSeverity);
                     }
 
-                    // display any messages regarding the category
-                    const catMessage = catDataTemp[catDataHeaders.indexOf('pc_message')];
-                    _buttonBanner.pnhCatMess = Flag.PnhCatMess.eval(item, catMessage, newCategories, highlightOnly);
-                    // Unmapped categories
-                    const catRare = catDataTemp[catDataHeaders.indexOf('pc_rare')].replace(/,[^A-Za-z0-9}]+/g, ',').split(',');
-                    if (catRare.includes(state2L) || catRare.includes(region) || catRare.includes(countryCode)) {
-                        if (catDataTemp[0] === 'OTHER' && ['GLR', 'NER', 'NWR', 'PLN', 'SCR', 'SER', 'NOR', 'HI', 'SAT'].includes(region)) {
-                            if (!isLocked) {
-                                _buttonBanner.unmappedRegion = new Flag.UnmappedRegion();
-                                _buttonBanner.unmappedRegion.WLactive = false;
-                                _buttonBanner.unmappedRegion.severity = _SEVERITY.BLUE;
-                                _buttonBanner.unmappedRegion.message = 'The "Other" category should only be used if no other category applies.  Manually lock the place to override this flag.';
-                                lockOK = false;
-                            }
-                        } else {
-                            _buttonBanner.unmappedRegion = new Flag.UnmappedRegion();
-                            if (wl.unmappedRegion) {
-                                _buttonBanner.unmappedRegion.WLactive = false;
-                                _buttonBanner.unmappedRegion.severity = _SEVERITY.GREEN;
-                            } else {
-                                lockOK = false;
-                            }
-                        }
+                    Flag.PnhCatMess.eval(item, catDataTemp, catDataHeaders, newCategories, highlightOnly);
+                    if (!unmappedRegionFlag) {
+                        unmappedRegionFlag = Flag.UnmappedRegion.eval(catDataTemp, catDataHeaders, state2L, region, countryCode, isLocked, wl);
                     }
-                    // Parent Category
-                    const catParent = catDataTemp[catDataHeaders.indexOf('pc_parent')].replace(/,[^A-Za-z0-9}]+/g, ',').split(',');
-                    if (catParent.includes(state2L) || catParent.includes(region) || catParent.includes(countryCode)) {
-                        _buttonBanner.parentCategory = new Flag.ParentCategory();
-                        if (wl.parentCategory) {
-                            _buttonBanner.parentCategory.WLactive = false;
-                        }
+                    if (!parentCategoryFlag) {
+                        parentCategoryFlag = Flag.ParentCategory.eval(catDataTemp, catDataHeaders, state2L, region, countryCode, wl);
                     }
+
                     // Set lock level
                     for (let lockix = 1; lockix < 6; lockix++) {
                         const catLockTemp = catDataTemp[catDataHeaders.indexOf(`pc_lock${lockix}`)].replace(/,[^A-Za-z0-9}]+/g, ',').split(',');
@@ -6594,65 +6671,66 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                 defaultLockLevel = highestCategoryLock;
             }
 
+            let areaNotPointLowFlag;
             if (isPoint) {
                 if (maxPointSeverity === _SEVERITY.RED) {
-                    _buttonBanner.areaNotPoint = new Flag.AreaNotPoint(item);
+                    const f = new Flag.AreaNotPoint(item);
                     if (wl.areaNotPoint || item.attributes.lockRank >= defaultLockLevel) {
-                        _buttonBanner.areaNotPoint.WLactive = false;
-                        _buttonBanner.areaNotPoint.severity = _SEVERITY.GREEN;
+                        f.WLactive = false;
+                        f.severity = _SEVERITY.GREEN;
                     } else {
                         lockOK = false;
                     }
                 } else if (maxPointSeverity === _SEVERITY.YELLOW) {
-                    _buttonBanner.areaNotPointMid = new Flag.AreaNotPointMid();
+                    const f = new Flag.AreaNotPointMid();
                     if (wl.areaNotPoint || item.attributes.lockRank >= defaultLockLevel) {
-                        _buttonBanner.areaNotPointMid.WLactive = false;
-                        _buttonBanner.areaNotPointMid.severity = _SEVERITY.GREEN;
+                        f.WLactive = false;
+                        f.severity = _SEVERITY.GREEN;
                     } else {
                         lockOK = false;
                     }
                 } else if (maxPointSeverity === _SEVERITY.BLUE) {
-                    _buttonBanner.areaNotPointLow = new Flag.AreaNotPointLow();
+                    areaNotPointLowFlag = new Flag.AreaNotPointLow();
                     if (wl.areaNotPoint || item.attributes.lockRank >= defaultLockLevel) {
-                        _buttonBanner.areaNotPointLow.WLactive = false;
-                        _buttonBanner.areaNotPointLow.severity = 0;
+                        areaNotPointLowFlag.WLactive = false;
+                        areaNotPointLowFlag.severity = 0;
                     }
                 }
             } else if (maxAreaSeverity === _SEVERITY.RED) {
-                _buttonBanner.pointNotArea = new Flag.PointNotArea(item);
+                const f = new Flag.PointNotArea(item);
                 if (wl.pointNotArea || item.attributes.lockRank >= defaultLockLevel) {
-                    _buttonBanner.pointNotArea.WLactive = false;
-                    _buttonBanner.pointNotArea.severity = 0;
+                    f.WLactive = false;
+                    f.severity = 0;
                 } else {
                     lockOK = false;
                 }
             } else if (maxAreaSeverity === _SEVERITY.YELLOW) {
-                _buttonBanner.pointNotAreaMid = new Flag.PointNotAreaMid();
+                const f = new Flag.PointNotAreaMid();
                 if (wl.pointNotArea || item.attributes.lockRank >= defaultLockLevel) {
-                    _buttonBanner.pointNotAreaMid.WLactive = false;
-                    _buttonBanner.pointNotAreaMid.severity = 0;
+                    f.WLactive = false;
+                    f.severity = 0;
                 } else {
                     lockOK = false;
                 }
             } else if (maxAreaSeverity === _SEVERITY.BLUE) {
-                _buttonBanner.pointNotAreaLow = new Flag.PointNotAreaLow();
+                const f = new Flag.PointNotAreaLow();
                 if (wl.pointNotArea || item.attributes.lockRank >= defaultLockLevel) {
-                    _buttonBanner.pointNotAreaLow.WLactive = false;
-                    _buttonBanner.pointNotAreaLow.severity = 0;
+                    f.WLactive = false;
+                    f.severity = 0;
                 }
             }
 
             const anpNone = _COLLEGE_ABBREVIATIONS.split('|');
             for (let cii = 0; cii < anpNone.length; cii++) {
                 const anpNoneRE = new RegExp(`\\b${anpNone[cii]}\\b`, 'g');
-                if (newName.match(anpNoneRE) !== null && _buttonBanner.areaNotPointLow) {
-                    _buttonBanner.areaNotPointLow.severity = 0;
-                    _buttonBanner.areaNotPointLow.WLactive = false;
+                if (newName.match(anpNoneRE) !== null && areaNotPointLowFlag) {
+                    areaNotPointLowFlag.severity = 0;
+                    areaNotPointLowFlag.WLactive = false;
                 }
             }
 
-            _buttonBanner.noHours = Flag.NoHours.eval(item, newCategories, wl, highlightOnly, actions);
-            _buttonBanner.mismatch247 = Flag.Mismatch247.eval(item);
+            Flag.NoHours.eval(item, newCategories, wl, highlightOnly, actions);
+            Flag.Mismatch247.eval(item);
 
             const hoursOverlap = venueHasOverlappingHours(item);
             if (!hoursOverlap) {
@@ -6668,8 +6746,8 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                 }
             }
 
-            _buttonBanner.hoursOverlap = Flag.HoursOverlap.eval(hoursOverlap);
-            _buttonBanner.oldHours = Flag.OldHours.eval(item, catData, highlightOnly);
+            Flag.HoursOverlap.eval(hoursOverlap);
+            Flag.OldHours.eval(item, catData, highlightOnly);
 
             if (!highlightOnly) {
                 // Highlight 24/7 button if hours are set that way, and add button for all places
@@ -6689,10 +6767,10 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                     newURLTemp = newURLTemp.replace(/^www\.(.*)$/i, '$1'); // strip www
                     const itemURLTemp = itemURL.replace(/^www\.(.*)$/i, '$1'); // strip www
                     if (newURLTemp !== itemURLTemp) { // if formatted URLs don't match, then alert the editor to check the existing URL
-                        _buttonBanner.longURL = new Flag.LongURL(item, placePL);
+                        const f = new Flag.LongURL(item, placePL);
                         if (wl.longURL) {
-                            _buttonBanner.longURL.severity = _SEVERITY.GREEN;
-                            _buttonBanner.longURL.WLactive = false;
+                            f.severity = _SEVERITY.GREEN;
+                            f.WLactive = false;
                         }
                         if (!highlightOnly && _updateURL && itemURL !== item.attributes.url) { // Update the URL
                             logDev('URL formatted');
@@ -6716,19 +6794,19 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                 if (normalizedPhone !== 'badPhone') newPhone = normalizedPhone;
             }
 
-            _buttonBanner.phoneInvalid = Flag.PhoneInvalid.eval(normalizedPhone, outputPhoneFormat);
-            _buttonBanner.phoneMissing = Flag.PhoneMissing.eval(
+            Flag.PhoneInvalid.eval(normalizedPhone, outputPhoneFormat);
+            Flag.PhoneMissing.eval(
                 item,
                 newPhone,
                 newCategories,
                 wl,
                 region,
                 outputPhoneFormat,
-                !!_buttonBanner.addRecommendedPhone
+                FlagBase.currentFlags.hasFlag(Flag.AddRecommendedPhone)
             );
 
             // Check if valid area code  #LOC# USA and CAN only
-            _buttonBanner.badAreaCode = Flag.BadAreaCode.eval(item, newPhone, outputPhoneFormat, countryCode, wl);
+            Flag.BadAreaCode.eval(item, newPhone, outputPhoneFormat, countryCode, wl);
 
             if (!highlightOnly && newPhone !== item.attributes.phone) {
                 logDev('Phone updated');
@@ -6736,10 +6814,8 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
             }
 
             // Post Office check
-            _buttonBanner.isThisAPostOffice = Flag.IsThisAPostOffice.eval(item, highlightOnly, countryCode, newCategories, newName);
+            Flag.IsThisAPostOffice.eval(item, highlightOnly, countryCode, newCategories, newName);
             const isUspsPostOffice = countryCode === 'USA' && !newCategories.includes('PARKING_LOT') && newCategories.includes('POST_OFFICE');
-            _buttonBanner.missingUSPSZipAlt = Flag.MissingUSPSZipAlt.eval(item, isUspsPostOffice, newName, newAliases, wl, highlightOnly);
-
             if (isUspsPostOffice && !highlightOnly) {
                 if (item.attributes.url !== 'usps.com') {
                     newUrl = 'usps.com';
@@ -6754,14 +6830,15 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                     }
                 }
             } // END Post Office check
-            _buttonBanner.formatUSPS = Flag.FormatUSPS.eval(isUspsPostOffice, state2L, addr, newName, newNameSuffix);
-            _buttonBanner.catPostOffice = Flag.CatPostOffice.eval(isUspsPostOffice, highlightOnly);
-            _buttonBanner.missingUSPSDescription = Flag.MissingUSPSDescription.eval(isUspsPostOffice, newDescripion, wl);
-            _buttonBanner.missingUSPSAlt = Flag.MissingUSPSAlt.eval(item, isUspsPostOffice, newAliases);
+            Flag.MissingUSPSZipAlt.eval(item, isUspsPostOffice, newName, newAliases, wl, highlightOnly);
+            Flag.FormatUSPS.eval(isUspsPostOffice, state2L, addr, newName, newNameSuffix);
+            Flag.CatPostOffice.eval(isUspsPostOffice, highlightOnly);
+            Flag.MissingUSPSDescription.eval(isUspsPostOffice, newDescripion, wl);
+            Flag.MissingUSPSAlt.eval(item, isUspsPostOffice, newAliases);
 
-            _buttonBanner.urlMissing = Flag.UrlMissing.eval(item, newUrl, newCategories, region, wl);
+            Flag.UrlMissing.eval(item, newUrl, newCategories, region, wl);
 
-            _buttonBanner.LocationFinder = Flag.LocationFinder.eval(
+            Flag.LocationFinder.eval(
                 item,
                 highlightOnly,
                 countryCode,
@@ -6772,23 +6849,35 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                 state2L,
                 itemGPS
             );
+
+            // addFlag(_buttonBanner, Flag.LocationFinder.eval(
+            //     item,
+            //     highlightOnly,
+            //     countryCode,
+            //     newCategories,
+            //     pnhMatchData,
+            //     pnhDataHeaders,
+            //     addr,
+            //     state2L,
+            //     itemGPS
+            // ));
         } // END if (!residential && has name)
 
-        _buttonBanner.gasMismatch = Flag.GasMismatch.eval(item, newCategories, newBrand, newName, wl);
+        Flag.GasMismatch.eval(item, newCategories, newBrand, newName, wl);
 
         // Check EV charging stations:
-        _buttonBanner.evChargingStationWarning = Flag.EVChargingStationWarning.eval(item, highlightOnly);
-        _buttonBanner.addCommonEVPaymentMethods = Flag.AddCommonEVPaymentMethods.eval(item, highlightOnly, wl);
-        _buttonBanner.removeUncommonEVPaymentMethods = Flag.RemoveUncommonEVPaymentMethods.eval(item, highlightOnly, wl);
-        _buttonBanner.evcsPriceMissing = Flag.EVCSPriceMissing.eval(item, highlightOnly);
+        Flag.EVChargingStationWarning.eval(item, highlightOnly);
+        Flag.AddCommonEVPaymentMethods.eval(item, highlightOnly, wl);
+        Flag.RemoveUncommonEVPaymentMethods.eval(item, highlightOnly, wl);
+        Flag.EVCSPriceMissing.eval(item, highlightOnly);
 
         // Name check
-        _buttonBanner.nameMissing = Flag.NameMissing.eval(item, newName);
-        _buttonBanner.plaNameMissing = Flag.PlaNameMissing.eval(item, newName, _USER.rank);
-        _buttonBanner.plaNameNonStandard = Flag.PlaNameNonStandard.eval(item, wl);
-        _buttonBanner.gasNameMissing = Flag.GasNameMissing.eval(item, newName, newBrand, highlightOnly);
+        Flag.NameMissing.eval(item, newName);
+        Flag.PlaNameMissing.eval(item, newName, _USER.rank);
+        Flag.PlaNameNonStandard.eval(item, wl);
+        Flag.GasNameMissing.eval(item, newName, newBrand, highlightOnly);
 
-        _buttonBanner.plaIsPublic = Flag.PlaIsPublic.eval(item, highlightOnly);
+        Flag.PlaIsPublic.eval(item, highlightOnly);
 
         // House number / HN check
         let currentHN = item.attributes.houseNumber;
@@ -6802,12 +6891,12 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
             if (!['BRIDGE', 'ISLAND', 'FOREST_GROVE', 'SEA_LAKE_POOL', 'RIVER_STREAM', 'CANAL',
                 'DAM', 'TUNNEL', 'JUNCTION_INTERCHANGE'].includes(item.attributes.categories[0])
                 && !item.attributes.categories.includes('REST_AREAS')) {
-                _buttonBanner.hnMissing = new Flag.HnMissing(item);
+                const f = new Flag.HnMissing(item);
                 if (state2L === 'PR' || ['SCENIC_LOOKOUT_VIEWPOINT'].includes(item.attributes.categories[0])) {
-                    _buttonBanner.hnMissing.severity = _SEVERITY.GREEN;
-                    _buttonBanner.hnMissing.WLactive = false;
+                    f.severity = _SEVERITY.GREEN;
+                    f.WLactive = false;
                 } else if (item.isParkingLot()) {
-                    _buttonBanner.hnMissing.WLactive = false;
+                    f.WLactive = false;
                     if (item.attributes.lockRank < 2) {
                         lockOK = false;
                         let msgAdd;
@@ -6816,20 +6905,20 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                         } else {
                             msgAdd = 'Lock to R3+ to confirm no HN.';
                         }
-                        _buttonBanner.hnMissing.suffixMessage = msgAdd;
-                        _buttonBanner.hnMissing.severity = _SEVERITY.BLUE;
+                        f.suffixMessage = msgAdd;
+                        f.severity = _SEVERITY.BLUE;
                     } else {
-                        _buttonBanner.hnMissing.severity = _SEVERITY.GREEN;
+                        f.severity = _SEVERITY.GREEN;
                     }
                 } else if (wl.HNWL) {
-                    _buttonBanner.hnMissing.severity = _SEVERITY.GREEN;
-                    _buttonBanner.hnMissing.WLactive = false;
+                    f.severity = _SEVERITY.GREEN;
+                    f.WLactive = false;
                 } else {
                     lockOK = false;
                 }
             }
         } else if (currentHN) {
-            _buttonBanner.hnTooManyDigits = Flag.HnTooManyDigits.eval(currentHN, wl);
+            Flag.HnTooManyDigits.eval(currentHN, wl);
 
             // 2020-10-5 Disabling HN validity checks for now. See the note on the HnNonStandard flag object for more details.
 
@@ -6874,31 +6963,32 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
             // }
         }
 
-        _buttonBanner.cityMissing = Flag.CityMissing.eval(item, addr, highlightOnly);
-        _buttonBanner.streetMissing = Flag.StreetMissing.eval(item, addr);
-        _buttonBanner.notAHospital = Flag.NotAHospital.eval(item, newCategories, newName, wl);
+        Flag.CityMissing.eval(item, addr, highlightOnly);
+        Flag.StreetMissing.eval(item, addr);
+        Flag.NotAHospital.eval(item, newCategories, newName, wl);
 
         // CATEGORY vs. NAME checks
-        _buttonBanner.changeToPetVet = Flag.ChangeToPetVet.eval(item, newName, newCategories, wl);
-        _buttonBanner.changeToDoctorClinic = Flag.ChangeToDoctorClinic.eval(item, newCategories, highlightOnly, pnhNameRegMatch);
-        _buttonBanner.notASchool = Flag.NotASchool.eval(newName, newCategories, wl);
+        Flag.ChangeToPetVet.eval(item, newName, newCategories, wl);
+        Flag.ChangeToDoctorClinic.eval(item, newCategories, highlightOnly, pnhNameRegMatch);
+        Flag.NotASchool.eval(newName, newCategories, wl);
 
         // *** Rest Area parsing
         // check rest area name against standard formats or if has the right categories
         const oldName = item.attributes.name;
         const hasRestAreaCategory = newCategories.includes('REST_AREAS');
-        _buttonBanner.restAreaSpec = Flag.RestAreaSpec.eval(item, hasRestAreaCategory, newName, wl);
-        _buttonBanner.restAreaScenic = Flag.RestAreaScenic.eval(item, hasRestAreaCategory, newCategories, wl);
-        _buttonBanner.restAreaNoTransportation = Flag.RestAreaNoTransportation.eval(item, hasRestAreaCategory, newCategories);
-        _buttonBanner.restAreaGas = Flag.RestAreaGas.eval(hasRestAreaCategory, newCategories);
-        _buttonBanner.restAreaName = Flag.RestAreaName.eval(item, hasRestAreaCategory, wl);
+        Flag.RestAreaSpec.eval(item, hasRestAreaCategory, newName, wl);
+        Flag.RestAreaScenic.eval(item, hasRestAreaCategory, newCategories, wl);
+        Flag.RestAreaNoTransportation.eval(item, hasRestAreaCategory, newCategories);
+        Flag.RestAreaGas.eval(hasRestAreaCategory, newCategories);
+        Flag.RestAreaName.eval(item, hasRestAreaCategory, wl);
 
         if (hasRestAreaCategory) {
             if (item.isPoint()) { // needs to be area
-                _buttonBanner.areaNotPoint = new Flag.AreaNotPoint(item);
+                new Flag.AreaNotPoint(item);
             }
-            _buttonBanner.pointNotArea = null;
-            _buttonBanner.unmappedRegion = null;
+            // TODO: move this logic into the flag eval functions
+            FlagBase.currentFlags.remove(Flag.PointNotArea);
+            FlagBase.currentFlags.remove(Flag.UnmappedRegion);
 
             if (!highlightOnly && oldName.match(/^Rest Area.* - /) !== null) {
                 const newSuffix = newNameSuffix.replace(/Mile/i, 'mile');
@@ -6929,11 +7019,17 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
         }
 
         // update Severity for banner messages
-        Object.keys(_buttonBanner).forEach(key => {
-            if (_buttonBanner[key] && _buttonBanner[key].active) {
-                totalSeverity = Math.max(_buttonBanner[key].severity, totalSeverity);
+        const orderedFlags = FlagBase.currentFlags.getOrderedFlags();
+        orderedFlags.forEach(flag => {
+            if (flag.active) {
+                totalSeverity = Math.max(flag.severity, totalSeverity);
             }
         });
+        // Object.keys(_buttonBanner).forEach(key => {
+        //     if (_buttonBanner[key] && _buttonBanner[key].active) {
+        //         totalSeverity = Math.max(_buttonBanner[key].severity, totalSeverity);
+        //     }
+        // });
 
         // Place locking
         // final formatting of desired lock levels
@@ -6956,19 +7052,19 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
         if (levelToLock > (_USER.rank - 1)) { levelToLock = (_USER.rank - 1); } // Only lock up to the user's level
 
         // Brand checking (be sure to check this after determining if brand will be forced, when harmonizing)
-        _buttonBanner.gasNoBrand = Flag.GasNoBrand.eval(item, newBrand, levelToLock);
-        _buttonBanner.gasUnbranded = Flag.GasUnbranded.eval(item, newBrand);
+        Flag.GasNoBrand.eval(item, newBrand, levelToLock);
+        Flag.GasUnbranded.eval(item, newBrand);
 
         // If no Google link and severity would otherwise allow locking, ask if user wants to lock anyway.
-        if (!isLocked && _buttonBanner.extProviderMissing && _buttonBanner.extProviderMissing.active
-            && _buttonBanner.extProviderMissing.severity <= _SEVERITY.YELLOW) {
-            _buttonBanner.extProviderMissing.severity = _SEVERITY.RED;
+        if (!isLocked && extProvMissingFlag?.active
+            && extProvMissingFlag.severity <= _SEVERITY.YELLOW) {
+            extProvMissingFlag.severity = _SEVERITY.RED;
             totalSeverity = _SEVERITY.RED;
             if (lockOK) {
-                _buttonBanner.extProviderMissing.value = `Lock anyway? (${levelToLock + 1})`;
-                _buttonBanner.extProviderMissing.title = 'If no Google link exists, lock this place.\nIf there is still no Google link after '
+                extProvMissingFlag.value = `Lock anyway? (${levelToLock + 1})`;
+                extProvMissingFlag.title = 'If no Google link exists, lock this place.\nIf there is still no Google link after '
                     + '6 months from the last update date, it will turn red as a reminder to search again.';
-                _buttonBanner.extProviderMissing.action = () => {
+                extProvMissingFlag.action = () => {
                     addUpdateAction(item, { lockRank: levelToLock }, null, true);
                 };
             }
@@ -6976,17 +7072,22 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
 
         if (!highlightOnly) {
             // Update the lockOK value if "noLock" is set on any flag.
-            lockOK &&= !Object.keys(_buttonBanner).some(key => _buttonBanner[key]?.noLock);
+            lockOK &&= !orderedFlags.some(flag => flag.noLock);
             logDev(`Severity: ${totalSeverity}; lockOK: ${lockOK}`);
         }
+        // if (!highlightOnly) {
+        //     // Update the lockOK value if "noLock" is set on any flag.
+        //     lockOK &&= !Object.keys(_buttonBanner).some(key => _buttonBanner[key]?.noLock);
+        //     logDev(`Severity: ${totalSeverity}; lockOK: ${lockOK}`);
+        // }
 
-        _buttonBanner.placeLocked = Flag.PlaceLocked.eval(item, lockOK, totalSeverity, levelToLock, highlightOnly, actions);
+        const placeLockedFlag = Flag.PlaceLocked.eval(item, lockOK, totalSeverity, levelToLock, highlightOnly, actions);
 
         // IGN check
         if (!item.attributes.residential) {
             const updatedBy = W.model.users.getObjectById(item.attributes.updatedBy);
             if (updatedBy && /^ign_/i.test(updatedBy.userName)) {
-                _buttonBanner.ignEdited = new Flag.IgnEdited();
+                new Flag.IgnEdited();
             }
         }
 
@@ -7005,18 +7106,18 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
         const botRegEx = new RegExp(botNamesAndIDs.join('|'), 'i');
         if (item.isUnchanged() && !item.attributes.residential && updatedById && (botRegEx.test(updatedById.toString())
             || (updatedByName && botRegEx.test(updatedByName)))) {
-            _buttonBanner.wazeBot = new Flag.WazeBot(item);
+            new Flag.WazeBot(item);
         }
 
         // RPP Locking option for R3+
-        _buttonBanner.lockRPP = Flag.LockRPP.eval(item, highlightOnly, defaultLockLevel);
+        Flag.LockRPP.eval(item, highlightOnly, defaultLockLevel);
 
         // Turn off unnecessary buttons
         if (newCategories.includes('PHARMACY')) {
-            if (_buttonBanner.addPharm) _buttonBanner.addPharm = null;
+            FlagBase.currentFlags.remove(Flag.AddPharm);
         }
         if (newCategories.includes('SUPERMARKET_GROCERY')) {
-            if (_buttonBanner.addSuper) _buttonBanner.addSuper = null;
+            FlagBase.currentFlags.remove(Flag.AddSuper);
         }
 
         // Final alerts for non-severe locations
@@ -7024,21 +7125,21 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
             const nameShortSpace = newName.toUpperCase().replace(/[^A-Z ']/g, '');
             if (nameShortSpace.includes('\'S HOUSE') || nameShortSpace.includes('\'S HOME') || nameShortSpace.includes('\'S WORK')) {
                 if (!containsAny(newCategories, ['RESTAURANT', 'DESSERT', 'BAR']) && !pnhNameRegMatch) {
-                    _buttonBanner.resiTypeNameSoft = new Flag.ResiTypeNameSoft();
+                    new Flag.ResiTypeNameSoft();
                 }
             }
             if (['HOME', 'MY HOME', 'HOUSE', 'MY HOUSE', 'PARENTS HOUSE', 'CASA', 'MI CASA', 'WORK', 'MY WORK', 'MY OFFICE',
                 'MOMS HOUSE', 'DADS HOUSE', 'MOM', 'DAD'].includes(nameShortSpace)) {
-                _buttonBanner.resiTypeName = new Flag.ResiTypeName();
+                const f = new Flag.ResiTypeName();
                 if (wl.resiTypeName) {
-                    _buttonBanner.resiTypeName.WLactive = false;
+                    f.WLactive = false;
                 }
-                _buttonBanner.resiTypeNameSoft = null;
+                FlagBase.currentFlags.remove(Flag.ResiTypeNameSoft);
             }
             if (item.attributes.description.toLowerCase().includes('google') || item.attributes.description.toLowerCase().includes('yelp')) {
-                _buttonBanner.suspectDesc = new Flag.SuspectDesc();
+                const f = new Flag.SuspectDesc();
                 if (wl.suspectDesc) {
-                    _buttonBanner.suspectDesc.WLactive = false;
+                    f.WLactive = false;
                 }
             }
         }
@@ -7047,17 +7148,22 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
         if (highlightOnly) {
             // get severities from the banners
             totalSeverity = _SEVERITY.GREEN;
-            Object.keys(_buttonBanner).forEach(tempKey => {
-                if (_buttonBanner[tempKey] && _buttonBanner[tempKey].active) { //  If the particular message is active
-                    if (_buttonBanner[tempKey].hasOwnProperty('WLactive')) {
-                        if (_buttonBanner[tempKey].WLactive) { // If there's a WL option, enable it
-                            totalSeverity = Math.max(_buttonBanner[tempKey].severity, totalSeverity);
-                        }
-                    } else {
-                        totalSeverity = Math.max(_buttonBanner[tempKey].severity, totalSeverity);
-                    }
+            orderedFlags.forEach(flag => {
+                if (flag.active) { //  If the particular message is active
+                    totalSeverity = Math.max(flag.severity, totalSeverity);
                 }
             });
+            // Object.keys(_buttonBanner).forEach(tempKey => {
+            //     if (_buttonBanner[tempKey] && _buttonBanner[tempKey].active) { //  If the particular message is active
+            //         if (_buttonBanner[tempKey].hasOwnProperty('WLactive')) {
+            //             if (_buttonBanner[tempKey].WLactive) { // If there's a WL option, enable it
+            //                 totalSeverity = Math.max(_buttonBanner[tempKey].severity, totalSeverity);
+            //             }
+            //         } else {
+            //             totalSeverity = Math.max(_buttonBanner[tempKey].severity, totalSeverity);
+            //         }
+            //     }
+            // });
 
             // Special case flags
             if (item.attributes.lockRank === 0
@@ -7065,10 +7171,10 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                 totalSeverity = _SEVERITY.PINK;
             }
 
-            if (totalSeverity === _SEVERITY.GREEN && _buttonBanner.placeLocked?.hlLockFlag) {
+            if (totalSeverity === _SEVERITY.GREEN && placeLockedFlag?.hlLockFlag) {
                 totalSeverity = 'lock';
             }
-            if (totalSeverity === 1 && _buttonBanner.placeLocked?.hlLockFlag) {
+            if (totalSeverity === 1 && placeLockedFlag?.hlLockFlag) {
                 totalSeverity = 'lock1';
             }
             if (item.attributes.adLocked) {
@@ -7087,7 +7193,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
             // don't zoom and pan for results outside of FOV
             let duplicateName = findNearbyDuplicate(newName, newAliases, item, !$('#WMEPH-DisableDFZoom').prop('checked'));
             if (duplicateName[1]) {
-                _buttonBanner.overlapping = new Flag.Overlapping();
+                new Flag.Overlapping();
             }
             [duplicateName] = duplicateName;
             if (duplicateName.length) {
@@ -7173,13 +7279,13 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
             // Examine either the median or the 8th index if length is >16
             const arrayHNRatioCheckIX = Math.min(Math.round(arrayHNRatio.length / 2), 8);
             if (arrayHNRatio[arrayHNRatioCheckIX] > 1.4) {
-                _buttonBanner.HNRange = new Flag.HNRange();
+                const f = new Flag.HNRange();
                 if (wl.HNRange) {
-                    _buttonBanner.HNRange.WLactive = false;
-                    _buttonBanner.HNRange.active = false;
+                    f.WLactive = false;
+                    f.active = false;
                 }
                 if (arrayHNRatio[arrayHNRatioCheckIX] > 5) {
-                    _buttonBanner.HNRange.severity = _SEVERITY.RED;
+                    f.severity = _SEVERITY.RED;
                 }
                 // show stats if HN out of range
                 logDev(`HNs: ${dupeHNRangeListSorted}`);
@@ -7212,11 +7318,11 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
 
     // Set up banner messages
     function assembleBanner() {
+        const flags = FlagBase.currentFlags.getOrderedFlags();
         const venue = getSelectedVenue();
         if (!venue) return;
         logDev('Building banners');
         let dupesFound = 0;
-        let rowData;
         let $rowDiv;
         let rowDivs = [];
         let totalSeverity = _SEVERITY.GREEN;
@@ -7228,7 +7334,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
         // Setup duplicates banners
         $rowDiv = $('<div class="banner-row yellow">');
         Object.keys(_dupeBanner).forEach(tempKey => {
-            rowData = _dupeBanner[tempKey];
+            const rowData = _dupeBanner[tempKey];
             if (rowData.active) {
                 dupesFound += 1;
                 const $dupeDiv = $('<div class="dupe">').appendTo($rowDiv);
@@ -7252,52 +7358,51 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
         }
 
         // Build banners above the Services
-        Object.keys(_buttonBanner).forEach(tempKey => {
-            rowData = _buttonBanner[tempKey];
-            if (rowData && rowData.active) { //  If the particular message is active
+        flags.forEach(flag => {
+            if (flag.active) { //  If the particular message is active
                 $rowDiv = $('<div class="banner-row">');
-                if (rowData.severity === _SEVERITY.RED) {
+                if (flag.severity === _SEVERITY.RED) {
                     $rowDiv.addClass('red');
-                } else if (rowData.severity === _SEVERITY.YELLOW) {
+                } else if (flag.severity === _SEVERITY.YELLOW) {
                     $rowDiv.addClass('yellow');
-                } else if (rowData.severity === _SEVERITY.BLUE) {
+                } else if (flag.severity === _SEVERITY.BLUE) {
                     $rowDiv.addClass('blue');
-                } else if (rowData.severity === _SEVERITY.GREEN) {
+                } else if (flag.severity === _SEVERITY.GREEN) {
                     $rowDiv.addClass('gray');
                 }
-                if (rowData.divId) {
-                    $rowDiv.attr('id', rowData.divId);
+                if (flag.divId) {
+                    $rowDiv.attr('id', flag.divId);
                 }
-                if (rowData.message && rowData.message.length) {
-                    $rowDiv.append($('<span>').css({ 'margin-right': '4px' }).append(`&bull; ${rowData.message}`));
+                if (flag.message && flag.message.length) {
+                    $rowDiv.append($('<span>').css({ 'margin-right': '4px' }).append(`&bull; ${flag.message}`));
                 }
-                if (rowData.value) {
+                if (flag.value) {
                     $rowDiv.append($('<button>', {
                         class: 'btn btn-default btn-xs wmeph-btn',
-                        id: `WMEPH_${tempKey}`,
-                        title: rowData.title || ''
-                    }).css({ 'margin-right': '4px' }).html(rowData.value));
+                        id: `WMEPH_${flag.constructor.name}`,
+                        title: flag.title || ''
+                    }).css({ 'margin-right': '4px' }).html(flag.value));
                 }
-                if (rowData.value2) {
+                if (flag.value2) {
                     $rowDiv.append($('<button>', {
                         class: 'btn btn-default btn-xs wmeph-btn',
-                        id: `WMEPH_${tempKey}_2`,
-                        title: rowData.title2 || ''
-                    }).css({ 'margin-right': '4px' }).html(rowData.value2));
+                        id: `WMEPH_${flag.constructor.name}_2`,
+                        title: flag.title2 || ''
+                    }).css({ 'margin-right': '4px' }).html(flag.value2));
                 }
-                if (rowData.WLactive) {
-                    if (rowData.WLaction) { // If there's a WL option, enable it
-                        totalSeverity = Math.max(rowData.severity, totalSeverity);
+                if (flag.WLactive) {
+                    if (flag.WLaction) { // If there's a WL option, enable it
+                        totalSeverity = Math.max(flag.severity, totalSeverity);
                         $rowDiv.append(
-                            $('<button>', { class: 'btn btn-success btn-xs wmephwl-btn', id: `WMEPH_WL${tempKey}`, title: rowData.WLtitle })
+                            $('<button>', { class: 'btn btn-success btn-xs wmephwl-btn', id: `WMEPH_WL${flag.constructor.name}`, title: flag.WLtitle })
                                 .text('WL')
                         );
                     }
                 } else {
-                    totalSeverity = Math.max(rowData.severity, totalSeverity);
+                    totalSeverity = Math.max(flag.severity, totalSeverity);
                 }
-                if (rowData.suffixMessage) {
-                    $rowDiv.append($('<div>').css({ 'margin-top': '2px' }).append(rowData.suffixMessage));
+                if (flag.suffixMessage) {
+                    $rowDiv.append($('<div>').css({ 'margin-top': '2px' }).append(flag.suffixMessage));
                 }
 
                 rowDivs.push($rowDiv);
@@ -7363,13 +7468,13 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
 
         // Set up Duplicate onclicks
         if (dupesFound) {
-            setupButtons(_dupeBanner);
+            setupButtonsOld(_dupeBanner);
         }
         // Setup bannButt onclicks
-        setupButtons(_buttonBanner);
+        setupButtons(flags);
 
         // Setup bannButt2 onclicks
-        setupButtons(_buttonBanner2);
+        setupButtonsOld(_buttonBanner2);
 
         // Add click handlers for parking lot helper buttons.
         $('.wmeph-pla-spaces-btn').click(evt => {
@@ -7411,9 +7516,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
         }
 
         // Allow flags to do any additional work (hook up events, etc);
-        Object.keys(_buttonBanner)
-            .map(key => _buttonBanner[key])
-            .filter(flag => flag?.active)
+        flags.filter(flag => flag?.active)
             .forEach(flag => {
                 flag.postProcess?.();
             });
@@ -7620,55 +7723,88 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
 
             // Setup bannServ onclicks
             if (!venue.isResidential()) {
-                setupButtons(_servicesBanner);
+                setupButtonsOld(_servicesBanner);
             }
         }
     }
 
     // Button onclick event handler
-    function setupButtons(b) {
-        Object.keys(b).forEach(tempKey => { // Loop through the banner possibilities
-            if (b[tempKey] && b[tempKey].active) { //  If the particular message is active
-                if (b[tempKey].action && b[tempKey].value) { // If there is an action, set onclick
-                    buttonAction(b, tempKey);
+    function setupButtons(flags) {
+        flags.forEach(flag => { // Loop through the banner possibilities
+            if (flag.active) { //  If the particular message is active
+                if (flag.action && flag.value) { // If there is an action, set onclick
+                    buttonAction(flag);
                 }
-                if (b[tempKey].action2 && b[tempKey].value2) { // If there is an action2, set onclick
-                    buttonAction2(b, tempKey);
+                if (flag.action2 && flag.value2) { // If there is an action2, set onclick
+                    buttonAction2(flag);
                 }
                 // If there's a WL option, set up onclick
-                if (b[tempKey].WLactive && b[tempKey].WLaction) {
-                    buttonWhitelist(b, tempKey);
+                if (flag.WLactive && flag.WLaction) {
+                    buttonWhitelist(flag);
                 }
             }
         });
     }
 
-    function buttonAction(b, bKey) {
-        const button = document.getElementById(`WMEPH_${bKey}`);
-        button.onclick = () => {
-            b[bKey].action();
-            if (!b[bKey].noBannerAssemble) assembleBanner();
-        };
-        return button;
-    }
-    function buttonAction2(b, bKey) {
-        const button = document.getElementById(`WMEPH_${bKey}_2`);
-        button.onclick = () => {
-            b[bKey].action2();
-            if (!b[bKey].noBannerAssemble) assembleBanner();
-        };
-        return button;
-    }
-    function buttonWhitelist(b, bKey) {
-        const button = document.getElementById(`WMEPH_WL${bKey}`);
-        button.onclick = () => {
-            if (bKey.match(/^\d{5,}/) !== null) {
-                b[bKey].WLaction(bKey);
-            } else {
-                b[bKey].WLaction();
+    function setupButtonsOld(banner) {
+        Object.keys(banner).forEach(itemKey => {
+            const item = banner[itemKey];
+            if (item?.active && item.action && item.value) {
+                buttonActionOld(itemKey, item);
             }
-            b[bKey].WLactive = false;
-            b[bKey].severity = _SEVERITY.GREEN;
+            if (item?.WLactive && item.WLaction) {
+                buttonWhitelistOld(itemKey, item);
+            }
+        });
+    }
+    function buttonActionOld(itemKey, item) {
+        const button = document.getElementById(`WMEPH_${itemKey}`);
+        button.onclick = () => {
+            item.action();
+            if (!item.noBannerAssemble) harmonizePlaceGo(getSelectedVenue(), 'harmonize');
+        };
+    }
+    function buttonWhitelistOld(itemKey, item) {
+        const button = document.getElementById(`WMEPH_WL${itemKey}`);
+        button.onclick = () => {
+            if (itemKey.match(/^\d{5,}/) !== null) {
+                item.WLaction(itemKey);
+            } else {
+                item.WLaction();
+            }
+            item.WLactive = false;
+            item.severity = _SEVERITY.GREEN;
+        };
+        return button;
+    }
+
+    function buttonAction(flag) {
+        const button = document.getElementById(`WMEPH_${flag.constructor.name}`);
+        button.onclick = () => {
+            flag.action();
+            if (!flag.noBannerAssemble) assembleBanner();
+        };
+        return button;
+    }
+    function buttonAction2(flag) {
+        const button = document.getElementById(`WMEPH_${flag.constructor.name}_2`);
+        button.onclick = () => {
+            flag.action2();
+            if (!flag.noBannerAssemble) assembleBanner();
+        };
+        return button;
+    }
+    function buttonWhitelist(flag) {
+        const flagName = flag.constructor.name;
+        const button = document.getElementById(`WMEPH_WL${flagName}`);
+        button.onclick = () => {
+            if (flagName.match(/^\d{5,}/) !== null) {
+                flag.WLaction(flagName);
+            } else {
+                flag.WLaction();
+            }
+            flag.WLactive = false;
+            flag.severity = _SEVERITY.GREEN;
         };
         return button;
     }
@@ -8703,7 +8839,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
             if (!nName.startsWith(nAliases[naix].toUpperCase().replace(/'/g, '').replace(/-/g, ' ').replace(/\/ /g, ' ').replace(/ \//g, ' ').replace(/ {2,}/g, ' '))) {
                 newAliasesUpdate.push(nAliases[naix]);
             } else {
-                _buttonBanner.sfAliases = new Flag.SFAliases();
+                new Flag.SFAliases();
             }
         }
         return newAliasesUpdate;
