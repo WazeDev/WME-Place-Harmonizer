@@ -2999,6 +2999,14 @@
                         _URLS.uspsWiki}" style="color:#3a3a3a;" target="_blank">the guidelines</a>.`
                 );
             }
+
+            static #venueIsFlaggable(highlightOnly, isUspsPostOffice) {
+                return !highlightOnly && isUspsPostOffice;
+            }
+
+            static eval(highlightOnly, isUspsPostOffice) {
+                return this.#venueIsFlaggable(highlightOnly, isUspsPostOffice) ? new this() : null;
+            }
         },
         IgnEdited: class extends FlagBase {
             constructor() { super(true, _SEVERITY.YELLOW, 'Last edited by an IGN editor'); }
@@ -3351,6 +3359,35 @@
                     `Name the post office according to this region's <a href="${
                         _URLS.uspsWiki}" style="color:#3232e6" target="_blank">standards for USPS post offices</a>`
                 );
+                this.noLock = true;
+            }
+
+            static getCleanNameParts(name, nameSuffix) {
+                name = name.trimLeft().replace(/ {2,}/, ' ');
+                if (nameSuffix) {
+                    nameSuffix = nameSuffix.trimRight().replace(/\bvpo\b/i, 'VPO').replace(/\bcpu\b/i, 'CPU').replace(/ {2,}/, ' ');
+                }
+                return [name, nameSuffix || ''];
+            }
+
+            static isNameOk(name, state2L, addr) {
+                return this.#getPostOfficeRegEx(state2L, addr).test(name);
+            }
+
+            static #getPostOfficeRegEx(state2L, addr) {
+                return state2L === 'KY'
+                    || (state2L === 'NY' && ['Queens', 'Bronx', 'Manhattan', 'Brooklyn', 'Staten Island'].includes(addr.city?.attributes.name))
+                    ? /^post office \d{5}( [-–](?: cpu| vpo)?(?: [a-z0-9]+){1,})?$/i
+                    : /^post office [-–](?: cpu| vpo)?(?: [a-z0-9]+){1,}$/i;
+            }
+
+            static #venueIsFlaggable(isUspsPostOffice, state2L, addr, name, nameSuffix) {
+                return isUspsPostOffice
+                    && !this.isNameOk(this.getCleanNameParts(name, nameSuffix).join(''), state2L, addr);
+            }
+
+            static eval(isUspsPostOffice, state2L, addr, name, nameSuffix) {
+                return this.#venueIsFlaggable(isUspsPostOffice, state2L, addr, name, nameSuffix) ? new this() : null;
             }
         },
         MissingUSPSAlt: class extends ActionFlag {
@@ -3450,16 +3487,38 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
             }
         },
         MissingUSPSDescription: class extends WLFlag {
-            constructor() {
+            constructor(wl) {
+                let severity;
+                let wlActive;
+                if (wl.missingUSPSDescription) {
+                    severity = _SEVERITY.GREEN;
+                    wlActive = false;
+                } else {
+                    severity = _SEVERITY.BLUE;
+                    wlActive = true;
+                }
                 super(
                     true,
-                    _SEVERITY.BLUE,
+                    severity,
                     `The first line of the description for a <a href="${
                         _URLS.uspsWiki}" style="color:#3232e6" target="_blank">USPS post office</a> must be CITY, STATE ZIP, e.g. "Lexington, KY 40511"`,
-                    true,
+                    wlActive,
                     'Whitelist missing USPS address line in description',
                     'missingUSPSDescription'
                 );
+            }
+
+            static #venueIsFlaggable(isUspsPostOffice, description) {
+                if (isUspsPostOffice) {
+                    const lines = description.split('\n');
+                    return lines.length < 0
+                        || !/^.{2,}, [A-Z]{2}\s{1,2}\d{5}$/.test(lines[0]);
+                }
+                return false;
+            }
+
+            static eval(isUspsPostOffice, description, wl) {
+                return this.#venueIsFlaggable(isUspsPostOffice, description) ? new this(wl) : null;
             }
         },
         CatHotel: class extends FlagBase {
@@ -6681,51 +6740,24 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
             const isUspsPostOffice = countryCode === 'USA' && !newCategories.includes('PARKING_LOT') && newCategories.includes('POST_OFFICE');
             _buttonBanner.missingUSPSZipAlt = Flag.MissingUSPSZipAlt.eval(item, isUspsPostOffice, newName, newAliases, wl, highlightOnly);
 
-            if (isUspsPostOffice) {
-                if (!highlightOnly) {
-                    _buttonBanner.NewPlaceSubmit = null;
-                    if (item.attributes.url !== 'usps.com') {
-                        newUrl = 'usps.com';
-                        addUpdateAction(item, { url: newUrl }, actions);
-                    }
+            if (isUspsPostOffice && !highlightOnly) {
+                if (item.attributes.url !== 'usps.com') {
+                    newUrl = 'usps.com';
+                    addUpdateAction(item, { url: newUrl }, actions);
                 }
-
-                let postOfficeRegEx;
-                if (state2L === 'KY' || (state2L === 'NY' && addr.city && ['Queens', 'Bronx', 'Manhattan', 'Brooklyn', 'Staten Island'].includes(addr.city.attributes.name))) {
-                    postOfficeRegEx = /^post office \d{5}( [-–](?: cpu| vpo)?(?: [a-z0-9]+){1,})?$/i;
-                } else {
-                    postOfficeRegEx = /^post office [-–](?: cpu| vpo)?(?: [a-z0-9]+){1,}$/i;
-                }
-                newName = newName.trimLeft().replace(/ {2,}/, ' ');
-                if (newNameSuffix) {
-                    newNameSuffix = newNameSuffix.trimRight().replace(/\bvpo\b/i, 'VPO').replace(/\bcpu\b/i, 'CPU').replace(/ {2,}/, ' ');
-                }
-                const nameToCheck = newName + (newNameSuffix || '');
-                if (!postOfficeRegEx.test(nameToCheck)) {
-                    _buttonBanner.formatUSPS = new Flag.FormatUSPS();
-                    lockOK = false;
-                } else if (!highlightOnly) {
+                const cleanNameParts = Flag.FormatUSPS.getCleanNameParts(newName, newNameSuffix);
+                const nameToCheck = cleanNameParts.join('');
+                if (Flag.FormatUSPS.isNameOk(nameToCheck)) {
                     if (nameToCheck !== item.attributes.name) {
+                        newName = cleanNameParts.name;
+                        newNameSuffix = cleanNameParts.newNameSuffix;
                         actions.push(new UpdateObject(item, { name: nameToCheck }));
-                    }
-                    _buttonBanner.catPostOffice = new Flag.CatPostOffice();
-                }
-                // if (!highlightOnly && !newAliases.some(alias => alias.toUpperCase() === 'USPS')) {
-                //     newAliases.push('USPS');
-                //     actions.push(new UpdateObject(item, { aliases: newAliases }));
-                //     _UPDATED_FIELDS.aliases.updated = true;
-                // }
-
-                const descr = item.attributes.description;
-                const lines = descr.split('\n');
-                if (lines.length < 1 || !/^.{2,}, [A-Z]{2}\s{1,2}\d{5}$/.test(lines[0])) {
-                    _buttonBanner.missingUSPSDescription = new Flag.MissingUSPSDescription();
-                    if (wl.missingUSPSDescription) {
-                        _buttonBanner.missingUSPSDescription.severity = _SEVERITY.GREEN;
-                        _buttonBanner.missingUSPSDescription.WLactive = false;
                     }
                 }
             } // END Post Office check
+            _buttonBanner.formatUSPS = Flag.FormatUSPS.eval(isUspsPostOffice, state2L, addr, newName, newNameSuffix);
+            _buttonBanner.catPostOffice = Flag.CatPostOffice.eval(isUspsPostOffice, highlightOnly);
+            _buttonBanner.missingUSPSDescription = Flag.MissingUSPSDescription.eval(isUspsPostOffice, newDescripion, wl);
             _buttonBanner.missingUSPSAlt = Flag.MissingUSPSAlt.eval(item, isUspsPostOffice, newAliases);
 
             _buttonBanner.urlMissing = Flag.UrlMissing.eval(item, newUrl, newCategories, region, wl);
