@@ -6747,10 +6747,9 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                 }
                 const cleanNameParts = Flag.FormatUSPS.getCleanNameParts(newName, newNameSuffix);
                 const nameToCheck = cleanNameParts.join('');
-                if (Flag.FormatUSPS.isNameOk(nameToCheck)) {
+                if (Flag.FormatUSPS.isNameOk(nameToCheck, state2L, addr)) {
                     if (nameToCheck !== item.attributes.name) {
-                        newName = cleanNameParts.name;
-                        newNameSuffix = cleanNameParts.newNameSuffix;
+                        [newName, newNameSuffix] = cleanNameParts;
                         actions.push(new UpdateObject(item, { name: nameToCheck }));
                     }
                 }
