@@ -366,6 +366,7 @@
     const REGIONS_THAT_WANT_PLA_PHONE_URL = ['SER'];
     const CHAIN_APPROVAL_PRIMARY_CATS_TO_IGNORE = ['BRIDGE', 'FOREST_GROVE', 'DAM', 'TUNNEL', 'CEMETERY',
         'ISLAND', 'SEA_LAKE_POOL', 'RIVER_STREAM', 'CANAL', 'JUNCTION_INTERCHANGE', 'SCENIC_LOOKOUT_VIEWPOINT'];
+    const BAD_URL = 'badURL';
     let _updateURL;
 
     // Split out state-based data
@@ -2015,7 +2016,7 @@
         // if (m) { s = m[1]; }
         m = url.match(/^(.*)\/$/i); // remove final slash
         if (m) { [, url] = m; }
-        if (!url || url.trim().length === 0 || !/(^https?:\/\/)?\w+\.\w+/.test(url)) url = 'badURL';
+        if (!url || url.trim().length === 0 || !/(^https?:\/\/)?\w+\.\w+/.test(url)) url = BAD_URL;
         return url;
     }
 
@@ -3182,20 +3183,34 @@
                 );
             }
         },
-        LongURL: class extends WLActionFlag {
-            constructor(venue, placePL) {
+        UrlMismatch: class extends WLActionFlag {
+            constructor(venue, wl) {
                 super(
                     true,
-                    _SEVERITY.BLUE,
+                    wl.longURL ? _SEVERITY.GREEN : _SEVERITY.BLUE,
                     'Existing URL doesn\'t match the suggested PNH URL. Use the Website button below to verify that existing URL is valid.  If not:',
                     'Use PNH URL',
                     'Change URL to the PNH standard',
-                    true,
+                    !wl.longURL,
                     'Whitelist existing URL',
                     'longURL'
                 );
                 this.venue = venue;
-                this.placePL = placePL;
+            }
+
+            static #venueIsFlaggable(venue, newUrl, pnhNameRegMatch) {
+                let oldUrl = venue.attributes.url;
+                if (pnhNameRegMatch && !isNullOrWhitespace(newUrl) && !isNullOrWhitespace(oldUrl) && newUrl !== oldUrl && newUrl !== BAD_URL) {
+                    // for cases where there is an existing URL in the WME place, and there is a PNH url on queue:
+                    newUrl = normalizeURL(newUrl).replace(/^www\.(.*)$/i, '$1');
+                    oldUrl = normalizeURL(oldUrl).replace(/^www\.(.*)$/i, '$1');
+                    return newUrl !== oldUrl;
+                }
+                return false;
+            }
+
+            static eval(venue, newUrl, pnhNameRegMatch, wl) {
+                return this.#venueIsFlaggable(venue, newUrl, pnhNameRegMatch) ? new this(venue, wl) : null;
             }
 
             action() {
@@ -3210,13 +3225,8 @@
                 } else {
                     WazeWrap.Alerts.confirm(
                         _SCRIPT_NAME,
-                        'WMEPH: URL Matching Error!<br>Click OK to report this error',
-                        () => {
-                            reportError({
-                                subject: 'WMEPH URL comparison Error report',
-                                message: `Error report: URL comparison failed for "${this.venue.getName()}"\nPermalink: ${this.placePL}`
-                            });
-                        },
+                        'URL Matching Error!<br>Click OK to report this error',
+                        () => { reportError(); },
                         () => { }
                     );
                 }
@@ -3242,7 +3252,7 @@
                 super(
                     true,
                     _SEVERITY.BLUE,
-                    'Make sure this place is for the gas station itself and not the main store building.  Otherwise undo and check the categories.',
+                    'Make sure this place is for the gas station itself and not the main store building. Otherwise undo and check the categories.',
                     true,
                     'Whitelist no gas brand',
                     'subFuel'
@@ -3791,6 +3801,8 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
             }
         },
         UrlMissing: class extends WLActionFlag {
+            static #textboxId = 'WMEPH-UrlAdd';
+
             constructor(venue, categories, wl) {
                 let wlActive = true;
                 let severity = _SEVERITY.BLUE;
@@ -3804,7 +3816,8 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                 super(
                     true,
                     severity,
-                    'No URL: <input type="text" id="WMEPH-UrlAdd" autocomplete="off" style="font-size:0.85em;width:100px;padding-left:2px;color:#000;">',
+                    `No URL: <input type="text" id="${Flag.UrlMissing.#textboxId}" autocomplete="off"`
+                        + ' style="font-size:0.85em;width:100px;padding-left:2px;color:#000;">',
                     'Add',
                     'Add URL to place',
                     wlActive,
@@ -3832,15 +3845,30 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                 return this.#venueIsFlaggable(venue, url, categories, region, wl) ? new this(venue, categories, wl) : null;
             }
 
+            // eslint-disable-next-line class-methods-use-this
+            getTextbox() {
+                return $(`#${Flag.UrlMissing.#textboxId}`);
+            }
+
             action() {
-                const newUrl = normalizeURL($('#WMEPH-UrlAdd').val());
-                if ((!newUrl || newUrl.trim().length === 0) || newUrl === 'badURL') {
+                const newUrl = normalizeURL(this.getTextbox().val());
+                if ((!newUrl || newUrl.trim().length === 0) || newUrl === BAD_URL) {
                     $('input#WMEPH-UrlAdd').css({ backgroundColor: '#FDD' }).attr('title', 'Invalid URL format');
                     // this.badInput = true;
                 } else {
                     logDev(newUrl);
                     addUpdateAction(this.venue, { url: newUrl }, null, true);
                 }
+            }
+
+            postProcess() {
+                // If pressing enter in the URL entry box, add the URL
+                const textbox = this.getTextbox();
+                textbox.keyup(evt => {
+                    if (evt.keyCode === 13 && textbox.val() !== '') {
+                        this.action();
+                    }
+                });
             }
         },
         BadAreaCode: class extends WLActionFlag {
@@ -5360,7 +5388,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
             Flag.PhoneInvalid,
             Flag.AreaNotPointMid,
             Flag.PointNotAreaMid,
-            Flag.LongURL,
+            Flag.UrlMismatch,
             Flag.GasNoBrand,
             Flag.SubFuel,
             Flag.AreaNotPointLow,
@@ -6759,33 +6787,21 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
 
             // URL updating
             _updateURL = true;
-            if (newUrl !== item.attributes.url && !isNullOrWhitespace(newUrl)) {
-                // for cases where there is an existing URL in the WME place, and there is a PNH url on queue:
-                if (pnhNameRegMatch && item.attributes.url !== null && item.attributes.url !== '' && newUrl !== 'badURL') {
-                    let newURLTemp = normalizeURL(newUrl);
-                    const itemURL = normalizeURL(item.attributes.url);
-                    newURLTemp = newURLTemp.replace(/^www\.(.*)$/i, '$1'); // strip www
-                    const itemURLTemp = itemURL.replace(/^www\.(.*)$/i, '$1'); // strip www
-                    if (newURLTemp !== itemURLTemp) { // if formatted URLs don't match, then alert the editor to check the existing URL
-                        const f = new Flag.LongURL(item, placePL);
-                        if (wl.longURL) {
-                            f.severity = _SEVERITY.GREEN;
-                            f.WLactive = false;
-                        }
-                        if (!highlightOnly && _updateURL && itemURL !== item.attributes.url) { // Update the URL
-                            logDev('URL formatted');
-                            actions.push(new UpdateObject(item, { url: itemURL }));
-                            _UPDATED_FIELDS.url.updated = true;
-                        }
-                        _updateURL = false;
-                        _tempPNHURL = newUrl;
-                    }
-                }
-                if (!highlightOnly && _updateURL && newUrl !== 'badURL' && newUrl !== item.attributes.url) { // Update the URL
-                    logDev('URL updated');
-                    actions.push(new UpdateObject(item, { url: newUrl }));
+            if (Flag.UrlMismatch.eval(item, newUrl, pnhNameRegMatch, wl)) {
+                const itemURL = normalizeURL(item.attributes.url);
+                if (!highlightOnly && _updateURL && itemURL !== item.attributes.url) { // Update the URL
+                    logDev('URL formatted');
+                    actions.push(new UpdateObject(item, { url: itemURL }));
                     _UPDATED_FIELDS.url.updated = true;
                 }
+                _updateURL = false;
+                _tempPNHURL = newUrl;
+            }
+            if (!highlightOnly && _updateURL && newUrl !== item.attributes.url && !isNullOrWhitespace(newUrl) && newUrl !== BAD_URL) {
+                // Update the URL
+                logDev('URL updated');
+                actions.push(new UpdateObject(item, { url: newUrl }));
+                _UPDATED_FIELDS.url.updated = true;
             }
 
             let normalizedPhone;
@@ -7498,13 +7514,6 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
         $('#WMEPH-HNAdd').keyup(evt => {
             if (evt.keyCode === 13 && $('#WMEPH-HNAdd').val() !== '') {
                 $('#WMEPH_hnMissing').click();
-            }
-        });
-
-        // If pressing enter in the URL entry box, add the URL
-        $('#WMEPH-UrlAdd').keyup(evt => {
-            if (evt.keyCode === 13 && $('#WMEPH-UrlAdd').val() !== '') {
-                $('#WMEPH_urlMissing').click();
             }
         });
 
