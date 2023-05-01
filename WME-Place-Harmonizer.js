@@ -2044,12 +2044,23 @@
     // Abstract flag classes.  Must be declared outside the "Flag" namespace.
     class FlagBase {
         static currentFlags; // = new FlagContainer();
+        static args = this.generateNewArgs();
 
         constructor(active, severity, message) {
             this.active = active;
             this.severity = severity;
             this.message = message;
             FlagBase.currentFlags.add(this);
+        }
+
+        static generateNewArgs() {
+            return {
+                venue: null,
+                totalSeverity: null,
+                levelToLock: null,
+                lockOK: null,
+                isLocked: null
+            };
         }
     }
     class ActionFlag extends FlagBase {
@@ -3144,6 +3155,17 @@
         },
         IgnEdited: class extends FlagBase {
             constructor() { super(true, _SEVERITY.YELLOW, 'Last edited by an IGN editor'); }
+
+            static #venueIsFlaggable(venue) {
+                let updatedBy;
+                return !venue.isResidential()
+                    && (updatedBy = venue.attributes.updatedBy)
+                    && /^ign_/i.test(W.model.users.getObjectById(updatedBy)?.userName);
+            }
+
+            static eval(venue) {
+                return this.#venueIsFlaggable(venue) ? new this() : null;
+            }
         },
         WazeBot: class extends ActionFlag {
             static #botIds = [105774162, 361008095, 338475699, -1, 107668852];
@@ -3940,6 +3962,23 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                         elem.dispatchEvent(new Event('input', { bubbles: true })); // NOTE: jquery trigger('input') and other event calls did not work.
                     }, 100);
                 }, 100);
+            }
+
+            preProcess() {
+                // If no Google link and severity would otherwise allow locking, ask if user wants to lock anyway.
+                const { args } = FlagBase;
+                if (!args.isLocked && this.active && this.severity <= _SEVERITY.YELLOW) {
+                    this.severity = _SEVERITY.RED;
+                    args.totalSeverity = _SEVERITY.RED;
+                    if (args.lockOK) {
+                        this.value = `Lock anyway? (${args.levelToLock + 1})`;
+                        this.title = 'If no Google link exists, lock this place.\nIf there is still no Google link after '
+                            + '6 months from the last update date, it will turn red as a reminder to search again.';
+                        this.action = () => {
+                            addUpdateAction(args.venue, { lockRank: args.levelToLock }, null, true);
+                        };
+                    }
+                }
             }
         },
         UrlMissing: class extends WLActionFlag {
@@ -6218,7 +6257,6 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
         // Set up a variable (newBrand) to contain the brand. When harmonizing, it may be forced to a new value.
         // Other brand flags should use it since it won't be updated on the actual venue until later.
         let { brand: newBrand } = item.attributes;
-        let extProvMissingFlag;
         // Clear attributes from residential places
         if (item.attributes.residential) {
             if (!highlightOnly) {
@@ -6274,7 +6312,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                 outputPhoneFormat = '+1-{0}-{1}-{2}';
             }
 
-            extProvMissingFlag = Flag.ExtProviderMissing.eval(
+            Flag.ExtProviderMissing.eval(
                 item,
                 isLocked,
                 newCategories,
@@ -7180,47 +7218,29 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
         Flag.GasNoBrand.eval(item, newBrand, levelToLock);
         Flag.GasUnbranded.eval(item, newBrand);
 
-        // If no Google link and severity would otherwise allow locking, ask if user wants to lock anyway.
-        if (!isLocked && extProvMissingFlag?.active
-            && extProvMissingFlag.severity <= _SEVERITY.YELLOW) {
-            extProvMissingFlag.severity = _SEVERITY.RED;
-            totalSeverity = _SEVERITY.RED;
-            if (lockOK) {
-                extProvMissingFlag.value = `Lock anyway? (${levelToLock + 1})`;
-                extProvMissingFlag.title = 'If no Google link exists, lock this place.\nIf there is still no Google link after '
-                    + '6 months from the last update date, it will turn red as a reminder to search again.';
-                extProvMissingFlag.action = () => {
-                    addUpdateAction(item, { lockRank: levelToLock }, null, true);
-                };
-            }
-        }
+        Flag.IgnEdited.eval(item);
+        Flag.WazeBot.eval(item);
+        Flag.LockRPP.eval(item, highlightOnly, defaultLockLevel);
+
+        // Allow flags to do any additional work before assigning severity and locks
+        // TODO: Make args the default for passing variables to/from flags. Remove parameters from eval() in Flag classes and make eval() in FlagBase.
+        const { args } = FlagBase;
+        args.venue = item;
+        args.isLocked = isLocked;
+        args.levelToLock = levelToLock;
+        args.totalSeverity = totalSeverity;
+        args.lockOK = lockOK;
+
+        orderedFlags.filter(flag => flag?.active).forEach(flag => flag.preProcess?.(args));
+        totalSeverity = args.totalSeverity;
 
         if (!highlightOnly) {
             // Update the lockOK value if "noLock" is set on any flag.
             lockOK &&= !orderedFlags.some(flag => flag.noLock);
             logDev(`Severity: ${totalSeverity}; lockOK: ${lockOK}`);
         }
-        // if (!highlightOnly) {
-        //     // Update the lockOK value if "noLock" is set on any flag.
-        //     lockOK &&= !Object.keys(_buttonBanner).some(key => _buttonBanner[key]?.noLock);
-        //     logDev(`Severity: ${totalSeverity}; lockOK: ${lockOK}`);
-        // }
 
         const placeLockedFlag = Flag.PlaceLocked.eval(item, lockOK, totalSeverity, levelToLock, highlightOnly, actions);
-
-        // IGN check
-        if (!item.attributes.residential) {
-            const updatedBy = W.model.users.getObjectById(item.attributes.updatedBy);
-            if (updatedBy && /^ign_/i.test(updatedBy.userName)) {
-                new Flag.IgnEdited();
-            }
-        }
-
-        // waze_maint_bot check
-        Flag.WazeBot.eval(item);
-
-        // RPP Locking option for R3+
-        Flag.LockRPP.eval(item, highlightOnly, defaultLockLevel);
 
         // Turn off unnecessary buttons
         if (newCategories.includes('PHARMACY')) {
@@ -7237,7 +7257,6 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
         _dupeHNRangeList = [];
         _dupeBanner = {};
         if (!highlightOnly) runDuplicateFinder(item, newName, newAliases, addr, placePL);
-
         // Check HN range (this depends on the returned dupefinder data, so must run after it)
         Flag.HNRange.eval(currentHN, _dupeHNRangeList, _dupeHNRangeDistList, wl);
 
@@ -7279,8 +7298,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
             // Add green highlighting to edit panel fields that have been updated by WMEPH
             _UPDATED_FIELDS.updateEditPanelHighlights();
 
-            // Assemble the banners
-            assembleBanner(); // Make Messaging banners
+            assembleBanner();
         }
 
         // showOpenPlaceWebsiteButton();
@@ -7819,7 +7837,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
         const button = document.getElementById(`WMEPH_${flag.constructor.name}`);
         button.onclick = () => {
             flag.action();
-            if (!flag.noBannerAssemble) assembleBanner();
+            if (!flag.noBannerAssemble) harmonizePlaceGo(getSelectedVenue(), 'harmonize');
         };
         return button;
     }
@@ -7827,7 +7845,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
         const button = document.getElementById(`WMEPH_${flag.constructor.name}_2`);
         button.onclick = () => {
             flag.action2();
-            if (!flag.noBannerAssemble) assembleBanner();
+            if (!flag.noBannerAssemble) harmonizePlaceGo(getSelectedVenue(), 'harmonize');
         };
         return button;
     }
