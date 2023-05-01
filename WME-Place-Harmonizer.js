@@ -2795,20 +2795,72 @@
             }
         },
         HnMissing: class extends WLActionFlag {
-            constructor(venue) {
+            static #CATEGORIES_TO_IGNORE = ['BRIDGE', 'ISLAND', 'FOREST_GROVE', 'SEA_LAKE_POOL', 'RIVER_STREAM', 'CANAL',
+                'DAM', 'TUNNEL', 'JUNCTION_INTERCHANGE'];
+
+            static #TEXTBOX_ID = 'WMEPH-HNAdd';
+
+            constructor(venue, state2L, wl) {
+                let wlActive = true;
+                let severity = _SEVERITY.RED;
+                let noLock = false;
+                let suffixMessage = '';
+                if (state2L === 'PR' || ['SCENIC_LOOKOUT_VIEWPOINT'].includes(venue.attributes.categories[0])) {
+                    severity = _SEVERITY.GREEN;
+                    wlActive = false;
+                } else if (venue.isParkingLot()) {
+                    wlActive = false;
+                    if (venue.attributes.lockRank < 2) {
+                        noLock = true;
+                        let msgAdd;
+                        if (_USER.rank < 3) {
+                            msgAdd = 'Request an R3+ lock to confirm no HN.';
+                        } else {
+                            msgAdd = 'Lock to R3+ to confirm no HN.';
+                        }
+                        suffixMessage = msgAdd;
+                        severity = _SEVERITY.BLUE;
+                    } else {
+                        severity = _SEVERITY.GREEN;
+                    }
+                } else if (wl.HNWL) {
+                    severity = _SEVERITY.GREEN;
+                    wlActive = false;
+                } else {
+                    noLock = true;
+                }
+
                 super(
                     true,
-                    _SEVERITY.RED,
-                    'No HN: <input type="text" id="WMEPH-HNAdd" autocomplete="off" style="font-size:0.85em;width:100px;padding-left:2px;color:#000;" > ',
+                    severity,
+                    `No HN: <input type="text" id="${Flag.HnMissing.#TEXTBOX_ID}" autocomplete="off" `
+                        + 'style="font-size:0.85em;width:100px;padding-left:2px;color:#000;" > ',
                     'Add',
                     'Add HN to place',
-                    true,
+                    wlActive,
                     'Whitelist empty HN',
                     'HNWL'
                 );
                 this.venue = venue;
                 this.noBannerAssemble = true;
                 this.badInput = false;
+                this.noLock = noLock;
+                this.suffixMessage = suffixMessage;
+            }
+
+            static #venueIsFlaggable(hasStreet, currentHN, categories) {
+                return hasStreet
+                    && (!currentHN || currentHN.replace(/\D/g, '').length === 0)
+                    && !this.#CATEGORIES_TO_IGNORE.includes(categories[0])
+                    && !categories.includes('REST_AREAS');
+            }
+
+            static eval(venue, hasStreet, currentHN, categories, state2L, wl) {
+                return this.#venueIsFlaggable(hasStreet, currentHN, categories) ? new this(venue, state2L, wl) : null;
+            }
+
+            static #getTextbox() {
+                return $(`#${Flag.HnMissing.#TEXTBOX_ID}`);
             }
 
             action() {
@@ -2822,9 +2874,19 @@
                     harmonizePlaceGo(this.venue, 'harmonize', [action]); // Rerun the script to update fields and lock
                     _UPDATED_FIELDS.address.updated = true;
                 } else {
-                    $('input#WMEPH-HNAdd').css({ backgroundColor: '#FDD' }).attr('title', 'Must be a number between 0 and 1000000');
+                    Flag.HnMissing.#getTextbox().css({ backgroundColor: '#FDD' }).attr('title', 'Must be a number between 0 and 1000000');
                     this.badInput = true;
                 }
+            }
+
+            postProcess() {
+                // If pressing enter in the HN entry box, add the HN
+                const textbox = Flag.HnMissing.#getTextbox();
+                textbox.keyup(evt => {
+                    if (evt.keyCode === 13 && textbox.val()) {
+                        this.action();
+                    }
+                });
             }
         },
         HnTooManyDigits: class extends WLFlag {
@@ -2833,15 +2895,13 @@
                 this.noLock = true;
             }
 
+            static #venueIsFlaggable(houseNumber, wl) {
+                return !wl.hnTooManyDigits
+                    && houseNumber?.replace(/[^0-9]/g, '').length > 6;
+            }
+
             static eval(houseNumber, wl) {
-                let result = null;
-                if (!wl.hnTooManyDigits && houseNumber) {
-                    houseNumber = houseNumber.replace(/[^0-9]/g, '');
-                    if (houseNumber.length > 6) {
-                        result = new this();
-                    }
-                }
-                return result;
+                return this.#venueIsFlaggable(houseNumber, wl) ? new this() : null;
             }
         },
         // 2019-5-22 There's an issue in WME where it won't update the address displayed in the side panel
@@ -6903,81 +6963,53 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
         // Use the inferred address street if currently no street.
         const hasStreet = item.attributes.streetID || (inferredAddress && inferredAddress.street);
 
-        if (hasStreet && (!currentHN || currentHN.replace(/\D/g, '').length === 0)) {
-            if (!['BRIDGE', 'ISLAND', 'FOREST_GROVE', 'SEA_LAKE_POOL', 'RIVER_STREAM', 'CANAL',
-                'DAM', 'TUNNEL', 'JUNCTION_INTERCHANGE'].includes(item.attributes.categories[0])
-                && !item.attributes.categories.includes('REST_AREAS')) {
-                const f = new Flag.HnMissing(item);
-                if (state2L === 'PR' || ['SCENIC_LOOKOUT_VIEWPOINT'].includes(item.attributes.categories[0])) {
-                    f.severity = _SEVERITY.GREEN;
-                    f.WLactive = false;
-                } else if (item.isParkingLot()) {
-                    f.WLactive = false;
-                    if (item.attributes.lockRank < 2) {
-                        lockOK = false;
-                        let msgAdd;
-                        if (_USER.rank < 3) {
-                            msgAdd = 'Request an R3+ lock to confirm no HN.';
-                        } else {
-                            msgAdd = 'Lock to R3+ to confirm no HN.';
-                        }
-                        f.suffixMessage = msgAdd;
-                        f.severity = _SEVERITY.BLUE;
-                    } else {
-                        f.severity = _SEVERITY.GREEN;
-                    }
-                } else if (wl.HNWL) {
-                    f.severity = _SEVERITY.GREEN;
-                    f.WLactive = false;
-                } else {
-                    lockOK = false;
-                }
-            }
-        } else if (currentHN) {
-            Flag.HnTooManyDigits.eval(currentHN, wl);
+        Flag.HnMissing.eval(item, hasStreet, currentHN, newCategories, state2L, wl);
+        Flag.HnTooManyDigits.eval(currentHN, wl);
 
-            // 2020-10-5 Disabling HN validity checks for now. See the note on the HnNonStandard flag object for more details.
+        // 2020-10-5 Disabling HN validity checks for now. See the note on the HnNonStandard flag object for more details.
+        // if (hasStreet && (!currentHN || currentHN.replace(/\D/g, '').length === 0)) {
 
-            // let hnOK = false;
-            // let updateHNflag = false;
-            // const hnTemp = currentHN.replace(/[^\d]/g, ''); // Digits only
-            // const hnTempDash = currentHN.replace(/[^\d-]/g, ''); // Digits and dashes only
-            // if (hnTemp < 1000000 && state2L === 'NY' && addr.city.attributes.name === 'Queens' && hnTempDash.match(/^\d{1,4}-\d{1,4}$/g) !== null) {
-            //     updateHNflag = true;
-            //     // hnOK = true;
-            // }
-            // if (hnTemp === currentHN && hnTemp < 1000000) { //  general check that HN is 6 digits or less, & that it is only [0-9]
-            //     hnOK = true;
-            // }
-            // if (state2L === 'HI' && hnTempDash.match(/^\d{1,2}-\d{1,4}$/g) !== null) {
-            //     if (hnTempDash === hnTempDash.match(/^\d{1,2}-\d{1,4}$/g)[0]) {
-            //         hnOK = true;
-            //     }
-            // }
+        // } else if (currentHN) {
+        //     // let hnOK = false;
+        //     // let updateHNflag = false;
+        //     // const hnTemp = currentHN.replace(/[^\d]/g, ''); // Digits only
+        //     // const hnTempDash = currentHN.replace(/[^\d-]/g, ''); // Digits and dashes only
+        //     // if (hnTemp < 1000000 && state2L === 'NY' && addr.city.attributes.name === 'Queens' && hnTempDash.match(/^\d{1,4}-\d{1,4}$/g) !== null) {
+        //     //     updateHNflag = true;
+        //     //     // hnOK = true;
+        //     // }
+        //     // if (hnTemp === currentHN && hnTemp < 1000000) { //  general check that HN is 6 digits or less, & that it is only [0-9]
+        //     //     hnOK = true;
+        //     // }
+        //     // if (state2L === 'HI' && hnTempDash.match(/^\d{1,2}-\d{1,4}$/g) !== null) {
+        //     //     if (hnTempDash === hnTempDash.match(/^\d{1,2}-\d{1,4}$/g)[0]) {
+        //     //         hnOK = true;
+        //     //     }
+        //     // }
 
-            // if (!hnOK) {
-            //     _buttonBanner.hnNonStandard = new Flag.HnNonStandard();
-            //     if (_wl.hnNonStandard) {
-            //         _buttonBanner.hnNonStandard.WLactive = false;
-            //         _buttonBanner.hnNonStandard.severity = SEVERITY.GREEN;
-            //     } else {
-            //         lockOK = false;
-            //     }
-            // }
-            // if (updateHNflag) {
-            //     _buttonBanner.hnDashRemoved = new Flag.HnDashRemoved();
-            //     if (!highlightOnly) {
-            //         actions.push(new UpdateObject(item, { houseNumber: hnTemp }));
-            //         _UPDATED_FIELDS.address.updated = true;
-            //     } else if (highlightOnly) {
-            //         if (item.attributes.residential) {
-            //             _buttonBanner.hnDashRemoved.severity = SEVERITY.RED;
-            //         } else {
-            //             _buttonBanner.hnDashRemoved.severity = SEVERITY.BLUE;
-            //         }
-            //     }
-            // }
-        }
+        //     // if (!hnOK) {
+        //     //     _buttonBanner.hnNonStandard = new Flag.HnNonStandard();
+        //     //     if (_wl.hnNonStandard) {
+        //     //         _buttonBanner.hnNonStandard.WLactive = false;
+        //     //         _buttonBanner.hnNonStandard.severity = SEVERITY.GREEN;
+        //     //     } else {
+        //     //         lockOK = false;
+        //     //     }
+        //     // }
+        //     // if (updateHNflag) {
+        //     //     _buttonBanner.hnDashRemoved = new Flag.HnDashRemoved();
+        //     //     if (!highlightOnly) {
+        //     //         actions.push(new UpdateObject(item, { houseNumber: hnTemp }));
+        //     //         _UPDATED_FIELDS.address.updated = true;
+        //     //     } else if (highlightOnly) {
+        //     //         if (item.attributes.residential) {
+        //     //             _buttonBanner.hnDashRemoved.severity = SEVERITY.RED;
+        //     //         } else {
+        //     //             _buttonBanner.hnDashRemoved.severity = SEVERITY.BLUE;
+        //     //         }
+        //     //     }
+        //     // }
+        // }
 
         Flag.CityMissing.eval(item, addr, highlightOnly);
         Flag.StreetMissing.eval(item, addr);
@@ -7508,13 +7540,6 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
             newAttr.estimatedNumberOfSpots = selectedValue;
             _UPDATED_FIELDS.parkingSpots.updated = true;
             addUpdateAction(selectedVenue, { categoryAttributes: { PARKING_LOT: newAttr } }, null, true);
-        });
-
-        // If pressing enter in the HN entry box, add the HN
-        $('#WMEPH-HNAdd').keyup(evt => {
-            if (evt.keyCode === 13 && $('#WMEPH-HNAdd').val() !== '') {
-                $('#WMEPH_hnMissing').click();
-            }
         });
 
         // Format "no hours" section and hook up button events.
