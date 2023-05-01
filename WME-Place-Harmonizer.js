@@ -3146,6 +3146,9 @@
             constructor() { super(true, _SEVERITY.YELLOW, 'Last edited by an IGN editor'); }
         },
         WazeBot: class extends ActionFlag {
+            static #botIds = [105774162, 361008095, 338475699, -1, 107668852];
+            static #botNames = [/^waze-maint/i, /^waze3rdparty$/i, /^WazeParking1$/i, /^admin$/i, /^avsus$/i];
+
             constructor(venue) {
                 super(
                     true,
@@ -3155,6 +3158,23 @@
                     'If no other properties need to be updated, click to nudge the place (force an edit).'
                 );
                 this.venue = venue;
+            }
+
+            static #venueIsFlaggable(venue) {
+                let flaggable = venue.isUnchanged() && !venue.isResidential();
+                if (flaggable) {
+                    const lastUpdatedById = venue.attributes.updatedBy ?? venue.attributes.createdBy;
+                    flaggable = this.#botIds.includes(lastUpdatedById);
+                    if (!flaggable) {
+                        const lastUpdatedByName = W.model.users.getObjectById(lastUpdatedById)?.userName;
+                        flaggable = (this.#botNames.some(botName => botName.test(lastUpdatedByName)));
+                    }
+                }
+                return flaggable;
+            }
+
+            static eval(venue) {
+                return this.#venueIsFlaggable(venue) ? new this(venue) : null;
             }
 
             action() {
@@ -3197,17 +3217,59 @@
         },
         SuspectDesc: class extends WLFlag {
             constructor() { super(true, _SEVERITY.YELLOW, 'Description field might contain copyrighted info.', true, 'Whitelist description', 'suspectDesc'); }
+
+            static #venueIsFlaggable(venue, description, totalSeverity, wl) {
+                return !venue.isResidential()
+                    && totalSeverity < _SEVERITY.RED
+                    && !wl.suspectDesc
+                    && /(google|yelp)/i.test(description);
+            }
+
+            static eval(venue, description, totalSeverity, wl) {
+                return this.#venueIsFlaggable(venue, description, totalSeverity, wl) ? new this() : null;
+            }
         },
         ResiTypeName: class extends WLFlag {
-            constructor() {
+            constructor(likelyResidential) {
                 super(
                     true,
-                    _SEVERITY.YELLOW,
+                    likelyResidential ? _SEVERITY.YELLOW : _SEVERITY.GREEN,
                     'The place name suggests a residential place or personalized place of work.  Please verify.',
-                    true,
+                    likelyResidential,
                     'Whitelist Residential-type name',
                     'resiTypeName'
                 );
+            }
+
+            static #likelyResidentialName(name) {
+                return /^((my|mi|moms|dads)?\s*(home|work|office|casa|house))|(mom|dad)$/i.test(name);
+            }
+
+            static #possiblyResidentialName(name, categories) {
+                return /('?s|my)\s+(house|home|work)/i.test(name)
+                    && !containsAny(categories, ['RESTAURANT', 'DESSERT', 'BAR']);
+            }
+
+            static #isPreflaggable(venue, pnhNameRegMatch, totalSeverity, wl) {
+                return !venue.isResidential()
+                    && !pnhNameRegMatch
+                    && !wl.resiTypeName
+                    && totalSeverity < _SEVERITY.RED;
+            }
+
+            static #venueIsFlaggable(preflaggable, likelyResidential, name, categories) {
+                return preflaggable
+                    && (likelyResidential || this.#possiblyResidentialName(name, categories));
+            }
+
+            static eval(venue, totalSeverity, categories, name, pnhNameRegMatch, wl) {
+                const preflaggable = this.#isPreflaggable(venue, pnhNameRegMatch, totalSeverity, wl);
+                if (preflaggable) {
+                    name = name.replace(/[^A-Z ]/i, ''); // remove non-alpha characters
+                    const likelyResidential = this.#likelyResidentialName(name);
+                    if (this.#venueIsFlaggable(preflaggable, likelyResidential, name, categories)) return new this(likelyResidential);
+                }
+                return null;
             }
         },
         Mismatch247: class extends FlagBase {
@@ -4788,9 +4850,6 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                 return result;
             }
         },
-        ResiTypeNameSoft: class extends FlagBase {
-            constructor() { super(true, _SEVERITY.GREEN, 'The place name suggests a residential place or personalized place of work. Please verify.'); }
-        },
         LocalURL: class extends FlagBase {
             constructor() {
                 super(
@@ -5501,7 +5560,6 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
             Flag.PlaCanExitWhileClosed,
             Flag.PlaHasAccessibleParking,
             Flag.AllDayHoursFixed,
-            Flag.ResiTypeNameSoft, // TODO add ResiTypeName?
             Flag.LocalURL,
             Flag.LockRPP,
             Flag.AddAlias,
@@ -7159,22 +7217,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
         }
 
         // waze_maint_bot check
-        const updatedById = item.attributes.updatedBy ? item.attributes.updatedBy : item.attributes.createdBy;
-        const updatedBy = W.model.users.getObjectById(updatedById);
-        const updatedByName = updatedBy ? updatedBy.userName : null;
-        const botNamesAndIDs = [
-            '^waze-maint', '^105774162$',
-            '^waze3rdparty$', '^361008095$',
-            '^WazeParking1$', '^338475699$',
-            '^admin$', '^-1$',
-            '^avsus$', '^107668852$'
-        ];
-
-        const botRegEx = new RegExp(botNamesAndIDs.join('|'), 'i');
-        if (item.isUnchanged() && !item.attributes.residential && updatedById && (botRegEx.test(updatedById.toString())
-            || (updatedByName && botRegEx.test(updatedByName)))) {
-            new Flag.WazeBot(item);
-        }
+        Flag.WazeBot.eval(item);
 
         // RPP Locking option for R3+
         Flag.LockRPP.eval(item, highlightOnly, defaultLockLevel);
@@ -7188,28 +7231,15 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
         }
 
         // Final alerts for non-severe locations
-        if (!item.attributes.residential && totalSeverity < _SEVERITY.RED) {
-            const nameShortSpace = newName.toUpperCase().replace(/[^A-Z ']/g, '');
-            if (nameShortSpace.includes('\'S HOUSE') || nameShortSpace.includes('\'S HOME') || nameShortSpace.includes('\'S WORK')) {
-                if (!containsAny(newCategories, ['RESTAURANT', 'DESSERT', 'BAR']) && !pnhNameRegMatch) {
-                    new Flag.ResiTypeNameSoft();
-                }
-            }
-            if (['HOME', 'MY HOME', 'HOUSE', 'MY HOUSE', 'PARENTS HOUSE', 'CASA', 'MI CASA', 'WORK', 'MY WORK', 'MY OFFICE',
-                'MOMS HOUSE', 'DADS HOUSE', 'MOM', 'DAD'].includes(nameShortSpace)) {
-                const f = new Flag.ResiTypeName();
-                if (wl.resiTypeName) {
-                    f.WLactive = false;
-                }
-                FlagBase.currentFlags.remove(Flag.ResiTypeNameSoft);
-            }
-            if (item.attributes.description.toLowerCase().includes('google') || item.attributes.description.toLowerCase().includes('yelp')) {
-                const f = new Flag.SuspectDesc();
-                if (wl.suspectDesc) {
-                    f.WLactive = false;
-                }
-            }
-        }
+        Flag.ResiTypeName.eval(item, totalSeverity, newCategories, newName, pnhNameRegMatch, wl);
+        Flag.SuspectDesc.eval(item, newDescripion, totalSeverity, wl);
+
+        _dupeHNRangeList = [];
+        _dupeBanner = {};
+        if (!highlightOnly) runDuplicateFinder(item, newName, newAliases, addr, placePL);
+
+        // Check HN range (this depends on the returned dupefinder data, so must run after it)
+        Flag.HNRange.eval(currentHN, _dupeHNRangeList, _dupeHNRangeDistList, wl);
 
         // Return severity for highlighter (no dupe run))
         if (highlightOnly) {
@@ -7220,17 +7250,6 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                     totalSeverity = Math.max(flag.severity, totalSeverity);
                 }
             });
-            // Object.keys(_buttonBanner).forEach(tempKey => {
-            //     if (_buttonBanner[tempKey] && _buttonBanner[tempKey].active) { //  If the particular message is active
-            //         if (_buttonBanner[tempKey].hasOwnProperty('WLactive')) {
-            //             if (_buttonBanner[tempKey].WLactive) { // If there's a WL option, enable it
-            //                 totalSeverity = Math.max(_buttonBanner[tempKey].severity, totalSeverity);
-            //             }
-            //         } else {
-            //             totalSeverity = Math.max(_buttonBanner[tempKey].severity, totalSeverity);
-            //         }
-            //     }
-            // });
 
             // Special case flags
             if (item.attributes.lockRank === 0
@@ -7250,86 +7269,6 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
 
             return totalSeverity;
         }
-
-        // *** Below here is for harmonization only.  HL ends in previous step.
-
-        // Run nearby duplicate place finder function
-        _dupeHNRangeList = [];
-        _dupeBanner = {};
-        if (newName.replace(/[^A-Za-z0-9]/g, '').length > 0 && !item.attributes.residential && !isEmergencyRoom(item) && !isRestArea(item)) {
-            // don't zoom and pan for results outside of FOV
-            let duplicateName = findNearbyDuplicate(newName, newAliases, item, !$('#WMEPH-DisableDFZoom').prop('checked'));
-            if (duplicateName[1]) {
-                new Flag.Overlapping();
-            }
-            [duplicateName] = duplicateName;
-            if (duplicateName.length) {
-                if (duplicateName.length + 1 !== _dupeIDList.length && _USER.isDevUser) {
-                    // If there's an issue with the data return, allow an error report
-                    WazeWrap.Alerts.confirm(
-                        _SCRIPT_NAME,
-                        'WMEPH: Dupefinder Error!<br>Click OK to report this',
-                        () => {
-                            // if the category doesn't translate, then pop an alert that will make a forum post to the thread
-                            reportError({
-                                subject: 'WMEPH Bug report DupeID',
-                                message: `Script version: ${_SCRIPT_VERSION}${_BETA_VERSION_STR}\nPermalink: ${placePL}\nPlace name: ${
-                                    item.attributes.name}\nCountry: ${addr.country.name}\n--------\nDescribe the error:\nDupeID mismatch with dupeName list`
-                            });
-                        },
-                        () => { }
-                    );
-                } else {
-                    const wlAction = dID => {
-                        const wlKey = 'dupeWL';
-                        if (!_venueWhitelist.hasOwnProperty(itemID)) { // If venue is NOT on WL, then add it.
-                            _venueWhitelist[itemID] = { dupeWL: [] };
-                        }
-                        if (!_venueWhitelist[itemID].hasOwnProperty(wlKey)) { // If dupeWL key is not in venue WL, then initialize it.
-                            _venueWhitelist[itemID][wlKey] = [];
-                        }
-                        _venueWhitelist[itemID].dupeWL.push(dID); // WL the id for the duplicate venue
-                        _venueWhitelist[itemID].dupeWL = _.uniq(_venueWhitelist[itemID].dupeWL);
-                        // Make an entry for the opposite item
-                        if (!_venueWhitelist.hasOwnProperty(dID)) { // If venue is NOT on WL, then add it.
-                            _venueWhitelist[dID] = { dupeWL: [] };
-                        }
-                        if (!_venueWhitelist[dID].hasOwnProperty(wlKey)) { // If dupeWL key is not in venue WL, then initialize it.
-                            _venueWhitelist[dID][wlKey] = [];
-                        }
-                        _venueWhitelist[dID].dupeWL.push(itemID); // WL the id for the duplicate venue
-                        _venueWhitelist[dID].dupeWL = _.uniq(_venueWhitelist[dID].dupeWL);
-                        saveWhitelistToLS(true); // Save the WL to local storage
-                        wmephWhitelistCounter();
-                        _buttonBanner2.clearWL.active = true;
-                        _dupeBanner[dID].active = false;
-                        harmonizePlaceGo(item, 'harmonize');
-                    };
-                    for (let ijx = 1; ijx < duplicateName.length + 1; ijx++) {
-                        _dupeBanner[_dupeIDList[ijx]] = {
-                            active: true,
-                            severity: _SEVERITY.YELLOW,
-                            message: duplicateName[ijx - 1],
-                            WLactive: false,
-                            WLvalue: _WL_BUTTON_TEXT,
-                            WLtitle: 'Whitelist Duplicate',
-                            WLaction: wlAction
-                        };
-                        if (_venueWhitelist.hasOwnProperty(itemID) && _venueWhitelist[itemID].hasOwnProperty('dupeWL')
-                            && _venueWhitelist[itemID].dupeWL.includes(_dupeIDList[ijx])) {
-                            // if the dupe is on the whitelist then remove it from the banner
-                            _dupeBanner[_dupeIDList[ijx]].active = false;
-                        } else {
-                            // Otherwise, activate the WL button
-                            _dupeBanner[_dupeIDList[ijx]].WLactive = true;
-                        }
-                    } // END loop for duplicate venues
-                }
-            }
-        }
-
-        // Check HN range (this depends on the returned dupefinder data, so has to run after it)
-        Flag.HNRange.eval(currentHN, _dupeHNRangeList, _dupeHNRangeDistList, wl);
 
         executeMultiAction(actions);
 
@@ -7351,6 +7290,82 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
         // Adding this line to satisfy eslint.
         return undefined;
     } // END harmonizePlaceGo function
+
+    function runDuplicateFinder(venue, newName, newAliases, addr, placePL) {
+        const venueID = venue.attributes.id;
+        // Run nearby duplicate place finder function
+        if (newName.replace(/[^A-Za-z0-9]/g, '').length > 0 && !venue.attributes.residential && !isEmergencyRoom(venue) && !isRestArea(venue)) {
+            // don't zoom and pan for results outside of FOV
+            let duplicateName = findNearbyDuplicate(newName, newAliases, venue, !$('#WMEPH-DisableDFZoom').prop('checked'));
+            if (duplicateName[1]) {
+                new Flag.Overlapping();
+            }
+            [duplicateName] = duplicateName;
+            if (duplicateName.length) {
+                if (duplicateName.length + 1 !== _dupeIDList.length && _USER.isDevUser) {
+                    // If there's an issue with the data return, allow an error report
+                    WazeWrap.Alerts.confirm(
+                        _SCRIPT_NAME,
+                        'WMEPH: Dupefinder Error!<br>Click OK to report this',
+                        () => {
+                            // if the category doesn't translate, then pop an alert that will make a forum post to the thread
+                            reportError({
+                                subject: 'WMEPH Bug report DupeID',
+                                message: `Script version: ${_SCRIPT_VERSION}${_BETA_VERSION_STR}\nPermalink: ${placePL}\nPlace name: ${
+                                    venue.attributes.name}\nCountry: ${addr.country.name}\n--------\nDescribe the error:\nDupeID mismatch with dupeName list`
+                            });
+                        },
+                        () => { }
+                    );
+                } else {
+                    const wlAction = dID => {
+                        const wlKey = 'dupeWL';
+                        if (!_venueWhitelist.hasOwnProperty(venueID)) { // If venue is NOT on WL, then add it.
+                            _venueWhitelist[venueID] = { dupeWL: [] };
+                        }
+                        if (!_venueWhitelist[venueID].hasOwnProperty(wlKey)) { // If dupeWL key is not in venue WL, then initialize it.
+                            _venueWhitelist[venueID][wlKey] = [];
+                        }
+                        _venueWhitelist[venueID].dupeWL.push(dID); // WL the id for the duplicate venue
+                        _venueWhitelist[venueID].dupeWL = _.uniq(_venueWhitelist[venueID].dupeWL);
+                        // Make an entry for the opposite item
+                        if (!_venueWhitelist.hasOwnProperty(dID)) { // If venue is NOT on WL, then add it.
+                            _venueWhitelist[dID] = { dupeWL: [] };
+                        }
+                        if (!_venueWhitelist[dID].hasOwnProperty(wlKey)) { // If dupeWL key is not in venue WL, then initialize it.
+                            _venueWhitelist[dID][wlKey] = [];
+                        }
+                        _venueWhitelist[dID].dupeWL.push(venueID); // WL the id for the duplicate venue
+                        _venueWhitelist[dID].dupeWL = _.uniq(_venueWhitelist[dID].dupeWL);
+                        saveWhitelistToLS(true); // Save the WL to local storage
+                        wmephWhitelistCounter();
+                        _buttonBanner2.clearWL.active = true;
+                        _dupeBanner[dID].active = false;
+                        harmonizePlaceGo(venue, 'harmonize');
+                    };
+                    for (let ijx = 1; ijx < duplicateName.length + 1; ijx++) {
+                        _dupeBanner[_dupeIDList[ijx]] = {
+                            active: true,
+                            severity: _SEVERITY.YELLOW,
+                            message: duplicateName[ijx - 1],
+                            WLactive: false,
+                            WLvalue: _WL_BUTTON_TEXT,
+                            WLtitle: 'Whitelist Duplicate',
+                            WLaction: wlAction
+                        };
+                        if (_venueWhitelist.hasOwnProperty(venueID) && _venueWhitelist[venueID].hasOwnProperty('dupeWL')
+                            && _venueWhitelist[venueID].dupeWL.includes(_dupeIDList[ijx])) {
+                            // if the dupe is on the whitelist then remove it from the banner
+                            _dupeBanner[_dupeIDList[ijx]].active = false;
+                        } else {
+                            // Otherwise, activate the WL button
+                            _dupeBanner[_dupeIDList[ijx]].WLactive = true;
+                        }
+                    } // END loop for duplicate venues
+                }
+            }
+        }
+    }
 
     // Set up banner messages
     function assembleBanner() {
