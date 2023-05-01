@@ -2904,19 +2904,6 @@
                 return this.#venueIsFlaggable(houseNumber, wl) ? new this() : null;
             }
         },
-        // 2019-5-22 There's an issue in WME where it won't update the address displayed in the side panel
-        // when the underlying model is updated.  I changed to the code below for a while, but we've
-        // come up with a temporary fix using WW, so using the textbox entry should be OK now.
-        // HnMissing: class extends WLActionFlag {
-        //     constructor() { super(true, SEVERITY.RED, 'No HN:', 'Edit address', 'Edit address to add HN.'); }
-
-        //     // eslint-disable-next-line class-methods-use-this
-        //     action() {
-        //         $('.nav-tabs a[href="#venue-edit-general"]').trigger('click');
-        //         $('.venue .full-address').click();
-        //         $('input.house-number').focus();
-        //     }
-        // },
         // 2020-10-5 HN's with letters have been allowed since last year.  Currently, RPPs can be saved with a number
         // followed by up to 4 letters but it's not clear if the app actually searches if only 1, 2, or more letters
         // are present.  Other places can have a more flexible HN (up to 15 characters long, total. A single space between
@@ -2937,6 +2924,39 @@
                     'Whitelist HN range',
                     'HNRange'
                 );
+            }
+
+            static #venueIsFlaggable(houseNumber, dupeHNRangeList, dupeHNRangeDistList, wl) {
+                if (!wl.HNRange && dupeHNRangeList.length > 3) {
+                    let dhnix;
+                    const dupeHNRangeListSorted = [];
+                    sortWithIndex(dupeHNRangeDistList);
+                    for (dhnix = 0; dhnix < dupeHNRangeList.length; dhnix++) {
+                        dupeHNRangeListSorted.push(dupeHNRangeList[dupeHNRangeDistList.sortIndices[dhnix]]);
+                    }
+                    // Calculate HN/distance ratio with other venues
+                    // var sumHNRatio = 0;
+                    const arrayHNRatio = [];
+                    for (dhnix = 0; dhnix < dupeHNRangeListSorted.length; dhnix++) {
+                        arrayHNRatio.push(Math.abs((parseInt(houseNumber, 10) - dupeHNRangeListSorted[dhnix]) / dupeHNRangeDistList[dhnix]));
+                    }
+                    sortWithIndex(arrayHNRatio);
+                    // Examine either the median or the 8th index if length is >16
+                    const arrayHNRatioCheckIX = Math.min(Math.round(arrayHNRatio.length / 2), 8);
+                    if (arrayHNRatio[arrayHNRatioCheckIX] > 1.4) {
+                        // show stats if HN out of range
+                        logDev(`HNs: ${dupeHNRangeListSorted}`);
+                        logDev(`Distances: ${_dupeHNRangeDistList}`);
+                        logDev(`arrayHNRatio: ${arrayHNRatio}`);
+                        logDev(`HN Ratio Score: ${arrayHNRatio[Math.round(arrayHNRatio.length / 2)]}`);
+                        return true;
+                    }
+                }
+                return false;
+            }
+
+            static eval(houseNumber, dupeHNRangeList, dupeHNRangeDistList, wl) {
+                return this.#venueIsFlaggable(houseNumber, dupeHNRangeList, dupeHNRangeDistList, wl) ? new this() : null;
             }
         },
         StreetMissing: class extends ActionFlag {
@@ -3861,7 +3881,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
             }
         },
         UrlMissing: class extends WLActionFlag {
-            static #textboxId = 'WMEPH-UrlAdd';
+            static #TEXTBOX_ID = 'WMEPH-UrlAdd';
 
             constructor(venue, categories, wl) {
                 let wlActive = true;
@@ -3876,7 +3896,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                 super(
                     true,
                     severity,
-                    `No URL: <input type="text" id="${Flag.UrlMissing.#textboxId}" autocomplete="off"`
+                    `No URL: <input type="text" id="${Flag.UrlMissing.#TEXTBOX_ID}" autocomplete="off"`
                         + ' style="font-size:0.85em;width:100px;padding-left:2px;color:#000;">',
                     'Add',
                     'Add URL to place',
@@ -3905,13 +3925,12 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                 return this.#venueIsFlaggable(venue, url, categories, region, wl) ? new this(venue, categories, wl) : null;
             }
 
-            // eslint-disable-next-line class-methods-use-this
-            getTextbox() {
-                return $(`#${Flag.UrlMissing.#textboxId}`);
+            static #getTextbox() {
+                return $(`#${Flag.UrlMissing.#TEXTBOX_ID}`);
             }
 
             action() {
-                const newUrl = normalizeURL(this.getTextbox().val());
+                const newUrl = normalizeURL(Flag.UrlMissing.#getTextbox().val());
                 if ((!newUrl || newUrl.trim().length === 0) || newUrl === BAD_URL) {
                     $('input#WMEPH-UrlAdd').css({ backgroundColor: '#FDD' }).attr('title', 'Invalid URL format');
                     // this.badInput = true;
@@ -3923,7 +3942,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
 
             postProcess() {
                 // If pressing enter in the URL entry box, add the URL
-                const textbox = this.getTextbox();
+                const textbox = Flag.UrlMissing.#getTextbox();
                 textbox.keyup(evt => {
                     if (evt.keyCode === 13 && textbox.val() !== '') {
                         this.action();
@@ -7310,38 +7329,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
         }
 
         // Check HN range (this depends on the returned dupefinder data, so has to run after it)
-        if (_dupeHNRangeList.length > 3) {
-            let dhnix;
-            const dupeHNRangeListSorted = [];
-            sortWithIndex(_dupeHNRangeDistList);
-            for (dhnix = 0; dhnix < _dupeHNRangeList.length; dhnix++) {
-                dupeHNRangeListSorted.push(_dupeHNRangeList[_dupeHNRangeDistList.sortIndices[dhnix]]);
-            }
-            // Calculate HN/distance ratio with other venues
-            // var sumHNRatio = 0;
-            const arrayHNRatio = [];
-            for (dhnix = 0; dhnix < dupeHNRangeListSorted.length; dhnix++) {
-                arrayHNRatio.push(Math.abs((parseInt(item.attributes.houseNumber, 10) - dupeHNRangeListSorted[dhnix]) / _dupeHNRangeDistList[dhnix]));
-            }
-            sortWithIndex(arrayHNRatio);
-            // Examine either the median or the 8th index if length is >16
-            const arrayHNRatioCheckIX = Math.min(Math.round(arrayHNRatio.length / 2), 8);
-            if (arrayHNRatio[arrayHNRatioCheckIX] > 1.4) {
-                const f = new Flag.HNRange();
-                if (wl.HNRange) {
-                    f.WLactive = false;
-                    f.active = false;
-                }
-                if (arrayHNRatio[arrayHNRatioCheckIX] > 5) {
-                    f.severity = _SEVERITY.RED;
-                }
-                // show stats if HN out of range
-                logDev(`HNs: ${dupeHNRangeListSorted}`);
-                logDev(`Distances: ${_dupeHNRangeDistList}`);
-                logDev(`arrayHNRatio: ${arrayHNRatio}`);
-                logDev(`HN Ratio Score: ${arrayHNRatio[Math.round(arrayHNRatio.length / 2)]}`);
-            }
-        }
+        Flag.HNRange.eval(currentHN, _dupeHNRangeList, _dupeHNRangeDistList, wl);
 
         executeMultiAction(actions);
 
