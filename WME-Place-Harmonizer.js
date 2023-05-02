@@ -1360,6 +1360,7 @@
     } // END harmoList function
 
     function onVenuesChanged(venueProxies) {
+        logDev('onVenuesChanged');
         deleteDupeLabel();
 
         const venue = getSelectedVenue();
@@ -1697,6 +1698,7 @@
     * @param force {boolean} Force recalculation of highlights, rather than using cached results.
     */
     function applyHighlightsTest(venues, force) {
+        logDev('applyHighlightsTest');
         if (!_layer) return;
 
         // Make sure venues is an array, or convert it to one if not.
@@ -2022,6 +2024,7 @@
 
     // Only run the harmonization if a venue is selected
     function harmonizePlace() {
+        logDev('harmonizePlace');
         // Beta version for approved users only
         if (_IS_BETA_VERSION && !_USER.isBetaUser) {
             WazeWrap.Alerts.error(_SCRIPT_NAME, 'Please sign up to beta-test this script version.<br>Contact MapOMatic or Tonestertm in Discord, or post in the WMEPH forum thread. Thanks.');
@@ -3052,6 +3055,16 @@
         },
         BankType1: class extends FlagBase {
             constructor() { super(true, _SEVERITY.RED, 'Clarify the type of bank: the name has ATM but the primary category is Offices'); }
+
+            static #venueIsFlaggable(categories, name, pnhNameRegMatch, pnhMatchData, phSpecCaseIdx, priPNHPlaceCat) {
+                return (!pnhNameRegMatch || (pnhNameRegMatch && priPNHPlaceCat === 'BANK_FINANCIAL' && !pnhMatchData[phSpecCaseIdx].includes('notABank')))
+                    && categories[0] === 'OFFICES'
+                    && /\batm\b/i.test(name);
+            }
+
+            static eval(categories, name, pnhNameRegMatch, pnhMatchData, phSpecCaseIdx, priPNHPlaceCat) {
+                return this.#venueIsFlaggable(categories, name, pnhNameRegMatch, pnhMatchData, phSpecCaseIdx, priPNHPlaceCat) ? new this() : null;
+            }
         },
         // TODO: Fix if the name has "(ATM)" or " - ATM" or similar. This flag is not currently catching those.
         BankBranch: class extends ActionFlag {
@@ -3770,6 +3783,15 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
         },
         CatHotel: class extends FlagBase {
             constructor(pnhName) { super(true, _SEVERITY.GREEN, `Check hotel website for any name localization (e.g. ${pnhName} - Tampa Airport).`); }
+
+            static #venueIsFlaggable(priPNHPlaceCat, name, nameSuffix, pnhMatchData, phNameIdx) {
+                return priPNHPlaceCat === 'HOTEL'
+                    && (name + (nameSuffix || '')).toUpperCase() === pnhMatchData[phNameIdx].toUpperCase();
+            }
+
+            static eval(priPNHPlaceCat, name, nameSuffix, pnhMatchData, phNameIdx) {
+                return this.#venueIsFlaggable(priPNHPlaceCat, name, nameSuffix, pnhMatchData, phNameIdx) ? new this(pnhMatchData[phNameIdx]) : null;
+            }
         },
         LocalizedName: class extends WLFlag {
             constructor() {
@@ -4109,18 +4131,15 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                 this.phone = phone;
             }
 
-            static eval(venue, specCases, outputFormat, wl) {
-                let result = null;
-                if (!wl[this.whitelistKey]) {
-                    const specCaseMatch = specCases.match(/phone<>(.*?)<>/);
-                    if (specCaseMatch) {
-                        const phone = normalizePhone(specCaseMatch[1], outputFormat);
-                        if (phone !== 'badPhone' && phone !== venue.attributes.phone) {
-                            result = new this(venue, phone);
-                        }
-                    }
-                }
-                return result;
+            static #venueIsFlaggable(phone, recommendedPhone, outputFormat, wl) {
+                return recommendedPhone
+                    && !wl[this.whitelistKey]
+                    && recommendedPhone !== 'badPhone'
+                    && recommendedPhone !== normalizePhone(phone, outputFormat);
+            }
+
+            static eval(venue, phone, recommendedPhone, outputFormat, wl) {
+                return this.#venueIsFlaggable(phone, recommendedPhone, outputFormat, wl) ? new this(venue, recommendedPhone) : null;
             }
 
             action() {
@@ -6025,6 +6044,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
 
     // Main script
     function harmonizePlaceGo(venue, useFlag, actions) {
+        if (useFlag === 'harmonize') logDev('harmonizePlaceGo: useFlag="harmonize"');
         let placePL;
         const venueID = venue.attributes.id;
 
@@ -6357,6 +6377,8 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
 
             pnhNameRegMatch = false;
             let pnhDataHeaders = [];
+            let phSpecCaseIdx;
+            let priPNHPlaceCat;
             if (pnhMatchData[0] !== 'NoMatch' && pnhMatchData[0] !== 'ApprovalNeeded' && pnhMatchData[0] !== 'Highlight') { // *** Replace place data with PNH data
                 pnhNameRegMatch = true;
                 let showDispNote = true;
@@ -6371,7 +6393,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                 const phUrlIdx = pnhDataHeaders.indexOf('ph_url');
                 const phOrderIdx = pnhDataHeaders.indexOf('ph_order');
                 // var ph_notes_ix = _PNH_DATA_headers.indexOf('ph_notes');
-                const phSpecCaseIdx = pnhDataHeaders.indexOf('ph_speccase');
+                phSpecCaseIdx = pnhDataHeaders.indexOf('ph_speccase');
                 // var ph_forcecat_ix = _PNH_DATA_headers.indexOf('ph_forcecat');
                 const phDisplayNoteIdx = pnhDataHeaders.indexOf('ph_displaynote');
 
@@ -6399,7 +6421,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                     pnhMatchData = pnhMatchData[0].split('|'); // Single match just gets direct split
                 }
 
-                const priPNHPlaceCat = catTranslate(pnhMatchData[phCategory1Idx]); // translate primary category to WME code
+                priPNHPlaceCat = catTranslate(pnhMatchData[phCategory1Idx]); // translate primary category to WME code
 
                 // if the location has multiple matches, then pop an alert that will make a forum post to the thread
                 if (nsMultiMatch) {
@@ -6425,6 +6447,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                 // Check special cases
                 let specCases;
                 let localURLcheck = '';
+                let recommendedPhone;
                 if (phSpecCaseIdx > -1) { // If the special cases column exists
                     specCases = pnhMatchData[phSpecCaseIdx]; // pulls the speccases field from the PNH line
                     if (!isNullOrWhitespace(specCases)) {
@@ -6520,16 +6543,18 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                             showDispNote = false;
                         }
 
-                        /* eslint-enable no-cond-assign */
-
                         // Prevent name change
                         if (specCase.match(/keepName/g) !== null) {
                             updatePNHName = false;
                         }
 
-                        Flag.AddRecommendedPhone.eval(venue, pnhMatchData[phSpecCaseIdx], outputPhoneFormat, wl);
+                        if (match = specCase.match(/phone<>(.*?)<>/)) {
+                            recommendedPhone = normalizePhone(match[0], outputPhoneFormat);
+                        }
+                        /* eslint-enable no-cond-assign */
                     }
                 }
+                Flag.AddRecommendedPhone.eval(venue, newPhone, recommendedPhone, outputPhoneFormat, wl);
 
                 // If it's a place that also sells fuel, enable the button
                 Flag.SubFuel.eval(pnhMatchData, phSpecCaseIdx, newName, wl);
@@ -6551,11 +6576,11 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                     }
                 }
 
+                Flag.CatHotel.eval(priPNHPlaceCat, newName, newNameSuffix, pnhMatchData, phNameIdx);
                 // name parsing with category exceptions
                 if (['HOTEL'].includes(priPNHPlaceCat)) {
                     const nameToCheck = newName + (newNameSuffix || '');
                     if (nameToCheck.toUpperCase() === pnhMatchData[phNameIdx].toUpperCase()) { // If no localization
-                        new Flag.CatHotel(pnhMatchData[phNameIdx]);
                         newName = pnhMatchData[phNameIdx];
                     } else {
                         // Replace PNH part of name with PNH name
@@ -6589,7 +6614,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                     if (!_servicesBanner.add247.checked) {
                         _servicesBanner.add247.action();
                     }
-                } else if (newCategories.includes('BANK_FINANCIAL') && !pnhMatchData[phSpecCaseIdx].includes('notABank')) {
+                } else if (priPNHPlaceCat === 'BANK_FINANCIAL' && !pnhMatchData[phSpecCaseIdx].includes('notABank')) {
                     // PNH Bank treatment
                     _ixBank = venue.attributes.categories.indexOf('BANK_FINANCIAL');
                     _ixATM = venue.attributes.categories.indexOf('ATM');
@@ -6597,7 +6622,6 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                     // if the name contains ATM in it
                     if (/\batm\b/ig.test(newName)) {
                         if (_ixOffices === 0) {
-                            new Flag.BankType1();
                             new Flag.BankBranch(venue);
                             new Flag.StandaloneATM(venue);
                             new Flag.BankCorporate(venue);
@@ -6721,7 +6745,6 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                 // if the name contains ATM in it
                 if (newName.match(/\batm\b/ig) !== null) {
                     if (_ixOffices === 0) {
-                        new Flag.BankType1();
                         new Flag.BankBranch(venue);
                         new Flag.StandaloneATM(venue);
                         new Flag.BankCorporate(venue);
@@ -6750,6 +6773,8 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                     // Net result: If the place has Bank category first, then it will be green
                 } // END generic bank treatment
             } // END PNH match/no-match updates
+
+            Flag.BankType1.eval(newCategories, newName, pnhNameRegMatch, pnhMatchData, phSpecCaseIdx, priPNHPlaceCat);
 
             // Category/Name-based Services, added to any existing services:
             const catData = _PNH_DATA[countryCode].categories;
@@ -8025,7 +8050,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
 
     // Catch PLs and reloads that have a place selected already and limit attempts to about 10 seconds
     function updateWmephPanel(clearBanner = false) {
-        logDev('updateWmephPanel');
+        logDev(`updateWmephPanel: clearBanner=${clearBanner}`);
 
         const venue = getSelectedVenue();
 
@@ -8061,7 +8086,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                 title: `Run WMEPH${devVersSuffix} on Place`,
                 type: 'button',
                 value: `Run WMEPH${devVersSuffix}`
-            }).click(harmonizePlace);
+            }).click(() => { harmonizePlace(); });
             $websiteButton = $('<input>', {
                 class: 'btn btn-success btn-xs wmeph-fat-btn',
                 id: 'WMEPHurl',
@@ -8117,50 +8142,6 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
             destroyDupeLabels();
         }
     }
-
-    // Find field divs
-    // function getPanelFields() {
-    //     let panelFieldsList = $('.form-control');
-    //     for (let pfix = 0; pfix < panelFieldsList.length; pfix++) {
-    //         const pfa = panelFieldsList[pfix].name;
-    //         if (pfa === 'name') {
-    //             _PANEL_FIELDS.name = pfix;
-    //         }
-    //         if (pfa === 'lockRank') {
-    //             _PANEL_FIELDS.lockRank = pfix;
-    //         }
-    //         if (pfa === 'description') {
-    //             _PANEL_FIELDS.description = pfix;
-    //         }
-    //         if (pfa === 'url') {
-    //             _PANEL_FIELDS.url = pfix;
-    //         }
-    //         if (pfa === 'phone') {
-    //             _PANEL_FIELDS.phone = pfix;
-    //         }
-    //         if (pfa === 'brand') {
-    //             _PANEL_FIELDS.brand = pfix;
-    //         }
-    //     }
-    //     const placeNavTabs = $('.nav');
-    //     for (let pfix = 0; pfix < placeNavTabs.length; pfix++) {
-    //         const pfa = placeNavTabs[pfix].innerHTML;
-    //         if (pfa.includes('venue-edit')) {
-    //             panelFieldsList = placeNavTabs[pfix].children;
-    //             _PANEL_FIELDS.navTabsIX = pfix;
-    //             break;
-    //         }
-    //     }
-    //     for (let pfix = 0; pfix < panelFieldsList.length; pfix++) {
-    //         const pfa = panelFieldsList[pfix].innerHTML;
-    //         if (pfa.includes('venue-edit-general')) {
-    //             _PANEL_FIELDS.navTabGeneral = pfix;
-    //         }
-    //         if (pfa.includes('venue-edit-more')) {
-    //             _PANEL_FIELDS.navTabMore = pfix;
-    //         }
-    //     }
-    // }
 
     // Function to clone info from a place
     function clonePlace() {
