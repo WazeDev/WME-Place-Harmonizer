@@ -381,9 +381,6 @@
     let _stateDataTemp;
     let _areaCodeList = '800,822,833,844,855,866,877,888'; //  include toll free non-geographic area codes
 
-    let _ixBank;
-    let _ixATM;
-    let _ixOffices;
     let _layer;
 
     const _UPDATED_FIELDS = {
@@ -1796,7 +1793,7 @@
     }
 
     // Change place.name to title case
-    function toTitleCaseStrong(str) {
+    function titleCase(str) {
         if (!str) {
             return str;
         }
@@ -3073,6 +3070,33 @@
                 this.venue = venue;
             }
 
+            static #venueIsFlaggable(categories, name, nameSuffix, priPNHPlaceCat, pnhMatchData, phSpecCaseIdx) {
+                let flaggable = false;
+                if (!priPNHPlaceCat || (priPNHPlaceCat === 'BANK_FINANCIAL' && !pnhMatchData[phSpecCaseIdx].includes('notABank'))) {
+                    const ixBank = categories.indexOf('BANK_FINANCIAL');
+                    const ixATM = categories.indexOf('ATM');
+                    const ixOffices = categories.indexOf('OFFICES');
+
+                    if (/\batm\b/ig.test(name)) {
+                        flaggable = ixOffices === 0
+                            || (ixBank === -1 && ixATM === -1)
+                            || (ixATM === 0 && ixBank > 0)
+                            || (ixBank > -1);
+                    } else if (ixBank > -1 || ixATM > -1) {
+                        flaggable = ixOffices === 0
+                            || (ixATM === 0 && ixBank === -1)
+                            || (ixBank > 0 && ixATM > 0);
+                    } else if (priPNHPlaceCat) {
+                        flaggable = ixBank === -1 && !(/\bcorporate offices\b/i.test(nameSuffix) && ixOffices === 0);
+                    }
+                }
+                return flaggable;
+            }
+
+            static eval(venue, categories, name, nameSuffix, priPNHPlaceCat, pnhMatchData, phSpecCaseIdx) {
+                return this.#venueIsFlaggable(categories, name, nameSuffix, priPNHPlaceCat, pnhMatchData, phSpecCaseIdx) ? new this(venue) : null;
+            }
+
             action() {
                 const newAttributes = {};
 
@@ -3099,6 +3123,32 @@
                 this.venue = venue;
             }
 
+            static #venueIsFlaggable(categories, name, nameSuffix, priPNHPlaceCat, pnhMatchData, phSpecCaseIdx) {
+                let flaggable = false;
+                if (!priPNHPlaceCat || (priPNHPlaceCat === 'BANK_FINANCIAL' && !pnhMatchData[phSpecCaseIdx].includes('notABank'))) {
+                    const ixBank = categories.indexOf('BANK_FINANCIAL');
+                    const ixATM = categories.indexOf('ATM');
+                    const ixOffices = categories.indexOf('OFFICES');
+
+                    if (/\batm\b/ig.test(name)) {
+                        flaggable = ixOffices === 0
+                            || (ixBank === -1 && ixATM === -1)
+                            || (ixBank > -1);
+                    } else if (ixBank > -1 || ixATM > -1) {
+                        flaggable = ixOffices === 0
+                            || (ixATM === 0 && ixBank === -1)
+                            || (ixBank > 0 && ixATM > 0);
+                    } else {
+                        flaggable = priPNHPlaceCat && !(/\bcorporate offices\b/i.test(nameSuffix) && ixOffices === 0);
+                    }
+                }
+                return flaggable;
+            }
+
+            static eval(venue, categories, name, nameSuffix, priPNHPlaceCat, pnhMatchData, phSpecCaseIdx) {
+                return this.#venueIsFlaggable(categories, name, nameSuffix, priPNHPlaceCat, pnhMatchData, phSpecCaseIdx) ? new this(venue) : null;
+            }
+
             action() {
                 const newAttributes = {};
 
@@ -3120,6 +3170,21 @@
             constructor(venue) {
                 super(true, _SEVERITY.BLUE, 'Or is this the bank\'s corporate offices?', 'Yes', 'Is this the bank\'s corporate offices?');
                 this.venue = venue;
+            }
+
+            static #venueIsFlaggable(categories, name, nameSuffix, priPNHPlaceCat, pnhMatchData, phSpecCaseIdx) {
+                let flaggable = false;
+                if (!priPNHPlaceCat) {
+                    flaggable = (/\batm\b/ig.test(name) && categories.indexOf('OFFICES') === 0);
+                } else if (priPNHPlaceCat === 'BANK_FINANCIAL' && !pnhMatchData[phSpecCaseIdx].includes('notABank')) {
+                    flaggable = !containsAny(categories, ['BANK_FINANCIAL', 'ATM'])
+                        && !/\bcorporate offices\b/i.test(nameSuffix);
+                }
+                return flaggable;
+            }
+
+            static eval(venue, categories, name, nameSuffix, priPNHPlaceCat, pnhMatchData, phSpecCaseIdx) {
+                return this.#venueIsFlaggable(categories, name, nameSuffix, priPNHPlaceCat, pnhMatchData, phSpecCaseIdx) ? new this(venue) : null;
             }
 
             action() {
@@ -5062,6 +5127,24 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                 this.venue = venue;
             }
 
+            static #venueIsFlaggable(categories, nameSuffix, priPNHPlaceCat, pnhMatchData, phSpecCaseIdx) {
+                let flaggable = false;
+                if (!categories.includes('ATM') && categories.includes('BANK_FINANCIAL')) {
+                    if (priPNHPlaceCat === 'BANK_FINANCIAL' && !pnhMatchData[phSpecCaseIdx].includes('notABank')) {
+                        if (!(categories.indexOf('OFFICES') === 0)) {
+                            flaggable = true;
+                        }
+                    } else {
+                        flaggable = true;
+                    }
+                }
+                return flaggable;
+            }
+
+            static eval(venue, categories, nameSuffix, priPNHPlaceCat, pnhMatchData, phSpecCaseIdx) {
+                return this.#venueIsFlaggable(categories, nameSuffix, priPNHPlaceCat, pnhMatchData, phSpecCaseIdx) ? new this(venue) : null;
+            }
+
             action() {
                 const categories = insertAtIndex(this.venue.getCategories(), 'ATM', 1); // Insert ATM category in the second position
                 addUpdateAction(this.venue, { categories }, null, true);
@@ -5258,7 +5341,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
             #originalName;
 
             constructor(venue, name, nameSuffix) {
-                const titleCaseName = toTitleCaseStrong(name);
+                const titleCaseName = titleCase(name);
                 super(true, _SEVERITY.GREEN, '', 'Force Title Case?', `Force title case to: ${titleCaseName}`);
                 this.#originalName = name + (nameSuffix || '');
                 this.suffixMessage = `<span style="margin-left: 4px;font-size: 14px">&bull; ${titleCaseName}${nameSuffix || ''}</span>`;
@@ -5266,19 +5349,19 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                 this.venue = venue;
             }
 
-            static #venueIsFlaggable(name) {
-                return name !== toTitleCaseStrong(name);
+            static #venueIsFlaggable(name, pnhNameRegMatch) {
+                return !pnhNameRegMatch && name !== titleCase(name);
             }
 
-            static eval(venue, name, nameSuffix) {
-                return this.#venueIsFlaggable(name) ? new this(venue, name, nameSuffix) : null;
+            static eval(venue, name, nameSuffix, pnhNameRegMatch) {
+                return this.#venueIsFlaggable(name, pnhNameRegMatch) ? new this(venue, name, nameSuffix) : null;
             }
 
             action() {
                 let name = this.venue.getName();
                 if (name === this.#originalName || this.#confirmChange) {
                     const parts = getNameParts(this.#originalName);
-                    name = toTitleCaseStrong(parts.base);
+                    name = titleCase(parts.base);
                     if (parts.base !== name) {
                         addUpdateAction(this.venue, { name: name + (parts.suffix || '') });
                     }
@@ -6615,47 +6698,11 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                         _servicesBanner.add247.action();
                     }
                 } else if (priPNHPlaceCat === 'BANK_FINANCIAL' && !pnhMatchData[phSpecCaseIdx].includes('notABank')) {
-                    // PNH Bank treatment
-                    _ixBank = venue.attributes.categories.indexOf('BANK_FINANCIAL');
-                    _ixATM = venue.attributes.categories.indexOf('ATM');
-                    _ixOffices = venue.attributes.categories.indexOf('OFFICES');
-                    // if the name contains ATM in it
                     if (/\batm\b/ig.test(newName)) {
-                        if (_ixOffices === 0) {
-                            new Flag.BankBranch(venue);
-                            new Flag.StandaloneATM(venue);
-                            new Flag.BankCorporate(venue);
-                        } else if (_ixBank === -1 && _ixATM === -1) {
-                            new Flag.BankBranch(venue);
-                            new Flag.StandaloneATM(venue);
-                        } else if (_ixATM === 0 && _ixBank > 0) {
-                            new Flag.BankBranch(venue);
-                        } else if (_ixBank > -1) {
-                            new Flag.BankBranch(venue);
-                            new Flag.StandaloneATM(venue);
-                        }
                         newName = `${pnhMatchData[phNameIdx]} ATM`;
-                        newCategories = insertAtIndex(newCategories, 'ATM', 0);
-                        // Net result: If the place has ATM cat only and ATM in the name, then it will be green and renamed Bank Name ATM
-                    } else if (_ixBank > -1 || _ixATM > -1) { // if no ATM in name but with a banking category:
-                        if (_ixOffices === 0) {
-                            new Flag.BankBranch(venue);
-                        } else if (_ixBank > -1 && _ixATM === -1) {
-                            new Flag.AddATM(venue);
-                        } else if (_ixATM === 0 && _ixBank === -1) {
-                            new Flag.BankBranch(venue);
-                            new Flag.StandaloneATM(venue);
-                        } else if (_ixBank > 0 && _ixATM > 0) {
-                            new Flag.BankBranch(venue);
-                            new Flag.StandaloneATM(venue);
-                        }
+                    } else {
                         newName = pnhMatchData[phNameIdx];
-                        // Net result: If the place has Bank category first, then it will be green with PNH name replaced
-                    } else { // for PNH match with neither bank type category, make it a bank
-                        newCategories = insertAtIndex(newCategories, 'BANK_FINANCIAL', 1);
-                        new Flag.StandaloneATM(venue);
-                        new Flag.BankCorporate(venue);
-                    }// END PNH bank treatment
+                    }
                 } else if (['GAS_STATION'].includes(priPNHPlaceCat)) { // for PNH gas stations, don't replace existing sub-categories
                     if (altCategories?.length) { // if PNH alts exist
                         insertAtIndex(newCategories, altCategories, 1); //  then insert the alts into the existing category array after the GS category
@@ -6733,48 +6780,17 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                     pnhLockLevel = 4;
                 }
             } else { // if no PNH match found
-                // Strong title case option for non-PNH places
-                Flag.TitleCaseName.eval(venue, newName, newNameSuffix);
-
                 newUrl = normalizeURL(newUrl);
-
-                // Generic Bank treatment
-                _ixBank = venue.attributes.categories.indexOf('BANK_FINANCIAL');
-                _ixATM = venue.attributes.categories.indexOf('ATM');
-                _ixOffices = venue.attributes.categories.indexOf('OFFICES');
-                // if the name contains ATM in it
-                if (newName.match(/\batm\b/ig) !== null) {
-                    if (_ixOffices === 0) {
-                        new Flag.BankBranch(venue);
-                        new Flag.StandaloneATM(venue);
-                        new Flag.BankCorporate(venue);
-                    } else if (_ixBank === -1 && _ixATM === -1) {
-                        new Flag.BankBranch(venue);
-                        new Flag.StandaloneATM(venue);
-                    } else if (_ixATM === 0 && _ixBank > 0) {
-                        new Flag.BankBranch(venue);
-                    } else if (_ixBank > -1) {
-                        new Flag.BankBranch(venue);
-                        new Flag.StandaloneATM(venue);
-                    }
-                    // Net result: If the place has ATM cat only and ATM in the name, then it will be green
-                } else if (_ixBank > -1 || _ixATM > -1) { // if no ATM in name:
-                    if (_ixOffices === 0) {
-                        new Flag.BankBranch(venue);
-                    } else if (_ixBank > -1 && _ixATM === -1) {
-                        new Flag.AddATM(venue);
-                    } else if (_ixATM === 0 && _ixBank === -1) {
-                        new Flag.BankBranch(venue);
-                        new Flag.StandaloneATM(venue);
-                    } else if (_ixBank > 0 && _ixATM > 0) {
-                        new Flag.BankBranch(venue);
-                        new Flag.StandaloneATM(venue);
-                    }
-                    // Net result: If the place has Bank category first, then it will be green
-                } // END generic bank treatment
             } // END PNH match/no-match updates
 
+            // Strong title case option for non-PNH places
+            Flag.TitleCaseName.eval(venue, newName, newNameSuffix, pnhNameRegMatch);
+
             Flag.BankType1.eval(newCategories, newName, pnhNameRegMatch, pnhMatchData, phSpecCaseIdx, priPNHPlaceCat);
+            Flag.BankBranch.eval(venue, newCategories, newName, newNameSuffix, priPNHPlaceCat, pnhMatchData, phSpecCaseIdx);
+            Flag.StandaloneATM.eval(venue, newCategories, newName, newNameSuffix, priPNHPlaceCat, pnhMatchData, phSpecCaseIdx);
+            Flag.BankCorporate.eval(venue, newCategories, newName, newNameSuffix, priPNHPlaceCat, pnhMatchData, phSpecCaseIdx);
+            Flag.AddATM.eval(venue, newCategories, newNameSuffix, priPNHPlaceCat, pnhMatchData, phSpecCaseIdx);
 
             // Category/Name-based Services, added to any existing services:
             const catData = _PNH_DATA[countryCode].categories;
@@ -8829,10 +8845,17 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
     }
 
     // function that checks if any element of target are in source
+    /**
+     * Checks if any element of target are in source
+     *
+     * @param {Array|string} source Source array.
+     * @param {Array|string} target Array of items to check against source.
+     * @return {boolean} True if any item in target exists in source.
+     */
     function containsAny(source, target) {
         if (typeof source === 'string') { source = [source]; } // if a single string, convert to an array
         if (typeof target === 'string') { target = [target]; } // if a single string, convert to an array
-        return source.some(tt => target.includes(tt));
+        return source.some(item => target.includes(item));
     }
 
     /**
