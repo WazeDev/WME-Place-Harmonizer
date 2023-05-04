@@ -2632,24 +2632,19 @@
             }
         },
         IsThisAPilotTravelCenter: class extends ActionFlag {
-            constructor(venue, newName) {
+            constructor(venue) {
                 super(true, _SEVERITY.GREEN, 'Is this a "Travel Center"?', 'Yes', '');
                 this.venue = venue;
-                this.newName = newName;
             }
 
-            static eval(venue, highlightOnly, state2L, newName, actions) {
-                let result = null;
-                if (!highlightOnly && state2L === 'TN') {
-                    if (newName.toLowerCase().trim() === 'pilot') {
-                        newName = 'Pilot Food Mart';
-                        addUpdateAction(venue, { name: newName }, actions);
-                    }
-                    if (newName.toLowerCase().trim() === 'pilot food mart') {
-                        result = new this(venue, newName);
-                    }
-                }
-                return result;
+            static #venueIsFlaggable(highlightOnly, state2L, name) {
+                return !highlightOnly
+                    && state2L === 'TN'
+                    && name.toLowerCase().trim() === 'pilot food mart';
+            }
+
+            static eval(venue, highlightOnly, state2L, name) {
+                return this.#venueIsFlaggable(highlightOnly, state2L, name) ? new this(venue) : null;
             }
 
             action() {
@@ -2771,6 +2766,14 @@
                     'pointNotArea'
                 );
                 this.venue = venue;
+            }
+
+            static #venueIsFlaggable(venue) {
+                return venue.isResidential() && !venue.isPoint();
+            }
+
+            static eval(venue) {
+                return this.#venueIsFlaggable(venue) ? new this(venue) : null;
             }
 
             action() {
@@ -6330,14 +6333,16 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                     () => { }
                 );
             }
-            return 3;
+            return _SEVERITY.RED;
         }
 
         // Gas station treatment (applies to all including PNH)
 
-        const res = Flag.IsThisAPilotTravelCenter.eval(venue, highlightOnly, state2L, newName, actions);
-        if (res) newName = result.newName;
-
+        if (!highlightOnly && state2L === 'TN' && newName.toLowerCase().trim() === 'pilot') {
+            newName = 'Pilot Food Mart';
+            addUpdateAction(venue, { name: newName }, actions);
+        }
+        Flag.IsThisAPilotTravelCenter.eval(venue, highlightOnly, state2L, newName);
         Flag.GasMkPrim.eval(venue, newCategories);
         Flag.AddConvStore.eval(venue, newCategories);
 
@@ -6345,6 +6350,8 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
         Flag.IndianaLiquorStoreHours.eval(venue, newName, highlightOnly, wl);
 
         const isLocked = venue.attributes.lockRank >= (pnhLockLevel > -1 ? pnhLockLevel : defaultLockLevel);
+
+        Flag.PointNotArea.eval(venue);
 
         // Set up a variable (newBrand) to contain the brand. When harmonizing, it may be forced to a new value.
         // Other brand flags should use it since it won't be updated on the actual venue until later.
@@ -6384,10 +6391,6 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                     actions.push(new UpdateObject(venue, { services: [] }));
                     // no field HL
                 }
-            }
-            // NOTE: do not use is2D() function. It doesn't seem to be 100% reliable.
-            if (!venue.isPoint()) {
-                new Flag.PointNotArea(venue);
             }
         } else if (venue.isParkingLot() || (newName && newName.trim().length)) { // for non-residential places
             // Phone formatting
