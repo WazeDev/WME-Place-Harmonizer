@@ -331,7 +331,6 @@
         // TODO: There is also 'lock' and 'lock1' severity. Add those here? Also investigate 'adLock' severity (is it still useful in WME???).
     };
     let _catTransWaze2Lang; // pulls the category translations
-    let _tempPNHURL = '';
     const EV_PAYMENT_METHOD = {
         APP: 'APP',
         CREDIT: 'CREDIT',
@@ -367,7 +366,6 @@
     const CHAIN_APPROVAL_PRIMARY_CATS_TO_IGNORE = ['BRIDGE', 'FOREST_GROVE', 'DAM', 'TUNNEL', 'CEMETERY',
         'ISLAND', 'SEA_LAKE_POOL', 'RIVER_STREAM', 'CANAL', 'JUNCTION_INTERCHANGE', 'SCENIC_LOOKOUT_VIEWPOINT'];
     const BAD_URL = 'badURL';
-    let _updateURL;
 
     // Split out state-based data
     let _psStateIx;
@@ -2802,6 +2800,14 @@
                 this.venue = venue;
             }
 
+            static #venueIsFlaggable(venue, hasRestAreaCategory) {
+                return hasRestAreaCategory && venue.isPoint();
+            }
+
+            static eval(venue, hasRestAreaCategory) {
+                return this.#venueIsFlaggable(venue, hasRestAreaCategory) ? new this(venue) : null;
+            }
+
             action() {
                 $('wz-checkable-chip.geometry-type-control-area').click();
                 // updateFeatureGeometry(venue, venue.getPolygonGeometry());
@@ -3429,7 +3435,7 @@
             }
         },
         UrlMismatch: class extends WLActionFlag {
-            constructor(venue, wl) {
+            constructor(venue, pnhUrl, wl) {
                 super(
                     true,
                     wl.longURL ? _SEVERITY.GREEN : _SEVERITY.BLUE,
@@ -3441,32 +3447,25 @@
                     'longURL'
                 );
                 this.venue = venue;
+                this.pnhUrl = pnhUrl;
             }
 
-            static #venueIsFlaggable(venue, newUrl, pnhNameRegMatch) {
-                let oldUrl = venue.attributes.url;
-                if (pnhNameRegMatch && !isNullOrWhitespace(newUrl) && !isNullOrWhitespace(oldUrl) && newUrl !== oldUrl && newUrl !== BAD_URL) {
-                    // for cases where there is an existing URL in the WME place, and there is a PNH url on queue:
-                    newUrl = normalizeURL(newUrl).replace(/^www\.(.*)$/i, '$1');
-                    oldUrl = normalizeURL(oldUrl).replace(/^www\.(.*)$/i, '$1');
-                    return newUrl !== oldUrl;
-                }
-                return false;
+            static #venueIsFlaggable(venue, url, pnhUrl) {
+                // for cases where there is an existing URL in the WME place, and there is a PNH url on queue:
+                return !isNullOrWhitespace(url)
+                    && !isNullOrWhitespace(pnhUrl)
+                    && url !== pnhUrl
+                    && pnhUrl !== BAD_URL;
             }
 
-            static eval(venue, newUrl, pnhNameRegMatch, wl) {
-                return this.#venueIsFlaggable(venue, newUrl, pnhNameRegMatch) ? new this(venue, wl) : null;
+            static eval(venue, url, pnhUrl, wl) {
+                url = normalizeURL(url);
+                return this.#venueIsFlaggable(venue, url, pnhUrl) ? new this(venue, pnhUrl, wl) : null;
             }
 
             action() {
-                if (!isNullOrWhitespace(_tempPNHURL)) {
-                    addUpdateAction(this.venue, { url: _tempPNHURL }, null, true);
-                    _updateURL = true;
-                    // // if the category doesn't translate, then pop an alert that will make a forum post to the thread
-                    // reportError({
-                    //     subject: 'WMEPH URL comparison Error report',
-                    //     message: `Error report: URL comparison failed for "${venue.attributes.name}"\nPermalink: ${this.placePL}`
-                    // });
+                if (!isNullOrWhitespace(this.pnhUrl)) {
+                    addUpdateAction(this.venue, { url: this.pnhUrl }, null, true);
                 } else {
                     WazeWrap.Alerts.confirm(
                         _SCRIPT_NAME,
@@ -4629,10 +4628,11 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
             }
 
             static #initializeCategoriesToCheck(catData) {
-                const catParentIdx = catData[0].split('|').indexOf('pc_catparent');
-                const catNameIdx = catData[0].split('|').indexOf('pc_wmecat');
-                const parentCats = ['SHOPPING_AND_SERVICES', 'FOOD_AND_DRINK', 'CULTURE_AND_ENTERTAINEMENT'];
                 if (!this.#categoriesToCheck) {
+                    const headers = catData[0].split('|');
+                    const catParentIdx = headers.indexOf('pc_catparent');
+                    const catNameIdx = headers.indexOf('pc_wmecat');
+                    const parentCats = ['SHOPPING_AND_SERVICES', 'FOOD_AND_DRINK', 'CULTURE_AND_ENTERTAINEMENT'];
                     this.#categoriesToCheck = catData
                         .map(catRowString => catRowString.split('|'))
                         .filter(catRow => parentCats.includes(catRow[catParentIdx]))
@@ -5735,7 +5735,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
 
         remove(flagClass) {
             const idx = this.#flags.indexOf(flagClass);
-            this.#flags.splice(idx, 1);
+            if (idx > -1) this.#flags.splice(idx, 1);
         }
 
         getOrderedFlags() {
@@ -6340,6 +6340,14 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
         let specCases;
         let outputPhoneFormat;
         let phDisplayNoteIdx;
+        let priPNHPlaceCat;
+        let hoursOverlap = false;
+        let pnhUrl;
+        let localURLcheck;
+        let catData;
+        let catNames;
+        let catDataHeaders;
+        let catDataKeys;
 
         // Set up a variable (newBrand) to contain the brand. When harmonizing, it may be forced to a new value.
         // Other brand flags should use it since it won't be updated on the actual venue until later.
@@ -6381,6 +6389,11 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                 }
             }
         } else if (venue.isParkingLot() || (newName?.trim().length)) { // for non-residential places
+            catData = _PNH_DATA[countryCode].categories;
+            catNames = _PNH_DATA[countryCode].categoryNames;
+            catDataHeaders = catData[0].split('|');
+            catDataKeys = catData[1].split('|');
+
             // Phone formatting
             outputPhoneFormat = '({0}) {1}-{2}';
             if (containsAny(['CA', 'CO'], [region, state2L]) && (/^\d{3}-\d{3}-\d{4}$/.test(venue.attributes.phone))) {
@@ -6408,7 +6421,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
             }
 
             let pnhDataHeaders = [];
-            let priPNHPlaceCat;
+
             pnhNameRegMatch = pnhMatchData[0] !== 'NoMatch'
                 && pnhMatchData[0] !== 'ApprovalNeeded'
                 && pnhMatchData[0] !== 'Highlight';
@@ -6477,8 +6490,6 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                 }
 
                 // Check special cases
-                let localURLcheck = '';
-
                 if (phSpecCaseIdx > -1) { // If the special cases column exists
                     specCases = pnhMatchData[phSpecCaseIdx]; // pulls the speccases field from the PNH line
                     if (!isNullOrWhitespace(specCases)) {
@@ -6651,11 +6662,8 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
 
                 // Parse URL data
                 if (!(localURLcheck && newUrl && (new RegExp(localURLcheck, 'i')).test(newUrl))) {
-                    newUrl = pnhMatchData[phUrlIdx];
+                    pnhUrl = normalizeURL(pnhMatchData[phUrlIdx]);
                 }
-                newUrl = normalizeURL(newUrl, false);
-
-                Flag.LocalURL.eval(newUrl, localURLcheck);
 
                 // Parse PNH Aliases
                 let [newAliasesTemp] = pnhMatchData[phAliasesIdx].match(/([^(]*)/i);
@@ -6669,10 +6677,10 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                 }
 
                 // Remove unnecessary parent categories
-                const catData = _PNH_DATA.USA.categories.map(cat => cat.split('|'));
-                const catParentIdx = catData[0].indexOf('pc_catparent');
-                const catNameIdx = catData[0].indexOf('pc_wmecat');
-                const parentCats = _.uniq(newCategories.map(catName => catData.find(cat => cat[catNameIdx] === catName)[catParentIdx]))
+                const catData1 = _PNH_DATA.USA.categories.map(cat => cat.split('|'));
+                const catParentIdx = catData1[0].indexOf('pc_catparent');
+                const catNameIdx = catData1[0].indexOf('pc_wmecat');
+                const parentCats = _.uniq(newCategories.map(catName => catData1.find(cat => cat[catNameIdx] === catName)[catParentIdx]))
                     .filter(parent => parent.trim(' ').length > 0);
                 newCategories = newCategories.filter(cat => !parentCats.includes(cat));
 
@@ -6706,75 +6714,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                 if (specCases.includes('lockAt5')) {
                     pnhLockLevel = 4;
                 }
-            } else { // if no PNH match found
-                newUrl = normalizeURL(newUrl);
             } // END PNH match/no-match updates
-
-            // Strong title case option for non-PNH places
-            Flag.TitleCaseName.eval(venue, newName, newNameSuffix, pnhNameRegMatch);
-
-            Flag.BankType1.eval(newCategories, newName, pnhNameRegMatch, pnhMatchData, phSpecCaseIdx, priPNHPlaceCat);
-            Flag.BankBranch.eval(venue, newCategories, newName, newNameSuffix, priPNHPlaceCat, pnhMatchData, phSpecCaseIdx);
-            Flag.StandaloneATM.eval(venue, newCategories, newName, newNameSuffix, priPNHPlaceCat, pnhMatchData, phSpecCaseIdx);
-            Flag.BankCorporate.eval(venue, newCategories, newName, newNameSuffix, priPNHPlaceCat, pnhMatchData, phSpecCaseIdx);
-            Flag.AddATM.eval(venue, newCategories, newNameSuffix, priPNHPlaceCat, pnhMatchData, phSpecCaseIdx);
-
-            // Category/Name-based Services, added to any existing services:
-            const catData = _PNH_DATA[countryCode].categories;
-            const catNames = _PNH_DATA[countryCode].categoryNames;
-            const catDataHeaders = catData[0].split('|');
-            const catDataKeys = catData[1].split('|');
-            let catDataTemp;
-
-            if (!highlightOnly) {
-                // Update name:
-                if ((newName + (newNameSuffix || '')) !== venue.attributes.name) {
-                    logDev('Name updated');
-                    actions.push(new UpdateObject(venue, { name: newName + (newNameSuffix || '') }));
-                    // actions.push(new UpdateObject(venue, { name: newName }));
-                    _UPDATED_FIELDS.name.updated = true;
-                }
-
-                // Update aliases
-                newAliases = removeSFAliases(newName, newAliases);
-                if (newAliases.some(alias => !venue.attributes.aliases.includes(alias)) || newAliases.length !== venue.attributes.aliases.length) {
-                    logDev('Alt Names updated');
-                    actions.push(new UpdateObject(venue, { aliases: newAliases }));
-                    _UPDATED_FIELDS.aliases.updated = true;
-                }
-
-                // PNH specific Services:
-
-                const servHeaders = [];
-                const servKeys = [];
-                for (let jjj = 0; jjj < catDataHeaders.length; jjj++) {
-                    const servHeaderCheck = catDataHeaders[jjj].match(/^ps_/i); // if it's a service header
-                    if (servHeaderCheck) {
-                        servHeaders.push(jjj);
-                        servKeys.push(catDataKeys[jjj]);
-                    }
-                }
-
-                if (newCategories.length > 0) {
-                    for (let iii = 0; iii < catNames.length; iii++) {
-                        if (newCategories.includes(catNames[iii])) {
-                            catDataTemp = catData[iii].split('|');
-                            for (let psix = 0; psix < servHeaders.length; psix++) {
-                                if (!_servicesBanner[servKeys[psix]].pnhOverride) {
-                                    if (catDataTemp[servHeaders[psix]] !== '') {
-                                        // This section of code previously checked for values of "1", "2", and state/region codes.
-                                        // A value of "2" or a state/region code would auto-add the service.  However, it was
-                                        // felt that this was a problem since it is difficult to prove that every place in a
-                                        // category would *always* offer a specific service.  So now, any value entered in the
-                                        // spreadsheet cell will only display the service button, not turn it on.
-                                        _servicesBanner[servKeys[psix]].active = true;
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-            }
 
             const isPoint = venue.isPoint();
             // NOTE: do not use is2D() function. It doesn't seem to be 100% reliable.
@@ -6842,6 +6782,59 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                 defaultLockLevel = highestCategoryLock;
             }
 
+            // Category/Name-based Services, added to any existing services:
+            let catDataTemp;
+
+            if (!highlightOnly) {
+                // Update name:
+                if ((newName + (newNameSuffix || '')) !== venue.attributes.name) {
+                    logDev('Name updated');
+                    actions.push(new UpdateObject(venue, { name: newName + (newNameSuffix || '') }));
+                    // actions.push(new UpdateObject(venue, { name: newName }));
+                    _UPDATED_FIELDS.name.updated = true;
+                }
+
+                // Update aliases
+                newAliases = removeSFAliases(newName, newAliases);
+                if (newAliases.some(alias => !venue.attributes.aliases.includes(alias)) || newAliases.length !== venue.attributes.aliases.length) {
+                    logDev('Alt Names updated');
+                    actions.push(new UpdateObject(venue, { aliases: newAliases }));
+                    _UPDATED_FIELDS.aliases.updated = true;
+                }
+
+                // PNH specific Services:
+
+                const servHeaders = [];
+                const servKeys = [];
+                for (let jjj = 0; jjj < catDataHeaders.length; jjj++) {
+                    const servHeaderCheck = catDataHeaders[jjj].match(/^ps_/i); // if it's a service header
+                    if (servHeaderCheck) {
+                        servHeaders.push(jjj);
+                        servKeys.push(catDataKeys[jjj]);
+                    }
+                }
+
+                if (newCategories.length > 0) {
+                    for (let iii = 0; iii < catNames.length; iii++) {
+                        if (newCategories.includes(catNames[iii])) {
+                            catDataTemp = catData[iii].split('|');
+                            for (let psix = 0; psix < servHeaders.length; psix++) {
+                                if (!_servicesBanner[servKeys[psix]].pnhOverride) {
+                                    if (catDataTemp[servHeaders[psix]] !== '') {
+                                        // This section of code previously checked for values of "1", "2", and state/region codes.
+                                        // A value of "2" or a state/region code would auto-add the service.  However, it was
+                                        // felt that this was a problem since it is difficult to prove that every place in a
+                                        // category would *always* offer a specific service.  So now, any value entered in the
+                                        // spreadsheet cell will only display the service button, not turn it on.
+                                        _servicesBanner[servKeys[psix]].active = true;
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
             let areaNotPointLowFlag;
             if (isPoint) {
                 if (maxPointSeverity === _SEVERITY.RED) {
@@ -6900,25 +6893,9 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                 }
             }
 
-            Flag.NoHours.eval(venue, newCategories, wl, highlightOnly, actions);
-            Flag.Mismatch247.eval(venue);
+            hoursOverlap = venueHasOverlappingHours(venue);
 
-            const hoursOverlap = venueHasOverlappingHours(venue);
-            if (!hoursOverlap) {
-                const tempHours = venue.attributes.openingHours.slice();
-                for (let ohix = 0; ohix < venue.attributes.openingHours.length; ohix++) {
-                    if (tempHours[ohix].days.length === 2 && tempHours[ohix].days[0] === 1 && tempHours[ohix].days[1] === 0) {
-                        // separate hours
-                        logDev('Correcting M-S entry...');
-                        tempHours.push(new OpeningHour({ days: [0], fromHour: tempHours[ohix].fromHour, toHour: tempHours[ohix].toHour }));
-                        tempHours[ohix].days = [1];
-                        addUpdateAction(venue, { openingHours: tempHours }, actions);
-                    }
-                }
-            }
-
-            Flag.HoursOverlap.eval(hoursOverlap);
-            Flag.OldHours.eval(venue, catData, highlightOnly);
+            const isUspsPostOffice = countryCode === 'USA' && !newCategories.includes('PARKING_LOT') && newCategories.includes('POST_OFFICE');
 
             if (!highlightOnly) {
                 // Highlight 24/7 button if hours are set that way, and add button for all places
@@ -6926,25 +6903,33 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                     _servicesBanner.add247.checked = true;
                 }
                 _servicesBanner.add247.active = true;
-            }
 
-            // URL updating
-            _updateURL = true;
-            if (Flag.UrlMismatch.eval(venue, newUrl, pnhNameRegMatch, wl)) {
-                const venueURL = normalizeURL(venue.attributes.url);
-                if (!highlightOnly && _updateURL && venueURL !== venue.attributes.url) { // Update the URL
-                    logDev('URL formatted');
-                    actions.push(new UpdateObject(venue, { url: venueURL }));
-                    _UPDATED_FIELDS.url.updated = true;
+                if (!hoursOverlap) {
+                    const tempHours = venue.attributes.openingHours.slice();
+                    for (let ohix = 0; ohix < venue.attributes.openingHours.length; ohix++) {
+                        if (tempHours[ohix].days.length === 2 && tempHours[ohix].days[0] === 1 && tempHours[ohix].days[1] === 0) {
+                            // separate hours
+                            logDev('Correcting M-S entry...');
+                            tempHours.push(new OpeningHour({ days: [0], fromHour: tempHours[ohix].fromHour, toHour: tempHours[ohix].toHour }));
+                            tempHours[ohix].days = [1];
+                            addUpdateAction(venue, { openingHours: tempHours }, actions);
+                        }
+                    }
                 }
-                _updateURL = false;
-                _tempPNHURL = newUrl;
-            }
-            if (!highlightOnly && _updateURL && newUrl !== venue.attributes.url && !isNullOrWhitespace(newUrl) && newUrl !== BAD_URL) {
-                // Update the URL
-                logDev('URL updated');
-                actions.push(new UpdateObject(venue, { url: newUrl }));
-                _UPDATED_FIELDS.url.updated = true;
+
+                // URL updating
+                if (isUspsPostOffice && newUrl !== 'usps.com') {
+                    newUrl = 'usps.com';
+                    addUpdateAction(venue, { url: newUrl }, actions);
+                } else if (!pnhUrl && normalizeURL(newUrl) !== newUrl) {
+                    newUrl = normalizeURL(newUrl);
+                    logDev('URL formatted');
+                    addUpdateAction(venue, { url: newUrl }, actions);
+                } else if (pnhUrl && isNullOrWhitespace(newUrl)) {
+                    newUrl = pnhUrl;
+                    logDev('URL updated');
+                    addUpdateAction(venue, { url: newUrl }, actions);
+                }
             }
 
             let normalizedPhone;
@@ -6974,12 +6959,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
 
             // Post Office check
             Flag.IsThisAPostOffice.eval(venue, highlightOnly, countryCode, newCategories, newName);
-            const isUspsPostOffice = countryCode === 'USA' && !newCategories.includes('PARKING_LOT') && newCategories.includes('POST_OFFICE');
             if (isUspsPostOffice && !highlightOnly) {
-                if (venue.attributes.url !== 'usps.com') {
-                    newUrl = 'usps.com';
-                    addUpdateAction(venue, { url: newUrl }, actions);
-                }
                 const cleanNameParts = Flag.FormatUSPS.getCleanNameParts(newName, newNameSuffix);
                 const nameToCheck = cleanNameParts.join('');
                 if (Flag.FormatUSPS.isNameOk(nameToCheck, state2L, addr)) {
@@ -7011,35 +6991,6 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
         } // END if (!residential && has name)
 
         if (!venue.isResidential() && (venue.isParkingLot() || (newName?.trim().length))) {
-            Flag.ExtProviderMissing.eval(
-                venue,
-                isLocked,
-                newCategories,
-                _USER.rank,
-                $('#WMEPH-DisablePLAExtProviderCheck').prop('checked'),
-                actions
-            );
-            Flag.NewPlaceSubmit.eval(
-                venue,
-                newName,
-                newCategories,
-                newUrl,
-                highlightOnly,
-                pnhMatchData,
-                placePL,
-                gFormState,
-                region
-            );
-            Flag.ApprovalSubmit.eval(
-                venue,
-                newCategories,
-                highlightOnly,
-                pnhMatchData,
-                placePL,
-                gFormState,
-                region
-            );
-
             if (pnhNameRegMatch) {
                 Flag.LocalizedName.eval(newName, newNameSuffix, localizationRegEx, displayNote, wl);
                 Flag.AddAlias.eval(venue, optionalAlias, specCases, newAliases);
@@ -7050,7 +7001,28 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
 
                 // Display any notes for the specific place
                 Flag.SpecCaseMessage.eval(venue, pnhMatchData[phDisplayNoteIdx], showDispNote, specCases);
+
+                Flag.LocalURL.eval(newUrl, localURLcheck);
+                Flag.UrlMismatch.eval(venue, newUrl, pnhUrl, wl);
             }
+
+            Flag.ExtProviderMissing.eval(venue, isLocked, newCategories, _USER.rank, $('#WMEPH-DisablePLAExtProviderCheck').prop('checked'), actions);
+            Flag.NewPlaceSubmit.eval(venue, newName, newCategories, newUrl, highlightOnly, pnhMatchData, placePL, gFormState, region);
+            Flag.ApprovalSubmit.eval(venue, newCategories, highlightOnly, pnhMatchData, placePL, gFormState, region);
+
+            // Strong title case option for non-PNH places
+            Flag.TitleCaseName.eval(venue, newName, newNameSuffix, pnhNameRegMatch);
+
+            Flag.BankType1.eval(newCategories, newName, pnhNameRegMatch, pnhMatchData, phSpecCaseIdx, priPNHPlaceCat);
+            Flag.BankBranch.eval(venue, newCategories, newName, newNameSuffix, priPNHPlaceCat, pnhMatchData, phSpecCaseIdx);
+            Flag.StandaloneATM.eval(venue, newCategories, newName, newNameSuffix, priPNHPlaceCat, pnhMatchData, phSpecCaseIdx);
+            Flag.BankCorporate.eval(venue, newCategories, newName, newNameSuffix, priPNHPlaceCat, pnhMatchData, phSpecCaseIdx);
+            Flag.AddATM.eval(venue, newCategories, newNameSuffix, priPNHPlaceCat, pnhMatchData, phSpecCaseIdx);
+
+            Flag.NoHours.eval(venue, newCategories, wl, highlightOnly, actions);
+            Flag.Mismatch247.eval(venue);
+            Flag.HoursOverlap.eval(hoursOverlap);
+            Flag.OldHours.eval(venue, catData, highlightOnly); //fix this
         }
 
         Flag.PlaCostTypeMissing.eval(venue, highlightOnly);
@@ -7162,10 +7134,9 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
         Flag.RestAreaGas.eval(hasRestAreaCategory, newCategories);
         Flag.RestAreaName.eval(venue, hasRestAreaCategory, wl);
 
+        Flag.AreaNotPoint.eval(venue, hasRestAreaCategory);
+
         if (hasRestAreaCategory) {
-            if (venue.isPoint()) { // needs to be area
-                new Flag.AreaNotPoint(venue);
-            }
             // TODO: move this logic into the flag eval functions
             FlagBase.currentFlags.remove(Flag.PointNotArea);
             FlagBase.currentFlags.remove(Flag.UnmappedRegion);
