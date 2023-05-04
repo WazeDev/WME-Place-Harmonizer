@@ -6202,21 +6202,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
         // Check parking lot attributes.
         if (!highlightOnly && venue.isParkingLot()) _servicesBanner.addDisabilityParking.active = true;
 
-        Flag.PlaCostTypeMissing.eval(venue, highlightOnly);
-        Flag.PlaLotElevationMissing.eval(venue);
-        Flag.PlaSpaces.eval(venue, highlightOnly);
-        Flag.PlaLotTypeMissing.eval(venue, highlightOnly);
-        Flag.NoPlaStopPoint.eval(venue);
-        Flag.PlaStopPointUnmoved.eval(venue);
-        Flag.PlaCanExitWhileClosed.eval(venue, highlightOnly);
-        Flag.PlaPaymentTypeMissing.eval(venue);
-        Flag.PlaHasAccessibleParking.eval(venue, highlightOnly);
-
-        // Check categories that maybe should be Hospital / Urgent Care, or Doctor / Clinic.
-        Flag.ChangeToHospitalUrgentCare.eval(venue, newCategories, highlightOnly);
-
         // Whitelist breakout if place exists on the Whitelist and the option is enabled
-
         let venueGPS;
         if (_venueWhitelist.hasOwnProperty(venueID) && (!highlightOnly || (highlightOnly && !$('#WMEPH-DisableWLHL').prop('checked')))) {
             // Enable the clear WL button if any property is true
@@ -6342,14 +6328,18 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
             newName = 'Pilot Food Mart';
             addUpdateAction(venue, { name: newName }, actions);
         }
-        Flag.IsThisAPilotTravelCenter.eval(venue, highlightOnly, state2L, newName);
-        Flag.GasMkPrim.eval(venue, newCategories);
-        Flag.AddConvStore.eval(venue, newCategories);
-        Flag.IndianaLiquorStoreHours.eval(venue, newName, addr, highlightOnly, wl);
 
         const isLocked = venue.attributes.lockRank >= (pnhLockLevel > -1 ? pnhLockLevel : defaultLockLevel);
-
-        Flag.PointNotArea.eval(venue);
+        let pnhMatchData;
+        let showDispNote = true;
+        let localizationRegEx;
+        let recommendedPhone;
+        let displayNote;
+        let optionalAlias;
+        let phSpecCaseIdx;
+        let specCases;
+        let outputPhoneFormat;
+        let phDisplayNoteIdx;
 
         // Set up a variable (newBrand) to contain the brand. When harmonizing, it may be forced to a new value.
         // Other brand flags should use it since it won't be updated on the actual venue until later.
@@ -6390,9 +6380,9 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                     // no field HL
                 }
             }
-        } else if (venue.isParkingLot() || (newName && newName.trim().length)) { // for non-residential places
+        } else if (venue.isParkingLot() || (newName?.trim().length)) { // for non-residential places
             // Phone formatting
-            let outputPhoneFormat = '({0}) {1}-{2}';
+            outputPhoneFormat = '({0}) {1}-{2}';
             if (containsAny(['CA', 'CO'], [region, state2L]) && (/^\d{3}-\d{3}-\d{4}$/.test(venue.attributes.phone))) {
                 outputPhoneFormat = '{0}-{1}-{2}';
             } else if (region === 'SER' && !(/^\(\d{3}\) \d{3}-\d{4}$/.test(venue.attributes.phone))) {
@@ -6405,19 +6395,9 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                 outputPhoneFormat = '+1-{0}-{1}-{2}';
             }
 
-            Flag.ExtProviderMissing.eval(
-                venue,
-                isLocked,
-                newCategories,
-                _USER.rank,
-                $('#WMEPH-DisablePLAExtProviderCheck').prop('checked'),
-                actions
-            );
-
             // Place Harmonization
-            let pnhMatchData;
             if (!highlightOnly) {
-                if (venue.isParkingLot()) {
+                if (venue.isParkingLot() || venue.isResidential()) {
                     pnhMatchData = ['NoMatch'];
                 } else {
                     // check against the PNH list
@@ -6427,34 +6407,13 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                 pnhMatchData = ['Highlight'];
             }
 
-            Flag.NewPlaceSubmit.eval(
-                venue,
-                newName,
-                newCategories,
-                newUrl,
-                highlightOnly,
-                pnhMatchData,
-                placePL,
-                gFormState,
-                region
-            );
-            Flag.ApprovalSubmit.eval(
-                venue,
-                newCategories,
-                highlightOnly,
-                pnhMatchData,
-                placePL,
-                gFormState,
-                region
-            );
-
-            pnhNameRegMatch = false;
             let pnhDataHeaders = [];
-            let phSpecCaseIdx;
             let priPNHPlaceCat;
-            if (pnhMatchData[0] !== 'NoMatch' && pnhMatchData[0] !== 'ApprovalNeeded' && pnhMatchData[0] !== 'Highlight') { // *** Replace place data with PNH data
-                pnhNameRegMatch = true;
-                let showDispNote = true;
+            pnhNameRegMatch = pnhMatchData[0] !== 'NoMatch'
+                && pnhMatchData[0] !== 'ApprovalNeeded'
+                && pnhMatchData[0] !== 'Highlight';
+
+            if (pnhNameRegMatch) { // *** Replace place data with PNH data
                 let updatePNHName = true;
                 // Break out the data headers
                 pnhDataHeaders = _PNH_DATA[countryCode].pnh[0].split('|');
@@ -6468,7 +6427,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                 // var ph_notes_ix = _PNH_DATA_headers.indexOf('ph_notes');
                 phSpecCaseIdx = pnhDataHeaders.indexOf('ph_speccase');
                 // var ph_forcecat_ix = _PNH_DATA_headers.indexOf('ph_forcecat');
-                const phDisplayNoteIdx = pnhDataHeaders.indexOf('ph_displaynote');
+                phDisplayNoteIdx = pnhDataHeaders.indexOf('ph_displaynote');
 
                 // Retrieve the data from the PNH line(s)
                 let nsMultiMatch = false;
@@ -6518,12 +6477,8 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                 }
 
                 // Check special cases
-                let specCases;
                 let localURLcheck = '';
-                let recommendedPhone;
-                let displayNote;
-                let localizationRegEx;
-                let optionalAlias;
+
                 if (phSpecCaseIdx > -1) { // If the special cases column exists
                     specCases = pnhMatchData[phSpecCaseIdx]; // pulls the speccases field from the PNH line
                     if (!isNullOrWhitespace(specCases)) {
@@ -6616,15 +6571,6 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                 if (phDisplayNoteIdx > -1 && !isNullOrWhitespace(pnhMatchData[phDisplayNoteIdx])) {
                     displayNote = pnhMatchData[phDisplayNoteIdx];
                 }
-                Flag.LocalizedName.eval(newName, newNameSuffix, localizationRegEx, displayNote, wl);
-                Flag.AddAlias.eval(venue, optionalAlias, specCases, newAliases);
-                Flag.AddRecommendedPhone.eval(venue, newPhone, recommendedPhone, outputPhoneFormat, wl);
-
-                // If it's a place that also sells fuel, enable the button
-                Flag.SubFuel.eval(pnhMatchData, phSpecCaseIdx, newName, wl);
-
-                // Display any notes for the specific place
-                Flag.SpecCaseMessage.eval(venue, pnhMatchData[phDisplayNoteIdx], showDispNote, specCases);
 
                 // Category translations
                 let altCategories = pnhMatchData[phCategory2Idx];
@@ -7063,6 +7009,67 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                 venueGPS
             );
         } // END if (!residential && has name)
+
+        if (!venue.isResidential() && (venue.isParkingLot() || (newName?.trim().length))) {
+            Flag.ExtProviderMissing.eval(
+                venue,
+                isLocked,
+                newCategories,
+                _USER.rank,
+                $('#WMEPH-DisablePLAExtProviderCheck').prop('checked'),
+                actions
+            );
+            Flag.NewPlaceSubmit.eval(
+                venue,
+                newName,
+                newCategories,
+                newUrl,
+                highlightOnly,
+                pnhMatchData,
+                placePL,
+                gFormState,
+                region
+            );
+            Flag.ApprovalSubmit.eval(
+                venue,
+                newCategories,
+                highlightOnly,
+                pnhMatchData,
+                placePL,
+                gFormState,
+                region
+            );
+
+            if (pnhNameRegMatch) {
+                Flag.LocalizedName.eval(newName, newNameSuffix, localizationRegEx, displayNote, wl);
+                Flag.AddAlias.eval(venue, optionalAlias, specCases, newAliases);
+                Flag.AddRecommendedPhone.eval(venue, newPhone, recommendedPhone, outputPhoneFormat, wl);
+
+                // If it's a place that also sells fuel, enable the button
+                Flag.SubFuel.eval(pnhMatchData, phSpecCaseIdx, newName, wl);
+
+                // Display any notes for the specific place
+                Flag.SpecCaseMessage.eval(venue, pnhMatchData[phDisplayNoteIdx], showDispNote, specCases);
+            }
+        }
+
+        Flag.PlaCostTypeMissing.eval(venue, highlightOnly);
+        Flag.PlaLotElevationMissing.eval(venue);
+        Flag.PlaSpaces.eval(venue, highlightOnly);
+        Flag.PlaLotTypeMissing.eval(venue, highlightOnly);
+        Flag.NoPlaStopPoint.eval(venue);
+        Flag.PlaStopPointUnmoved.eval(venue);
+        Flag.PlaCanExitWhileClosed.eval(venue, highlightOnly);
+        Flag.PlaPaymentTypeMissing.eval(venue);
+        Flag.PlaHasAccessibleParking.eval(venue, highlightOnly);
+
+        // Check categories that maybe should be Hospital / Urgent Care, or Doctor / Clinic.
+        Flag.ChangeToHospitalUrgentCare.eval(venue, newCategories, highlightOnly);
+        Flag.IsThisAPilotTravelCenter.eval(venue, highlightOnly, state2L, newName);
+        Flag.GasMkPrim.eval(venue, newCategories);
+        Flag.AddConvStore.eval(venue, newCategories);
+        Flag.IndianaLiquorStoreHours.eval(venue, newName, addr, highlightOnly, wl);
+        Flag.PointNotArea.eval(venue);
 
         Flag.GasMismatch.eval(venue, newCategories, newBrand, newName, wl);
 
