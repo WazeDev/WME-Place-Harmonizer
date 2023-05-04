@@ -2293,29 +2293,29 @@
             }
         },
         IndianaLiquorStoreHours: class extends WLFlag {
+            // Note for Indiana editors to check liquor store hours if Sunday hours haven't been added yet.
             constructor() {
                 super(
                     true,
                     _SEVERITY.GREEN,
-                    'If this is a liquor store, check the hours. As of Feb 2018, liquor stores in Indiana are allowed to be open between noon and 8 pm on Sunday.',
+                    'If this is a liquor store, check the hours. As of Feb 2018, liquor stores in Indiana are allowed '
+                        + 'to be open between noon and 8 pm on Sunday.',
                     true,
                     'Whitelist Indiana liquor store hours',
                     'indianaLiquorStoreHours'
                 );
             }
 
-            static eval(venue, name, highlightOnly, wl) {
-                let result = null;
-                if (!highlightOnly && !wl.indianaLiquorStoreHours
+            static #venueIsFlaggable(venue, addr, name, highlightOnly, wl) {
+                return !highlightOnly && !wl.indianaLiquorStoreHours
+                    && !venue.isResidential()
                     && [/\bbeers?\b/, /\bwines?\b/, /\bliquor\b/, /\bspirits\b/].some(re => re.test(name))
                     && !venue.attributes.openingHours.some(entry => entry.days.includes(0))
-                    && !venue.isResidential()) {
-                    const tempAddr = venue.getAddress();
-                    if (tempAddr && tempAddr.getStateName() === 'Indiana') {
-                        result = new this();
-                    }
-                }
-                return result;
+                    && addr?.state.name === 'Indiana';
+            }
+
+            static eval(venue, name, addr, highlightOnly, wl) {
+                return this.#venueIsFlaggable(venue, addr, name, highlightOnly, wl) ? new this() : null;
             }
         },
         HoursOverlap: class extends FlagBase {
@@ -6345,9 +6345,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
         Flag.IsThisAPilotTravelCenter.eval(venue, highlightOnly, state2L, newName);
         Flag.GasMkPrim.eval(venue, newCategories);
         Flag.AddConvStore.eval(venue, newCategories);
-
-        // Note for Indiana editors to check liquor store hours if Sunday hours haven't been added yet.
-        Flag.IndianaLiquorStoreHours.eval(venue, newName, highlightOnly, wl);
+        Flag.IndianaLiquorStoreHours.eval(venue, newName, addr, highlightOnly, wl);
 
         const isLocked = venue.attributes.lockRank >= (pnhLockLevel > -1 ? pnhLockLevel : defaultLockLevel);
 
