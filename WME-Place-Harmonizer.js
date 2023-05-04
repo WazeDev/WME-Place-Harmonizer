@@ -3859,30 +3859,24 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
             }
         },
         LocalizedName: class extends WLFlag {
-            constructor() {
-                super(true, _SEVERITY.BLUE, 'Place needs localization information', true, 'Whitelist localization', 'localizedName');
+            constructor(displayNote, wl) {
+                super(
+                    true,
+                    wl.localizedName ? _SEVERITY.GREEN : _SEVERITY.BLUE,
+                    displayNote || 'Place needs localization information',
+                    !wl.localizedName,
+                    'Whitelist localization',
+                    'localizedName'
+                );
             }
 
-            // TODO: This returns a plain object instead of a Flag instance (or null). It doesn't match the pattern of other eval functions. Fix it?
-            static eval(name, nameSuffix, specCase, displayNote, wl) {
-                const result = { flag: null, showDisplayNote: true };
-                const checkLocalization = specCase.match(/^checkLocalization<>(.+)/i);
-                if (checkLocalization) {
-                    result.showDisplayNote = false;
-                    const [, localizationString] = checkLocalization;
-                    const localizationRegEx = new RegExp(localizationString, 'g');
-                    if (!(name + (nameSuffix || '')).match(localizationRegEx)) {
-                        result.flag = new this();
-                        if (wl.localizedName) {
-                            result.flag.WLactive = false;
-                            result.flag.severity = _SEVERITY.GREEN;
-                        }
-                        if (displayNote) {
-                            result.flag.message = displayNote;
-                        }
-                    }
-                }
-                return result;
+            static #venueIsFlaggable(localizationRegEx, name, nameSuffix) {
+                return localizationRegEx
+                    && !localizationRegEx.test(name + (nameSuffix || ''));
+            }
+
+            static eval(name, nameSuffix, localizationRegEx, displayNote, wl) {
+                return this.#venueIsFlaggable(localizationRegEx, name, nameSuffix) ? new this(displayNote, wl) : null;
             }
         },
         SpecCaseMessage: class extends FlagBase {
@@ -5046,16 +5040,12 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                 this.optionalAlias = optionalAlias;
             }
 
-            static eval(venue, specCase, specCases, aliases) {
-                let result = null;
-                const match = specCase.match(/^optionAltName<>(.+)/i);
-                if (match) {
-                    const [, optionalAlias] = match;
-                    if (!aliases.includes(optionalAlias)) {
-                        result = new this(venue, specCases, optionalAlias);
-                    }
-                }
-                return result;
+            static #venueIsFlaggable(optionalAlias, aliases) {
+                return optionalAlias && !aliases.includes(optionalAlias);
+            }
+
+            static eval(venue, optionalAlias, specCases, aliases) {
+                return this.#venueIsFlaggable(optionalAlias, aliases) ? new this(venue, specCases, optionalAlias) : null;
             }
 
             action() {
@@ -6199,10 +6189,9 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
         let newPhone = venue.attributes.phone;
 
         let pnhNameRegMatch;
-        let result;
 
         // Some user submitted places have no data in the country, state and address fields.
-        result = Flag.FullAddressInference.eval(venue, addr, actions, highlightOnly, newCategories);
+        const result = Flag.FullAddressInference.eval(venue, addr, actions, highlightOnly, newCategories);
         if (result?.exit) return result.severity;
         const inferredAddress = result?.inferredAddress;
         addr = inferredAddress ?? addr;
@@ -6531,6 +6520,9 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                 let specCases;
                 let localURLcheck = '';
                 let recommendedPhone;
+                let displayNote;
+                let localizationRegEx;
+                let optionalAlias;
                 if (phSpecCaseIdx > -1) { // If the special cases column exists
                     specCases = pnhMatchData[phSpecCaseIdx]; // pulls the speccases field from the PNH line
                     if (!isNullOrWhitespace(specCases)) {
@@ -6591,52 +6583,40 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                             [, scFlag] = match;
                             _servicesBanner[scFlag].actionOff(actions);
                             _servicesBanner[scFlag].pnhOverride = true;
-                        }
-
-                        // If brand is going to be forced, use that.  Otherwise, use existing brand.
-                        if (match = /forceBrand<>([^,<]+)/i.exec(pnhMatchData[phSpecCaseIdx])) {
+                        } else if (match = /forceBrand<>([^,<]+)/i.exec(pnhMatchData[phSpecCaseIdx])) {
+                            // If brand is going to be forced, use that.  Otherwise, use existing brand.
                             [, newBrand] = match;
-                        }
-
-                        // parseout localURL data if exists (meaning place can have a URL distinct from the chain URL
-                        if (match = specCase.match(/^localURL_(.+)/i)) {
+                        } else if (match = specCase.match(/^localURL_(.+)/i)) {
+                            // parseout localURL data if exists (meaning place can have a URL distinct from the chain URL
                             [, localURLcheck] = match;
-                        }
-
-                        // parse out optional alt-name
-                        Flag.AddAlias.eval(venue, specCase, specCases, newAliases);
-
-                        // Gas Station forceBranding
-                        if (['GAS_STATION'].includes(priPNHPlaceCat) && (match = specCase.match(/^forceBrand<>(.+)/i))) {
+                        } else if (['GAS_STATION'].includes(priPNHPlaceCat) && (match = specCase.match(/^forceBrand<>(.+)/i))) {
+                            // Gas Station forceBranding
                             const [, forceBrand] = match;
                             if (venue.attributes.brand !== forceBrand) {
                                 actions.push(new UpdateObject(venue, { brand: forceBrand }));
                                 _UPDATED_FIELDS.brand.updated = true;
                                 logDev('Gas brand updated from PNH');
                             }
-                        }
-
-                        // Check Localization
-                        let displayNote;
-                        if (phDisplayNoteIdx > -1 && !isNullOrWhitespace(pnhMatchData[phDisplayNoteIdx])) {
-                            displayNote = pnhMatchData[phDisplayNoteIdx];
-                        }
-                        result = Flag.LocalizedName.eval(newName, newNameSuffix, specCase, displayNote, wl);
-                        if (!result.showDisplayNote) {
+                        } else if (match = specCase.match(/^checkLocalization<>(.+)/i)) {
                             showDispNote = false;
-                        }
-
-                        // Prevent name change
-                        if (specCase.match(/keepName/g) !== null) {
-                            updatePNHName = false;
-                        }
-
-                        if (match = specCase.match(/phone<>(.*?)<>/)) {
+                            const [, localizationString] = match;
+                            localizationRegEx = new RegExp(localizationString, 'g');
+                        } else if (match = specCase.match(/phone<>(.*?)<>/)) {
                             recommendedPhone = normalizePhone(match[0], outputPhoneFormat);
+                        } else if (/keepName/g.test(specCase)) {
+                            // Prevent name change
+                            updatePNHName = false;
+                        } else if (match = specCase.match(/^optionAltName<>(.+)/i)) {
+                            [, optionalAlias] = match;
                         }
                         /* eslint-enable no-cond-assign */
                     }
                 }
+                if (phDisplayNoteIdx > -1 && !isNullOrWhitespace(pnhMatchData[phDisplayNoteIdx])) {
+                    displayNote = pnhMatchData[phDisplayNoteIdx];
+                }
+                Flag.LocalizedName.eval(newName, newNameSuffix, localizationRegEx, displayNote, wl);
+                Flag.AddAlias.eval(venue, optionalAlias, specCases, newAliases);
                 Flag.AddRecommendedPhone.eval(venue, newPhone, recommendedPhone, outputPhoneFormat, wl);
 
                 // If it's a place that also sells fuel, enable the button
