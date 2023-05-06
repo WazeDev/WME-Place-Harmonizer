@@ -1363,7 +1363,7 @@
             if ($('#WMEPH_banner').length) {
                 const actions = W.model.actionManager.getActions();
                 const lastAction = actions[actions.length - 1];
-                if (lastAction._venue?.attributes?.id === venue.attributes.id && lastAction._navigationPoint) {
+                if (lastAction?._venue?.attributes?.id === venue.attributes.id && lastAction._navigationPoint) {
                     harmonizePlaceGo(venue, 'harmonize');
                 }
             }
@@ -2326,46 +2326,74 @@
         UnmappedRegion: class extends WLFlag {
             static #regionsToFlagOther = ['HI', 'NER', 'NOR', 'NWR', 'PLN', 'ATR'];
 
-            constructor(catDataTemp, region, isLocked, wl) {
+            constructor(categories, pnhCategoryInfos, state2L, region, countryCode, isLocked, highlightOnly, wl) {
                 let wlActive = true;
-                let severity = _SEVERITY.RED;
+                let severity = _SEVERITY.GREEN;
                 let noLock = false;
-                let message = 'This category is usually not mapped in this region.';
-                if (catDataTemp[0] === 'OTHER' && Flag.UnmappedRegion.#regionsToFlagOther.includes(region)) {
-                    if (!isLocked) {
-                        wlActive = false;
-                        severity = _SEVERITY.BLUE;
-                        message = 'The "Other" category should only be used if no other category applies. '
-                            + 'Manually lock the place to override this flag.';
-                        noLock = true;
+                let message;
+                const categoryNames = [];
+                let addOtherMessage = false;
+
+                Flag.UnmappedRegion.#getRareCategoryInfos(categories, pnhCategoryInfos, state2L, region, countryCode, isLocked)
+                    .forEach(categoryInfo => {
+                        if (categoryInfo.key === 'OTHER') {
+                            if (Flag.UnmappedRegion.#regionsToFlagOther.includes(region) && !isLocked) {
+                                addOtherMessage = true;
+                                severity = Math.max(severity, _SEVERITY.BLUE);
+                                wlActive = false;
+                                noLock = true;
+                            }
+                        } else {
+                            if (wl.unmappedRegion) {
+                                wlActive = false;
+                                severity = Math.max(severity, _SEVERITY.GREEN);
+                            } else {
+                                severity = _SEVERITY.YELLOW;
+                                noLock = true;
+                            }
+                            if (!highlightOnly) categoryNames.push(categoryInfo.name);
+                        }
+                    });
+                if (!highlightOnly) {
+                    const messages = [];
+                    if (categoryNames.length) {
+                        messages.push(`These categories are usually not mapped in this region: ${categoryNames.map(name => `<b>${name}</b>`).join(', ')}`);
                     }
-                } else if (wl.unmappedRegion) {
-                    wlActive = false;
-                    severity = _SEVERITY.GREEN;
-                } else {
-                    noLock = true;
+                    if (addOtherMessage) {
+                        messages.push('The <b>Other</b> category should only be used if no other category applies. '
+                            + 'Manually lock the place to override this flag.');
+                    }
+                    message = messages.join('<br><br>');
                 }
                 super(true, severity, message, wlActive, 'Whitelist unmapped category', 'unmappedRegion');
                 this.noLock = noLock;
             }
 
-            static #venueIsFlaggable(catDataTemp, unmappedRegions, state2L, region, countryCode, isLocked) {
-                if (unmappedRegions.includes(state2L) || unmappedRegions.includes(region) || unmappedRegions.includes(countryCode)) {
-                    if (catDataTemp[0] === 'OTHER' && this.#regionsToFlagOther.includes(region)) {
-                        if (!isLocked) {
-                            return true;
+            static #getRareCategoryInfos(categories, pnhCategoryInfos, state2L, region, countryCode, isLocked) {
+                return categories
+                    .map(cat => pnhCategoryInfos.getByKey(cat))
+                    .filter(pnhCategoryInfo => {
+                        const rareLocalities = pnhCategoryInfo.rare;
+                        if (rareLocalities.includes(state2L) || rareLocalities.includes(region) || rareLocalities.includes(countryCode)) {
+                            if (pnhCategoryInfo.key === 'OTHER' && this.#regionsToFlagOther.includes(region)) {
+                                if (!isLocked) {
+                                    return true;
+                                }
+                            } else {
+                                return true;
+                            }
                         }
-                    } else {
-                        return true;
-                    }
-                }
-                return false;
+                        return false;
+                    });
             }
 
-            static eval(catDataTemp, catDataHeaders, state2L, region, countryCode, isLocked, wl) {
-                const unmappedRegions = catDataTemp[catDataHeaders.indexOf('pc_rare')].replace(/,[^A-Za-z0-9}]+/g, ',').split(',');
-                return this.#venueIsFlaggable(catDataTemp, unmappedRegions, state2L, region, countryCode, isLocked)
-                    ? new this(catDataTemp, region, isLocked, wl)
+            static #venueIsFlaggable(categories, pnhCategoryInfos, state2L, region, countryCode, isLocked) {
+                return !!this.#getRareCategoryInfos(categories, pnhCategoryInfos, state2L, region, countryCode, isLocked).length;
+            }
+
+            static eval(categories, pnhCategoryInfos, state2L, region, countryCode, isLocked, highlightOnly, wl) {
+                return this.#venueIsFlaggable(categories, pnhCategoryInfos, state2L, region, countryCode, isLocked)
+                    ? new this(categories, pnhCategoryInfos, state2L, region, countryCode, isLocked, highlightOnly, wl)
                     : null;
             }
         },
@@ -3292,11 +3320,11 @@
             }
         },
         ParentCategory: class extends WLFlag {
-            constructor(wl) {
+            constructor(pnhCategoryInfo, wl) {
                 super(
                     true,
                     wl.ParentCategory ? _SEVERITY.GREEN : _SEVERITY.YELLOW,
-                    'This parent category is usually not mapped in this region.',
+                    `The <b>${pnhCategoryInfo.name}</b> parent category is usually not mapped in this region.`,
                     !wl.ParentCategory,
                     'Whitelist parent Category',
                     'parentCategory'
@@ -3307,9 +3335,8 @@
                 return catParent.includes(state2L) || catParent.includes(region) || catParent.includes(countryCode);
             }
 
-            static eval(catDataTemp, catDataHeaders, state2L, region, countryCode, wl) {
-                const catParent = catDataTemp[catDataHeaders.indexOf('pc_parent')].replace(/,[^A-Za-z0-9}]+/g, ',').split(',');
-                return this.#venueIsFlaggable(catParent, state2L, region, countryCode) ? new this(wl) : null;
+            static eval(pnhCategoryInfo, state2L, region, countryCode, wl) {
+                return this.#venueIsFlaggable(pnhCategoryInfo.disallowedParent, state2L, region, countryCode) ? new this(pnhCategoryInfo, wl) : null;
             }
         },
         CheckDescription: class extends FlagBase {
@@ -3947,8 +3974,8 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
             }
         },
         PnhCatMess: class extends ActionFlag {
-            constructor(venue, message, categories) {
-                super(true, _SEVERITY.GREEN, message, null, null);
+            constructor(venue, pnhCategoryInfo, categories) {
+                super(true, _SEVERITY.GREEN, pnhCategoryInfo.message, null, null);
                 if (categories.includes('HOSPITAL_URGENT_CARE')) {
                     this.value = 'Change to Doctor/Clinic';
                     this.actionType = 'changeToDoctorClinic';
@@ -3956,13 +3983,12 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                 this.venue = venue;
             }
 
-            static #venueIsFlaggable(highlightOnly, message) {
-                return !highlightOnly && !isNullOrWhitespace(message);
+            static #venueIsFlaggable(highlightOnly, pnhCategoryInfo) {
+                return !highlightOnly && !isNullOrWhitespace(pnhCategoryInfo.message);
             }
 
-            static eval(venue, catDataTemp, catDataHeaders, categories, highlightOnly) {
-                const message = catDataTemp[catDataHeaders.indexOf('pc_message')];
-                return this.#venueIsFlaggable(highlightOnly, message) ? new this(venue, message, categories) : null;
+            static eval(venue, pnhCategoryInfo, categories, highlightOnly) {
+                return this.#venueIsFlaggable(highlightOnly, pnhCategoryInfo) ? new this(venue, pnhCategoryInfo, categories) : null;
             }
 
             action() {
@@ -4609,6 +4635,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
             static #categoriesToCheck;
             static #cutoffDateString = '3/15/2020';
             static #cutoffDate = new Date(this.#cutoffDateString);
+            static #parentCategoriesToCheck = ['SHOPPING_AND_SERVICES', 'FOOD_AND_DRINK', 'CULTURE_AND_ENTERTAINEMENT'];
 
             constructor(venue, highlightOnly) {
                 let message = '';
@@ -4627,17 +4654,12 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                 this.venue = venue;
             }
 
-            static #initializeCategoriesToCheck(catData) {
+            static #initializeCategoriesToCheck(pnhCategoryInfos) {
                 if (!this.#categoriesToCheck) {
-                    const headers = catData[0].split('|');
-                    const catParentIdx = headers.indexOf('pc_catparent');
-                    const catNameIdx = headers.indexOf('pc_wmecat');
-                    const parentCats = ['SHOPPING_AND_SERVICES', 'FOOD_AND_DRINK', 'CULTURE_AND_ENTERTAINEMENT'];
-                    this.#categoriesToCheck = catData
-                        .map(catRowString => catRowString.split('|'))
-                        .filter(catRow => parentCats.includes(catRow[catParentIdx]))
-                        .map(catRow => catRow[catNameIdx]);
-                    this.#categoriesToCheck.push(...parentCats);
+                    this.#categoriesToCheck = pnhCategoryInfos
+                        .toArray()
+                        .filter(pnhCategoryInfo => this.#parentCategoriesToCheck.includes(pnhCategoryInfo.parent));
+                    this.#categoriesToCheck.push(...this.#parentCategoriesToCheck);
                 }
             }
 
@@ -4653,13 +4675,9 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                     && venue.attributes.categories.some(cat => this.#categoriesToCheck.includes(cat));
             }
 
-            static eval(venue, catData, highlightOnly) {
-                let result = null;
-                this.#initializeCategoriesToCheck(catData);
-                if (this.#venueIsFlaggable(venue)) {
-                    result = new this(venue, highlightOnly);
-                }
-                return result;
+            static eval(venue, pnhCategoryInfos, highlightOnly) {
+                this.#initializeCategoriesToCheck(pnhCategoryInfos);
+                return this.#venueIsFlaggable(venue) ? new this(venue, highlightOnly) : null;
             }
 
             action() {
@@ -6249,6 +6267,8 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
             return _SEVERITY.RED;
         }
 
+        const pnhCategoryInfos = _PNH_DATA[countryCode].categoryInfos;
+
         // Parse state-based data
         let state2L = 'Unknown';
         let region = 'Unknown';
@@ -6329,7 +6349,6 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
             addUpdateAction(venue, { name: newName }, actions);
         }
 
-        const isLocked = venue.attributes.lockRank >= (pnhLockLevel > -1 ? pnhLockLevel : defaultLockLevel);
         let pnhMatchData;
         let showDispNote = true;
         let localizationRegEx;
@@ -6344,10 +6363,6 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
         let hoursOverlap = false;
         let pnhUrl;
         let localURLcheck;
-        let catData;
-        let catNames;
-        let catDataHeaders;
-        let catDataKeys;
 
         // Set up a variable (newBrand) to contain the brand. When harmonizing, it may be forced to a new value.
         // Other brand flags should use it since it won't be updated on the actual venue until later.
@@ -6389,11 +6404,6 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                 }
             }
         } else if (venue.isParkingLot() || (newName?.trim().length)) { // for non-residential places
-            catData = _PNH_DATA[countryCode].categories;
-            catNames = _PNH_DATA[countryCode].categoryNames;
-            catDataHeaders = catData[0].split('|');
-            catDataKeys = catData[1].split('|');
-
             // Phone formatting
             outputPhoneFormat = '({0}) {1}-{2}';
             if (containsAny(['CA', 'CO'], [region, state2L]) && (/^\d{3}-\d{3}-\d{4}$/.test(venue.attributes.phone))) {
@@ -6677,11 +6687,8 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                 }
 
                 // Remove unnecessary parent categories
-                const catData1 = _PNH_DATA.USA.categories.map(cat => cat.split('|'));
-                const catParentIdx = catData1[0].indexOf('pc_catparent');
-                const catNameIdx = catData1[0].indexOf('pc_wmecat');
-                const parentCats = _.uniq(newCategories.map(catName => catData1.find(cat => cat[catNameIdx] === catName)[catParentIdx]))
-                    .filter(parent => parent.trim(' ').length > 0);
+                const parentCats = _.uniq(newCategories.map(category => pnhCategoryInfos.getByKey(category).parent))
+                    .filter(parent => parent.trim().length > 0);
                 newCategories = newCategories.filter(cat => !parentCats.includes(cat));
 
                 // update categories if different and no Cat2 option
@@ -6722,68 +6729,55 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
             let maxPointSeverity = _SEVERITY.GREEN;
             let maxAreaSeverity = _SEVERITY.RED;
             let highestCategoryLock = -1;
+            // Category/Name-based Services, added to any existing services:
+            newCategories.forEach(category => {
+                const pnhCategoryInfo = pnhCategoryInfos.getByKey(category);
 
-            for (let ixPlaceCat = 0; ixPlaceCat < newCategories.length; ixPlaceCat++) {
-                const category = newCategories[ixPlaceCat];
-                const ixPNHCat = catNames.indexOf(category);
-                let unmappedRegionFlag;
-                let parentCategoryFlag;
-                if (ixPNHCat > -1) {
-                    catDataTemp = catData[ixPNHCat].split('|');
-                    // CH_DATA_headers
-                    // pc_area    pc_regpoint    pc_regarea    pc_lock1    pc_lock2    pc_lock3    pc_lock4    pc_lock5    pc_rare    pc_parent    pc_message
-                    let pvaPoint = catDataTemp[catDataHeaders.indexOf('pc_point')];
-                    let pvaArea = catDataTemp[catDataHeaders.indexOf('pc_area')];
-                    const regPoint = catDataTemp[catDataHeaders.indexOf('pc_regpoint')].replace(/,[^A-za-z0-9]*/g, ',').split(',');
-                    const regArea = catDataTemp[catDataHeaders.indexOf('pc_regarea')].replace(/,[^A-za-z0-9]*/g, ',').split(',');
-                    if (regPoint.includes(state2L) || regPoint.includes(region) || regPoint.includes(countryCode)) {
-                        pvaPoint = '1';
-                        pvaArea = '';
-                    } else if (regArea.includes(state2L) || regArea.includes(region) || regArea.includes(countryCode)) {
-                        pvaPoint = '';
-                        pvaArea = '1';
-                    }
+                if (!pnhCategoryInfo) {
+                    throw new Error(`WMEPH: Unexpected category: ${category}`);
+                }
+                let pvaPoint = pnhCategoryInfo.point;
+                let pvaArea = pnhCategoryInfo.area;
+                if (pnhCategoryInfo.regPoint.includes(state2L) || pnhCategoryInfo.regPoint.includes(region)
+                    || pnhCategoryInfo.regPoint.includes(countryCode)) {
+                    pvaPoint = '1';
+                    pvaArea = '';
+                } else if (pnhCategoryInfo.regArea.includes(state2L) || pnhCategoryInfo.regArea.includes(region)
+                    || pnhCategoryInfo.regArea.includes(countryCode)) {
+                    pvaPoint = '';
+                    pvaArea = '1';
+                }
 
-                    // If Post Office and VPO or CPU is in the name, always a point.
-                    if (newCategories.includes('POST_OFFICE') && /\b(?:cpu|vpo)\b/i.test(venue.attributes.name)) {
-                        pvaPoint = '1';
-                        pvaArea = '';
-                    }
+                // If Post Office and VPO or CPU is in the name, always a point.
+                if (newCategories.includes('POST_OFFICE') && /\b(?:cpu|vpo)\b/i.test(venue.attributes.name)) {
+                    pvaPoint = '1';
+                    pvaArea = '';
+                }
 
-                    const pointSeverity = getPvaSeverity(pvaPoint, venue);
-                    const areaSeverity = getPvaSeverity(pvaArea, venue);
+                const pointSeverity = getPvaSeverity(pvaPoint, venue);
+                const areaSeverity = getPvaSeverity(pvaArea, venue);
 
-                    if (isPoint && pointSeverity > _SEVERITY.GREEN) {
-                        maxPointSeverity = Math.max(pointSeverity, maxPointSeverity);
-                    } else if (isArea) {
-                        maxAreaSeverity = Math.min(areaSeverity, maxAreaSeverity);
-                    }
+                if (isPoint && pointSeverity > _SEVERITY.GREEN) {
+                    maxPointSeverity = Math.max(pointSeverity, maxPointSeverity);
+                } else if (isArea) {
+                    maxAreaSeverity = Math.min(areaSeverity, maxAreaSeverity);
+                }
 
-                    Flag.PnhCatMess.eval(venue, catDataTemp, catDataHeaders, newCategories, highlightOnly);
-                    if (!unmappedRegionFlag) {
-                        unmappedRegionFlag = Flag.UnmappedRegion.eval(catDataTemp, catDataHeaders, state2L, region, countryCode, isLocked, wl);
-                    }
-                    if (!parentCategoryFlag) {
-                        parentCategoryFlag = Flag.ParentCategory.eval(catDataTemp, catDataHeaders, state2L, region, countryCode, wl);
-                    }
+                Flag.PnhCatMess.eval(venue, pnhCategoryInfo, newCategories, highlightOnly);
 
-                    // Set lock level
-                    for (let lockix = 1; lockix < 6; lockix++) {
-                        const catLockTemp = catDataTemp[catDataHeaders.indexOf(`pc_lock${lockix}`)].replace(/,[^A-Za-z0-9}]+/g, ',').split(',');
-                        if (lockix - 1 > highestCategoryLock && (catLockTemp.includes(state2L) || catLockTemp.includes(region)
-                            || catLockTemp.includes(countryCode))) {
-                            highestCategoryLock = lockix - 1; // Offset by 1 since lock ranks start at 0
-                        }
+                // Set lock level
+                for (let lockix = 1; lockix < 6; lockix++) {
+                    const categoryLock = pnhCategoryInfo[`lock${lockix}`];
+                    if (lockix - 1 > highestCategoryLock && (categoryLock.includes(state2L) || categoryLock.includes(region)
+                        || categoryLock.includes(countryCode))) {
+                        highestCategoryLock = lockix - 1; // Offset by 1 since lock ranks start at 0
                     }
                 }
-            }
+            });
 
             if (highestCategoryLock > -1) {
                 defaultLockLevel = highestCategoryLock;
             }
-
-            // Category/Name-based Services, added to any existing services:
-            let catDataTemp;
 
             if (!highlightOnly) {
                 // Update name:
@@ -6803,36 +6797,20 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                 }
 
                 // PNH specific Services:
-
-                const servHeaders = [];
-                const servKeys = [];
-                for (let jjj = 0; jjj < catDataHeaders.length; jjj++) {
-                    const servHeaderCheck = catDataHeaders[jjj].match(/^ps_/i); // if it's a service header
-                    if (servHeaderCheck) {
-                        servHeaders.push(jjj);
-                        servKeys.push(catDataKeys[jjj]);
-                    }
-                }
-
-                if (newCategories.length > 0) {
-                    for (let iii = 0; iii < catNames.length; iii++) {
-                        if (newCategories.includes(catNames[iii])) {
-                            catDataTemp = catData[iii].split('|');
-                            for (let psix = 0; psix < servHeaders.length; psix++) {
-                                if (!_servicesBanner[servKeys[psix]].pnhOverride) {
-                                    if (catDataTemp[servHeaders[psix]] !== '') {
-                                        // This section of code previously checked for values of "1", "2", and state/region codes.
-                                        // A value of "2" or a state/region code would auto-add the service.  However, it was
-                                        // felt that this was a problem since it is difficult to prove that every place in a
-                                        // category would *always* offer a specific service.  So now, any value entered in the
-                                        // spreadsheet cell will only display the service button, not turn it on.
-                                        _servicesBanner[servKeys[psix]].active = true;
-                                    }
-                                }
-                            }
+                newCategories.forEach(category => {
+                    const pnhCategoryInfo = pnhCategoryInfos.getByKey(category);
+                    pnhCategoryInfo.services.forEach(service => {
+                        const serviceButton = _servicesBanner[service.pnhKey];
+                        if (!serviceButton.pnhOverride) {
+                            // This section of code previously checked for values of "1", "2", and state/region codes.
+                            // A value of "2" or a state/region code would auto-add the service.  However, it was
+                            // felt that this was a problem since it is difficult to prove that every place in a
+                            // category would *always* offer a specific service.  So now, any value entered in the
+                            // spreadsheet cell will only display the service button, not turn it on.
+                            serviceButton.active = true;
                         }
-                    }
-                }
+                    });
+                });
             }
 
             let areaNotPointLowFlag;
@@ -6990,6 +6968,15 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
             );
         } // END if (!residential && has name)
 
+        const isLocked = venue.attributes.lockRank >= (pnhLockLevel > -1 ? pnhLockLevel : defaultLockLevel);
+
+        Flag.UnmappedRegion.eval(newCategories, pnhCategoryInfos, state2L, region, countryCode, isLocked, highlightOnly, wl);
+        newCategories.forEach(category => {
+            const pnhCategoryInfo = pnhCategoryInfos.getByKey(category);
+
+            Flag.ParentCategory.eval(pnhCategoryInfo, state2L, region, countryCode, wl);
+        });
+
         if (!venue.isResidential() && (venue.isParkingLot() || (newName?.trim().length))) {
             if (pnhNameRegMatch) {
                 Flag.LocalizedName.eval(newName, newNameSuffix, localizationRegEx, displayNote, wl);
@@ -7022,7 +7009,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
             Flag.NoHours.eval(venue, newCategories, wl, highlightOnly, actions);
             Flag.Mismatch247.eval(venue);
             Flag.HoursOverlap.eval(hoursOverlap);
-            Flag.OldHours.eval(venue, catData, highlightOnly); //fix this
+            Flag.OldHours.eval(venue, pnhCategoryInfos, highlightOnly);
         }
 
         Flag.PlaCostTypeMissing.eval(venue, highlightOnly);
@@ -9683,14 +9670,137 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
     const API_KEY = 'YTJWNVBVRkplbUZUZVVObU1YVXpSRVZ3ZW5OaFRFSk1SbTR4VGxKblRURjJlRTFYY3pOQ2NXZElPQT09';
     const dec = s => atob(atob(s));
 
+    class PnhCategoryInfos {
+        #categoriesByKey = {};
+        #categoriesByName = {};
+        // #childCategoriesByParent = {};
+
+        add(categoryInfo) {
+            this.#categoriesByKey[categoryInfo.key] = categoryInfo;
+            this.#categoriesByName[categoryInfo.name] = categoryInfo;
+            // const parentCategory = categoryInfo.parent;
+            // if (parentCategory && !this.#childCategoriesByParent.hasOwnProperty(parentCategory)) {
+            //     this.#childCategoriesByParent[categoryInfo.parent] = [];
+            // }
+            // this.#childCategoriesByParent[parentCategory].push()
+        }
+
+        getByKey(key) {
+            return this.#categoriesByKey[key];
+        }
+
+        getByName(name) {
+            return this.#categoriesByName(name);
+        }
+
+        toArray() {
+            return Object.values(this.#categoriesByKey);
+        }
+    }
+
+    function processPnhCategories(categoryDataRows, categoryInfos) {
+        let headers;
+        let pnhServiceKeys;
+        let wmeServiceKeys;
+        const splitValues = (value => (value.trim() ? value.split(',').map(v => v.trim()) : []));
+        categoryDataRows.forEach((row, iRow) => {
+            row = row.split('|');
+            if (iRow === 0) {
+                headers = row;
+            } else if (iRow === 1) {
+                pnhServiceKeys = row;
+            } else if (iRow === 2) {
+                wmeServiceKeys = row;
+            } else {
+                const categoryInfo = {
+                    services: []
+                };
+                row.forEach((value, iCol) => {
+                    const headerValue = headers[iCol].trim();
+                    value = value.trim();
+                    switch (headerValue) {
+                        case 'pc_wmecat':
+                            categoryInfo.key = value;
+                            break;
+                        case 'pc_transcat':
+                            categoryInfo.name = value;
+                            break;
+                        case 'pc_catparent':
+                            categoryInfo.parent = value;
+                            break;
+                        case 'pc_point':
+                            categoryInfo.point = value;
+                            break;
+                        case 'pc_area':
+                            categoryInfo.area = value;
+                            break;
+                        case 'pc_regpoint':
+                            categoryInfo.regPoint = splitValues(value);
+                            break;
+                        case 'pc_regarea':
+                            categoryInfo.regArea = splitValues(value);
+                            break;
+                        case 'pc_lock1':
+                            categoryInfo.lock1 = splitValues(value);
+                            break;
+                        case 'pc_lock2':
+                            categoryInfo.lock2 = splitValues(value);
+                            break;
+                        case 'pc_lock3':
+                            categoryInfo.lock3 = splitValues(value);
+                            break;
+                        case 'pc_lock4':
+                            categoryInfo.lock4 = splitValues(value);
+                            break;
+                        case 'pc_lock5':
+                            categoryInfo.lock5 = splitValues(value);
+                            break;
+                        case 'pc_rare':
+                            categoryInfo.rare = splitValues(value);
+                            break;
+                        case 'pc_parent':
+                            categoryInfo.disallowedParent = splitValues(value);
+                            break;
+                        case 'pc_message':
+                            categoryInfo.messagae = value;
+                            break;
+                        case 'ps_valet':
+                        case 'ps_drivethru':
+                        case 'ps_wifi':
+                        case 'ps_restrooms':
+                        case 'ps_cc':
+                        case 'ps_reservations':
+                        case 'ps_outside':
+                        case 'ps_ac':
+                        case 'ps_parking':
+                        case 'ps_deliveries':
+                        case 'ps_takeaway':
+                        case 'ps_wheelchair':
+                            if (value) {
+                                categoryInfo.services.push({ wmeKey: wmeServiceKeys[iCol], pnhKey: pnhServiceKeys[iCol] });
+                            }
+                            break;
+                        case '':
+                            // ignore blank column
+                            break;
+                        default:
+                            throw new Error(`WMEPH: Unexpected category data from PNH sheet: ${headerValue}`);
+                    }
+                });
+                categoryInfos.add(categoryInfo);
+            }
+        });
+    }
+
+    function processImportedDataColumn(allData, columnIndex) {
+        return allData.filter(row => row.length >= columnIndex + 1).map(row => row[columnIndex]);
+    }
     function getSpreadsheetUrl(id, range, key) {
         return `https://sheets.googleapis.com/v4/spreadsheets/${id}/values/${range}?${dec(key)}`;
     }
     function downloadPnhData() {
         log('PNH data download started...');
         return new Promise((resolve, reject) => {
-            // TODO change the _PNH_DATA cache to use an object so we don't have to rely on ugly array index lookups.
-            const processData1 = (data, colIdx) => data.filter(row => row.length >= colIdx + 1).map(row => row[colIdx]);
             const url = getSpreadsheetUrl(SPREADSHEET_ID, SPREADSHEET_RANGE, API_KEY);
 
             $.getJSON(url).done(res => {
@@ -9701,31 +9811,26 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                 }
 
                 // This needs to be performed before makeNameCheckList() is called.
-                _wordVariations = processData1(values, 11).slice(1).map(row => row.toUpperCase().replace(/[^A-z0-9,]/g, '').split(','));
+                _wordVariations = processImportedDataColumn(values, 11).slice(1).map(row => row.toUpperCase().replace(/[^A-z0-9,]/g, '').split(','));
 
-                _PNH_DATA.USA.pnh = processData1(values, 0);
+                _PNH_DATA.USA.pnh = processImportedDataColumn(values, 0);
                 _PNH_DATA.USA.pnhNames = makeNameCheckList(_PNH_DATA.USA.pnh);
+                _PNH_DATA.states = processImportedDataColumn(values, 1);
+                _PNH_DATA.USA.categoryInfos = new PnhCategoryInfos();
+                processPnhCategories(processImportedDataColumn(values, 3), _PNH_DATA.USA.categoryInfos);
 
-                _PNH_DATA.states = processData1(values, 1);
-
-                _PNH_DATA.CAN.pnh = processData1(values, 2);
+                _PNH_DATA.CAN.pnh = processImportedDataColumn(values, 2);
                 _PNH_DATA.CAN.pnhNames = makeNameCheckList(_PNH_DATA.CAN.pnh);
+                _PNH_DATA.CAN.categoryInfos = _PNH_DATA.USA.categoryInfos;
 
-                _PNH_DATA.USA.categories = processData1(values, 3);
-                _PNH_DATA.USA.categoryNames = makeCatCheckList(_PNH_DATA.USA.categories);
-
-                // For now, Canada uses some of the same settings as USA.
-                _PNH_DATA.CAN.categories = _PNH_DATA.USA.categories;
-                _PNH_DATA.CAN.categoryNames = _PNH_DATA.USA.categoryNames;
-
-                const WMEPHuserList = processData1(values, 4)[1].split('|');
+                const WMEPHuserList = processImportedDataColumn(values, 4)[1].split('|');
                 const betaix = WMEPHuserList.indexOf('BETAUSERS');
                 _wmephDevList = [];
                 _wmephBetaList = [];
                 for (let ulix = 1; ulix < betaix; ulix++) _wmephDevList.push(WMEPHuserList[ulix].toLowerCase().trim());
                 for (let ulix = betaix + 1; ulix < WMEPHuserList.length; ulix++) _wmephBetaList.push(WMEPHuserList[ulix].toLowerCase().trim());
 
-                const processTermsCell = (termsValues, colIdx) => processData1(termsValues, colIdx)[1]
+                const processTermsCell = (termsValues, colIdx) => processImportedDataColumn(termsValues, colIdx)[1]
                     .toLowerCase().split('|').map(value => value.trim());
                 _hospitalPartMatch = processTermsCell(values, 5);
                 _hospitalFullMatch = processTermsCell(values, 6);
