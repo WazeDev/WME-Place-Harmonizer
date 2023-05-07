@@ -5171,11 +5171,27 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                 const categories = insertAtIndex(this.venue.getCategories(), 'PHARMACY', 1);
                 addUpdateAction(this.venue, { categories }, null, true);
             }
+
+            static #venueIsFlaggable(specialCases) {
+                return specialCases.addPharm;
+            }
+
+            static eval(venue, specialCases) {
+                return this.#venueIsFlaggable(specialCases) ? new this(venue) : null;
+            }
         },
         AddSuper: class extends ActionFlag {
             constructor(venue) {
                 super(true, _SEVERITY.GREEN, 'Does this location have a supermarket?', 'Yes', 'Add Supermarket category');
                 this.venue = venue;
+            }
+
+            static #venueIsFlaggable(specialCases) {
+                return specialCases.addSuper;
+            }
+
+            static eval(venue, specialCases) {
+                return this.#venueIsFlaggable(specialCases) ? new this(venue) : null;
             }
 
             action() {
@@ -5189,6 +5205,14 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                 this.venue = venue;
             }
 
+            static #venueIsFlaggable(specialCases) {
+                return specialCases.appendAMPM;
+            }
+
+            static eval(venue, specialCases) {
+                return this.#venueIsFlaggable(specialCases) ? new this(venue) : null;
+            }
+
             action() {
                 const categories = insertAtIndex(this.venue.getCategories(), 'CONVENIENCE_STORE', 1);
                 addUpdateAction(this.venue, { name: 'ARCO ampm', url: 'ampm.com', categories }, null, true);
@@ -5200,9 +5224,11 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                 this.venue = venue;
             }
 
-            static #venueIsFlaggable(categories, nameSuffix, priPNHPlaceCat, pnhMatchData, phSpecCaseIdx) {
+            static #venueIsFlaggable(categories, nameSuffix, priPNHPlaceCat, pnhMatchData, phSpecCaseIdx, specialCases) {
                 let flaggable = false;
-                if (!categories.includes('ATM') && categories.includes('BANK_FINANCIAL')) {
+                if (specialCases.addATM) {
+                    flaggable = true;
+                } else if (!categories.includes('ATM') && categories.includes('BANK_FINANCIAL')) {
                     if (priPNHPlaceCat === 'BANK_FINANCIAL' && !pnhMatchData[phSpecCaseIdx].includes('notABank')) {
                         if (!(categories.indexOf('OFFICES') === 0)) {
                             flaggable = true;
@@ -5214,8 +5240,8 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                 return flaggable;
             }
 
-            static eval(venue, categories, nameSuffix, priPNHPlaceCat, pnhMatchData, phSpecCaseIdx) {
-                return this.#venueIsFlaggable(categories, nameSuffix, priPNHPlaceCat, pnhMatchData, phSpecCaseIdx) ? new this(venue) : null;
+            static eval(venue, categories, nameSuffix, priPNHPlaceCat, pnhMatchData, phSpecCaseIdx, specialCases) {
+                return this.#venueIsFlaggable(categories, nameSuffix, priPNHPlaceCat, pnhMatchData, phSpecCaseIdx, specialCases) ? new this(venue) : null;
             }
 
             action() {
@@ -5229,14 +5255,15 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                 this.venue = venue;
             }
 
-            static #venueIsFlaggable(venue, categories) {
-                return venue.isGasStation()
+            static #venueIsFlaggable(venue, categories, specialCases) {
+                return (venue.isGasStation()
                     && !categories.includes('CONVENIENCE_STORE')
-                    && !this.currentFlags.hasFlag(Flag.SubFuel); // Don't flag if already asking if this is really a gas station
+                    && !this.currentFlags.hasFlag(Flag.SubFuel)) // Don't flag if already asking if this is really a gas station
+                    || specialCases.addConvStore;
             }
 
-            static eval(venue, categories) {
-                return this.#venueIsFlaggable(venue, categories) ? new this(venue) : null;
+            static eval(venue, categories, specialCases) {
+                return this.#venueIsFlaggable(venue, categories, specialCases) ? new this(venue) : null;
             }
 
             action() {
@@ -6600,24 +6627,11 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                                     // flag = new Flag.AddCat2();
                                     break;
                                 case 'addPharm':
-                                    specialCases.addPharm = true;
-                                    new Flag.AddPharm(venue);
-                                    break;
                                 case 'addSuper':
-                                    specialCases.addSuper = true;
-                                    new Flag.AddSuper(venue);
-                                    break;
                                 case 'appendAMPM':
-                                    specialCases.appendAMPM = true;
-                                    new Flag.AppendAMPM(venue);
-                                    break;
                                 case 'addATM':
-                                    specialCases.addATM = true;
-                                    new Flag.AddATM(venue);
-                                    break;
                                 case 'addConvStore':
-                                    specialCases.addConvStore = true;
-                                    new Flag.AddConvStore(venue);
+                                    specialCases[scFlag] = true;
                                     break;
                                 default:
                                     console.error('WMEPH:', `Could not process specCase value: buttOn_${scFlag}`);
@@ -6999,11 +7013,9 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                 Flag.UrlMismatch.eval(venue, newUrl, pnhUrl, wl);
                 Flag.CheckDescription.eval(descriptionInserted);
                 Flag.LocationFinder.eval(venue, highlightOnly, countryCode, newCategories, pnhMatchData, pnhDataHeaders, addr, state2L, venueGPS);
-                Flag.AddPharm.eval(specialCases);
-                Flag.AddSuper.eval(specialCases);
-                Flag.AppendAMPM.eval(specialCases);
-                Flag.AddATM.eval(specialCases);
-                Flag.AddConvStore.eval(specialCases);
+                Flag.AddPharm.eval(venue, specialCases);
+                Flag.AddSuper.eval(venue, specialCases);
+                Flag.AppendAMPM.eval(venue, specialCases);
             }
             Flag.SFAliases.eval(aliasesRemoved);
             Flag.CatHotel.eval(priPNHPlaceCat, newName, newNameSuffix, pnhMatchData, phNameIdx);
@@ -7015,7 +7027,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
             Flag.BankBranch.eval(venue, newCategories, newName, newNameSuffix, priPNHPlaceCat, pnhMatchData, phSpecCaseIdx);
             Flag.StandaloneATM.eval(venue, newCategories, newName, newNameSuffix, priPNHPlaceCat, pnhMatchData, phSpecCaseIdx);
             Flag.BankCorporate.eval(venue, newCategories, newName, newNameSuffix, priPNHPlaceCat, pnhMatchData, phSpecCaseIdx);
-            Flag.AddATM.eval(venue, newCategories, newNameSuffix, priPNHPlaceCat, pnhMatchData, phSpecCaseIdx);
+            Flag.AddATM.eval(venue, newCategories, newNameSuffix, priPNHPlaceCat, pnhMatchData, phSpecCaseIdx, specialCases);
             Flag.NoHours.eval(venue, newCategories, wl, highlightOnly, actions);
             Flag.Mismatch247.eval(venue);
             Flag.HoursOverlap.eval(hoursOverlap);
@@ -7048,7 +7060,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
         Flag.ChangeToHospitalUrgentCare.eval(venue, newCategories, highlightOnly);
         Flag.IsThisAPilotTravelCenter.eval(venue, highlightOnly, state2L, newName);
         Flag.GasMkPrim.eval(venue, newCategories);
-        Flag.AddConvStore.eval(venue, newCategories);
+        Flag.AddConvStore.eval(venue, newCategories, specialCases);
         Flag.IndianaLiquorStoreHours.eval(venue, newName, addr, highlightOnly, wl);
         Flag.PointNotArea.eval(venue, newCategories, maxAreaSeverity, defaultLockLevel, wl);
         Flag.GasMismatch.eval(venue, newCategories, newBrand, newName, wl);
