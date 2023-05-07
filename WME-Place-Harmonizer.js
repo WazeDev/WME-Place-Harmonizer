@@ -184,7 +184,6 @@
     const _IS_BETA_VERSION = /Beta/i.test(_SCRIPT_NAME); //  enables dev messages and unique DOM options if the script is called "... Beta"
     const _BETA_VERSION_STR = _IS_BETA_VERSION ? 'Beta' : ''; // strings to differentiate DOM elements between regular and beta script
     const _PNH_DATA = { USA: {}, CAN: {} };
-    const _CATEGORY_LOOKUP = {};
     const _DEFAULT_HOURS_TEXT = 'Paste hours here';
     const _MAX_CACHE_SIZE = 25000;
     const PROD_DOWNLOAD_URL = 'https://greasyfork.org/scripts/28690-wme-place-harmonizer/code/WME%20Place%20Harmonizer.user.js';
@@ -351,7 +350,7 @@
     };
     const _WME_SERVICES_ARRAY = ['VALLET_SERVICE', 'DRIVETHROUGH', 'WI_FI', 'RESTROOMS', 'CREDIT_CARDS', 'RESERVATIONS', 'OUTSIDE_SEATING',
         'AIR_CONDITIONING', 'PARKING_FOR_CUSTOMERS', 'DELIVERIES', 'TAKE_AWAY', 'CURBSIDE_PICKUP', 'WHEELCHAIR_ACCESSIBLE', 'DISABILITY_PARKING'];
-    const _COLLEGE_ABBREVIATIONS = 'USF|USFSP|UF|UCF|UA|UGA|FSU|UM|SCP|FAU|FIU';
+    const _COLLEGE_ABBREVIATIONS = ['USF', 'USFSP', 'UF', 'UCF', 'UA', 'UGA', 'FSU', 'UM', 'SCP', 'FAU', 'FIU'];
     // Change place.name to title case
     const _TITLECASE_SETTINGS = {
         ignoreWords: 'an|and|as|at|by|for|from|hhgregg|in|into|of|on|or|the|to|with'.split('|'),
@@ -887,22 +886,6 @@
         }
     }
 
-    // This function runs at script load, and splits the category dataset into the searchable categories.
-    function makeCatCheckList(categoryData) {
-        const headers = categoryData[0].split('|');
-        const idIndex = headers.indexOf('pc_wmecat');
-        const nameIndex = headers.indexOf('pc_transcat');
-
-        return categoryData.map(entry => {
-            const splits = entry.split('|');
-            const id = splits[idIndex].trim();
-            if (id.length) {
-                _CATEGORY_LOOKUP[splits[nameIndex].trim().toUpperCase()] = id;
-            }
-            return id;
-        });
-    } // END makeCatCheckList function
-
     function addSpellingVariants(nameList, spellingVariantList) {
         for (let spellingOneIdx = 0; spellingOneIdx < spellingVariantList.length; spellingOneIdx++) {
             const spellingOne = spellingVariantList[spellingOneIdx];
@@ -1293,7 +1276,7 @@
             if (PNHStringMatch) { // Compare WME place name to PNH search name list
                 logDev(`Matched PNH Order No.: ${pnhEntrySplits[phOrderIdx]}`);
 
-                const PNHPriCat = catTranslate(pnhEntrySplits[phCategory1Idx]); // Primary category of PNH data
+                const PNHPriCat = getCategoryIdFromName(pnhEntrySplits[phCategory1Idx], country); // Primary category of PNH data
                 let PNHForceCat = pnhEntrySplits[phForceCatIdx]; // Primary category of PNH data
 
                 // Gas stations only harmonized if the WME place category is already gas station (prevents Costco Gas becoming Costco Store)
@@ -2336,7 +2319,7 @@
 
                 Flag.UnmappedRegion.#getRareCategoryInfos(categories, pnhCategoryInfos, state2L, region, countryCode, isLocked)
                     .forEach(categoryInfo => {
-                        if (categoryInfo.key === 'OTHER') {
+                        if (categoryInfo.id === 'OTHER') {
                             if (Flag.UnmappedRegion.#regionsToFlagOther.includes(region) && !isLocked) {
                                 addOtherMessage = true;
                                 severity = Math.max(severity, _SEVERITY.BLUE);
@@ -2371,11 +2354,11 @@
 
             static #getRareCategoryInfos(categories, pnhCategoryInfos, state2L, region, countryCode, isLocked) {
                 return categories
-                    .map(cat => pnhCategoryInfos.getByKey(cat))
+                    .map(cat => pnhCategoryInfos.getById(cat))
                     .filter(pnhCategoryInfo => {
                         const rareLocalities = pnhCategoryInfo.rare;
                         if (rareLocalities.includes(state2L) || rareLocalities.includes(region) || rareLocalities.includes(countryCode)) {
-                            if (pnhCategoryInfo.key === 'OTHER' && this.#regionsToFlagOther.includes(region)) {
+                            if (pnhCategoryInfo.id === 'OTHER' && this.#regionsToFlagOther.includes(region)) {
                                 if (!isLocked) {
                                     return true;
                                 }
@@ -2388,7 +2371,8 @@
             }
 
             static #venueIsFlaggable(categories, pnhCategoryInfos, state2L, region, countryCode, isLocked) {
-                return !!this.#getRareCategoryInfos(categories, pnhCategoryInfos, state2L, region, countryCode, isLocked).length;
+                return !categories.includes('REST_AREAS')
+                    && !!this.#getRareCategoryInfos(categories, pnhCategoryInfos, state2L, region, countryCode, isLocked).length;
             }
 
             static eval(categories, pnhCategoryInfos, state2L, region, countryCode, isLocked, highlightOnly, wl) {
@@ -2409,12 +2393,12 @@
                 );
             }
 
-            static #venueIsFlaggable(venue, hasRestAreaCategory) {
-                return hasRestAreaCategory && !/^Rest Area.* - /.test(venue.attributes.name);
+            static #venueIsFlaggable(venue, categories) {
+                return categories.includes('REST_AREAS') && !/^Rest Area.* - /.test(venue.attributes.name);
             }
 
-            static eval(venue, hasRestAreaCategory, wl) {
-                return this.#venueIsFlaggable(venue, hasRestAreaCategory, wl) ? new this(wl) : null;
+            static eval(venue, categories, wl) {
+                return this.#venueIsFlaggable(venue, categories) ? new this(wl) : null;
             }
         },
         RestAreaNoTransportation: class extends ActionFlag {
@@ -2423,12 +2407,12 @@
                 this.venue = venue;
             }
 
-            static #venueIsFlaggable(hasRestAreaCategory, categories) {
-                return hasRestAreaCategory && categories.includes('TRANSPORTATION');
+            static #venueIsFlaggable(categories) {
+                return categories.includes('REST_AREAS') && categories.includes('TRANSPORTATION');
             }
 
-            static eval(venue, hasRestAreaCategory, categories) {
-                return this.#venueIsFlaggable(hasRestAreaCategory, categories) ? new this(venue) : null;
+            static eval(venue, categories) {
+                return this.#venueIsFlaggable(categories) ? new this(venue) : null;
             }
 
             action() {
@@ -2443,8 +2427,12 @@
         RestAreaGas: class extends FlagBase {
             constructor() { super(true, _SEVERITY.RED, 'Gas stations at Rest Areas should be separate area places.'); }
 
-            static eval(hasRestAreaCategory, categories) {
-                return hasRestAreaCategory && categories.includes('GAS_STATION') ? new this() : null;
+            static #venueIsFlaggable(categories) {
+                return categories.includes('REST_AREAS') && categories.includes('GAS_STATION');
+            }
+
+            static eval(categories) {
+                return this.#venueIsFlaggable(categories) ? new this() : null;
             }
         },
         RestAreaScenic: class extends WLActionFlag {
@@ -2462,14 +2450,14 @@
                 this.venue = venue;
             }
 
-            static #venueIsFlaggable(hasRestAreaCategory, categories, wl) {
+            static #venueIsFlaggable(categories, wl) {
                 return !wl.restAreaScenic
-                    && hasRestAreaCategory
+                    && categories.includes('REST_AREAS')
                     && categories.includes('SCENIC_LOOKOUT_VIEWPOINT');
             }
 
-            static eval(venue, hasRestAreaCategory, categories, wl) {
-                return this.#venueIsFlaggable(hasRestAreaCategory, categories, wl) ? new this(venue) : null;
+            static eval(venue, categories, wl) {
+                return this.#venueIsFlaggable(categories, wl) ? new this(venue) : null;
             }
 
             action() {
@@ -2496,14 +2484,14 @@
                 this.venue = venue;
             }
 
-            static #venueIsFlaggable(hasRestAreaCategory, name, wl) {
+            static #venueIsFlaggable(categories, name, wl) {
                 return !wl.restAreaSpec
-                    && !hasRestAreaCategory
+                    && !categories.includes('REST_AREAS')
                     && (/rest (?:area|stop)|service plaza/i.test(name));
             }
 
-            static eval(venue, hasRestAreaCategory, name, wl) {
-                return this.#venueIsFlaggable(hasRestAreaCategory, name, wl) ? new this(venue) : null;
+            static eval(venue, categories, name, wl) {
+                return this.#venueIsFlaggable(categories, name, wl) ? new this(venue) : null;
             }
 
             action() {
@@ -2780,26 +2768,52 @@
             }
         },
         PointNotArea: class extends WLActionFlag {
-            constructor(venue) {
+            constructor(venue, maxAreaSeverity, defaultLockLevel, wl) {
+                let noLock = false;
+                let message;
+                let severity;
+                let wlActive = true;
+
+                const makeGreen = wl.pointNotArea
+                    || venue.attributes.lockRank >= defaultLockLevel;
+
+                if (makeGreen) {
+                    wlActive = false;
+                    severity = _SEVERITY.GREEN;
+                } else {
+                    severity = maxAreaSeverity;
+                    if (severity > _SEVERITY.BLUE) {
+                        noLock = true;
+                    }
+                }
+
+                if (maxAreaSeverity === _SEVERITY.RED) {
+                    message = 'This category should be a point place.';
+                } else {
+                    message = 'This category is usually a point place, but can be an area in some cases. Verify if area is appropriate.';
+                }
+
                 super(
                     true,
-                    _SEVERITY.RED,
-                    'This category should be a point place.',
+                    severity,
+                    message,
                     'Change to point',
                     'Change to point place',
-                    true,
+                    wlActive,
                     'Whitelist point (not area)',
                     'pointNotArea'
                 );
                 this.venue = venue;
+                this.noLock = noLock;
             }
 
-            static #venueIsFlaggable(venue) {
-                return venue.isResidential() && !venue.isPoint();
+            static #venueIsFlaggable(venue, categories, maxAreaSeverity) {
+                return !venue.isPoint()
+                    && (venue.isResidential() || (maxAreaSeverity > _SEVERITY.BLUE && !categories.includes('REST_AREAS')));
             }
 
-            static eval(venue) {
-                return this.#venueIsFlaggable(venue) ? new this(venue) : null;
+            static eval(venue, categories, maxAreaSeverity, defaultLockLevel, wl) {
+                return this.#venueIsFlaggable(venue, categories, maxAreaSeverity) ? new this(venue, maxAreaSeverity, defaultLockLevel, wl) : null;
             }
 
             action() {
@@ -2814,26 +2828,64 @@
             }
         },
         AreaNotPoint: class extends WLActionFlag {
-            constructor(venue) {
+            static #collegeAbbrRegExps;
+
+            constructor(venue, name, maxPointSeverity, defaultLockLevel, wl) {
+                let noLock = false;
+                let message;
+                let severity;
+                let wlActive = true;
+
+                const makeGreen = wl.areaNotPoint
+                    || venue.attributes.lockRank >= defaultLockLevel
+                    || (maxPointSeverity === _SEVERITY.BLUE && Flag.AreaNotPoint.#hasCollegeInName(name));
+
+                if (makeGreen) {
+                    wlActive = false;
+                    severity = _SEVERITY.GREEN;
+                } else {
+                    severity = maxPointSeverity;
+                    if (severity > _SEVERITY.BLUE) {
+                        noLock = true;
+                    }
+                }
+
+                if (maxPointSeverity === _SEVERITY.RED) {
+                    message = 'This category should be an area place.';
+                } else {
+                    message = 'This category is usually an area place, but can be a point in some cases. Verify if point is appropriate.';
+                }
+
                 super(
                     true,
-                    _SEVERITY.RED,
-                    'This category should be an area place.',
+                    severity,
+                    message,
                     'Change to area',
                     'Change to Area',
-                    true,
+                    wlActive,
                     'Whitelist area (not point)',
                     'areaNotPoint'
                 );
                 this.venue = venue;
+                this.noLock = noLock;
             }
 
-            static #venueIsFlaggable(venue, hasRestAreaCategory) {
-                return hasRestAreaCategory && venue.isPoint();
+            static #hasCollegeInName(name) {
+                if (!this.#collegeAbbrRegExps) {
+                    this.#collegeAbbrRegExps = _COLLEGE_ABBREVIATIONS.map(abbr => new RegExp(`\\b${abbr}\\b`, 'g'));
+                }
+                return this.#collegeAbbrRegExps.some(re => re.test(name));
             }
 
-            static eval(venue, hasRestAreaCategory) {
-                return this.#venueIsFlaggable(venue, hasRestAreaCategory) ? new this(venue) : null;
+            static #venueIsFlaggable(venue, categories, maxPointSeverity) {
+                return venue.isPoint()
+                    && (maxPointSeverity > _SEVERITY.GREEN || categories.includes('REST_AREAS'));
+            }
+
+            static eval(venue, name, categories, maxPointSeverity, defaultLockLevel, wl) {
+                return this.#venueIsFlaggable(venue, categories, maxPointSeverity)
+                    ? new this(venue, name, maxPointSeverity, defaultLockLevel, wl)
+                    : null;
             }
 
             action() {
@@ -2961,6 +3013,53 @@
         //         super(true, SEVERITY.RED, 'House number is non-standard.', true,
         //             'Whitelist non-standard HN', 'hnNonStandard');
         //     }
+        //
+        // BELOW IS COPIED FROM harmonizePlaceGo function. To be included in HN flags if enabled again.
+        // 2020-10-5 Disabling HN validity checks for now. See the note on the HnNonStandard flag object for more details.
+        // if (hasStreet && (!currentHN || currentHN.replace(/\D/g, '').length === 0)) {
+
+        // } else if (currentHN) {
+        //     let hnOK = false;
+        //     let updateHNflag = false;
+        //     const hnTemp = currentHN.replace(/[^\d]/g, ''); // Digits only
+        //     const hnTempDash = currentHN.replace(/[^\d-]/g, ''); // Digits and dashes only
+        //     if (hnTemp < 1000000 && state2L === 'NY' && addr.city.attributes.name === 'Queens' && hnTempDash.match(/^\d{1,4}-\d{1,4}$/g) !== null) {
+        //         updateHNflag = true;
+        //         // hnOK = true;
+        //     }
+        //     if (hnTemp === currentHN && hnTemp < 1000000) { //  general check that HN is 6 digits or less, & that it is only [0-9]
+        //         hnOK = true;
+        //     }
+        //     if (state2L === 'HI' && hnTempDash.match(/^\d{1,2}-\d{1,4}$/g) !== null) {
+        //         if (hnTempDash === hnTempDash.match(/^\d{1,2}-\d{1,4}$/g)[0]) {
+        //             hnOK = true;
+        //         }
+        //     }
+
+        //     if (!hnOK) {
+        //         _buttonBanner.hnNonStandard = new Flag.HnNonStandard();
+        //         if (_wl.hnNonStandard) {
+        //             _buttonBanner.hnNonStandard.WLactive = false;
+        //             _buttonBanner.hnNonStandard.severity = SEVERITY.GREEN;
+        //         } else {
+        //             lockOK = false;
+        //         }
+        //     }
+        //     if (updateHNflag) {
+        //         _buttonBanner.hnDashRemoved = new Flag.HnDashRemoved();
+        //         if (!highlightOnly) {
+        //             actions.push(new UpdateObject(venue, { houseNumber: hnTemp }));
+        //             _UPDATED_FIELDS.address.updated = true;
+        //         } else if (highlightOnly) {
+        //             if (venue.attributes.residential) {
+        //                 _buttonBanner.hnDashRemoved.severity = SEVERITY.RED;
+        //             } else {
+        //                 _buttonBanner.hnDashRemoved.severity = SEVERITY.BLUE;
+        //             }
+        //         }
+        //     }
+        // }
+        //
         // },
         HNRange: class extends WLFlag {
             constructor() {
@@ -3347,6 +3446,14 @@
                     'Description field already contained info; PNH description was added in front of existing. Check for inconsistency or duplicate info.'
                 );
             }
+
+            static #venueIsFlaggable(descriptionInserted) {
+                return descriptionInserted;
+            }
+
+            static eval(descriptionInserted) {
+                return this.#venueIsFlaggable(descriptionInserted) ? new this() : null;
+            }
         },
         Overlapping: class extends FlagBase {
             constructor() { super(true, _SEVERITY.YELLOW, 'Place points are stacked up.'); }
@@ -3429,36 +3536,15 @@
         PhoneInvalid: class extends FlagBase {
             constructor() { super(true, _SEVERITY.YELLOW, 'Phone # is invalid.'); }
 
-            static eval(phone) {
-                let result = null;
-                if (phone === 'badPhone') {
-                    result = new this();
-                }
-                return result;
+            static #venueIsFlaggable(phone, outputFormat, highlightOnly) {
+                if (!phone) return false;
+                const normalizedPhone = normalizePhone(phone, outputFormat);
+                return (highlightOnly && normalizedPhone !== phone)
+                    || (!highlightOnly && normalizedPhone === 'badPhone');
             }
-        },
-        AreaNotPointMid: class extends WLFlag {
-            constructor() {
-                super(
-                    true,
-                    _SEVERITY.YELLOW,
-                    'This category is usually an area place, but can be a point in some cases. Verify if point is appropriate.',
-                    true,
-                    'Whitelist area (not point)',
-                    'areaNotPoint'
-                );
-            }
-        },
-        PointNotAreaMid: class extends WLFlag {
-            constructor() {
-                super(
-                    true,
-                    _SEVERITY.YELLOW,
-                    'This category is usually a point place, but can be an area in some cases. Verify if area is appropriate.',
-                    true,
-                    'Whitelist point (not area)',
-                    'pointNotArea'
-                );
+
+            static eval(phone, outputFormat, highlightOnly) {
+                return this.#venueIsFlaggable(phone, outputFormat, highlightOnly) ? new this() : null;
             }
         },
         UrlMismatch: class extends WLActionFlag {
@@ -3466,7 +3552,7 @@
                 super(
                     true,
                     wl.longURL ? _SEVERITY.GREEN : _SEVERITY.BLUE,
-                    'Existing URL doesn\'t match the suggested PNH URL. Use the Website button below to verify that existing URL is valid.  If not:',
+                    'Existing URL doesn\'t match the suggested PNH URL. Use the Website button below to verify the existing URL is valid. If not:',
                     'Use PNH URL',
                     'Change URL to the PNH standard',
                     !wl.longURL,
@@ -3679,30 +3765,6 @@
 
                 _UPDATED_FIELDS.evPaymentMethods.updated = true;
                 addUpdateAction(this.venue, { categoryAttributes: categoryAttrClone }, null, true);
-            }
-        },
-        AreaNotPointLow: class extends WLFlag {
-            constructor() {
-                super(
-                    true,
-                    _SEVERITY.BLUE,
-                    'This category is usually an area place, but can be a point in some cases. Verify if point is appropriate.',
-                    true,
-                    'Whitelist area (not point)',
-                    'areaNotPoint'
-                );
-            }
-        },
-        PointNotAreaLow: class extends WLFlag {
-            constructor() {
-                super(
-                    true,
-                    _SEVERITY.BLUE,
-                    'This category is usually a point place, but can be an area in some cases. Verify if area is appropriate.',
-                    true,
-                    'Whitelist point (not area)',
-                    'pointNotArea'
-                );
             }
         },
         FormatUSPS: class extends FlagBase {
@@ -5075,7 +5137,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                     const description = `${this.optionalAlias}\n${this.venue.attributes.description}`;
                     addUpdateAction(this.venue, { description }, null, false);
                 }
-                aliases = removeSFAliases(name, aliases);
+                aliases = removeUnnecessaryAliases(name, aliases);
                 addUpdateAction(this.venue, { aliases }, null, true);
             }
         },
@@ -5385,6 +5447,14 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
         },
         SFAliases: class extends FlagBase {
             constructor() { super(true, _SEVERITY.GREEN, 'Unnecessary aliases were removed.'); }
+
+            static #venueIsFlaggable(aliasesRemoved) {
+                return aliasesRemoved;
+            }
+
+            static eval(aliasesRemoved) {
+                return this.#venueIsFlaggable(aliasesRemoved) ? new this() : null;
+            }
         },
         PlaceMatched: class extends FlagBase {
             constructor() { super(true, _SEVERITY.GREEN, 'Place matched from PNH data.'); }
@@ -5676,13 +5746,9 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
             Flag.ResiTypeName,
             Flag.Mismatch247,
             Flag.PhoneInvalid,
-            Flag.AreaNotPointMid,
-            Flag.PointNotAreaMid,
             Flag.UrlMismatch,
             Flag.GasNoBrand,
             Flag.SubFuel,
-            Flag.AreaNotPointLow,
-            Flag.PointNotAreaLow,
             Flag.FormatUSPS,
             Flag.MissingUSPSAlt,
             Flag.MissingUSPSZipAlt,
@@ -6355,6 +6421,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
         let recommendedPhone;
         let displayNote;
         let optionalAlias;
+        let phNameIdx;
         let phSpecCaseIdx;
         let specCases;
         let outputPhoneFormat;
@@ -6363,6 +6430,19 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
         let hoursOverlap = false;
         let pnhUrl;
         let localURLcheck;
+        let descriptionInserted = false;
+        let aliasesRemoved = false;
+        let isUspsPostOffice = false;
+        let pnhDataHeaders;
+        let maxPointSeverity = _SEVERITY.GREEN;
+        let maxAreaSeverity = _SEVERITY.RED;
+        const specialCases = {
+            addPharm: false,
+            addSuper: false,
+            appendAMPM: false,
+            addATM: false,
+            addConvStore: false
+        };
 
         // Set up a variable (newBrand) to contain the brand. When harmonizing, it may be forced to a new value.
         // Other brand flags should use it since it won't be updated on the actual venue until later.
@@ -6430,7 +6510,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                 pnhMatchData = ['Highlight'];
             }
 
-            let pnhDataHeaders = [];
+            pnhDataHeaders = [];
 
             pnhNameRegMatch = pnhMatchData[0] !== 'NoMatch'
                 && pnhMatchData[0] !== 'ApprovalNeeded'
@@ -6440,7 +6520,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                 let updatePNHName = true;
                 // Break out the data headers
                 pnhDataHeaders = _PNH_DATA[countryCode].pnh[0].split('|');
-                const phNameIdx = pnhDataHeaders.indexOf('ph_name');
+                phNameIdx = pnhDataHeaders.indexOf('ph_name');
                 const phAliasesIdx = pnhDataHeaders.indexOf('ph_aliases');
                 const phCategory1Idx = pnhDataHeaders.indexOf('ph_category1');
                 const phCategory2Idx = pnhDataHeaders.indexOf('ph_category2');
@@ -6476,7 +6556,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                     pnhMatchData = pnhMatchData[0].split('|'); // Single match just gets direct split
                 }
 
-                priPNHPlaceCat = catTranslate(pnhMatchData[phCategory1Idx]); // translate primary category to WME code
+                priPNHPlaceCat = getCategoryIdFromName(pnhMatchData[phCategory1Idx], countryCode); // translate primary category to WME code
 
                 // if the location has multiple matches, then pop an alert that will make a forum post to the thread
                 if (nsMultiMatch) {
@@ -6520,18 +6600,23 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                                     // flag = new Flag.AddCat2();
                                     break;
                                 case 'addPharm':
+                                    specialCases.addPharm = true;
                                     new Flag.AddPharm(venue);
                                     break;
                                 case 'addSuper':
+                                    specialCases.addSuper = true;
                                     new Flag.AddSuper(venue);
                                     break;
                                 case 'appendAMPM':
+                                    specialCases.appendAMPM = true;
                                     new Flag.AppendAMPM(venue);
                                     break;
                                 case 'addATM':
+                                    specialCases.addATM = true;
                                     new Flag.AddATM(venue);
                                     break;
                                 case 'addConvStore':
+                                    specialCases.addConvStore = true;
                                     new Flag.AddConvStore(venue);
                                     break;
                                 default:
@@ -6598,7 +6683,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                 if (altCategories && altCategories.length) { //  translate alt-cats to WME code
                     altCategories = altCategories.replace(/,[^A-Za-z0-9]*/g, ',').split(','); // tighten and split by comma
                     for (let catix = 0; catix < altCategories.length; catix++) {
-                        const newAltTemp = catTranslate(altCategories[catix]); // translate altCats into WME cat codes
+                        const newAltTemp = getCategoryIdFromName(altCategories[catix], countryCode); // translate altCats into WME cat codes
                         if (newAltTemp === 'ERROR') { // if no translation, quit the loop
                             log(`Category ${altCategories[catix]} cannot be translated.`);
                             return undefined;
@@ -6607,7 +6692,6 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                     }
                 }
 
-                Flag.CatHotel.eval(priPNHPlaceCat, newName, newNameSuffix, pnhMatchData, phNameIdx);
                 // name parsing with category exceptions
                 if (['HOTEL'].includes(priPNHPlaceCat)) {
                     const nameToCheck = newName + (newNameSuffix || '');
@@ -6687,7 +6771,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                 }
 
                 // Remove unnecessary parent categories
-                const parentCats = _.uniq(newCategories.map(category => pnhCategoryInfos.getByKey(category).parent))
+                const parentCats = _.uniq(newCategories.map(category => pnhCategoryInfos.getById(category).parent))
                     .filter(parent => parent.trim().length > 0);
                 newCategories = newCategories.filter(cat => !parentCats.includes(cat));
 
@@ -6708,8 +6792,8 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                 // Description update
                 newDescripion = pnhMatchData[phDescriptionIdx];
                 if (!isNullOrWhitespace(newDescripion) && !venue.attributes.description.toUpperCase().includes(newDescripion.toUpperCase())) {
-                    if (venue.attributes.description !== '' && venue.attributes.description !== null && venue.attributes.description !== ' ') {
-                        new Flag.CheckDescription();
+                    if (!isNullOrWhitespace(venue.attributes.description)) {
+                        descriptionInserted = true;
                     }
                     logDev('Description updated');
                     newDescripion = `${newDescripion}\n${venue.attributes.description}`;
@@ -6726,12 +6810,10 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
             const isPoint = venue.isPoint();
             // NOTE: do not use is2D() function. It doesn't seem to be 100% reliable.
             const isArea = !isPoint;
-            let maxPointSeverity = _SEVERITY.GREEN;
-            let maxAreaSeverity = _SEVERITY.RED;
             let highestCategoryLock = -1;
             // Category/Name-based Services, added to any existing services:
             newCategories.forEach(category => {
-                const pnhCategoryInfo = pnhCategoryInfos.getByKey(category);
+                const pnhCategoryInfo = pnhCategoryInfos.getById(category);
 
                 if (!pnhCategoryInfo) {
                     throw new Error(`WMEPH: Unexpected category: ${category}`);
@@ -6789,8 +6871,10 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                 }
 
                 // Update aliases
-                newAliases = removeSFAliases(newName, newAliases);
-                if (newAliases.some(alias => !venue.attributes.aliases.includes(alias)) || newAliases.length !== venue.attributes.aliases.length) {
+                const tempAliases = removeUnnecessaryAliases(newName, newAliases);
+                if (tempAliases) {
+                    aliasesRemoved = true;
+                    newAliases = tempAliases;
                     logDev('Alt Names updated');
                     actions.push(new UpdateObject(venue, { aliases: newAliases }));
                     _UPDATED_FIELDS.aliases.updated = true;
@@ -6798,7 +6882,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
 
                 // PNH specific Services:
                 newCategories.forEach(category => {
-                    const pnhCategoryInfo = pnhCategoryInfos.getByKey(category);
+                    const pnhCategoryInfo = pnhCategoryInfos.getById(category);
                     pnhCategoryInfo.services.forEach(service => {
                         const serviceButton = _servicesBanner[service.pnhKey];
                         if (!serviceButton.pnhOverride) {
@@ -6813,67 +6897,9 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                 });
             }
 
-            let areaNotPointLowFlag;
-            if (isPoint) {
-                if (maxPointSeverity === _SEVERITY.RED) {
-                    const f = new Flag.AreaNotPoint(venue);
-                    if (wl.areaNotPoint || venue.attributes.lockRank >= defaultLockLevel) {
-                        f.WLactive = false;
-                        f.severity = _SEVERITY.GREEN;
-                    } else {
-                        lockOK = false;
-                    }
-                } else if (maxPointSeverity === _SEVERITY.YELLOW) {
-                    const f = new Flag.AreaNotPointMid();
-                    if (wl.areaNotPoint || venue.attributes.lockRank >= defaultLockLevel) {
-                        f.WLactive = false;
-                        f.severity = _SEVERITY.GREEN;
-                    } else {
-                        lockOK = false;
-                    }
-                } else if (maxPointSeverity === _SEVERITY.BLUE) {
-                    areaNotPointLowFlag = new Flag.AreaNotPointLow();
-                    if (wl.areaNotPoint || venue.attributes.lockRank >= defaultLockLevel) {
-                        areaNotPointLowFlag.WLactive = false;
-                        areaNotPointLowFlag.severity = 0;
-                    }
-                }
-            } else if (maxAreaSeverity === _SEVERITY.RED) {
-                const f = new Flag.PointNotArea(venue);
-                if (wl.pointNotArea || venue.attributes.lockRank >= defaultLockLevel) {
-                    f.WLactive = false;
-                    f.severity = 0;
-                } else {
-                    lockOK = false;
-                }
-            } else if (maxAreaSeverity === _SEVERITY.YELLOW) {
-                const f = new Flag.PointNotAreaMid();
-                if (wl.pointNotArea || venue.attributes.lockRank >= defaultLockLevel) {
-                    f.WLactive = false;
-                    f.severity = 0;
-                } else {
-                    lockOK = false;
-                }
-            } else if (maxAreaSeverity === _SEVERITY.BLUE) {
-                const f = new Flag.PointNotAreaLow();
-                if (wl.pointNotArea || venue.attributes.lockRank >= defaultLockLevel) {
-                    f.WLactive = false;
-                    f.severity = 0;
-                }
-            }
-
-            const anpNone = _COLLEGE_ABBREVIATIONS.split('|');
-            for (let cii = 0; cii < anpNone.length; cii++) {
-                const anpNoneRE = new RegExp(`\\b${anpNone[cii]}\\b`, 'g');
-                if (newName.match(anpNoneRE) !== null && areaNotPointLowFlag) {
-                    areaNotPointLowFlag.severity = 0;
-                    areaNotPointLowFlag.WLactive = false;
-                }
-            }
-
             hoursOverlap = venueHasOverlappingHours(venue);
 
-            const isUspsPostOffice = countryCode === 'USA' && !newCategories.includes('PARKING_LOT') && newCategories.includes('POST_OFFICE');
+            isUspsPostOffice = countryCode === 'USA' && !newCategories.includes('PARKING_LOT') && newCategories.includes('POST_OFFICE');
 
             if (!highlightOnly) {
                 // Highlight 24/7 button if hours are set that way, and add button for all places
@@ -6908,110 +6934,108 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                     logDev('URL updated');
                     addUpdateAction(venue, { url: newUrl }, actions);
                 }
-            }
 
-            let normalizedPhone;
-            if (newPhone) {
-                normalizedPhone = normalizePhone(newPhone, outputPhoneFormat);
-                if (normalizedPhone !== 'badPhone') newPhone = normalizedPhone;
-            }
-
-            Flag.PhoneInvalid.eval(normalizedPhone, outputPhoneFormat);
-            Flag.PhoneMissing.eval(
-                venue,
-                newPhone,
-                newCategories,
-                wl,
-                region,
-                outputPhoneFormat,
-                FlagBase.currentFlags.hasFlag(Flag.AddRecommendedPhone)
-            );
-
-            // Check if valid area code  #LOC# USA and CAN only
-            Flag.BadAreaCode.eval(venue, newPhone, outputPhoneFormat, countryCode, wl);
-
-            if (!highlightOnly && newPhone !== venue.attributes.phone) {
-                logDev('Phone updated');
-                addUpdateAction(venue, { phone: newPhone }, actions);
-            }
-
-            // Post Office check
-            Flag.IsThisAPostOffice.eval(venue, highlightOnly, countryCode, newCategories, newName);
-            if (isUspsPostOffice && !highlightOnly) {
-                const cleanNameParts = Flag.FormatUSPS.getCleanNameParts(newName, newNameSuffix);
-                const nameToCheck = cleanNameParts.join('');
-                if (Flag.FormatUSPS.isNameOk(nameToCheck, state2L, addr)) {
-                    if (nameToCheck !== venue.attributes.name) {
-                        [newName, newNameSuffix] = cleanNameParts;
-                        actions.push(new UpdateObject(venue, { name: nameToCheck }));
+                if (newPhone) {
+                    const normalizedPhone = normalizePhone(newPhone, outputPhoneFormat);
+                    if (normalizedPhone !== 'badPhone') newPhone = normalizedPhone;
+                    if (newPhone !== venue.attributes.phone) {
+                        logDev('Phone updated');
+                        addUpdateAction(venue, { phone: newPhone }, actions);
                     }
                 }
-            } // END Post Office check
-            Flag.MissingUSPSZipAlt.eval(venue, isUspsPostOffice, newName, newAliases, wl, highlightOnly);
-            Flag.FormatUSPS.eval(isUspsPostOffice, state2L, addr, newName, newNameSuffix);
-            Flag.CatPostOffice.eval(isUspsPostOffice, highlightOnly);
-            Flag.MissingUSPSDescription.eval(isUspsPostOffice, newDescripion, wl);
-            Flag.MissingUSPSAlt.eval(venue, isUspsPostOffice, newAliases);
 
-            Flag.UrlMissing.eval(venue, newUrl, newCategories, region, wl);
-
-            Flag.LocationFinder.eval(
-                venue,
-                highlightOnly,
-                countryCode,
-                newCategories,
-                pnhMatchData,
-                pnhDataHeaders,
-                addr,
-                state2L,
-                venueGPS
-            );
+                if (isUspsPostOffice) {
+                    const cleanNameParts = Flag.FormatUSPS.getCleanNameParts(newName, newNameSuffix);
+                    const nameToCheck = cleanNameParts.join('');
+                    if (Flag.FormatUSPS.isNameOk(nameToCheck, state2L, addr)) {
+                        if (nameToCheck !== venue.attributes.name) {
+                            [newName, newNameSuffix] = cleanNameParts;
+                            actions.push(new UpdateObject(venue, { name: nameToCheck }));
+                        }
+                    }
+                }
+            }
         } // END if (!residential && has name)
 
+        if (!highlightOnly && newCategories.includes('REST_AREAS')) {
+            const oldName = venue.attributes.name;
+            if (oldName.match(/^Rest Area.* - /) !== null) {
+                const newSuffix = newNameSuffix.replace(/\bMile\b/i, 'mile');
+                if (newName + newSuffix !== venue.attributes.name) {
+                    addUpdateAction(venue, { name: newName + newSuffix }, actions);
+                    logDev('Lower case "mile"');
+                }
+                // NOTE: I don't know if this else case is needed anymore...
+                // else {
+                //     // The new name matches the original name, so the only change would have been to capitalize "Mile", which
+                //     // we don't want. So remove any previous name-change action.  Note: this feels like a hack and is probably
+                //     // a fragile workaround.  The name shouldn't be capitalized in the first place, unless necessary.
+                //     for (let i = 0; i < actions.length; i++) {
+                //         const action = actions[i];
+                //         if (action.newAttributes?.name) {
+                //             actions.splice(i, 1);
+                //             _UPDATED_FIELDS.name.updated = false;
+                //             break;
+                //         }
+                //     }
+                // }
+            }
+
+            // switch to rest area wiki button
+            _buttonBanner2.restAreaWiki.active = true;
+            _buttonBanner2.placesWiki.active = false;
+        }
+
         const isLocked = venue.attributes.lockRank >= (pnhLockLevel > -1 ? pnhLockLevel : defaultLockLevel);
-
-        Flag.UnmappedRegion.eval(newCategories, pnhCategoryInfos, state2L, region, countryCode, isLocked, highlightOnly, wl);
-        newCategories.forEach(category => {
-            const pnhCategoryInfo = pnhCategoryInfos.getByKey(category);
-
-            Flag.ParentCategory.eval(pnhCategoryInfo, state2L, region, countryCode, wl);
-        });
 
         if (!venue.isResidential() && (venue.isParkingLot() || (newName?.trim().length))) {
             if (pnhNameRegMatch) {
                 Flag.LocalizedName.eval(newName, newNameSuffix, localizationRegEx, displayNote, wl);
                 Flag.AddAlias.eval(venue, optionalAlias, specCases, newAliases);
                 Flag.AddRecommendedPhone.eval(venue, newPhone, recommendedPhone, outputPhoneFormat, wl);
-
-                // If it's a place that also sells fuel, enable the button
                 Flag.SubFuel.eval(pnhMatchData, phSpecCaseIdx, newName, wl);
-
-                // Display any notes for the specific place
                 Flag.SpecCaseMessage.eval(venue, pnhMatchData[phDisplayNoteIdx], showDispNote, specCases);
-
                 Flag.LocalURL.eval(newUrl, localURLcheck);
                 Flag.UrlMismatch.eval(venue, newUrl, pnhUrl, wl);
+                Flag.CheckDescription.eval(descriptionInserted);
+                Flag.LocationFinder.eval(venue, highlightOnly, countryCode, newCategories, pnhMatchData, pnhDataHeaders, addr, state2L, venueGPS);
+                Flag.AddPharm.eval(specialCases);
+                Flag.AddSuper.eval(specialCases);
+                Flag.AppendAMPM.eval(specialCases);
+                Flag.AddATM.eval(specialCases);
+                Flag.AddConvStore.eval(specialCases);
             }
-
+            Flag.SFAliases.eval(aliasesRemoved);
+            Flag.CatHotel.eval(priPNHPlaceCat, newName, newNameSuffix, pnhMatchData, phNameIdx);
             Flag.ExtProviderMissing.eval(venue, isLocked, newCategories, _USER.rank, $('#WMEPH-DisablePLAExtProviderCheck').prop('checked'), actions);
             Flag.NewPlaceSubmit.eval(venue, newName, newCategories, newUrl, highlightOnly, pnhMatchData, placePL, gFormState, region);
             Flag.ApprovalSubmit.eval(venue, newCategories, highlightOnly, pnhMatchData, placePL, gFormState, region);
-
-            // Strong title case option for non-PNH places
             Flag.TitleCaseName.eval(venue, newName, newNameSuffix, pnhNameRegMatch);
-
             Flag.BankType1.eval(newCategories, newName, pnhNameRegMatch, pnhMatchData, phSpecCaseIdx, priPNHPlaceCat);
             Flag.BankBranch.eval(venue, newCategories, newName, newNameSuffix, priPNHPlaceCat, pnhMatchData, phSpecCaseIdx);
             Flag.StandaloneATM.eval(venue, newCategories, newName, newNameSuffix, priPNHPlaceCat, pnhMatchData, phSpecCaseIdx);
             Flag.BankCorporate.eval(venue, newCategories, newName, newNameSuffix, priPNHPlaceCat, pnhMatchData, phSpecCaseIdx);
             Flag.AddATM.eval(venue, newCategories, newNameSuffix, priPNHPlaceCat, pnhMatchData, phSpecCaseIdx);
-
             Flag.NoHours.eval(venue, newCategories, wl, highlightOnly, actions);
             Flag.Mismatch247.eval(venue);
             Flag.HoursOverlap.eval(hoursOverlap);
             Flag.OldHours.eval(venue, pnhCategoryInfos, highlightOnly);
+            Flag.IsThisAPostOffice.eval(venue, highlightOnly, countryCode, newCategories, newName);
+            Flag.MissingUSPSZipAlt.eval(venue, isUspsPostOffice, newName, newAliases, wl, highlightOnly);
+            Flag.FormatUSPS.eval(isUspsPostOffice, state2L, addr, newName, newNameSuffix);
+            Flag.CatPostOffice.eval(isUspsPostOffice, highlightOnly);
+            Flag.MissingUSPSDescription.eval(isUspsPostOffice, newDescripion, wl);
+            Flag.MissingUSPSAlt.eval(venue, isUspsPostOffice, newAliases);
+            Flag.UrlMissing.eval(venue, newUrl, newCategories, region, wl);
+            Flag.PhoneInvalid.eval(newPhone, outputPhoneFormat, highlightOnly);
+            Flag.PhoneMissing.eval(venue, newPhone, newCategories, wl, region, outputPhoneFormat, FlagBase.currentFlags.hasFlag(Flag.AddRecommendedPhone));
+            Flag.BadAreaCode.eval(venue, newPhone, outputPhoneFormat, countryCode, wl);
+            newCategories.forEach(category => {
+                const pnhCategoryInfo = pnhCategoryInfos.getById(category);
+                Flag.ParentCategory.eval(pnhCategoryInfo, state2L, region, countryCode, wl);
+            });
         }
-
+        Flag.UnmappedRegion.eval(newCategories, pnhCategoryInfos, state2L, region, countryCode, isLocked, highlightOnly, wl);
         Flag.PlaCostTypeMissing.eval(venue, highlightOnly);
         Flag.PlaLotElevationMissing.eval(venue);
         Flag.PlaSpaces.eval(venue, highlightOnly);
@@ -7021,156 +7045,51 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
         Flag.PlaCanExitWhileClosed.eval(venue, highlightOnly);
         Flag.PlaPaymentTypeMissing.eval(venue);
         Flag.PlaHasAccessibleParking.eval(venue, highlightOnly);
-
-        // Check categories that maybe should be Hospital / Urgent Care, or Doctor / Clinic.
         Flag.ChangeToHospitalUrgentCare.eval(venue, newCategories, highlightOnly);
         Flag.IsThisAPilotTravelCenter.eval(venue, highlightOnly, state2L, newName);
         Flag.GasMkPrim.eval(venue, newCategories);
         Flag.AddConvStore.eval(venue, newCategories);
         Flag.IndianaLiquorStoreHours.eval(venue, newName, addr, highlightOnly, wl);
-        Flag.PointNotArea.eval(venue);
-
+        Flag.PointNotArea.eval(venue, newCategories, maxAreaSeverity, defaultLockLevel, wl);
         Flag.GasMismatch.eval(venue, newCategories, newBrand, newName, wl);
-
-        // Check EV charging stations:
         Flag.EVChargingStationWarning.eval(venue, highlightOnly);
         Flag.AddCommonEVPaymentMethods.eval(venue, highlightOnly, wl);
         Flag.RemoveUncommonEVPaymentMethods.eval(venue, highlightOnly, wl);
         Flag.EVCSPriceMissing.eval(venue, highlightOnly);
-
-        // Name check
         Flag.NameMissing.eval(venue, newName);
         Flag.PlaNameMissing.eval(venue, newName, _USER.rank);
         Flag.PlaNameNonStandard.eval(venue, wl);
         Flag.GasNameMissing.eval(venue, newName, newBrand, highlightOnly);
-
         Flag.PlaIsPublic.eval(venue, highlightOnly);
-
-        // House number / HN check
         let currentHN = venue.attributes.houseNumber;
         // Check to see if there's an action that is currently updating the house number.
         const updateHnAction = actions && actions.find(action => action.newAttributes && action.newAttributes.houseNumber);
         if (updateHnAction) currentHN = updateHnAction.newAttributes.houseNumber;
         // Use the inferred address street if currently no street.
         const hasStreet = venue.attributes.streetID || (inferredAddress && inferredAddress.street);
-
         Flag.HnMissing.eval(venue, hasStreet, currentHN, newCategories, state2L, wl);
         Flag.HnTooManyDigits.eval(currentHN, wl);
-
-        // 2020-10-5 Disabling HN validity checks for now. See the note on the HnNonStandard flag object for more details.
-        // if (hasStreet && (!currentHN || currentHN.replace(/\D/g, '').length === 0)) {
-
-        // } else if (currentHN) {
-        //     // let hnOK = false;
-        //     // let updateHNflag = false;
-        //     // const hnTemp = currentHN.replace(/[^\d]/g, ''); // Digits only
-        //     // const hnTempDash = currentHN.replace(/[^\d-]/g, ''); // Digits and dashes only
-        //     // if (hnTemp < 1000000 && state2L === 'NY' && addr.city.attributes.name === 'Queens' && hnTempDash.match(/^\d{1,4}-\d{1,4}$/g) !== null) {
-        //     //     updateHNflag = true;
-        //     //     // hnOK = true;
-        //     // }
-        //     // if (hnTemp === currentHN && hnTemp < 1000000) { //  general check that HN is 6 digits or less, & that it is only [0-9]
-        //     //     hnOK = true;
-        //     // }
-        //     // if (state2L === 'HI' && hnTempDash.match(/^\d{1,2}-\d{1,4}$/g) !== null) {
-        //     //     if (hnTempDash === hnTempDash.match(/^\d{1,2}-\d{1,4}$/g)[0]) {
-        //     //         hnOK = true;
-        //     //     }
-        //     // }
-
-        //     // if (!hnOK) {
-        //     //     _buttonBanner.hnNonStandard = new Flag.HnNonStandard();
-        //     //     if (_wl.hnNonStandard) {
-        //     //         _buttonBanner.hnNonStandard.WLactive = false;
-        //     //         _buttonBanner.hnNonStandard.severity = SEVERITY.GREEN;
-        //     //     } else {
-        //     //         lockOK = false;
-        //     //     }
-        //     // }
-        //     // if (updateHNflag) {
-        //     //     _buttonBanner.hnDashRemoved = new Flag.HnDashRemoved();
-        //     //     if (!highlightOnly) {
-        //     //         actions.push(new UpdateObject(venue, { houseNumber: hnTemp }));
-        //     //         _UPDATED_FIELDS.address.updated = true;
-        //     //     } else if (highlightOnly) {
-        //     //         if (venue.attributes.residential) {
-        //     //             _buttonBanner.hnDashRemoved.severity = SEVERITY.RED;
-        //     //         } else {
-        //     //             _buttonBanner.hnDashRemoved.severity = SEVERITY.BLUE;
-        //     //         }
-        //     //     }
-        //     // }
-        // }
-
         Flag.CityMissing.eval(venue, addr, highlightOnly);
         Flag.StreetMissing.eval(venue, addr);
         Flag.NotAHospital.eval(venue, newCategories, newName, wl);
-
-        // CATEGORY vs. NAME checks
         Flag.ChangeToPetVet.eval(venue, newName, newCategories, wl);
         Flag.ChangeToDoctorClinic.eval(venue, newCategories, highlightOnly, pnhNameRegMatch);
         Flag.NotASchool.eval(newName, newCategories, wl);
 
-        // *** Rest Area parsing
-        // check rest area name against standard formats or if has the right categories
-        const oldName = venue.attributes.name;
-        const hasRestAreaCategory = newCategories.includes('REST_AREAS');
-        Flag.RestAreaSpec.eval(venue, hasRestAreaCategory, newName, wl);
-        Flag.RestAreaScenic.eval(venue, hasRestAreaCategory, newCategories, wl);
-        Flag.RestAreaNoTransportation.eval(venue, hasRestAreaCategory, newCategories);
-        Flag.RestAreaGas.eval(hasRestAreaCategory, newCategories);
-        Flag.RestAreaName.eval(venue, hasRestAreaCategory, wl);
-
-        Flag.AreaNotPoint.eval(venue, hasRestAreaCategory);
-
-        if (hasRestAreaCategory) {
-            // TODO: move this logic into the flag eval functions
-            FlagBase.currentFlags.remove(Flag.PointNotArea);
-            FlagBase.currentFlags.remove(Flag.UnmappedRegion);
-
-            if (!highlightOnly && oldName.match(/^Rest Area.* - /) !== null) {
-                const newSuffix = newNameSuffix.replace(/Mile/i, 'mile');
-                if (newName + newSuffix !== venue.attributes.name) {
-                    actions.push(new UpdateObject(venue, { name: newName + newSuffix }));
-                    _UPDATED_FIELDS.name.updated = true;
-                    logDev('Lower case "mile"');
-                } else {
-                    // The new name matches the original name, so the only change would have been to capitalize "Mile", which
-                    // we don't want. So remove any previous name-change action.  Note: this feels like a hack and is probably
-                    // a fragile workaround.  The name shouldn't be capitalized in the first place, unless necessary.
-                    for (let i = 0; i < actions.length; i++) {
-                        const action = actions[i];
-                        if (action.newAttributes.name) {
-                            actions.splice(i, 1);
-                            _UPDATED_FIELDS.name.updated = false;
-                            break;
-                        }
-                    }
-                }
-            }
-
-            // switch to rest area wiki button
-            if (!highlightOnly) {
-                _buttonBanner2.restAreaWiki.active = true;
-                _buttonBanner2.placesWiki.active = false;
-            }
-        }
+        Flag.RestAreaSpec.eval(venue, newCategories, newName, wl);
+        Flag.RestAreaScenic.eval(venue, newCategories, wl);
+        Flag.RestAreaNoTransportation.eval(venue, newCategories);
+        Flag.RestAreaGas.eval(newCategories);
+        Flag.RestAreaName.eval(venue, newCategories, wl);
+        Flag.AreaNotPoint.eval(venue, newName, newCategories, maxPointSeverity, defaultLockLevel, wl);
 
         // update Severity for banner messages
         const orderedFlags = FlagBase.currentFlags.getOrderedFlags();
         orderedFlags.forEach(flag => {
-            if (flag.active) {
-                totalSeverity = Math.max(flag.severity, totalSeverity);
-            }
+            if (flag.active) totalSeverity = Math.max(flag.severity, totalSeverity);
         });
-        // Object.keys(_buttonBanner).forEach(key => {
-        //     if (_buttonBanner[key] && _buttonBanner[key].active) {
-        //         totalSeverity = Math.max(_buttonBanner[key].severity, totalSeverity);
-        //     }
-        // });
 
-        // Place locking
-        // final formatting of desired lock levels
+        // final updating of desired lock levels
         let levelToLock;
         if (pnhLockLevel !== -1 && !highlightOnly) {
             logDev(`PNHLockLevel: ${pnhLockLevel}`);
@@ -8203,6 +8122,10 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
         return false;
     }
 
+    const NO_NUM_SKIP = ['BANK', 'ATM', 'HOTEL', 'MOTEL', 'STORE', 'MARKET', 'SUPERMARKET', 'GYM', 'GAS', 'GASOLINE',
+        'GASSTATION', 'CAFE', 'OFFICE', 'OFFICES', 'CARRENTAL', 'RENTALCAR', 'RENTAL', 'SALON', 'BAR',
+        'BUILDING', 'LOT', ..._COLLEGE_ABBREVIATIONS];
+
     // Duplicate place finder  ###bmtg
     function findNearbyDuplicate(selectedVenueName, selectedVenueAliases, selectedVenue, recenterOption) {
         // Helper function to prep a name for comparisons.
@@ -8215,9 +8138,6 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
         const padFrac = 0.15; // how much to pad the zoomed window
 
         // generic terms to skip if it's all that remains after stripping numbers
-        let noNumSkip = 'BANK|ATM|HOTEL|MOTEL|STORE|MARKET|SUPERMARKET|GYM|GAS|GASOLINE|GASSTATION|CAFE|OFFICE|OFFICES'
-            + '|CARRENTAL|RENTALCAR|RENTAL|SALON|BAR|BUILDING|LOT';
-        noNumSkip = `${noNumSkip}|${_COLLEGE_ABBREVIATIONS}`.split('|');
         const allowedTwoLetters = ['BP', 'DQ', 'BK', 'BW', 'LQ', 'QT', 'DB', 'PO'];
 
         // Make the padded extent
@@ -8254,7 +8174,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
 
         // Clear non-letter characters for alternate match ( HOLLYIVYPUB23 --> HOLLYIVYPUB )
         const venueNameNoNum = selectedVenueNameRF.replace(/[^A-Z]/g, '');
-        if (((venueNameNoNum.length > 2 && !noNumSkip.includes(venueNameNoNum)) || allowedTwoLetters.includes(venueNameNoNum))
+        if (((venueNameNoNum.length > 2 && !NO_NUM_SKIP.includes(venueNameNoNum)) || allowedTwoLetters.includes(venueNameNoNum))
             && !selectedVenueAttr.categories.includes('PARKING_LOT')) {
             // only add de-numbered name if anything remains
             currNameList.push(venueNameNoNum);
@@ -8264,13 +8184,13 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
             for (let aliix = 0; aliix < selectedVenueAliases.length; aliix++) {
                 // Format name
                 const aliasNameRF = formatName(selectedVenueAliases[aliix]);
-                if ((aliasNameRF.length > 2 && !noNumSkip.includes(aliasNameRF)) || allowedTwoLetters.includes(aliasNameRF)) {
+                if ((aliasNameRF.length > 2 && !NO_NUM_SKIP.includes(aliasNameRF)) || allowedTwoLetters.includes(aliasNameRF)) {
                     // only add de-numbered name if anything remains
                     currNameList.push(aliasNameRF);
                 }
                 // Clear non-letter characters for alternate match ( HOLLYIVYPUB23 --> HOLLYIVYPUB )
                 const aliasNameNoNum = aliasNameRF.replace(/[^A-Z]/g, '');
-                if (((aliasNameNoNum.length > 2 && !noNumSkip.includes(aliasNameNoNum)) || allowedTwoLetters.includes(aliasNameNoNum))
+                if (((aliasNameNoNum.length > 2 && !NO_NUM_SKIP.includes(aliasNameNoNum)) || allowedTwoLetters.includes(aliasNameNoNum))
                     && !selectedVenueAttr.categories.includes('PARKING_LOT')) {
                     // only add de-numbered name if anything remains
                     currNameList.push(aliasNameNoNum);
@@ -8350,7 +8270,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                         // Reformat the testPlace name
                         const strippedTestName = formatName(testVenueAttr.name)
                             .replace(/\s+[-(].*$/, ''); // Remove localization text
-                        if ((strippedTestName.length > 2 && !noNumSkip.includes(strippedTestName))
+                        if ((strippedTestName.length > 2 && !NO_NUM_SKIP.includes(strippedTestName))
                             || allowedTwoLetters.includes(strippedTestName)) {
                             testNameList = [strippedTestName];
                         } else {
@@ -8359,7 +8279,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                         }
 
                         const testNameNoNum = strippedTestName.replace(/[^A-Z]/g, ''); // Clear non-letter characters for alternate match
-                        if (((testNameNoNum.length > 2 && !noNumSkip.includes(testNameNoNum)) || allowedTwoLetters.includes(testNameNoNum))
+                        if (((testNameNoNum.length > 2 && !NO_NUM_SKIP.includes(testNameNoNum)) || allowedTwoLetters.includes(testNameNoNum))
                             && !testVenueAttr.categories.includes('PARKING_LOT')) { //  only add de-numbered name if at least 2 chars remain
                             testNameList.push(testNameNoNum);
                         }
@@ -8380,14 +8300,14 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                         if (!nameMatch && testVenueAttr.aliases.length > 0) {
                             for (let aliix = 0; aliix < testVenueAttr.aliases.length; aliix++) {
                                 const aliasNameRF = formatName(testVenueAttr.aliases[aliix]);
-                                if ((aliasNameRF.length > 2 && !noNumSkip.includes(aliasNameRF)) || allowedTwoLetters.includes(aliasNameRF)) {
+                                if ((aliasNameRF.length > 2 && !NO_NUM_SKIP.includes(aliasNameRF)) || allowedTwoLetters.includes(aliasNameRF)) {
                                     testNameList = [aliasNameRF];
                                 } else {
                                     testNameList = [`ALIASNAMETOOSHORTQOFUH${randInt}`];
                                     randInt++;
                                 }
                                 const aliasNameNoNum = aliasNameRF.replace(/[^A-Z]/g, ''); // Clear non-letter characters for alternate match ( HOLLYIVYPUB23 --> HOLLYIVYPUB )
-                                if (((aliasNameNoNum.length > 2 && !noNumSkip.includes(aliasNameNoNum)) || allowedTwoLetters.includes(aliasNameNoNum))
+                                if (((aliasNameNoNum.length > 2 && !NO_NUM_SKIP.includes(aliasNameNoNum)) || allowedTwoLetters.includes(aliasNameNoNum))
                                     && !testVenueAttr.categories.includes('PARKING_LOT')) { //  only add de-numbered name if at least 2 characters remain
                                     testNameList.push(aliasNameNoNum);
                                 } else {
@@ -8739,11 +8659,12 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
         return `http://www.google.com/search?q=${encodeURIComponent(searchName)}`;
     }
 
-    // WME Category translation from Natural language to object language  (Bank / Financial --> BANK_FINANCIAL)
-    function catTranslate(natCategories) {
-        const catNameUpper = natCategories.trim().toUpperCase();
-        if (_CATEGORY_LOOKUP.hasOwnProperty(catNameUpper)) {
-            return _CATEGORY_LOOKUP[catNameUpper];
+    // Translation from PNH "natural language" category name to category ID  (Bank / Financial --> BANK_FINANCIAL)
+    function getCategoryIdFromName(pnhCategoryName, countryCode) {
+        const categoryInfo = _PNH_DATA[countryCode].categoryInfos.getByName(pnhCategoryName);
+
+        if (categoryInfo) {
+            return categoryInfo.id;
         }
 
         // if the category doesn't translate, then pop an alert that will make a forum post to the thread
@@ -8760,13 +8681,13 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
             () => {
                 reportError({
                     subject: 'WMEPH Bug report: no tns',
-                    message: `Error report: Category "${natCategories}" was not found in the PNH categories sheet.`
+                    message: `Error report: Category "${pnhCategoryName}" was not found in the PNH categories sheet.`
                 });
             },
             () => { }
         );
         return 'ERROR';
-    } // END catTranslate function
+    }
 
     // compares two arrays to see if equal, regardless of order
     function matchSets(array1, array2) {
@@ -8824,18 +8745,19 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
         return array1.legth === array2.length && array1.every((item, index) => item === array2[index]);
     }
 
-    // Function to remove unnecessary aliases
-    function removeSFAliases(nName, nAliases) {
-        const newAliasesUpdate = [];
-        nName = nName.toUpperCase().replace(/'/g, '').replace(/-/g, ' ').replace(/\/ /g, ' ').replace(/ \//g, ' ').replace(/ {2,}/g, ' ');
-        for (let naix = 0; naix < nAliases.length; naix++) {
-            if (!nName.startsWith(nAliases[naix].toUpperCase().replace(/'/g, '').replace(/-/g, ' ').replace(/\/ /g, ' ').replace(/ \//g, ' ').replace(/ {2,}/g, ' '))) {
-                newAliasesUpdate.push(nAliases[naix]);
+    function removeUnnecessaryAliases(venueName, aliases) {
+        const newAliases = [];
+        let aliasesRemoved = false;
+        venueName = venueName.replace(/['=\\/]/i, '');
+        venueName = venueName.toUpperCase().replace(/'/g, '').replace(/(-|\/ | \/| {2,})/g, ' ');
+        for (let naix = 0; naix < aliases.length; naix++) {
+            if (!venueName.startsWith(aliases[naix].toUpperCase().replace(/'/g, '').replace(/(-|\/ | \/| {2,})/g, ' '))) {
+                newAliases.push(aliases[naix]);
             } else {
-                new Flag.SFAliases();
+                aliasesRemoved = true;
             }
         }
-        return newAliasesUpdate;
+        return aliasesRemoved ? newAliases : null;
     }
 
     // used for phone reformatting
@@ -9671,12 +9593,12 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
     const dec = s => atob(atob(s));
 
     class PnhCategoryInfos {
-        #categoriesByKey = {};
+        #categoriesById = {};
         #categoriesByName = {};
         // #childCategoriesByParent = {};
 
         add(categoryInfo) {
-            this.#categoriesByKey[categoryInfo.key] = categoryInfo;
+            this.#categoriesById[categoryInfo.id] = categoryInfo;
             this.#categoriesByName[categoryInfo.name] = categoryInfo;
             // const parentCategory = categoryInfo.parent;
             // if (parentCategory && !this.#childCategoriesByParent.hasOwnProperty(parentCategory)) {
@@ -9685,23 +9607,23 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
             // this.#childCategoriesByParent[parentCategory].push()
         }
 
-        getByKey(key) {
-            return this.#categoriesByKey[key];
+        getById(id) {
+            return this.#categoriesById[id];
         }
 
         getByName(name) {
-            return this.#categoriesByName(name);
+            return this.#categoriesByName[name];
         }
 
         toArray() {
-            return Object.values(this.#categoriesByKey);
+            return Object.values(this.#categoriesById);
         }
     }
 
     function processPnhCategories(categoryDataRows, categoryInfos) {
         let headers;
         let pnhServiceKeys;
-        let wmeServiceKeys;
+        let wmeServiceIds;
         const splitValues = (value => (value.trim() ? value.split(',').map(v => v.trim()) : []));
         categoryDataRows.forEach((row, iRow) => {
             row = row.split('|');
@@ -9710,7 +9632,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
             } else if (iRow === 1) {
                 pnhServiceKeys = row;
             } else if (iRow === 2) {
-                wmeServiceKeys = row;
+                wmeServiceIds = row;
             } else {
                 const categoryInfo = {
                     services: []
@@ -9720,7 +9642,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                     value = value.trim();
                     switch (headerValue) {
                         case 'pc_wmecat':
-                            categoryInfo.key = value;
+                            categoryInfo.id = value;
                             break;
                         case 'pc_transcat':
                             categoryInfo.name = value;
@@ -9777,7 +9699,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                         case 'ps_takeaway':
                         case 'ps_wheelchair':
                             if (value) {
-                                categoryInfo.services.push({ wmeKey: wmeServiceKeys[iCol], pnhKey: pnhServiceKeys[iCol] });
+                                categoryInfo.services.push({ wmeId: wmeServiceIds[iCol], pnhKey: pnhServiceKeys[iCol] });
                             }
                             break;
                         case '':
