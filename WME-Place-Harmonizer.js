@@ -347,7 +347,7 @@
         CAMPING_TRAILER_PARK: 'CAMPING_TRAILER_PARK',
         CANAL: 'CANAL',
         // CAR_DEALERSHIP: 'CAR_DEALERSHIP',
-        // CAR_RENTAL: 'CAR_RENTAL',
+        CAR_RENTAL: 'CAR_RENTAL',
         // CAR_SERVICES: 'CAR_SERVICES',
         // CAR_WASH: 'CAR_WASH',
         // CASINO: 'CASINO',
@@ -387,7 +387,7 @@
         // GIFTS: 'GIFTS',
         GOLF_COURSE: 'GOLF_COURSE',
         // GOVERNMENT: 'GOVERNMENT',
-        // GYM_FITNESS: 'GYM_FITNESS',
+        GYM_FITNESS: 'GYM_FITNESS',
         // HARDWARE_STORE: 'HARDWARE_STORE',
         HOSPITAL_MEDICAL_CARE: 'HOSPITAL_MEDICAL_CARE',
         HOSPITAL_URGENT_CARE: 'HOSPITAL_URGENT_CARE',
@@ -961,8 +961,11 @@
     }
 
     function isAlwaysOpen(venue) {
-        const hours = venue.attributes.openingHours;
-        return hours.length === 1 && hours[0].days.length === 7 && hours[0].isAllDay();
+        return is247Hours(venue.attributes.openingHours);
+    }
+
+    function is247Hours(openingHours) {
+        return openingHours.length === 1 && openingHours[0].days.length === 7 && openingHours[0].isAllDay();
     }
 
     function isEmergencyRoom(venue) {
@@ -1059,7 +1062,8 @@
     }
 
     // This function runs at script load, and builds the search name dataset to compare the WME selected place name to.
-    function makeNameCheckList(pnhData) {
+    function makeNameCheckList(countryData) {
+        const pnhData = countryData.pnh;
         const headers = pnhData[0].split('|');
         const nameIdx = headers.indexOf('ph_name');
         const aliasesIdx = headers.indexOf('ph_aliases');
@@ -1127,23 +1131,24 @@
                 newNameList = newNameList.filter(name => name.length > 1);
 
                 // Next, add extensions to the search names based on the WME place category
-                // TODO: Why are we stripping non-alphas from the category???
-                const category = splits[category1Idx].toUpperCase().replace(/[^A-Z0-9]/g, '');
+                const categoryInfo = countryData.categoryInfos.getByName(splits[category1Idx]);
                 const appendWords = [];
-                if (category === CAT.HOTEL) {
-                    appendWords.push('HOTEL');
-                } else if (category === 'BANKFINANCIAL' && !/\bnotABank\b/.test(specCase)) {
-                    appendWords.push('BANK', 'ATM');
-                } else if (category === 'SUPERMARKETGROCERY') {
-                    appendWords.push('SUPERMARKET');
-                } else if (category === 'GYMFITNESS') {
-                    appendWords.push('GYM');
-                } else if (category === 'GASSTATION') {
-                    appendWords.push('GAS', 'GASOLINE', 'FUEL', 'STATION', 'GASSTATION');
-                } else if (category === 'CARRENTAL') {
-                    appendWords.push('RENTAL', 'RENTACAR', 'CARRENTAL', 'RENTALCAR');
+                if (categoryInfo) {
+                    if (categoryInfo.id === CAT.HOTEL) {
+                        appendWords.push('HOTEL');
+                    } else if (categoryInfo.id === CAT.BANK_FINANCIAL && !/\bnotABank\b/.test(specCase)) {
+                        appendWords.push('BANK', 'ATM');
+                    } else if (categoryInfo.id === CAT.SUPERMARKET_GROCERY) {
+                        appendWords.push('SUPERMARKET');
+                    } else if (categoryInfo.id === CAT.GYM_FITNESS) {
+                        appendWords.push('GYM');
+                    } else if (categoryInfo.id === CAT.GAS_STATION) {
+                        appendWords.push('GAS', 'GASOLINE', 'FUEL', 'STATION', 'GASSTATION');
+                    } else if (categoryInfo.id === CAT.CAR_RENTAL) {
+                        appendWords.push('RENTAL', 'RENTACAR', 'CARRENTAL', 'RENTALCAR');
+                    }
+                    appendWords.forEach(word => { newNameList = newNameList.concat(newNameList.map(name => name + word)); });
                 }
-                appendWords.forEach(word => { newNameList = newNameList.concat(newNameList.map(name => name + word)); });
 
                 // Add entries for word/spelling variations
                 _wordVariations.forEach(variationsList => addSpellingVariants(newNameList, variationsList));
@@ -1345,7 +1350,7 @@
     }
 
     // Function that checks current place against the Harmonization Data.  Returns place data or "NoMatch"
-    function harmoList(name, state2L, region3L, country, categories, venue) {
+    function findPnhMatch(name, state2L, region3L, country, categories, venue) {
         if (country !== 'USA' && country !== 'CAN') {
             WazeWrap.Alerts.info(SCRIPT_NAME, 'No PNH data exists for this country.');
             return ['NoMatch'];
@@ -1367,7 +1372,8 @@
         let allowMultiMatch = false;
         const pnhOrderNum = [];
         const pnhNameTemp = [];
-        let pnhNameMatch = false; // tracks match status
+        let matchOutOfRegion = false; // tracks match status
+        let matchInRegion = false;
 
         name = name.toUpperCase().replace(/ AND /g, ' ').replace(/^THE /g, '');
         const venueNameSpace = ` ${name.replace(/[^A-Z0-9 ]/g, ' ').replace(/ {2,}/g, ' ')} `;
@@ -1461,14 +1467,14 @@
                         || approvedRegions.includes(country) //  OR if the country code is in the data then it is approved for all regions therein
                         || $('#WMEPH-RegionOverride').prop('checked')) { // OR if region override is selected (dev setting)
                         matchPNHRegionData.push(pnhEntry);
-                        new Flag.PlaceMatched();
+                        matchInRegion = true;
                         if (!allowMultiMatch) {
                             // Return the PNH data string array to the main script
                             return matchPNHRegionData;
                         }
                     } else {
                         // PNH match found (once true, stays true)
-                        pnhNameMatch = true;
+                        matchOutOfRegion = true;
 
                         // Pull the data line from the PNH data table.  (**Set in array for future multimatch features)
                         // matchPNHData.push(pnhEntry);
@@ -1483,11 +1489,11 @@
             }
         } // END loop through PNH places
 
-        // If NO (name & region) match was found:
-        if (FlagBase.currentFlags.hasFlag(Flag.PlaceMatched)) {
+        // If name & region match was found:
+        if (matchInRegion) {
             return matchPNHRegionData;
         }
-        if (pnhNameMatch) { // if a name match was found but not for region, prod the user to get it approved
+        if (matchOutOfRegion) { // if a name match was found but not for region, prod the user to get it approved
             return ['ApprovalNeeded', pnhNameTemp, pnhOrderNum];
         }
         // if no match was found, suggest adding the place to the sheet if it's a chain
@@ -1857,7 +1863,7 @@
                 // Severity can be: 0, 'lock', 1, 2, 3, 4, or 'high'. Set to
                 // anything else to use default WME style.
                 if (doHighlight && !(disableRankHL && venue.attributes.lockRank > USER.rank - 1)) {
-                    try {
+                    // try {
                         const { id } = venue.attributes;
                         let severity;
                         let cachedResult;
@@ -1869,9 +1875,9 @@
                             severity = cachedResult.s;
                         }
                         venue.attributes.wmephSeverity = severity;
-                    } catch (err) {
-                        console.error('WMEPH highlight error: ', err);
-                    }
+                    // } catch (err) {
+                    //     console.error('WMEPH highlight error: ', err);
+                    // }
                 } else {
                     venue.attributes.wmephSeverity = 'default';
                 }
@@ -2012,6 +2018,7 @@
 
     // normalize phone
     function normalizePhone(s, outputFormat) {
+        if (isNullOrWhitespace(s)) return s;
         s = s.replace(/(\d{3}.*)\W+(?:extension|ext|xt|x).*/i, '$1');
         let s1 = s.replace(/\D/g, ''); // remove non-number characters
 
@@ -2079,7 +2086,7 @@
                 W.model.actionManager.add(action);
             }
         }
-        if (runHarmonizer) harmonizePlaceGo(venue, 'harmonize');
+        if (runHarmonizer) setTimeout(() => harmonizePlaceGo(venue, 'harmonize'), 0);
     }
 
     function setServiceChecked(servBtn, checked, actions) {
@@ -2444,16 +2451,16 @@
                 );
             }
 
-            static #venueIsFlaggable(venue, addr, name, highlightOnly, wl) {
+            static #venueIsFlaggable(venue, addr, name, openingHours, highlightOnly, wl) {
                 return !highlightOnly && !wl.indianaLiquorStoreHours
                     && !venue.isResidential()
                     && [/\bbeers?\b/, /\bwines?\b/, /\bliquor\b/, /\bspirits\b/].some(re => re.test(name))
-                    && !venue.attributes.openingHours.some(entry => entry.days.includes(0))
+                    && !openingHours.some(entry => entry.days.includes(0))
                     && addr?.state.name === 'Indiana';
             }
 
-            static eval(venue, name, addr, highlightOnly, wl) {
-                return this.#venueIsFlaggable(venue, addr, name, highlightOnly, wl) ? new this() : null;
+            static eval(venue, name, addr, openingHours, highlightOnly, wl) {
+                return this.#venueIsFlaggable(venue, addr, name, openingHours, highlightOnly, wl) ? new this() : null;
             }
         },
         HoursOverlap: class extends FlagBase {
@@ -3675,19 +3682,15 @@
         Mismatch247: class extends FlagBase {
             constructor() { super(true, SEVERITY.YELLOW, 'Hours of operation listed as open 24hrs but not for all 7 days.'); }
 
-            static #venueIsFlaggable(venue) {
-                if (venue.attributes.openingHours.length === 1) { // if one set of hours exist, check for partial 24hrs setting
-                    const hoursEntry = venue.attributes.openingHours[0];
-                    if (hoursEntry.days.length < 7 && /^0?0:00$/.test(hoursEntry.fromHour)
-                        && (/^0?0:00$/.test(hoursEntry.toHour) || hoursEntry.toHour === '23:59')) {
-                        return true;
-                    }
-                }
-                return false;
+            static #venueIsFlaggable(openingHours) {
+                return openingHours.length === 1
+                    && openingHours[0].days.length < 7
+                    && /^0?0:00$/.test(openingHours[0].fromHour)
+                    && (/^0?0:00$/.test(openingHours[0].toHour) || openingHours[0].toHour === '23:59');
             }
 
-            static eval(venue) {
-                return this.#venueIsFlaggable(venue) ? new this() : null;
+            static eval(openingHours) {
+                return this.#venueIsFlaggable(openingHours) ? new this() : null;
             }
         },
         PhoneInvalid: class extends FlagBase {
@@ -4128,68 +4131,90 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
             }
         },
         SpecCaseMessage: class extends FlagBase {
-            constructor(message) { super(true, SEVERITY.GREEN, message); }
+            static #teslaSC = /tesla supercharger/i;
+            static #teslaDC = /tesla destination charger/i;
+            static #rivianAN = /<b>rivian adventure network<\/b> charger/i;
+            static #rivianW = /<b>rivian waypoints<\/b> charger/i;
 
-            static eval(venue, message, showDisplayNote, specialCases) {
-                let result = null;
+            constructor(venue, message) {
+                // 3/23/2023 - This is a temporary solution to add a disambiguator for Tesla & Rivian chargers.
+                let isRivian = false;
+                const isTesla = Flag.SpecCaseMessage.#teslaSC.test(message) && Flag.SpecCaseMessage.#teslaDC.test(message);
+                if (isTesla) {
+                    message = message.replace(
+                        Flag.SpecCaseMessage.#teslaSC,
+                        '<button id="wmeph-tesla-supercharger" class="btn wmeph-btn">Tesla SuperCharger</button>'
+                    );
+                    message = message.replace(
+                        Flag.SpecCaseMessage.#teslaDC,
+                        '<button id="wmeph-tesla-destination-charger" class="btn wmeph-btn">Tesla Destination Charger</button>'
+                    );
+                } else {
+                    isRivian = Flag.SpecCaseMessage.#rivianAN.test(message) && Flag.SpecCaseMessage.#rivianW.test(message);
+                    if (isRivian) {
+                        message = message.replace(
+                            Flag.SpecCaseMessage.#rivianAN,
+                            '<button id="wmeph-rivian-adventure-network" class="btn wmeph-btn">Rivian Adventure Network charger</button>'
+                        );
+                        message = message.replace(
+                            Flag.SpecCaseMessage.#rivianW,
+                            '<button id="wmeph-rivian-waypoints" class="btn wmeph-btn">Rivian Waypoints charger</button>'
+                        );
+                    }
+                }
+
+                super(true, SEVERITY.GREEN, message);
+
+                if (isTesla) {
+                    this.postProcess = () => {
+                        $('#wmeph-tesla-supercharger').click(() => {
+                            addUpdateAction(venue, { name: 'Tesla Supercharger' }, null, true);
+                        });
+
+                        $('#wmeph-tesla-destination-charger').click(() => {
+                            addUpdateAction(venue, { name: 'Tesla Destination Charger' }, null, true);
+                        });
+                    };
+                    this.severity = SEVERITY.RED;
+                    this.noLock = true;
+                } else if (isRivian) {
+                    this.postProcess = () => {
+                        $('#wmeph-rivian-adventure-network').click(() => {
+                            addUpdateAction(venue, { name: 'Rivian Adventure Network' }, null, true);
+                        });
+                        $('#wmeph-rivian-waypoints').click(() => {
+                            addUpdateAction(venue, { name: 'Rivian Waypoints' }, null, true);
+                        });
+                    };
+                    this.severity = SEVERITY.RED;
+                    this.noLock = true;
+                }
+            }
+
+            static #venueIsFlaggable(venue, message, showDisplayNote, specialCases) {
+                // TODO: Replace venue.attributes.description with newDescription value from harmonizePlaceGo function.
                 if (showDisplayNote && !isNullOrWhitespace(message)) {
-                    if (containsAny(specialCases, ['pharmhours'])) {
-                        if (!venue.attributes.description.toUpperCase().includes(CAT.PHARMACY) || (!venue.attributes.description.toUpperCase().includes('HOURS')
+                    if (specialCases.includes('pharmhours')) {
+                        if (!venue.attributes.description.toUpperCase().includes('PHARMACY') || (!venue.attributes.description.toUpperCase().includes('HOURS')
                             && !venue.attributes.description.toUpperCase().includes('HRS'))) {
-                            result = new this(message);
+                            return true;
                         }
-                    } else if (containsAny(specialCases, ['drivethruhours'])) {
+                    } else if (specialCases.includes('drivethruhours')) {
                         if (!venue.attributes.description.toUpperCase().includes('DRIVE') || (!venue.attributes.description.toUpperCase().includes('HOURS')
                             && !venue.attributes.description.toUpperCase().includes('HRS'))) {
                             if ($('#service-checkbox-DRIVETHROUGH').prop('checked')) {
-                                result = new this(message);
+                                return true;
                             }
                         }
                     } else {
-                        // 3/23/2023 - This is a temporary solution to add a disambiguator for Tesla & Rivian chargers.
-                        const teslaSC = /tesla supercharger/i;
-                        const teslaDC = /tesla destination charger/i;
-                        const isTesla = teslaSC.test(message) && teslaDC.test(message);
-                        if (isTesla) {
-                            message = message.replace(teslaSC, '<button id="wmeph-tesla-supercharger" class="btn wmeph-btn">Tesla SuperCharger</button>');
-                            message = message.replace(teslaDC, '<button id="wmeph-tesla-destination-charger" class="btn wmeph-btn">Tesla Destination Charger</button>');
-                        }
-                        const rivianAN = /<b>rivian adventure network<\/b> charger/i;
-                        const rivianW = /<b>rivian waypoints<\/b> charger/i;
-                        const isRivian = rivianAN.test(message) && rivianW.test(message);
-                        if (isRivian) {
-                            message = message.replace(rivianAN, '<button id="wmeph-rivian-adventure-network" class="btn wmeph-btn">Rivian Adventure Network charger</button>');
-                            message = message.replace(rivianW, '<button id="wmeph-rivian-waypoints" class="btn wmeph-btn">Rivian Waypoints charger</button>');
-                        }
-
-                        result = new Flag.SpecCaseMessageLow(message); // KEEP THIS LINE (not part of Tesla stuff)
-
-                        if (isTesla) {
-                            result.postProcess = () => {
-                                $('#wmeph-tesla-supercharger').click(() => {
-                                    addUpdateAction(venue, { name: 'Tesla Supercharger' }, null, true);
-                                });
-
-                                $('#wmeph-tesla-destination-charger').click(() => {
-                                    addUpdateAction(venue, { name: 'Tesla Destination Charger' }, null, true);
-                                });
-                            };
-                            result.severity = SEVERITY.RED;
-                            result.noLock = true;
-                        }
-                        if (isRivian) {
-                            result.postProcess = () => {
-                                $('#wmeph-rivian-adventure-network').click(() => {
-                                    addUpdateAction(venue, { name: 'Rivian Adventure Network' }, null, true);
-                                });
-                                $('#wmeph-rivian-waypoints').click(() => {
-                                    addUpdateAction(venue, { name: 'Rivian Waypoints' }, null, true);
-                                });
-                            };
-                        }
+                        return true;
                     }
                 }
-                return result;
+                return false;
+            }
+
+            static eval(venue, message, showDisplayNote, specialCases) {
+                return this.#venueIsFlaggable(venue, message, showDisplayNote, specialCases) ? new this(venue, message) : null;
             }
         },
         PnhCatMess: class extends ActionFlag {
@@ -4220,9 +4245,6 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                     }
                 }
             }
-        },
-        SpecCaseMessageLow: class extends FlagBase {
-            constructor(message) { super(true, SEVERITY.GREEN, message); }
         },
         ExtProviderMissing: class extends ActionFlag {
             static #categoriesToIgnore = [CAT.BRIDGE, CAT.TUNNEL, CAT.JUNCTION_INTERCHANGE, CAT.NATURAL_FEATURES, CAT.ISLAND,
@@ -4522,13 +4544,11 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
             }
         },
         NoHours: class extends WLFlag {
-            constructor(venue, categories, wl, highlightOnly, actions) {
+            constructor(venue, categories, openingHours, wl, highlightOnly) {
                 let severity;
                 let wlActive = true;
                 let message;
-                const hours = actions?.find(action => action.object === venue && action.newAttributes?.openingHours)?.newAttributes.openingHours
-                    || venue.attributes.openingHours;
-                if (!hours.length) { // if no hours...
+                if (!openingHours.length) { // if no hours...
                     if (!highlightOnly) message = Flag.NoHours.#getHoursHtml();
                     if (Flag.NoHours.#noHoursIsOk(categories, wl)) {
                         severity = SEVERITY.GREEN;
@@ -4544,7 +4564,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                 }
                 super(true, severity, message, wlActive, 'Whitelist "No hours"', 'noHours');
                 this.venue = venue;
-                this.hours = hours;
+                this.hours = openingHours;
             }
 
             static #venueIsFlaggable(categories) {
@@ -4553,8 +4573,8 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                     CAT.SWAMP_MARSH, CAT.DAM]);
             }
 
-            static eval(venue, categories, wl, highlightOnly, actions) {
-                return this.#venueIsFlaggable(categories) ? new this(venue, categories, wl, highlightOnly, actions) : null;
+            static eval(venue, categories, openingHours, wl, highlightOnly) {
+                return this.#venueIsFlaggable(categories) ? new this(venue, categories, openingHours, wl, highlightOnly) : null;
             }
 
             static #noHoursIsOk(categories, wl) {
@@ -4887,16 +4907,16 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                 return lastUpdated < this.#cutoffDate;
             }
 
-            static #venueIsFlaggable(venue) {
+            static #venueIsFlaggable(venue, categories, openingHours) {
                 return !venue.isResidential()
                     && this.#venueIsOld(venue)
-                    && venue.attributes.openingHours?.length
-                    && venue.attributes.categories.some(cat => this.#categoriesToCheck.includes(cat));
+                    && openingHours?.length
+                    && categories.some(cat => this.#categoriesToCheck.includes(cat));
             }
 
-            static eval(venue, pnhCategoryInfos, highlightOnly) {
+            static eval(venue, categories, openingHours, pnhCategoryInfos, highlightOnly) {
                 this.#initializeCategoriesToCheck(pnhCategoryInfos);
-                return this.#venueIsFlaggable(venue) ? new this(venue, highlightOnly) : null;
+                return this.#venueIsFlaggable(venue, categories, openingHours) ? new this(venue, highlightOnly) : null;
             }
 
             action() {
@@ -5131,15 +5151,15 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                 this.venue = venue;
             }
 
-            static #venueIsFlaggable(venue, highlightOnly) {
+            static #venueIsFlaggable(venue, openingHours, highlightOnly) {
                 return !highlightOnly
                     && venue.isParkingLot()
                     && !venue.attributes.categoryAttributes?.PARKING_LOT?.canExitWhileClosed
-                    && ($('#WMEPH-ShowPLAExitWhileClosed').prop('checked') || !(venue.attributes.openingHours.length === 0 || isAlwaysOpen(venue)));
+                    && ($('#WMEPH-ShowPLAExitWhileClosed').prop('checked') || !(openingHours.length === 0 || is247Hours(openingHours)));
             }
 
-            static eval(venue, highlightOnly) {
-                return this.#venueIsFlaggable(venue, highlightOnly) ? new this(venue) : null;
+            static eval(venue, openingHours, highlightOnly) {
+                return this.#venueIsFlaggable(venue, openingHours, highlightOnly) ? new this(venue) : null;
             }
 
             action() {
@@ -5176,35 +5196,22 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
             }
         },
         AllDayHoursFixed: class extends FlagBase {
-            constructor() { super(true, SEVERITY.GREEN, 'Hours were changed from 00:00-23:59 to "All Day"'); }
+            constructor(highlightOnly) {
+                // If highlightOnly, flag place yellow. Running WMEPH on a place will automatically fix the hours, so
+                // then this can be green and just display the message.
+                super(
+                    true,
+                    highlightOnly ? SEVERITY.YELLOW : SEVERITY.GREEN,
+                    highlightOnly ? '' : 'Hours were changed from 00:00-23:59 to "All Day"'
+                );
+            }
 
-            static eval(venue, highlightOnly, actions) {
-                const hoursEntries = venue.attributes.openingHours;
-                const newHoursEntries = [];
-                let updateHours = false;
-                let result = null;
-                for (let i = 0, len = hoursEntries.length; i < len; i++) {
-                    const newHoursEntry = new OpeningHour({
-                        days: [].concat(hoursEntries[i].days), fromHour: hoursEntries[i].fromHour, toHour: hoursEntries[i].toHour
-                    });
-                    if (newHoursEntry.toHour === '23:59' && /^0?0:00$/.test(newHoursEntry.fromHour)) {
-                        if (highlightOnly) {
-                            // Just return a "placeholder" flag to highlight the place.
-                            result = new FlagBase(true, SEVERITY.YELLOW, 'invalid all day hours');
-                            break;
-                        } else {
-                            updateHours = true;
-                            newHoursEntry.toHour = '00:00';
-                            newHoursEntry.fromHour = '00:00';
-                        }
-                    }
-                    newHoursEntries.push(newHoursEntry);
-                }
-                if (updateHours) {
-                    addUpdateAction(venue, { openingHours: newHoursEntries }, actions);
-                    result = new this();
-                }
-                return result;
+            static #venueIsFlaggable(invalidHoursEntries) {
+                return invalidHoursEntries.length > 0;
+            }
+
+            static eval(highlightOnly, invalidHoursEntries) {
+                return this.#venueIsFlaggable(invalidHoursEntries) ? new this(highlightOnly) : null;
             }
         },
         LocalURL: class extends FlagBase {
@@ -5642,6 +5649,14 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
         },
         PlaceMatched: class extends FlagBase {
             constructor() { super(true, SEVERITY.GREEN, 'Place matched from PNH data.'); }
+
+            static #venueIsFlaggable(hasPnhMatch) {
+                return hasPnhMatch;
+            }
+
+            static eval(hasPnhMatch) {
+                return this.#venueIsFlaggable(hasPnhMatch) ? new this() : null;
+            }
         },
         PlaceLocked: class extends FlagBase {
             constructor(venue, levelToLock, highlightOnly, actions) {
@@ -5940,7 +5955,6 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
             Flag.CatHotel,
             Flag.LocalizedName,
             Flag.SpecCaseMessage,
-            Flag.SpecCaseMessageLow,
             Flag.ChangeToDoctorClinic,
             Flag.ExtProviderMissing,
             Flag.AddCommonEVPaymentMethods,
@@ -6445,9 +6459,6 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
             pnhLockLevel = -1;
         }
 
-        // If place has hours of 0:00-23:59, highlight yellow or if harmonizing, convert to All Day.
-        Flag.AllDayHoursFixed.eval(venue, highlightOnly, actions);
-
         let lockOK = true; // if nothing goes wrong, then place will be locked
 
         let newCategories = venue.attributes.categories.slice();
@@ -6458,6 +6469,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
         let newDescripion = venue.attributes.description;
         let newUrl = venue.attributes.url;
         let newPhone = venue.attributes.phone;
+        let newOpeningHours = venue.attributes.openingHours;
 
         let pnhNameRegMatch;
 
@@ -6627,6 +6639,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
             addATM: false,
             addConvStore: false
         };
+        let almostAllDayHoursEntries = [];
 
         // Set up a variable (newBrand) to contain the brand. When harmonizing, it may be forced to a new value.
         // Other brand flags should use it since it won't be updated on the actual venue until later.
@@ -6682,13 +6695,29 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                 outputPhoneFormat = '+1-{0}-{1}-{2}';
             }
 
+            almostAllDayHoursEntries = newOpeningHours.filter(hoursEntry => hoursEntry.toHour === '23:59' && /^0?0:00$/.test(hoursEntry.fromHour));
+            if (!highlightOnly && almostAllDayHoursEntries.length) {
+                const newHoursEntries = [];
+                newOpeningHours.forEach(hoursEntry => {
+                    const isInvalid = almostAllDayHoursEntries.includes(hoursEntry);
+                    const newHoursEntry = new OpeningHour({
+                        days: hoursEntry.days.slice(),
+                        fromHour: isInvalid ? '00:00' : hoursEntry.fromHour,
+                        toHour: isInvalid ? '00:00' : hoursEntry.toHour
+                    });
+                    newHoursEntries.push(newHoursEntry);
+                });
+                newOpeningHours = newHoursEntries;
+                addUpdateAction(venue, { openingHours: newOpeningHours }, actions);
+            }
+
             // Place Harmonization
             if (!highlightOnly) {
                 if (venue.isParkingLot() || venue.isResidential()) {
                     pnhMatchData = ['NoMatch'];
                 } else {
                     // check against the PNH list
-                    pnhMatchData = harmoList(newName, state2L, region, countryCode, newCategories, venue);
+                    pnhMatchData = findPnhMatch(newName, state2L, region, countryCode, newCategories, venue);
                 }
             } else {
                 pnhMatchData = ['Highlight'];
@@ -7068,7 +7097,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                 });
             }
 
-            hoursOverlap = venueHasOverlappingHours(venue);
+            hoursOverlap = venueHasOverlappingHours(newOpeningHours);
 
             isUspsPostOffice = countryCode === 'USA' && !newCategories.includes(CAT.PARKING_LOT) && newCategories.includes(CAT.POST_OFFICE);
 
@@ -7080,13 +7109,14 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                 _servicesBanner.add247.active = true;
 
                 if (!hoursOverlap) {
-                    const tempHours = venue.attributes.openingHours.slice();
-                    for (let ohix = 0; ohix < venue.attributes.openingHours.length; ohix++) {
+                    const tempHours = newOpeningHours.slice();
+                    for (let ohix = 0; ohix < newOpeningHours.length; ohix++) {
                         if (tempHours[ohix].days.length === 2 && tempHours[ohix].days[0] === 1 && tempHours[ohix].days[1] === 0) {
                             // separate hours
                             logDev('Correcting M-S entry...');
                             tempHours.push(new OpeningHour({ days: [0], fromHour: tempHours[ohix].fromHour, toHour: tempHours[ohix].toHour }));
                             tempHours[ohix].days = [1];
+                            newOpeningHours = tempHours;
                             addUpdateAction(venue, { openingHours: tempHours }, actions);
                         }
                     }
@@ -7173,6 +7203,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                 Flag.AddPharm.eval(venue, specialCases);
                 Flag.AddSuper.eval(venue, specialCases);
                 Flag.AppendAMPM.eval(venue, specialCases);
+                Flag.PlaceMatched.eval(pnhNameRegMatch);
             }
             Flag.SFAliases.eval(aliasesRemoved);
             Flag.CatHotel.eval(priPNHPlaceCat, newName, newNameSuffix, pnhMatchData, phNameIdx);
@@ -7185,14 +7216,15 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
             Flag.StandaloneATM.eval(venue, newCategories, newName, newNameSuffix, priPNHPlaceCat, pnhMatchData, phSpecCaseIdx);
             Flag.BankCorporate.eval(venue, newCategories, newName, newNameSuffix, priPNHPlaceCat, pnhMatchData, phSpecCaseIdx);
             Flag.AddATM.eval(venue, newCategories, newNameSuffix, priPNHPlaceCat, pnhMatchData, phSpecCaseIdx, specialCases);
-            Flag.NoHours.eval(venue, newCategories, wl, highlightOnly, actions);
-            Flag.Mismatch247.eval(venue);
+            Flag.NoHours.eval(venue, newCategories, newOpeningHours, wl, highlightOnly, actions);
+            Flag.Mismatch247.eval(newOpeningHours);
             Flag.HoursOverlap.eval(hoursOverlap);
-            Flag.OldHours.eval(venue, pnhCategoryInfos, highlightOnly);
+            Flag.OldHours.eval(venue, newCategories, newOpeningHours, pnhCategoryInfos, highlightOnly);
+            Flag.AllDayHoursFixed.eval(highlightOnly, almostAllDayHoursEntries);
             Flag.IsThisAPostOffice.eval(venue, highlightOnly, countryCode, newCategories, newName);
             Flag.MissingUSPSZipAlt.eval(venue, isUspsPostOffice, newName, newAliases, wl, highlightOnly);
             Flag.FormatUSPS.eval(isUspsPostOffice, state2L, addr, newName, newNameSuffix);
-            Flag.CatPostOffice.eval(isUspsPostOffice, highlightOnly);
+            Flag.CatPostOffice.eval(highlightOnly, isUspsPostOffice);
             Flag.MissingUSPSDescription.eval(isUspsPostOffice, newDescripion, wl);
             Flag.MissingUSPSAlt.eval(venue, isUspsPostOffice, newAliases);
             Flag.UrlMissing.eval(venue, newUrl, newCategories, region, wl);
@@ -7211,14 +7243,14 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
         Flag.PlaLotTypeMissing.eval(venue, highlightOnly);
         Flag.NoPlaStopPoint.eval(venue);
         Flag.PlaStopPointUnmoved.eval(venue);
-        Flag.PlaCanExitWhileClosed.eval(venue, highlightOnly);
+        Flag.PlaCanExitWhileClosed.eval(venue, newOpeningHours, highlightOnly);
         Flag.PlaPaymentTypeMissing.eval(venue);
         Flag.PlaHasAccessibleParking.eval(venue, highlightOnly);
         Flag.ChangeToHospitalUrgentCare.eval(venue, newCategories, highlightOnly);
         Flag.IsThisAPilotTravelCenter.eval(venue, highlightOnly, state2L, newName);
         Flag.GasMkPrim.eval(venue, newCategories);
         Flag.AddConvStore.eval(venue, newCategories, specialCases);
-        Flag.IndianaLiquorStoreHours.eval(venue, newName, addr, highlightOnly, wl);
+        Flag.IndianaLiquorStoreHours.eval(venue, newName, addr, newOpeningHours, highlightOnly, wl);
         Flag.PointNotArea.eval(venue, newCategories, maxAreaSeverity, defaultLockLevel, wl);
         Flag.GasMismatch.eval(venue, newCategories, newBrand, newName, wl);
         Flag.EVChargingStationWarning.eval(venue, highlightOnly);
@@ -7352,8 +7384,6 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
             return totalSeverity;
         }
 
-        executeMultiAction(actions);
-
         if (!highlightOnly) {
             // Update icons to reflect current WME place services
             updateServicesChecks(_servicesBanner);
@@ -7362,6 +7392,8 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
             UPDATED_FIELDS.updateEditPanelHighlights();
 
             assembleBanner();
+
+            executeMultiAction(actions);
         }
 
         // showOpenPlaceWebsiteButton();
@@ -8257,18 +8289,17 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
         return venue && venue.attributes.openingHours && venue.attributes.openingHours.map(formatOpeningHour);
     }
 
-    function venueHasOverlappingHours(venue) {
-        const hours = venue.attributes.openingHours;
-        if (hours.length < 2) {
+    function venueHasOverlappingHours(openingHours) {
+        if (openingHours.length < 2) {
             return false;
         }
 
         for (let day2Ch = 0; day2Ch < 7; day2Ch++) { // Go thru each day of the week
             const daysObj = [];
-            for (let hourSet = 0; hourSet < hours.length; hourSet++) { // For each set of hours
-                if (hours[hourSet].days.includes(day2Ch)) { // pull out hours that are for the current day, add 2400 if it goes past midnight, and store
-                    const fromHourTemp = hours[hourSet].fromHour.replace(/:/g, '');
-                    let toHourTemp = hours[hourSet].toHour.replace(/:/g, '');
+            for (let hourSet = 0; hourSet < openingHours.length; hourSet++) { // For each set of hours
+                if (openingHours[hourSet].days.includes(day2Ch)) { // pull out hours that are for the current day, add 2400 if it goes past midnight, and store
+                    const fromHourTemp = openingHours[hourSet].fromHour.replace(/:/g, '');
+                    let toHourTemp = openingHours[hourSet].toHour.replace(/:/g, '');
                     if (toHourTemp <= fromHourTemp) {
                         toHourTemp = parseInt(toHourTemp, 10) + 2400;
                     }
@@ -9764,16 +9795,10 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
     class PnhCategoryInfos {
         #categoriesById = {};
         #categoriesByName = {};
-        // #childCategoriesByParent = {};
 
         add(categoryInfo) {
             this.#categoriesById[categoryInfo.id] = categoryInfo;
             this.#categoriesByName[categoryInfo.name] = categoryInfo;
-            // const parentCategory = categoryInfo.parent;
-            // if (parentCategory && !this.#childCategoriesByParent.hasOwnProperty(parentCategory)) {
-            //     this.#childCategoriesByParent[categoryInfo.parent] = [];
-            // }
-            // this.#childCategoriesByParent[parentCategory].push()
         }
 
         getById(id) {
@@ -9904,15 +9929,15 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                 // This needs to be performed before makeNameCheckList() is called.
                 _wordVariations = processImportedDataColumn(values, 11).slice(1).map(row => row.toUpperCase().replace(/[^A-z0-9,]/g, '').split(','));
 
-                PNH_DATA.USA.pnh = processImportedDataColumn(values, 0);
-                PNH_DATA.USA.pnhNames = makeNameCheckList(PNH_DATA.USA.pnh);
-                PNH_DATA.states = processImportedDataColumn(values, 1);
                 PNH_DATA.USA.categoryInfos = new PnhCategoryInfos();
                 processPnhCategories(processImportedDataColumn(values, 3), PNH_DATA.USA.categoryInfos);
+                PNH_DATA.USA.pnh = processImportedDataColumn(values, 0);
+                PNH_DATA.USA.pnhNames = makeNameCheckList(PNH_DATA.USA);
+                PNH_DATA.states = processImportedDataColumn(values, 1);
 
-                PNH_DATA.CAN.pnh = processImportedDataColumn(values, 2);
-                PNH_DATA.CAN.pnhNames = makeNameCheckList(PNH_DATA.CAN.pnh);
                 PNH_DATA.CAN.categoryInfos = PNH_DATA.USA.categoryInfos;
+                PNH_DATA.CAN.pnh = processImportedDataColumn(values, 2);
+                PNH_DATA.CAN.pnhNames = makeNameCheckList(PNH_DATA.CAN);
 
                 const WMEPHuserList = processImportedDataColumn(values, 4)[1].split('|');
                 const betaix = WMEPHuserList.indexOf('BETAUSERS');
