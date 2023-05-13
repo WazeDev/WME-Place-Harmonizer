@@ -1863,7 +1863,7 @@
                 // Severity can be: 0, 'lock', 1, 2, 3, 4, or 'high'. Set to
                 // anything else to use default WME style.
                 if (doHighlight && !(disableRankHL && venue.attributes.lockRank > USER.rank - 1)) {
-                    // try {
+                    try {
                         const { id } = venue.attributes;
                         let severity;
                         let cachedResult;
@@ -1875,9 +1875,9 @@
                             severity = cachedResult.s;
                         }
                         venue.attributes.wmephSeverity = severity;
-                    // } catch (err) {
-                    //     console.error('WMEPH highlight error: ', err);
-                    // }
+                    } catch (err) {
+                        console.error('WMEPH highlight error: ', err);
+                    }
                 } else {
                     venue.attributes.wmephSeverity = 'default';
                 }
@@ -2189,28 +2189,18 @@
     // Abstract flag classes.  Must be declared outside the "Flag" namespace.
     class FlagBase {
         static currentFlags;
-        static args = this.generateNewArgs();
 
-        constructor(active, severity, message) {
+        constructor(active, severity, message, args) {
             this.active = active;
             this.severity = severity;
             this.message = message;
+            this.args = args;
             FlagBase.currentFlags.add(this);
-        }
-
-        static generateNewArgs() {
-            return {
-                venue: null,
-                totalSeverity: null,
-                levelToLock: null,
-                lockOK: null,
-                isLocked: null
-            };
         }
     }
     class ActionFlag extends FlagBase {
-        constructor(active, severity, message, value, title) {
-            super(active, severity, message);
+        constructor(active, severity, message, value, title, args) {
+            super(active, severity, message, args);
             this.value = value;
             this.title = title;
         }
@@ -4250,23 +4240,22 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
             static #categoriesToIgnore = [CAT.BRIDGE, CAT.TUNNEL, CAT.JUNCTION_INTERCHANGE, CAT.NATURAL_FEATURES, CAT.ISLAND,
                 CAT.SEA_LAKE_POOL, CAT.RIVER_STREAM, CAT.CANAL, CAT.SWAMP_MARSH];
 
-            constructor(venue, isLocked, actions) {
-                super(true, SEVERITY.RED, 'No Google link', 'Nudge', 'If no other properties need to be updated, click to nudge the place (force an edit).');
-                this.venue = venue;
+            constructor(args) {
+                super(true, SEVERITY.RED, 'No Google link', 'Nudge', 'If no other properties need to be updated, click to nudge the place (force an edit).', args);
                 this.value2 = 'Add';
                 this.title2 = 'Add a link to a Google place';
 
-                if (isLocked) {
+                if (args.isLocked) {
                     let lastUpdated;
-                    if (venue.isNew()) {
+                    if (args.venue.isNew()) {
                         lastUpdated = Date.now();
-                    } else if (venue.attributes.updatedOn) {
-                        lastUpdated = venue.attributes.updatedOn;
+                    } else if (args.venue.attributes.updatedOn) {
+                        lastUpdated = args.venue.attributes.updatedOn;
                     } else {
-                        lastUpdated = venue.attributes.createdOn;
+                        lastUpdated = args.venue.attributes.createdOn;
                     }
                     const weeksSinceLastUpdate = (Date.now() - lastUpdated) / 604800000;
-                    if (weeksSinceLastUpdate >= 26 && !venue.isUpdated() && (!actions || actions.length === 0)) {
+                    if (weeksSinceLastUpdate >= 26 && !args.venue.isUpdated() && (!args.actions || args.actions.length === 0)) {
                         this.severity = SEVERITY.RED;
                         this.message += ' and place has not been edited for over 6 months. Edit a property (or nudge) and save to reset the 6 month timer: ';
                     } else {
@@ -4281,27 +4270,31 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                 }
             }
 
-            static eval(venue, isLocked, categories, userRank, ignoreParkingLots, actions) {
-                let result = null;
-                if (userRank >= 2 && venue.areExternalProvidersEditable() && !(venue.isParkingLot() && ignoreParkingLots)) {
-                    if (!categories.some(cat => this.#categoriesToIgnore.includes(cat))) {
-                        const provIDs = venue.attributes.externalProviderIDs;
+            static #venueIsFlaggable(args) {
+                const ignoreParkingLots = $('#WMEPH-DisablePLAExtProviderCheck').prop('checked');
+                if (args.userRank >= 2 && args.venue.areExternalProvidersEditable() && !(args.categories.includes(CAT.PARKING_LOT) && ignoreParkingLots)) {
+                    if (!args.categories.some(cat => this.#categoriesToIgnore.includes(cat))) {
+                        const provIDs = args.venue.attributes.externalProviderIDs;
                         if (!(provIDs && provIDs.length)) {
-                            result = new this(venue, isLocked, actions);
+                            return true;
                         }
                     }
                 }
-                return result;
+                return false;
+            }
+
+            static eval(args) {
+                return this.#venueIsFlaggable(args) ? new this(args) : null;
             }
 
             action() {
-                nudgeVenue(this.venue);
-                harmonizePlaceGo(this.venue, 'harmonize'); // Rerun the script to update fields and lock
+                nudgeVenue(this.args.venue);
+                harmonizePlaceGo(this.args.venue, 'harmonize'); // Rerun the script to update fields and lock
             }
 
             action2() {
                 clickGeneralTab();
-                const venueName = this.venue.attributes.name;
+                const venueName = this.args.venue.attributes.name;
                 $('wz-button.external-provider-add-new').click();
                 setTimeout(() => {
                     clickGeneralTab();
@@ -4316,7 +4309,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
 
             preProcess() {
                 // If no Google link and severity would otherwise allow locking, ask if user wants to lock anyway.
-                const { args } = FlagBase;
+                const { args } = this;
                 if (!args.isLocked && this.active && this.severity <= SEVERITY.YELLOW) {
                     this.severity = SEVERITY.RED;
                     args.totalSeverity = SEVERITY.RED;
@@ -4537,8 +4530,8 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                 // If pressing enter in the phone entry box, add the phone
                 $('#WMEPH-PhoneAdd').keyup(evt => {
                     if (evt.keyCode === 13 && $('#WMEPH-PhoneAdd').val() !== '') {
-                        $('#WMEPH_phoneMissing').click();
-                        $('#WMEPH_badAreaCode').click();
+                        $('#WMEPH_PhoneMissing').click();
+                        $('#WMEPH_BadAreaCode').click();
                     }
                 });
             }
@@ -6400,6 +6393,21 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
         };
     } // END getButtonBanner2()
 
+    function generateNewArgs() {
+        return {
+            venue: null,
+            actions: null,
+            totalSeverity: null,
+            levelToLock: null,
+            lockOK: null,
+            isLocked: null,
+            userRank: null,
+
+            // Current venue attributes
+            categories: null
+        };
+    }
+
     // Main script
     function harmonizePlaceGo(venue, useFlag, actions) {
         if (useFlag === 'harmonize') logDev('harmonizePlaceGo: useFlag="harmonize"');
@@ -6422,6 +6430,8 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
         }
 
         FlagBase.currentFlags = new FlagContainer();
+        const args = generateNewArgs();
+        args.venue = venue;
 
         let pnhLockLevel;
         if (!highlightOnly) {
@@ -7207,7 +7217,11 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
             }
             Flag.SFAliases.eval(aliasesRemoved);
             Flag.CatHotel.eval(priPNHPlaceCat, newName, newNameSuffix, pnhMatchData, phNameIdx);
-            Flag.ExtProviderMissing.eval(venue, isLocked, newCategories, USER.rank, $('#WMEPH-DisablePLAExtProviderCheck').prop('checked'), actions);
+            args.isLocked = isLocked;
+            args.categories = newCategories;
+            args.userRank = USER.rank;
+            args.actions = actions;
+            Flag.ExtProviderMissing.eval(args);
             Flag.NewPlaceSubmit.eval(venue, newName, newCategories, newUrl, highlightOnly, pnhMatchData, placePL, gFormState, region);
             Flag.ApprovalSubmit.eval(venue, newCategories, highlightOnly, pnhMatchData, placePL, gFormState, region);
             Flag.TitleCaseName.eval(venue, newName, newNameSuffix, pnhNameRegMatch);
@@ -7319,7 +7333,6 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
 
         // Allow flags to do any additional work before assigning severity and locks
         // TODO: Make args the default for passing variables to/from flags. Remove parameters from eval() in Flag classes and make eval() in FlagBase.
-        const { args } = FlagBase;
         args.venue = venue;
         args.isLocked = isLocked;
         args.levelToLock = levelToLock;
