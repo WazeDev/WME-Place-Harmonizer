@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name        WME Place Harmonizer Beta
 // @namespace   WazeUSA
-// @version     2023.05.16.001
+// @version     2023.05.16.002
 // @description Harmonizes, formats, and locks a selected place
 // @author      WMEPH Development Group
 // @include     /^https:\/\/(www|beta)\.waze\.com\/(?!user\/)(.{2,6}\/)?editor\/?.*$/
@@ -2670,14 +2670,14 @@
                 $('.wmeph-evcs-cost-type-btn').click(evt => {
                     const selectedValue = $(evt.currentTarget).attr('id').replace('wmeph_', '');
                     let attrClone;
-                    if (this.venue.attributes.categoryAttributes) {
-                        attrClone = JSON.parse(JSON.stringify(this.venue.attributes.categoryAttributes));
+                    if (this.args.venue.attributes.categoryAttributes) {
+                        attrClone = JSON.parse(JSON.stringify(this.args.venue.attributes.categoryAttributes));
                     } else {
                         attrClone = {};
                     }
                     attrClone.CHARGING_STATION ??= {};
                     attrClone.CHARGING_STATION.costType = selectedValue;
-                    addUpdateAction(this.venue, { categoryAttributes: attrClone }, null, true);
+                    addUpdateAction(this.args.venue, { categoryAttributes: attrClone }, null, true);
                     UPDATED_FIELDS.evCostType.updated = true;
                 });
             }
@@ -4749,7 +4749,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                 $('.wmeph-pla-cost-type-btn').click(evt => {
                     const selectedValue = $(evt.currentTarget).attr('id').replace('wmeph_', '');
                     let attrClone;
-                    if (this.venue.attributes.categoryAttributes) {
+                    if (this.args.venue.attributes.categoryAttributes) {
                         attrClone = JSON.parse(JSON.stringify(this.args.venue.attributes.categoryAttributes));
                     } else {
                         attrClone = {};
@@ -4852,9 +4852,8 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
             }
         },
         NoPlaStopPoint: class extends ActionFlag {
-            constructor(venue) {
+            constructor() {
                 super(true, SEVERITY.BLUE, 'Entry/exit point has not been created.', 'Add point', 'Add an entry/exit point');
-                this.venue = venue;
             }
 
             static venueIsFlaggable(args) {
@@ -4864,7 +4863,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
 
             action() {
                 $('wz-button.navigation-point-add-new').click();
-                harmonizePlaceGo(this.venue, 'harmonize');
+                harmonizePlaceGo(this.args.venue, 'harmonize');
             }
         },
         PlaStopPointUnmoved: class extends FlagBase {
@@ -4895,10 +4894,10 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
             }
 
             action() {
-                const attrClone = JSON.parse(JSON.stringify(this.venue.attributes.categoryAttributes));
+                const attrClone = JSON.parse(JSON.stringify(this.args.venue.attributes.categoryAttributes));
                 attrClone.PARKING_LOT = attrClone.PARKING_LOT ?? {};
                 attrClone.PARKING_LOT.canExitWhileClosed = true;
-                addUpdateAction(this.venue, { categoryAttributes: attrClone }, null, true);
+                addUpdateAction(this.args.venue, { categoryAttributes: attrClone }, null, true);
             }
         },
         PlaHasAccessibleParking: class extends ActionFlag {
@@ -5111,7 +5110,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
 
             action() {
                 // Insert C.S. category in the second position
-                const categories = insertAtIndex(this.venue.getCategories(), CAT.CONVENIENCE_STORE, 1);
+                const categories = insertAtIndex(this.args.venue.getCategories(), CAT.CONVENIENCE_STORE, 1);
                 addUpdateAction(this.args.venue, { categories }, null, true);
             }
         },
@@ -5282,9 +5281,9 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                     const parts = getNameParts(this.#originalName);
                     name = titleCase(parts.base);
                     if (parts.base !== name) {
-                        addUpdateAction(this.venue, { name: name + (parts.suffix || '') });
+                        addUpdateAction(this.args.venue, { name: name + (parts.suffix || '') });
                     }
-                    harmonizePlaceGo(this.venue, 'harmonize');
+                    harmonizePlaceGo(this.args.venue, 'harmonize');
                 } else {
                     $('button#WMEPH_titleCaseName').text('Are you sure?').after(' The name has changed. This will overwrite the new name.');
                     this.#confirmChange = true;
