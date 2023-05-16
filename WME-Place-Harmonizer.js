@@ -950,9 +950,9 @@
     }
 
     function getSelectedVenue() {
-        const features = WazeWrap.getSelectedFeatures();
+        const features = W.selectionManager.getSelectedFeatures();
         // Be sure to check for features.length === 1, in case multiple venues are currently selected.
-        return features.length === 1 && features[0].model.type === 'venue' ? features[0].model : undefined;
+        return features.length === 1 && features[0].attributes.repositoryObject.type === 'venue' ? features[0].attributes.repositoryObject : null;
     }
 
     function getVenueLonLat(venue) {
@@ -1570,8 +1570,7 @@
                 type: '==',
                 value,
                 evaluate(feature) {
-                    // 2023-03-30 - Check for .model is necessary until .repositoryObject is implemented in production WME.
-                    const attr = feature.model ? feature.model.attributes : feature.attributes.repositoryObject?.attributes;
+                    const attr = feature.attributes.repositoryObject?.attributes;
                     return attr?.wmephSeverity === this.value;
                 }
             }),
@@ -1691,8 +1690,7 @@
                 type: '==',
                 value,
                 evaluate(feature) {
-                    // 2023-03-30 - Check for .model is necessary until .repositoryObject is implemented in production WME.
-                    const attr = feature.model ? feature.model.attributes : feature.attributes.repositoryObject?.attributes;
+                    const attr = feature.attributes.repositoryObject?.attributes;
                     return attr?.wmephSeverity === this.value;
                 }
             }),
@@ -1799,10 +1797,10 @@
                     type: '==',
                     value,
                     evaluate(feature) {
-                        // 2023-03-30 - Check for .model is necessary until .repositoryObject is implemented in production WME.
-                        const attr = feature.model ? feature.model.attributes : feature.attributes.repositoryObject?.attributes;
+                        const attr = feature.attributes.repositoryObject?.attributes;
 
-                        if ($('#WMEPH-PLATypeFill').prop('checked') && attr
+                        if (attr
+                            && $('#WMEPH-PLATypeFill').prop('checked')
                             && attr.categoryAttributes && attr.categoryAttributes.PARKING_LOT
                             && attr.categories.includes(CAT.PARKING_LOT)) {
                             const type = attr.categoryAttributes.PARKING_LOT.parkingType;
@@ -4669,7 +4667,8 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                 if (!this.#categoriesToCheck) {
                     this.#categoriesToCheck = pnhCategoryInfos
                         .toArray()
-                        .filter(pnhCategoryInfo => this.#parentCategoriesToCheck.includes(pnhCategoryInfo.parent));
+                        .filter(pnhCategoryInfo => this.#parentCategoriesToCheck.includes(pnhCategoryInfo.parent))
+                        .map(catInfo => catInfo.id);
                     this.#categoriesToCheck.push(...this.#parentCategoriesToCheck);
                 }
             }
