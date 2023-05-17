@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name        WME Place Harmonizer Beta
 // @namespace   WazeUSA
-// @version     2023.05.17.001
+// @version     2023.05.17.002
 // @description Harmonizes, formats, and locks a selected place
 // @author      WMEPH Development Group
 // @include     /^https:\/\/(www|beta)\.waze\.com\/(?!user\/)(.{2,6}\/)?editor\/?.*$/
@@ -5033,13 +5033,13 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                 super(true, SEVERITY.GREEN, 'Is there a Pharmacy at this location?', 'Yes', 'Add Pharmacy category');
             }
 
+            static venueIsFlaggable(args) {
+                return args.specialCases.addPharm && !args.categories.includes(CAT.PHARMACY);
+            }
+
             action() {
                 const categories = insertAtIndex(this.args.venue.getCategories(), CAT.PHARMACY, 1);
                 addUpdateAction(this.args.venue, { categories }, null, true);
-            }
-
-            static venueIsFlaggable(args) {
-                return args.specialCases.addPharm;
             }
         },
         AddSuper: class extends ActionFlag {
@@ -5048,7 +5048,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
             }
 
             static venueIsFlaggable(args) {
-                return args.specialCases.addSuper;
+                return args.specialCases.addSuper && !args.categories.includes(CAT.SUPERMARKET_GROCERY);
             }
 
             action() {
@@ -5057,11 +5057,14 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
             }
         },
         AppendAMPM: class extends ActionFlag {
+            // Only used on the ARCO gas station PNH entry.
             constructor() {
                 super(true, SEVERITY.GREEN, 'Is there an ampm at this location?', 'Yes', 'Add ampm to the place');
             }
 
             static venueIsFlaggable(args) {
+                // No need to check for name/catgory. After the action is run, the name will match the "ARCO ampm"
+                // PNH entry, which doesn't have this flag.
                 return args.specialCases.appendAMPM;
             }
 
