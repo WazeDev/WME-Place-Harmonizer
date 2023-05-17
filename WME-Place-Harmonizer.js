@@ -2234,12 +2234,8 @@
             }
         }
 
-        static isClassWhitelisted(args) {
+        static isWhitelisted(args) {
             return !!args.wl[this.wlKey];
-        }
-
-        static isThisWhitelisted() {
-            return !!this.constructor.isClassWhitelisted(this.args);
         }
     }
     class WLActionFlag extends WLFlag {
@@ -2398,20 +2394,18 @@
         PlaNameNonStandard: class extends WLFlag {
             static wlKey = 'plaNameNonStandard';
 
-            constructor(args) {
+            constructor() {
                 super(
                     true,
                     SEVERITY.YELLOW,
                     'Parking lot names typically contain words like "Parking", "Lot", and/or "Garage"',
                     true,
-                    'Whitelist non-standard PLA name',
-                    '',
-                    args
+                    'Whitelist non-standard PLA name'
                 );
             }
 
             static venueIsFlaggable(args) {
-                if (!this.isClassWhitelisted(args) && args.venue.isParkingLot()) {
+                if (!this.isWhitelisted(args) && args.venue.isParkingLot()) {
                     const { name } = args.venue.attributes;
                     if (name) {
                         const state = args.venue.getAddress().getStateName();
@@ -2425,6 +2419,8 @@
             }
         },
         IndianaLiquorStoreHours: class extends WLFlag {
+            static wlKey = 'indianaLiquorStoreHours';
+
             // Note for Indiana editors to check liquor store hours if Sunday hours haven't been added yet.
             constructor() {
                 super(
@@ -2433,13 +2429,12 @@
                     'If this is a liquor store, check the hours. As of Feb 2018, liquor stores in Indiana are allowed '
                         + 'to be open between noon and 8 pm on Sunday.',
                     true,
-                    'Whitelist Indiana liquor store hours',
-                    'indianaLiquorStoreHours'
+                    'Whitelist Indiana liquor store hours'
                 );
             }
 
             static venueIsFlaggable(args) {
-                return !args.highlightOnly && !args.wl.indianaLiquorStoreHours
+                return !args.highlightOnly && !this.isWhitelisted(args)
                     && !args.categories.includes(CAT.RESIDENCE_HOME)
                     && args.addr?.state.name === 'Indiana'
                     && /\b(beers?|wines?|liquors?|spirits)\b/i.test(args.nameBase)
@@ -2454,6 +2449,7 @@
             }
         },
         UnmappedRegion: class extends WLFlag {
+            static wlKey = 'unmappedRegion';
             static #regionsToFlagOther = ['HI', 'NER', 'NOR', 'NWR', 'PLN', 'ATR'];
 
             constructor(args) {
@@ -2474,7 +2470,7 @@
                                 noLock = true;
                             }
                         } else {
-                            if (args.wl.unmappedRegion) {
+                            if (Flag.UnmappedRegion.isWhitelisted(args)) {
                                 wlActive = false;
                                 severity = Math.max(severity, SEVERITY.GREEN);
                             } else {
@@ -2495,7 +2491,7 @@
                     }
                     message = messages.join('<br><br>');
                 }
-                super(true, severity, message, wlActive, 'Whitelist unmapped category', 'unmappedRegion');
+                super(true, severity, message, wlActive, 'Whitelist unmapped category');
                 this.noLock = noLock;
             }
 
@@ -2523,14 +2519,16 @@
             }
         },
         RestAreaName: class extends WLFlag {
+            static wlKey = 'restAreaName';
+
             constructor(args) {
+                const isWhitelisted = Flag.RestAreaName.isWhitelisted(args);
                 super(
                     true,
-                    args.wl.restAreaName ? SEVERITY.GREEN : SEVERITY.RED,
+                    isWhitelisted ? SEVERITY.GREEN : SEVERITY.RED,
                     'Rest area name is out of spec. Use the Rest Area wiki button below to view formats.',
-                    !args.wl.restAreaName,
-                    'Whitelist rest area name',
-                    'restAreaName'
+                    !isWhitelisted,
+                    'Whitelist rest area name'
                 );
             }
 
@@ -2544,7 +2542,8 @@
             }
 
             static venueIsFlaggable(args) {
-                return args.categories.includes(CAT.REST_AREAS) && args.categories.includes(CAT.TRANSPORTATION);
+                return args.categories.includes(CAT.REST_AREAS)
+                    && args.categories.includes(CAT.TRANSPORTATION);
             }
 
             action() {
@@ -2566,21 +2565,22 @@
             }
         },
         RestAreaScenic: class extends WLActionFlag {
+            static wlKey = 'restAreaScenic';
+
             constructor() {
                 super(
                     true,
                     SEVERITY.GREEN,
-                    'Verify that the "Scenic Overlook" category is appropriate for this rest area.  If not: ',
+                    'Verify that the "Scenic Overlook" category is appropriate for this rest area. If not: ',
                     'Remove it',
                     'Remove "Scenic Overlook" category.',
                     true,
-                    'Whitelist place',
-                    'restAreaScenic'
+                    'Whitelist place'
                 );
             }
 
             static venueIsFlaggable(args) {
-                return !args.wl.restAreaScenic
+                return !this.isWhitelisted(args)
                     && args.categories.includes(CAT.REST_AREAS)
                     && args.categories.includes(CAT.SCENIC_LOOKOUT_VIEWPOINT);
             }
@@ -2595,6 +2595,8 @@
             }
         },
         RestAreaSpec: class extends WLActionFlag {
+            static wlKey = 'restAreaSpec';
+
             constructor() {
                 super(
                     true,
@@ -2603,13 +2605,12 @@
                     'Yes',
                     'Update with proper categories and services.',
                     true,
-                    'Whitelist place',
-                    'restAreaSpec'
+                    'Whitelist place'
                 );
             }
 
             static venueIsFlaggable(args) {
-                return !args.wl.restAreaSpec
+                return !this.isWhitelisted(args)
                     && !args.categories.includes(CAT.REST_AREAS)
                     && (/rest (?:area|stop)|service plaza/i.test(args.nameBase));
             }
@@ -2683,18 +2684,19 @@
             }
         },
         GasMismatch: class extends WLFlag {
+            static wlKey = 'gasMismatch';
+
             constructor(args) {
+                const isWhitelisted = Flag.GasMismatch.isWhitelisted(args);
+
                 super(
                     true,
-                    SEVERITY.RED,
+                    isWhitelisted ? SEVERITY.GREEN : SEVERITY.RED,
                     '<a href="https://wazeopedia.waze.com/wiki/USA/Places/Gas_station#Name" target="_blank" class="red">Gas brand should typically be included in the place name.</a>',
-                    !args.wl.gasMismatch,
-                    'Whitelist gas brand / name mismatch',
-                    'gasMismatch'
+                    !isWhitelisted,
+                    'Whitelist gas brand / name mismatch'
                 );
-                if (!args.wl.gasMismatch) {
-                    this.noLock = true;
-                }
+                this.noLock = !isWhitelisted;
             }
 
             static venueIsFlaggable(args) {
@@ -2767,18 +2769,20 @@
             }
         },
         HotelMkPrim: class extends WLActionFlag {
+            static wlKey = 'hotelMkPrim';
+
             constructor(args) {
+                const isWhitelisted = Flag.HotelMkPrim.isWhitelisted(args);
                 super(
                     true,
-                    args.wl.hotelMkPrim ? SEVERITY.GREEN : SEVERITY.RED,
+                    isWhitelisted ? SEVERITY.GREEN : SEVERITY.RED,
                     'Hotel category is not first',
                     'Fix',
                     'Make the Hotel category the primary category.',
-                    !args.wl.hotelMkPrim,
-                    'Whitelist hotel as secondary category',
-                    'hotelMkPrim'
+                    !isWhitelisted,
+                    'Whitelist hotel as secondary category'
                 );
-                this.noLock = true;
+                this.noLock = !isWhitelisted;
             }
 
             static venueIsFlaggable(args) {
