@@ -5033,13 +5033,13 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                 super(true, SEVERITY.GREEN, 'Is there a Pharmacy at this location?', 'Yes', 'Add Pharmacy category');
             }
 
+            static venueIsFlaggable(args) {
+                return args.specialCases.addPharm && !args.categories.includes(CAT.PHARMACY);
+            }
+
             action() {
                 const categories = insertAtIndex(this.args.venue.getCategories(), CAT.PHARMACY, 1);
                 addUpdateAction(this.args.venue, { categories }, null, true);
-            }
-
-            static venueIsFlaggable(args) {
-                return args.specialCases.addPharm;
             }
         },
         AddSuper: class extends ActionFlag {
@@ -5048,7 +5048,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
             }
 
             static venueIsFlaggable(args) {
-                return args.specialCases.addSuper;
+                return args.specialCases.addSuper && !args.categories.includes(CAT.SUPERMARKET_GROCERY);
             }
 
             action() {
