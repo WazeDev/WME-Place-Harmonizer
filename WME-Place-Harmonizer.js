@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name        WME Place Harmonizer Beta
 // @namespace   WazeUSA
-// @version     2023.05.16.002
+// @version     2023.05.17.001
 // @description Harmonizes, formats, and locks a selected place
 // @author      WMEPH Development Group
 // @include     /^https:\/\/(www|beta)\.waze\.com\/(?!user\/)(.{2,6}\/)?editor\/?.*$/
@@ -3994,13 +3994,13 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
 
             static venueIsFlaggable(args) {
                 const message = args.pnhMatchData[args.phDisplayNoteIdx];
-                if (args.showDisplayNote && !isNullOrWhitespace(message)) {
-                    if (args.specialCases.includes('pharmhours')) {
+                if (args.showDispNote && !isNullOrWhitespace(message)) {
+                    if (args.specialCases.pharmhours) {
                         if (!args.description.toUpperCase().includes('PHARMACY') || (!args.description.toUpperCase().includes('HOURS')
                             && !args.description.toUpperCase().includes('HRS'))) {
                             return true;
                         }
-                    } else if (args.specialCases.includes('drivethruhours')) {
+                    } else if (args.specialCases.drivethruhours) {
                         if (!args.description.toUpperCase().includes('DRIVE') || (!args.description.toUpperCase().includes('HOURS')
                             && !args.description.toUpperCase().includes('HRS'))) {
                             if ($('#service-checkbox-DRIVETHROUGH').prop('checked')) {
@@ -6595,6 +6595,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                 if (!args.specCases.includes('noUpdateAlias') && (!containsAll(args.aliases, newAliasesTemp)
                     && newAliasesTemp && newAliasesTemp.length && !args.specCases.includes('optionName2'))) {
                     args.aliases = insertAtIndex(args.aliases, newAliasesTemp, 0);
+                    addUpdateAction(venue, { aliases: args.aliases }, actions);
                 }
 
                 // Remove unnecessary parent categories
