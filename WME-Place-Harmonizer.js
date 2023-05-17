@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name        WME Place Harmonizer Beta
 // @namespace   WazeUSA
-// @version     2023.05.17.001
+// @version     2023.05.17.002
 // @description Harmonizes, formats, and locks a selected place
 // @author      WMEPH Development Group
 // @include     /^https:\/\/(www|beta)\.waze\.com\/(?!user\/)(.{2,6}\/)?editor\/?.*$/
@@ -5057,11 +5057,14 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
             }
         },
         AppendAMPM: class extends ActionFlag {
+            // Only used on the ARCO gas station PNH entry.
             constructor() {
                 super(true, SEVERITY.GREEN, 'Is there an ampm at this location?', 'Yes', 'Add ampm to the place');
             }
 
             static venueIsFlaggable(args) {
+                // No need to check for name/catgory. After the action is run, the name will match the "ARCO ampm"
+                // PNH entry, which doesn't have this flag.
                 return args.specialCases.appendAMPM;
             }
 
