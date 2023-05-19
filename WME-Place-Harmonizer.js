@@ -2186,14 +2186,18 @@
 
     // Abstract flag classes.  Must be declared outside the "Flag" namespace.
     class FlagBase {
+        static SEVERITY = SEVERITY.GREEN;
         static currentFlags;
+        #severity;
 
-        constructor(active, severity, message) {
-            this.active = active;
-            this.severity = severity;
+        constructor(message) {
             this.message = message;
             FlagBase.currentFlags.add(this);
         }
+
+        get name() { return this.constructor.name; }
+        get severity() { return this.#severity ?? this.constructor.SEVERITY; }
+        set severity(value) { this.#severity = value; }
 
         static eval(args) {
             if (this.venueIsFlaggable(args)) {
@@ -2205,8 +2209,8 @@
         }
     }
     class ActionFlag extends FlagBase {
-        constructor(active, severity, message, value, title) {
-            super(active, severity, message);
+        constructor(message, value, title) {
+            super(message);
             this.value = value;
             this.title = title;
         }
@@ -2217,13 +2221,14 @@
     class WLFlag extends FlagBase {
         WLactive;
 
-        constructor(active, severity, message, WLactive) {
-            super(active, severity, message);
+        constructor(message, WLactive) {
+            super(message);
             this.WLactive = WLactive;
         }
 
-        get name() { return this.constructor.name; }
         get wlTooltip() { return this.constructor.WL_TOOLTIP; }
+        get severity() { return this.constructor.isWhitelisted(this.args) ? SEVERITY.GREEN : super.severity; }
+        set severity(value) { super.severity = value; }
 
         WLaction() {
             const venue = getSelectedVenue();
@@ -2239,8 +2244,8 @@
     class WLActionFlag extends WLFlag {
         value;
         title;
-        constructor(active, severity, message, value, title, WLactive) {
-            super(active, severity, message, WLactive);
+        constructor(message, value, title, WLactive) {
+            super(message, WLactive);
             this.value = value;
             this.title = title;
         }
@@ -2250,11 +2255,13 @@
     const Flag = {
         // 2020-10-5 Disabling HN validity checks for now. See note on HnNonStandard flag for details.
         // HnDashRemoved: class extends FlagBase {
-        //     constructor() { super(true, SEVERITY.GREEN, 'Dash removed from house number. Verify'); }
+        //     constructor() { super(SEVERITY.GREEN, 'Dash removed from house number. Verify'); }
         // },
         FullAddressInference: class extends FlagBase {
+            static SEVERITY = SEVERITY.RED;
+
             constructor(inferredAddress) {
-                super(true, SEVERITY.RED, 'Missing address was inferred from nearby segments. Verify the address and run script again.');
+                super('Missing address was inferred from nearby segments. Verify the address and run script again.');
                 this.noLock = true;
                 this.inferAddress = inferredAddress;
             }
@@ -2309,8 +2316,10 @@
             }
         },
         NameMissing: class extends FlagBase {
+            static SEVERITY = SEVERITY.RED;
+
             constructor() {
-                super(true, SEVERITY.RED, 'Name is missing.');
+                super('Name is missing.');
                 this.noLock = true;
             }
 
@@ -2322,10 +2331,12 @@
             }
         },
         GasNameMissing: class extends ActionFlag {
+            static SEVERITY = SEVERITY.RED;
+
             constructor(args) {
                 let message;
                 if (!args.highlightOnly) message = `Name is missing. Use "${args.brand}"?`;
-                super(true, SEVERITY.RED, message, 'Yes', 'Use gas brand as station name');
+                super(message, 'Yes', 'Use gas brand as station name');
             }
 
             static venueIsFlaggable(args) {
@@ -2340,7 +2351,7 @@
         },
         PlaIsPublic: class extends FlagBase {
             constructor(args) {
-                super(true, SEVERITY.GREEN, 'If this does not meet the requirements for a <a href="https://wazeopedia.waze.com/wiki/USA/Places/Parking_lot#Lot_Type" '
+                super('If this does not meet the requirements for a <a href="https://wazeopedia.waze.com/wiki/USA/Places/Parking_lot#Lot_Type" '
                     + 'target="_blank" style="color:5a5a73">public parking lot</a>, change to:<br>');
                 if (!args.highlightOnly) {
                     // Add the buttons to the message.
@@ -2371,10 +2382,10 @@
             }
         },
         PlaNameMissing: class extends FlagBase {
+            static SEVERITY = SEVERITY.BLUE;
+
             constructor() {
                 super(
-                    true,
-                    SEVERITY.BLUE,
                     `Name is missing. ${USER.rank < 3 ? 'Request an R3+ lock' : 'Lock to 3+'} to confirm unnamed parking lot.`
                 );
                 this.noLock = true;
@@ -2387,13 +2398,12 @@
             }
         },
         PlaNameNonStandard: class extends WLFlag {
+            static SEVERITY = SEVERITY.YELLOW;
             static WL_KEY = 'plaNameNonStandard';
             static WL_TOOLTIP = 'Whitelist non-standard PLA name';
 
             constructor() {
                 super(
-                    true,
-                    SEVERITY.YELLOW,
                     'Parking lot names typically contain words like "Parking", "Lot", and/or "Garage"',
                     true
                 );
@@ -2420,8 +2430,6 @@
             // Note for Indiana editors to check liquor store hours if Sunday hours haven't been added yet.
             constructor() {
                 super(
-                    true,
-                    SEVERITY.GREEN,
                     'If this is a liquor store, check the hours. As of Feb 2018, liquor stores in Indiana are allowed '
                         + 'to be open between noon and 8 pm on Sunday.',
                     true
@@ -2437,7 +2445,9 @@
             }
         },
         HoursOverlap: class extends FlagBase {
-            constructor() { super(true, SEVERITY.RED, 'Overlapping hours of operation. Place might not save.'); }
+            static SEVERITY = SEVERITY.RED;
+
+            constructor() { super('Overlapping hours of operation. Place might not save.'); }
 
             static venueIsFlaggable(args) {
                 return args.hoursOverlap;
@@ -2489,7 +2499,8 @@
                     }
                     message = messages.join('<br><br>');
                 }
-                super(true, severity, message, wlActive);
+                super(message, wlActive);
+                this.severity = severity;
                 this.noLock = noLock;
             }
 
@@ -2517,14 +2528,13 @@
             }
         },
         RestAreaName: class extends WLFlag {
+            static SEVERITY = SEVERITY.RED;
             static WL_KEY = 'restAreaName';
             static WL_TOOLTIP = 'Whitelist rest area name';
 
             constructor(args) {
                 const isWhitelisted = Flag.RestAreaName.isWhitelisted(args);
                 super(
-                    true,
-                    isWhitelisted ? SEVERITY.GREEN : SEVERITY.RED,
                     'Rest area name is out of spec. Use the Rest Area wiki button below to view formats.',
                     !isWhitelisted
                 );
@@ -2535,8 +2545,10 @@
             }
         },
         RestAreaNoTransportation: class extends ActionFlag {
+            static SEVERITY = SEVERITY.YELLOW;
+
             constructor() {
-                super(true, SEVERITY.YELLOW, 'Rest areas should not use the Transportation category.', 'Remove it?');
+                super('Rest areas should not use the Transportation category.', 'Remove it?');
             }
 
             static venueIsFlaggable(args) {
@@ -2556,7 +2568,9 @@
             }
         },
         RestAreaGas: class extends FlagBase {
-            constructor() { super(true, SEVERITY.RED, 'Gas stations at Rest Areas should be separate area places.'); }
+            static SEVERITY = SEVERITY.RED;
+
+            constructor() { super('Gas stations at Rest Areas should be separate area places.'); }
 
             static venueIsFlaggable(args) {
                 return args.categories.includes(CAT.REST_AREAS) && args.categories.includes(CAT.GAS_STATION);
@@ -2568,8 +2582,6 @@
 
             constructor() {
                 super(
-                    true,
-                    SEVERITY.GREEN,
                     'Verify that the "Scenic Overlook" category is appropriate for this rest area. If not: ',
                     'Remove it',
                     'Remove "Scenic Overlook" category.',
@@ -2593,13 +2605,12 @@
             }
         },
         RestAreaSpec: class extends WLActionFlag {
+            static SEVERITY = SEVERITY.RED;
             static WL_KEY = 'restAreaSpec';
             static WL_TOOLTIP = 'Whitelist place';
 
             constructor() {
                 super(
-                    true,
-                    SEVERITY.RED,
                     'Is this a rest area?',
                     'Yes',
                     'Update with proper categories and services.',
@@ -2623,8 +2634,6 @@
         EVChargingStationWarning: class extends FlagBase {
             constructor() {
                 super(
-                    true,
-                    SEVERITY.GREEN,
                     'Please do not delete EV Charging Stations. Be sure you are completely up to date with the latest guidelines in '
                         + '<a href="https://wazeopedia.waze.com/wiki/USA/Places/EV_charging_station" target="_blank">wazeopedia</a>.'
                 );
@@ -2635,8 +2644,10 @@
             }
         },
         EVCSPriceMissing: class extends FlagBase {
+            static SEVERITY = SEVERITY.BLUE;
+
             constructor(args) {
-                super(true, SEVERITY.BLUE, 'EVCS price: ');
+                super('EVCS price: ');
                 if (!args.highlightOnly) {
                     [['FREE', 'Free', 'Free'], ['FEE', 'Paid', 'Paid']].forEach(btnInfo => {
                         this.message += $('<button>', {
@@ -2682,15 +2693,13 @@
             }
         },
         GasMismatch: class extends WLFlag {
+            static SEVERITY = SEVERITY.RED;
             static WL_KEY = 'gasMismatch';
             static WL_TOOLTIP = 'Whitelist gas brand / name mismatch';
 
             constructor(args) {
                 const isWhitelisted = Flag.GasMismatch.isWhitelisted(args);
-
                 super(
-                    true,
-                    isWhitelisted ? SEVERITY.GREEN : SEVERITY.RED,
                     '<a href="https://wazeopedia.waze.com/wiki/USA/Places/Gas_station#Name" target="_blank" class="red">Gas brand should typically be included in the place name.</a>',
                     !isWhitelisted
                 );
@@ -2722,9 +2731,10 @@
             }
         },
         GasUnbranded: class extends FlagBase {
+            static SEVERITY = SEVERITY.RED;
             //  Unbranded is not used per wiki
             constructor() {
-                super(true, SEVERITY.RED, '"Unbranded" should not be used for the station brand. Change to the correct brand or '
+                super('"Unbranded" should not be used for the station brand. Change to the correct brand or '
                     + 'delete the brand.');
                 this.noLock = true;
             }
@@ -2735,8 +2745,9 @@
             }
         },
         GasMkPrim: class extends ActionFlag {
+            static SEVERITY = SEVERITY.RED;
             constructor() {
-                super(true, SEVERITY.RED, 'Gas Station should be the primary category', 'Fix', 'Make the Gas Station '
+                super('Gas Station should be the primary category', 'Fix', 'Make the Gas Station '
                     + 'category the primary category.');
                 this.noLock = true;
             }
@@ -2753,7 +2764,7 @@
         },
         IsThisAPilotTravelCenter: class extends ActionFlag {
             constructor() {
-                super(true, SEVERITY.GREEN, 'Is this a "Travel Center"?', 'Yes', '');
+                super('Is this a "Travel Center"?', 'Yes', '');
             }
 
             static venueIsFlaggable(args) {
@@ -2767,14 +2778,13 @@
             }
         },
         HotelMkPrim: class extends WLActionFlag {
+            static SEVERITY = SEVERITY.RED;
             static WL_KEY = 'hotelMkPrim';
             static WL_TOOLTIP = 'Whitelist hotel as secondary category';
 
             constructor(args) {
                 const isWhitelisted = Flag.HotelMkPrim.isWhitelisted(args);
                 super(
-                    true,
-                    isWhitelisted ? SEVERITY.GREEN : SEVERITY.RED,
                     'Hotel category is not first',
                     'Fix',
                     'Make the Hotel category the primary category.',
@@ -2795,13 +2805,12 @@
             }
         },
         ChangeToPetVet: class extends WLActionFlag {
+            static SEVERITY = SEVERITY.RED;
             static WL_KEY = 'changeHMC2PetVet';
             static WL_TOOLTIP = 'Whitelist Pet/Vet category';
 
             constructor() {
                 super(
-                    true,
-                    SEVERITY.RED,
                     'Key words suggest this should be a Pet/Veterinarian category. Change?',
                     'Yes',
                     'Change to Pet/Veterinarian Category',
@@ -2838,13 +2847,12 @@
             }
         },
         NotASchool: class extends WLFlag {
+            static SEVERITY = SEVERITY.RED;
             static WL_KEY = 'changeSchool2Offices';
             static WL_TOOLTIP = 'Whitelist School category';
 
             constructor() {
                 super(
-                    true,
-                    SEVERITY.RED,
                     'Key words suggest this should not be School category.',
                     true
                 );
@@ -2894,13 +2902,12 @@
                 }
 
                 super(
-                    true,
-                    severity,
                     message,
                     'Change to point',
                     'Change to point place',
                     wlActive
                 );
+                this.severity = severity;
                 this.noLock = noLock;
             }
 
@@ -2952,13 +2959,12 @@
                 }
 
                 super(
-                    true,
-                    severity,
                     message,
                     'Change to area',
                     'Change to Area',
                     wlActive
                 );
+                this.severity = severity;
                 this.noLock = noLock;
             }
 
@@ -3019,14 +3025,13 @@
                 }
 
                 super(
-                    true,
-                    severity,
                     `No HN: <input type="text" id="${Flag.HnMissing.#TEXTBOX_ID}" autocomplete="off" `
                         + 'style="font-size:0.85em;width:100px;padding-left:2px;color:#000;" > ',
                     'Add',
                     'Add HN to place',
                     wlActive
                 );
+                this.severity = severity;
                 this.noBannerAssemble = true;
                 this.badInput = false;
                 this.noLock = noLock;
@@ -3071,11 +3076,12 @@
             }
         },
         HnTooManyDigits: class extends WLFlag {
+            static SEVERITY = SEVERITY.YELLOW;
             static WL_KEY = 'hnTooManyDigits';
             static WL_TOOLTIP = 'Whitelist long HN';
 
             constructor() {
-                super(true, SEVERITY.YELLOW, 'HN contains more than 6 digits. Please verify.', true);
+                super('HN contains more than 6 digits. Please verify.', true);
                 this.noLock = true;
             }
 
@@ -3090,7 +3096,7 @@
         // the # and letters. Etc)
         // HnNonStandard: class extends WLFlag {
         //     constructor() {
-        //         super(true, SEVERITY.RED, 'House number is non-standard.', true,
+        //         super(SEVERITY.RED, 'House number is non-standard.', true,
         //             'Whitelist non-standard HN', 'hnNonStandard');
         //     }
         //
@@ -3142,13 +3148,12 @@
         //
         // },
         HNRange: class extends WLFlag {
+            static SEVERITY = SEVERITY.YELLOW;
             static WL_KEY = 'HNRange';
             static WL_TOOLTIP = 'Whitelist HN range';
 
             constructor() {
                 super(
-                    true,
-                    SEVERITY.YELLOW,
                     'House number seems out of range for the street name. Verify.',
                     true
                 );
@@ -3184,8 +3189,10 @@
             }
         },
         StreetMissing: class extends ActionFlag {
+            static SEVERITY = SEVERITY.RED;
+
             constructor(args) {
-                super(true, SEVERITY.RED, 'No street:', 'Edit address', 'Edit address to add street.');
+                super('No street:', 'Edit address', 'Edit address to add street.');
                 if (args.categories[0] === CAT.SCENIC_LOOKOUT_VIEWPOINT) {
                     this.severity = SEVERITY.BLUE;
                 } else {
@@ -3220,8 +3227,10 @@
             }
         },
         CityMissing: class extends ActionFlag {
+            static SEVERITY = SEVERITY.RED;
+
             constructor(args) {
-                super(true, SEVERITY.RED, 'No city:', 'Edit address', 'Edit address to add city.');
+                super('No city:', 'Edit address', 'Edit address to add city.');
                 this.noLock = true;
                 if (args.categories.includes(CAT.RESIDENCE_HOME) && args.highlightOnly) {
                     this.severity = SEVERITY.BLUE;
@@ -3256,7 +3265,8 @@
             }
         },
         BankType1: class extends FlagBase {
-            constructor() { super(true, SEVERITY.RED, 'Clarify the type of bank: the name has ATM but the primary category is Offices'); }
+            static SEVERITY = SEVERITY.RED;
+            constructor() { super('Clarify the type of bank: the name has ATM but the primary category is Offices'); }
 
             static venueIsFlaggable(args) {
                 return (!args.pnhNameRegMatch || (args.pnhNameRegMatch && args.priPNHPlaceCat === CAT.BANK_FINANCIAL && !args.pnhMatchData[args.phSpecCaseIdx].includes('notABank')))
@@ -3266,8 +3276,9 @@
         },
         // TODO: Fix if the name has "(ATM)" or " - ATM" or similar. This flag is not currently catching those.
         BankBranch: class extends ActionFlag {
+            static SEVERITY = SEVERITY.BLUE;
             constructor() {
-                super(true, SEVERITY.BLUE, 'Is this a bank branch office? ', 'Yes', 'Is this a bank branch?');
+                super('Is this a bank branch office? ', 'Yes', 'Is this a bank branch?');
             }
 
             static venueIsFlaggable(args) {
@@ -3313,8 +3324,10 @@
             }
         },
         StandaloneATM: class extends ActionFlag {
+            static SEVERITY = SEVERITY.YELLOW;
+
             constructor() {
-                super(true, SEVERITY.YELLOW, 'Or is this a standalone ATM? ', 'Yes', 'Is this a standalone ATM with no bank branch?');
+                super('Or is this a standalone ATM? ', 'Yes', 'Is this a standalone ATM with no bank branch?');
             }
 
             static venueIsFlaggable(args) {
@@ -3356,8 +3369,10 @@
             }
         },
         BankCorporate: class extends ActionFlag {
+            static SEVERITY = SEVERITY.BLUE;
+
             constructor() {
-                super(true, SEVERITY.BLUE, 'Or is this the bank\'s corporate offices?', 'Yes', 'Is this the bank\'s corporate offices?');
+                super('Or is this the bank\'s corporate offices?', 'Yes', 'Is this the bank\'s corporate offices?');
             }
 
             static venueIsFlaggable(args) {
@@ -3399,8 +3414,6 @@
         CatPostOffice: class extends FlagBase {
             constructor() {
                 super(
-                    true,
-                    SEVERITY.GREEN,
                     `The Post Office category is reserved for certain USPS locations. Please be sure to follow <a href="${
                         URLS.uspsWiki}" style="color:#3a3a3a;" target="_blank">the guidelines</a>.`
                 );
@@ -3411,7 +3424,8 @@
             }
         },
         IgnEdited: class extends FlagBase {
-            constructor() { super(true, SEVERITY.YELLOW, 'Last edited by an IGN editor'); }
+            static SEVERITY = SEVERITY.YELLOW;
+            constructor() { super('Last edited by an IGN editor'); }
 
             static venueIsFlaggable(args) {
                 let updatedBy;
@@ -3421,13 +3435,12 @@
             }
         },
         WazeBot: class extends ActionFlag {
+            static SEVERITY = SEVERITY.YELLOW;
             static #botIds = [105774162, 361008095, 338475699, -1, 107668852];
             static #botNames = [/^waze-maint/i, /^waze3rdparty$/i, /^WazeParking1$/i, /^admin$/i, /^avsus$/i];
 
             constructor() {
                 super(
-                    true,
-                    SEVERITY.YELLOW,
                     'Edited last by an automated process. Please verify information is correct.',
                     'Nudge',
                     'If no other properties need to be updated, click to nudge the place (force an edit).'
@@ -3453,6 +3466,7 @@
             }
         },
         ParentCategory: class extends WLFlag {
+            static SEVERITY = SEVERITY.YELLOW;
             static WL_KEY = 'parentCategory';
             static WL_TOOLTIP = 'Whitelist parent Category';
 
@@ -3472,8 +3486,6 @@
 
                 const isWhitelisted = Flag.ParentCategory.isWhitelisted(args);
                 super(
-                    true,
-                    isWhitelisted ? SEVERITY.GREEN : SEVERITY.YELLOW,
                     message,
                     !isWhitelisted
                 );
@@ -3490,10 +3502,10 @@
             }
         },
         CheckDescription: class extends FlagBase {
+            static SEVERITY = SEVERITY.YELLOW;
+
             constructor() {
                 super(
-                    true,
-                    SEVERITY.YELLOW,
                     'Description field already contained info; PNH description was added in front of existing. Check for inconsistency or duplicate info.'
                 );
             }
@@ -3503,13 +3515,16 @@
             }
         },
         Overlapping: class extends FlagBase {
-            constructor() { super(true, SEVERITY.YELLOW, 'Place points are stacked up.'); }
+            static SEVERITY = SEVERITY.YELLOW;
+
+            constructor() { super('Place points are stacked up.'); }
         },
         SuspectDesc: class extends WLFlag {
+            static SEVERITY = SEVERITY.YELLOW;
             static WL_KEY = 'suspectDesc';
             static WL_TOOLTIP = 'Whitelist description';
 
-            constructor() { super(true, SEVERITY.YELLOW, 'Description field might contain copyrighted info.', true); }
+            constructor() { super('Description field might contain copyrighted info.', true); }
 
             static venueIsFlaggable(args) {
                 return !args.venue.isResidential()
@@ -3524,11 +3539,10 @@
 
             constructor(likelyResidential) {
                 super(
-                    true,
-                    likelyResidential ? SEVERITY.YELLOW : SEVERITY.GREEN,
                     'The place name suggests a residential place or personalized place of work.  Please verify.',
                     likelyResidential
                 );
+                if (likelyResidential) this.severity = SEVERITY.YELLOW;
             }
 
             static #likelyResidentialName(alphaName) {
@@ -3564,7 +3578,9 @@
             }
         },
         Mismatch247: class extends FlagBase {
-            constructor() { super(true, SEVERITY.YELLOW, 'Hours of operation listed as open 24hrs but not for all 7 days.'); }
+            static SEVERITY = SEVERITY.YELLOW;
+
+            constructor() { super('Hours of operation listed as open 24hrs but not for all 7 days.'); }
 
             static venueIsFlaggable(args) {
                 return args.openingHours.length === 1
@@ -3574,7 +3590,9 @@
             }
         },
         PhoneInvalid: class extends FlagBase {
-            constructor() { super(true, SEVERITY.YELLOW, 'Phone # is invalid.'); }
+            static SEVERITY = SEVERITY.YELLOW;
+
+            constructor() { super('Phone # is invalid.'); }
 
             static venueIsFlaggable(args) {
                 if (!args.phone) return false;
@@ -3584,14 +3602,13 @@
             }
         },
         UrlMismatch: class extends WLActionFlag {
+            static SEVERITY = SEVERITY.BLUE;
             static WL_KEY = 'longURL';
             static WL_TOOLTIP = 'Whitelist existing URL';
 
             constructor(args) {
                 const isWhitelisted = Flag.UrlMismatch.isWhitelisted(args);
                 super(
-                    true,
-                    isWhitelisted ? SEVERITY.GREEN : SEVERITY.BLUE,
                     'Existing URL doesn\'t match the suggested PNH URL. Use the Website button below to verify the existing URL is valid. If not:',
                     'Use PNH URL',
                     'Change URL to the PNH standard',
@@ -3621,8 +3638,10 @@
             }
         },
         GasNoBrand: class extends FlagBase {
+            static SEVERITY = SEVERITY.BLUE;
+
             constructor(args) {
-                super(true, SEVERITY.BLUE, `Lock to L${args.levelToLock + 1}+ to verify no gas brand.`);
+                super(`Lock to L${args.levelToLock + 1}+ to verify no gas brand.`);
                 this.noLock = true;
             }
 
@@ -3634,13 +3653,12 @@
             }
         },
         SubFuel: class extends WLFlag {
+            static SEVERITY = SEVERITY.BLUE;
             static WL_KEY = 'subFuel';
             static WL_TOOLTIP = 'Whitelist no gas brand';
 
             constructor() {
                 super(
-                    true,
-                    SEVERITY.BLUE,
                     'Make sure this place is for the gas station itself and not the main store building. Otherwise undo and check the categories.',
                     true
                 );
@@ -3654,6 +3672,7 @@
             }
         },
         AddCommonEVPaymentMethods: class extends WLActionFlag {
+            static SEVERITY = SEVERITY.BLUE;
             static WL_KEY = 'addCommonEVPaymentMethods';
             static WL_TOOLTIP = 'Whitelist common EV payment types';
 
@@ -3661,8 +3680,6 @@
                 const stationAttr = args.venue.attributes.categoryAttributes.CHARGING_STATION;
                 const { network } = stationAttr;
                 super(
-                    true,
-                    SEVERITY.BLUE,
                     `These common payment methods for the ${network} network are missing. Verify if they are needed here:`,
                     'Add network payment methods',
                     'Please verify first! If any are not needed, click the WL button and manually add any needed payment methods.',
@@ -3716,6 +3733,7 @@
             }
         },
         RemoveUncommonEVPaymentMethods: class extends WLActionFlag {
+            static SEVERITY = SEVERITY.BLUE;
             static WL_KEY = 'removeUncommonEVPaymentMethods';
             static WL_TOOLTIP = 'Whitelist uncommon EV payment types';
 
@@ -3723,8 +3741,6 @@
                 const stationAttr = args.venue.attributes.categoryAttributes.CHARGING_STATION;
                 const { network } = stationAttr;
                 super(
-                    true,
-                    SEVERITY.BLUE,
                     `These payment methods are uncommon for the ${stationAttr.network} network. Verify if they are needed here:`,
                     'Remove network payment methods',
                     'Please verify first! If any should NOT be removed, click the WL button and manually remove any unneeded payment methods.',
@@ -3776,10 +3792,10 @@
             }
         },
         FormatUSPS: class extends FlagBase {
+            static SEVERITY = SEVERITY.BLUE;
+
             constructor() {
                 super(
-                    true,
-                    SEVERITY.BLUE,
                     `Name the post office according to this region's <a href="${
                         URLS.uspsWiki}" style="color:#3232e6" target="_blank">standards for USPS post offices</a>`
                 );
@@ -3811,8 +3827,10 @@
             }
         },
         MissingUSPSAlt: class extends ActionFlag {
+            static SEVERITY = SEVERITY.BLUE;
+
             constructor() {
-                super(true, SEVERITY.BLUE, 'USPS post offices must have an alternate name of "USPS".', 'Add it', 'Add USPS alternate name');
+                super('USPS post offices must have an alternate name of "USPS".', 'Add it', 'Add USPS alternate name');
             }
 
             static venueIsFlaggable(args) {
@@ -3831,11 +3849,11 @@
             }
         },
         MissingUSPSZipAlt: class extends WLActionFlag {
+            static SEVERITY = SEVERITY.BLUE;
             static WL_KEY = 'missingUSPSZipAlt';
             static WL_TOOLTIP = 'Whitelist missing USPS zip alt name';
 
             constructor(args) {
-                let severity;
                 let wlActive;
                 let message;
                 let zipMatch;
@@ -3847,14 +3865,12 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                 }
 
                 if (Flag.MissingUSPSZipAlt.isWhitelisted(args)) {
-                    severity = SEVERITY.GREEN;
                     wlActive = false;
                 } else {
-                    severity = SEVERITY.BLUE;
                     wlActive = true;
                 }
 
-                super(true, severity, message, 'Add', wlActive);
+                super(message, 'Add', wlActive);
                 this.noBannerAssemble = true;
 
                 // If the zip code appears in the primary name, pre-fill it in the text entry box.
@@ -3900,22 +3916,18 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
             }
         },
         MissingUSPSDescription: class extends WLFlag {
+            static SEVERITY = SEVERITY.BLUE;
             static WL_KEY = 'missingUSPSDescription';
             static WL_TOOLTIP = 'Whitelist missing USPS address line in description';
 
             constructor(args) {
-                let severity;
                 let wlActive;
                 if (Flag.MissingUSPSDescription.isWhitelisted(args)) {
-                    severity = SEVERITY.GREEN;
                     wlActive = false;
                 } else {
-                    severity = SEVERITY.BLUE;
                     wlActive = true;
                 }
                 super(
-                    true,
-                    severity,
                     `The first line of the description for a <a href="${
                         URLS.uspsWiki}" style="color:#3232e6" target="_blank">USPS post office</a> must be CITY, STATE ZIP, e.g. "Lexington, KY 40511"`,
                     wlActive
@@ -3934,7 +3946,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
         CatHotel: class extends FlagBase {
             constructor(args) {
                 const pnhName = args.pnhMatchData[args.phNameIdx];
-                super(true, SEVERITY.GREEN, `Check hotel website for any name localization (e.g. ${pnhName} - Tampa Airport).`);
+                super(`Check hotel website for any name localization (e.g. ${pnhName} - Tampa Airport).`);
             }
 
             static venueIsFlaggable(args) {
@@ -3943,14 +3955,13 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
             }
         },
         LocalizedName: class extends WLFlag {
+            static SEVERITY = SEVERITY.BLUE;
             static WL_KEY = 'localizedName';
             static WL_TOOLTIP = 'Whitelist localization';
 
             constructor(args) {
                 const isWhitelisted = Flag.LocalizedName.isWhitelisted(args);
                 super(
-                    true,
-                    isWhitelisted ? SEVERITY.GREEN : SEVERITY.BLUE,
                     args.displayNote || 'Place needs localization information',
                     !isWhitelisted
                 );
@@ -3996,7 +4007,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                     }
                 }
 
-                super(true, SEVERITY.GREEN, message);
+                super(message);
 
                 if (isTesla) {
                     this.postProcess = () => {
@@ -4048,7 +4059,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
         },
         PnhCatMess: class extends ActionFlag {
             constructor(venue, pnhCategoryInfo, categories) {
-                super(true, SEVERITY.GREEN, pnhCategoryInfo.message, null, null);
+                super(pnhCategoryInfo.message, null, null);
                 if (categories.includes(CAT.HOSPITAL_URGENT_CARE)) {
                     this.value = 'Change to Doctor/Clinic';
                     this.actionType = 'changeToDoctorClinic';
@@ -4076,11 +4087,12 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
             }
         },
         ExtProviderMissing: class extends ActionFlag {
+            static SEVERITY = SEVERITY.RED;
             static #categoriesToIgnore = [CAT.BRIDGE, CAT.TUNNEL, CAT.JUNCTION_INTERCHANGE, CAT.NATURAL_FEATURES, CAT.ISLAND,
                 CAT.SEA_LAKE_POOL, CAT.RIVER_STREAM, CAT.CANAL, CAT.SWAMP_MARSH];
 
             constructor(args) {
-                super(true, SEVERITY.RED, 'No Google link', 'Nudge', 'If no other properties need to be updated, click to nudge the place (force an edit).');
+                super('No Google link', 'Nudge', 'If no other properties need to be updated, click to nudge the place (force an edit).');
                 this.value2 = 'Add';
                 this.title2 = 'Add a link to a Google place';
 
@@ -4145,7 +4157,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
             preProcess() {
                 // If no Google link and severity would otherwise allow locking, ask if user wants to lock anyway.
                 const { args } = this;
-                if (!args.isLocked && this.active && this.severity <= SEVERITY.YELLOW) {
+                if (!args.isLocked && this.severity <= SEVERITY.YELLOW) {
                     this.severity = SEVERITY.RED;
                     args.totalSeverity = SEVERITY.RED;
                     if (args.lockOK) {
@@ -4175,14 +4187,13 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                     wlActive = false;
                 }
                 super(
-                    true,
-                    severity,
                     `No URL: <input type="text" id="${Flag.UrlMissing.#TEXTBOX_ID}" autocomplete="off"`
                         + ' style="font-size:0.85em;width:100px;padding-left:2px;color:#000;">',
                     'Add',
                     'Add URL to place',
                     wlActive
                 );
+                this.severity = severity;
                 this.noBannerAssemble = true;
                 this.badInput = false;
             }
@@ -4223,11 +4234,12 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
             }
         },
         InvalidUrl: class extends WLFlag {
+            static SEVERITY = SEVERITY.YELLOW;
             static WL_KEY = 'invalidUrl';
             static WL_TOOLTIP = 'Whitelist bad URL';
 
             constructor() {
-                super(true, SEVERITY.YELLOW, 'URL appears to be invalid.', true);
+                super('URL appears to be invalid.', true);
                 this.noLock = true;
             }
 
@@ -4237,13 +4249,12 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
             }
         },
         BadAreaCode: class extends WLActionFlag {
+            static SEVERITY = SEVERITY.YELLOW;
             static WL_KEY = 'aCodeWL';
             static WL_TOOLTIP = 'Whitelist the area code';
 
             constructor(args) {
                 super(
-                    true,
-                    SEVERITY.YELLOW,
                     `Area Code appears to be invalid for this region:<br><input type="text" id="WMEPH-PhoneAdd" autocomplete="off" style="font-size:0.85em;width:100px;padding-left:2px;color:#000;" value="${args.phone || ''}">`,
                     'Update',
                     'Update phone #',
@@ -4273,13 +4284,12 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
             }
         },
         AddRecommendedPhone: class extends WLActionFlag {
+            static SEVERITY = SEVERITY.BLUE;
             static WL_KEY = 'addRecommendedPhone';
             static WL_TOOLTIP = 'Whitelist recommended phone #';
 
             constructor(args) {
                 super(
-                    true,
-                    SEVERITY.BLUE,
                     `Recommended phone #:<br>${args.phone}`,
                     'Add',
                     'Use recommended chain phone #',
@@ -4299,13 +4309,12 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
             }
         },
         PhoneMissing: class extends WLActionFlag {
+            static SEVERITY = SEVERITY.BLUE;
             static WL_KEY = 'phoneWL';
             static WL_TOOLTIP = 'Whitelist empty phone';
 
             constructor(args) {
                 super(
-                    true,
-                    SEVERITY.BLUE,
                     'No ph#: <input type="text" id="WMEPH-PhoneAdd" autocomplete="off" style="font-size:0.85em;width:100px;padding-left:2px;color:#000;">',
                     'Add',
                     'Add phone to place',
@@ -4380,7 +4389,8 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                     severity = SEVERITY.GREEN;
                     wlActive = false;
                 }
-                super(true, severity, message, wlActive);
+                super(message, wlActive);
+                this.severity = severity;
             }
 
             static venueIsFlaggable(args) {
@@ -4683,6 +4693,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
             }
         },
         OldHours: class extends ActionFlag {
+            static SEVERITY = SEVERITY.YELLOW;
             static #categoriesToCheck;
             static #cutoffDateString = '3/15/2020';
             static #cutoffDate = new Date(this.#cutoffDateString);
@@ -4697,11 +4708,10 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                     if (isUnchanged) message += ' If everything is current, nudge this place and save.';
                 }
                 super(
-                    true,
-                    isUnchanged ? SEVERITY.YELLOW : SEVERITY.GREEN,
                     message,
                     isUnchanged ? 'Nudge' : null
                 );
+                if (!isUnchanged) this.severity = SEVERITY.GREEN;
             }
 
             static venueIsFlaggable(args) {
@@ -4733,8 +4743,10 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
             }
         },
         PlaLotTypeMissing: class extends FlagBase {
+            static SEVERITY = SEVERITY.RED;
+
             constructor(args) {
-                super(true, SEVERITY.RED, 'Lot type: ');
+                super('Lot type: ');
                 if (!args.highlightOnly) {
                     this.noLock = true;
                     this.message += [['PUBLIC', 'Public'], ['RESTRICTED', 'Restricted'], ['PRIVATE', 'Private']].map(
@@ -4768,8 +4780,9 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
             }
         },
         PlaCostTypeMissing: class extends FlagBase {
+            static SEVERITY = SEVERITY.BLUE;
             constructor(args) {
-                super(true, SEVERITY.BLUE, 'Parking cost: ');
+                super('Parking cost: ');
                 if (!args.highlightOnly) {
                     [['FREE', 'Free', 'Free'], ['LOW', '$', 'Low'], ['MODERATE', '$$', 'Moderate'], ['EXPENSIVE', '$$$', 'Expensive']].forEach(btnInfo => {
                         this.message += $('<button>', { id: `wmeph_${btnInfo[0]}`, class: 'wmeph-pla-cost-type-btn btn btn-default btn-xs wmeph-btn', title: btnInfo[2] })
@@ -4811,7 +4824,8 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
             }
         },
         PlaPaymentTypeMissing: class extends ActionFlag {
-            constructor() { super(true, SEVERITY.BLUE, 'Parking isn\'t free. Select payment type(s) from the "More info" tab. ', 'Go there'); }
+            static SEVERITY = SEVERITY.BLUE;
+            constructor() { super('Parking isn\'t free. Select payment type(s) from the "More info" tab. ', 'Go there'); }
 
             static venueIsFlaggable(args) {
                 if (args.categories.includes(CAT.PARKING_LOT)) {
@@ -4832,10 +4846,10 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
             }
         },
         PlaLotElevationMissing: class extends ActionFlag {
+            static SEVERITY = SEVERITY.BLUE;
+
             constructor() {
                 super(
-                    true,
-                    SEVERITY.BLUE,
                     'No lot elevation. Is it street level?',
                     'Yes',
                     'Click if street level parking only, or select other option(s) in the More Info tab.'
@@ -4863,7 +4877,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
         },
         PlaSpaces: class extends FlagBase {
             constructor() {
-                super(true, SEVERITY.GREEN, '# of parking spaces is set to 1-10.<br><b><i>If appropriate</i></b>, select another option:');
+                super('# of parking spaces is set to 1-10.<br><b><i>If appropriate</i></b>, select another option:');
                 const $btnDiv = $('<div>');
                 let btnIdx = 0;
                 [
@@ -4901,8 +4915,10 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
             }
         },
         NoPlaStopPoint: class extends ActionFlag {
+            static SEVERITY = SEVERITY.BLUE;
+
             constructor() {
-                super(true, SEVERITY.BLUE, 'Entry/exit point has not been created.', 'Add point', 'Add an entry/exit point');
+                super('Entry/exit point has not been created.', 'Add point', 'Add an entry/exit point');
             }
 
             static venueIsFlaggable(args) {
@@ -4916,7 +4932,9 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
             }
         },
         PlaStopPointUnmoved: class extends FlagBase {
-            constructor() { super(true, SEVERITY.BLUE, 'Entry/exit point has not been moved.'); }
+            static SEVERITY = SEVERITY.BLUE;
+
+            constructor() { super('Entry/exit point has not been moved.'); }
 
             static venueIsFlaggable(args) {
                 const attr = args.venue.attributes;
@@ -4932,7 +4950,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
         },
         PlaCanExitWhileClosed: class extends ActionFlag {
             constructor() {
-                super(true, SEVERITY.GREEN, 'Can cars exit when lot is closed? ', 'Yes', '');
+                super('Can cars exit when lot is closed? ', 'Yes', '');
             }
 
             static venueIsFlaggable(args) {
@@ -4951,7 +4969,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
         },
         PlaHasAccessibleParking: class extends ActionFlag {
             constructor() {
-                super(true, SEVERITY.GREEN, 'Does this lot have disability parking? ', 'Yes', '');
+                super('Does this lot have disability parking? ', 'Yes', '');
             }
 
             static venueIsFlaggable(args) {
@@ -4973,14 +4991,14 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
             }
         },
         AllDayHoursFixed: class extends FlagBase {
+            static SEVERITY = SEVERITY.YELLOW;
             constructor(args) {
                 // If highlightOnly, flag place yellow. Running WMEPH on a place will automatically fix the hours, so
                 // then this can be green and just display the message.
                 super(
-                    true,
-                    args.highlightOnly ? SEVERITY.YELLOW : SEVERITY.GREEN,
                     args.highlightOnly ? '' : 'Hours were changed from 00:00-23:59 to "All Day"'
                 );
+                if (!args.highlightOnly) this.severity = SEVERITY.GREEN;
             }
 
             static venueIsFlaggable(args) {
@@ -4990,8 +5008,6 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
         LocalURL: class extends FlagBase {
             constructor() {
                 super(
-                    true,
-                    SEVERITY.GREEN,
                     'Some locations for this business have localized URLs, while others use the primary corporate site.'
                       + ' Check if a local URL applies to this location.'
                 );
@@ -5017,7 +5033,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                 }
                 message += '</select>';
                 message = `Current lock: ${parseInt(args.venue.attributes.lockRank, 10) + 1}. ${message} ?`;
-                super(true, SEVERITY.GREEN, message, 'Lock', 'Lock the residential point');
+                super(message, 'Lock', 'Lock the residential point');
             }
 
             static venueIsFlaggable(args) {
@@ -5039,7 +5055,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
         },
         AddAlias: class extends ActionFlag {
             constructor(args) {
-                super(true, SEVERITY.GREEN, `Is there a ${args.optionalAlias} at this location?`, 'Yes', `Add ${args.optionalAlias}`);
+                super(`Is there a ${args.optionalAlias} at this location?`, 'Yes', `Add ${args.optionalAlias}`);
             }
 
             static venueIsFlaggable(args) {
@@ -5059,7 +5075,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
         },
         AddCat2: class extends ActionFlag {
             constructor(venue, altCategory) {
-                super(true, SEVERITY.GREEN, `Is there a ${_catTransWaze2Lang[altCategory]} at this location?`, 'Yes', `Add ${_catTransWaze2Lang[altCategory]}`);
+                super(`Is there a ${_catTransWaze2Lang[altCategory]} at this location?`, 'Yes', `Add ${_catTransWaze2Lang[altCategory]}`);
                 this.altCategory = altCategory;
                 this.venue = venue;
             }
@@ -5079,7 +5095,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
         },
         AddPharm: class extends ActionFlag {
             constructor() {
-                super(true, SEVERITY.GREEN, 'Is there a Pharmacy at this location?', 'Yes', 'Add Pharmacy category');
+                super('Is there a Pharmacy at this location?', 'Yes', 'Add Pharmacy category');
             }
 
             static venueIsFlaggable(args) {
@@ -5093,7 +5109,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
         },
         AddSuper: class extends ActionFlag {
             constructor() {
-                super(true, SEVERITY.GREEN, 'Does this location have a supermarket?', 'Yes', 'Add Supermarket category');
+                super('Does this location have a supermarket?', 'Yes', 'Add Supermarket category');
             }
 
             static venueIsFlaggable(args) {
@@ -5108,7 +5124,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
         AppendAMPM: class extends ActionFlag {
             // Only used on the ARCO gas station PNH entry.
             constructor() {
-                super(true, SEVERITY.GREEN, 'Is there an ampm at this location?', 'Yes', 'Add ampm to the place');
+                super('Is there an ampm at this location?', 'Yes', 'Add ampm to the place');
             }
 
             static venueIsFlaggable(args) {
@@ -5124,7 +5140,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
         },
         AddATM: class extends ActionFlag {
             constructor() {
-                super(true, SEVERITY.GREEN, 'ATM at location? ', 'Yes', 'Add the ATM category to this place');
+                super('ATM at location? ', 'Yes', 'Add the ATM category to this place');
             }
 
             static venueIsFlaggable(args) {
@@ -5150,7 +5166,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
         },
         AddConvStore: class extends ActionFlag {
             constructor() {
-                super(true, SEVERITY.GREEN, 'Add convenience store category? ', 'Yes', 'Add the Convenience Store category to this place');
+                super('Add convenience store category? ', 'Yes', 'Add the Convenience Store category to this place');
             }
 
             static venueIsFlaggable(args) {
@@ -5169,8 +5185,6 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
         IsThisAPostOffice: class extends ActionFlag {
             constructor() {
                 super(
-                    true,
-                    SEVERITY.GREEN,
                     `Is this a <a href="${URLS.uspsWiki}" target="_blank" style="color:#3a3a3a">USPS post office</a>? `,
                     'Yes',
                     'Is this a USPS location?'
@@ -5193,8 +5207,6 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
         ChangeToHospitalUrgentCare: class extends ActionFlag {
             constructor() {
                 super(
-                    true,
-                    SEVERITY.GREEN,
                     'If this place provides emergency medical care:',
                     'Change to Hospital / Urgent Care',
                     'Change category to Hospital / Urgent Care'
@@ -5219,13 +5231,12 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
             }
         },
         NotAHospital: class extends WLActionFlag {
+            static SEVERITY = SEVERITY.RED;
             static WL_KEY = 'notAHospital';
             static WL_TOOLTIP = 'Whitelist category';
 
             constructor() {
                 super(
-                    true,
-                    SEVERITY.RED,
                     'Key words suggest this location may not be a hospital or urgent care location.',
                     'Change to Doctor / Clinic',
                     'Change category to Doctor / Clinic',
@@ -5267,8 +5278,6 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
         ChangeToDoctorClinic: class extends ActionFlag {
             constructor() {
                 super(
-                    true,
-                    SEVERITY.GREEN,
                     'If this place provides non-emergency medical care: ',
                     'Change to Doctor / Clinic',
                     'Change category to Doctor / Clinic'
@@ -5312,7 +5321,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
 
             constructor(args) {
                 const titleCaseName = titleCase(args.nameBase);
-                super(true, SEVERITY.GREEN, '', 'Force Title Case?', `Force title case to: ${titleCaseName}`);
+                super('', 'Force Title Case?', `Force title case to: ${titleCaseName}`);
                 this.#originalName = args.nameBase + (args.nameSuffix || '');
                 this.suffixMessage = `<span style="margin-left: 4px;font-size: 14px">&bull; ${titleCaseName}${args.nameSuffix || ''}</span>`;
                 this.noBannerAssemble = true;
@@ -5339,14 +5348,14 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
         },
         SFAliases: class extends FlagBase {
             // TODO: Move message to static defaultMessage property. Come up with a way to override in child classes.
-            constructor() { super(true, SEVERITY.GREEN, 'Unnecessary aliases were removed.'); }
+            constructor() { super('Unnecessary aliases were removed.'); }
 
             static venueIsFlaggable(args) {
                 return args.aliasesRemoved;
             }
         },
         PlaceMatched: class extends FlagBase {
-            constructor() { super(true, SEVERITY.GREEN, 'Place matched from PNH data.'); }
+            constructor() { super('Place matched from PNH data.'); }
 
             static venueIsFlaggable(args) {
                 return args.pnhNameRegMatch;
@@ -5354,7 +5363,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
         },
         PlaceLocked: class extends FlagBase {
             constructor(args) {
-                super(true, SEVERITY.GREEN, 'Place locked.');
+                super('Place locked.');
 
                 if (args.venue.attributes.lockRank < args.levelToLock) {
                     if (!args.highlightOnly) {
@@ -5375,7 +5384,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
             #formUrl;
 
             constructor(args) {
-                super(true, SEVERITY.GREEN, 'No PNH match. If it\'s a chain: ', 'Submit new chain data', 'Submit info for a new chain through the linked form');
+                super('No PNH match. If it\'s a chain: ', 'Submit new chain data', 'Submit info for a new chain through the linked form');
 
                 // Make PNH submission link
                 const encodedName = encodeURIComponent(args.nameBase);
@@ -5407,7 +5416,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
             #formUrl;
 
             constructor(args) {
-                super(true, SEVERITY.GREEN, 'PNH data exists but is not approved for this region: ', 'Request approval', 'Request region/country approval of this place');
+                super('PNH data exists but is not approved for this region: ', 'Request approval', 'Request region/country approval of this place');
 
                 const encodedName = encodeURIComponent(args.pnhMatchData[1][0]); // Just do the first match
                 const pnhOrderNum = args.pnhMatchData[2].join(',');
@@ -5447,7 +5456,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                 if (isCustom) {
                     buttoneText += ' (L)';
                 }
-                super(true, SEVERITY.GREEN, '', buttoneText, 'Look up details about this location on the chain\'s finder web page.');
+                super('', buttoneText, 'Look up details about this location on the chain\'s finder web page.');
                 this.venue = venue;
                 this.#isCustom = isCustom;
                 this.#storeFinderUrl = storeFinderUrl;
@@ -6962,7 +6971,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
         // update Severity for banner messages
         const orderedFlags = FlagBase.currentFlags.getOrderedFlags();
         orderedFlags.forEach(flag => {
-            if (flag.active) args.totalSeverity = Math.max(flag.severity, args.totalSeverity);
+            args.totalSeverity = Math.max(flag.severity, args.totalSeverity);
         });
 
         // final updating of desired lock levels
@@ -6992,7 +7001,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
         Flag.LockRPP.eval(args);
 
         // Allow flags to do any additional work before assigning severity and locks
-        orderedFlags.filter(flag => flag?.active).forEach(flag => flag.preProcess?.(args));
+        orderedFlags.forEach(flag => flag.preProcess?.(args));
 
         if (!args.highlightOnly) {
             // Update the lockOK value if "noLock" is set on any flag.
@@ -7026,9 +7035,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
             // get severities from the banners
             args.totalSeverity = SEVERITY.GREEN;
             orderedFlags.forEach(flag => {
-                if (flag.active) { //  If the particular message is active
-                    args.totalSeverity = Math.max(flag.severity, args.totalSeverity);
-                }
+                args.totalSeverity = Math.max(flag.severity, args.totalSeverity);
             });
 
             // Special case flags
@@ -7188,54 +7195,52 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
 
         // Build banners above the Services
         flags.forEach(flag => {
-            if (flag.active) { //  If the particular message is active
-                $rowDiv = $('<div class="banner-row">');
-                if (flag.severity === SEVERITY.RED) {
-                    $rowDiv.addClass('red');
-                } else if (flag.severity === SEVERITY.YELLOW) {
-                    $rowDiv.addClass('yellow');
-                } else if (flag.severity === SEVERITY.BLUE) {
-                    $rowDiv.addClass('blue');
-                } else if (flag.severity === SEVERITY.GREEN) {
-                    $rowDiv.addClass('gray');
-                }
-                if (flag.divId) {
-                    $rowDiv.attr('id', flag.divId);
-                }
-                if (flag.message && flag.message.length) {
-                    $rowDiv.append($('<span>').css({ 'margin-right': '4px' }).append(`&bull; ${flag.message}`));
-                }
-                if (flag.value) {
-                    $rowDiv.append($('<button>', {
-                        class: 'btn btn-default btn-xs wmeph-btn',
-                        id: `WMEPH_${flag.name}`,
-                        title: flag.title || ''
-                    }).css({ 'margin-right': '4px' }).html(flag.value));
-                }
-                if (flag.value2) {
-                    $rowDiv.append($('<button>', {
-                        class: 'btn btn-default btn-xs wmeph-btn',
-                        id: `WMEPH_${flag.name}_2`,
-                        title: flag.title2 || ''
-                    }).css({ 'margin-right': '4px' }).html(flag.value2));
-                }
-                if (flag.WLactive) {
-                    if (flag.WLaction) { // If there's a WL option, enable it
-                        totalSeverity = Math.max(flag.severity, totalSeverity);
-                        $rowDiv.append(
-                            $('<button>', { class: 'btn btn-success btn-xs wmephwl-btn', id: `WMEPH_WL${flag.name}`, title: flag.wlTooltip })
-                                .text('WL')
-                        );
-                    }
-                } else {
-                    totalSeverity = Math.max(flag.severity, totalSeverity);
-                }
-                if (flag.suffixMessage) {
-                    $rowDiv.append($('<div>').css({ 'margin-top': '2px' }).append(flag.suffixMessage));
-                }
-
-                rowDivs.push($rowDiv);
+            $rowDiv = $('<div class="banner-row">');
+            if (flag.severity === SEVERITY.RED) {
+                $rowDiv.addClass('red');
+            } else if (flag.severity === SEVERITY.YELLOW) {
+                $rowDiv.addClass('yellow');
+            } else if (flag.severity === SEVERITY.BLUE) {
+                $rowDiv.addClass('blue');
+            } else if (flag.severity === SEVERITY.GREEN) {
+                $rowDiv.addClass('gray');
             }
+            if (flag.divId) {
+                $rowDiv.attr('id', flag.divId);
+            }
+            if (flag.message && flag.message.length) {
+                $rowDiv.append($('<span>').css({ 'margin-right': '4px' }).append(`&bull; ${flag.message}`));
+            }
+            if (flag.value) {
+                $rowDiv.append($('<button>', {
+                    class: 'btn btn-default btn-xs wmeph-btn',
+                    id: `WMEPH_${flag.name}`,
+                    title: flag.title || ''
+                }).css({ 'margin-right': '4px' }).html(flag.value));
+            }
+            if (flag.value2) {
+                $rowDiv.append($('<button>', {
+                    class: 'btn btn-default btn-xs wmeph-btn',
+                    id: `WMEPH_${flag.name}_2`,
+                    title: flag.title2 || ''
+                }).css({ 'margin-right': '4px' }).html(flag.value2));
+            }
+            if (flag.WLactive) {
+                if (flag.WLaction) { // If there's a WL option, enable it
+                    totalSeverity = Math.max(flag.severity, totalSeverity);
+                    $rowDiv.append(
+                        $('<button>', { class: 'btn btn-success btn-xs wmephwl-btn', id: `WMEPH_WL${flag.name}`, title: flag.wlTooltip })
+                            .text('WL')
+                    );
+                }
+            } else {
+                totalSeverity = Math.max(flag.severity, totalSeverity);
+            }
+            if (flag.suffixMessage) {
+                $rowDiv.append($('<div>').css({ 'margin-top': '2px' }).append(flag.suffixMessage));
+            }
+
+            rowDivs.push($rowDiv);
         });
 
         if ($('#WMEPH-ColorHighlighting').prop('checked')) {
@@ -7332,10 +7337,9 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
         }
 
         // Allow flags to do any additional work (hook up events, etc);
-        flags.filter(flag => flag?.active)
-            .forEach(flag => {
-                flag.postProcess?.();
-            });
+        flags.forEach(flag => {
+            flag.postProcess?.();
+        });
 
         processGoogleLinks(venue);
     } // END assemble Banner function
@@ -7547,17 +7551,15 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
     // Button onclick event handler
     function setupButtons(flags) {
         flags.forEach(flag => { // Loop through the banner possibilities
-            if (flag.active) { //  If the particular message is active
-                if (flag.action && flag.value) { // If there is an action, set onclick
-                    buttonAction(flag);
-                }
-                if (flag.action2 && flag.value2) { // If there is an action2, set onclick
-                    buttonAction2(flag);
-                }
-                // If there's a WL option, set up onclick
-                if (flag.WLactive && flag.WLaction) {
-                    buttonWhitelist(flag);
-                }
+            if (flag.action && flag.value) { // If there is an action, set onclick
+                buttonAction(flag);
+            }
+            if (flag.action2 && flag.value2) { // If there is an action2, set onclick
+                buttonAction2(flag);
+            }
+            // If there's a WL option, set up onclick
+            if (flag.WLactive && flag.WLaction) {
+                buttonWhitelist(flag);
             }
         });
     }
