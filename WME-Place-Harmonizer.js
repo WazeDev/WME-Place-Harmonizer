@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name        WME Place Harmonizer Beta
 // @namespace   WazeUSA
-// @version     2023.05.20.002
+// @version     2023.05.20.003
 // @description Harmonizes, formats, and locks a selected place
 // @author      WMEPH Development Group
 // @include     /^https:\/\/(www|beta)\.waze\.com\/(?!user\/)(.{2,6}\/)?editor\/?.*$/
@@ -2906,9 +2906,9 @@
             }
 
             action() {
-                $('wz-checkable-chip.geometry-type-control-area').click();
-                // updateFeatureGeometry(venue, venue.getPolygonGeometry());
-                harmonizePlaceGo(this.args.venue, 'harmonize');
+                const { venue } = this.args;
+                W.model.actionManager.add(new UpdateFeatureGeometry(venue, venue.model.venues, venue.geometry, venue.getPolygonGeometry()));
+                harmonizePlaceGo(venue, 'harmonize');
             }
         },
         HnMissing: class extends WLActionFlag {
@@ -4765,7 +4765,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
             }
 
             action() {
-                const services = this.args.venue.attributes?.slice() ?? [];
+                const services = this.args.venue.attributes.services?.slice() ?? [];
                 services.push('DISABILITY_PARKING');
                 addUpdateAction(this.args.venue, { services }, null, true);
                 UPDATED_FIELDS.services_DISABILITY_PARKING.updated = true;
