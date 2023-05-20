@@ -2281,7 +2281,7 @@
 
             constructor(inferredAddress) {
                 super();
-                this.inferAddress = inferredAddress;
+                this.inferredAddress = inferredAddress;
             }
 
             static eval(venue, addr, actions, highlightOnly, categories) {
@@ -2912,18 +2912,6 @@
             }
         },
         HnMissing: class extends WLActionFlag {
-            static get MESSAGE() {
-                let msg = `No HN: <input type="text" id="${Flag.HnMissing.#TEXTBOX_ID}" autocomplete="off" `
-                + 'style="font-size:0.85em;width:100px;padding-left:2px;color:#000;" > ';
-
-                if (USER.rank < 3) {
-                    msg += 'Request an R3+ lock to confirm no HN.';
-                } else {
-                    msg += 'Lock to R3+ to confirm no HN.';
-                }
-                return msg;
-            }
-
             static BUTTON_TEXT = 'Add';
             static BUTTON_TOOLTIP = 'Add HN to place';
             static WL_KEY = 'HNWL';
@@ -2960,6 +2948,20 @@
                 this.severity = severity;
                 this.showWL = showWL;
                 this.noLock = noLock;
+            }
+
+            get message() {
+                let msg = `No HN: <input type="text" id="${Flag.HnMissing.#TEXTBOX_ID}" autocomplete="off" `
+                + 'style="font-size:0.85em;width:100px;padding-left:2px;color:#000;" > ';
+
+                if (this.args.categories.includes(CAT.PARKING_LOT) && this.args.venue.attributes.lockRank < 2) {
+                    if (USER.rank < 3) {
+                        msg += 'Request an R3+ lock to confirm no HN.';
+                    } else {
+                        msg += 'Lock to R3+ to confirm no HN.';
+                    }
+                }
+                return msg;
             }
 
             static venueIsFlaggable(args) {
