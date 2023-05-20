@@ -2910,7 +2910,6 @@
             }
 
             action() {
-                $('wz-button.geometry-type-control-polygon').click();
                 const { venue } = this.args;
                 W.model.actionManager.add(new UpdateFeatureGeometry(venue, venue.model.venues, venue.geometry, venue.getPolygonGeometry()));
                 harmonizePlaceGo(venue, 'harmonize');
