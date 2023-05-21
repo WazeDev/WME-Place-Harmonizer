@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name        WME Place Harmonizer Beta
 // @namespace   WazeUSA
-// @version     2023.05.21.001
+// @version     2023.05.21.002
 // @description Harmonizes, formats, and locks a selected place
 // @author      WMEPH Development Group
 // @include     /^https:\/\/(www|beta)\.waze\.com\/(?!user\/)(.{2,6}\/)?editor\/?.*$/
@@ -3625,7 +3625,7 @@
                 this.originalNetwork = stationAttr.network;
                 const translations = I18n.translations[I18n.locale].edit.venue.category_attributes.payment_methods;
                 const list = stationAttr.paymentMethods
-                    ?.filter(method => !COMMON_EV_PAYMENT_METHODS[network].includes(method))
+                    ?.filter(method => !COMMON_EV_PAYMENT_METHODS[network]?.includes(method))
                     .map(method => `- ${translations[method]}`).join('<br>');
                 msg += `<br>${list}<br>`;
                 return msg;
