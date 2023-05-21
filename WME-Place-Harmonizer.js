@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name        WME Place Harmonizer Beta
 // @namespace   WazeUSA
-// @version     2023.05.21.002
+// @version     2023.05.21.003
 // @description Harmonizes, formats, and locks a selected place
 // @author      WMEPH Development Group
 // @include     /^https:\/\/(www|beta)\.waze\.com\/(?!user\/)(.{2,6}\/)?editor\/?.*$/
@@ -2359,6 +2359,27 @@
 
             action() {
                 addUpdateAction(this.args.venue, { name: this.args.brand }, null, true);
+            }
+        },
+        ClearThisUrl: class extends FlagBase {
+            static defaultSeverity = SEVERITY.YELLOW;
+
+            // Use this to highlight yellow any venues that have an invalid value and will be
+            // auto-corrected when WMEPH is run.
+            static venueIsFlaggable(args) {
+                return args.categories.includes(CAT.CHARGING_STATION)
+                    && args.url
+                    && ['https://www.nissan-europe.com/', 'https://www.eco-movement.com/'].includes(args.url);
+            }
+        },
+        ClearThisPhone: class extends FlagBase {
+            static defaultSeverity = SEVERITY.YELLOW;
+
+            // Use this to highlight yellow any venues that have an invalid value and will be
+            // auto-corrected when WMEPH is run.
+            static venueIsFlaggable(args) {
+                return args.categories.includes(CAT.CHARGING_STATION)
+                    && args.phone === '+33-1-72676914'; // Nissan Europe ph#
             }
         },
         PlaIsPublic: class extends FlagBase {
@@ -5473,6 +5494,8 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
             Flag.TitleCaseName,
             Flag.ChangeToHospitalUrgentCare,
             Flag.SFAliases,
+            Flag.ClearThisPhone,
+            Flag.ClearThisUrl,
             Flag.PlaceMatched,
             Flag.PlaceLocked,
             Flag.NewPlaceSubmit,
@@ -5931,7 +5954,6 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
         args.aliases = venue.attributes.aliases.slice();
         args.description = venue.attributes.description;
         args.url = venue.attributes.url;
-        args.normalizedUrl = normalizeURL(args.url);
         args.phone = venue.attributes.phone;
         args.openingHours = venue.attributes.openingHours;
         // Set up a variable (newBrand) to contain the brand. When harmonizing, it may be forced to a new value.
@@ -6598,6 +6620,12 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                 }
 
                 // URL updating
+                // Invalid EVCS URL imported from PURs. Clear it.
+                if (Flag.ClearThisUrl.venueIsFlaggable(args)) {
+                    args.url = null;
+                    addUpdateAction(venue, { url: args.url }, actions);
+                }
+                args.normalizedUrl = normalizeURL(args.url);
                 if (args.isUspsPostOffice && args.url !== 'usps.com') {
                     args.url = 'usps.com';
                     addUpdateAction(venue, { url: args.url }, actions);
@@ -6614,6 +6642,10 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                 }
 
                 if (args.phone) {
+                    // Invalid EVCS phone # imported from PURs. Clear it.
+                    if (Flag.ClearThisPhone.venueIsFlaggable(args)) {
+                        args.phone = null;
+                    }
                     const normalizedPhone = normalizePhone(args.phone, args.outputPhoneFormat);
                     if (normalizedPhone !== BAD_PHONE) args.phone = normalizedPhone;
                     if (args.phone !== venue.attributes.phone) {
@@ -6721,6 +6753,8 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
             Flag.PhoneMissing.eval(args);
             Flag.BadAreaCode.eval(args);
             Flag.ParentCategory.eval(args);
+            Flag.ClearThisPhone.eval(args);
+            Flag.ClearThisUrl.eval(args);
         }
         Flag.UnmappedRegion.eval(args);
         Flag.PlaCostTypeMissing.eval(args);
