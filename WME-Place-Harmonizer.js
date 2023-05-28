@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name        WME Place Harmonizer
 // @namespace   WazeUSA
-// @version     2023.04.27.001
+// @version     2023.05.28.001
 // @description Harmonizes, formats, and locks a selected place
 // @author      WMEPH Development Group
 // @include     /^https:\/\/(www|beta)\.waze\.com\/(?!user\/)(.{2,6}\/)?editor\/?.*$/
@@ -179,14 +179,13 @@
     let UpdateFeatureAddress;
     let OpeningHour;
 
-    const _SCRIPT_VERSION = GM_info.script.version.toString(); // pull version from header
-    const _SCRIPT_NAME = GM_info.script.name;
-    const _IS_BETA_VERSION = /Beta/i.test(_SCRIPT_NAME); //  enables dev messages and unique DOM options if the script is called "... Beta"
-    const _BETA_VERSION_STR = _IS_BETA_VERSION ? 'Beta' : ''; // strings to differentiate DOM elements between regular and beta script
-    const _PNH_DATA = { USA: {}, CAN: {} };
-    const _CATEGORY_LOOKUP = {};
-    const _DEFAULT_HOURS_TEXT = 'Paste hours here';
-    const _MAX_CACHE_SIZE = 25000;
+    const SCRIPT_VERSION = GM_info.script.version.toString(); // pull version from header
+    const SCRIPT_NAME = GM_info.script.name;
+    const IS_BETA_VERSION = /Beta/i.test(SCRIPT_NAME); //  enables dev messages and unique DOM options if the script is called "... Beta"
+    const BETA_VERSION_STR = IS_BETA_VERSION ? 'Beta' : ''; // strings to differentiate DOM elements between regular and beta script
+    const PNH_DATA = { USA: {}, CAN: {} };
+    const DEFAULT_HOURS_TEXT = 'Paste hours here';
+    const MAX_CACHE_SIZE = 25000;
     const PROD_DOWNLOAD_URL = 'https://greasyfork.org/scripts/28690-wme-place-harmonizer/code/WME%20Place%20Harmonizer.user.js';
     const BETA_DOWNLOAD_URL = 'YUhSMGNITTZMeTluY21WaGMzbG1iM0pyTG05eVp5OXpZM0pwY0hSekx6STROamc1TFhkdFpTMXdiR0ZqWlMxb1lYSnRiMjVwZW1WeUxXSmxkR0V2WTI5a1pTOVhUVVVsTWpCUWJHRmpaU1V5TUVoaGNtMXZibWw2WlhJbE1qQkNaWFJoTG5WelpYSXVhbk09';
 
@@ -215,9 +214,9 @@
 
     // Whitelisting vars
     let _venueWhitelist;
-    const _WL_BUTTON_TEXT = 'WL';
-    const _WL_LOCAL_STORE_NAME = 'WMEPH-venueWhitelistNew';
-    const _WL_LOCAL_STORE_NAME_COMPRESSED = 'WMEPH-venueWhitelistCompressed';
+    const WL_BUTTON_TEXT = 'WL';
+    const WL_LOCAL_STORE_NAME = 'WMEPH-venueWhitelistNew';
+    const WL_LOCAL_STORE_NAME_COMPRESSED = 'WMEPH-venueWhitelistCompressed';
 
     // Dupe check vars
     let _dupeLayer;
@@ -228,44 +227,100 @@
     // Web search Window forming:
     let _searchResultsWindowSpecs = `"resizable=yes, top=${Math.round(window.screen.height * 0.1)}, left=${
         Math.round(window.screen.width * 0.3)}, width=${Math.round(window.screen.width * 0.7)}, height=${Math.round(window.screen.height * 0.8)}"`;
-    const _SEARCH_RESULTS_WINDOW_NAME = '"WMEPH Search Results"';
+    const SEARCH_RESULTS_WINDOW_NAME = '"WMEPH Search Results"';
     let _wmephMousePosition;
     let _cloneMaster = null;
 
     // Banner Buttons objects
-    let _buttonBanner;
     let _buttonBanner2;
     let _servicesBanner;
     let _dupeBanner;
 
     let _disableHighlightTest = false; // Set to true to temporarily disable highlight checks immediately when venues change.
 
-    const _USER = {
+    const USER = {
         ref: null,
         rank: null,
         name: null,
         isBetaUser: false,
         isDevUser: false
     };
-    const _SETTING_IDS = {
+    const SETTING_IDS = {
         sfUrlWarning: 'SFURLWarning', // Warning message for first time using localized storefinder URL.
         gLinkWarning: 'GLinkWarning' // Warning message for first time using Google search to not to use the Google info itself.
     };
-    const _URLS = {
+    const URLS = {
         forum: 'https://www.waze.com/forum/posting.php?mode=reply&f=819&t=239985',
         usaPnh: 'https://docs.google.com/spreadsheets/d/1-f-JTWY5UnBx-rFTa4qhyGMYdHBZWNirUTOgn222zMY/edit#gid=0',
         placesWiki: 'https://wazeopedia.waze.com/wiki/USA/Places',
         restAreaWiki: 'https://wazeopedia.waze.com/wiki/USA/Rest_areas#Adding_a_Place',
-        uspsWiki: 'https://wazeopedia.waze.com/wiki/USA/Places/Post_office',
-        uspsLocationFinder: 'https://tools.usps.com/find-location.htm'
+        uspsWiki: 'https://wazeopedia.waze.com/wiki/USA/Places/Post_office'
+    };
+    class Region {
+        static #defaultNewChainRequestEntryIds = ['entry.925969794', 'entry.1970139752', 'entry.1749047694'];
+        static #defaultApproveChainRequestEntryIds = ['entry.925969794', 'entry.50214576', 'entry.1749047694'];
+        #formId;
+        #newChainRequestEntryIds;
+        #approveChainRequestEntryIds;
+
+        constructor(formId, newChainRequestEntryIds, approveChainRequestEntryIds) {
+            this.#formId = formId;
+            this.#newChainRequestEntryIds = newChainRequestEntryIds ?? Region.#defaultNewChainRequestEntryIds;
+            this.#approveChainRequestEntryIds = approveChainRequestEntryIds ?? Region.#defaultApproveChainRequestEntryIds;
+        }
+
+        #getFormUrl(entryIds, entryValues) {
+            const entryValuesUrl = entryValues.map((value, idx) => `${entryIds[idx]}=${value}`).join('&');
+            return `https://docs.google.com/forms/d/${this.#formId}/viewform?${entryValuesUrl}`;
+        }
+
+        getNewChainFormUrl(entryValues) {
+            return this.#getFormUrl(this.#newChainRequestEntryIds, entryValues);
+        }
+
+        getApproveChainFormUrl(entryValues) {
+            return this.#getFormUrl(this.#approveChainRequestEntryIds, entryValues);
+        }
+    }
+    const REGION_SETTINGS = {
+        NWR: new Region('1hv5hXBlGr1pTMmo4n3frUx1DovUODbZodfDBwwTc7HE'),
+        SWR: new Region('1Qf2N4fSkNzhVuXJwPBJMQBmW0suNuy8W9itCo1qgJL4'),
+        HI: new Region('1K7Dohm8eamIKry3KwMTVnpMdJLaMIyDGMt7Bw6iqH_A', null, ['entry.1497446659', 'entry.50214576', 'entry.1749047694']),
+        PLN: new Region('1ycXtAppoR5eEydFBwnghhu1hkHq26uabjUu8yAlIQuI'),
+        SCR: new Region('1KZzLdlX0HLxED5Bv0wFB-rWccxUp2Mclih5QJIQFKSQ'),
+        GLR: new Region('19btj-Qt2-_TCRlcS49fl6AeUT95Wnmu7Um53qzjj9BA'),
+        SAT: new Region(
+            '1bxgK_20Jix2ahbmUvY1qcY0-RmzUBT6KbE5kjDEObF8',
+            ['entry.2063110249', 'entry.2018912633', 'entry.1924826395'],
+            ['entry.2063110249', 'entry.123778794', 'entry.1924826395']
+        ),
+        SER: new Region(
+            '1jYBcxT3jycrkttK5BxhvPXR240KUHnoFMtkZAXzPg34',
+            ['entry.822075961', 'entry.1422079728', 'entry.1891389966'],
+            ['entry.822075961', 'entry.607048307', 'entry.1891389966']
+        ),
+        ATR: new Region('1v7JhffTfr62aPSOp8qZHA_5ARkBPldWWJwDeDzEioR0'),
+        NER: new Region('1UgFAMdSQuJAySHR0D86frvphp81l7qhEdJXZpyBZU6c'),
+        NOR: new Region('1iYq2rd9HRd-RBsKqmbHDIEBGuyWBSyrIHC6QLESfm4c'),
+        MAR: new Region('1PhL1iaugbRMc3W-yGdqESoooeOz-TJIbjdLBRScJYOk'),
+        CA_EN: new Region(
+            '13JwXsrWPNmCdfGR5OVr5jnGZw-uNGohwgjim-JYbSws',
+            ['entry_839085807', 'entry_1067461077', 'entry_318793106', 'entry_1149649663'],
+            ['entry_839085807', 'entry_1125435193', 'entry_318793106', 'entry_1149649663']
+        ),
+        QC: new Region(
+            '13JwXsrWPNmCdfGR5OVr5jnGZw-uNGohwgjim-JYbSws',
+            ['entry_839085807', 'entry_1067461077', 'entry_318793106', 'entry_1149649663'],
+            ['entry_839085807', 'entry_1125435193', 'entry_318793106', 'entry_1149649663']
+        )
     };
     let _userLanguage;
     // lock levels are offset by one
-    const _LOCK_LEVEL_2 = 1;
-    const _LOCK_LEVEL_4 = 3;
+    const LOCK_LEVEL_2 = 1;
+    const LOCK_LEVEL_4 = 3;
 
     // An enum to help clarify flag severity levels
-    const _SEVERITY = {
+    const SEVERITY = {
         GREEN: 0,
         BLUE: 1,
         YELLOW: 2,
@@ -274,8 +329,140 @@
         PINK: 5
         // TODO: There is also 'lock' and 'lock1' severity. Add those here? Also investigate 'adLock' severity (is it still useful in WME???).
     };
+
+    const CAT = {
+        AIRPORT: 'AIRPORT',
+        // ART_GALLERY: 'ART_GALLERY',
+        // ARTS_AND_CRAFTS: 'ARTS_AND_CRAFTS',
+        ATM: 'ATM',
+        // BAKERY: 'BAKERY',
+        BANK_FINANCIAL: 'BANK_FINANCIAL',
+        BAR: 'BAR',
+        // BEACH: 'BEACH',
+        // BED_AND_BREAKFAST: 'BED_AND_BREAKFAST',
+        // BOOKSTORE: 'BOOKSTORE',
+        BRIDGE: 'BRIDGE',
+        // BUS_STATION: 'BUS_STATION',
+        // CAFE: 'CAFE',
+        CAMPING_TRAILER_PARK: 'CAMPING_TRAILER_PARK',
+        CANAL: 'CANAL',
+        // CAR_DEALERSHIP: 'CAR_DEALERSHIP',
+        CAR_RENTAL: 'CAR_RENTAL',
+        // CAR_SERVICES: 'CAR_SERVICES',
+        // CAR_WASH: 'CAR_WASH',
+        // CASINO: 'CASINO',
+        CHARGING_STATION: 'CHARGING_STATION',
+        CEMETERY: 'CEMETERY',
+        // CITY_HALL: 'CITY_HALL',
+        // CLUB: 'CLUB',
+        COLLEGE_UNIVERSITY: 'COLLEGE_UNIVERSITY',
+        // CONSTRUCTION_SITE: 'CONSTRUCTION_SITE',
+        CONVENIENCE_STORE: 'CONVENIENCE_STORE',
+        CONVENTIONS_EVENT_CENTER: 'CONVENTIONS_EVENT_CENTER',
+        COTTAGE_CABIN: 'COTTAGE_CABIN',
+        // COURTHOUSE: 'COURTHOUSE',
+        CULTURE_AND_ENTERTAINEMENT: 'CULTURE_AND_ENTERTAINEMENT',
+        // CURRENCY_EXCHANGE: 'CURRENCY_EXCHANGE',
+        DAM: 'DAM',
+        // DEPARTMENT_STORE: 'DEPARTMENT_STORE',
+        DESSERT: 'DESSERT',
+        DOCTOR_CLINIC: 'DOCTOR_CLINIC',
+        // ELECTRONICS: 'ELECTRONICS',
+        // EMBASSY_CONSULATE: 'EMBASSY_CONSULATE',
+        // EMERGENCY_SHELTER: 'EMERGENCY_SHELTER',
+        // FACTORY_INDUSTRIAL: 'FACTORY_INDUSTRIAL',
+        FARM: 'FARM',
+        // FASHION_AND_CLOTHING: 'FASHION_AND_CLOTHING',
+        // FAST_FOOD: 'FAST_FOOD',
+        FERRY_PIER: 'FERRY_PIER',
+        FIRE_DEPARTMENT: 'FIRE_DEPARTMENT',
+        // FLOWERS: 'FLOWERS',
+        FOOD_AND_DRINK: 'FOOD_AND_DRINK',
+        // FOOD_COURT: 'FOOD_COURT',
+        FOREST_GROVE: 'FOREST_GROVE',
+        // FURNITURE_HOME_STORE: 'FURNITURE_HOME_STORE',
+        // GAME_CLUB: 'GAME_CLUB',
+        // GARAGE_AUTOMOTIVE_SHOP: 'GARAGE_AUTOMOTIVE_SHOP',
+        GAS_STATION: 'GAS_STATION',
+        // GIFTS: 'GIFTS',
+        GOLF_COURSE: 'GOLF_COURSE',
+        // GOVERNMENT: 'GOVERNMENT',
+        GYM_FITNESS: 'GYM_FITNESS',
+        // HARDWARE_STORE: 'HARDWARE_STORE',
+        HOSPITAL_MEDICAL_CARE: 'HOSPITAL_MEDICAL_CARE',
+        HOSPITAL_URGENT_CARE: 'HOSPITAL_URGENT_CARE',
+        // HOSTEL: 'HOSTEL',
+        HOTEL: 'HOTEL',
+        // ICE_CREAM: 'ICE_CREAM',
+        // INFORMATION_POINT: 'INFORMATION_POINT',
+        ISLAND: 'ISLAND',
+        // JEWELRY: 'JEWELRY',
+        JUNCTION_INTERCHANGE: 'JUNCTION_INTERCHANGE',
+        // KINDERGARDEN: 'KINDERGARDEN',
+        // LAUNDRY_DRY_CLEAN: 'LAUNDRY_DRY_CLEAN',
+        // LIBRARY: 'LIBRARY',
+        LODGING: 'LODGING',
+        // MARKET: 'MARKET',
+        // MILITARY: 'MILITARY',
+        MOVIE_THEATER: 'MOVIE_THEATER',
+        // MUSEUM: 'MUSEUM',
+        // MUSIC_STORE: 'MUSIC_STORE',
+        // MUSIC_VENUE: 'MUSIC_VENUE',
+        NATURAL_FEATURES: 'NATURAL_FEATURES',
+        OFFICES: 'OFFICES',
+        // ORGANIZATION_OR_ASSOCIATION: 'ORGANIZATION_OR_ASSOCIATION',
+        OTHER: 'OTHER',
+        // OUTDOORS: 'OUTDOORS',
+        PARK: 'PARK',
+        PARKING_LOT: 'PARKING_LOT',
+        PERSONAL_CARE: 'PERSONAL_CARE',
+        PET_STORE_VETERINARIAN_SERVICES: 'PET_STORE_VETERINARIAN_SERVICES',
+        // PERFORMING_ARTS_VENUE: 'PERFORMING_ARTS_VENUE',
+        PHARMACY: 'PHARMACY',
+        // PHOTOGRAPHY: 'PHOTOGRAPHY',
+        PLAYGROUND: 'PLAYGROUND',
+        // PLAZA: 'PLAZA',
+        POLICE_STATION: 'POLICE_STATION',
+        // POOL: 'POOL',
+        POST_OFFICE: 'POST_OFFICE',
+        // PRISON_CORRECTIONAL_FACILITY: 'PRISON_CORRECTIONAL_FACILITY',
+        // PROFESSIONAL_AND_PUBLIC: 'PROFESSIONAL_AND_PUBLIC',
+        // PROMENADE: 'PROMENADE',
+        // RACING_TRACK: 'RACING_TRACK',
+        RELIGIOUS_CENTER: 'RELIGIOUS_CENTER',
+        RESIDENCE_HOME: 'RESIDENCE_HOME',
+        REST_AREAS: 'REST_AREAS',
+        RESTAURANT: 'RESTAURANT',
+        RIVER_STREAM: 'RIVER_STREAM',
+        SCENIC_LOOKOUT_VIEWPOINT: 'SCENIC_LOOKOUT_VIEWPOINT',
+        SCHOOL: 'SCHOOL',
+        SEA_LAKE_POOL: 'SEA_LAKE_POOL',
+        SEAPORT_MARINA_HARBOR: 'SEAPORT_MARINA_HARBOR',
+        SHOPPING_AND_SERVICES: 'SHOPPING_AND_SERVICES',
+        SHOPPING_CENTER: 'SHOPPING_CENTER',
+        // SKI_AREA: 'SKI_AREA',
+        // SPORTING_GOODS: 'SPORTING_GOODS',
+        SPORTS_COURT: 'SPORTS_COURT',
+        STADIUM_ARENA: 'STADIUM_ARENA',
+        SUBWAY_STATION: 'SUBWAY_STATION',
+        SUPERMARKET_GROCERY: 'SUPERMARKET_GROCERY',
+        SWAMP_MARSH: 'SWAMP_MARSH',
+        // SWIMMING_POOL: 'SWIMMING_POOL',
+        // TAXI_STATION: 'TAXI_STATION',
+        // THEATER: 'THEATER',
+        // THEME_PARK: 'THEME_PARK',
+        // TELECOM: 'TELECOM',
+        // TOURIST_ATTRACTION_HISTORIC_SITE: 'TOURIST_ATTRACTION_HISTORIC_SITE',
+        // TOY_STORE: 'TOY_STORE',
+        // TRAIN_STATION: 'TRAIN_STATION',
+        TRANSPORTATION: 'TRANSPORTATION',
+        // TRASH_AND_RECYCLING_FACILITIES: 'TRASH_AND_RECYCLING_FACILITIES',
+        // TRAVEL_AGENCY: 'TRAVEL_AGENCY',
+        TUNNEL: 'TUNNEL'
+        // ZOO_AQUARIUM: 'ZOO_AQUARIUM',
+    };
+
     let _catTransWaze2Lang; // pulls the category translations
-    let _tempPNHURL = '';
     const EV_PAYMENT_METHOD = {
         APP: 'APP',
         CREDIT: 'CREDIT',
@@ -294,21 +481,47 @@
         SemaConnect: [EV_PAYMENT_METHOD.APP, EV_PAYMENT_METHOD.MEMBERSHIP_CARD, EV_PAYMENT_METHOD.OTHER],
         Tesla: [EV_PAYMENT_METHOD.PLUG_IN_AUTO_CHARGER]
     };
-    const _WME_SERVICES_ARRAY = ['VALLET_SERVICE', 'DRIVETHROUGH', 'WI_FI', 'RESTROOMS', 'CREDIT_CARDS', 'RESERVATIONS', 'OUTSIDE_SEATING',
+    const WME_SERVICES_ARRAY = ['VALLET_SERVICE', 'DRIVETHROUGH', 'WI_FI', 'RESTROOMS', 'CREDIT_CARDS', 'RESERVATIONS', 'OUTSIDE_SEATING',
         'AIR_CONDITIONING', 'PARKING_FOR_CUSTOMERS', 'DELIVERIES', 'TAKE_AWAY', 'CURBSIDE_PICKUP', 'WHEELCHAIR_ACCESSIBLE', 'DISABILITY_PARKING'];
-    const _COLLEGE_ABBREVIATIONS = 'USF|USFSP|UF|UCF|UA|UGA|FSU|UM|SCP|FAU|FIU';
+    const COLLEGE_ABBREVIATIONS = ['USF', 'USFSP', 'UF', 'UCF', 'UA', 'UGA', 'FSU', 'UM', 'SCP', 'FAU', 'FIU'];
     // Change place.name to title case
-    const _TITLECASE_SETTINGS = {
+    const TITLECASE_SETTINGS = {
         ignoreWords: 'an|and|as|at|by|for|from|hhgregg|in|into|of|on|or|the|to|with'.split('|'),
         // eslint-disable-next-line max-len
         capWords: '3M|AAA|AMC|AOL|AT&T|ATM|BBC|BLT|BMV|BMW|BP|CBS|CCS|CGI|CISCO|CJ|CNG|CNN|CVS|DHL|DKNY|DMV|DSW|EMS|ER|ESPN|FCU|FCUK|FDNY|GNC|H&M|HP|HSBC|IBM|IHOP|IKEA|IRS|JBL|JCPenney|KFC|LLC|MBNA|MCA|MCI|NBC|NYPD|PDQ|PNC|TCBY|TNT|TV|UPS|USA|USPS|VW|XYZ|ZZZ'.split('|'),
         specWords: 'd\'Bronx|iFix|ExtraMile|ChargePoint|EVgo|SemaConnect'.split('|')
     };
-    let _customStoreFinder = false; // switch indicating place-specific custom store finder url
-    let _customStoreFinderLocal = false; // switch indicating place-specific custom store finder url with localization option (GPS/addr)
-    let _customStoreFinderURL = ''; // switch indicating place-specific custom store finder url
-    let _customStoreFinderLocalURL = ''; // switch indicating place-specific custom store finder url with localization option (GPS/addr)
-    let _updateURL;
+    const PRIMARY_CATS_TO_IGNORE_MISSING_PHONE_URL = [
+        CAT.ISLAND,
+        CAT.SEA_LAKE_POOL,
+        CAT.RIVER_STREAM,
+        CAT.CANAL,
+        CAT.JUNCTION_INTERCHANGE,
+        CAT.SCENIC_LOOKOUT_VIEWPOINT
+    ];
+    const PRIMARY_CATS_TO_FLAG_GREEN_MISSING_PHONE_URL = [
+        CAT.BRIDGE,
+        CAT.FOREST_GROVE,
+        CAT.DAM,
+        CAT.TUNNEL,
+        CAT.CEMETERY
+    ];
+    const ANY_CATS_TO_FLAG_GREEN_MISSING_PHONE_URL = [CAT.REST_AREAS];
+    const REGIONS_THAT_WANT_PLA_PHONE_URL = ['SER'];
+    const CHAIN_APPROVAL_PRIMARY_CATS_TO_IGNORE = [
+        CAT.BRIDGE,
+        CAT.FOREST_GROVE,
+        CAT.DAM,
+        CAT.TUNNEL,
+        CAT.CEMETERY,
+        CAT.ISLAND,
+        CAT.SEA_LAKE_POOL,
+        CAT.RIVER_STREAM,
+        CAT.CANAL,
+        CAT.JUNCTION_INTERCHANGE,
+        CAT.SCENIC_LOOKOUT_VIEWPOINT];
+    const BAD_URL = 'badURL';
+    const BAD_PHONE = 'badPhone';
 
     // Split out state-based data
     let _psStateIx;
@@ -322,12 +535,9 @@
     let _stateDataTemp;
     let _areaCodeList = '800,822,833,844,855,866,877,888'; //  include toll free non-geographic area codes
 
-    let _ixBank;
-    let _ixATM;
-    let _ixOffices;
     let _layer;
 
-    const _UPDATED_FIELDS = {
+    const UPDATED_FIELDS = {
         name: {
             updated: false,
             selector: '#venue-edit-general wz-text-input[name="name"]',
@@ -509,7 +719,7 @@
             const checkAttribute = name => {
                 if (newAttributes.hasOwnProperty(name)
                     && JSON.stringify(venue.attributes[name]) !== JSON.stringify(newAttributes[name])) {
-                    _UPDATED_FIELDS[name].updated = true;
+                    UPDATED_FIELDS[name].updated = true;
                 }
             };
             checkAttribute('categories');
@@ -524,7 +734,7 @@
     };
 
     // KB Shortcut object
-    const _SHORTCUT = {
+    const SHORTCUT = {
         allShortcuts: {}, // All the shortcuts are stored in this array
         add(shortcutCombo, callback, opt) {
             // Provide a set of default options
@@ -732,7 +942,7 @@
         try {
             callback(...args);
         } catch (ex) {
-            console.error(`${_SCRIPT_NAME}:`, ex);
+            console.error(`${SCRIPT_NAME}:`, ex);
         }
     }
 
@@ -741,9 +951,9 @@
     }
 
     function getSelectedVenue() {
-        const features = WazeWrap.getSelectedFeatures();
+        const features = W.selectionManager.getSelectedFeatures();
         // Be sure to check for features.length === 1, in case multiple venues are currently selected.
-        return features.length === 1 && features[0].model.type === 'venue' ? features[0].model : undefined;
+        return features.length === 1 && features[0].attributes.repositoryObject.type === 'venue' ? features[0].attributes.repositoryObject : null;
     }
 
     function getVenueLonLat(venue) {
@@ -752,8 +962,11 @@
     }
 
     function isAlwaysOpen(venue) {
-        const hours = venue.attributes.openingHours;
-        return hours.length === 1 && hours[0].days.length === 7 && hours[0].isAllDay();
+        return is247Hours(venue.attributes.openingHours);
+    }
+
+    function is247Hours(openingHours) {
+        return openingHours.length === 1 && openingHours[0].days.length === 7 && openingHours[0].isAllDay();
     }
 
     function isEmergencyRoom(venue) {
@@ -761,20 +974,20 @@
     }
 
     function isRestArea(venue) {
-        return venue.attributes.categories.includes('REST_AREAS') && /rest\s*area/i.test(venue.attributes.name);
+        return venue.attributes.categories.includes(CAT.REST_AREAS) && /rest\s*area/i.test(venue.attributes.name);
     }
 
     function getPvaSeverity(pvaValue, venue) {
         const isER = pvaValue === 'hosp' && isEmergencyRoom(venue);
         let severity;
         if (pvaValue === '' || pvaValue === '0' || (pvaValue === 'hosp' && !isER)) {
-            severity = _SEVERITY.RED;
+            severity = SEVERITY.RED;
         } else if (pvaValue === '2') {
-            severity = _SEVERITY.BLUE;
+            severity = SEVERITY.BLUE;
         } else if (pvaValue === '3') {
-            severity = _SEVERITY.YELLOW;
+            severity = SEVERITY.YELLOW;
         } else {
-            severity = _SEVERITY.GREEN;
+            severity = SEVERITY.GREEN;
         }
         return severity;
     }
@@ -823,31 +1036,15 @@
         }
 
         function openWebSearch() {
-            const newName = $('.place-update-edit.panel .name').first().text();
+            const name = $('.place-update-edit.panel .name').first().text();
             const addr = $('.place-update-edit.panel .address').first().text();
             if ($('#WMEPH-WebSearchNewTab').prop('checked')) {
-                window.open(buildSearchUrl(newName, addr));
+                window.open(buildSearchUrl(name, addr));
             } else {
-                window.open(buildSearchUrl(newName, addr), _SEARCH_RESULTS_WINDOW_NAME, _searchResultsWindowSpecs);
+                window.open(buildSearchUrl(name, addr), SEARCH_RESULTS_WINDOW_NAME, _searchResultsWindowSpecs);
             }
         }
     }
-
-    // This function runs at script load, and splits the category dataset into the searchable categories.
-    function makeCatCheckList(categoryData) {
-        const headers = categoryData[0].split('|');
-        const idIndex = headers.indexOf('pc_wmecat');
-        const nameIndex = headers.indexOf('pc_transcat');
-
-        return categoryData.map(entry => {
-            const splits = entry.split('|');
-            const id = splits[idIndex].trim();
-            if (id.length) {
-                _CATEGORY_LOOKUP[splits[nameIndex].trim().toUpperCase()] = id;
-            }
-            return id;
-        });
-    } // END makeCatCheckList function
 
     function addSpellingVariants(nameList, spellingVariantList) {
         for (let spellingOneIdx = 0; spellingOneIdx < spellingVariantList.length; spellingOneIdx++) {
@@ -866,7 +1063,8 @@
     }
 
     // This function runs at script load, and builds the search name dataset to compare the WME selected place name to.
-    function makeNameCheckList(pnhData) {
+    function makeNameCheckList(countryData) {
+        const pnhData = countryData.pnh;
         const headers = pnhData[0].split('|');
         const nameIdx = headers.indexOf('ph_name');
         const aliasesIdx = headers.indexOf('ph_aliases');
@@ -934,22 +1132,24 @@
                 newNameList = newNameList.filter(name => name.length > 1);
 
                 // Next, add extensions to the search names based on the WME place category
-                const category = splits[category1Idx].toUpperCase().replace(/[^A-Z0-9]/g, '');
+                const categoryInfo = countryData.categoryInfos.getByName(splits[category1Idx]);
                 const appendWords = [];
-                if (category === 'HOTEL') {
-                    appendWords.push('HOTEL');
-                } else if (category === 'BANKFINANCIAL' && !/\bnotABank\b/.test(specCase)) {
-                    appendWords.push('BANK', 'ATM');
-                } else if (category === 'SUPERMARKETGROCERY') {
-                    appendWords.push('SUPERMARKET');
-                } else if (category === 'GYMFITNESS') {
-                    appendWords.push('GYM');
-                } else if (category === 'GASSTATION') {
-                    appendWords.push('GAS', 'GASOLINE', 'FUEL', 'STATION', 'GASSTATION');
-                } else if (category === 'CARRENTAL') {
-                    appendWords.push('RENTAL', 'RENTACAR', 'CARRENTAL', 'RENTALCAR');
+                if (categoryInfo) {
+                    if (categoryInfo.id === CAT.HOTEL) {
+                        appendWords.push('HOTEL');
+                    } else if (categoryInfo.id === CAT.BANK_FINANCIAL && !/\bnotABank\b/.test(specCase)) {
+                        appendWords.push('BANK', 'ATM');
+                    } else if (categoryInfo.id === CAT.SUPERMARKET_GROCERY) {
+                        appendWords.push('SUPERMARKET');
+                    } else if (categoryInfo.id === CAT.GYM_FITNESS) {
+                        appendWords.push('GYM');
+                    } else if (categoryInfo.id === CAT.GAS_STATION) {
+                        appendWords.push('GAS', 'GASOLINE', 'FUEL', 'STATION', 'GASSTATION');
+                    } else if (categoryInfo.id === CAT.CAR_RENTAL) {
+                        appendWords.push('RENTAL', 'RENTACAR', 'CARRENTAL', 'RENTALCAR');
+                    }
+                    appendWords.forEach(word => { newNameList = newNameList.concat(newNameList.map(name => name + word)); });
                 }
-                appendWords.forEach(word => { newNameList = newNameList.concat(newNameList.map(name => name + word)); });
 
                 // Add entries for word/spelling variations
                 _wordVariations.forEach(variationsList => addSpellingVariants(newNameList, variationsList));
@@ -973,21 +1173,21 @@
         let wlString = JSON.stringify(_venueWhitelist);
         if (compress) {
             if (wlString.length < 4800000) { // Also save to regular storage as a back up
-                localStorage.setItem(_WL_LOCAL_STORE_NAME, wlString);
+                localStorage.setItem(WL_LOCAL_STORE_NAME, wlString);
             }
             wlString = LZString.compressToUTF16(wlString);
-            localStorage.setItem(_WL_LOCAL_STORE_NAME_COMPRESSED, wlString);
+            localStorage.setItem(WL_LOCAL_STORE_NAME_COMPRESSED, wlString);
         } else {
-            localStorage.setItem(_WL_LOCAL_STORE_NAME, wlString);
+            localStorage.setItem(WL_LOCAL_STORE_NAME, wlString);
         }
     }
     function loadWhitelistFromLS(decompress) {
         let wlString;
         if (decompress) {
-            wlString = localStorage.getItem(_WL_LOCAL_STORE_NAME_COMPRESSED);
+            wlString = localStorage.getItem(WL_LOCAL_STORE_NAME_COMPRESSED);
             wlString = LZString.decompressFromUTF16(wlString);
         } else {
-            wlString = localStorage.getItem(_WL_LOCAL_STORE_NAME);
+            wlString = localStorage.getItem(WL_LOCAL_STORE_NAME);
         }
         _venueWhitelist = JSON.parse(wlString);
     }
@@ -995,18 +1195,18 @@
         let wlString = JSON.stringify(_venueWhitelist);
         if (compress) {
             wlString = LZString.compressToUTF16(wlString);
-            localStorage.setItem(_WL_LOCAL_STORE_NAME_COMPRESSED + Math.floor(Date.now() / 1000), wlString);
+            localStorage.setItem(WL_LOCAL_STORE_NAME_COMPRESSED + Math.floor(Date.now() / 1000), wlString);
         } else {
-            localStorage.setItem(_WL_LOCAL_STORE_NAME + Math.floor(Date.now() / 1000), wlString);
+            localStorage.setItem(WL_LOCAL_STORE_NAME + Math.floor(Date.now() / 1000), wlString);
         }
     }
 
     function log(...args) {
-        console.log(`WMEPH${_IS_BETA_VERSION ? '-β' : ''}:`, ...args);
+        console.log(`WMEPH${IS_BETA_VERSION ? '-β' : ''}:`, ...args);
     }
     function logDev(...args) {
-        if (_USER.isDevUser) {
-            console.debug(`WMEPH${_IS_BETA_VERSION ? '-β' : ''} (dev):`, ...args);
+        if (USER.isDevUser) {
+            console.debug(`WMEPH${IS_BETA_VERSION ? '-β' : ''} (dev):`, ...args);
         }
     }
 
@@ -1072,30 +1272,33 @@
         }, 20);
     }
 
-    //  Whitelist an item. Returns true if successful. False if not.
-    function whitelistAction(itemID, wlKeyName) {
+    //  Whitelist a flag. Returns true if successful. False if not.
+    function whitelistAction(venueID, wlKeyName) {
         const venue = getSelectedVenue();
         let addressTemp = venue.getAddress();
         if (addressTemp.hasOwnProperty('attributes')) {
             addressTemp = addressTemp.attributes;
         }
         if (!addressTemp.country) {
-            WazeWrap.Alerts.error(_SCRIPT_NAME, 'Whitelisting requires an address. Enter the place\'s address and try again.');
+            WazeWrap.Alerts.error(SCRIPT_NAME, 'Whitelisting requires an address. Enter the place\'s address and try again.');
             return false;
         }
         const centroid = venue.attributes.geometry.getCentroid();
-        const itemGPS = OpenLayers.Layer.SphericalMercator.inverseMercator(centroid.x, centroid.y);
-        if (!_venueWhitelist.hasOwnProperty(itemID)) { // If venue is NOT on WL, then add it.
-            _venueWhitelist[itemID] = {};
+        const venueGPS = OpenLayers.Layer.SphericalMercator.inverseMercator(centroid.x, centroid.y);
+        if (!_venueWhitelist.hasOwnProperty(venueID)) { // If venue is NOT on WL, then add it.
+            _venueWhitelist[venueID] = {};
         }
-        _venueWhitelist[itemID][wlKeyName] = { active: true }; // WL the flag for the venue
-        _venueWhitelist[itemID].city = addressTemp.city.attributes.name; // Store city for the venue
-        _venueWhitelist[itemID].state = addressTemp.state.name; // Store state for the venue
-        _venueWhitelist[itemID].country = addressTemp.country.name; // Store country for the venue
-        _venueWhitelist[itemID].gps = itemGPS; // Store GPS coords for the venue
+        _venueWhitelist[venueID][wlKeyName] = { active: true }; // WL the flag for the venue
+        _venueWhitelist[venueID].city = addressTemp.city.attributes.name; // Store city for the venue
+        _venueWhitelist[venueID].state = addressTemp.state.name; // Store state for the venue
+        _venueWhitelist[venueID].country = addressTemp.country.name; // Store country for the venue
+        _venueWhitelist[venueID].gps = venueGPS; // Store GPS coords for the venue
         saveWhitelistToLS(true); // Save the WL to local storage
         wmephWhitelistCounter();
         _buttonBanner2.clearWL.active = true;
+
+        // Remove venue from the results cache so it can be updated again.
+        delete _resultsCache[venue.attributes.id];
         return true;
     }
 
@@ -1104,7 +1307,7 @@
         // eslint-disable-next-line camelcase
         localStorage.WMEPH_WLAddCount = parseInt(localStorage.WMEPH_WLAddCount, 10) + 1;
         if (localStorage.WMEPH_WLAddCount > 50) {
-            WazeWrap.Alerts.warning(_SCRIPT_NAME, 'Don\'t forget to periodically back up your Whitelist data using the Pull option in the WMEPH settings tab.');
+            WazeWrap.Alerts.warning(SCRIPT_NAME, 'Don\'t forget to periodically back up your Whitelist data using the Pull option in the WMEPH settings tab.');
             // eslint-disable-next-line camelcase
             localStorage.WMEPH_WLAddCount = 2;
         }
@@ -1151,12 +1354,15 @@
     }
 
     // Function that checks current place against the Harmonization Data.  Returns place data or "NoMatch"
-    function harmoList(itemName, state2L, region3L, country, itemCats, item) {
+    function findPnhMatch(name, state2L, region3L, country, categories, venue) {
         if (country !== 'USA' && country !== 'CAN') {
-            WazeWrap.Alerts.info(_SCRIPT_NAME, 'No PNH data exists for this country.');
+            WazeWrap.Alerts.info(SCRIPT_NAME, 'No PNH data exists for this country.');
             return ['NoMatch'];
         }
-        const { pnhNames, pnh: pnhData } = _PNH_DATA[country];
+        if (venue.isParkingLot()) {
+            return ['NoMatch'];
+        }
+        const { pnhNames, pnh: pnhData } = PNH_DATA[country];
         const pnhHeaders = pnhData[0].split('|');
         const phNameIdx = pnhHeaders.indexOf('ph_name');
         const phCategory1Idx = pnhHeaders.indexOf('ph_category1');
@@ -1170,11 +1376,12 @@
         let allowMultiMatch = false;
         const pnhOrderNum = [];
         const pnhNameTemp = [];
-        let pnhNameMatch = false; // tracks match status
+        let matchOutOfRegion = false; // tracks match status
+        let matchInRegion = false;
 
-        itemName = itemName.toUpperCase().replace(/ AND /g, ' ').replace(/^THE /g, '');
-        const itemNameSpace = ` ${itemName.replace(/[^A-Z0-9 ]/g, ' ').replace(/ {2,}/g, ' ')} `;
-        itemName = itemName.replace(/[^A-Z0-9]/g, ''); // Clear all non-letter and non-number characters ( HOLLYIVY PUB #23 -- > HOLLYIVYPUB23 )
+        name = name.toUpperCase().replace(/ AND /g, ' ').replace(/^THE /g, '');
+        const venueNameSpace = ` ${name.replace(/[^A-Z0-9 ]/g, ' ').replace(/ {2,}/g, ' ')} `;
+        name = name.replace(/[^A-Z0-9]/g, ''); // Clear all non-letter and non-number characters ( HOLLYIVY PUB #23 -- > HOLLYIVYPUB23 )
 
         // for each place on the PNH list (skipping headers at index 0)
         for (let pnhIdx = 1, len = pnhNames.length; pnhIdx < len; pnhIdx++) {
@@ -1190,7 +1397,7 @@
                 if (match !== null) {
                     const reStr = match[1].replace(/\\/, '\\').replace(/<or>/g, '|');
                     const re = new RegExp(reStr, 'i');
-                    PNHStringMatch = re.test(item.attributes.name);
+                    PNHStringMatch = re.test(venue.attributes.name);
                 }
             } else if (specCases.includes('strMatchAny') || pnhEntrySplits[phCategory1Idx] === 'Hotel') {
                 // Match any part of WME name with either the PNH name or any spaced names
@@ -1201,7 +1408,7 @@
                     spaceMatchList.push(...pnhEntrySplits[phSearchNameWordIdx].toUpperCase().replace(/, /g, ',').split(','));
                 }
                 for (let nmix = 0; nmix < spaceMatchList.length; nmix++) {
-                    if (itemNameSpace.includes(` ${spaceMatchList[nmix]} `)) {
+                    if (venueNameSpace.includes(` ${spaceMatchList[nmix]} `)) {
                         PNHStringMatch = true;
                     }
                 }
@@ -1210,23 +1417,23 @@
                 const nameComps = pnhNames[pnhIdx].split('|');
 
                 // Clear non-letter characters for alternate match ( HOLLYIVYPUB23 --> HOLLYIVYPUB )
-                const itemNameNoNum = itemName.replace(/[^A-Z]/g, '');
+                const venueNameNoNum = name.replace(/[^A-Z]/g, '');
 
                 if (specCases.includes('strMatchStart')) {
                     //  Match the beginning part of WME name with any search term
                     for (let nmix = 0; nmix < nameComps.length; nmix++) {
-                        if (itemName.startsWith(nameComps[nmix]) || itemNameNoNum.startsWith(nameComps[nmix])) {
+                        if (name.startsWith(nameComps[nmix]) || venueNameNoNum.startsWith(nameComps[nmix])) {
                             PNHStringMatch = true;
                         }
                     }
                 } else if (specCases.includes('strMatchEnd')) {
                     //  Match the end part of WME name with any search term
                     for (let nmix = 0; nmix < nameComps.length; nmix++) {
-                        if (itemName.endsWith(nameComps[nmix]) || itemNameNoNum.endsWith(nameComps[nmix])) {
+                        if (name.endsWith(nameComps[nmix]) || venueNameNoNum.endsWith(nameComps[nmix])) {
                             PNHStringMatch = true;
                         }
                     }
-                } else if (nameComps.includes(itemName) || nameComps.includes(itemNameNoNum)) {
+                } else if (nameComps.includes(name) || nameComps.includes(venueNameNoNum)) {
                     // full match of any term only
                     PNHStringMatch = true;
                 }
@@ -1236,19 +1443,19 @@
             if (PNHStringMatch) { // Compare WME place name to PNH search name list
                 logDev(`Matched PNH Order No.: ${pnhEntrySplits[phOrderIdx]}`);
 
-                const PNHPriCat = catTranslate(pnhEntrySplits[phCategory1Idx]); // Primary category of PNH data
+                const PNHPriCat = getCategoryIdFromName(pnhEntrySplits[phCategory1Idx], country); // Primary category of PNH data
                 let PNHForceCat = pnhEntrySplits[phForceCatIdx]; // Primary category of PNH data
 
                 // Gas stations only harmonized if the WME place category is already gas station (prevents Costco Gas becoming Costco Store)
-                if (itemCats[0] === 'GAS_STATION') {
+                if (categories[0] === CAT.GAS_STATION) {
                     PNHForceCat = '1';
                 }
 
                 let PNHMatchProceed = false;
-                if (PNHForceCat === '1' && itemCats.indexOf(PNHPriCat) === 0) {
+                if (PNHForceCat === '1' && categories.indexOf(PNHPriCat) === 0) {
                     // Name and primary category match
                     PNHMatchProceed = true;
-                } else if (PNHForceCat === '2' && itemCats.includes(PNHPriCat)) {
+                } else if (PNHForceCat === '2' && categories.includes(PNHPriCat)) {
                     // Name and any category match
                     PNHMatchProceed = true;
                 } else if (PNHForceCat === '0' || PNHForceCat === '') {
@@ -1260,18 +1467,18 @@
                     // remove spaces, upper case the approved regions, and split by commas
                     approvedRegions = pnhEntrySplits[phRegionIdx].replace(/ /g, '').toUpperCase().split(',');
 
-                    if (approvedRegions.includes(state2L) || approvedRegions.includes(region3L) // if the WME-selected item matches the state, region
+                    if (approvedRegions.includes(state2L) || approvedRegions.includes(region3L) // if the WME-selected venue matches the state, region
                         || approvedRegions.includes(country) //  OR if the country code is in the data then it is approved for all regions therein
                         || $('#WMEPH-RegionOverride').prop('checked')) { // OR if region override is selected (dev setting)
                         matchPNHRegionData.push(pnhEntry);
-                        _buttonBanner.placeMatched = new Flag.PlaceMatched();
+                        matchInRegion = true;
                         if (!allowMultiMatch) {
                             // Return the PNH data string array to the main script
                             return matchPNHRegionData;
                         }
                     } else {
                         // PNH match found (once true, stays true)
-                        pnhNameMatch = true;
+                        matchOutOfRegion = true;
 
                         // Pull the data line from the PNH data table.  (**Set in array for future multimatch features)
                         // matchPNHData.push(pnhEntry);
@@ -1286,11 +1493,11 @@
             }
         } // END loop through PNH places
 
-        // If NO (name & region) match was found:
-        if (_buttonBanner.placeMatched) {
+        // If name & region match was found:
+        if (matchInRegion) {
             return matchPNHRegionData;
         }
-        if (pnhNameMatch) { // if a name match was found but not for region, prod the user to get it approved
+        if (matchOutOfRegion) { // if a name match was found but not for region, prod the user to get it approved
             return ['ApprovalNeeded', pnhNameTemp, pnhOrderNum];
         }
         // if no match was found, suggest adding the place to the sheet if it's a chain
@@ -1298,6 +1505,7 @@
     } // END harmoList function
 
     function onVenuesChanged(venueProxies) {
+        logDev('onVenuesChanged');
         deleteDupeLabel();
 
         const venue = getSelectedVenue();
@@ -1305,7 +1513,7 @@
             if ($('#WMEPH_banner').length) {
                 const actions = W.model.actionManager.getActions();
                 const lastAction = actions[actions.length - 1];
-                if (lastAction._venue?.attributes?.id === venue.attributes.id && lastAction._navigationPoint) {
+                if (lastAction?._venue?.attributes?.id === venue.attributes.id && lastAction._navigationPoint) {
                     harmonizePlaceGo(venue, 'harmonize');
                 }
             }
@@ -1366,8 +1574,7 @@
                 type: '==',
                 value,
                 evaluate(feature) {
-                    // 2023-03-30 - Check for .model is necessary until .repositoryObject is implemented in production WME.
-                    const attr = feature.model ? feature.model.attributes : feature.attributes.repositoryObject?.attributes;
+                    const attr = feature.attributes.repositoryObject?.attributes;
                     return attr?.wmephSeverity === this.value;
                 }
             }),
@@ -1487,8 +1694,7 @@
                 type: '==',
                 value,
                 evaluate(feature) {
-                    // 2023-03-30 - Check for .model is necessary until .repositoryObject is implemented in production WME.
-                    const attr = feature.model ? feature.model.attributes : feature.attributes.repositoryObject?.attributes;
+                    const attr = feature.attributes.repositoryObject?.attributes;
                     return attr?.wmephSeverity === this.value;
                 }
             }),
@@ -1595,12 +1801,12 @@
                     type: '==',
                     value,
                     evaluate(feature) {
-                        // 2023-03-30 - Check for .model is necessary until .repositoryObject is implemented in production WME.
-                        const attr = feature.model ? feature.model.attributes : feature.attributes.repositoryObject?.attributes;
+                        const attr = feature.attributes.repositoryObject?.attributes;
 
-                        if ($('#WMEPH-PLATypeFill').prop('checked') && attr
+                        if (attr
+                            && $('#WMEPH-PLATypeFill').prop('checked')
                             && attr.categoryAttributes && attr.categoryAttributes.PARKING_LOT
-                            && attr.categories.includes('PARKING_LOT')) {
+                            && attr.categories.includes(CAT.PARKING_LOT)) {
                             const type = attr.categoryAttributes.PARKING_LOT.parkingType;
                             return (!type && this.value === 'public') || (type && (type.toLowerCase() === this.value));
                         }
@@ -1635,6 +1841,7 @@
     * @param force {boolean} Force recalculation of highlights, rather than using cached results.
     */
     function applyHighlightsTest(venues, force) {
+        logDev('applyHighlightsTest');
         if (!_layer) return;
 
         // Make sure venues is an array, or convert it to one if not.
@@ -1646,7 +1853,6 @@
             venues = [];
         }
 
-        const storedBannButt = _buttonBanner;
         const storedBannServ = _servicesBanner;
         const storedBannButt2 = _buttonBanner2;
         const t0 = performance.now();
@@ -1658,7 +1864,7 @@
                 // Highlighting logic would go here
                 // Severity can be: 0, 'lock', 1, 2, 3, 4, or 'high'. Set to
                 // anything else to use default WME style.
-                if (doHighlight && !(disableRankHL && venue.attributes.lockRank > _USER.rank - 1)) {
+                if (doHighlight && !(disableRankHL && venue.attributes.lockRank > USER.rank - 1)) {
                     try {
                         const { id } = venue.attributes;
                         let severity;
@@ -1682,8 +1888,8 @@
 
         // Trim the cache if it's over the max size limit.
         const keys = Object.keys(_resultsCache);
-        if (keys.length > _MAX_CACHE_SIZE) {
-            const trimSize = _MAX_CACHE_SIZE * 0.8;
+        if (keys.length > MAX_CACHE_SIZE) {
+            const trimSize = MAX_CACHE_SIZE * 0.8;
             for (let i = keys.length - 1; i > trimSize; i--) {
                 delete _resultsCache[keys[i]];
             }
@@ -1692,7 +1898,6 @@
         const venue = getSelectedVenue();
         if (venue) {
             venue.attributes.wmephSeverity = harmonizePlaceGo(venue, 'highlight');
-            _buttonBanner = storedBannButt;
             _servicesBanner = storedBannServ;
             _buttonBanner2 = storedBannButt2;
         }
@@ -1734,7 +1939,7 @@
     }
 
     // Change place.name to title case
-    function toTitleCaseStrong(str) {
+    function titleCase(str) {
         if (!str) {
             return str;
         }
@@ -1779,17 +1984,17 @@
             // lowercase any from the ignoreWords list
             .replace(/[^ ]+/g, txt => {
                 const txtLC = txt.toLowerCase();
-                return (_TITLECASE_SETTINGS.ignoreWords.includes(txtLC)) ? txtLC : txt;
+                return (TITLECASE_SETTINGS.ignoreWords.includes(txtLC)) ? txtLC : txt;
             })
             // uppercase any from the capWords List
             .replace(/[^ ]+/g, txt => {
                 const txtLC = txt.toUpperCase();
-                return (_TITLECASE_SETTINGS.capWords.includes(txtLC)) ? txtLC : txt;
+                return (TITLECASE_SETTINGS.capWords.includes(txtLC)) ? txtLC : txt;
             })
             // preserve any specific words
             .replace(/[^ ]+/g, txt => {
                 const txtUC = txt.toUpperCase();
-                return _TITLECASE_SETTINGS.specWords.find(specWord => specWord.toUpperCase() === txtUC) || txt;
+                return TITLECASE_SETTINGS.specWords.find(specWord => specWord.toUpperCase() === txtUC) || txt;
             })
             // Fix 1st, 2nd, 3rd, 4th, etc.
             .replace(/\b(\d*1)st\b/gi, '$1st')
@@ -1815,6 +2020,7 @@
 
     // normalize phone
     function normalizePhone(s, outputFormat) {
+        if (isNullOrWhitespace(s)) return s;
         s = s.replace(/(\d{3}.*)\W+(?:extension|ext|xt|x).*/i, '$1');
         let s1 = s.replace(/\D/g, ''); // remove non-number characters
 
@@ -1830,7 +2036,7 @@
             m = s1.match(/^([2-9]\d{2})([2-9]\d{2})(\d{4})(?:.{0,3})$/);
 
             if (!m) {
-                return 'badPhone';
+                return BAD_PHONE;
             }
         }
         return phoneFormat(outputFormat, m[1], m[2], m[3]);
@@ -1872,7 +2078,7 @@
     function addUpdateAction(venue, newAttributes, actions, runHarmonizer = false, dontHighlightFields = false) {
         if (Object.keys(newAttributes).length) {
             if (!dontHighlightFields) {
-                _UPDATED_FIELDS.checkNewAttributes(newAttributes, venue);
+                UPDATED_FIELDS.checkNewAttributes(newAttributes, venue);
             }
 
             const action = new UpdateObject(venue, newAttributes);
@@ -1882,16 +2088,16 @@
                 W.model.actionManager.add(action);
             }
         }
-        if (runHarmonizer) harmonizePlaceGo(venue, 'harmonize');
+        if (runHarmonizer) setTimeout(() => harmonizePlaceGo(venue, 'harmonize'), 0);
     }
 
     function setServiceChecked(servBtn, checked, actions) {
-        const servID = _WME_SERVICES_ARRAY[servBtn.servIDIndex];
+        const servID = WME_SERVICES_ARRAY[servBtn.servIDIndex];
         const checkboxChecked = $(`wz-checkbox[value="${servID}"]`).prop('checked');
         const venue = getSelectedVenue();
 
         if (checkboxChecked !== checked) {
-            _UPDATED_FIELDS[`services_${servID}`].updated = true;
+            UPDATED_FIELDS[`services_${servID}`].updated = true;
         }
         const toggle = typeof checked === 'undefined';
         let noAdd = false;
@@ -1929,59 +2135,49 @@
     }
 
     // Normalize url
-    function normalizeURL(s, lc, skipBannerActivate, venue, region, wl) {
-        const regionsThatWantPLAUrls = ['SER'];
-
-        if ((!s || s.trim().length === 0) && !skipBannerActivate) {
-            // Notify that url is missing and provide web search to find website and gather data (provided for all editors)
-            const hasOperator = venue.attributes.brand && W.model.categoryBrands.PARKING_LOT.includes(venue.attributes.brand);
-            if (!venue.isParkingLot() || (venue.isParkingLot() && (regionsThatWantPLAUrls.includes(region) || hasOperator))) {
-                _buttonBanner.urlMissing = new Flag.UrlMissing(venue, wl);
-                if (wl.urlWL || (venue.isParkingLot() && !hasOperator)) {
-                    _buttonBanner.urlMissing.severity = _SEVERITY.GREEN;
-                    _buttonBanner.urlMissing.WLactive = false;
-                }
-            }
-            return s;
+    function normalizeURL(url, makeLowerCase = true) {
+        if (!url?.trim().length) {
+            return url;
         }
 
-        s = s.replace(/ \(.*/g, ''); // remove anything with parentheses after it
-        s = s.replace(/ /g, ''); // remove any spaces
-        let m = s.match(/^http:\/\/(.*)$/i); // remove http://
-        if (m) { [, s] = m; }
-        if (lc) { // lowercase the entire domain
-            s = s.replace(/[^/]+/i, txt => ((txt === txt.toLowerCase()) ? txt : txt.toLowerCase()));
+        url = url.replace(/ \(.*/g, ''); // remove anything with parentheses after it
+        url = url.replace(/ /g, ''); // remove any spaces
+        let m = url.match(/^http:\/\/(.*)$/i); // remove http://
+        if (m) { [, url] = m; }
+        if (makeLowerCase) { // lowercase the entire domain
+            url = url.replace(/[^/]+/i, txt => ((txt === txt.toLowerCase()) ? txt : txt.toLowerCase()));
         } else { // lowercase only the www and com
-            s = s.replace(/www\./i, 'www.');
-            s = s.replace(/\.com/i, '.com');
+            url = url.replace(/www\./i, 'www.');
+            url = url.replace(/\.com/i, '.com');
         }
-        m = s.match(/^(.*)\/pages\/welcome.aspx$/i); // remove unneeded terms
-        if (m) { [, s] = m; }
-        m = s.match(/^(.*)\/pages\/default.aspx$/i); // remove unneeded terms
-        if (m) { [, s] = m; }
+        m = url.match(/^(.*)\/pages\/welcome.aspx$/i); // remove unneeded terms
+        if (m) { [, url] = m; }
+        m = url.match(/^(.*)\/pages\/default.aspx$/i); // remove unneeded terms
+        if (m) { [, url] = m; }
         // m = s.match(/^(.*)\/index.html$/i); // remove unneeded terms
         // if (m) { s = m[1]; }
         // m = s.match(/^(.*)\/index.htm$/i); // remove unneeded terms
         // if (m) { s = m[1]; }
         // m = s.match(/^(.*)\/index.php$/i); // remove unneeded terms
         // if (m) { s = m[1]; }
-        m = s.match(/^(.*)\/$/i); // remove final slash
-        if (m) { [, s] = m; }
-        if (!s || s.trim().length === 0 || !/(^https?:\/\/)?\w+\.\w+/.test(s)) s = 'badURL';
-        return s;
-    } // END normalizeURL function
+        m = url.match(/^(.*)\/$/i); // remove final slash
+        if (m) { [, url] = m; }
+        if (!url || url.trim().length === 0 || !/(^https?:\/\/)?\w+\.\w+/.test(url)) url = BAD_URL;
+        return url;
+    }
 
     // Only run the harmonization if a venue is selected
     function harmonizePlace() {
+        logDev('harmonizePlace');
         // Beta version for approved users only
-        if (_IS_BETA_VERSION && !_USER.isBetaUser) {
-            WazeWrap.Alerts.error(_SCRIPT_NAME, 'Please sign up to beta-test this script version.<br>Contact MapOMatic or Tonestertm in Discord, or post in the WMEPH forum thread. Thanks.');
+        if (IS_BETA_VERSION && !USER.isBetaUser) {
+            WazeWrap.Alerts.error(SCRIPT_NAME, 'Please sign up to beta-test this script version.<br>Contact MapOMatic or Tonestertm in Discord, or post in the WMEPH forum thread. Thanks.');
             return;
         }
         // Only run if a single place is selected
         const venue = getSelectedVenue();
         if (venue) {
-            _UPDATED_FIELDS.reset();
+            UPDATED_FIELDS.reset();
             blurAll(); // focus away from current cursor position
             _disableHighlightTest = true;
             harmonizePlaceGo(venue, 'harmonize');
@@ -1994,64 +2190,98 @@
 
     // Abstract flag classes.  Must be declared outside the "Flag" namespace.
     class FlagBase {
-        constructor(active, severity, message) {
-            this.active = active;
-            this.severity = severity;
-            this.message = message;
+        static defaultSeverity = SEVERITY.GREEN;
+        static defaultMessage = '';
+        static currentFlags;
+        #severity;
+        #message;
+        #noLock;
+
+        get name() { return this.constructor.name; }
+
+        get severity() { return this.#severity ?? this.constructor.defaultSeverity; }
+        set severity(value) { this.#severity = value; }
+
+        get message() { return this.#message ?? this.constructor.defaultMessage; }
+        set message(value) { this.#message = value; }
+
+        get noLock() { return this.#noLock ?? this.severity > SEVERITY.BLUE; }
+        set noLock(value) { this.#noLock = value; }
+
+        constructor() {
+            FlagBase.currentFlags.add(this);
+        }
+
+        static eval(args) {
+            if (this.venueIsFlaggable(args)) {
+                const flag = new this(args);
+                flag.args = args;
+                return flag;
+            }
+            return null;
         }
     }
     class ActionFlag extends FlagBase {
-        constructor(active, severity, message, value, title) {
-            super(active, severity, message);
-            this.value = value;
-            this.title = title;
-        }
+        static defaultButtonTooltip = '';
+        #buttonText;
+        #buttonTooltip;
+
+        get buttonText() { return this.#buttonText ?? this.constructor.defaultButtonText; }
+        set buttonText(value) { this.#buttonText = value; }
+        get buttonTooltip() { return this.#buttonTooltip ?? this.constructor.defaultButtonTooltip; }
+        set buttonTooltip(value) { this.#buttonTooltip = value; }
 
         // 5/19/2019 (mapomatic) This base class action function doesn't seem to be necessary.
         // action() { } // overwrite this
     }
     class WLFlag extends FlagBase {
-        WLactive;
-        WLtitle;
-        WLkeyName;
-        constructor(active, severity, message, WLactive, WLtitle, WLkeyName) {
-            super(active, severity, message);
-            this.WLactive = WLactive;
-            this.WLtitle = WLtitle;
-            this.WLkeyName = WLkeyName;
-        }
+        static defaultWLTooltip = 'Whitelist this message';
+        #showWL;
+
+        get severity() { return this.constructor.isWhitelisted(this.args) ? SEVERITY.GREEN : super.severity; }
+        set severity(value) { super.severity = value; }
+
+        get showWL() { return this.#showWL ?? !this.constructor.isWhitelisted(this.args); }
+        set showWL(value) { this.#showWL = value; }
+
+        get wlTooltip() { return this.constructor.defaultWLTooltip; }
 
         WLaction() {
             const venue = getSelectedVenue();
-            if (whitelistAction(venue.attributes.id, this.WLkeyName)) {
+            if (whitelistAction(venue.attributes.id, this.constructor.WL_KEY)) {
                 harmonizePlaceGo(venue, 'harmonize');
             }
         }
+
+        static isWhitelisted(args) {
+            return !!args.wl[this.WL_KEY];
+        }
     }
     class WLActionFlag extends WLFlag {
-        value;
-        title;
-        constructor(active, severity, message, value, title, WLactive, WLtitle, WLkeyName) {
-            super(active, severity, message, WLactive, WLtitle, WLkeyName);
-            this.value = value;
-            this.title = title;
-        }
+        static defaultButtonTooltip = '';
+        #buttonText;
+        #buttonTooltip;
 
-        // 5/19/2019 (mapomatic) This base class action function doesn't seem to be necessary.
-        // action() { } // overwrite this
+        get buttonText() { return this.#buttonText ?? this.constructor.defaultButtonText; }
+        set buttonText(value) { this.#buttonText = value; }
+
+        get buttonTooltip() { return this.#buttonTooltip ?? this.constructor.defaultButtonTooltip; }
+        set buttonTooltip(value) { this.#buttonTooltip = value; }
     }
 
     // Namespace to keep these grouped.
     const Flag = {
         // 2020-10-5 Disabling HN validity checks for now. See note on HnNonStandard flag for details.
         // HnDashRemoved: class extends FlagBase {
-        //     constructor() { super(true, SEVERITY.GREEN, 'Dash removed from house number. Verify'); }
+        //     constructor() { super(SEVERITY.GREEN, 'Dash removed from house number. Verify'); }
         // },
         FullAddressInference: class extends FlagBase {
+            static defaultSeverity = SEVERITY.RED;
+            static defaultMessage = 'Missing address was inferred from nearby segments. Verify the address and run WMEPH again.';
+
             constructor(inferredAddress) {
-                super(true, _SEVERITY.RED, 'Missing address was inferred from nearby segments. Verify the address and run script again.');
-                this.noLock = true;
-                this.inferAddress = inferredAddress;
+                super();
+                this.inferredAddress = inferredAddress;
             }
 
             static eval(venue, addr, actions, highlightOnly, categories) {
@@ -2062,7 +2292,7 @@
                             if ($('#WMEPH-EnableIAZoom').prop('checked')) {
                                 W.map.moveTo(getVenueLonLat(venue), 5);
                             } else {
-                                WazeWrap.Alerts.error(_SCRIPT_NAME, 'No address and the state cannot be determined. Please zoom in and rerun the script. '
+                                WazeWrap.Alerts.error(SCRIPT_NAME, 'No address and the state cannot be determined. Please zoom in and rerun the script. '
                                     + 'You can enable autozoom for this type of case in the options.');
                             }
                             result = { exit: true }; // Don't bother returning a Flag. This will exit the rest of the harmonizePlaceGo function.
@@ -2071,15 +2301,15 @@
                             inferredAddress = inferredAddress.attributes ?? inferredAddress;
 
                             if (inferredAddress?.state && inferredAddress.country) {
-                                if ($('#WMEPH-AddAddresses').prop('checked')) { // update the item's address if option is enabled
+                                if ($('#WMEPH-AddAddresses').prop('checked')) { // update the venue's address if option is enabled
                                     updateAddress(venue, inferredAddress, actions);
-                                    _UPDATED_FIELDS.address.updated = true;
+                                    UPDATED_FIELDS.address.updated = true;
                                     result = new this(inferredAddress);
-                                } else if (!['JUNCTION_INTERCHANGE'].includes(categories[0])) {
-                                    _buttonBanner.cityMissing = new Flag.CityMissing();
+                                } else if (![CAT.JUNCTION_INTERCHANGE].includes(categories[0])) {
+                                    new Flag.CityMissing();
                                 }
                             } else { //  if the inference doesn't work...
-                                WazeWrap.Alerts.error(_SCRIPT_NAME, 'This place has no address data and the address cannot be inferred from nearby segments. Please edit the address and run WMEPH again.');
+                                WazeWrap.Alerts.error(SCRIPT_NAME, 'This place has no address data and the address cannot be inferred from nearby segments. Please edit the address and run WMEPH again.');
                                 result = { exit: true }; // Don't bother returning a Flag. This will exit the rest of the harmonizePlaceGo function.
                             }
                         }
@@ -2090,13 +2320,13 @@
                         result.severity = 'adLock';
                     } else {
                         const cat = venue.attributes.categories;
-                        if (containsAny(cat, ['HOSPITAL_MEDICAL_CARE', 'HOSPITAL_URGENT_CARE', 'GAS_STATION'])) {
+                        if (containsAny(cat, [CAT.HOSPITAL_MEDICAL_CARE, CAT.HOSPITAL_URGENT_CARE, CAT.GAS_STATION])) {
                             logDev('Unaddressed HUC/GS');
-                            result.severity = _SEVERITY.PINK;
-                        } else if (cat.includes('JUNCTION_INTERCHANGE')) {
-                            result.severity = _SEVERITY.GREEN;
+                            result.severity = SEVERITY.PINK;
+                        } else if (cat.includes(CAT.JUNCTION_INTERCHANGE)) {
+                            result.severity = SEVERITY.GREEN;
                         } else {
-                            result.severity = _SEVERITY.RED;
+                            result.severity = SEVERITY.RED;
                         }
                     }
                 }
@@ -2104,118 +2334,107 @@
             }
         },
         NameMissing: class extends FlagBase {
-            constructor() {
-                super(true, _SEVERITY.RED, 'Name is missing.');
-                this.noLock = true;
-            }
+            static defaultSeverity = SEVERITY.RED;
+            static defaultMessage = 'Name is missing.';
 
-            static #venueIsFlaggable(venue, name) {
-                return !venue.isResidential()
-                    && (!name || !name.replace(/[^A-Za-z0-9]/g, '').length)
-                    && !['ISLAND', 'FOREST_GROVE', 'SEA_LAKE_POOL', 'RIVER_STREAM', 'CANAL', 'PARKING_LOT'].includes(venue.attributes.categories[0])
-                    && !(venue.isGasStation() && venue.attributes.brand);
-            }
-
-            static eval(venue, name) {
-                return this.#venueIsFlaggable(venue, name) ? new this() : null;
+            static venueIsFlaggable(args) {
+                return !args.categories.includes(CAT.RESIDENCE_HOME)
+                    && (!args.nameBase?.replace(/[^A-Za-z0-9]/g, ''))
+                    && ![CAT.ISLAND, CAT.FOREST_GROVE, CAT.SEA_LAKE_POOL, CAT.RIVER_STREAM, CAT.CANAL, CAT.PARKING_LOT].includes(args.categories[0])
+                    && !(args.categories.includes(CAT.GAS_STATION) && args.brand);
             }
         },
         GasNameMissing: class extends ActionFlag {
-            constructor(venue, brand, highlightOnly) {
-                let message;
-                if (!highlightOnly) message = `Name is missing. Use "${brand}"?`;
-                super(true, _SEVERITY.RED, message, 'Yes', 'Use gas brand as station name');
-                this.brand = brand;
-                this.venue = venue;
-            }
+            static defaultSeverity = SEVERITY.RED;
+            static defaultButtonText = 'Yes';
+            static defaultButtonTooltip = 'Use gas brand as station name';
 
-            static #venueIsFlaggable(venue, name, brand) {
-                return venue.isGasStation()
-                    && isNullOrWhitespace(name)
-                    && !isNullOrWhitespace(brand);
-            }
+            get message() { return `Name is missing. Use "${this.args.brand}"?`; }
 
-            static eval(venue, name, brand, highlightOnly) {
-                return this.#venueIsFlaggable(venue, name, brand) ? new this(venue, brand, highlightOnly) : null;
+            static venueIsFlaggable(args) {
+                return args.categories.includes(CAT.GAS_STATION)
+                    && isNullOrWhitespace(args.nameBase)
+                    && !isNullOrWhitespace(args.brand);
             }
 
             action() {
-                addUpdateAction(this.venue, { name: this.brand }, null, true);
+                addUpdateAction(this.args.venue, { name: this.args.brand }, null, true);
+            }
+        },
+        ClearThisUrl: class extends FlagBase {
+            static defaultSeverity = SEVERITY.YELLOW;
+
+            // Use this to highlight yellow any venues that have an invalid value and will be
+            // auto-corrected when WMEPH is run.
+            static venueIsFlaggable(args) {
+                return args.categories.includes(CAT.CHARGING_STATION)
+                    && args.url
+                    && ['https://www.nissan-europe.com/', 'https://www.eco-movement.com/'].includes(args.url);
+            }
+        },
+        ClearThisPhone: class extends FlagBase {
+            static defaultSeverity = SEVERITY.YELLOW;
+
+            // Use this to highlight yellow any venues that have an invalid value and will be
+            // auto-corrected when WMEPH is run.
+            static venueIsFlaggable(args) {
+                return args.categories.includes(CAT.CHARGING_STATION)
+                    && args.phone === '+33-1-72676914'; // Nissan Europe ph#
             }
         },
         PlaIsPublic: class extends FlagBase {
-            constructor(venue, highlightOnly) {
-                super(true, _SEVERITY.GREEN, 'If this does not meet the requirements for a <a href="https://wazeopedia.waze.com/wiki/USA/Places/Parking_lot#Lot_Type" '
-                    + 'target="_blank" style="color:5a5a73">public parking lot</a>, change to:<br>');
-                if (!highlightOnly) {
-                    this.venue = venue;
-                    // Add the buttons to the message.
-                    this.message += [
-                        ['RESTRICTED', 'Restricted'],
-                        ['PRIVATE', 'Private']
-                    ].map(
-                        btnInfo => $('<button>', { class: 'wmeph-pla-lot-type-btn btn btn-default btn-xs wmeph-btn', 'data-lot-type': btnInfo[0] })
-                            .text(btnInfo[1])
-                            .prop('outerHTML')
-                    ).join('');
-                }
+            static get defaultMessage() {
+                // Add the buttons to the message.
+                let msg = 'If this does not meet the requirements for a <a href="https://wazeopedia.waze.com/wiki/USA/Places/Parking_lot#Lot_Type" '
+                    + 'target="_blank" style="color:5a5a73">public parking lot</a>, change to:<br>';
+                msg += [
+                    ['RESTRICTED', 'Restricted'],
+                    ['PRIVATE', 'Private']
+                ].map(
+                    btnInfo => $('<button>', { class: 'wmeph-pla-lot-type-btn btn btn-default btn-xs wmeph-btn', 'data-lot-type': btnInfo[0] })
+                        .text(btnInfo[1])
+                        .prop('outerHTML')
+                ).join('');
+                return msg;
             }
 
-            static #venueIsFlaggable(venue) {
-                return venue.isParkingLot() && venue.attributes.categoryAttributes?.PARKING_LOT?.parkingType === 'PUBLIC';
-            }
-
-            static eval(venue, highlightOnly) {
-                return this.#venueIsFlaggable(venue) ? new this(venue, highlightOnly) : null;
+            static venueIsFlaggable(args) {
+                return args.categories.includes(CAT.PARKING_LOT)
+                    && args.venue.attributes.categoryAttributes?.PARKING_LOT?.parkingType === 'PUBLIC';
             }
 
             postProcess() {
                 $('.wmeph-pla-lot-type-btn').click(evt => {
                     const lotType = $(evt.currentTarget).data('lot-type');
-                    const categoryAttrClone = JSON.parse(JSON.stringify(this.venue.attributes.categoryAttributes));
+                    const categoryAttrClone = JSON.parse(JSON.stringify(this.args.venue.attributes.categoryAttributes));
                     categoryAttrClone.PARKING_LOT.parkingType = lotType;
-                    _UPDATED_FIELDS.lotType.updated = true;
-                    addUpdateAction(this.venue, { categoryAttributes: categoryAttrClone }, null, true);
+                    UPDATED_FIELDS.lotType.updated = true;
+                    addUpdateAction(this.args.venue, { categoryAttributes: categoryAttrClone }, null, true);
                 });
             }
         },
         PlaNameMissing: class extends FlagBase {
-            constructor(userNormalizedRank) {
-                super(
-                    true,
-                    _SEVERITY.BLUE,
-                    `Name is missing. ${userNormalizedRank < 3 ? 'Request an R3+ lock' : 'Lock to 3+'} to confirm unnamed parking lot.`
-                );
-                this.noLock = true;
-            }
+            static defaultSeverity = SEVERITY.BLUE;
+            static get defaultMessage() { return `Name is missing. ${USER.rank < 3 ? 'Request an R3+ lock' : 'Lock to 3+'} to confirm unnamed parking lot.`; }
+            noLock = true;
 
-            static #venueIsFlaggable(venue, name) {
-                return venue.isParkingLot()
-                    && (!name || !name.replace(/[^A-Za-z0-9]/g, '').length)
-                    && venue.attributes.lockRank < 2;
-            }
-
-            static eval(venue, name, userNormalizedRank) {
-                return this.#venueIsFlaggable(venue, name) ? new Flag.PlaNameMissing(userNormalizedRank) : null;
+            static venueIsFlaggable(args) {
+                return args.categories.includes(CAT.PARKING_LOT)
+                    && (!args.nameBase?.replace(/[^A-Za-z0-9]/g, '').length)
+                    && args.venue.attributes.lockRank < 2;
             }
         },
         PlaNameNonStandard: class extends WLFlag {
-            constructor() {
-                super(
-                    true,
-                    _SEVERITY.YELLOW,
-                    'Parking lot names typically contain words like "Parking", "Lot", and/or "Garage"',
-                    true,
-                    'Whitelist non-standard PLA name',
-                    'plaNameNonStandard'
-                );
-            }
+            static defaultSeverity = SEVERITY.YELLOW;
+            static defaultMessage = 'Parking lot names typically contain words like "Parking", "Lot", and/or "Garage"';
+            static WL_KEY = 'plaNameNonStandard';
+            static defaultWLTooltip = 'Whitelist non-standard PLA name';
 
-            static #venueIsFlaggable(venue, wl) {
-                if (!wl.plaNameNonStandard && venue.isParkingLot()) {
-                    const { name } = venue.attributes;
+            static venueIsFlaggable(args) {
+                if (!this.isWhitelisted(args) && args.venue.isParkingLot()) {
+                    const { name } = args.venue.attributes;
                     if (name) {
-                        const state = venue.getAddress().getStateName();
+                        const state = args.venue.getAddress().getStateName();
                         const re = state === 'Quebec' ? /\b(parking|stationnement)\b/i : /\b((park[ -](and|&|'?n'?)[ -]ride)|parking|lot|garage|ramp)\b/i;
                         if (!re.test(name)) {
                             return true;
@@ -2224,486 +2443,561 @@
                 }
                 return false;
             }
-
-            static eval(venue, wl) {
-                return this.#venueIsFlaggable(venue, wl) ? new this() : null;
-            }
         },
         IndianaLiquorStoreHours: class extends WLFlag {
-            constructor() {
-                super(
-                    true,
-                    _SEVERITY.GREEN,
-                    'If this is a liquor store, check the hours. As of Feb 2018, liquor stores in Indiana are allowed to be open between noon and 8 pm on Sunday.',
-                    true,
-                    'Whitelist Indiana liquor store hours',
-                    'indianaLiquorStoreHours'
-                );
-            }
+            static defaultMessage = 'If this is a liquor store, check the hours. As of Feb 2018, liquor stores in Indiana are allowed '
+                + 'to be open between noon and 8 pm on Sunday.';
 
-            static eval(venue, name, highlightOnly, wl) {
-                let result = null;
-                if (!highlightOnly && !wl.indianaLiquorStoreHours
-                    && [/\bbeers?\b/, /\bwines?\b/, /\bliquor\b/, /\bspirits\b/].some(re => re.test(name))
-                    && !venue.attributes.openingHours.some(entry => entry.days.includes(0))
-                    && !venue.isResidential()) {
-                    const tempAddr = venue.getAddress();
-                    if (tempAddr && tempAddr.getStateName() === 'Indiana') {
-                        result = new this();
-                    }
-                }
-                return result;
+            static WL_KEY = 'indianaLiquorStoreHours';
+            static defaultWLTooltip = 'Whitelist Indiana liquor store hours';
+
+            static venueIsFlaggable(args) {
+                return !args.highlightOnly && !this.isWhitelisted(args)
+                    && !args.categories.includes(CAT.RESIDENCE_HOME)
+                    && args.addr?.state.name === 'Indiana'
+                    && /\b(beers?|wines?|liquors?|spirits)\b/i.test(args.nameBase)
+                    && !args.openingHours.some(entry => entry.days.includes(0));
             }
         },
         HoursOverlap: class extends FlagBase {
-            constructor() { super(true, _SEVERITY.RED, 'Overlapping hours of operation. Place might not save.'); }
+            static defaultSeverity = SEVERITY.RED;
+            static defaultMessage = 'Overlapping hours of operation. Place might not save.';
 
-            static eval(hoursOverlap) {
-                return hoursOverlap ? new this() : null;
+            static venueIsFlaggable(args) {
+                return args.hoursOverlap;
             }
         },
         UnmappedRegion: class extends WLFlag {
-            constructor() { super(true, _SEVERITY.RED, 'This category is usually not mapped in this region.', true, 'Whitelist unmapped category', 'unmappedRegion'); }
+            static WL_KEY = 'unmappedRegion';
+            static defaultWLTooltip = 'Whitelist unmapped category';
+            static #regionsToFlagOther = ['HI', 'NER', 'NOR', 'NWR', 'PLN', 'ATR'];
+
+            get noLock() {
+                return Flag.UnmappedRegion.#getRareCategoryInfos(this.args)
+                    .some(categoryInfo => (categoryInfo.id === CAT.OTHER
+                        && Flag.UnmappedRegion.#regionsToFlagOther.includes(this.args.region)
+                        && !this.args.isLocked)
+                            || !Flag.UnmappedRegion.isWhitelisted(this.args));
+            }
+
+            constructor(args) {
+                let showWL = true;
+                let severity = SEVERITY.GREEN;
+                // let noLock = false;
+                let message;
+                const categoryNames = [];
+                let addOtherMessage = false;
+
+                Flag.UnmappedRegion.#getRareCategoryInfos(args)
+                    .forEach(categoryInfo => {
+                        if (categoryInfo.id === CAT.OTHER) {
+                            if (Flag.UnmappedRegion.#regionsToFlagOther.includes(args.region) && !args.isLocked) {
+                                addOtherMessage = true;
+                                severity = Math.max(severity, SEVERITY.BLUE);
+                                showWL = false;
+                                // noLock = true;
+                            }
+                        } else {
+                            if (Flag.UnmappedRegion.isWhitelisted(args)) {
+                                showWL = false;
+                                severity = Math.max(severity, SEVERITY.GREEN);
+                            } else {
+                                severity = SEVERITY.YELLOW;
+                                // noLock = true;
+                            }
+                            if (!args.highlightOnly) categoryNames.push(categoryInfo.name);
+                        }
+                    });
+                if (!args.highlightOnly) {
+                    const messages = [];
+                    if (categoryNames.length === 1) {
+                        messages.push(`The <b>${categoryNames[0]}</b> category is usually not mapped in this region.`);
+                    } else if (categoryNames.length > 1) {
+                        messages.push(`These categories are usually not mapped in this region: ${categoryNames.map(name => `<b>${name}</b>`).join(', ')}`);
+                    }
+                    if (addOtherMessage) {
+                        messages.push('The <b>Other</b> category should only be used if no other category applies. '
+                            + 'Manually lock the place to override this flag.');
+                    }
+                    message = messages.join('<br><br>');
+                }
+                super();
+                this.message = message;
+                this.severity = severity;
+                // this.noLock = noLock;
+                this.showWL = showWL;
+            }
+
+            static venueIsFlaggable(args) {
+                return !args.categories.includes(CAT.REST_AREAS)
+                    && !!this.#getRareCategoryInfos(args).length;
+            }
+
+            static #getRareCategoryInfos(args) {
+                return args.categories
+                    .map(cat => args.pnhCategoryInfos.getById(cat))
+                    .filter(pnhCategoryInfo => {
+                        const rareLocalities = pnhCategoryInfo.rare;
+                        if (rareLocalities.includes(args.state2L) || rareLocalities.includes(args.region) || rareLocalities.includes(args.countryCode)) {
+                            if (pnhCategoryInfo.id === CAT.OTHER && this.#regionsToFlagOther.includes(args.region)) {
+                                if (!args.isLocked) {
+                                    return true;
+                                }
+                            } else {
+                                return true;
+                            }
+                        }
+                        return false;
+                    });
+            }
         },
         RestAreaName: class extends WLFlag {
-            constructor(wl) {
-                super(
-                    true,
-                    wl.restAreaName ? _SEVERITY.GREEN : _SEVERITY.RED,
-                    'Rest area name is out of spec. Use the Rest Area wiki button below to view formats.',
-                    !wl.restAreaName,
-                    'Whitelist rest area name',
-                    'restAreaName'
-                );
-            }
+            static defaultSeverity = SEVERITY.RED;
+            static defaultMessage = 'Rest area name is out of spec. Use the Rest Area wiki button below to view formats.';
+            static WL_KEY = 'restAreaName';
+            static defaultWLTooltip = 'Whitelist rest area name';
 
-            static #venueIsFlaggable(venue, hasRestAreaCategory) {
-                return hasRestAreaCategory && !/^Rest Area.* - /.test(venue.attributes.name);
-            }
-
-            static eval(venue, hasRestAreaCategory, wl) {
-                return this.#venueIsFlaggable(venue, hasRestAreaCategory, wl) ? new Flag.RestAreaName(wl) : null;
+            static venueIsFlaggable(args) {
+                return args.categories.includes(CAT.REST_AREAS) && !/^Rest Area.* - /.test(args.nameBase + (args.nameSuffix ?? ''));
             }
         },
         RestAreaNoTransportation: class extends ActionFlag {
-            constructor(venue) {
-                super(true, _SEVERITY.YELLOW, 'Rest areas should not use the Transportation category.', 'Remove it?');
-                this.venue = venue;
-            }
+            static defaultSeverity = SEVERITY.YELLOW;
+            static defaultMessage = 'Rest areas should not use the Transportation category.';
+            static defaultButtonText = 'Remove it?';
 
-            static #venueIsFlaggable(hasRestAreaCategory, categories) {
-                return hasRestAreaCategory && categories.includes('TRANSPORTATION');
-            }
-
-            static eval(venue, hasRestAreaCategory, categories) {
-                return this.#venueIsFlaggable(hasRestAreaCategory, categories) ? new Flag.RestAreaNoTransportation(venue) : null;
+            static venueIsFlaggable(args) {
+                return args.categories.includes(CAT.REST_AREAS)
+                    && args.categories.includes(CAT.TRANSPORTATION);
             }
 
             action() {
-                const categories = this.venue.getCategories().slice(); // create a copy
-                const index = categories.indexOf('TRANSPORTATION');
+                const categories = this.args.venue.getCategories().slice(); // create a copy
+                const index = categories.indexOf(CAT.TRANSPORTATION);
                 if (index > -1) {
                     categories.splice(index, 1); // remove the category
-                    addUpdateAction(this.venue, { categories }, null, true);
+                    addUpdateAction(this.args.venue, { categories }, null, true);
+                } else {
+                    harmonizePlaceGo(this.args.venue, 'harmonize');
                 }
             }
         },
         RestAreaGas: class extends FlagBase {
-            constructor() { super(true, _SEVERITY.RED, 'Gas stations at Rest Areas should be separate area places.'); }
+            static defaultSeverity = SEVERITY.RED;
+            static defaultMessage = 'Gas stations at Rest Areas should be separate area places.';
 
-            static eval(hasRestAreaCategory, categories) {
-                return hasRestAreaCategory && categories.includes('GAS_STATION') ? new Flag.RestAreaGas() : null;
+            static venueIsFlaggable(args) {
+                return args.categories.includes(CAT.REST_AREAS) && args.categories.includes(CAT.GAS_STATION);
             }
         },
         RestAreaScenic: class extends WLActionFlag {
-            constructor(venue) {
-                super(
-                    true,
-                    _SEVERITY.GREEN,
-                    'Verify that the "Scenic Overlook" category is appropriate for this rest area.  If not: ',
-                    'Remove it',
-                    'Remove "Scenic Overlook" category.',
-                    true,
-                    'Whitelist place',
-                    'restAreaScenic'
-                );
-                this.venue = venue;
-            }
+            static WL_KEY = 'restAreaScenic';
+            static defaultWLTooltip = 'Whitelist place';
+            static defaultMessage = 'Verify that the "Scenic Overlook" category is appropriate for this rest area. If not: ';
+            static defaultButtonText = 'Remove it';
+            static defaultButtonTooltip = 'Remove "Scenic Overlook" category.';
 
-            static #venueIsFlaggable(hasRestAreaCategory, categories, wl) {
-                return !wl.restAreaScenic
-                    && hasRestAreaCategory
-                    && categories.includes('SCENIC_LOOKOUT_VIEWPOINT');
-            }
-
-            static eval(venue, hasRestAreaCategory, categories, wl) {
-                return this.#venueIsFlaggable(hasRestAreaCategory, categories, wl) ? new Flag.RestAreaScenic(venue) : null;
+            static venueIsFlaggable(args) {
+                return !this.isWhitelisted(args)
+                    && args.categories.includes(CAT.REST_AREAS)
+                    && args.categories.includes(CAT.SCENIC_LOOKOUT_VIEWPOINT);
             }
 
             action() {
-                const categories = this.venue.getCategories().slice(); // create a copy
-                const index = categories.indexOf('SCENIC_LOOKOUT_VIEWPOINT');
+                const categories = this.args.venue.getCategories().slice(); // create a copy
+                const index = categories.indexOf(CAT.SCENIC_LOOKOUT_VIEWPOINT);
                 if (index > -1) {
                     categories.splice(index, 1); // remove the category
-                    addUpdateAction(this.venue, { categories }, null, true);
+                    addUpdateAction(this.args.venue, { categories }, null, true);
                 }
             }
         },
         RestAreaSpec: class extends WLActionFlag {
-            constructor(venue) {
-                super(
-                    true,
-                    _SEVERITY.RED,
-                    'Is this a rest area?',
-                    'Yes',
-                    'Update with proper categories and services.',
-                    true,
-                    'Whitelist place',
-                    'restAreaSpec'
-                );
-                this.venue = venue;
-            }
+            static defaultSeverity = SEVERITY.RED;
+            static WL_KEY = 'restAreaSpec';
+            static defaultWLTooltip = 'Whitelist place';
+            static defaultMessage = 'Is this a rest area?';
+            static defaultButtonText = 'Yes';
+            static defaultButtonTooltip = 'Update with proper categories and services.';
 
-            static #venueIsFlaggable(hasRestAreaCategory, name, wl) {
-                return !wl.restAreaSpec
-                    && !hasRestAreaCategory
-                    && (/rest (?:area|stop)|service plaza/i.test(name));
-            }
-
-            static eval(venue, hasRestAreaCategory, name, wl) {
-                return this.#venueIsFlaggable(hasRestAreaCategory, name, wl) ? new Flag.RestAreaSpec(venue) : null;
+            static venueIsFlaggable(args) {
+                return !this.isWhitelisted(args)
+                    && !args.categories.includes(CAT.REST_AREAS)
+                    && (/rest (?:area|stop)|service plaza/i.test(args.nameBase));
             }
 
             action() {
-                const categories = insertAtIndex(this.venue.getCategories(), 'REST_AREAS', 0);
+                const categories = insertAtIndex(this.args.venue.getCategories(), CAT.REST_AREAS, 0);
                 // make it 24/7
                 const openingHours = [new OpeningHour({ days: [1, 2, 3, 4, 5, 6, 0], fromHour: '00:00', toHour: '00:00' })];
-                addUpdateAction(this.venue, { categories, openingHours }, null, true);
+                addUpdateAction(this.args.venue, { categories, openingHours }, null, true);
             }
         },
         EVChargingStationWarning: class extends FlagBase {
-            constructor() {
-                super(
-                    true,
-                    _SEVERITY.GREEN,
-                    'Please do not delete EV Charging Stations. Be sure you are completely up to date with the latest guidelines in '
-                        + '<a href="https://wazeopedia.waze.com/wiki/USA/Places/EV_charging_station" target="_blank">wazeopedia</a>.'
-                );
-            }
+            static defaultMessage = 'Please do not delete EV Charging Stations. Be sure you are completely up to date with the latest guidelines in '
+                + '<a href="https://wazeopedia.waze.com/wiki/USA/Places/EV_charging_station" target="_blank">wazeopedia</a>.';
 
-            static eval(venue, highlightOnly) {
-                return !highlightOnly && venue.isChargingStation() ? new this() : null;
+            static venueIsFlaggable(args) {
+                return !args.highlightOnly && args.categories.includes(CAT.CHARGING_STATION);
             }
         },
         EVCSPriceMissing: class extends FlagBase {
-            constructor(venue, highlightOnly) {
-                super(true, _SEVERITY.BLUE, 'EVCS price: ');
-                if (!highlightOnly) {
-                    [['FREE', 'Free', 'Free'], ['FEE', 'Paid', 'Paid']].forEach(btnInfo => {
-                        this.message += $('<button>', {
-                            id: `wmeph_${btnInfo[0]}`,
-                            class: 'wmeph-evcs-cost-type-btn btn btn-default btn-xs wmeph-btn',
-                            title: btnInfo[2]
+            static defaultSeverity = SEVERITY.BLUE;
+            static get defaultMessage() {
+                let msg = 'EVCS price: ';
+                [['FREE', 'Free', 'Free'], ['FEE', 'Paid', 'Paid']].forEach(btnInfo => {
+                    msg += $('<button>', {
+                        id: `wmeph_${btnInfo[0]}`,
+                        class: 'wmeph-evcs-cost-type-btn btn btn-default btn-xs wmeph-btn',
+                        title: btnInfo[2]
+                    })
+                        .text(btnInfo[1])
+                        .css({
+                            padding: '3px',
+                            height: '20px',
+                            lineHeight: '0px',
+                            marginRight: '2px',
+                            marginBottom: '1px',
+                            minWidth: '18px'
                         })
-                            .text(btnInfo[1])
-                            .css({
-                                padding: '3px',
-                                height: '20px',
-                                lineHeight: '0px',
-                                marginRight: '2px',
-                                marginBottom: '1px',
-                                minWidth: '18px'
-                            })
-                            .prop('outerHTML');
-                    });
-                    this.venue = venue;
-                    this.noLock = true;
-                }
+                        .prop('outerHTML');
+                });
+                return msg;
             }
 
-            static #venueIsFlaggable(venue) {
-                const evcsAttr = venue.attributes.categoryAttributes?.CHARGING_STATION;
-                return venue.isChargingStation()
+            constructor() {
+                super();
+                this.noLock = true;
+            }
+
+            static venueIsFlaggable(args) {
+                const evcsAttr = args.venue.attributes.categoryAttributes?.CHARGING_STATION;
+                return args.categories.includes(CAT.CHARGING_STATION)
                     && (!evcsAttr?.costType || evcsAttr.costType === 'COST_TYPE_UNSPECIFIED');
-            }
-
-            static eval(venue, highlightOnly) {
-                return this.#venueIsFlaggable(venue) ? new this(venue, highlightOnly) : null;
             }
 
             postProcess() {
                 $('.wmeph-evcs-cost-type-btn').click(evt => {
                     const selectedValue = $(evt.currentTarget).attr('id').replace('wmeph_', '');
                     let attrClone;
-                    if (this.venue.attributes.categoryAttributes) {
-                        attrClone = JSON.parse(JSON.stringify(this.venue.attributes.categoryAttributes));
+                    if (this.args.venue.attributes.categoryAttributes) {
+                        attrClone = JSON.parse(JSON.stringify(this.args.venue.attributes.categoryAttributes));
                     } else {
                         attrClone = {};
                     }
                     attrClone.CHARGING_STATION ??= {};
                     attrClone.CHARGING_STATION.costType = selectedValue;
-                    addUpdateAction(this.venue, { categoryAttributes: attrClone }, null, true);
-                    _UPDATED_FIELDS.evCostType.updated = true;
+                    addUpdateAction(this.args.venue, { categoryAttributes: attrClone }, null, true);
+                    UPDATED_FIELDS.evCostType.updated = true;
                 });
             }
         },
         GasMismatch: class extends WLFlag {
-            constructor(wl) {
-                super(
-                    true,
-                    _SEVERITY.RED,
-                    '<a href="https://wazeopedia.waze.com/wiki/USA/Places/Gas_station#Name" target="_blank" class="red">Gas brand should typically be included in the place name.</a>',
-                    !wl.gasMismatch,
-                    'Whitelist gas brand / name mismatch',
-                    'gasMismatch'
-                );
-                if (!wl.gasMismatch) {
-                    this.noLock = true;
-                }
-            }
+            static defaultSeverity = SEVERITY.RED;
+            static WL_KEY = 'gasMismatch';
+            static defaultWLTooltip = 'Whitelist gas brand / name mismatch';
+            static defaultMessage = '<a href="https://wazeopedia.waze.com/wiki/USA/Places/Gas_station#Name" target="_blank" class="red">'
+                + 'Gas brand should typically be included in the place name.</a>';
 
-            static #venueIsFlaggable(venue, categories, brand, name) {
+            static venueIsFlaggable(args) {
                 // For gas stations, check to make sure brand exists somewhere in the place name.
                 // Remove non - alphanumeric characters first, for more relaxed matching.
-                if (categories[0] === 'GAS_STATION' && venue.attributes.brand) {
-                    const compressedName = venue.attributes.name.toUpperCase().replace(/[^a-zA-Z0-9]/g, '');
-                    const compressedNewName = name.toUpperCase().replace(/[^a-zA-Z0-9]/g, '');
+                if (args.categories[0] === CAT.GAS_STATION && args.brand) {
+                    const compressedName = (args.nameBase + args.nameSuffix ?? '').toUpperCase().replace(/[^a-zA-Z0-9]/g, '');
                     // Some brands may have more than one acceptable name, or the brand listed in WME doesn't match what we want to see in the name.
                     // Ideally, this would be addressed in the PNH spreadsheet somehow, but for now hardcoding is the only option.
-                    const compressedBrands = [brand.toUpperCase().replace(/[^a-zA-Z0-9]/g, '')];
-                    if (brand === 'Diamond Gasoline') {
+                    const compressedBrands = [args.brand.toUpperCase().replace(/[^a-zA-Z0-9]/g, '')];
+                    if (args.brand === 'Diamond Gasoline') {
                         compressedBrands.push('DIAMONDOIL');
-                    } else if (brand === 'Murphy USA') {
+                    } else if (args.brand === 'Murphy USA') {
                         compressedBrands.push('MURPHY');
-                    } else if (brand === 'Mercury Fuel') {
+                    } else if (args.brand === 'Mercury Fuel') {
                         compressedBrands.push('MERCURY', 'MERCURYPRICECUTTER');
-                    } else if (brand === 'Carrollfuel') {
+                    } else if (args.brand === 'Carrollfuel') {
                         compressedBrands.push('CARROLLMOTORFUEL', 'CARROLLMOTORFUELS');
                     }
-                    if (compressedBrands.every(compressedBrand => !compressedName.includes(compressedBrand) && !compressedNewName.includes(compressedBrand))) {
+                    if (!compressedBrands.some(compressedBrand => compressedName.includes(compressedBrand))) {
+                        return true;
+                    }
+                }
+                return false;
+            }
+        },
+        GasUnbranded: class extends FlagBase {
+            //  Unbranded is not used per wiki
+            static defaultSeverity = SEVERITY.RED;
+            static defaultMessage = '"Unbranded" should not be used for the station brand. Change to the correct brand or delete the brand.';
+
+            static venueIsFlaggable(args) {
+                return args.categories.includes(CAT.GAS_STATION)
+                    && args.brand === 'Unbranded';
+            }
+        },
+        GasMkPrim: class extends ActionFlag {
+            static defaultSeverity = SEVERITY.RED;
+            static defaultMessage = 'Gas Station should be the primary category';
+            static defaultButtonText = 'Fix';
+            static defaultButtonTooltip = 'Make the Gas Station category the primary category.';
+
+            static venueIsFlaggable(args) {
+                return args.categories.indexOf(CAT.GAS_STATION) > 0;
+            }
+
+            action() {
+                // Move Gas category to the first position
+                const categories = insertAtIndex(this.args.venue.getCategories(), CAT.GAS_STATION, 0);
+                addUpdateAction(this.args.venue, { categories }, null, true);
+            }
+        },
+        IsThisAPilotTravelCenter: class extends ActionFlag {
+            static defaultMessage = 'Is this a "Travel Center"?';
+            static defaultButtonText = 'Yes';
+
+            static venueIsFlaggable(args) {
+                return !args.highlightOnly
+                    && args.state2L === 'TN'
+                    && args.nameBase.toLowerCase().trim() === 'pilot food mart';
+            }
+
+            action() {
+                addUpdateAction(this.args.venue, { name: 'Pilot Travel Center' }, null, true);
+            }
+        },
+        HotelMkPrim: class extends WLActionFlag {
+            static defaultSeverity = SEVERITY.RED;
+            static defaultMessage = 'Hotel category is not first';
+            static defaultButtonText = 'Fix';
+            static defaultButtonTooltip = 'Make the Hotel category the primary category.';
+            static WL_KEY = 'hotelMkPrim';
+            static defaultWLTooltip = 'Whitelist hotel as secondary category';
+
+            static venueIsFlaggable(args) {
+                return args.priPNHPlaceCat === CAT.HOTEL
+                    && args.categories.indexOf(CAT.HOTEL) !== 0;
+            }
+
+            action() {
+                // Insert/move Hotel category in the first position
+                const categories = insertAtIndex(this.args.venue.attributes.categories.slice(), CAT.HOTEL, 0);
+                addUpdateAction(this.args.venue, { categories }, null, true);
+            }
+        },
+        ChangeToPetVet: class extends WLActionFlag {
+            static defaultSeverity = SEVERITY.RED;
+            static defaultMessage = 'Key words suggest this should be a Pet/Veterinarian category. Change?';
+            static defaultButtonText = 'Yes';
+            static defaultButtonTooltip = 'Change to Pet/Veterinarian Category';
+            static WL_KEY = 'changeHMC2PetVet';
+            static defaultWLTooltip = 'Whitelist Pet/Vet category';
+
+            static venueIsFlaggable(args) {
+                if (!this.isWhitelisted(args)) {
+                    const testName = name.toLowerCase().replace(/[^a-z]/g, ' ');
+                    const testNameWords = testName.split(' ');
+                    if ((args.categories.includes(CAT.HOSPITAL_URGENT_CARE) || args.categories.includes(CAT.DOCTOR_CLINIC))
+                        && (containsAny(testNameWords, _animalFullMatch) || _animalPartMatch.some(match => testName.includes(match)))) {
                         return true;
                     }
                 }
                 return false;
             }
 
-            static eval(venue, categories, brand, name, wl) {
-                return this.#venueIsFlaggable(venue, categories, brand, name) ? new this(wl) : null;
-            }
-        },
-        GasUnbranded: class extends FlagBase {
-            //  Unbranded is not used per wiki
-            constructor() {
-                super(true, _SEVERITY.RED, '"Unbranded" should not be used for the station brand. Change to the correct brand or '
-                    + 'delete the brand.');
-                this.noLock = true;
-            }
-
-            static eval(venue, brand) {
-                return venue.isGasStation() && brand === 'Unbranded' ? new this() : null;
-            }
-        },
-        GasMkPrim: class extends ActionFlag {
-            constructor(venue) {
-                super(true, _SEVERITY.RED, 'Gas Station should be the primary category', 'Fix', 'Make the Gas Station '
-                    + 'category the primary category.');
-                this.venue = venue;
-                this.noLock = true;
-            }
-
-            static #venueIsFlaggable(categories) {
-                return categories.includes('GAS_STATION') && categories.indexOf('GAS_STATION') !== 0;
-            }
-
-            static eval(venue, categories) {
-                return this.#venueIsFlaggable(categories) ? new this(venue) : null;
-            }
-
-            action() {
-                // Move Gas category to the first position
-                const categories = insertAtIndex(this.venue.getCategories(), 'GAS_STATION', 0);
-                addUpdateAction(this.venue, { categories }, null, true);
-            }
-        },
-        IsThisAPilotTravelCenter: class extends ActionFlag {
-            constructor(venue, newName) {
-                super(true, _SEVERITY.GREEN, 'Is this a "Travel Center"?', 'Yes', '');
-                this.venue = venue;
-                this.newName = newName;
-            }
-
-            static eval(venue, highlightOnly, state2L, newName, actions) {
-                let result = null;
-                if (!highlightOnly && state2L === 'TN') {
-                    if (newName.toLowerCase().trim() === 'pilot') {
-                        newName = 'Pilot Food Mart';
-                        addUpdateAction(venue, { name: newName }, actions);
-                    }
-                    if (newName.toLowerCase().trim() === 'pilot food mart') {
-                        result = new this(venue, newName);
-                    }
-                }
-                return result;
-            }
-
-            action() {
-                addUpdateAction(this.venue, { name: 'Pilot Travel Center' }, null, true);
-            }
-        },
-        HotelMkPrim: class extends WLActionFlag {
-            constructor(venue) {
-                super(
-                    true,
-                    _SEVERITY.RED,
-                    'Hotel category is not first',
-                    'Fix',
-                    'Make the Hotel category the primary category.',
-                    true,
-                    'Whitelist hotel as secondary category',
-                    'hotelMkPrim'
-                );
-                this.venue = venue;
-            }
-
-            action() {
-                // Insert/move Hotel category in the first position
-                const categories = insertAtIndex(this.venue.attributes.categories.slice(), 'HOTEL', 0);
-                addUpdateAction(this.venue, { categories }, null, true);
-            }
-        },
-        ChangeToPetVet: class extends WLActionFlag {
-            constructor(venue) {
-                super(
-                    true,
-                    _SEVERITY.RED,
-                    'Key words suggest this should be a Pet/Veterinarian category. Change?',
-                    'Yes',
-                    'Change to Pet/Veterinarian Category',
-                    true,
-                    'Whitelist Pet/Vet category',
-                    'changeHMC2PetVet'
-                );
-                this.venue = venue;
-                this.noLock = true;
-            }
-
-            static eval(venue, name, categories, wl) {
-                let result = null;
-                if (!wl.changeHMC2PetVet) {
-                    const testName = name.toLowerCase().replace(/[^a-z]/g, ' ');
-                    const testNameWords = testName.split(' ');
-                    if ((categories.includes('HOSPITAL_URGENT_CARE') || categories.includes('DOCTOR_CLINIC'))
-                        && (containsAny(testNameWords, _animalFullMatch) || _animalPartMatch.some(match => testName.includes(match)))) {
-                        result = new this(venue);
-                    }
-                }
-                return result;
-            }
-
             action() {
                 let updated = false;
-                let categories = _.uniq(this.venue.attributes.categories.slice());
+                let categories = _.uniq(this.args.venue.attributes.categories.slice());
                 categories.forEach((cat, idx) => {
-                    if (cat === 'HOSPITAL_URGENT_CARE' || cat === 'DOCTOR_CLINIC') {
-                        categories[idx] = 'PET_STORE_VETERINARIAN_SERVICES';
+                    if (cat === CAT.HOSPITAL_URGENT_CARE || cat === CAT.DOCTOR_CLINIC) {
+                        categories[idx] = CAT.PET_STORE_VETERINARIAN_SERVICES;
                         updated = true;
                     }
                 });
                 if (updated) {
                     categories = _.uniq(categories);
                 }
-                addUpdateAction(this.venue, { categories }, null, true);
+                addUpdateAction(this.args.venue, { categories }, null, true);
             }
         },
         NotASchool: class extends WLFlag {
-            constructor() {
-                super(
-                    true,
-                    _SEVERITY.RED,
-                    'Key words suggest this should not be School category.',
-                    true,
-                    'Whitelist School category',
-                    'changeSchool2Offices'
-                );
-                this.noLock = true;
-            }
+            static defaultSeverity = SEVERITY.RED;
+            static defaultMessage = 'Key words suggest this should not be School category.';
+            static WL_KEY = 'changeSchool2Offices';
+            static defaultWLTooltip = 'Whitelist School category';
 
-            static eval(name, categories, wl) {
-                let result = null;
-                if (!wl.changeSchool2Offices) {
-                    const testName = name.toLowerCase().replace(/[^a-z]/g, ' ');
+            static venueIsFlaggable(args) {
+                if (!this.isWhitelisted(args)) {
+                    const testName = args.nameBase.toLowerCase().replace(/[^a-z]/g, ' ');
                     const testNameWords = testName.split(' ');
 
-                    if (categories.includes('SCHOOL')
+                    if (args.categories.includes(CAT.SCHOOL)
                         && (containsAny(testNameWords, _schoolFullMatch) || _schoolPartMatch.some(match => testName.includes(match)))) {
-                        result = new this();
+                        return true;
                     }
                 }
-                return result;
+                return false;
             }
         },
         PointNotArea: class extends WLActionFlag {
-            constructor(venue) {
-                super(
-                    true,
-                    _SEVERITY.RED,
-                    'This category should be a point place.',
-                    'Change to point',
-                    'Change to point place',
-                    true,
-                    'Whitelist point (not area)',
-                    'pointNotArea'
-                );
-                this.venue = venue;
+            static defaultButtonText = 'Change to point';
+            static defaultButtonTooltip = 'Change to Point Place';
+            static WL_KEY = 'pointNotArea';
+            static defaultWLTooltip = 'Whitelist point (not area)';
+
+            get message() {
+                if (this.args.maxAreaSeverity === SEVERITY.RED) {
+                    return 'This category should be a point place.';
+                }
+                return 'This category is usually a point place, but can be an area in some cases. Verify if area is appropriate.';
+            }
+
+            constructor(args) {
+                let severity;
+                let showWL = true;
+
+                const makeGreen = Flag.PointNotArea.isWhitelisted(args)
+                    || args.venue.attributes.lockRank >= args.defaultLockLevel;
+
+                if (makeGreen) {
+                    showWL = false;
+                    severity = SEVERITY.GREEN;
+                } else {
+                    severity = args.maxAreaSeverity;
+                }
+
+                super();
+                this.showWL = showWL;
+                this.severity = severity;
+            }
+
+            static venueIsFlaggable(args) {
+                return !args.venue.isPoint()
+                    && (args.categories.includes(CAT.RESIDENCE_HOME) || (args.maxAreaSeverity > SEVERITY.BLUE && !args.categories.includes(CAT.REST_AREAS)));
             }
 
             action() {
-                if (this.venue.getCategories().includes('RESIDENCE_HOME')) {
+                if (this.args.venue.isResidential()) {
                     // 7/1/2022 - Not sure if this is necessary? Can residence be converted to area? Either way, updateFeatureGeometry function no longer works.
                     // const centroid = venue.geometry.getCentroid();
                     // updateFeatureGeometry(venue, new OpenLayers.Geometry.Point(centroid.x, centroid.y));
                 } else {
                     $('wz-checkable-chip.geometry-type-control-point').click();
                 }
-                harmonizePlaceGo(this.venue, 'harmonize'); // Rerun the script to update fields and lock
+                harmonizePlaceGo(this.args.venue, 'harmonize'); // Rerun the script to update fields and lock
             }
         },
         AreaNotPoint: class extends WLActionFlag {
-            constructor(venue) {
-                super(
-                    true,
-                    _SEVERITY.RED,
-                    'This category should be an area place.',
-                    'Change to area',
-                    'Change to Area',
-                    true,
-                    'Whitelist area (not point)',
-                    'areaNotPoint'
-                );
-                this.venue = venue;
+            static defaultButtonText = 'Change to area';
+            static defaultButtonTooltip = 'Change to Area Place';
+            static WL_KEY = 'areaNotPoint';
+            static defaultWLTooltip = 'Whitelist area (not point)';
+            static #collegeAbbrRegExps;
+
+            get message() {
+                if (this.args.maxPointSeverity === SEVERITY.RED) {
+                    return 'This category should be an area place.';
+                }
+                return 'This category is usually an area place, but can be a point in some cases. Verify if point is appropriate.';
+            }
+
+            constructor(args) {
+                let severity;
+                let showWL = true;
+
+                const makeGreen = Flag.AreaNotPoint.isWhitelisted(args)
+                    || args.venue.attributes.lockRank >= args.defaultLockLevel
+                    || (args.maxPointSeverity === SEVERITY.BLUE && Flag.AreaNotPoint.#hasCollegeInName(args.nameBase));
+
+                if (makeGreen) {
+                    showWL = false;
+                    severity = SEVERITY.GREEN;
+                } else {
+                    severity = args.maxPointSeverity;
+                }
+
+                super();
+                this.severity = severity;
+                this.showWL = showWL;
+            }
+
+            static venueIsFlaggable(args) {
+                return args.venue.isPoint()
+                    && (args.maxPointSeverity > SEVERITY.GREEN || args.categories.includes(CAT.REST_AREAS));
+            }
+
+            static #hasCollegeInName(name) {
+                if (!this.#collegeAbbrRegExps) {
+                    this.#collegeAbbrRegExps = COLLEGE_ABBREVIATIONS.map(abbr => new RegExp(`\\b${abbr}\\b`, 'g'));
+                }
+                return this.#collegeAbbrRegExps.some(re => re.test(name));
             }
 
             action() {
-                $('wz-checkable-chip.geometry-type-control-area').click();
-                // updateFeatureGeometry(venue, venue.getPolygonGeometry());
-                harmonizePlaceGo(this.venue, 'harmonize');
+                const { venue } = this.args;
+                W.model.actionManager.add(new UpdateFeatureGeometry(venue, venue.model.venues, venue.geometry, venue.getPolygonGeometry()));
+                harmonizePlaceGo(venue, 'harmonize');
             }
         },
         HnMissing: class extends WLActionFlag {
-            constructor(venue) {
-                super(
-                    true,
-                    _SEVERITY.RED,
-                    'No HN: <input type="text" id="WMEPH-HNAdd" autocomplete="off" style="font-size:0.85em;width:100px;padding-left:2px;color:#000;" > ',
-                    'Add',
-                    'Add HN to place',
-                    true,
-                    'Whitelist empty HN',
-                    'HNWL'
-                );
-                this.venue = venue;
-                this.noBannerAssemble = true;
-                this.badInput = false;
+            static defaultButtonText = 'Add';
+            static defaultButtonTooltip = 'Add HN to place';
+            static WL_KEY = 'HNWL';
+            static defaultWLTooltip = 'Whitelist empty HN';
+            static #CATEGORIES_TO_IGNORE = [CAT.BRIDGE, CAT.ISLAND, CAT.FOREST_GROVE, CAT.SEA_LAKE_POOL, CAT.RIVER_STREAM, CAT.CANAL,
+                CAT.DAM, CAT.TUNNEL, CAT.JUNCTION_INTERCHANGE];
+
+            static #TEXTBOX_ID = 'WMEPH-HNAdd';
+            noBannerAssemble = true;
+
+            get message() {
+                let msg = `No HN: <input type="text" id="${Flag.HnMissing.#TEXTBOX_ID}" autocomplete="off" `
+                + 'style="font-size:0.85em;width:100px;padding-left:2px;color:#000;" > ';
+
+                if (this.args.categories.includes(CAT.PARKING_LOT) && this.args.venue.attributes.lockRank < 2) {
+                    if (USER.rank < 3) {
+                        msg += 'Request an R3+ lock to confirm no HN.';
+                    } else {
+                        msg += 'Lock to R3+ to confirm no HN.';
+                    }
+                }
+                return msg;
+            }
+
+            constructor(args) {
+                let showWL = true;
+                let severity = SEVERITY.RED;
+                let noLock = false;
+                if (args.state2L === 'PR' || args.categories[0] === CAT.SCENIC_LOOKOUT_VIEWPOINT) {
+                    severity = SEVERITY.GREEN;
+                    showWL = false;
+                } else if (args.categories.includes(CAT.PARKING_LOT)) {
+                    showWL = false;
+                    if (args.venue.attributes.lockRank < 2) {
+                        noLock = true;
+                        severity = SEVERITY.BLUE;
+                    } else {
+                        severity = SEVERITY.GREEN;
+                    }
+                } else if (Flag.HnMissing.isWhitelisted(args)) {
+                    severity = SEVERITY.GREEN;
+                    showWL = false;
+                } else {
+                    noLock = true;
+                }
+
+                super();
+                this.severity = severity;
+                this.showWL = showWL;
+                this.noLock = noLock;
+            }
+
+            static venueIsFlaggable(args) {
+                return args.hasStreet
+                    && (!args.currentHN?.replace(/\D/g, ''))
+                    && !this.#CATEGORIES_TO_IGNORE.includes(args.categories[0])
+                    && !args.categories.includes(CAT.REST_AREAS);
+            }
+
+            static #getTextbox() {
+                return $(`#${Flag.HnMissing.#TEXTBOX_ID}`);
             }
 
             action() {
@@ -2712,88 +3006,147 @@
                 const hnTemp = newHN.replace(/[^\d]/g, '');
                 const hnTempDash = newHN.replace(/[^\d-]/g, '');
                 if (hnTemp > 0 && hnTemp < 1000000) {
-                    const action = new UpdateObject(this.venue, { houseNumber: hnTempDash });
+                    const action = new UpdateObject(this.args.venue, { houseNumber: hnTempDash });
                     action.wmephDescription = `Changed house # to: ${hnTempDash}`;
-                    harmonizePlaceGo(this.venue, 'harmonize', [action]); // Rerun the script to update fields and lock
-                    _UPDATED_FIELDS.address.updated = true;
+                    harmonizePlaceGo(this.args.venue, 'harmonize', [action]); // Rerun the script to update fields and lock
+                    UPDATED_FIELDS.address.updated = true;
                 } else {
-                    $('input#WMEPH-HNAdd').css({ backgroundColor: '#FDD' }).attr('title', 'Must be a number between 0 and 1000000');
-                    this.badInput = true;
+                    Flag.HnMissing.#getTextbox().css({ backgroundColor: '#FDD' }).attr('title', 'Must be a number between 0 and 1000000');
                 }
+            }
+
+            postProcess() {
+                // If pressing enter in the HN entry box, add the HN
+                const textbox = Flag.HnMissing.#getTextbox();
+                textbox.keyup(evt => {
+                    if (evt.keyCode === 13 && textbox.val()) {
+                        this.action();
+                    }
+                });
             }
         },
         HnTooManyDigits: class extends WLFlag {
-            constructor() {
-                super(true, _SEVERITY.YELLOW, 'HN contains more than 6 digits. Please verify.', true, 'Whitelist long HN', 'hnTooManyDigits');
-                this.noLock = true;
-            }
+            static defaultMessage = 'HN contains more than 6 digits. Please verify.';
+            static defaultSeverity = SEVERITY.YELLOW;
+            static WL_KEY = 'hnTooManyDigits';
+            static defaultWLTooltip = 'Whitelist long HN';
 
-            static eval(houseNumber, wl) {
-                let result = null;
-                if (!wl.hnTooManyDigits && houseNumber) {
-                    houseNumber = houseNumber.replace(/[^0-9]/g, '');
-                    if (houseNumber.length > 6) {
-                        result = new this();
-                    }
-                }
-                return result;
+            static venueIsFlaggable(args) {
+                return !this.isWhitelisted(args)
+                    && args.currentHN?.replace(/[^0-9]/g, '').length > 6;
             }
         },
-        // 2019-5-22 There's an issue in WME where it won't update the address displayed in the side panel
-        // when the underlying model is updated.  I changed to the code below for a while, but we've
-        // come up with a temporary fix using WW, so using the textbox entry should be OK now.
-        // HnMissing: class extends WLActionFlag {
-        //     constructor() { super(true, SEVERITY.RED, 'No HN:', 'Edit address', 'Edit address to add HN.'); }
-
-        //     // eslint-disable-next-line class-methods-use-this
-        //     action() {
-        //         $('.nav-tabs a[href="#venue-edit-general"]').trigger('click');
-        //         $('.venue .full-address').click();
-        //         $('input.house-number').focus();
-        //     }
-        // },
         // 2020-10-5 HN's with letters have been allowed since last year.  Currently, RPPs can be saved with a number
         // followed by up to 4 letters but it's not clear if the app actually searches if only 1, 2, or more letters
         // are present.  Other places can have a more flexible HN (up to 15 characters long, total. A single space between
         // the # and letters. Etc)
         // HnNonStandard: class extends WLFlag {
         //     constructor() {
-        //         super(true, SEVERITY.RED, 'House number is non-standard.', true,
+        //         super(SEVERITY.RED, 'House number is non-standard.', true,
         //             'Whitelist non-standard HN', 'hnNonStandard');
         //     }
+        //
+        // BELOW IS COPIED FROM harmonizePlaceGo function. To be included in HN flags if enabled again.
+        // 2020-10-5 Disabling HN validity checks for now. See the note on the HnNonStandard flag object for more details.
+        // if (hasStreet && (!currentHN || currentHN.replace(/\D/g, '').length === 0)) {
+
+        // } else if (currentHN) {
+        //     let hnOK = false;
+        //     let updateHNflag = false;
+        //     const hnTemp = currentHN.replace(/[^\d]/g, ''); // Digits only
+        //     const hnTempDash = currentHN.replace(/[^\d-]/g, ''); // Digits and dashes only
+        //     if (hnTemp < 1000000 && state2L === 'NY' && addr.city.attributes.name === 'Queens' && hnTempDash.match(/^\d{1,4}-\d{1,4}$/g) !== null) {
+        //         updateHNflag = true;
+        //         // hnOK = true;
+        //     }
+        //     if (hnTemp === currentHN && hnTemp < 1000000) { //  general check that HN is 6 digits or less, & that it is only [0-9]
+        //         hnOK = true;
+        //     }
+        //     if (state2L === 'HI' && hnTempDash.match(/^\d{1,2}-\d{1,4}$/g) !== null) {
+        //         if (hnTempDash === hnTempDash.match(/^\d{1,2}-\d{1,4}$/g)[0]) {
+        //             hnOK = true;
+        //         }
+        //     }
+
+        //     if (!hnOK) {
+        //         _buttonBanner.hnNonStandard = new Flag.HnNonStandard();
+        //         if (_wl.hnNonStandard) {
+        //             _buttonBanner.hnNonStandard.WLactive = false;
+        //             _buttonBanner.hnNonStandard.severity = SEVERITY.GREEN;
+        //         } else {
+        //             lockOK = false;
+        //         }
+        //     }
+        //     if (updateHNflag) {
+        //         _buttonBanner.hnDashRemoved = new Flag.HnDashRemoved();
+        //         if (!highlightOnly) {
+        //             actions.push(new UpdateObject(venue, { houseNumber: hnTemp }));
+        //             _UPDATED_FIELDS.address.updated = true;
+        //         } else if (highlightOnly) {
+        //             if (venue.attributes.residential) {
+        //                 _buttonBanner.hnDashRemoved.severity = SEVERITY.RED;
+        //             } else {
+        //                 _buttonBanner.hnDashRemoved.severity = SEVERITY.BLUE;
+        //             }
+        //         }
+        //     }
+        // }
+        //
         // },
         HNRange: class extends WLFlag {
-            constructor() {
-                super(
-                    true,
-                    _SEVERITY.YELLOW,
-                    'House number seems out of range for the street name. Verify.',
-                    true,
-                    'Whitelist HN range',
-                    'HNRange'
-                );
+            static defaultMessage = 'House number seems out of range for the street name. Verify.';
+            static defaultSeverity = SEVERITY.YELLOW;
+            static WL_KEY = 'HNRange';
+            static defaultWLTooltip = 'Whitelist HN range';
+
+            static venueIsFlaggable(args) {
+                if (!this.isWhitelisted(args) && _dupeHNRangeList.length > 3) {
+                    let dhnix;
+                    const dupeHNRangeListSorted = [];
+                    sortWithIndex(_dupeHNRangeDistList);
+                    for (dhnix = 0; dhnix < _dupeHNRangeList.length; dhnix++) {
+                        dupeHNRangeListSorted.push(_dupeHNRangeList[_dupeHNRangeDistList.sortIndices[dhnix]]);
+                    }
+                    // Calculate HN/distance ratio with other venues
+                    // var sumHNRatio = 0;
+                    const arrayHNRatio = [];
+                    for (dhnix = 0; dhnix < dupeHNRangeListSorted.length; dhnix++) {
+                        arrayHNRatio.push(Math.abs((parseInt(args.currentHN, 10) - dupeHNRangeListSorted[dhnix]) / _dupeHNRangeDistList[dhnix]));
+                    }
+                    sortWithIndex(arrayHNRatio);
+                    // Examine either the median or the 8th index if length is >16
+                    const arrayHNRatioCheckIX = Math.min(Math.round(arrayHNRatio.length / 2), 8);
+                    if (arrayHNRatio[arrayHNRatioCheckIX] > 1.4) {
+                        // show stats if HN out of range
+                        logDev(`HNs: ${dupeHNRangeListSorted}`);
+                        logDev(`Distances: ${_dupeHNRangeDistList}`);
+                        logDev(`arrayHNRatio: ${arrayHNRatio}`);
+                        logDev(`HN Ratio Score: ${arrayHNRatio[Math.round(arrayHNRatio.length / 2)]}`);
+                        return true;
+                    }
+                }
+                return false;
             }
         },
         StreetMissing: class extends ActionFlag {
-            constructor(primaryCategory) {
-                super(true, _SEVERITY.RED, 'No street:', 'Edit address', 'Edit address to add street.');
-                if (['SCENIC_LOOKOUT_VIEWPOINT'].includes(primaryCategory)) {
-                    this.severity = _SEVERITY.BLUE;
-                } else {
-                    this.noLock = true;
+            static defaultSeverity = SEVERITY.RED;
+            static defaultMessage = 'No street:';
+            static defaultButtonText = 'Edit address';
+            static defaultButtonTooltip = 'Edit address to add street.';
+
+            constructor(args) {
+                super();
+                if (args.categories[0] === CAT.SCENIC_LOOKOUT_VIEWPOINT) {
+                    this.severity = SEVERITY.BLUE;
                 }
             }
 
-            static #venueIsFlaggable(venue, addr) {
-                return addr.city
-                    && (!addr.street || addr.street.isEmpty)
-                    && !['BRIDGE', 'ISLAND', 'FOREST_GROVE', 'SEA_LAKE_POOL', 'RIVER_STREAM', 'CANAL',
-                        'DAM', 'TUNNEL', 'JUNCTION_INTERCHANGE'].includes(venue.attributes.categories[0])
-                    && !venue.attributes.categories.includes('REST_AREAS');
-            }
-
-            static eval(venue, addr) {
-                return this.#venueIsFlaggable(venue, addr) ? new this(venue.attributes.categories[0]) : null;
+            static venueIsFlaggable(args) {
+                return args.addr.city
+                    && (!args.addr.street || args.addr.street.isEmpty)
+                    && ![CAT.BRIDGE, CAT.ISLAND, CAT.FOREST_GROVE, CAT.SEA_LAKE_POOL, CAT.RIVER_STREAM, CAT.CANAL,
+                        CAT.DAM, CAT.TUNNEL, CAT.JUNCTION_INTERCHANGE].includes(args.categories[0])
+                    && !args.categories.includes(CAT.REST_AREAS);
             }
 
             // eslint-disable-next-line class-methods-use-this
@@ -2815,23 +3168,23 @@
             }
         },
         CityMissing: class extends ActionFlag {
-            constructor(isResidential, highlightOnly) {
-                super(true, _SEVERITY.RED, 'No city:', 'Edit address', 'Edit address to add city.');
-                this.noLock = true;
-                if (isResidential && highlightOnly) {
-                    this.severity = _SEVERITY.BLUE;
+            static defaultSeverity = SEVERITY.RED;
+            static defaultMessage = 'No city:';
+            static defaultButtonText = 'Edit address';
+            static defaultButtonTooltip = 'Edit address to add city.';
+
+            constructor(args) {
+                super();
+                if (args.categories.includes(CAT.RESIDENCE_HOME) && args.highlightOnly) {
+                    this.severity = SEVERITY.BLUE;
                 }
             }
 
-            static #venueIsFlaggable(venue, addr) {
-                return (!addr.city || addr.city.attributes.isEmpty)
-                    && !['BRIDGE', 'ISLAND', 'FOREST_GROVE', 'SEA_LAKE_POOL', 'RIVER_STREAM', 'CANAL',
-                        'DAM', 'TUNNEL', 'JUNCTION_INTERCHANGE'].includes(venue.attributes.categories[0])
-                    && !venue.attributes.categories.includes('REST_AREAS');
-            }
-
-            static eval(venue, addr, highlightOnly) {
-                return this.#venueIsFlaggable(venue, addr) ? new this(venue.attributes.residential, highlightOnly) : null;
+            static venueIsFlaggable(args) {
+                return (!args.addr.city || args.addr.city.attributes.isEmpty)
+                    && ![CAT.BRIDGE, CAT.ISLAND, CAT.FOREST_GROVE, CAT.SEA_LAKE_POOL, CAT.RIVER_STREAM, CAT.CANAL,
+                        CAT.DAM, CAT.TUNNEL, CAT.JUNCTION_INTERCHANGE].includes(args.categories[0])
+                    && !args.categories.includes(CAT.REST_AREAS);
             }
 
             // eslint-disable-next-line class-methods-use-this
@@ -2855,74 +3208,135 @@
             }
         },
         BankType1: class extends FlagBase {
-            constructor() { super(true, _SEVERITY.RED, 'Clarify the type of bank: the name has ATM but the primary category is Offices'); }
+            static defaultSeverity = SEVERITY.RED;
+            static defaultMessage = 'Clarify the type of bank: the name has ATM but the primary category is Offices';
+
+            static venueIsFlaggable(args) {
+                return (!args.pnhNameRegMatch || (args.pnhNameRegMatch && args.priPNHPlaceCat === CAT.BANK_FINANCIAL && !args.pnhMatchData[args.phSpecCaseIdx].includes('notABank')))
+                    && args.categories[0] === CAT.OFFICES
+                    && /\batm\b/i.test(name);
+            }
         },
         // TODO: Fix if the name has "(ATM)" or " - ATM" or similar. This flag is not currently catching those.
         BankBranch: class extends ActionFlag {
-            constructor(venue) {
-                super(true, _SEVERITY.BLUE, 'Is this a bank branch office? ', 'Yes', 'Is this a bank branch?');
-                this.venue = venue;
+            static defaultSeverity = SEVERITY.BLUE;
+            static defaultMessage = 'Is this a bank branch office? ';
+            static defaultButtonText = 'Yes';
+            static defaultButtonTooltip = 'Is this a bank branch?';
+
+            static venueIsFlaggable(args) {
+                let flaggable = false;
+                if (!args.priPNHPlaceCat || (args.priPNHPlaceCat === CAT.BANK_FINANCIAL && !args.pnhMatchData[args.phSpecCaseIdx].includes('notABank'))) {
+                    const ixBank = args.categories.indexOf(CAT.BANK_FINANCIAL);
+                    const ixATM = args.categories.indexOf(CAT.ATM);
+                    const ixOffices = args.categories.indexOf(CAT.OFFICES);
+
+                    if (/\batm\b/ig.test(args.nameBase)) {
+                        flaggable = ixOffices === 0
+                            || (ixBank === -1 && ixATM === -1)
+                            || (ixATM === 0 && ixBank > 0)
+                            || (ixBank > -1);
+                    } else if (ixBank > -1 || ixATM > -1) {
+                        flaggable = ixOffices === 0
+                            || (ixATM === 0 && ixBank === -1)
+                            || (ixBank > 0 && ixATM > 0);
+                    } else if (args.priPNHPlaceCat) {
+                        flaggable = ixBank === -1 && !(/\bcorporate offices\b/i.test(args.nameSuffix) && ixOffices === 0);
+                    }
+                }
+                return flaggable;
             }
 
             action() {
                 const newAttributes = {};
 
-                const originalCategories = this.venue.getCategories();
-                const newCategories = insertAtIndex(originalCategories, ['BANK_FINANCIAL', 'ATM'], 0); // Change to bank and atm cats
+                const originalCategories = this.args.venue.getCategories();
+                const newCategories = insertAtIndex(originalCategories, [CAT.BANK_FINANCIAL, CAT.ATM], 0); // Change to bank and atm cats
                 if (!arraysAreEqual(originalCategories, newCategories)) {
                     newAttributes.categories = newCategories;
                 }
 
                 // strip ATM from name if present
-                const originalName = this.venue.getName();
+                const originalName = this.args.venue.getName();
                 const newName = originalName.replace(/[- (]*ATM[- )]*/ig, ' ').replace(/^ /g, '').replace(/ $/g, '');
                 if (originalName !== newName) {
                     newAttributes.name = newName;
-                    _UPDATED_FIELDS.name.updated = true;
                 }
 
-                addUpdateAction(this.venue, newAttributes, null, true);
+                addUpdateAction(this.args.venue, newAttributes, null, true);
             }
         },
         StandaloneATM: class extends ActionFlag {
-            constructor(venue) {
-                super(true, _SEVERITY.YELLOW, 'Or is this a standalone ATM? ', 'Yes', 'Is this a standalone ATM with no bank branch?');
-                this.venue = venue;
+            static defaultSeverity = SEVERITY.YELLOW;
+            static defaultMessage = 'Or is this a standalone ATM? ';
+            static defaultButtonText = 'Yes';
+            static defaultButtonTooltip = 'Is this a standalone ATM with no bank branch?';
+
+            static venueIsFlaggable(args) {
+                let flaggable = false;
+                if (!args.priPNHPlaceCat || (args.priPNHPlaceCat === CAT.BANK_FINANCIAL && !args.pnhMatchData[args.phSpecCaseIdx].includes('notABank'))) {
+                    const ixBank = args.categories.indexOf(CAT.BANK_FINANCIAL);
+                    const ixATM = args.categories.indexOf(CAT.ATM);
+                    const ixOffices = args.categories.indexOf(CAT.OFFICES);
+
+                    if (/\batm\b/ig.test(args.nameBase)) {
+                        flaggable = ixOffices === 0
+                            || (ixBank === -1 && ixATM === -1)
+                            || (ixBank > -1);
+                    } else if (ixBank > -1 || ixATM > -1) {
+                        flaggable = ixOffices === 0
+                            || (ixATM === 0 && ixBank === -1)
+                            || (ixBank > 0 && ixATM > 0);
+                    } else {
+                        flaggable = args.priPNHPlaceCat && !(/\bcorporate offices\b/i.test(args.nameSuffix) && ixOffices === 0);
+                    }
+                }
+                return flaggable;
             }
 
             action() {
                 const newAttributes = {};
 
-                const originalName = this.venue.getName();
+                const originalName = this.args.venue.getName();
                 if (!/\bATM\b/i.test(originalName)) {
                     newAttributes.name = `${originalName} ATM`;
-                    _UPDATED_FIELDS.name.updated = true;
                 }
 
-                const atmCategory = ['ATM'];
-                if (!arraysAreEqual(this.venue.getCategories(), atmCategory)) {
+                const atmCategory = [CAT.ATM];
+                if (!arraysAreEqual(this.args.venue.getCategories(), atmCategory)) {
                     newAttributes.categories = atmCategory; // Change to ATM only
                 }
 
-                addUpdateAction(this.venue, newAttributes, null, true);
+                addUpdateAction(this.args.venue, newAttributes, null, true);
             }
         },
         BankCorporate: class extends ActionFlag {
-            constructor(venue) {
-                super(true, _SEVERITY.BLUE, 'Or is this the bank\'s corporate offices?', 'Yes', 'Is this the bank\'s corporate offices?');
-                this.venue = venue;
+            static defaultSeverity = SEVERITY.BLUE;
+            static defaultMessage = 'Or is this the bank\'s corporate offices?';
+            static defaultButtonText = 'Yes';
+            static defaultButtonTooltip = 'Is this the bank\'s corporate offices?';
+
+            static venueIsFlaggable(args) {
+                let flaggable = false;
+                if (!args.priPNHPlaceCat) {
+                    flaggable = (/\batm\b/ig.test(args.nameBase) && args.categories.indexOf(CAT.OFFICES) === 0);
+                } else if (args.priPNHPlaceCat === CAT.BANK_FINANCIAL && !args.pnhMatchData[args.phSpecCaseIdx].includes('notABank')) {
+                    flaggable = !containsAny(args.categories, [CAT.BANK_FINANCIAL, CAT.ATM])
+                        && !/\bcorporate offices\b/i.test(args.nameSuffix);
+                }
+                return flaggable;
             }
 
             action() {
                 const newAttributes = {};
 
-                const officesCategory = ['OFFICES'];
-                if (!arraysAreEqual(this.venue.getCategories(), officesCategory)) {
+                const officesCategory = [CAT.OFFICES];
+                if (!arraysAreEqual(this.args.venue.getCategories(), officesCategory)) {
                     newAttributes.categories = officesCategory;
                 }
 
                 // strip ATM from name if present
-                const originalName = this.venue.getName();
+                const originalName = this.args.venue.getName();
                 let newName = originalName
                     .replace(/[- (]*atm[- )]*/ig, ' ')
                     .replace(/^ /g, '')
@@ -2933,426 +3347,421 @@
                 if (!newName.endsWith(suffix)) newName += suffix;
                 if (originalName !== newName) {
                     newAttributes.name = newName;
-                    _UPDATED_FIELDS.name.updated = true;
                 }
 
-                addUpdateAction(this.venue, newAttributes, null, true);
+                addUpdateAction(this.args.venue, newAttributes, null, true);
             }
         },
         CatPostOffice: class extends FlagBase {
-            constructor() {
-                super(
-                    true,
-                    _SEVERITY.GREEN,
-                    `The Post Office category is reserved for certain USPS locations. Please be sure to follow <a href="${
-                        _URLS.uspsWiki}" style="color:#3a3a3a;" target="_blank">the guidelines</a>.`
-                );
+            static defaultMessage = `The Post Office category is reserved for certain USPS locations. Please be sure to follow <a href="${
+                URLS.uspsWiki}" style="color:#3a3a3a;" target="_blank">the guidelines</a>.`;
+
+            static venueIsFlaggable(args) {
+                return !args.highlightOnly && args.isUspsPostOffice;
             }
         },
         IgnEdited: class extends FlagBase {
-            constructor() { super(true, _SEVERITY.YELLOW, 'Last edited by an IGN editor'); }
+            static defaultSeverity = SEVERITY.YELLOW;
+            static defaultMessage = 'Last edited by an IGN editor';
+
+            static venueIsFlaggable(args) {
+                let updatedBy;
+                return !args.categories.includes(CAT.RESIDENCE_HOME)
+                    && (updatedBy = args.venue.attributes.updatedBy)
+                    && /^ign_/i.test(W.model.users.getObjectById(updatedBy)?.userName);
+            }
         },
         WazeBot: class extends ActionFlag {
-            constructor(venue) {
-                super(
-                    true,
-                    _SEVERITY.YELLOW,
-                    'Edited last by an automated process. Please verify information is correct.',
-                    'Nudge',
-                    'If no other properties need to be updated, click to nudge the place (force an edit).'
-                );
-                this.venue = venue;
+            static defaultSeverity = SEVERITY.YELLOW;
+            static defaultMessage = 'Edited last by an automated process. Please verify information is correct.';
+            static defaultButtonText = 'Nudge';
+            static defaultButtonTooltip = 'If no other properties need to be updated, click to nudge the place (force an edit).';
+            static #botIds = [105774162, 361008095, 338475699, -1, 107668852];
+            static #botNames = [/^waze-maint/i, /^waze3rdparty$/i, /^WazeParking1$/i, /^admin$/i, /^avsus$/i];
+
+            static venueIsFlaggable(args) {
+                let flaggable = args.venue.isUnchanged() && !args.categories.includes(CAT.RESIDENCE_HOME);
+                if (flaggable) {
+                    const lastUpdatedById = args.venue.attributes.updatedBy ?? args.venue.attributes.createdBy;
+                    flaggable = this.#botIds.includes(lastUpdatedById);
+                    if (!flaggable) {
+                        const lastUpdatedByName = W.model.users.getObjectById(lastUpdatedById)?.userName;
+                        flaggable = (this.#botNames.some(botName => botName.test(lastUpdatedByName)));
+                    }
+                }
+                return flaggable;
             }
 
             action() {
-                nudgeVenue(this.venue);
-                harmonizePlaceGo(this.venue, 'harmonize');
+                nudgeVenue(this.args.venue);
+                harmonizePlaceGo(this.args.venue, 'harmonize');
             }
         },
         ParentCategory: class extends WLFlag {
-            constructor() {
-                super(
-                    true,
-                    _SEVERITY.YELLOW,
-                    'This parent category is usually not mapped in this region.',
-                    true,
-                    'Whitelist parent Category',
-                    'parentCategory'
-                );
+            static defaultSeverity = SEVERITY.YELLOW;
+            static WL_KEY = 'parentCategory';
+            static defaultWLTooltip = 'Whitelist parent Category';
+
+            get message() {
+                let msg;
+                const badCatInfos = this.args.categories
+                    .filter(category => Flag.ParentCategory.categoryIsDisallowedParent(category, this.args))
+                    .map(category => this.args.pnhCategoryInfos.getById(category));
+                if (badCatInfos.length === 1) {
+                    msg = `The <b>${badCatInfos[0].name}</b> parent category is usually not mapped in this region.`;
+                } else {
+                    msg = 'These parent categories are usually not mapped in this region: ';
+                    msg += badCatInfos.map(catInfo => `<b>${catInfo.name}</b>`).join(', ');
+                }
+                return msg;
+            }
+
+            static categoryIsDisallowedParent(category, args) {
+                const pnhCategoryInfo = args.pnhCategoryInfos.getById(category);
+                const localities = pnhCategoryInfo.disallowedParent;
+                return localities.includes(args.state2L) || localities.includes(args.region) || localities.includes(args.countryCode);
+            }
+
+            static venueIsFlaggable(args) {
+                return args.categories.some(category => this.categoryIsDisallowedParent(category, args));
             }
         },
         CheckDescription: class extends FlagBase {
-            constructor() {
-                super(
-                    true,
-                    _SEVERITY.YELLOW,
-                    'Description field already contained info; PNH description was added in front of existing. Check for inconsistency or duplicate info.'
-                );
+            static defaultSeverity = SEVERITY.YELLOW;
+            static defaultMessage = 'Description field already contained info; PNH description was added in front of existing. Check for inconsistency or duplicate info.';
+
+            static venueIsFlaggable(args) {
+                return args.descriptionInserted;
             }
         },
         Overlapping: class extends FlagBase {
-            constructor() { super(true, _SEVERITY.YELLOW, 'Place points are stacked up.'); }
+            static defaultSeverity = SEVERITY.YELLOW;
+            static defaultMessage = 'Place points are stacked up.';
         },
         SuspectDesc: class extends WLFlag {
-            constructor() { super(true, _SEVERITY.YELLOW, 'Description field might contain copyrighted info.', true, 'Whitelist description', 'suspectDesc'); }
+            static defaultSeverity = SEVERITY.YELLOW;
+            static defaultMessage = 'Description field might contain copyrighted info.';
+            static WL_KEY = 'suspectDesc';
+            static defaultWLTooltip = 'Whitelist description';
+
+            static venueIsFlaggable(args) {
+                return !args.venue.isResidential()
+                    && args.totalSeverity < SEVERITY.RED
+                    && !this.isWhitelisted(args)
+                    && /(google|yelp)/i.test(args.description);
+            }
         },
         ResiTypeName: class extends WLFlag {
-            constructor() {
-                super(
-                    true,
-                    _SEVERITY.YELLOW,
-                    'The place name suggests a residential place or personalized place of work.  Please verify.',
-                    true,
-                    'Whitelist Residential-type name',
-                    'resiTypeName'
-                );
+            static defaultMessage = 'The place name suggests a residential place or personalized place of work.  Please verify.';
+            static WL_KEY = 'resiTypeName';
+            static defaultWLTooltip = 'Whitelist Residential-type name';
+
+            constructor(likelyResidential) {
+                super();
+                if (likelyResidential) this.severity = SEVERITY.YELLOW;
+            }
+
+            // TODO: make this a public method and pass the result to args so args can be passed into vanueIsFlaggable
+            static #likelyResidentialName(alphaName) {
+                return /^((my|mi|moms|dads)?\s*(home|work|office|casa|house))|(mom|dad)$/i.test(alphaName);
+            }
+
+            static #possiblyResidentialName(alphaName, categories) {
+                return /('?s|my)\s+(house|home|work)/i.test(alphaName)
+                    && !containsAny(categories, [CAT.RESTAURANT, CAT.DESSERT, CAT.BAR]);
+            }
+
+            static #isPreflaggable(args) {
+                return !args.categories.includes(CAT.RESIDENCE_HOME)
+                    && !args.pnhNameRegMatch
+                    && !this.isWhitelisted(args)
+                    && args.totalSeverity < SEVERITY.RED;
+            }
+
+            // TODO
+            static #venueIsFlaggable(preflaggable, likelyResidential, alphaName, categories) {
+                return preflaggable
+                    && (likelyResidential || this.#possiblyResidentialName(alphaName, categories));
+            }
+
+            static eval(args) {
+                const preflaggable = this.#isPreflaggable(args);
+                if (preflaggable) {
+                    const alphaName = name.replace(/[^A-Z ]/i, ''); // remove non-alpha characters
+                    const likelyResidential = this.#likelyResidentialName(alphaName);
+                    if (this.#venueIsFlaggable(preflaggable, likelyResidential, alphaName, args.categories)) return new this(likelyResidential);
+                }
+                return null;
             }
         },
         Mismatch247: class extends FlagBase {
-            constructor() { super(true, _SEVERITY.YELLOW, 'Hours of operation listed as open 24hrs but not for all 7 days.'); }
+            static defaultSeverity = SEVERITY.YELLOW;
+            static defaultMessage = 'Hours of operation listed as open 24hrs but not for all 7 days.';
 
-            static #venueIsFlaggable(venue) {
-                if (venue.attributes.openingHours.length === 1) { // if one set of hours exist, check for partial 24hrs setting
-                    const hoursEntry = venue.attributes.openingHours[0];
-                    if (hoursEntry.days.length < 7 && /^0?0:00$/.test(hoursEntry.fromHour)
-                        && (/^0?0:00$/.test(hoursEntry.toHour) || hoursEntry.toHour === '23:59')) {
-                        return true;
-                    }
-                }
-                return false;
-            }
-
-            static eval(venue) {
-                return this.#venueIsFlaggable(venue) ? new this() : null;
+            static venueIsFlaggable(args) {
+                return args.openingHours.length === 1
+                    && args.openingHours[0].days.length < 7
+                    && /^0?0:00$/.test(args.openingHours[0].fromHour)
+                    && (/^0?0:00$/.test(args.openingHours[0].toHour) || args.openingHours[0].toHour === '23:59');
             }
         },
         PhoneInvalid: class extends FlagBase {
-            constructor() { super(true, _SEVERITY.YELLOW, 'Phone # is invalid.'); }
+            static defaultSeverity = SEVERITY.YELLOW;
+            static defaultMessage = 'Phone # is invalid.';
 
-            static eval(phone) {
-                let result = null;
-                if (phone === 'badPhone') {
-                    result = new this();
-                }
-                return result;
+            static venueIsFlaggable(args) {
+                if (!args.phone) return false;
+                const normalizedPhone = normalizePhone(args.phone, args.outputPhoneFormat);
+                return (args.highlightOnly && normalizedPhone !== args.phone)
+                    || (!args.highlightOnly && normalizedPhone === BAD_PHONE);
             }
         },
-        AreaNotPointMid: class extends WLFlag {
-            constructor() {
-                super(
-                    true,
-                    _SEVERITY.YELLOW,
-                    'This category is usually an area place, but can be a point in some cases. Verify if point is appropriate.',
-                    true,
-                    'Whitelist area (not point)',
-                    'areaNotPoint'
-                );
-            }
-        },
-        PointNotAreaMid: class extends WLFlag {
-            constructor() {
-                super(
-                    true,
-                    _SEVERITY.YELLOW,
-                    'This category is usually a point place, but can be an area in some cases. Verify if area is appropriate.',
-                    true,
-                    'Whitelist point (not area)',
-                    'pointNotArea'
-                );
-            }
-        },
-        LongURL: class extends WLActionFlag {
-            constructor(venue, placePL) {
-                super(
-                    true,
-                    _SEVERITY.BLUE,
-                    'Existing URL doesn\'t match the suggested PNH URL. Use the Website button below to verify that existing URL is valid.  If not:',
-                    'Use PNH URL',
-                    'Change URL to the PNH standard',
-                    true,
-                    'Whitelist existing URL',
-                    'longURL'
-                );
-                this.venue = venue;
-                this.placePL = placePL;
+        UrlMismatch: class extends WLActionFlag {
+            static defaultSeverity = SEVERITY.BLUE;
+            static defaultMessage = 'Existing URL doesn\'t match the suggested PNH URL. Use the Website button below to verify the existing URL is valid. If not:';
+            static defaultButtonText = 'Use PNH URL';
+            static defaultButtonTooltip = 'Change URL to the PNH standard';
+            static WL_KEY = 'longURL';
+            static defaultWLTooltip = 'Whitelist existing URL';
+
+            static venueIsFlaggable(args) {
+                // for cases where there is an existing URL in the WME place, and there is a PNH url on queue:
+                return !isNullOrWhitespace(args.url)
+                    && !isNullOrWhitespace(args.pnhUrl)
+                    && args.url !== args.pnhUrl
+                    && args.pnhUrl !== BAD_URL;
             }
 
             action() {
-                if (!isNullOrWhitespace(_tempPNHURL)) {
-                    addUpdateAction(this.venue, { url: _tempPNHURL }, null, true);
-                    _updateURL = true;
-                    // // if the category doesn't translate, then pop an alert that will make a forum post to the thread
-                    // reportError({
-                    //     subject: 'WMEPH URL comparison Error report',
-                    //     message: `Error report: URL comparison failed for "${venue.attributes.name}"\nPermalink: ${this.placePL}`
-                    // });
+                if (!isNullOrWhitespace(this.args.pnhUrl)) {
+                    addUpdateAction(this.args.venue, { url: this.args.pnhUrl }, null, true);
                 } else {
                     WazeWrap.Alerts.confirm(
-                        _SCRIPT_NAME,
-                        'WMEPH: URL Matching Error!<br>Click OK to report this error',
-                        () => {
-                            reportError({
-                                subject: 'WMEPH URL comparison Error report',
-                                message: `Error report: URL comparison failed for "${this.venue.getName()}"\nPermalink: ${this.placePL}`
-                            });
-                        },
+                        SCRIPT_NAME,
+                        'URL Matching Error!<br>Click OK to report this error',
+                        () => { reportError(); },
                         () => { }
                     );
                 }
             }
         },
         GasNoBrand: class extends FlagBase {
-            constructor(levelToLock) {
-                super(true, _SEVERITY.BLUE, `Lock to L${levelToLock + 1}+ to verify no gas brand.`);
+            static defaultSeverity = SEVERITY.BLUE;
+
+            get message() { return `Lock to L${this.args.levelToLock + 1}+ to verify no gas brand.`; }
+
+            constructor() {
+                super();
                 this.noLock = true;
             }
 
-            static eval(venue, brand, levelToLock) {
+            static venueIsFlaggable(args) {
                 // If gas station is missing brand, don't flag if place is locked as high as user can lock it.
-                let result = null;
-                if (venue.isGasStation() && !brand && venue.attributes.lockRank < levelToLock) {
-                    result = new this(levelToLock);
-                }
-                return result;
+                return args.categories.includes(CAT.GAS_STATION)
+                    && !args.brand
+                    && args.venue.attributes.lockRank < args.levelToLock;
             }
         },
         SubFuel: class extends WLFlag {
-            constructor() {
-                super(
-                    true,
-                    _SEVERITY.BLUE,
-                    'Make sure this place is for the gas station itself and not the main store building.  Otherwise undo and check the categories.',
-                    true,
-                    'Whitelist no gas brand',
-                    'subFuel'
-                );
+            static defaultSeverity = SEVERITY.BLUE;
+            static defaultMessage = 'Make sure this place is for the gas station itself and not the main store building. Otherwise undo and check the categories.';
+            static WL_KEY = 'subFuel';
+            static defaultWLTooltip = 'Whitelist no gas brand';
+
+            static venueIsFlaggable(args) {
+                return !this.isWhitelisted(args)
+                    && args.pnhMatchData[args.phSpecCaseIdx] === 'subFuel'
+                    && !/\bgas\b/i.test(args.nameBase)
+                    && !/\bfueld\b/i.test(args.nameBase);
             }
         },
         AddCommonEVPaymentMethods: class extends WLActionFlag {
-            // TODO: Instead of passing WL key to super, add a public getter for WL key in all child WLFlag classes. Getter returns a static WL key member.
-            // Parent class can then reference that. e.g. for "isWhitelisted()" function.
-            static whitelistKey = 'addCommonEVPaymentMethods';
-            constructor(venue, missingPaymentMethods, highlightOnly) {
-                const stationAttr = venue.attributes.categoryAttributes.CHARGING_STATION;
-                super(
-                    true,
-                    _SEVERITY.BLUE,
-                    `These common payment methods for the ${stationAttr.network} network are missing. Verify if they are needed here:`,
-                    'Add network payment methods',
-                    'Please verify first! If any are not needed, click the WL button and manually add any needed payment methods.',
-                    true,
-                    'Whitelist common EV payment types',
-                    Flag.AddCommonEVPaymentMethods.whitelistKey
-                );
+            static defaultSeverity = SEVERITY.BLUE;
+            static defaultButtonText = 'Add network payment methods';
+            static defaultButtonTooltip = 'Please verify first! If any are not needed, click the WL button and manually add any needed payment methods.';
+            static WL_KEY = 'addCommonEVPaymentMethods';
+            static defaultWLTooltip = 'Whitelist common EV payment types';
 
-                if (!highlightOnly) {
-                    this.venue = venue;
-                    // Store a copy of the network to check if it has changed in the action() function
-                    this.originalNetwork = stationAttr.network;
-                    const translations = I18n.translations[I18n.locale].edit.venue.category_attributes.payment_methods;
-                    const missingPaymentMethodsList = missingPaymentMethods.map(method => `- ${translations[method]}`).join('<br>');
-                    this.message += `<br>${missingPaymentMethodsList}<br>`;
-                }
+            get message() {
+                const stationAttr = this.args.venue.attributes.categoryAttributes.CHARGING_STATION;
+                const { network } = stationAttr;
+                let msg = `These common payment methods for the ${network} network are missing. Verify if they are needed here:`;
+                this.originalNetwork = stationAttr.network;
+                const translations = I18n.translations[I18n.locale].edit.venue.category_attributes.payment_methods;
+                const list = COMMON_EV_PAYMENT_METHODS[network]
+                    .filter(method => !stationAttr.paymentMethods?.includes(method))
+                    .map(method => `- ${translations[method]}`).join('<br>');
+                msg += `<br>${list}<br>`;
+                return msg;
             }
 
-            static eval(venue, highlightOnly, wl) {
-                let result = null;
-                if (venue.isChargingStation() && !wl[this.whitelistKey]) {
-                    const stationAttr = venue.attributes.categoryAttributes.CHARGING_STATION;
+            static venueIsFlaggable(args) {
+                if (args.categories.includes(CAT.CHARGING_STATION) && !this.isWhitelisted(args)) {
+                    const stationAttr = args.venue.attributes.categoryAttributes.CHARGING_STATION;
                     const network = stationAttr?.network;
-                    if (network && COMMON_EV_PAYMENT_METHODS.hasOwnProperty(network)) {
-                        const missingMethods = COMMON_EV_PAYMENT_METHODS[network].filter(method => !stationAttr.paymentMethods?.includes(method));
-                        if (missingMethods.length) {
-                            result = new this(venue, missingMethods, highlightOnly);
-                        }
-                    }
+                    return !!(COMMON_EV_PAYMENT_METHODS[network]?.some(method => !stationAttr.paymentMethods?.includes(method)));
                 }
-                return result;
+                return false;
             }
 
             action() {
-                if (!this.venue.isChargingStation()) {
-                    WazeWrap.Alerts.info(_SCRIPT_NAME, 'This is no longer a charging station. Please run WMEPH again.', false, false);
+                if (!this.args.venue.isChargingStation()) {
+                    WazeWrap.Alerts.info(SCRIPT_NAME, 'This is no longer a charging station. Please run WMEPH again.', false, false);
                     return;
                 }
 
-                const stationAttr = this.venue.attributes.categoryAttributes.CHARGING_STATION;
+                const stationAttr = this.args.venue.attributes.categoryAttributes.CHARGING_STATION;
                 const network = stationAttr?.network;
                 if (network !== this.originalNetwork) {
-                    WazeWrap.Alerts.info(_SCRIPT_NAME, 'EV charging station network has changed. Please run WMEPH again.', false, false);
+                    WazeWrap.Alerts.info(SCRIPT_NAME, 'EV charging station network has changed. Please run WMEPH again.', false, false);
                     return;
                 }
 
-                const newPaymentMethods = stationAttr.paymentMethods?.slice() || [];
+                const newPaymentMethods = stationAttr.paymentMethods?.slice() ?? [];
                 const commonPaymentMethods = COMMON_EV_PAYMENT_METHODS[network];
                 commonPaymentMethods.forEach(method => {
                     if (!newPaymentMethods.includes(method)) newPaymentMethods.push(method);
                 });
 
-                const categoryAttrClone = JSON.parse(JSON.stringify(this.venue.getCategoryAttributes()));
-                if (!categoryAttrClone.CHARGING_STATION) {
-                    categoryAttrClone.CHARGING_STATION = {};
-                }
+                const categoryAttrClone = JSON.parse(JSON.stringify(this.args.venue.getCategoryAttributes()));
+                categoryAttrClone.CHARGING_STATION ??= {};
                 categoryAttrClone.CHARGING_STATION.paymentMethods = newPaymentMethods;
 
-                _UPDATED_FIELDS.evPaymentMethods.updated = true;
-                addUpdateAction(this.venue, { categoryAttributes: categoryAttrClone }, null, true);
+                UPDATED_FIELDS.evPaymentMethods.updated = true;
+                addUpdateAction(this.args.venue, { categoryAttributes: categoryAttrClone }, null, true);
             }
         },
         RemoveUncommonEVPaymentMethods: class extends WLActionFlag {
-            // TODO: Instead of passing WL key to super, add a public getter for WL key in all child WLFlag classes. Getter returns a static WL key member.
-            // Parent class can then reference that. e.g. for "isWhitelisted()" function.
-            static whitelistKey = 'removeUncommonEVPaymentMethods';
-            constructor(venue, extraPaymentMethods, highlightOnly) {
-                const stationAttr = venue.attributes.categoryAttributes.CHARGING_STATION;
-                super(
-                    true,
-                    _SEVERITY.BLUE,
-                    `These payment methods are uncommon for the ${stationAttr.network} network. Verify if they are needed here:`,
-                    'Remove network payment methods',
-                    'Please verify first! If any should NOT be removed, click the WL button and manually remove any unneeded payment methods.',
-                    true,
-                    'Whitelist uncommon EV payment types',
-                    Flag.RemoveUncommonEVPaymentMethods.whitelistKey
-                );
+            static defaultSeverity = SEVERITY.BLUE;
+            static defaultButtonText = 'Remove network payment methods';
+            static defaultButtonTooltip = 'Please verify first! If any should NOT be removed, click the WL button and manually remove any unneeded payment methods.';
+            static WL_KEY = 'removeUncommonEVPaymentMethods';
+            static defaultWLTooltip = 'Whitelist uncommon EV payment types';
 
-                if (!highlightOnly) {
-                    this.venue = venue;
-                    // Store a copy of the network to check if it has changed in the action() function
-                    this.originalNetwork = stationAttr.network;
-                    const translations = I18n.translations[I18n.locale].edit.venue.category_attributes.payment_methods;
-                    const extraPaymentMethodsList = extraPaymentMethods.map(method => `- ${translations[method]}`).join('<br>');
-                    this.message += `<br>${extraPaymentMethodsList}<br>`;
-                }
+            get message() {
+                const stationAttr = this.args.venue.attributes.categoryAttributes.CHARGING_STATION;
+                const { network } = stationAttr;
+                let msg = `These payment methods are uncommon for the ${stationAttr.network} network. Verify if they are needed here:`;
+                // Store a copy of the network to check if it has changed in the action() function
+                this.originalNetwork = stationAttr.network;
+                const translations = I18n.translations[I18n.locale].edit.venue.category_attributes.payment_methods;
+                const list = stationAttr.paymentMethods
+                    ?.filter(method => !COMMON_EV_PAYMENT_METHODS[network]?.includes(method))
+                    .map(method => `- ${translations[method]}`).join('<br>');
+                msg += `<br>${list}<br>`;
+                return msg;
             }
 
-            static eval(venue, highlightOnly, wl) {
-                let result = null;
-                if (venue.isChargingStation() && !wl[this.whitelistKey]) {
-                    const stationAttr = venue.attributes.categoryAttributes.CHARGING_STATION;
+            static venueIsFlaggable(args) {
+                if (args.categories.includes(CAT.CHARGING_STATION) && !this.isWhitelisted(args)) {
+                    const stationAttr = args.venue.attributes.categoryAttributes.CHARGING_STATION;
                     const network = stationAttr?.network;
-                    if (network && COMMON_EV_PAYMENT_METHODS.hasOwnProperty(network)) {
-                        const extraMethods = stationAttr.paymentMethods?.filter(method => !COMMON_EV_PAYMENT_METHODS[network].includes(method));
-                        if (extraMethods?.length) {
-                            result = new this(venue, extraMethods, highlightOnly);
-                        }
-                    }
+                    return !!(stationAttr?.paymentMethods?.some(method => !COMMON_EV_PAYMENT_METHODS[network]?.includes(method)));
                 }
-                return result;
+                return false;
             }
 
             action() {
-                if (!this.venue.isChargingStation()) {
+                if (!this.args.venue.isChargingStation()) {
                     WazeWrap.Alerts.info('This is no longer a charging station. Please run WMEPH again.', false, false);
                     return;
                 }
 
-                const stationAttr = this.venue.attributes.categoryAttributes.CHARGING_STATION;
+                const stationAttr = this.args.venue.attributes.categoryAttributes.CHARGING_STATION;
                 const network = stationAttr?.network;
                 if (network !== this.originalNetwork) {
-                    WazeWrap.Alerts.info(_SCRIPT_NAME, 'EV charging station network has changed. Please run WMEPH again.', false, false);
+                    WazeWrap.Alerts.info(SCRIPT_NAME, 'EV charging station network has changed. Please run WMEPH again.', false, false);
                     return;
                 }
 
                 const commonPaymentMethods = COMMON_EV_PAYMENT_METHODS[network];
-                const newPaymentMethods = (stationAttr.paymentMethods?.slice() || [])
+                const newPaymentMethods = (stationAttr.paymentMethods?.slice() ?? [])
                     .filter(method => commonPaymentMethods.includes(method));
 
-                const categoryAttrClone = JSON.parse(JSON.stringify(this.venue.getCategoryAttributes()));
-                if (!categoryAttrClone.CHARGING_STATION) {
-                    categoryAttrClone.CHARGING_STATION = {};
-                }
+                const categoryAttrClone = JSON.parse(JSON.stringify(this.args.venue.getCategoryAttributes()));
+                categoryAttrClone.CHARGING_STATION ??= {};
                 categoryAttrClone.CHARGING_STATION.paymentMethods = newPaymentMethods;
 
-                _UPDATED_FIELDS.evPaymentMethods.updated = true;
-                addUpdateAction(this.venue, { categoryAttributes: categoryAttrClone }, null, true);
-            }
-        },
-        AreaNotPointLow: class extends WLFlag {
-            constructor() {
-                super(
-                    true,
-                    _SEVERITY.BLUE,
-                    'This category is usually an area place, but can be a point in some cases. Verify if point is appropriate.',
-                    true,
-                    'Whitelist area (not point)',
-                    'areaNotPoint'
-                );
-            }
-        },
-        PointNotAreaLow: class extends WLFlag {
-            constructor() {
-                super(
-                    true,
-                    _SEVERITY.BLUE,
-                    'This category is usually a point place, but can be an area in some cases. Verify if area is appropriate.',
-                    true,
-                    'Whitelist point (not area)',
-                    'pointNotArea'
-                );
+                UPDATED_FIELDS.evPaymentMethods.updated = true;
+                addUpdateAction(this.args.venue, { categoryAttributes: categoryAttrClone }, null, true);
             }
         },
         FormatUSPS: class extends FlagBase {
-            constructor() {
-                super(
-                    true,
-                    _SEVERITY.BLUE,
-                    `Name the post office according to this region's <a href="${
-                        _URLS.uspsWiki}" style="color:#3232e6" target="_blank">standards for USPS post offices</a>`
-                );
+            static defaultSeverity = SEVERITY.YELLOW;
+            static defaultMessage = `Name the post office according to this region's <a href="${
+                URLS.uspsWiki}" style="color:#3232e6" target="_blank">standards for USPS post offices</a>`;
+
+            static venueIsFlaggable(args) {
+                return args.isUspsPostOffice
+                    && !this.isNameOk(this.getCleanNameParts(args.nameBase, args.nameSuffix).join(''), args.state2L, args.addr);
+            }
+
+            static getCleanNameParts(name, nameSuffix) {
+                name = name.trimLeft().replace(/ {2,}/, ' ');
+                if (nameSuffix) {
+                    nameSuffix = nameSuffix.trimRight().replace(/\bvpo\b/i, 'VPO').replace(/\bcpu\b/i, 'CPU').replace(/ {2,}/, ' ');
+                }
+                return [name, nameSuffix || ''];
+            }
+
+            static isNameOk(name, state2L, addr) {
+                return this.#getPostOfficeRegEx(state2L, addr).test(name);
+            }
+
+            static #getPostOfficeRegEx(state2L, addr) {
+                return state2L === 'KY'
+                    || (state2L === 'NY' && ['Queens', 'Bronx', 'Manhattan', 'Brooklyn', 'Staten Island'].includes(addr.city?.attributes.name))
+                    ? /^post office \d{5}( [-–](?: cpu| vpo)?(?: [a-z0-9]+){1,})?$/i
+                    : /^post office [-–](?: cpu| vpo)?(?: [a-z0-9]+){1,}$/i;
             }
         },
-        MissingUSPSAlt: class extends FlagBase {
-            constructor() { super(true, _SEVERITY.BLUE, 'USPS post offices must have an alternate name of "USPS".'); }
-        },
-        MissingUSPSZipAlt: class extends WLActionFlag {
-            constructor(venue, name, wl, highlightOnly) {
-                let severity;
-                let wlActive;
-                let message;
-                let zipMatch;
+        MissingUSPSAlt: class extends ActionFlag {
+            static defaultSeverity = SEVERITY.BLUE;
+            static defaultMessage = 'USPS post offices must have an alternate name of "USPS".';
+            static defaultButtonText = 'Add it';
+            static defaultButtonTooltip = 'Add USPS alternate name';
 
-                if (!highlightOnly) {
-                    message = `No <a href="${_URLS.uspsWiki}" style="color:#3232e6;" target="_blank">ZIP code alt name</a>: <input type="text" \
-id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;padding-left:2px;color:#000;" title="Enter the ZIP code and click Add">`;
-                    zipMatch = name.match(/\d{5}/);
-                }
-
-                if (wl.missingUSPSZipAlt) {
-                    severity = _SEVERITY.GREEN;
-                    wlActive = false;
-                } else {
-                    severity = _SEVERITY.BLUE;
-                    wlActive = true;
-                }
-
-                super(true, severity, message, 'Add', wlActive, 'Whitelist missing USPS zip alt name', 'missingUSPSZipAlt');
-                this.venue = venue;
-                this.noBannerAssemble = true;
-
-                // If the zip code appears in the primary name, pre-fill it in the text entry box.
-                if (zipMatch) this.suggestedValue = zipMatch;
-            }
-
-            static #venueIsFlaggable(isUspsPostOffice, aliases) {
-                return isUspsPostOffice
-                    && !aliases.some(alias => /\d{5}/.test(alias));
-            }
-
-            static eval(venue, isUspsPostOffice, name, aliases, wl, highlightOnly) {
-                return this.#venueIsFlaggable(isUspsPostOffice, aliases) ? new this(venue, name, wl, highlightOnly) : null;
+            static venueIsFlaggable(args) {
+                return args.isUspsPostOffice
+                    && !args.aliases.some(alias => alias.toUpperCase() === 'USPS');
             }
 
             action() {
-                const $input = $('input#WMEPH-zipAltNameAdd');
+                const aliases = this.args.venue.attributes.aliases.slice();
+                if (!aliases.some(alias => alias === 'USPS')) {
+                    aliases.push('USPS');
+                    addUpdateAction(this.args.venue, { aliases }, null, true);
+                } else {
+                    harmonizePlaceGo(this.args.venue, 'harmonize');
+                }
+            }
+        },
+        MissingUSPSZipAlt: class extends WLActionFlag {
+            static defaultSeverity = SEVERITY.BLUE;
+            static defaultMessage = `No <a href="${URLS.uspsWiki}" style="color:#3232e6;" target="_blank">ZIP code alt name</a>: <input type="text" \
+id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;padding-left:2px;color:#000;" title="Enter the ZIP code and click Add">`;
+
+            static defaultButtonText = 'Add';
+            static WL_KEY = 'missingUSPSZipAlt';
+            static defaultWLTooltip = 'Whitelist missing USPS zip alt name';
+            static #TEXTBOX_ID = 'WMEPH-zipAltNameAdd';
+            noBannerAssemble = true;
+
+            static venueIsFlaggable(args) {
+                return args.isUspsPostOffice
+                    && !args.aliases.some(alias => /\d{5}/.test(alias));
+            }
+
+            action() {
+                const $input = $(`input#${Flag.MissingUSPSZipAlt.#TEXTBOX_ID}`);
                 const zip = $input.val().trim();
                 if (zip) {
                     if (/^\d{5}/.test(zip)) {
-                        const aliases = [].concat(this.venue.attributes.aliases);
+                        const aliases = [].concat(this.args.venue.attributes.aliases);
                         // Make sure zip hasn't already been added.
                         if (!aliases.includes(zip)) {
                             aliases.push(zip);
-                            addUpdateAction(this.venue, { aliases }, null, true);
+                            addUpdateAction(this.args.venue, { aliases }, null, true);
                         } else {
                             $input.css({ backgroundColor: '#FDD' }).attr('title', 'Zip code alt name already exists');
                         }
@@ -3364,169 +3773,202 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
 
             postProcess() {
                 // If pressing enter in the USPS zip code alt entry box...
-                $('#WMEPH-zipAltNameAdd').keyup(evt => {
+                const $textbox = $(`#${Flag.MissingUSPSZipAlt.#TEXTBOX_ID}`);
+                $textbox.keyup(evt => {
                     if (evt.keyCode === 13 && $(evt.currentTarget).val() !== '') {
-                        $('#WMEPH_missingUSPSZipAlt').click();
+                        $('#WMEPH_MissingUSPSZipAlt').click();
                     }
                 });
 
                 // Prefill zip code text box
-                if (this.suggestedValue) {
-                    $('input#WMEPH-zipAltNameAdd').val(this.suggestedValue);
+                const zipMatch = (this.args.nameBase + (this.args.nameSuffix ?? '')).match(/\d{5}/);
+                if (zipMatch) {
+                    $textbox.val(zipMatch[0]);
                 }
             }
         },
         MissingUSPSDescription: class extends WLFlag {
-            constructor() {
-                super(
-                    true,
-                    _SEVERITY.BLUE,
-                    `The first line of the description for a <a href="${
-                        _URLS.uspsWiki}" style="color:#3232e6" target="_blank">USPS post office</a> must be CITY, STATE ZIP, e.g. "Lexington, KY 40511"`,
-                    true,
-                    'Whitelist missing USPS address line in description',
-                    'missingUSPSDescription'
-                );
+            static defaultSeverity = SEVERITY.BLUE;
+            static defaultMessage = `The first line of the description for a <a href="${
+                URLS.uspsWiki}" style="color:#3232e6" target="_blank">USPS post office</a> must be CITY, STATE ZIP, e.g. "Lexington, KY 40511"`;
+
+            static WL_KEY = 'missingUSPSDescription';
+            static defaultWLTooltip = 'Whitelist missing USPS address line in description';
+
+            static venueIsFlaggable(args) {
+                if (args.isUspsPostOffice) {
+                    const lines = args.description?.split('\n');
+                    return !lines?.length
+                        || !/^.{2,}, [A-Z]{2}\s{1,2}\d{5}$/.test(lines[0]);
+                }
+                return false;
             }
         },
         CatHotel: class extends FlagBase {
-            constructor(pnhName) { super(true, _SEVERITY.GREEN, `Check hotel website for any name localization (e.g. ${pnhName} - Tampa Airport).`); }
-        },
-        LocalizedName: class extends WLFlag {
-            constructor() {
-                super(true, _SEVERITY.BLUE, 'Place needs localization information', true, 'Whitelist localization', 'localizedName');
+            constructor(args) {
+                const pnhName = args.pnhMatchData[args.phNameIdx];
+                super(`Check hotel website for any name localization (e.g. ${pnhName} - Tampa Airport).`);
             }
 
-            // TODO: This returns a plain object instead of a Flag instance (or null). It doesn't match the pattern of other eval functions. Fix it?
-            static eval(name, nameSuffix, specCase, displayNote, wl) {
-                const result = { flag: null, showDisplayNote: true };
-                const checkLocalization = specCase.match(/^checkLocalization<>(.+)/i);
-                if (checkLocalization) {
-                    result.showDisplayNote = false;
-                    const [, localizationString] = checkLocalization;
-                    const localizationRegEx = new RegExp(localizationString, 'g');
-                    if (!(name + (nameSuffix || '')).match(localizationRegEx)) {
-                        result.flag = new this();
-                        if (wl.localizedName) {
-                            result.flag.WLactive = false;
-                            result.flag.severity = _SEVERITY.GREEN;
-                        }
-                        if (displayNote) {
-                            result.flag.message = displayNote;
-                        }
-                    }
-                }
-                return result;
+            static venueIsFlaggable(args) {
+                return args.priPNHPlaceCat === CAT.HOTEL
+                    && (args.nameBase + (args.nameSuffix || '')).toUpperCase() === args.pnhMatchData[args.phNameIdx].toUpperCase();
+            }
+        },
+        LocalizedName: class extends WLFlag {
+            static defaultSeverity = SEVERITY.BLUE;
+            static WL_KEY = 'localizedName';
+            static defaultWLTooltip = 'Whitelist localization';
+
+            get message() { return this.args.displayNote || 'Place needs localization information'; }
+
+            static venueIsFlaggable(args) {
+                return args.localizationRegEx
+                    && !args.localizationRegEx.test(args.nameBase + (args.nameSuffix || ''));
             }
         },
         SpecCaseMessage: class extends FlagBase {
-            constructor(message) { super(true, _SEVERITY.GREEN, message); }
+            static #teslaSC = /tesla supercharger/i;
+            static #teslaDC = /tesla destination charger/i;
+            static #rivianAN = /<b>rivian adventure network<\/b> charger/i;
+            static #rivianW = /<b>rivian waypoints<\/b> charger/i;
 
-            static eval(venue, message, showDisplayNote, specialCases) {
-                let result = null;
-                if (showDisplayNote && !isNullOrWhitespace(message)) {
-                    if (containsAny(specialCases, ['pharmhours'])) {
-                        if (!venue.attributes.description.toUpperCase().includes('PHARMACY') || (!venue.attributes.description.toUpperCase().includes('HOURS')
-                            && !venue.attributes.description.toUpperCase().includes('HRS'))) {
-                            result = new this(message);
+            constructor(args) {
+                let message = args.pnhMatchData[args.phDisplayNoteIdx];
+
+                // 3/23/2023 - This is a temporary solution to add a disambiguator for Tesla & Rivian chargers.
+                let isRivian = false;
+                const isTesla = Flag.SpecCaseMessage.#teslaSC.test(message) && Flag.SpecCaseMessage.#teslaDC.test(message);
+                if (isTesla) {
+                    message = message.replace(
+                        Flag.SpecCaseMessage.#teslaSC,
+                        '<button id="wmeph-tesla-supercharger" class="btn wmeph-btn">Tesla SuperCharger</button>'
+                    );
+                    message = message.replace(
+                        Flag.SpecCaseMessage.#teslaDC,
+                        '<button id="wmeph-tesla-destination-charger" class="btn wmeph-btn">Tesla Destination Charger</button>'
+                    );
+                } else {
+                    isRivian = Flag.SpecCaseMessage.#rivianAN.test(message) && Flag.SpecCaseMessage.#rivianW.test(message);
+                    if (isRivian) {
+                        message = message.replace(
+                            Flag.SpecCaseMessage.#rivianAN,
+                            '<button id="wmeph-rivian-adventure-network" class="btn wmeph-btn">Rivian Adventure Network charger</button>'
+                        );
+                        message = message.replace(
+                            Flag.SpecCaseMessage.#rivianW,
+                            '<button id="wmeph-rivian-waypoints" class="btn wmeph-btn">Rivian Waypoints charger</button>'
+                        );
+                    }
+                }
+
+                super();
+                this.message = message;
+
+                if (isTesla) {
+                    this.postProcess = () => {
+                        $('#wmeph-tesla-supercharger').click(() => {
+                            addUpdateAction(args.venue, { name: 'Tesla Supercharger' }, null, true);
+                        });
+                        $('#wmeph-tesla-destination-charger').click(() => {
+                            addUpdateAction(args.venue, { name: 'Tesla Destination Charger' }, null, true);
+                        });
+                    };
+                    this.severity = SEVERITY.RED;
+                } else if (isRivian) {
+                    this.postProcess = () => {
+                        $('#wmeph-rivian-adventure-network').click(() => {
+                            addUpdateAction(args.venue, { name: 'Rivian Adventure Network' }, null, true);
+                        });
+                        $('#wmeph-rivian-waypoints').click(() => {
+                            addUpdateAction(args.venue, { name: 'Rivian Waypoints' }, null, true);
+                        });
+                    };
+                    this.severity = SEVERITY.RED;
+                }
+            }
+
+            static venueIsFlaggable(args) {
+                const message = args.pnhMatchData[args.phDisplayNoteIdx];
+                if (args.showDispNote && !isNullOrWhitespace(message)) {
+                    if (args.specialCases.pharmhours) {
+                        if (!args.description.toUpperCase().includes('PHARMACY') || (!args.description.toUpperCase().includes('HOURS')
+                            && !args.description.toUpperCase().includes('HRS'))) {
+                            return true;
                         }
-                    } else if (containsAny(specialCases, ['drivethruhours'])) {
-                        if (!venue.attributes.description.toUpperCase().includes('DRIVE') || (!venue.attributes.description.toUpperCase().includes('HOURS')
-                            && !venue.attributes.description.toUpperCase().includes('HRS'))) {
+                    } else if (args.specialCases.drivethruhours) {
+                        if (!args.description.toUpperCase().includes('DRIVE') || (!args.description.toUpperCase().includes('HOURS')
+                            && !args.description.toUpperCase().includes('HRS'))) {
                             if ($('#service-checkbox-DRIVETHROUGH').prop('checked')) {
-                                result = new this(message);
+                                return true;
                             }
                         }
                     } else {
-                        // 3/23/2023 - This is a temporary solution to add a disambiguator for Tesla & Rivian chargers.
-                        const teslaSC = /tesla supercharger/i;
-                        const teslaDC = /tesla destination charger/i;
-                        const isTesla = teslaSC.test(message) && teslaDC.test(message);
-                        if (isTesla) {
-                            message = message.replace(teslaSC, '<button id="wmeph-tesla-supercharger" class="btn wmeph-btn">Tesla SuperCharger</button>');
-                            message = message.replace(teslaDC, '<button id="wmeph-tesla-destination-charger" class="btn wmeph-btn">Tesla Destination Charger</button>');
-                        }
-                        const rivianAN = /<b>rivian adventure network<\/b> charger/i;
-                        const rivianW = /<b>rivian waypoints<\/b> charger/i;
-                        const isRivian = rivianAN.test(message) && rivianW.test(message);
-                        if (isRivian) {
-                            message = message.replace(rivianAN, '<button id="wmeph-rivian-adventure-network" class="btn wmeph-btn">Rivian Adventure Network charger</button>');
-                            message = message.replace(rivianW, '<button id="wmeph-rivian-waypoints" class="btn wmeph-btn">Rivian Waypoints charger</button>');
-                        }
-
-                        result = new Flag.SpecCaseMessageLow(message); // KEEP THIS LINE (not part of Tesla stuff)
-
-                        if (isTesla) {
-                            result.postProcess = () => {
-                                $('#wmeph-tesla-supercharger').click(() => {
-                                    addUpdateAction(venue, { name: 'Tesla Supercharger' }, null, true);
-                                });
-
-                                $('#wmeph-tesla-destination-charger').click(() => {
-                                    addUpdateAction(venue, { name: 'Tesla Destination Charger' }, null, true);
-                                });
-                            };
-                            result.severity = _SEVERITY.RED;
-                            result.noLock = true;
-                        }
-                        if (isRivian) {
-                            result.postProcess = () => {
-                                $('#wmeph-rivian-adventure-network').click(() => {
-                                    addUpdateAction(venue, { name: 'Rivian Adventure Network' }, null, true);
-                                });
-                                $('#wmeph-rivian-waypoints').click(() => {
-                                    addUpdateAction(venue, { name: 'Rivian Waypoints' }, null, true);
-                                });
-                            };
-                        }
+                        return true;
                     }
                 }
-                return result;
+                return false;
             }
         },
         PnhCatMess: class extends ActionFlag {
-            constructor(venue, message, categories) {
-                super(true, _SEVERITY.GREEN, message, null, null);
-                if (categories.includes('HOSPITAL_URGENT_CARE')) {
-                    this.value = 'Change to Doctor/Clinic';
+            constructor(venue, pnhCategoryInfo, categories) {
+                super();
+                this.message = pnhCategoryInfo.message;
+                if (categories.includes(CAT.HOSPITAL_URGENT_CARE)) {
+                    this.buttonText = 'Change to Doctor/Clinic';
                     this.actionType = 'changeToDoctorClinic';
                 }
                 this.venue = venue;
             }
 
-            static eval(venue, message, categories, highlightOnly) {
-                let result = null;
-                if (!highlightOnly && !isNullOrWhitespace(message)) {
-                    result = new this(venue, message, categories);
-                }
-                return result;
+            static #venueIsFlaggable(highlightOnly, pnhCategoryInfo) {
+                return !highlightOnly && !isNullOrWhitespace(pnhCategoryInfo.message);
+            }
+
+            static eval(venue, pnhCategoryInfo, categories, highlightOnly) {
+                return this.#venueIsFlaggable(highlightOnly, pnhCategoryInfo) ? new this(venue, pnhCategoryInfo, categories) : null;
             }
 
             action() {
                 if (this.actionType === 'changeToDoctorClinic') {
                     const categories = _.uniq(this.venue.attributes.categories.slice());
-                    const indexOfHospital = categories.indexOf('HOSPITAL_URGENT_CARE');
+                    const indexOfHospital = categories.indexOf(CAT.HOSPITAL_URGENT_CARE);
                     if (indexOfHospital > -1) {
-                        categories[indexOfHospital] = 'DOCTOR_CLINIC';
+                        categories[indexOfHospital] = CAT.DOCTOR_CLINIC;
                         addUpdateAction(this.venue, { categories }, null, true);
                     }
                 }
             }
         },
-        SpecCaseMessageLow: class extends FlagBase {
-            constructor(message) { super(true, _SEVERITY.GREEN, message); }
-        },
         ExtProviderMissing: class extends ActionFlag {
-            static #categoriesToIgnore = ['BRIDGE', 'TUNNEL', 'JUNCTION_INTERCHANGE', 'NATURAL_FEATURES', 'ISLAND',
-                'SEA_LAKE_POOL', 'RIVER_STREAM', 'CANAL', 'SWAMP_MARSH'];
+            static defaultButtonTooltip = 'If no other properties need to be updated, click to nudge the place (force an edit).';
+            static #categoriesToIgnore = [CAT.BRIDGE, CAT.TUNNEL, CAT.JUNCTION_INTERCHANGE, CAT.NATURAL_FEATURES, CAT.ISLAND,
+                CAT.SEA_LAKE_POOL, CAT.RIVER_STREAM, CAT.CANAL, CAT.SWAMP_MARSH];
 
-            constructor(venue, isLocked, actions) {
-                super(true, _SEVERITY.RED, 'No Google link', 'Nudge', 'If no other properties need to be updated, click to nudge the place (force an edit).');
-                this.venue = venue;
+            get message() {
+                let msg = 'No Google link';
+                msg += this.makeRed()
+                    ? ' and place has not been edited for over 6 months. Edit a property (or nudge) and save to reset the 6 month timer: '
+                    : ': ';
+                return msg;
+            }
+
+            get severity() { return this.makeRed() ? SEVERITY.RED : super.severity; }
+            set severity(value) { super.severity = value; }
+
+            get buttonText() { return this.makeRed() ? 'Nudge' : ''; }
+
+            set buttonText(value) { super.buttonText = value; }
+
+            constructor() {
+                super();
                 this.value2 = 'Add';
                 this.title2 = 'Add a link to a Google place';
+            }
 
-                if (isLocked) {
+            makeRed() {
+                const { venue } = this.args;
+                if (this.args.isLocked) {
                     let lastUpdated;
                     if (venue.isNew()) {
                         lastUpdated = Date.now();
@@ -3536,42 +3978,33 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                         lastUpdated = venue.attributes.createdOn;
                     }
                     const weeksSinceLastUpdate = (Date.now() - lastUpdated) / 604800000;
-                    if (weeksSinceLastUpdate >= 26 && !venue.isUpdated() && (!actions || actions.length === 0)) {
-                        this.severity = _SEVERITY.RED;
-                        this.message += ' and place has not been edited for over 6 months. Edit a property (or nudge) and save to reset the 6 month timer: ';
-                    } else {
-                        this.severity = _SEVERITY.GREEN;
-                        this.message += ': ';
-                        delete this.value;
+                    if (weeksSinceLastUpdate >= 26 && !venue.isUpdated() && (!this.args.actions || this.args.actions.length === 0)) {
+                        return true;
                     }
-                } else {
-                    this.severity = _SEVERITY.GREEN;
-                    this.message += ': ';
-                    delete this.value;
                 }
+                return false;
             }
 
-            static eval(venue, isLocked, categories, userRank, ignoreParkingLots, actions) {
-                let result = null;
-                if (userRank >= 2 && venue.areExternalProvidersEditable() && !(venue.isParkingLot() && ignoreParkingLots)) {
-                    if (!categories.some(cat => this.#categoriesToIgnore.includes(cat))) {
-                        const provIDs = venue.attributes.externalProviderIDs;
+            static venueIsFlaggable(args) {
+                if (USER.rank >= 2 && args.venue.areExternalProvidersEditable() && !(args.categories.includes(CAT.PARKING_LOT) && args.ignoreParkingLots)) {
+                    if (!args.categories.some(cat => this.#categoriesToIgnore.includes(cat))) {
+                        const provIDs = args.venue.attributes.externalProviderIDs;
                         if (!(provIDs && provIDs.length)) {
-                            result = new this(venue, isLocked, actions);
+                            return true;
                         }
                     }
                 }
-                return result;
+                return false;
             }
 
             action() {
-                nudgeVenue(this.venue);
-                harmonizePlaceGo(this.venue, 'harmonize'); // Rerun the script to update fields and lock
+                nudgeVenue(this.args.venue);
+                harmonizePlaceGo(this.args.venue, 'harmonize'); // Rerun the script to update fields and lock
             }
 
             action2() {
                 clickGeneralTab();
-                const venueName = this.venue.attributes.name;
+                const venueName = this.args.venue.attributes.name;
                 $('wz-button.external-provider-add-new').click();
                 setTimeout(() => {
                     clickGeneralTab();
@@ -3583,192 +4016,220 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                     }, 100);
                 }, 100);
             }
-        },
-        UrlMissing: class extends WLActionFlag {
-            constructor(venue, wl) {
-                super(
-                    true,
-                    _SEVERITY.BLUE,
-                    'No URL: <input type="text" id="WMEPH-UrlAdd" autocomplete="off" style="font-size:0.85em;width:100px;padding-left:2px;color:#000;">',
-                    'Add',
-                    'Add URL to place',
-                    true,
-                    'Whitelist empty URL',
-                    'urlWL'
-                );
-                this.noBannerAssemble = true;
-                this.badInput = false;
-                this.venue = venue;
-                this.wl = wl;
-            }
 
-            action() {
-                const newUrl = normalizeURL($('#WMEPH-UrlAdd').val(), true, false, this.venue, null, this.wl);
-                if ((!newUrl || newUrl.trim().length === 0) || newUrl === 'badURL') {
-                    $('input#WMEPH-UrlAdd').css({ backgroundColor: '#FDD' }).attr('title', 'Invalid URL format');
-                    // this.badInput = true;
-                } else {
-                    logDev(newUrl);
-                    addUpdateAction(this.venue, { url: newUrl }, null, true);
+            preProcess() {
+                // If no Google link and severity would otherwise allow locking, ask if user wants to lock anyway.
+                const { args } = this;
+                if (!args.isLocked && this.severity <= SEVERITY.YELLOW) {
+                    this.severity = SEVERITY.RED;
+                    args.totalSeverity = SEVERITY.RED;
+                    if (args.lockOK) {
+                        this.buttonText = `Lock anyway? (${args.levelToLock + 1})`;
+                        this.buttonTooltip = 'If no Google link exists, lock this place.\nIf there is still no Google link after '
+                            + '6 months from the last update date, it will turn red as a reminder to search again.';
+                        this.action = () => {
+                            addUpdateAction(args.venue, { lockRank: args.levelToLock }, null, true);
+                        };
+                    }
                 }
             }
         },
-        BadAreaCode: class extends WLActionFlag {
-            constructor(venue, textValue, outputFormat) {
-                super(
-                    true,
-                    _SEVERITY.BLUE,
-                    `Area Code mismatch:<br><input type="text" id="WMEPH-PhoneAdd" autocomplete="off" style="font-size:0.85em;width:100px;padding-left:2px;color:#000;" value="${textValue || ''}">`,
-                    'Update',
-                    'Update phone #',
-                    true,
-                    'Whitelist the area code',
-                    'aCodeWL'
-                );
-                this.venue = venue;
-                this.outputFormat = outputFormat;
-                this.noBannerAssemble = true;
+        UrlMissing: class extends WLActionFlag {
+            static defaultSeverity = SEVERITY.BLUE;
+            static get defaultMessage() {
+                return `No URL: <input type="text" id="${Flag.UrlMissing.#TEXTBOX_ID}" autocomplete="off"`
+                    + ' style="font-size:0.85em;width:100px;padding-left:2px;color:#000;">';
+            }
+
+            static defaultButtonText = 'Add';
+            static defaultButtonTooltip = 'Add URL to place';
+            static WL_KEY = 'urlWL';
+            static defaultWLTooltip = 'Whitelist empty URL';
+            static #TEXTBOX_ID = 'WMEPH-UrlAdd';
+            noBannerAssemble = true;
+
+            static isWhitelisted(args) {
+                return super.isWhitelisted(args)
+                    || (args.venue.isParkingLot() && !this.#venueHasOperator(args.venue))
+                    || PRIMARY_CATS_TO_FLAG_GREEN_MISSING_PHONE_URL.includes(args.categories[0])
+                    || ANY_CATS_TO_FLAG_GREEN_MISSING_PHONE_URL.some(category => args.categories.includes(category));
+            }
+
+            static venueIsFlaggable(args) {
+                return !args.url?.trim().length
+                    && (!args.venue.isParkingLot()
+                        || (args.venue.isParkingLot() && (REGIONS_THAT_WANT_PLA_PHONE_URL.includes(args.region) || this.#venueHasOperator(args.venue))))
+                    && !PRIMARY_CATS_TO_IGNORE_MISSING_PHONE_URL.includes(args.categories[0]);
+            }
+
+            static #venueHasOperator(venue) {
+                return venue.attributes.brand && W.model.categoryBrands.PARKING_LOT.includes(venue.attributes.brand);
+            }
+
+            static #getTextbox() {
+                return $(`#${Flag.UrlMissing.#TEXTBOX_ID}`);
             }
 
             action() {
-                const newPhone = normalizePhone($('#WMEPH-PhoneAdd').val(), this.outputFormat);
-                if (newPhone === 'badPhone') {
-                    $('input#WMEPH-PhoneAdd').css({ backgroundColor: '#FDD' }).attr('title', 'Invalid phone # format');
-                    this.badInput = true;
+                const $textbox = Flag.UrlMissing.#getTextbox();
+                const newUrl = normalizeURL($textbox.val());
+                if ((!newUrl?.trim().length) || newUrl === BAD_URL) {
+                    $textbox.css({ backgroundColor: '#FDD' }).attr('title', 'Invalid URL format');
                 } else {
-                    this.badInput = false;
-                    logDev(newPhone);
-                    addUpdateAction(this.venue, { phone: newPhone }, null, true);
+                    logDev(newUrl);
+                    addUpdateAction(this.args.venue, { url: newUrl }, null, true);
+                }
+            }
+
+            postProcess() {
+                // If pressing enter in the URL entry box, add the URL
+                const textbox = Flag.UrlMissing.#getTextbox();
+                textbox.keyup(evt => {
+                    if (evt.keyCode === 13 && textbox.val() !== '') {
+                        this.action();
+                    }
+                });
+            }
+        },
+        InvalidUrl: class extends WLFlag {
+            static defaultSeverity = SEVERITY.YELLOW;
+            static defaultMessage = 'URL appears to be invalid.';
+            static WL_KEY = 'invalidUrl';
+            static defaultWLTooltip = 'Whitelist bad URL';
+
+            static venueIsFlaggable(args) {
+                return args.normalizedUrl === BAD_URL
+                    && !this.isWhitelisted(args);
+            }
+        },
+        BadAreaCode: class extends WLActionFlag {
+            static defaultSeverity = SEVERITY.YELLOW;
+            static defaultButtonText = 'Update';
+            static defaultButtonTooltip = 'Update phone #';
+            static WL_KEY = 'aCodeWL';
+            static defaultWLTooltip = 'Whitelist the area code';
+            noBannerAssemble = true;
+
+            get message() {
+                return 'Area Code appears to be invalid for this region:<br><input type="text" id="WMEPH-PhoneAdd" autocomplete="off" '
+                + `style="font-size:0.85em;width:100px;padding-left:2px;color:#000;" value="${this.args.phone || ''}">`;
+            }
+
+            static venueIsFlaggable(args) {
+                return args.phone
+                    && !this.isWhitelisted(args)
+                    && ['USA', 'CAN'].includes(args.countryCode)
+                    && !_areaCodeList.includes(args.phone.match(/[2-9]\d{2}/)?.[0]);
+            }
+
+            action() {
+                const newPhone = normalizePhone($('#WMEPH-PhoneAdd').val(), this.args.outputPhoneFormat);
+                if (newPhone === BAD_PHONE) {
+                    $('input#WMEPH-PhoneAdd').css({ backgroundColor: '#FDD' }).attr('title', 'Invalid phone # format');
+                } else {
+                    addUpdateAction(this.args.venue, { phone: newPhone }, null, true);
                 }
             }
         },
         AddRecommendedPhone: class extends WLActionFlag {
-            static whitelistKey = 'addRecommendedPhone';
-            constructor(venue, phone) {
-                super(
-                    true,
-                    _SEVERITY.BLUE,
-                    `Recommended phone #:<br>${phone}`,
-                    'Add',
-                    'Use recommended chain phone #',
-                    true,
-                    'Whitelist recommended phone #',
-                    Flag.AddRecommendedPhone.whitelistKey
-                );
-                this.venue = venue;
-                this.phone = phone;
-            }
+            static defaultSeverity = SEVERITY.BLUE;
+            static defaultButtonText = 'Add';
+            static defaultButtonTooltip = 'Add recommended chain phone #';
+            static WL_KEY = 'addRecommendedPhone';
+            static defaultWLTooltip = 'Whitelist recommended phone #';
 
-            static eval(venue, specCases, outputFormat, wl) {
-                let result = null;
-                if (!wl[this.whitelistKey]) {
-                    const specCaseMatch = specCases.match(/phone<>(.*?)<>/);
-                    if (specCaseMatch) {
-                        const phone = normalizePhone(specCaseMatch[1], outputFormat);
-                        if (phone !== 'badPhone' && phone !== venue.attributes.phone) {
-                            result = new this(venue, phone);
-                        }
-                    }
-                }
-                return result;
+            get message() { return `Recommended phone #:<br>${this.args.recommendedPhone}`; }
+
+            static venueIsFlaggable(args) {
+                return args.recommendedPhone
+                    && !this.isWhitelisted(args)
+                    && args.recommendedPhone !== BAD_PHONE
+                    && args.recommendedPhone !== normalizePhone(args.phone, args.outputPhoneFormat);
             }
 
             action() {
-                addUpdateAction(this.venue, { phone: this.phone }, null, true);
+                addUpdateAction(this.args.venue, { phone: this.args.recommendedPhone }, null, true);
             }
         },
         PhoneMissing: class extends WLActionFlag {
-            static whitelistKey = 'phoneWL';
-            constructor(venue, hasOperator, wl, outputFormat, isPLA) {
-                super(
-                    true,
-                    _SEVERITY.BLUE,
-                    'No ph#: <input type="text" id="WMEPH-PhoneAdd" autocomplete="off" style="font-size:0.85em;width:100px;padding-left:2px;color:#000;">',
-                    'Add',
-                    'Add phone to place',
-                    true,
-                    'Whitelist empty phone',
-                    Flag.PhoneMissing.whitelistKey
-                );
-                this.noBannerAssemble = true;
-                this.badInput = false;
-                this.outputFormat = outputFormat;
-                this.venue = venue;
-                if ((isPLA && !hasOperator) || wl[this.WLkeyName]) {
-                    this.severity = _SEVERITY.GREEN;
-                    this.WLactive = false;
-                }
+            static defaultSeverity = SEVERITY.BLUE;
+            static defaultMessage = 'No ph#: <input type="text" id="WMEPH-PhoneAdd" autocomplete="off" style="font-size:0.85em;width:100px;padding-left:2px;color:#000;">';
+            static defaultButtonText = 'Add';
+            static defaultButtonTooltip = 'Add phone to place';
+            static WL_KEY = 'phoneWL';
+            static defaultWLTooltip = 'Whitelist empty phone';
+            noBannerAssemble = true;
+
+            static isWhitelisted(args) {
+                return (args.venue.isParkingLot() && !Flag.PhoneMissing.#venueHasOperator(args.venue))
+                    || super.isWhitelisted(args)
+                    || PRIMARY_CATS_TO_FLAG_GREEN_MISSING_PHONE_URL.includes(args.categories[0])
+                    || ANY_CATS_TO_FLAG_GREEN_MISSING_PHONE_URL.some(category => args.categories.includes(category));
             }
 
-            static get _regionsThatWantPlaPhones() { return ['SER']; }
+            static venueIsFlaggable(args) {
+                return !args.phone
+                    && !FlagBase.currentFlags.hasFlag(Flag.AddRecommendedPhone)
+                    && (!args.venue.isParkingLot()
+                        || (args.venue.isParkingLot() && (REGIONS_THAT_WANT_PLA_PHONE_URL.includes(args.region) || this.#venueHasOperator(args.venue))))
+                    && !PRIMARY_CATS_TO_IGNORE_MISSING_PHONE_URL.includes(args.categories[0]);
+            }
 
-            static eval(venue, newPhone, wl, region, outputFormat, skipPhoneCheck) {
-                let result = null;
-                if (!newPhone && !skipPhoneCheck && !wl[this.whitelistKey]) {
-                    const hasOperator = venue.attributes.brand && W.model.categoryBrands?.PARKING_LOT?.includes(venue.attributes.brand);
-                    const isPLA = venue.isParkingLot();
-                    if (!isPLA || (isPLA && (this._regionsThatWantPlaPhones.includes(region) || hasOperator))) {
-                        result = new this(venue, hasOperator, wl, outputFormat, isPLA);
-                    }
-                }
-                return result;
+            static #venueHasOperator(venue) {
+                return venue.attributes.brand && W.model.categoryBrands.PARKING_LOT.includes(venue.attributes.brand);
             }
 
             action() {
-                const newPhone = normalizePhone($('#WMEPH-PhoneAdd').val(), this.outputFormat);
-                if (newPhone === 'badPhone') {
+                const newPhone = normalizePhone($('#WMEPH-PhoneAdd').val(), this.args.outputPhoneFormat);
+                if (newPhone === BAD_PHONE || !newPhone) {
                     $('input#WMEPH-PhoneAdd').css({ backgroundColor: '#FDD' }).attr('title', 'Invalid phone # format');
-                    this.badInput = true;
                 } else {
-                    this.badInput = false;
                     logDev(newPhone);
-                    addUpdateAction(this.venue, { phone: newPhone }, null, true);
+                    addUpdateAction(this.args.venue, { phone: newPhone }, null, true);
                 }
+            }
+
+            // eslint-disable-next-line class-methods-use-this
+            postProcess() {
+                // TODO: Is this needed???
+                // If pressing enter in the phone entry box, add the phone
+                $('#WMEPH-PhoneAdd').keyup(evt => {
+                    if (evt.keyCode === 13 && $('#WMEPH-PhoneAdd').val() !== '') {
+                        $('#WMEPH_PhoneMissing').click();
+                        $('#WMEPH_BadAreaCode').click();
+                    }
+                });
             }
         },
         NoHours: class extends WLFlag {
-            constructor(venue, categories, wl, highlightOnly, actions) {
-                let severity;
-                let wlActive = true;
-                let message;
-                const hours = actions?.find(action => action.object === venue && action.newAttributes?.openingHours)?.newAttributes.openingHours
-                    || venue.attributes.openingHours;
-                if (!hours.length) { // if no hours...
-                    if (!highlightOnly) message = Flag.NoHours.#getHoursHtml();
-                    if (Flag.NoHours.#noHoursIsOk(categories, wl)) {
-                        severity = _SEVERITY.GREEN;
-                        wlActive = false;
-                    } else {
-                        severity = _SEVERITY.BLUE;
-                        wlActive = true;
-                    }
+            static WL_KEY = 'noHours';
+            static defaultSeverity = SEVERITY.BLUE;
+            static defaultWLTooltip = 'Whitelist "No hours"';
+
+            get message() {
+                let msg;
+                if (!this.args.openingHours.length) {
+                    msg = Flag.NoHours.#getHoursHtml();
                 } else {
-                    if (!highlightOnly) message = Flag.NoHours.#getHoursHtml(true, isAlwaysOpen(venue));
-                    severity = _SEVERITY.GREEN;
-                    wlActive = false;
+                    msg = Flag.NoHours.#getHoursHtml(true, isAlwaysOpen(this.args.venue));
                 }
-                super(true, severity, message, wlActive, 'Whitelist "No hours"', 'noHours');
-                this.venue = venue;
-                this.hours = hours;
+                return msg;
             }
 
-            static #venueIsFlaggable(categories) {
-                return !containsAny(categories, ['STADIUM_ARENA', 'CEMETERY', 'TRANSPORTATION', 'FERRY_PIER', 'SUBWAY_STATION',
-                    'BRIDGE', 'TUNNEL', 'JUNCTION_INTERCHANGE', 'ISLAND', 'SEA_LAKE_POOL', 'RIVER_STREAM', 'FOREST_GROVE', 'CANAL',
-                    'SWAMP_MARSH', 'DAM']);
+            static venueIsFlaggable(args) {
+                return !containsAny(args.categories, [CAT.STADIUM_ARENA, CAT.CEMETERY, CAT.TRANSPORTATION, CAT.FERRY_PIER, CAT.SUBWAY_STATION,
+                    CAT.BRIDGE, CAT.TUNNEL, CAT.JUNCTION_INTERCHANGE, CAT.ISLAND, CAT.SEA_LAKE_POOL, CAT.RIVER_STREAM, CAT.FOREST_GROVE, CAT.CANAL,
+                    CAT.SWAMP_MARSH, CAT.DAM]);
             }
 
-            static eval(venue, categories, wl, highlightOnly, actions) {
-                return this.#venueIsFlaggable(categories) ? new this(venue, categories, wl, highlightOnly, actions) : null;
-            }
-
-            static #noHoursIsOk(categories, wl) {
-                return wl.noHours
+            static isWhitelisted(args) {
+                return super.isWhitelisted(args)
+                    || args.openingHours.length
                     || $('#WMEPH-DisableHoursHL').prop('checked')
-                    || containsAny(categories, ['SCHOOL', 'CONVENTIONS_EVENT_CENTER',
-                        'CAMPING_TRAILER_PARK', 'COTTAGE_CABIN', 'COLLEGE_UNIVERSITY', 'GOLF_COURSE', 'SPORTS_COURT', 'MOVIE_THEATER',
-                        'SHOPPING_CENTER', 'RELIGIOUS_CENTER', 'PARKING_LOT', 'PARK', 'PLAYGROUND', 'AIRPORT', 'FIRE_DEPARTMENT', 'POLICE_STATION',
-                        'SEAPORT_MARINA_HARBOR', 'FARM', 'SCENIC_LOOKOUT_VIEWPOINT']);
+                    || containsAny(args.categories, [CAT.SCHOOL, CAT.CONVENTIONS_EVENT_CENTER,
+                        CAT.CAMPING_TRAILER_PARK, CAT.COTTAGE_CABIN, CAT.COLLEGE_UNIVERSITY, CAT.GOLF_COURSE, CAT.SPORTS_COURT, CAT.MOVIE_THEATER,
+                        CAT.SHOPPING_CENTER, CAT.RELIGIOUS_CENTER, CAT.PARKING_LOT, CAT.PARK, CAT.PLAYGROUND, CAT.AIRPORT, CAT.FIRE_DEPARTMENT,
+                        CAT.POLICE_STATION, CAT.SEAPORT_MARINA_HARBOR, CAT.FARM, CAT.SCENIC_LOOKOUT_VIEWPOINT]);
             }
 
             static #getHoursHtml(hasExistingHours = false, alwaysOpen = false) {
@@ -3792,7 +4253,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                     }) : '',
                     // jquery throws an error when setting autocomplete="off" in a jquery object (must use .autocomplete() function), so just use a string here.
                     // eslint-disable-next-line max-len
-                    `<textarea id="WMEPH-HoursPaste" wrap="off" autocomplete="off" style="overflow:auto;width:84%;max-width:84%;min-width:84%;font-size:0.85em;height:24px;min-height:24px;max-height:300px;margin-bottom:-2px;padding-left:3px;color:#AAA;position:relative;z-index:1;">${_DEFAULT_HOURS_TEXT}`
+                    `<textarea id="WMEPH-HoursPaste" wrap="off" autocomplete="off" style="overflow:auto;width:84%;max-width:84%;min-width:84%;font-size:0.85em;height:24px;min-height:24px;max-height:300px;margin-bottom:-2px;padding-left:3px;color:#AAA;position:relative;z-index:1;">${DEFAULT_HOURS_TEXT}`
                 )[0].outerHTML;
             }
 
@@ -3810,21 +4271,21 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
 
             applyHours(replaceAllHours) {
                 let pasteHours = $('#WMEPH-HoursPaste').val();
-                if (pasteHours === _DEFAULT_HOURS_TEXT) {
+                if (pasteHours === DEFAULT_HOURS_TEXT) {
                     return;
                 }
                 logDev(pasteHours);
-                pasteHours += !replaceAllHours ? `,${getOpeningHours(this.venue).join(',')}` : '';
+                pasteHours += !replaceAllHours ? `,${getOpeningHours(this.args.venue).join(',')}` : '';
                 $('.nav-tabs a[href="#venue-edit-more-info"]').tab('show');
                 const parser = new HoursParser();
                 const parseResult = parser.parseHours(pasteHours);
                 if (parseResult.hours && !parseResult.overlappingHours && !parseResult.sameOpenAndCloseTimes && !parseResult.parseError) {
                     logDev(parseResult.hours);
-                    addUpdateAction(this.venue, { openingHours: parseResult.hours }, null, true);
-                    $('#WMEPH-HoursPaste').val(_DEFAULT_HOURS_TEXT);
+                    addUpdateAction(this.args.venue, { openingHours: parseResult.hours }, null, true);
+                    $('#WMEPH-HoursPaste').val(DEFAULT_HOURS_TEXT);
                 } else {
                     log('Can\'t parse those hours');
-                    this.severity = _SEVERITY.BLUE;
+                    this.severity = SEVERITY.BLUE;
                     this.WLactive = true;
                     $('#WMEPH-HoursPaste').css({ 'background-color': '#FDD' }).attr({ title: Flag.NoHours.#getTitle(parseResult) });
                 }
@@ -3945,8 +4406,8 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
             }
 
             postProcess() {
-                if (this.hours.length) {
-                    const hoursStringArray = Flag.NoHours.#getHoursStringArray(this.hours);
+                if (this.args.openingHours.length) {
+                    const hoursStringArray = Flag.NoHours.#getHoursStringArray(this.args.openingHours);
                     const $hoursTable = $('<div>', {
                         id: 'wmeph-hours-list',
                         style: 'display: inline-block;font-size: 13px;border: 1px solid #aaa;margin: -6px 2px 2px 0px;border-radius: 0px 0px 5px 5px;background-color: #f5f5f5;color: #727272;'
@@ -3969,7 +4430,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                     const $sel = $('#WMEPH-HoursPaste');
                     $sel.focus();
                     const oldText = $sel.val();
-                    if (oldText === _DEFAULT_HOURS_TEXT) {
+                    if (oldText === DEFAULT_HOURS_TEXT) {
                         $sel.val('');
                     }
 
@@ -4013,7 +4474,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                     .bind('dragenter', evt => {
                         const $control = $(evt.currentTarget);
                         const text = $control.val();
-                        if (text === _DEFAULT_HOURS_TEXT) {
+                        if (text === DEFAULT_HOURS_TEXT) {
                             $control.val('');
                         }
                     }).keydown(evt => {
@@ -4042,51 +4503,55 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                         return true;
                     }).focus(evt => {
                         const target = evt.currentTarget;
-                        if (target.value === _DEFAULT_HOURS_TEXT) {
+                        if (target.value === DEFAULT_HOURS_TEXT) {
                             target.value = '';
                         }
                         target.style.color = 'black';
                     }).blur(evt => {
                         const target = evt.currentTarget;
                         if (target.value === '') {
-                            target.value = _DEFAULT_HOURS_TEXT;
+                            target.value = DEFAULT_HOURS_TEXT;
                             target.style.color = '#999';
                         }
                     });
             }
         },
         OldHours: class extends ActionFlag {
+            static defaultSeverity = SEVERITY.YELLOW;
             static #categoriesToCheck;
             static #cutoffDateString = '3/15/2020';
             static #cutoffDate = new Date(this.#cutoffDateString);
+            static #parentCategoriesToCheck = [CAT.SHOPPING_AND_SERVICES, CAT.FOOD_AND_DRINK, CAT.CULTURE_AND_ENTERTAINEMENT];
 
-            constructor(venue, highlightOnly) {
-                let message = '';
-                const isUnchanged = venue.isUnchanged();
-                if (!highlightOnly) {
-                    message = `Last updated before ${
-                        Flag.OldHours.#cutoffDateString}. Verify hours are correct.`;
-                    if (isUnchanged) message += ' If everything is current, nudge this place and save.';
-                }
-                super(
-                    true,
-                    isUnchanged ? _SEVERITY.YELLOW : _SEVERITY.GREEN,
-                    message,
-                    isUnchanged ? 'Nudge' : null
-                );
-                this.venue = venue;
+            get message() {
+                let msg = `Last updated before ${Flag.OldHours.#cutoffDateString}. Verify hours are correct.`;
+                if (this.args.venue.isUnchanged()) msg += ' If everything is current, nudge this place and save.';
+                return msg;
             }
 
-            static #initializeCategoriesToCheck(catData) {
-                const catParentIdx = catData[0].split('|').indexOf('pc_catparent');
-                const catNameIdx = catData[0].split('|').indexOf('pc_wmecat');
-                const parentCats = ['SHOPPING_AND_SERVICES', 'FOOD_AND_DRINK', 'CULTURE_AND_ENTERTAINEMENT'];
+            get buttonText() {
+                return this.args.venue.isUnchanged() ? 'Nudge' : null;
+            }
+
+            get severity() {
+                return this.args.venue.isUnchanged() ? super.severity : SEVERITY.GREEN;
+            }
+
+            static venueIsFlaggable(args) {
+                this.#initializeCategoriesToCheck(args.pnhCategoryInfos);
+                return !args.venue.isResidential()
+                    && this.#venueIsOld(args.venue)
+                    && args.openingHours?.length
+                    && args.categories.some(cat => this.#categoriesToCheck.includes(cat));
+            }
+
+            static #initializeCategoriesToCheck(pnhCategoryInfos) {
                 if (!this.#categoriesToCheck) {
-                    this.#categoriesToCheck = catData
-                        .map(catRowString => catRowString.split('|'))
-                        .filter(catRow => parentCats.includes(catRow[catParentIdx]))
-                        .map(catRow => catRow[catNameIdx]);
-                    this.#categoriesToCheck.push(...parentCats);
+                    this.#categoriesToCheck = pnhCategoryInfos
+                        .toArray()
+                        .filter(pnhCategoryInfo => this.#parentCategoriesToCheck.includes(pnhCategoryInfo.parent))
+                        .map(catInfo => catInfo.id);
+                    this.#categoriesToCheck.push(...this.#parentCategoriesToCheck);
                 }
             }
 
@@ -4095,70 +4560,50 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                 return lastUpdated < this.#cutoffDate;
             }
 
-            static #venueIsFlaggable(venue) {
-                return !venue.isResidential()
-                    && this.#venueIsOld(venue)
-                    && venue.attributes.openingHours?.length
-                    && venue.attributes.categories.some(cat => this.#categoriesToCheck.includes(cat));
-            }
-
-            static eval(venue, catData, highlightOnly) {
-                let result = null;
-                this.#initializeCategoriesToCheck(catData);
-                if (this.#venueIsFlaggable(venue)) {
-                    result = new this(venue, highlightOnly);
-                }
-                return result;
-            }
-
             action() {
-                nudgeVenue(this.venue);
-                harmonizePlaceGo(this.venue, 'harmonize');
+                nudgeVenue(this.args.venue);
+                harmonizePlaceGo(this.args.venue, 'harmonize');
             }
         },
         PlaLotTypeMissing: class extends FlagBase {
-            constructor(venue, highlightOnly) {
-                super(true, _SEVERITY.RED, 'Lot type: ');
-                if (!highlightOnly) {
-                    this.noLock = true;
-                    this.venue = venue;
-                    this.message += [['PUBLIC', 'Public'], ['RESTRICTED', 'Restricted'], ['PRIVATE', 'Private']].map(
-                        btnInfo => $('<button>', { class: 'wmeph-pla-lot-type-btn btn btn-default btn-xs wmeph-btn', 'data-lot-type': btnInfo[0] })
+            static defaultSeverity = SEVERITY.RED;
+            static get defaultMessage() {
+                return `Lot type: ${
+                    [['PUBLIC', 'Public'], ['RESTRICTED', 'Restricted'], ['PRIVATE', 'Private']]
+                        .map(btnInfo => $('<button>', { class: 'wmeph-pla-lot-type-btn btn btn-default btn-xs wmeph-btn', 'data-lot-type': btnInfo[0] })
                             .text(btnInfo[1])
-                            .prop('outerHTML')
-                    ).join('');
-                }
+                            .prop('outerHTML')).join('')
+                }`;
             }
 
-            static eval(venue, highlightOnly) {
-                let result = null;
-                if (venue.isParkingLot()) {
-                    const catAttr = venue.attributes.categoryAttributes;
+            static venueIsFlaggable(args) {
+                if (args.categories.includes(CAT.PARKING_LOT)) {
+                    const catAttr = args.venue.attributes.categoryAttributes;
                     const parkAttr = catAttr ? catAttr.PARKING_LOT : undefined;
                     if (!parkAttr || !parkAttr.parkingType) {
-                        result = new this(venue, highlightOnly);
+                        return true;
                     }
                 }
-                return result;
+                return false;
             }
 
             postProcess() {
                 $('.wmeph-pla-lot-type-btn').click(evt => {
                     const lotType = $(evt.currentTarget).data('lot-type');
-                    const categoryAttrClone = JSON.parse(JSON.stringify(this.venue.attributes.categoryAttributes));
+                    const categoryAttrClone = JSON.parse(JSON.stringify(this.args.venue.attributes.categoryAttributes));
                     categoryAttrClone.PARKING_LOT = categoryAttrClone.PARKING_LOT ?? {};
                     categoryAttrClone.PARKING_LOT.parkingType = lotType;
-                    _UPDATED_FIELDS.lotType.updated = true;
-                    addUpdateAction(this.venue, { categoryAttributes: categoryAttrClone }, null, true);
+                    UPDATED_FIELDS.lotType.updated = true;
+                    addUpdateAction(this.args.venue, { categoryAttributes: categoryAttrClone }, null, true);
                 });
             }
         },
         PlaCostTypeMissing: class extends FlagBase {
-            constructor(venue, highlightOnly) {
-                super(true, _SEVERITY.BLUE, 'Parking cost: ');
-                if (!highlightOnly) {
-                    [['FREE', 'Free', 'Free'], ['LOW', '$', 'Low'], ['MODERATE', '$$', 'Moderate'], ['EXPENSIVE', '$$$', 'Expensive']].forEach(btnInfo => {
-                        this.message += $('<button>', { id: `wmeph_${btnInfo[0]}`, class: 'wmeph-pla-cost-type-btn btn btn-default btn-xs wmeph-btn', title: btnInfo[2] })
+            static defaultSeverity = SEVERITY.BLUE;
+            static get defaultMessage() {
+                return `Parking cost: ${
+                    [['FREE', 'Free', 'Free'], ['LOW', '$', 'Low'], ['MODERATE', '$$', 'Moderate'], ['EXPENSIVE', '$$$', 'Expensive']]
+                        .map(btnInfo => $('<button>', { id: `wmeph_${btnInfo[0]}`, class: 'wmeph-pla-cost-type-btn btn btn-default btn-xs wmeph-btn', title: btnInfo[2] })
                             .text(btnInfo[1])
                             .css({
                                 padding: '3px',
@@ -4168,52 +4613,46 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                                 marginBottom: '1px',
                                 minWidth: '18px'
                             })
-                            .prop('outerHTML');
-                    });
-                    this.venue = venue;
-                    this.noLock = true;
-                }
+                            .prop('outerHTML')).join('')
+                }`;
             }
 
-            static #venueIsFlaggable(venue) {
-                const parkingAttr = venue.attributes.categoryAttributes?.PARKING_LOT;
-                return venue.isParkingLot()
+            static venueIsFlaggable(args) {
+                const parkingAttr = args.venue.attributes.categoryAttributes?.PARKING_LOT;
+                return args.categories.includes(CAT.PARKING_LOT)
                     && (!parkingAttr?.costType || parkingAttr.costType === 'UNKNOWN');
-            }
-
-            static eval(venue, highlightOnly) {
-                return this.#venueIsFlaggable(venue) ? new this(venue, highlightOnly) : null;
             }
 
             postProcess() {
                 $('.wmeph-pla-cost-type-btn').click(evt => {
                     const selectedValue = $(evt.currentTarget).attr('id').replace('wmeph_', '');
                     let attrClone;
-                    if (this.venue.attributes.categoryAttributes) {
-                        attrClone = JSON.parse(JSON.stringify(this.venue.attributes.categoryAttributes));
+                    if (this.args.venue.attributes.categoryAttributes) {
+                        attrClone = JSON.parse(JSON.stringify(this.args.venue.attributes.categoryAttributes));
                     } else {
                         attrClone = {};
                     }
                     attrClone.PARKING_LOT ??= {};
                     attrClone.PARKING_LOT.costType = selectedValue;
-                    addUpdateAction(this.venue, { categoryAttributes: attrClone }, null, true);
-                    _UPDATED_FIELDS.cost.updated = true;
+                    addUpdateAction(this.args.venue, { categoryAttributes: attrClone }, null, true);
+                    UPDATED_FIELDS.cost.updated = true;
                 });
             }
         },
         PlaPaymentTypeMissing: class extends ActionFlag {
-            constructor() { super(true, _SEVERITY.BLUE, 'Parking isn\'t free. Select payment type(s) from the "More info" tab. ', 'Go there'); }
+            static defaultSeverity = SEVERITY.BLUE;
+            static defaultMessage = 'Parking isn\'t free. Select payment type(s) from the "More info" tab. ';
+            static defaultButtonText = 'Go there';
 
-            static eval(venue) {
-                let result = null;
-                if (venue.isParkingLot()) {
-                    const catAttr = venue.attributes.categoryAttributes;
+            static venueIsFlaggable(args) {
+                if (args.categories.includes(CAT.PARKING_LOT)) {
+                    const catAttr = args.venue.attributes.categoryAttributes;
                     const parkAttr = catAttr ? catAttr.PARKING_LOT : undefined;
                     if (parkAttr && parkAttr.costType && parkAttr.costType !== 'FREE' && parkAttr.costType !== 'UNKNOWN' && (!parkAttr.paymentType || !parkAttr.paymentType.length)) {
-                        result = new this();
+                        return true;
                     }
                 }
-                return result;
+                return false;
             }
 
             // eslint-disable-next-line class-methods-use-this
@@ -4224,47 +4663,33 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
             }
         },
         PlaLotElevationMissing: class extends ActionFlag {
-            constructor(venue) {
-                super(
-                    true,
-                    _SEVERITY.BLUE,
-                    'No lot elevation. Is it street level?',
-                    'Yes',
-                    'Click if street level parking only, or select other option(s) in the More Info tab.'
-                );
-                this.venue = venue;
-                this.noLock = true;
-            }
+            static defaultSeverity = SEVERITY.BLUE;
+            static defaultMessage = 'No lot elevation. Is it street level?';
+            static defaultButtonText = 'Yes';
+            static defaultButtonTooltip = 'Click if street level parking only, or select other option(s) in the More Info tab.';
+            noLock = true;
 
-            static eval(venue) {
-                let result = null;
-                if (venue.isParkingLot()) {
-                    const catAttr = venue.attributes.categoryAttributes;
+            static venueIsFlaggable(args) {
+                if (args.categories.includes(CAT.PARKING_LOT)) {
+                    const catAttr = args.venue.attributes.categoryAttributes;
                     const parkAttr = catAttr ? catAttr.PARKING_LOT : undefined;
                     if (!parkAttr || !parkAttr.lotType || parkAttr.lotType.length === 0) {
-                        result = new this(venue);
+                        return true;
                     }
                 }
-                return result;
+                return false;
             }
 
             action() {
-                const existingAttr = this.venue.attributes.categoryAttributes.PARKING_LOT;
-                const newAttr = {};
-                if (existingAttr) {
-                    Object.keys(existingAttr).forEach(key => {
-                        let value = existingAttr[key];
-                        if (Array.isArray(value)) value = [].concat(value);
-                        newAttr[key] = value;
-                    });
-                }
-                newAttr.lotType = ['STREET_LEVEL'];
-                addUpdateAction(this.venue, { categoryAttributes: { PARKING_LOT: newAttr } }, null, true);
+                const attrClone = JSON.parse(JSON.stringify(this.args.venue.attributes.categoryAttributes));
+                attrClone.PARKING_LOT = attrClone.PARKING_LOT ?? {};
+                attrClone.PARKING_LOT.lotType = ['STREET_LEVEL'];
+                addUpdateAction(this.args.venue, { categoryAttributes: attrClone }, null, true);
             }
         },
         PlaSpaces: class extends FlagBase {
-            constructor() {
-                super(true, _SEVERITY.GREEN, '# of parking spaces is set to 1-10.<br><b><i>If appropriate</i></b>, select another option:');
+            static get defaultMessage() {
+                const msg = '# of parking spaces is set to 1-10.<br><b><i>If appropriate</i></b>, select another option:';
                 const $btnDiv = $('<div>');
                 let btnIdx = 0;
                 [
@@ -4287,246 +4712,184 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                     );
                     btnIdx++;
                 });
-                this.suffixMessage = $btnDiv.prop('outerHTML');
+                return msg + $btnDiv.prop('outerHTML');
             }
 
-            static eval(venue, highlightOnly) {
-                let result = null;
-                if (!highlightOnly && venue.isParkingLot()) {
-                    const catAttr = venue.attributes.categoryAttributes;
+            static venueIsFlaggable(args) {
+                if (!args.highlightOnly && args.categories.includes(CAT.PARKING_LOT)) {
+                    const catAttr = args.venue.attributes.categoryAttributes;
                     const parkAttr = catAttr ? catAttr.PARKING_LOT : undefined;
                     if (!parkAttr || !parkAttr.estimatedNumberOfSpots || parkAttr.estimatedNumberOfSpots === 'R_1_TO_10') {
-                        result = new this();
+                        return true;
                     }
                 }
-                return result;
+                return false;
             }
         },
         NoPlaStopPoint: class extends ActionFlag {
-            constructor(venue) {
-                super(true, _SEVERITY.BLUE, 'Entry/exit point has not been created.', 'Add point', 'Add an entry/exit point');
-                this.venue = venue;
-            }
+            static defaultSeverity = SEVERITY.BLUE;
+            static defaultMessage = 'Entry/exit point has not been created.';
+            static defaultButtonText = 'Add point';
+            static defaultButtonTooltip = 'Add an entry/exit point';
 
-            static eval(venue) {
-                let result = null;
-                if (venue.isParkingLot() && (!venue.attributes.entryExitPoints || !venue.attributes.entryExitPoints.length)) {
-                    result = new this(venue);
-                }
-                return result;
+            static venueIsFlaggable(args) {
+                return args.categories.includes(CAT.PARKING_LOT)
+                    && !args.venue.attributes.entryExitPoints?.length;
             }
 
             action() {
                 $('wz-button.navigation-point-add-new').click();
-                harmonizePlaceGo(this.venue, 'harmonize');
+                harmonizePlaceGo(this.args.venue, 'harmonize');
             }
         },
         PlaStopPointUnmoved: class extends FlagBase {
-            constructor() { super(true, _SEVERITY.BLUE, 'Entry/exit point has not been moved.'); }
+            static defaultSeverity = SEVERITY.BLUE;
+            static defaultMessage = 'Entry/exit point has not been moved.';
 
-            static eval(venue) {
-                let result = null;
-                const attr = venue.attributes;
-                if (venue.isParkingLot() && attr.entryExitPoints && attr.entryExitPoints.length) {
+            static venueIsFlaggable(args) {
+                const attr = args.venue.attributes;
+                if (args.venue.isParkingLot() && attr.entryExitPoints && attr.entryExitPoints.length) {
                     const stopPoint = attr.entryExitPoints[0].getPoint();
                     const areaCenter = attr.geometry.getCentroid();
                     if (stopPoint.equals(areaCenter)) {
-                        result = new this();
+                        return true;
                     }
                 }
-                return result;
+                return false;
             }
         },
         PlaCanExitWhileClosed: class extends ActionFlag {
-            constructor(venue) {
-                super(true, _SEVERITY.GREEN, 'Can cars exit when lot is closed? ', 'Yes', '');
-                this.venue = venue;
-            }
+            static defaultMessage = 'Can cars exit when lot is closed? ';
+            static defaultButtonText = 'Yes';
 
-            static #venueIsFlaggable(venue, highlightOnly) {
-                return !highlightOnly
-                    && venue.isParkingLot()
-                    && !venue.attributes.categoryAttributes?.PARKING_LOT?.canExitWhileClosed
-                    && ($('#WMEPH-ShowPLAExitWhileClosed').prop('checked') || !(venue.attributes.openingHours.length === 0 || isAlwaysOpen(venue)));
-            }
-
-            static eval(venue, highlightOnly) {
-                return this.#venueIsFlaggable(venue, highlightOnly) ? new this(venue) : null;
+            static venueIsFlaggable(args) {
+                return !args.highlightOnly
+                    && args.categories.includes(CAT.PARKING_LOT)
+                    && !args.venue.attributes.categoryAttributes?.PARKING_LOT?.canExitWhileClosed
+                    && ($('#WMEPH-ShowPLAExitWhileClosed').prop('checked') || !(args.openingHours.length === 0 || is247Hours(args.openingHours)));
             }
 
             action() {
-                const attrClone = JSON.parse(JSON.stringify(this.venue.attributes.categoryAttributes));
+                const attrClone = JSON.parse(JSON.stringify(this.args.venue.attributes.categoryAttributes));
                 attrClone.PARKING_LOT = attrClone.PARKING_LOT ?? {};
                 attrClone.PARKING_LOT.canExitWhileClosed = true;
-                addUpdateAction(this.venue, { categoryAttributes: attrClone }, null, true);
+                addUpdateAction(this.args.venue, { categoryAttributes: attrClone }, null, true);
             }
         },
         PlaHasAccessibleParking: class extends ActionFlag {
-            constructor(venue) {
-                super(true, _SEVERITY.GREEN, 'Does this lot have disability parking? ', 'Yes', '');
-                this.venue = venue;
-            }
+            static defaultMessage = 'Does this lot have disability parking? ';
+            static defaultButtonText = 'Yes';
 
-            static eval(venue, highlightOnly) {
-                let result = null;
-                if (!highlightOnly && venue.isParkingLot() && !(venue.attributes.services?.includes('DISABILITY_PARKING'))) {
-                    result = new this(venue);
-                }
-                return result;
+            static venueIsFlaggable(args) {
+                return !args.highlightOnly
+                    && args.categories.includes(CAT.PARKING_LOT)
+                    && !(args.venue.attributes.services?.includes('DISABILITY_PARKING'));
             }
 
             action() {
-                let { services } = this.venue.attributes;
-                if (services) {
-                    services = [].concat(services);
-                } else {
-                    services = [];
-                }
+                const services = this.args.venue.attributes.services?.slice() ?? [];
                 services.push('DISABILITY_PARKING');
-                addUpdateAction(this.venue, { services }, null, true);
-                _UPDATED_FIELDS.services_DISABILITY_PARKING.updated = true;
+                addUpdateAction(this.args.venue, { services }, null, true);
+                UPDATED_FIELDS.services_DISABILITY_PARKING.updated = true;
             }
         },
         AllDayHoursFixed: class extends FlagBase {
-            constructor() { super(true, _SEVERITY.GREEN, 'Hours were changed from 00:00-23:59 to "All Day"'); }
+            static defaultSeverity = SEVERITY.YELLOW;
+            static defaultMessage = 'Hours were changed from 00:00-23:59 to "All Day"';
 
-            static eval(venue, highlightOnly, actions) {
-                const hoursEntries = venue.attributes.openingHours;
-                const newHoursEntries = [];
-                let updateHours = false;
-                let result = null;
-                for (let i = 0, len = hoursEntries.length; i < len; i++) {
-                    const newHoursEntry = new OpeningHour({
-                        days: [].concat(hoursEntries[i].days), fromHour: hoursEntries[i].fromHour, toHour: hoursEntries[i].toHour
-                    });
-                    if (newHoursEntry.toHour === '23:59' && /^0?0:00$/.test(newHoursEntry.fromHour)) {
-                        if (highlightOnly) {
-                            // Just return a "placeholder" flag to highlight the place.
-                            result = new FlagBase(true, _SEVERITY.YELLOW, 'invalid all day hours');
-                            break;
-                        } else {
-                            updateHours = true;
-                            newHoursEntry.toHour = '00:00';
-                            newHoursEntry.fromHour = '00:00';
-                        }
-                    }
-                    newHoursEntries.push(newHoursEntry);
-                }
-                if (updateHours) {
-                    addUpdateAction(venue, { openingHours: newHoursEntries }, actions);
-                    result = new this();
-                }
-                return result;
+            // If highlightOnly, flag place yellow. Running WMEPH on a place will automatically fix the hours, so
+            // then this can be green and just display the message.
+            get severity() { return this.args.highlightOnly ? super.severity : SEVERITY.GREEN; }
+
+            static venueIsFlaggable(args) {
+                return args.almostAllDayHoursEntries.length > 0;
             }
-        },
-        ResiTypeNameSoft: class extends FlagBase {
-            constructor() { super(true, _SEVERITY.GREEN, 'The place name suggests a residential place or personalized place of work. Please verify.'); }
         },
         LocalURL: class extends FlagBase {
-            constructor() {
-                super(
-                    true,
-                    _SEVERITY.GREEN,
-                    'Some locations for this business have localized URLs, while others use the primary corporate site.'
-                      + ' Check if a local URL applies to this location.'
-                );
-            }
+            static defaultMessage = 'Some locations for this business have localized URLs, while others use the primary corporate site.'
+                + ' Check if a local URL applies to this location.';
 
-            static #venueIsFlaggable(url, localUrlRegexString) {
-                return localUrlRegexString && !(new RegExp(localUrlRegexString, 'i')).test(url);
-            }
-
-            static eval(url, localUrlRegexString) {
-                return this.#venueIsFlaggable(url, localUrlRegexString) ? new this() : null;
+            static venueIsFlaggable(args) {
+                return args.localUrlRegexString && !(new RegExp(args.localUrlRegexString, 'i')).test(args.url);
             }
         },
         LockRPP: class extends ActionFlag {
-            #defaultLockLevel;
+            static defaultButtonText = 'Lock';
+            static defaultButtonTooltip = 'Lock the residential point';
 
-            constructor(venue, defaultLockLevel) {
-                let message = 'Lock at <select id="RPPLockLevel">';
+            get message() {
+                let msg = 'Lock at <select id="RPPLockLevel">';
                 let ddlSelected = false;
                 for (let llix = 1; llix < 6; llix++) {
-                    if (llix < _USER.rank + 1) {
-                        if (!ddlSelected && (defaultLockLevel === llix - 1 || llix === _USER.rank)) {
-                            message += `<option value="${llix}" selected="selected">${llix}</option>`;
+                    if (llix < USER.rank + 1) {
+                        if (!ddlSelected && (this.args.defaultLockLevel === llix - 1 || llix === USER.rank)) {
+                            msg += `<option value="${llix}" selected="selected">${llix}</option>`;
                             ddlSelected = true;
                         } else {
-                            message += `<option value="${llix}">${llix}</option>`;
+                            msg += `<option value="${llix}">${llix}</option>`;
                         }
                     }
                 }
-                message += '</select>';
-                message = `Current lock: ${parseInt(venue.attributes.lockRank, 10) + 1}. ${message} ?`;
-                super(true, _SEVERITY.GREEN, message, 'Lock', 'Lock the residential point');
-                this.venue = venue;
-                this.defaultLockLevel = defaultLockLevel;
+                msg += '</select>';
+                msg = `Current lock: ${parseInt(this.args.venue.attributes.lockRank, 10) + 1}. ${msg} ?`;
+                return msg;
             }
 
-            static #venueIsFlaggable(venue, highlightOnly) {
+            static venueIsFlaggable(args) {
                 // Allow residential point locking by R3+
-                return !highlightOnly && venue.isResidential() && (_USER.isDevUser || _USER.isBetaUser || _USER.rank >= 3);
-            }
-
-            static eval(venue, highlightOnly, defaultLockLevel) {
-                let result = null;
-                if (this.#venueIsFlaggable(venue, highlightOnly)) {
-                    result = new this(venue, defaultLockLevel);
-                }
-                return result;
+                return !args.highlightOnly
+                    && args.categories.includes(CAT.RESIDENCE_HOME)
+                    && (USER.isDevUser || USER.isBetaUser || USER.rank >= 3);
             }
 
             action() {
-                let levelToLock = $('#RPPLockLevel :selected').val() || this.#defaultLockLevel + 1;
+                let levelToLock = $('#RPPLockLevel :selected').val() || this.args.defaultLockLevel + 1;
                 logDev(`RPPlevelToLock: ${levelToLock}`);
 
                 levelToLock -= 1;
-                if (this.venue.attributes.lockRank !== levelToLock) {
-                    addUpdateAction(this.venue, { lockRank: levelToLock }, null, true);
-                    _layer.redraw();
+                if (this.args.venue.attributes.lockRank !== levelToLock) {
+                    addUpdateAction(this.args.venue, { lockRank: levelToLock }, null, true);
                 }
             }
         },
         AddAlias: class extends ActionFlag {
-            constructor(venue, specCases, optionalAlias) {
-                super(true, _SEVERITY.GREEN, `Is there a ${optionalAlias} at this location?`, 'Yes', `Add ${optionalAlias}`);
-                this.venue = venue;
-                this.specCases = specCases;
-                this.optionalAlias = optionalAlias;
-            }
+            static defaultButtonText = 'Yes';
 
-            static eval(venue, specCase, specCases, aliases) {
-                let result = null;
-                const match = specCase.match(/^optionAltName<>(.+)/i);
-                if (match) {
-                    const [, optionalAlias] = match;
-                    if (!aliases.includes(optionalAlias)) {
-                        result = new this(venue, specCases, optionalAlias);
-                    }
-                }
-                return result;
+            get message() { return `Is there a ${this.args.optionalAlias} at this location?`; }
+            get buttonTooltip() { return `Add ${this.args.optionalAlias}`; }
+
+            static venueIsFlaggable(args) {
+                return args.optionalAlias
+                    && !args.aliases.includes(args.optionalAlias);
             }
 
             action() {
-                let aliases = insertAtIndex(this.venue.attributes.aliases.slice(), this.optionalAlias, 0);
-                if (this.specCases.includes('altName2Desc') && !this.venue.attributes.description.toUpperCase().includes(this.optionalAlias.toUpperCase())) {
-                    const description = `${this.optionalAlias}\n${this.venue.attributes.description}`;
-                    addUpdateAction(this.venue, { description }, null, false);
+                const attr = this.args.venue.attributes;
+                const alias = this.args.optionalAlias;
+                let aliases = insertAtIndex(attr.aliases.slice(), alias, 0);
+                if (this.args.specCases.includes('altName2Desc') && !attr.description.toUpperCase().includes(alias.toUpperCase())) {
+                    const description = `${alias}\n${attr.description}`;
+                    addUpdateAction(this.args.venue, { description }, null, false);
                 }
-                aliases = removeSFAliases(name, aliases);
-                addUpdateAction(this.venue, { aliases }, null, true);
+                aliases = removeUnnecessaryAliases(name, aliases);
+                addUpdateAction(this.args.venue, { aliases }, null, true);
             }
         },
         AddCat2: class extends ActionFlag {
+            static defaultButtonText = 'Yes';
+
+            get message() { return `Is there a ${_catTransWaze2Lang[this.altCategory]} at this location?`; }
+            get buttonTooltip() { return `Add ${_catTransWaze2Lang[this.altCategory]}`; }
+
             constructor(venue, altCategory) {
-                super(true, _SEVERITY.GREEN, `Is there a ${_catTransWaze2Lang[altCategory]} at this location?`, 'Yes', `Add ${_catTransWaze2Lang[altCategory]}`);
+                super();
                 this.altCategory = altCategory;
                 this.venue = venue;
             }
 
-            static eval(venue, specCases, newCategories, altCategory) {
+            static eval(venue, specCases, categories, altCategory) {
                 let result = null;
-                if (specCases.includes('buttOn_addCat2') && !newCategories.includes(altCategory)) {
+                if (specCases.includes('buttOn_addCat2') && !categories.includes(altCategory)) {
                     result = new this(venue, altCategory);
                 }
                 return result;
@@ -4538,265 +4901,237 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
             }
         },
         AddPharm: class extends ActionFlag {
-            constructor(venue) {
-                super(true, _SEVERITY.GREEN, 'Is there a Pharmacy at this location?', 'Yes', 'Add Pharmacy category');
-                this.venue = venue;
+            static defaultMessage = 'Is there a Pharmacy at this location?';
+            static defaultButtonText = 'Yes';
+            static defaultButtonTooltip = 'Add Pharmacy category';
+
+            static venueIsFlaggable(args) {
+                return args.specialCases.addPharm && !args.categories.includes(CAT.PHARMACY);
             }
 
             action() {
-                const categories = insertAtIndex(this.venue.getCategories(), 'PHARMACY', 1);
-                addUpdateAction(this.venue, { categories }, null, true);
+                const categories = insertAtIndex(this.args.venue.getCategories(), CAT.PHARMACY, 1);
+                addUpdateAction(this.args.venue, { categories }, null, true);
             }
         },
         AddSuper: class extends ActionFlag {
-            constructor(venue) {
-                super(true, _SEVERITY.GREEN, 'Does this location have a supermarket?', 'Yes', 'Add Supermarket category');
-                this.venue = venue;
+            static defaultMessage = 'Does this location have a supermarket?';
+            static defaultButtonText = 'Yes';
+            static defaultButtonTooltip = 'Add Supermarket category';
+
+            static venueIsFlaggable(args) {
+                return args.specialCases.addSuper && !args.categories.includes(CAT.SUPERMARKET_GROCERY);
             }
 
             action() {
-                const categories = insertAtIndex(this.venue.getCategories(), 'SUPERMARKET_GROCERY', 1);
-                addUpdateAction(this.venue, { categories }, null, true);
+                const categories = insertAtIndex(this.args.venue.getCategories(), CAT.SUPERMARKET_GROCERY, 1);
+                addUpdateAction(this.args.venue, { categories }, null, true);
             }
         },
         AppendAMPM: class extends ActionFlag {
-            constructor(venue) {
-                super(true, _SEVERITY.GREEN, 'Is there an ampm at this location?', 'Yes', 'Add ampm to the place');
-                this.venue = venue;
+            // Only used on the ARCO gas station PNH entry.
+            static defaultMessage = 'Is there an ampm at this location?';
+            static defaultButtonText = 'Yes';
+            static defaultButtonTooltip = 'Add ampm to the place';
+
+            static venueIsFlaggable(args) {
+                // No need to check for name/catgory. After the action is run, the name will match the "ARCO ampm"
+                // PNH entry, which doesn't have this flag.
+                return args.specialCases.appendAMPM;
             }
 
             action() {
-                const categories = insertAtIndex(this.venue.getCategories(), 'CONVENIENCE_STORE', 1);
-                addUpdateAction(this.venue, { name: 'ARCO ampm', url: 'ampm.com', categories }, null, true);
+                const categories = insertAtIndex(this.args.venue.getCategories(), CAT.CONVENIENCE_STORE, 1);
+                addUpdateAction(this.args.venue, { name: 'ARCO ampm', url: 'ampm.com', categories }, null, true);
             }
         },
         AddATM: class extends ActionFlag {
-            constructor(venue) {
-                super(true, _SEVERITY.GREEN, 'ATM at location? ', 'Yes', 'Add the ATM category to this place');
-                this.venue = venue;
+            static defaultMessage = 'ATM at location? ';
+            static defaultButtonText = 'Yes';
+            static defaultButtonTooltip = 'Add the ATM category to this place';
+
+            static venueIsFlaggable(args) {
+                let flaggable = false;
+                if (args.specialCases.addATM) {
+                    flaggable = true;
+                } else if (!args.categories.includes(CAT.ATM) && args.categories.includes(CAT.BANK_FINANCIAL)) {
+                    if (args.priPNHPlaceCat === CAT.BANK_FINANCIAL && !args.pnhMatchData[args.phSpecCaseIdx].includes('notABank')) {
+                        if ((args.categories.indexOf(CAT.OFFICES) !== 0)) {
+                            flaggable = true;
+                        }
+                    } else {
+                        flaggable = true;
+                    }
+                }
+                return flaggable;
             }
 
             action() {
-                const categories = insertAtIndex(this.venue.getCategories(), 'ATM', 1); // Insert ATM category in the second position
-                addUpdateAction(this.venue, { categories }, null, true);
+                const categories = insertAtIndex(this.args.venue.getCategories(), CAT.ATM, 1); // Insert ATM category in the second position
+                addUpdateAction(this.args.venue, { categories }, null, true);
             }
         },
         AddConvStore: class extends ActionFlag {
-            constructor(venue) {
-                super(true, _SEVERITY.GREEN, 'Add convenience store category? ', 'Yes', 'Add the Convenience Store category to this place');
-                this.venue = venue;
-            }
+            static defaultMessage = 'Add convenience store category? ';
+            static defaultButtonText = 'Yes';
+            static defaultButtonTooltip = 'Add the Convenience Store category to this place';
 
-            static #venueIsFlaggable(venue, categories) {
-                return venue.isGasStation()
-                    && !categories.includes('CONVENIENCE_STORE')
-                    && !_buttonBanner.subFuel; // Don't flag if already asking if this is really a gas station
-            }
-
-            static eval(venue, categories) {
-                return this.#venueIsFlaggable(venue, categories) ? new Flag.AddConvStore(venue) : null;
+            static venueIsFlaggable(args) {
+                return (args.categories.includes(CAT.GAS_STATION)
+                    && !args.categories.includes(CAT.CONVENIENCE_STORE)
+                    && !this.currentFlags.hasFlag(Flag.SubFuel)) // Don't flag if already asking if this is really a gas station
+                    || args.specialCases.addConvStore;
             }
 
             action() {
                 // Insert C.S. category in the second position
-                const categories = insertAtIndex(this.venue.getCategories(), 'CONVENIENCE_STORE', 1);
-                addUpdateAction(this.venue, { categories }, null, true);
+                const categories = insertAtIndex(this.args.venue.getCategories(), CAT.CONVENIENCE_STORE, 1);
+                addUpdateAction(this.args.venue, { categories }, null, true);
             }
         },
         IsThisAPostOffice: class extends ActionFlag {
-            constructor(venue) {
-                super(
-                    true,
-                    _SEVERITY.GREEN,
-                    `Is this a <a href="${_URLS.uspsWiki}" target="_blank" style="color:#3a3a3a">USPS post office</a>? `,
-                    'Yes',
-                    'Is this a USPS location?'
-                );
-                this.venue = venue;
-            }
+            static defaultMessage = `Is this a <a href="${URLS.uspsWiki}" target="_blank" style="color:#3a3a3a">USPS post office</a>? `;
+            static defaultButtonText = 'Yes';
+            static defaultButtonTooltip = 'Is this a USPS location?';
 
-            static eval(venue, highlightOnly, countryCode, newCategories, newName) {
-                let result = null;
-                if (!highlightOnly && countryCode === 'USA' && !newCategories.includes('PARKING_LOT') && !newCategories.includes('POST_OFFICE')) {
-                    const cleanName = newName.toUpperCase().replace(/[/\-.]/g, '');
-                    if (/\bUSP[OS]\b|\bpost(al)?\s+(service|office)\b/i.test(cleanName)) {
-                        result = new this(venue);
-                    }
-                }
-                return result;
+            static venueIsFlaggable(args) {
+                return !args.highlightOnly
+                    && args.countryCode === 'USA'
+                    && !args.venue.isParkingLot()
+                    && !args.categories.includes(CAT.POST_OFFICE)
+                    && /\bUSP[OS]\b|\bpost(al)?\s+(service|office)\b/i.test(args.nameBase.replace(/[/\-.]/g, ''));
             }
 
             action() {
-                const categories = insertAtIndex(this.venue.getCategories(), 'POST_OFFICE', 0);
-                addUpdateAction(this.venue, { categories }, null, true);
+                const categories = insertAtIndex(this.args.venue.getCategories(), CAT.POST_OFFICE, 0);
+                addUpdateAction(this.args.venue, { categories }, null, true);
             }
         },
-        ChangeToHospitalUrgentCare: class extends WLActionFlag {
-            constructor(venue) {
-                super(
-                    true,
-                    _SEVERITY.GREEN,
-                    'If this place provides emergency medical care:',
-                    'Change to Hospital / Urgent Care',
-                    'Change category to Hospital / Urgent Care',
-                    false,
-                    'Whitelist category',
-                    'changetoHospitalUrgentCare'
-                );
-                this.venue = venue;
-            }
+        ChangeToHospitalUrgentCare: class extends ActionFlag {
+            static defaultMessage = 'If this place provides emergency medical care:';
+            static defaultButtonText = 'Change to Hospital / Urgent Care';
+            static defaultButtonTooltip = 'Change category to Hospital / Urgent Care';
 
-            static eval(venue, highlightOnly) {
-                let result = null;
-                if (!highlightOnly && venue.attributes.categories.includes('DOCTOR_CLINIC')) {
-                    result = new this(venue);
-                }
-                return result;
+            static venueIsFlaggable(args) {
+                return !args.highlightOnly && args.categories.includes(CAT.DOCTOR_CLINIC);
             }
 
             action() {
-                let categories = this.venue.getCategories();
-                if (!categories.includes('HOSPITAL_MEDICAL_CARE')) {
-                    const indexToReplace = categories.indexOf('DOCTOR_CLINIC');
+                let categories = this.args.venue.getCategories();
+                if (!categories.includes(CAT.HOSPITAL_MEDICAL_CARE)) {
+                    const indexToReplace = categories.indexOf(CAT.DOCTOR_CLINIC);
                     if (indexToReplace > -1) {
                         categories = categories.slice(); // create a copy
-                        categories[indexToReplace] = 'HOSPITAL_URGENT_CARE';
+                        categories[indexToReplace] = CAT.HOSPITAL_URGENT_CARE;
                     }
-                    addUpdateAction(this.venue, { categories });
+                    addUpdateAction(this.args.venue, { categories });
                 }
-                harmonizePlaceGo(this.venue, 'harmonize');
+                harmonizePlaceGo(this.args.venue, 'harmonize');
             }
         },
         NotAHospital: class extends WLActionFlag {
-            constructor(venue) {
-                super(
-                    true,
-                    _SEVERITY.RED,
-                    'Key words suggest this location may not be a hospital or urgent care location.',
-                    'Change to Doctor / Clinic',
-                    'Change category to Doctor / Clinic',
-                    true,
-                    'Whitelist category',
-                    'notAHospital'
-                );
-                this.venue = venue;
-                this.noLock = true;
-            }
+            static defaultSeverity = SEVERITY.RED;
+            static defaultMessage = 'Key words suggest this location may not be a hospital or urgent care location.';
+            static defaultButtonText = 'Change to Doctor / Clinic';
+            static defaultButtonTooltip = 'Change category to Doctor / Clinic';
+            static WL_KEY = 'notAHospital';
+            static defaultWLTooltip = 'Whitelist category';
 
-            static #venueIsFlaggable(categories, name, wl) {
-                if (categories.includes('HOSPITAL_URGENT_CARE') && !wl.notAHospital) {
-                    const testName = name.toLowerCase().replace(/[^a-z]/g, ' ');
+            static venueIsFlaggable(args) {
+                if (args.categories.includes(CAT.HOSPITAL_URGENT_CARE) && !this.isWhitelisted(args)) {
+                    const testName = args.nameBase.toLowerCase().replace(/[^a-z]/g, ' ');
                     const testNameWords = testName.split(' ');
                     return containsAny(testNameWords, _hospitalFullMatch) || _hospitalPartMatch.some(match => testName.includes(match));
                 }
                 return false;
             }
 
-            static eval(venue, categories, name, wl) {
-                return this.#venueIsFlaggable(categories, name, wl) ? new this(venue) : null;
-            }
-
             action() {
-                let categories = this.venue.getCategories().slice();
+                let categories = this.args.venue.getCategories().slice();
                 let updateIt = false;
                 if (categories.length) {
-                    const idx = categories.indexOf('HOSPITAL_URGENT_CARE');
+                    const idx = categories.indexOf(CAT.HOSPITAL_URGENT_CARE);
                     if (idx > -1) {
-                        categories[idx] = 'DOCTOR_CLINIC';
+                        categories[idx] = CAT.DOCTOR_CLINIC;
                         updateIt = true;
                     }
                     categories = _.uniq(categories);
                 } else {
-                    categories.push('DOCTOR_CLINIC');
+                    categories.push(CAT.DOCTOR_CLINIC);
                     updateIt = true;
                 }
                 if (updateIt) {
-                    addUpdateAction(this.venue, { categories });
+                    addUpdateAction(this.args.venue, { categories }, null, true);
+                } else {
+                    harmonizePlaceGo(this.args.venue, 'harmonize');
                 }
-                harmonizePlaceGo(this.venue, 'harmonize');
             }
         },
-        ChangeToDoctorClinic: class extends WLActionFlag {
-            constructor(venue) {
-                super(
-                    true,
-                    _SEVERITY.GREEN,
-                    'If this place provides non-emergency medical care: ',
-                    'Change to Doctor / Clinic',
-                    'Change category to Doctor / Clinic',
-                    false,
-                    'Whitelist category',
-                    'changeToDoctorClinic'
-                );
-                this.venue = venue;
-            }
+        ChangeToDoctorClinic: class extends ActionFlag {
+            static defaultMessage = 'If this place provides non-emergency medical care: ';
+            static defaultButtonText = 'Change to Doctor / Clinic';
+            static defaultButtonTooltip = 'Change category to Doctor / Clinic';
 
-            static eval(venue, newCategories, highlightOnly, pnhNameRegMatch) {
-                let result = null;
-                if (!highlightOnly && venue.attributes.updatedOn < new Date('3/28/2017').getTime()
-                    && ((newCategories.includes('PERSONAL_CARE') && !pnhNameRegMatch) || newCategories.includes('OFFICES'))) {
-                    // Show the Change To Doctor / Clinic button for places with PERSONAL_CARE or OFFICES category
-                    // The date criteria was added because Doctor/Clinic category was added around then, and it's assumed if the
-                    // place has been edited since then, people would have already updated the category.
-
-                    result = new this(venue);
-                    result.WLactive = null;
-                }
-                return result;
+            static venueIsFlaggable(args) {
+                // Show the Change To Doctor / Clinic button for places with PERSONAL_CARE or OFFICES category
+                // The date criteria was added because Doctor/Clinic category was added around then, and it's assumed if the
+                // place has been edited since then, people would have already updated the category.
+                return !args.highlightOnly
+                    && args.venue.attributes.updatedOn < new Date('3/28/2017').getTime()
+                    && ((args.categories.includes(CAT.PERSONAL_CARE) && !args.pnhNameRegMatch) || args.categories.includes(CAT.OFFICES));
             }
 
             action() {
-                let categories = this.venue.getCategories().slice();
+                let categories = this.args.venue.getCategories().slice();
                 let updateIt = false;
                 if (categories.length) {
-                    ['OFFICES', 'PERSONAL_CARE'].forEach(cat => {
+                    [CAT.OFFICES, CAT.PERSONAL_CARE].forEach(cat => {
                         const idx = categories.indexOf(cat);
                         if (idx > -1) {
-                            categories[idx] = 'DOCTOR_CLINIC';
+                            categories[idx] = CAT.DOCTOR_CLINIC;
                             updateIt = true;
                         }
                     });
                     categories = _.uniq(categories);
                 } else {
-                    categories.push('DOCTOR_CLINIC');
+                    categories.push(CAT.DOCTOR_CLINIC);
                     updateIt = true;
                 }
                 if (updateIt) {
-                    addUpdateAction(this.venue, { categories });
+                    addUpdateAction(this.args.venue, { categories });
                 }
-                harmonizePlaceGo(this.venue, 'harmonize');
+                harmonizePlaceGo(this.args.venue, 'harmonize');
             }
         },
         TitleCaseName: class extends ActionFlag {
+            static defaultButtonText = 'Force Title Case?';
             #confirmChange = false;
             #originalName;
+            #titleCaseName;
+            noBannerAssemble = true;
 
-            constructor(venue, name, nameSuffix) {
-                const titleCaseName = toTitleCaseStrong(name);
-                super(true, _SEVERITY.GREEN, '', 'Force Title Case?', `Force title case to: ${titleCaseName}`);
-                this.#originalName = name + (nameSuffix || '');
-                this.suffixMessage = `<span style="margin-left: 4px;font-size: 14px">&bull; ${titleCaseName}${nameSuffix || ''}</span>`;
-                this.noBannerAssemble = true;
-                this.venue = venue;
+            get message() { return `<span style="margin-left: 4px;font-size: 14px">&bull; ${this.#titleCaseName}${this.args.nameSuffix || ''}</span>`; }
+            get buttonTooltip() { return `Rename to: ${this.#titleCaseName}${this.args.nameSuffix || ''}`; }
+
+            constructor(args) {
+                super();
+                this.#titleCaseName = titleCase(args.nameBase);
+                this.#originalName = args.nameBase + (args.nameSuffix || '');
             }
 
-            static #venueIsFlaggable(name) {
-                return name !== toTitleCaseStrong(name);
-            }
-
-            static eval(venue, name, nameSuffix) {
-                return this.#venueIsFlaggable(name) ? new this(venue, name, nameSuffix) : null;
+            static venueIsFlaggable(args) {
+                return !args.pnhNameRegMatch && args.nameBase !== titleCase(args.nameBase);
             }
 
             action() {
-                let name = this.venue.getName();
+                let name = this.args.venue.getName();
                 if (name === this.#originalName || this.#confirmChange) {
                     const parts = getNameParts(this.#originalName);
-                    name = toTitleCaseStrong(parts.base);
+                    name = titleCase(parts.base);
                     if (parts.base !== name) {
-                        addUpdateAction(this.venue, { name: name + (parts.suffix || '') });
+                        addUpdateAction(this.args.venue, { name: name + (parts.suffix || '') });
                     }
-                    harmonizePlaceGo(this.venue, 'harmonize');
+                    harmonizePlaceGo(this.args.venue, 'harmonize');
                 } else {
                     $('button#WMEPH_titleCaseName').text('Are you sure?').after(' The name has changed. This will overwrite the new name.');
                     this.#confirmChange = true;
@@ -4804,237 +5139,409 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
             }
         },
         SFAliases: class extends FlagBase {
-            constructor() { super(true, _SEVERITY.GREEN, 'Unnecessary aliases were removed.'); }
+            static defaultMessage = 'Unnecessary aliases were removed.';
+
+            static venueIsFlaggable(args) {
+                return args.aliasesRemoved;
+            }
         },
         PlaceMatched: class extends FlagBase {
-            constructor() { super(true, _SEVERITY.GREEN, 'Place matched from PNH data.'); }
+            static defaultMessage = 'Place matched from PNH data.';
+
+            static venueIsFlaggable(args) {
+                return args.pnhNameRegMatch;
+            }
         },
         PlaceLocked: class extends FlagBase {
-            constructor(venue, levelToLock, highlightOnly, actions) {
-                super(true, _SEVERITY.GREEN, 'Place locked.');
+            static defaultMessage = 'Place locked.';
+            constructor(args) {
+                super();
 
-                if (venue.attributes.lockRank < levelToLock) {
-                    if (!highlightOnly) {
+                if (args.venue.attributes.lockRank < args.levelToLock) {
+                    if (!args.highlightOnly) {
                         logDev('Venue locked!');
-                        actions.push(new UpdateObject(venue, { lockRank: levelToLock }));
-                        _UPDATED_FIELDS.lockRank.updated = true;
+                        args.actions.push(new UpdateObject(args.venue, { lockRank: args.levelToLock }));
+                        UPDATED_FIELDS.lockRank.updated = true;
                     } else {
                         this.hlLockFlag = true;
                     }
                 }
             }
 
-            static eval(venue, lockOK, totalSeverity, levelToLock, highlightOnly, actions) {
-                let result = null;
-                if (lockOK && totalSeverity < _SEVERITY.YELLOW) {
-                    result = new this(venue, levelToLock, highlightOnly, actions);
-                }
-                return result;
+            static venueIsFlaggable(args) {
+                return args.lockOK && args.totalSeverity < SEVERITY.YELLOW;
             }
         },
         NewPlaceSubmit: class extends ActionFlag {
-            #newPlaceUrl;
+            static defaultMessage = 'No PNH match. If it\'s a chain: ';
+            static defaultButtonText = 'Submit new chain data';
+            static defaultButtonTooltip = 'Submit info for a new chain through the linked form';
+            #formUrl;
 
-            constructor(newPlaceUrl) {
-                super(true, _SEVERITY.GREEN, 'No PNH match. If it\'s a chain: ', 'Submit new chain data', 'Submit info for a new chain through the linked form');
-                this.#newPlaceUrl = newPlaceUrl;
+            constructor(args) {
+                super();
+
+                // Make PNH submission link
+                const encodedName = encodeURIComponent(args.nameBase);
+                const encodedPermalink = encodeURIComponent(args.placePL);
+                const encodedUrl = encodeURIComponent(args.newUrl?.trim() ?? '');
+                const regionSettings = REGION_SETTINGS[args.region];
+                let entryValues;
+                if (['CA_EN', 'QC'].includes(args.region)) {
+                    entryValues = [encodedName, encodedUrl, USER.name, encodedPermalink];
+                } else {
+                    entryValues = [encodedName, encodedUrl, USER.name + args.gFormState];
+                }
+                this.#formUrl = regionSettings.getNewChainFormUrl(entryValues);
+            }
+
+            static venueIsFlaggable(args) {
+                return !args.highlightOnly
+                    && args.pnhMatchData[0] === 'NoMatch'
+                    && !args.venue.isParkingLot()
+                    && !CHAIN_APPROVAL_PRIMARY_CATS_TO_IGNORE.includes(args.categories[0])
+                    && !args.categories.includes(CAT.REST_AREAS);
             }
 
             action() {
-                window.open(this.#newPlaceUrl);
+                window.open(this.#formUrl);
             }
         },
         ApprovalSubmit: class extends ActionFlag {
-            #approveRegionURL;
+            static defaultMessage = 'PNH data exists but is not approved for this region: ';
+            static defaultButtonText = 'Request approval';
+            static defaultButtonTooltip = 'Request region/country approval of this place';
+            #formUrl;
 
-            constructor(approveRegionURL) {
-                super(true, _SEVERITY.GREEN, 'PNH data exists but is not approved for this region: ', 'Request approval', 'Request region/country approval of this place');
-                this.#approveRegionURL = approveRegionURL;
+            constructor(args) {
+                super();
+
+                const encodedName = encodeURIComponent(args.pnhMatchData[1][0]); // Just do the first match
+                const pnhOrderNum = args.pnhMatchData[2].join(',');
+                const approvalMessage = `Submitted via WMEPH. PNH order number ${pnhOrderNum}`;
+                const encodedPermalink = encodeURIComponent(args.placePL);
+                const regionSettings = REGION_SETTINGS[args.region];
+                let entryValues;
+                if (['CA_EN', 'QC'].includes(args.region)) {
+                    entryValues = [encodedName, approvalMessage, USER.name, encodedPermalink];
+                } else {
+                    entryValues = [encodedName, approvalMessage, USER.name + args.gFormState];
+                }
+                this.#formUrl = regionSettings.getApproveChainFormUrl(entryValues);
+            }
+
+            static venueIsFlaggable(args) {
+                return !args.highlightOnly
+                    && args.pnhMatchData[0] === 'ApprovalNeeded'
+                    && !args.venue.isParkingLot()
+                    && !CHAIN_APPROVAL_PRIMARY_CATS_TO_IGNORE.includes(args.categories[0])
+                    && !args.categories.includes(CAT.REST_AREAS);
             }
 
             action() {
-                window.open(this.#approveRegionURL);
+                window.open(this.#formUrl);
             }
         },
-        PlaceWebsite: class extends ActionFlag {
-            // NOTE: This class is now only used to display the store locator button.
-            // It can be updated to remove/change anything that doesn't serve that purpose.
-            constructor(venue) {
-                super(true, _SEVERITY.GREEN, '', 'Location Finder', 'Look up details about this location on the chain\'s finder web page');
+        LocationFinder: class extends ActionFlag {
+            static defaultButtonTooltip = 'Look up details about this location on the chain\'s finder web page.';
+            static #USPS_LOCATION_FINDER_URL = 'https://tools.usps.com/find-location.htm';
+            #storeFinderUrl;
+            #isCustom = false;
+
+            get buttonText() { return `Location Finder${this.isCustom ? ' (L)' : ''}`; }
+
+            constructor(venue, storeFinderUrl, isCustom, addr, state2L, venueGPS) {
+                super();
+                this.isCustom = isCustom;
                 this.venue = venue;
+                this.#isCustom = isCustom;
+                this.#storeFinderUrl = storeFinderUrl;
+                this.#processUrl(venue, addr, state2L, venueGPS);
             }
 
-            // TODO: Currently not fully implemented for all instances. If possible, combine all PlaceWebsite checks into this eval,
-            // and remove the previousFlag argument.
-            static eval(venue, highlightOnly, countryCode, newCategories, previousFlag) {
-                let result = previousFlag;
-                // Check for USPS
-                if (!highlightOnly && countryCode === 'USA' && !newCategories.includes('PARKING_LOT') && newCategories.includes('POST_OFFICE')) {
-                    _customStoreFinderURL = _URLS.uspsLocationFinder;
-                    _customStoreFinder = true;
-                    result = new this(venue);
+            static #venueIsFlaggable(highlightOnly, storeFinderUrl) {
+                return !highlightOnly && storeFinderUrl;
+            }
+
+            // TODO: Can this be put into venueIsFlaggable?
+            static eval(args) {
+                const isUsps = args.countryCode === 'USA' && !args.categories.includes(CAT.PARKING_LOT) && args.categories.includes(CAT.POST_OFFICE);
+                let storeFinderUrl;
+                let isCustom = false;
+                if (isUsps) {
+                    storeFinderUrl = this.#USPS_LOCATION_FINDER_URL;
+                } else {
+                    let colIndex = args.pnhDataHeaders.indexOf('ph_sfurllocal');
+                    storeFinderUrl = args.pnhMatchData[colIndex]?.trim();
+                    if (storeFinderUrl) {
+                        isCustom = true;
+                    } else {
+                        colIndex = args.pnhDataHeaders.indexOf('ph_sfurl');
+                        storeFinderUrl = args.pnhMatchData[colIndex]?.trim();
+                    }
                 }
-                return result;
+
+                return this.#venueIsFlaggable(args.highlightOnly, storeFinderUrl)
+                    ? new this(args.venue, storeFinderUrl, isCustom, args.addr, args.state2L, args.venueGPS)
+                    : null;
+            }
+
+            #processUrl(venue, addr, state2L, venueGPS) {
+                if (this.#isCustom) {
+                    const location = venue.attributes.geometry.getCentroid();
+                    const { houseNumber } = venue.attributes;
+
+                    const urlParts = this.#storeFinderUrl.replace(/ /g, '').split('<>');
+                    let searchStreet = '';
+                    let searchCity = '';
+                    let searchState = '';
+                    if (typeof addr.street.name === 'string') {
+                        searchStreet = addr.street.name;
+                    }
+                    const searchStreetPlus = searchStreet.replace(/ /g, '+');
+                    searchStreet = searchStreet.replace(/ /g, '%20');
+                    if (typeof addr.city.attributes.name === 'string') {
+                        searchCity = addr.city.attributes.name;
+                    }
+                    const searchCityPlus = searchCity.replace(/ /g, '+');
+                    searchCity = searchCity.replace(/ /g, '%20');
+                    if (typeof addr.state.name === 'string') {
+                        searchState = addr.state.name;
+                    }
+                    const searchStatePlus = searchState.replace(/ /g, '+');
+                    searchState = searchState.replace(/ /g, '%20');
+
+                    if (!venueGPS) venueGPS = OpenLayers.Layer.SphericalMercator.inverseMercator(location.x, location.y);
+                    this.#storeFinderUrl = '';
+                    for (let tlix = 1; tlix < urlParts.length; tlix++) {
+                        let part = '';
+                        switch (urlParts[tlix]) {
+                            case 'ph_streetName':
+                                part = searchStreet;
+                                break;
+                            case 'ph_streetNamePlus':
+                                part = searchStreetPlus;
+                                break;
+                            case 'ph_cityName':
+                                part = searchCity;
+                                break;
+                            case 'ph_cityNamePlus':
+                                part = searchCityPlus;
+                                break;
+                            case 'ph_stateName':
+                                part = searchState;
+                                break;
+                            case 'ph_stateNamePlus':
+                                part = searchStatePlus;
+                                break;
+                            case 'ph_state2L':
+                                part = state2L;
+                                break;
+                            case 'ph_latitudeEW':
+                                // customStoreFinderLocalURL = customStoreFinderLocalURL + venueGPS[0];
+                                break;
+                            case 'ph_longitudeNS':
+                                // customStoreFinderLocalURL = customStoreFinderLocalURL + venueGPS[1];
+                                break;
+                            case 'ph_latitudePM':
+                                part = venueGPS.lat;
+                                break;
+                            case 'ph_longitudePM':
+                                part = venueGPS.lon;
+                                break;
+                            case 'ph_latitudePMBuffMin':
+                                part = (venueGPS.lat - 0.025).toString();
+                                break;
+                            case 'ph_longitudePMBuffMin':
+                                part = (venueGPS.lon - 0.025).toString();
+                                break;
+                            case 'ph_latitudePMBuffMax':
+                                part = (venueGPS.lat + 0.025).toString();
+                                break;
+                            case 'ph_longitudePMBuffMax':
+                                part = (venueGPS.lon + 0.025).toString();
+                                break;
+                            case 'ph_houseNumber':
+                                part = houseNumber ?? '';
+                                break;
+                            default:
+                                part = urlParts[tlix];
+                        }
+                        this.#storeFinderUrl += part;
+                    }
+                }
+                if (!/^https?:\/\//.test(this.#storeFinderUrl)) {
+                    this.#storeFinderUrl = `http://${this.#storeFinderUrl}`;
+                }
+            }
+
+            #openStoreFinderWebsite() {
+                if ($('#WMEPH-WebSearchNewTab').prop('checked')) {
+                    window.open(this.#storeFinderUrl);
+                } else {
+                    window.open(this.#storeFinderUrl, SEARCH_RESULTS_WINDOW_NAME, _searchResultsWindowSpecs);
+                }
             }
 
             action() {
-                let openPlaceWebsiteURL;
-                // let linkProceed = true;
-                if (_updateURL) {
-                    // replace WME url with storefinder URLs if they are in the PNH data
-                    if (_customStoreFinder) {
-                        openPlaceWebsiteURL = _customStoreFinderURL;
-                    } else if (_customStoreFinderLocal) {
-                        openPlaceWebsiteURL = _customStoreFinderLocalURL;
-                    }
-                    // If the user has 'never' opened a localized store finder URL, then warn them (just once)
-                    if (localStorage.getItem(_SETTING_IDS.sfUrlWarning) === '0' && _customStoreFinderLocal) {
-                        WazeWrap.Alerts.confirm(
-                            _SCRIPT_NAME,
-                            '***Localized store finder sites often show multiple nearby results. Please make sure you pick the right location.<br>Click OK to agree and continue.',
-                            () => {
-                                localStorage.setItem(_SETTING_IDS.sfUrlWarning, '1'); // prevent future warnings
-                                if ($('#WMEPH-WebSearchNewTab').prop('checked')) {
-                                    window.open(openPlaceWebsiteURL);
-                                } else {
-                                    window.open(openPlaceWebsiteURL, _SEARCH_RESULTS_WINDOW_NAME, _searchResultsWindowSpecs);
-                                }
-                            },
-                            () => { }
-                        );
-                        return;
-                    }
-                } else {
-                    let { url } = this.venue;
-                    if (!/^https?:\/\//.test(url)) url = `http://${url}`;
-                    openPlaceWebsiteURL = url;
+                // If the user has 'never' opened a localized store finder URL, then warn them (just once)
+                if (localStorage.getItem(SETTING_IDS.sfUrlWarning) === '0' && this.#isCustom) {
+                    WazeWrap.Alerts.confirm(
+                        SCRIPT_NAME,
+                        '***Localized store finder sites often show multiple nearby results. Please make sure you pick the right location.'
+                            + '<br>Click OK to agree and continue.',
+                        () => {
+                            localStorage.setItem(SETTING_IDS.sfUrlWarning, '1'); // prevent future warnings
+                            this.#openStoreFinderWebsite();
+                        },
+                        () => { }
+                    );
+                    return;
                 }
-                // open the link depending on new window setting
-                // if (linkProceed) {
-                if ($('#WMEPH-WebSearchNewTab').prop('checked')) {
-                    window.open(openPlaceWebsiteURL);
-                } else {
-                    window.open(openPlaceWebsiteURL, _SEARCH_RESULTS_WINDOW_NAME, _searchResultsWindowSpecs);
-                }
-                // }
+                this.#openStoreFinderWebsite();
             }
         }
     }; // END Flag namespace
 
-    function getButtonBanner() {
-        // **** Set up banner action buttons.  Structure:
-        // active: false until activated in the script
-        // severity: determines the color of the banners and whether locking occurs
-        // message: The text before the button option
-        // value: button text
-        // title: tooltip text
-        // action: The action that happens if the button is pressed
-        // WL terms are for whitelisting
+    class FlagContainer {
+        static #flagOrder = [
+            Flag.EVChargingStationWarning,
+            Flag.PnhCatMess,
+            Flag.NotAHospital,
+            Flag.NotASchool,
+            Flag.FullAddressInference,
+            Flag.NameMissing,
+            Flag.GasNameMissing,
+            Flag.PlaIsPublic,
+            Flag.PlaNameMissing,
+            Flag.PlaNameNonStandard,
+            Flag.IndianaLiquorStoreHours,
+            Flag.HoursOverlap,
+            Flag.UnmappedRegion,
+            Flag.RestAreaName,
+            Flag.RestAreaNoTransportation,
+            Flag.RestAreaGas,
+            Flag.RestAreaScenic,
+            Flag.RestAreaSpec,
+            Flag.GasMismatch,
+            Flag.GasUnbranded,
+            Flag.GasMkPrim,
+            Flag.IsThisAPilotTravelCenter,
+            Flag.HotelMkPrim,
+            Flag.ChangeToPetVet,
+            Flag.PointNotArea,
+            Flag.AreaNotPoint,
+            Flag.HnMissing,
+            Flag.HnTooManyDigits,
+            Flag.HNRange,
+            Flag.StreetMissing,
+            Flag.CityMissing,
+            Flag.BankType1,
+            Flag.BankBranch,
+            Flag.StandaloneATM,
+            Flag.BankCorporate,
+            Flag.CatPostOffice,
+            Flag.IgnEdited,
+            Flag.WazeBot,
+            Flag.ParentCategory,
+            Flag.CheckDescription,
+            Flag.Overlapping,
+            Flag.SuspectDesc,
+            Flag.ResiTypeName,
+            Flag.PhoneInvalid,
+            Flag.UrlMismatch,
+            Flag.GasNoBrand,
+            Flag.SubFuel,
+            Flag.FormatUSPS,
+            Flag.MissingUSPSAlt,
+            Flag.MissingUSPSZipAlt,
+            Flag.MissingUSPSDescription,
+            Flag.CatHotel,
+            Flag.LocalizedName,
+            Flag.SpecCaseMessage,
+            Flag.ChangeToDoctorClinic,
+            Flag.ExtProviderMissing,
+            Flag.AddCommonEVPaymentMethods,
+            Flag.RemoveUncommonEVPaymentMethods,
+            Flag.UrlMissing,
+            Flag.InvalidUrl,
+            Flag.AddRecommendedPhone,
+            Flag.BadAreaCode,
+            Flag.PhoneMissing,
+            Flag.OldHours,
+            Flag.Mismatch247,
+            Flag.NoHours,
+            Flag.AllDayHoursFixed,
+            Flag.EVCSPriceMissing,
+            Flag.PlaLotTypeMissing,
+            Flag.PlaCostTypeMissing,
+            Flag.PlaPaymentTypeMissing,
+            Flag.PlaLotElevationMissing,
+            Flag.PlaSpaces,
+            Flag.NoPlaStopPoint,
+            Flag.PlaStopPointUnmoved,
+            Flag.PlaCanExitWhileClosed,
+            Flag.PlaHasAccessibleParking,
+            Flag.LocalURL,
+            Flag.LockRPP,
+            Flag.AddAlias,
+            Flag.AddCat2,
+            Flag.AddPharm,
+            Flag.AddSuper,
+            Flag.AppendAMPM,
+            Flag.AddATM,
+            Flag.AddConvStore,
+            Flag.IsThisAPostOffice,
+            Flag.TitleCaseName,
+            Flag.ChangeToHospitalUrgentCare,
+            Flag.SFAliases,
+            Flag.ClearThisPhone,
+            Flag.ClearThisUrl,
+            Flag.PlaceMatched,
+            Flag.PlaceLocked,
+            Flag.NewPlaceSubmit,
+            Flag.ApprovalSubmit,
+            Flag.LocationFinder
+        ];
 
-        return {
-            evChargingStationWarning: null,
-            pnhCatMess: null,
-            notAHospital: null,
-            notASchool: null,
-            hnDashRemoved: null,
-            fullAddressInference: null,
-            nameMissing: null,
-            gasNameMissing: null,
-            plaIsPublic: null,
-            plaNameMissing: null,
-            plaNameNonStandard: null,
-            indianaLiquorStoreHours: null,
-            hoursOverlap: null,
-            unmappedRegion: null,
-            restAreaName: null,
-            restAreaNoTransportation: null,
-            restAreaGas: null,
-            restAreaScenic: null,
-            restAreaSpec: null,
-            gasMismatch: null,
-            gasUnbranded: null,
-            gasMkPrim: null,
-            isThisAPilotTravelCenter: null,
-            hotelMkPrim: null,
-            changeToPetVet: null,
-            pointNotArea: null,
-            areaNotPoint: null,
-            hnMissing: null,
-            hnTooManyDigits: null,
-            hnNonStandard: null,
-            HNRange: null,
-            streetMissing: null,
-            cityMissing: null,
-            bankType1: null,
-            bankBranch: null,
-            standaloneATM: null,
-            bankCorporate: null,
-            catPostOffice: null,
-            ignEdited: null,
-            wazeBot: null,
-            parentCategory: null,
-            checkDescription: null,
-            overlapping: null,
-            suspectDesc: null,
-            resiTypeName: null,
-            mismatch247: null,
-            phoneInvalid: null,
-            areaNotPointMid: null,
-            pointNotAreaMid: null,
-            longURL: null,
-            gasNoBrand: null,
-            subFuel: null,
-            areaNotPointLow: null,
-            pointNotAreaLow: null,
-            formatUSPS: null,
-            missingUSPSAlt: null,
-            missingUSPSZipAlt: null,
-            missingUSPSDescription: null,
-            catHotel: null,
-            localizedName: null,
-            specCaseMessage: null,
-            specCaseMessageLow: null,
-            changeToDoctorClinic: null,
-            extProviderMissing: null,
-            addCommonEVPaymentMethods: null,
-            removeUncommonEVPaymentMethods: null,
-            urlMissing: null,
-            addRecommendedPhone: null,
-            badAreaCode: null,
-            phoneMissing: null,
-            oldHours: null,
-            noHours: null,
-            evcsPriceMissing: null,
-            plaLotTypeMissing: null,
-            plaCostTypeMissing: null,
-            plaPaymentTypeMissing: null,
-            plaLotElevationMissing: null,
-            plaSpaces: null,
-            noPlaStopPoint: null,
-            plaStopPointUnmoved: null,
-            plaCanExitWhileClosed: null,
-            plaHasAccessibleParking: null,
-            allDayHoursFixed: null,
-            resiTypeNameSoft: null,
-            localURL: null,
-            lockRPP: null,
-            addAlias: null,
-            addCat2: null,
-            addPharm: null,
-            addSuper: null,
-            appendAMPM: null,
-            addATM: null,
-            addConvStore: null,
-            isThisAPostOffice: null,
-            titleCaseName: null,
-            changeToHospitalUrgentCare: null,
-            sfAliases: null,
-            placeMatched: null,
-            placeLocked: null,
-            NewPlaceSubmit: null,
-            ApprovalSubmit: null,
-            PlaceWebsite: null
-        };
+        static #isIndexed = false;
+        #flags = [];
+
+        constructor() {
+            FlagContainer.#indexFlags();
+        }
+
+        static #indexFlags() {
+            if (!this.#isIndexed) {
+                let displayIndex = 1;
+                this.#flagOrder.forEach(flagClass => (flagClass.displayIndex = displayIndex++));
+                this.#isIndexed = true;
+            }
+        }
+
+        add(flag) {
+            if (flag) this.#flags.push(flag);
+        }
+
+        remove(flagClass) {
+            const idx = this.#flags.indexOf(flagClass);
+            if (idx > -1) this.#flags.splice(idx, 1);
+        }
+
+        getOrderedFlags() {
+            return this.#flags.slice().sort((f1, f2) => {
+                const idx1 = f1.constructor.displayIndex;
+                const idx2 = f2.constructor.displayIndex;
+
+                if (idx1 > idx2) return 1;
+                if (idx1 < idx2) return -1;
+                return 0;
+            });
+        }
+
+        hasFlag(flagClass) {
+            return this.#flags.some(flag => flag.constructor === flagClass);
+        }
     }
 
     function getServicesBanner() {
@@ -5345,7 +5852,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                 value: 'Places wiki',
                 title: 'Open the places Wazeopedia (wiki) page',
                 action() {
-                    window.open(_URLS.placesWiki);
+                    window.open(URLS.placesWiki);
                 }
             },
             restAreaWiki: {
@@ -5355,7 +5862,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                 value: 'Rest Area wiki',
                 title: 'Open the Rest Area wiki page',
                 action() {
-                    window.open(_URLS.restAreaWiki);
+                    window.open(URLS.restAreaWiki);
                 }
             },
             clearWL: {
@@ -5366,10 +5873,12 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                 title: 'Clear all Whitelisted fields for this place',
                 action() {
                     WazeWrap.Alerts.confirm(
-                        _SCRIPT_NAME,
+                        SCRIPT_NAME,
                         'Are you sure you want to clear all whitelisted fields for this place?',
                         () => {
                             delete _venueWhitelist[venue.attributes.id];
+                            // Remove venue from the results cache so it can be updated again.
+                            delete _resultsCache[venue.attributes.id];
                             saveWhitelistToLS(true);
                             harmonizePlaceGo(venue, 'harmonize');
                         },
@@ -5388,7 +5897,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                 action() {
                     reportError({
                         subject: 'WMEPH Bug report: Script Error',
-                        message: `Script version: ${_SCRIPT_VERSION}${_BETA_VERSION_STR}\nPermalink: ${
+                        message: `Script version: ${SCRIPT_VERSION}${BETA_VERSION_STR}\nPermalink: ${
                             placePL}\nPlace name: ${venue.attributes.name}\nCountry: ${
                             venue.getAddress().getCountry().name}\n--------\nDescribe the error:  \n `
                     });
@@ -5397,36 +5906,86 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
         };
     } // END getButtonBanner2()
 
+    function generateNewArgs() {
+        return {
+            venue: null,
+            actions: null,
+            highlightOnly: null,
+            totalSeverity: SEVERITY.GREEN,
+            levelToLock: null,
+            lockOK: true,
+            isLocked: null,
+
+            // Current venue attributes
+            categories: null,
+            nameSuffix: null,
+            nameBase: null,
+            aliases: null,
+            description: null,
+            url: null,
+            phone: null,
+            openingHours: null
+        };
+    }
+
     // Main script
-    function harmonizePlaceGo(item, useFlag, actions) {
-        let placePL;
-        const itemID = item.attributes.id;
+    function harmonizePlaceGo(venue, useFlag, actions) {
+        if (useFlag === 'harmonize') logDev('harmonizePlaceGo: useFlag="harmonize"');
+
+        const venueID = venue.attributes.id;
 
         // Used for collecting all actions to be applied to the model.
         actions = actions || [];
 
-        const highlightOnly = !useFlag.includes('harmonize');
+        FlagBase.currentFlags = new FlagContainer();
+        const args = generateNewArgs();
+        args.venue = venue;
+        args.wl = {};
+        args.highlightOnly = !useFlag.includes('harmonize');
+        args.addr = venue.getAddress();
+        args.addr = args.addr.attributes ?? args.addr;
+        args.state2L = 'Unknown';
+        args.region = 'Unknown';
+        args.gFormState = '';
+        args.actions = actions;
+        args.categories = venue.attributes.categories.slice();
+        const nameParts = getNameParts(venue.attributes.name);
+        args.nameSuffix = nameParts.suffix;
+        args.nameBase = nameParts.base;
+        args.aliases = venue.attributes.aliases.slice();
+        args.description = venue.attributes.description;
+        args.url = venue.attributes.url;
+        args.phone = venue.attributes.phone;
+        args.openingHours = venue.attributes.openingHours;
+        // Set up a variable (newBrand) to contain the brand. When harmonizing, it may be forced to a new value.
+        // Other brand flags should use it since it won't be updated on the actual venue until later.
+        args.brand = venue.attributes.brand;
+        args.showDispNote = true;
+        args.hoursOverlap = false;
+        args.descriptionInserted = false;
+        args.aliasesRemoved = false;
+        args.isUspsPostOffice = false;
+        args.maxPointSeverity = SEVERITY.GREEN;
+        args.maxAreaSeverity = SEVERITY.RED;
+        args.specialCases = {
+            addPharm: false,
+            addSuper: false,
+            appendAMPM: false,
+            addATM: false,
+            addConvStore: false
+        };
+        args.almostAllDayHoursEntries = [];
+        args.defaultLockLevel = LOCK_LEVEL_2;
 
-        let totalSeverity = _SEVERITY.GREEN;
-
-        // Whitelist: reset flags
-        const wl = {};
-
-        let addr = item.getAddress();
-        if (addr.hasOwnProperty('attributes')) {
-            addr = addr.attributes;
-        }
-
-        _buttonBanner = getButtonBanner();
         let pnhLockLevel;
-        if (!highlightOnly) {
+        if (!args.highlightOnly) {
             // Uncomment this to test all field highlights.
             // _UPDATED_FIELDS.getFieldProperties().forEach(prop => {
             //     prop.updated = true;
             // });
 
             // The placePL should only be needed when harmonizing, not when highlighting.
-            placePL = getCurrentPL() //  set up external post div and pull place PL
+            args.placePL = getCurrentPL() //  set up external post div and pull place PL
                 .replace(/&layers=[^&]+(&?)/g, '$1') // remove Permalink Layers
                 .replace(/&s=[^&]+(&?)/g, '$1') // remove Permalink Layers
                 .replace(/&update_requestsFilter=[^&]+(&?)/g, '$1') // remove Permalink Layers
@@ -5435,7 +5994,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                 .replace(/&mapUpdateRequestFilter=[^&]+(&?)/g, '$1') // remove Permalink Layers
                 .replace(/&venueFilter=[^&]+(&?)/g, '$1'); // remove Permalink Layers
 
-            _buttonBanner2 = getButtonBanner2(item, placePL);
+            _buttonBanner2 = getButtonBanner2(venue, args.placePL);
             _servicesBanner = getServicesBanner();
 
             // Update icons to reflect current WME place services
@@ -5454,109 +6013,74 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
             pnhLockLevel = -1;
         }
 
-        // If place has hours of 0:00-23:59, highlight yellow or if harmonizing, convert to All Day.
-        _buttonBanner.allDayHoursFixed = Flag.AllDayHoursFixed.eval(item, highlightOnly, actions);
-
-        let lockOK = true; // if nothing goes wrong, then place will be locked
-
-        let newCategories = item.attributes.categories.slice();
-        const nameParts = getNameParts(item.attributes.name);
-        let newNameSuffix = nameParts.suffix;
-        let newName = nameParts.base;
-        let newAliases = item.attributes.aliases.slice();
-        let newDescripion = item.attributes.description;
-        let newUrl = item.attributes.url;
-        let newPhone = item.attributes.phone;
-
-        let pnhNameRegMatch;
-        let result;
-
         // Some user submitted places have no data in the country, state and address fields.
-        result = Flag.FullAddressInference.eval(item, addr, actions, highlightOnly, newCategories);
+        const result = Flag.FullAddressInference.eval(venue, args.addr, actions, args.highlightOnly, args.categories);
         if (result?.exit) return result.severity;
-        _buttonBanner.fullAddressInference = result;
         const inferredAddress = result?.inferredAddress;
-        addr = inferredAddress ?? addr;
+        args.addr = inferredAddress ?? args.addr;
 
         // Check parking lot attributes.
-        if (!highlightOnly && item.isParkingLot()) _servicesBanner.addDisabilityParking.active = true;
-
-        _buttonBanner.plaCostTypeMissing = Flag.PlaCostTypeMissing.eval(item, highlightOnly);
-        _buttonBanner.plaLotElevationMissing = Flag.PlaLotElevationMissing.eval(item);
-        _buttonBanner.plaSpaces = Flag.PlaSpaces.eval(item, highlightOnly);
-        _buttonBanner.plaLotTypeMissing = Flag.PlaLotTypeMissing.eval(item, highlightOnly);
-        _buttonBanner.noPlaStopPoint = Flag.NoPlaStopPoint.eval(item);
-        _buttonBanner.plaStopPointUnmoved = Flag.PlaStopPointUnmoved.eval(item);
-        _buttonBanner.plaCanExitWhileClosed = Flag.PlaCanExitWhileClosed.eval(item, highlightOnly);
-        _buttonBanner.plaPaymentTypeMissing = Flag.PlaPaymentTypeMissing.eval(item);
-        _buttonBanner.plaHasAccessibleParking = Flag.PlaHasAccessibleParking.eval(item, highlightOnly);
-
-        // Check categories that maybe should be Hospital / Urgent Care, or Doctor / Clinic.
-        _buttonBanner.changeToHospitalUrgentCare = Flag.ChangeToHospitalUrgentCare.eval(item, highlightOnly);
+        if (!args.highlightOnly && venue.isParkingLot()) _servicesBanner.addDisabilityParking.active = true;
 
         // Whitelist breakout if place exists on the Whitelist and the option is enabled
-
-        let itemGPS;
-        if (_venueWhitelist.hasOwnProperty(itemID) && (!highlightOnly || (highlightOnly && !$('#WMEPH-DisableWLHL').prop('checked')))) {
+        if (_venueWhitelist.hasOwnProperty(venueID) && (!args.highlightOnly || (args.highlightOnly && !$('#WMEPH-DisableWLHL').prop('checked')))) {
             // Enable the clear WL button if any property is true
-            Object.keys(_venueWhitelist[itemID]).forEach(wlKey => { // loop thru the venue WL keys
-                if (_venueWhitelist[itemID].hasOwnProperty(wlKey) && (_venueWhitelist[itemID][wlKey].active || false)) {
-                    if (!highlightOnly) _buttonBanner2.clearWL.active = true;
-                    wl[wlKey] = _venueWhitelist[itemID][wlKey];
+            Object.keys(_venueWhitelist[venueID]).forEach(wlKey => { // loop thru the venue WL keys
+                if (_venueWhitelist[venueID].hasOwnProperty(wlKey) && (_venueWhitelist[venueID][wlKey].active || false)) {
+                    if (!args.highlightOnly) _buttonBanner2.clearWL.active = true;
+                    args.wl[wlKey] = _venueWhitelist[venueID][wlKey];
                 }
             });
-            if (_venueWhitelist[itemID].hasOwnProperty('dupeWL') && _venueWhitelist[itemID].dupeWL.length > 0) {
-                if (!highlightOnly) _buttonBanner2.clearWL.active = true;
-                wl.dupeWL = _venueWhitelist[itemID].dupeWL;
+            if (_venueWhitelist[venueID].hasOwnProperty('dupeWL') && _venueWhitelist[venueID].dupeWL.length > 0) {
+                if (!args.highlightOnly) _buttonBanner2.clearWL.active = true;
+                args.wl.dupeWL = _venueWhitelist[venueID].dupeWL;
             }
             // Update address and GPS info for the place
-            if (!highlightOnly) {
-                // get GPS lat/long coords from place, call as itemGPS.lat, itemGPS.lon
-                if (!itemGPS) {
-                    const centroid = item.attributes.geometry.getCentroid();
-                    itemGPS = OpenLayers.Layer.SphericalMercator.inverseMercator(centroid.x, centroid.y);
+            if (!args.highlightOnly) {
+                // get GPS lat/long coords from place, call as venueGPS.lat, venueGPS.lon
+                if (!args.venueGPS) {
+                    const centroid = venue.attributes.geometry.getCentroid();
+                    args.venueGPS = OpenLayers.Layer.SphericalMercator.inverseMercator(centroid.x, centroid.y);
                 }
-                _venueWhitelist[itemID].city = addr.city.attributes.name; // Store city for the venue
-                _venueWhitelist[itemID].state = addr.state.name; // Store state for the venue
-                _venueWhitelist[itemID].country = addr.country.name; // Store country for the venue
-                _venueWhitelist[itemID].gps = itemGPS; // Store GPS coords for the venue
+                _venueWhitelist[venueID].city = args.addr.city.attributes.name; // Store city for the venue
+                _venueWhitelist[venueID].state = args.addr.state.name; // Store state for the venue
+                _venueWhitelist[venueID].country = args.addr.country.name; // Store country for the venue
+                _venueWhitelist[venueID].gps = args.venueGPS; // Store GPS coords for the venue
             }
         }
 
         // Country restrictions (note that FullAddressInference should guarantee country/state exist if highlightOnly is true)
-        if (!addr.country || !addr.state) {
-            WazeWrap.Alerts.error(_SCRIPT_NAME, 'Country and/or state could not be determined.  Edit the place address and run WMEPH again.');
+        if (!args.addr.country || !args.addr.state) {
+            WazeWrap.Alerts.error(SCRIPT_NAME, 'Country and/or state could not be determined.  Edit the place address and run WMEPH again.');
             return undefined;
         }
-        let countryCode;
-        const countryName = addr.country.name;
-        const stateName = addr.state.name;
+
+        const countryName = args.addr.country.name;
+        const stateName = args.addr.state.name;
         if (['United States', 'American Samoa', 'Guam', 'Northern Mariana Islands', 'Puerto Rico', 'Virgin Islands (U.S.)'].includes(countryName)) {
-            countryCode = 'USA';
+            args.countryCode = 'USA';
         } else if (countryName === 'Canada') {
-            countryCode = 'CAN';
+            args.countryCode = 'CAN';
         } else {
-            if (!highlightOnly) {
-                WazeWrap.Alerts.error(_SCRIPT_NAME, `This script is not currently supported in ${countryName}.`);
+            if (!args.highlightOnly) {
+                WazeWrap.Alerts.error(SCRIPT_NAME, `This script is not currently supported in ${countryName}.`);
             }
-            return _SEVERITY.RED;
+            return SEVERITY.RED;
         }
 
+        args.pnhCategoryInfos = PNH_DATA[args.countryCode].categoryInfos;
+
         // Parse state-based data
-        let state2L = 'Unknown';
-        let region = 'Unknown';
-        let gFormState = '';
-        let defaultLockLevel = _LOCK_LEVEL_2;
-        for (let usdix = 1; usdix < _PNH_DATA.states.length; usdix++) {
-            _stateDataTemp = _PNH_DATA.states[usdix].split('|');
+        for (let usdix = 1; usdix < PNH_DATA.states.length; usdix++) {
+            _stateDataTemp = PNH_DATA.states[usdix].split('|');
             if (stateName === _stateDataTemp[_psStateIx]) {
-                state2L = _stateDataTemp[_psState2LetterIx];
-                region = _stateDataTemp[_psRegionIx];
-                gFormState = _stateDataTemp[_psGoogleFormStateIx];
+                args.state2L = _stateDataTemp[_psState2LetterIx];
+                args.region = _stateDataTemp[_psRegionIx];
+                args.gFormState = _stateDataTemp[_psGoogleFormStateIx];
                 if (_stateDataTemp[_psDefaultLockLevelIx].match(/[1-5]{1}/) !== null) {
-                    defaultLockLevel = _stateDataTemp[_psDefaultLockLevelIx] - 1; // normalize by -1
-                } else if (!highlightOnly) {
-                    WazeWrap.Alerts.warning(_SCRIPT_NAME, 'Lock level sheet data is not correct');
+                    args.defaultLockLevel = _stateDataTemp[_psDefaultLockLevelIx] - 1; // normalize by -1
+                } else if (!args.highlightOnly) {
+                    WazeWrap.Alerts.warning(SCRIPT_NAME, 'Lock level sheet data is not correct');
                 } else {
                     return 3;
                 }
@@ -5565,13 +6089,13 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
             }
             // If State is not found, then use the country
             if (countryName === _stateDataTemp[_psStateIx]) {
-                state2L = _stateDataTemp[_psState2LetterIx];
-                region = _stateDataTemp[_psRegionIx];
-                gFormState = _stateDataTemp[_psGoogleFormStateIx];
+                args.state2L = _stateDataTemp[_psState2LetterIx];
+                args.region = _stateDataTemp[_psRegionIx];
+                args.gFormState = _stateDataTemp[_psGoogleFormStateIx];
                 if (_stateDataTemp[_psDefaultLockLevelIx].match(/[1-5]{1}/) !== null) {
-                    defaultLockLevel = _stateDataTemp[_psDefaultLockLevelIx] - 1; // normalize by -1
-                } else if (!highlightOnly) {
-                    WazeWrap.Alerts.warning(_SCRIPT_NAME, 'Lock level sheet data is not correct');
+                    args.defaultLockLevel = _stateDataTemp[_psDefaultLockLevelIx] - 1; // normalize by -1
+                } else if (!args.highlightOnly) {
+                    WazeWrap.Alerts.warning(SCRIPT_NAME, 'Lock level sheet data is not correct');
                 } else {
                     return 3;
                 }
@@ -5579,8 +6103,8 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                 break;
             }
         }
-        if (state2L === 'Unknown' || region === 'Unknown') { // if nothing found:
-            if (!highlightOnly) {
+        if (args.state2L === 'Unknown' || args.region === 'Unknown') { // if nothing found:
+            if (!args.highlightOnly) {
                 /* if (confirm('WMEPH: Localization Error!\nClick OK to report this error')) {
                     // if the category doesn't translate, then pop an alert that will make a forum post to the thread
                     const data = {
@@ -5595,14 +6119,14 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                     reportError(data);
                 } */
                 WazeWrap.Alerts.confirm(
-                    _SCRIPT_NAME,
+                    SCRIPT_NAME,
                     'WMEPH: Localization Error!<br>Click OK to report this error',
                     () => {
                         const data = {
                             subject: 'WMEPH Localization Error report',
                             message: `Error report: Localization match failed for "${stateName}".`
                         };
-                        if (_PNH_DATA.states.length === 0) {
+                        if (PNH_DATA.states.length === 0) {
                             data.message += ' _PNH_DATA.states array is empty.';
                         } else {
                             data.message += ` state2L = ${_stateDataTemp[_psState2LetterIx]}. region = ${_stateDataTemp[_psRegionIx]}`;
@@ -5612,242 +6136,140 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                     () => { }
                 );
             }
-            return 3;
+            return SEVERITY.RED;
         }
 
         // Gas station treatment (applies to all including PNH)
 
-        _buttonBanner.isThisAPilotTravelCenter = Flag.IsThisAPilotTravelCenter.eval(item, highlightOnly, state2L, newName, actions);
-        if (_buttonBanner.isThisAPilotTravelCenter) newName = _buttonBanner.isThisAPilotTravelCenter.newName;
+        if (!args.highlightOnly && args.state2L === 'TN' && args.nameBase.toLowerCase().trim() === 'pilot') {
+            // TODO: check what happens here if there's a name suffix.
+            args.nameBase = 'Pilot Food Mart';
+            addUpdateAction(venue, { name: args.nameBase }, actions);
+        }
 
-        _buttonBanner.gasMkPrim = Flag.GasMkPrim.eval(item, newCategories);
-        _buttonBanner.addConvStore = Flag.AddConvStore.eval(item, newCategories);
-
-        // Note for Indiana editors to check liquor store hours if Sunday hours haven't been added yet.
-        _buttonBanner.indianaLiquorStoreHours = Flag.IndianaLiquorStoreHours.eval(item, newName, highlightOnly, wl);
-
-        const isLocked = item.attributes.lockRank >= (pnhLockLevel > -1 ? pnhLockLevel : defaultLockLevel);
-
-        // Set up a variable (newBrand) to contain the brand. When harmonizing, it may be forced to a new value.
-        // Other brand flags should use it since it won't be updated on the actual venue until later.
-        let { brand: newBrand } = item.attributes;
         // Clear attributes from residential places
-        if (item.attributes.residential) {
-            if (!highlightOnly) {
+        if (venue.attributes.residential) {
+            if (!args.highlightOnly) {
                 if (!$('#WMEPH-AutoLockRPPs').prop('checked')) {
-                    lockOK = false;
+                    args.lockOK = false;
                 }
-                if (item.attributes.name !== '') { // Set the residential place name to the address (to clear any personal info)
+                if (venue.attributes.name !== '') { // Set the residential place name to the address (to clear any personal info)
                     logDev('Residential Name reset');
-                    actions.push(new UpdateObject(item, { name: '' }));
+                    actions.push(new UpdateObject(venue, { name: '' }));
                     // no field HL
                 }
-                newCategories = ['RESIDENCE_HOME'];
-                // newDescripion = null;
-                if (item.attributes.description !== null && item.attributes.description !== '') { // remove any description
+                args.categories = ['RESIDENCE_HOME'];
+                if (venue.attributes.description !== null && venue.attributes.description !== '') { // remove any description
                     logDev('Residential description cleared');
-                    actions.push(new UpdateObject(item, { description: null }));
+                    actions.push(new UpdateObject(venue, { description: null }));
                     // no field HL
                 }
-                // newPhone = null;
-                if (item.attributes.phone !== null && item.attributes.phone !== '') { // remove any phone info
+                if (venue.attributes.phone !== null && venue.attributes.phone !== '') { // remove any phone info
                     logDev('Residential Phone cleared');
-                    actions.push(new UpdateObject(item, { phone: null }));
+                    actions.push(new UpdateObject(venue, { phone: null }));
                     // no field HL
                 }
-                // newURL = null;
-                if (item.attributes.url !== null && item.attributes.url !== '') { // remove any url
+                if (venue.attributes.url !== null && venue.attributes.url !== '') { // remove any url
                     logDev('Residential URL cleared');
-                    actions.push(new UpdateObject(item, { url: null }));
+                    actions.push(new UpdateObject(venue, { url: null }));
                     // no field HL
                 }
-                if (item.attributes.services.length > 0) {
+                if (venue.attributes.services.length > 0) {
                     logDev('Residential services cleared');
-                    actions.push(new UpdateObject(item, { services: [] }));
+                    actions.push(new UpdateObject(venue, { services: [] }));
                     // no field HL
                 }
             }
-            // NOTE: do not use is2D() function. It doesn't seem to be 100% reliable.
-            if (!item.isPoint()) {
-                _buttonBanner.pointNotArea = new Flag.PointNotArea(item);
-            }
-        } else if (item.isParkingLot() || (newName && newName.trim().length)) { // for non-residential places
+        } else if (venue.isParkingLot() || (args.nameBase?.trim().length)) { // for non-residential places
             // Phone formatting
-            let outputPhoneFormat = '({0}) {1}-{2}';
-            if (containsAny(['CA', 'CO'], [region, state2L]) && (/^\d{3}-\d{3}-\d{4}$/.test(item.attributes.phone))) {
-                outputPhoneFormat = '{0}-{1}-{2}';
-            } else if (region === 'SER' && !(/^\(\d{3}\) \d{3}-\d{4}$/.test(item.attributes.phone))) {
-                outputPhoneFormat = '{0}-{1}-{2}';
-            } else if (region === 'GLR') {
-                outputPhoneFormat = '{0}-{1}-{2}';
-            } else if (state2L === 'NV') {
-                outputPhoneFormat = '{0}-{1}-{2}';
-            } else if (countryCode === 'CAN') {
-                outputPhoneFormat = '+1-{0}-{1}-{2}';
+            args.outputPhoneFormat = '({0}) {1}-{2}';
+            if (containsAny(['CA', 'CO'], [args.region, args.state2L]) && (/^\d{3}-\d{3}-\d{4}$/.test(venue.attributes.phone))) {
+                args.outputPhoneFormat = '{0}-{1}-{2}';
+            } else if (args.region === 'SER' && !(/^\(\d{3}\) \d{3}-\d{4}$/.test(venue.attributes.phone))) {
+                args.outputPhoneFormat = '{0}-{1}-{2}';
+            } else if (args.region === 'GLR') {
+                args.outputPhoneFormat = '{0}-{1}-{2}';
+            } else if (args.state2L === 'NV') {
+                args.outputPhoneFormat = '{0}-{1}-{2}';
+            } else if (args.countryCode === 'CAN') {
+                args.outputPhoneFormat = '+1-{0}-{1}-{2}';
             }
 
-            _buttonBanner.extProviderMissing = Flag.ExtProviderMissing.eval(
-                item,
-                isLocked,
-                newCategories,
-                _USER.rank,
-                $('#WMEPH-DisablePLAExtProviderCheck').prop('checked'),
-                actions
-            );
+            args.almostAllDayHoursEntries = args.openingHours.filter(hoursEntry => hoursEntry.toHour === '23:59' && /^0?0:00$/.test(hoursEntry.fromHour));
+            if (!args.highlightOnly && args.almostAllDayHoursEntries.length) {
+                const newHoursEntries = [];
+                args.openingHours.forEach(hoursEntry => {
+                    const isInvalid = args.almostAllDayHoursEntries.includes(hoursEntry);
+                    const newHoursEntry = new OpeningHour({
+                        days: hoursEntry.days.slice(),
+                        fromHour: isInvalid ? '00:00' : hoursEntry.fromHour,
+                        toHour: isInvalid ? '00:00' : hoursEntry.toHour
+                    });
+                    newHoursEntries.push(newHoursEntry);
+                });
+                args.openingHours = newHoursEntries;
+                addUpdateAction(venue, { openingHours: args.openingHours }, actions);
+            }
 
             // Place Harmonization
-            let pnhMatchData;
-            if (!highlightOnly) {
-                if (item.isParkingLot()) {
-                    pnhMatchData = ['NoMatch'];
+            if (!args.highlightOnly) {
+                if (venue.isParkingLot() || venue.isResidential()) {
+                    args.pnhMatchData = ['NoMatch'];
                 } else {
                     // check against the PNH list
-                    pnhMatchData = harmoList(newName, state2L, region, countryCode, newCategories, item);
-
-                    if (['NoMatch', 'ApprovalNeeded'].includes(pnhMatchData[0])) {
-                        const newURLSubmit = !isNullOrWhitespace(newUrl) ? newUrl : '';
-                        let pnhOrderNum = '';
-                        let pnhNameTemp = '';
-                        let pnhNameTempWeb = '';
-                        if (pnhMatchData[0] === 'ApprovalNeeded') {
-                            // PNHNameTemp = PNHMatchData[1].join(', ');
-                            [, [pnhNameTemp]] = pnhMatchData; // Just do the first match
-                            pnhNameTempWeb = encodeURIComponent(pnhNameTemp);
-                            pnhOrderNum = pnhMatchData[2].join(',');
-                        }
-
-                        // Make PNH submission links
-                        let regionFormURL = '';
-                        let newPlaceAddon = '';
-                        let approvalAddon = '';
-                        const approvalMessage = `Submitted via WMEPH. PNH order number ${pnhOrderNum}`;
-                        const encodedTempSubmitName = encodeURIComponent(newName);
-                        const encodedPlacePL = encodeURIComponent(placePL);
-                        const encodedUrlSubmit = encodeURIComponent(newURLSubmit);
-                        const suffix = _USER.name + gFormState;
-                        switch (region) {
-                            case 'NWR': regionFormURL = 'https://docs.google.com/forms/d/1hv5hXBlGr1pTMmo4n3frUx1DovUODbZodfDBwwTc7HE/viewform';
-                                newPlaceAddon = `?entry.925969794=${encodedTempSubmitName}&entry.1970139752=${encodedUrlSubmit}&entry.1749047694=${suffix}`;
-                                approvalAddon = `?entry.925969794=${pnhNameTempWeb}&entry.50214576=${approvalMessage}&entry.1749047694=${suffix}`;
-                                break;
-                            case 'SWR': regionFormURL = 'https://docs.google.com/forms/d/1Qf2N4fSkNzhVuXJwPBJMQBmW0suNuy8W9itCo1qgJL4/viewform';
-                                newPlaceAddon = `?entry.1497446659=${encodedTempSubmitName}&entry.1970139752=${encodedUrlSubmit}&entry.1749047694=${suffix}`;
-                                approvalAddon = `?entry.1497446659=${pnhNameTempWeb}&entry.50214576=${approvalMessage}&entry.1749047694=${suffix}`;
-                                break;
-                            case 'HI': regionFormURL = 'https://docs.google.com/forms/d/1K7Dohm8eamIKry3KwMTVnpMdJLaMIyDGMt7Bw6iqH_A/viewform';
-                                newPlaceAddon = `?entry.1497446659=${encodedTempSubmitName}&entry.1970139752=${encodedUrlSubmit}&entry.1749047694=${suffix}`;
-                                approvalAddon = `?entry.1497446659=${pnhNameTempWeb}&entry.50214576=${approvalMessage}&entry.1749047694=${suffix}`;
-                                break;
-                            case 'PLN': regionFormURL = 'https://docs.google.com/forms/d/1ycXtAppoR5eEydFBwnghhu1hkHq26uabjUu8yAlIQuI/viewform';
-                                newPlaceAddon = `?entry.925969794=${encodedTempSubmitName}&entry.1970139752=${encodedUrlSubmit}&entry.1749047694=${suffix}`;
-                                approvalAddon = `?entry.925969794=${pnhNameTempWeb}&entry.50214576=${approvalMessage}&entry.1749047694=${suffix}`;
-                                break;
-                            case 'SCR': regionFormURL = 'https://docs.google.com/forms/d/1KZzLdlX0HLxED5Bv0wFB-rWccxUp2Mclih5QJIQFKSQ/viewform';
-                                newPlaceAddon = `?entry.925969794=${encodedTempSubmitName}&entry.1970139752=${encodedUrlSubmit}&entry.1749047694=${suffix}`;
-                                approvalAddon = `?entry.925969794=${pnhNameTempWeb}&entry.50214576=${approvalMessage}&entry.1749047694=${suffix}`;
-                                break;
-                            case 'GLR': regionFormURL = 'https://docs.google.com/forms/d/19btj-Qt2-_TCRlcS49fl6AeUT95Wnmu7Um53qzjj9BA/viewform';
-                                newPlaceAddon = `?entry.925969794=${encodedTempSubmitName}&entry.1970139752=${encodedUrlSubmit}&entry.1749047694=${suffix}`;
-                                approvalAddon = `?entry.925969794=${pnhNameTempWeb}&entry.50214576=${approvalMessage}&entry.1749047694=${suffix}`;
-                                break;
-                            case 'SAT': regionFormURL = 'https://docs.google.com/forms/d/1bxgK_20Jix2ahbmUvY1qcY0-RmzUBT6KbE5kjDEObF8/viewform';
-                                newPlaceAddon = `?entry.2063110249=${encodedTempSubmitName}&entry.2018912633=${encodedUrlSubmit}&entry.1924826395=${suffix}`;
-                                approvalAddon = `?entry.2063110249=${pnhNameTempWeb}&entry.123778794=${approvalMessage}&entry.1924826395=${suffix}`;
-                                break;
-                            case 'SER': regionFormURL = 'https://docs.google.com/forms/d/1jYBcxT3jycrkttK5BxhvPXR240KUHnoFMtkZAXzPg34/viewform';
-                                newPlaceAddon = `?entry.822075961=${encodedTempSubmitName}&entry.1422079728=${encodedUrlSubmit}&entry.1891389966=${suffix}`;
-                                approvalAddon = `?entry.822075961=${pnhNameTempWeb}&entry.607048307=${approvalMessage}&entry.1891389966=${suffix}`;
-                                break;
-                            case 'ATR': regionFormURL = 'https://docs.google.com/forms/d/1v7JhffTfr62aPSOp8qZHA_5ARkBPldWWJwDeDzEioR0/viewform';
-                                newPlaceAddon = `?entry.925969794=${encodedTempSubmitName}&entry.1970139752=${encodedUrlSubmit}&entry.1749047694=${suffix}`;
-                                approvalAddon = `?entry.925969794=${pnhNameTempWeb}&entry.50214576=${approvalMessage}&entry.1749047694=${suffix}`;
-                                break;
-                            case 'NER': regionFormURL = 'https://docs.google.com/forms/d/1UgFAMdSQuJAySHR0D86frvphp81l7qhEdJXZpyBZU6c/viewform';
-                                newPlaceAddon = `?entry.925969794=${encodedTempSubmitName}&entry.1970139752=${encodedUrlSubmit}&entry.1749047694=${suffix}`;
-                                approvalAddon = `?entry.925969794=${pnhNameTempWeb}&entry.50214576=${approvalMessage}&entry.1749047694=${suffix}`;
-                                break;
-                            case 'NOR': regionFormURL = 'https://docs.google.com/forms/d/1iYq2rd9HRd-RBsKqmbHDIEBGuyWBSyrIHC6QLESfm4c/viewform';
-                                newPlaceAddon = `?entry.925969794=${encodedTempSubmitName}&entry.1970139752=${encodedUrlSubmit}&entry.1749047694=${suffix}`;
-                                approvalAddon = `?entry.925969794=${pnhNameTempWeb}&entry.50214576=${approvalMessage}&entry.1749047694=${suffix}`;
-                                break;
-                            case 'MAR': regionFormURL = 'https://docs.google.com/forms/d/1PhL1iaugbRMc3W-yGdqESoooeOz-TJIbjdLBRScJYOk/viewform';
-                                newPlaceAddon = `?entry.925969794=${encodedTempSubmitName}&entry.1970139752=${encodedUrlSubmit}&entry.1749047694=${suffix}`;
-                                approvalAddon = `?entry.925969794=${pnhNameTempWeb}&entry.50214576=${approvalMessage}&entry.1749047694=${suffix}`;
-                                break;
-                            case 'CA_EN': regionFormURL = 'https://docs.google.com/forms/d/13JwXsrWPNmCdfGR5OVr5jnGZw-uNGohwgjim-JYbSws/viewform';
-                                newPlaceAddon = `?entry_839085807=${encodedTempSubmitName}&entry_1067461077=${encodedUrlSubmit}&entry_318793106=${
-                                    _USER.name}&entry_1149649663=${encodedPlacePL}`;
-                                approvalAddon = `?entry_839085807=${pnhNameTempWeb}&entry_1125435193=${approvalMessage}&entry_318793106=${
-                                    _USER.name}&entry_1149649663=${encodedPlacePL}`;
-                                break;
-                            case 'QC': regionFormURL = 'https://docs.google.com/forms/d/13JwXsrWPNmCdfGR5OVr5jnGZw-uNGohwgjim-JYbSws/viewform';
-                                newPlaceAddon = `?entry_839085807=${encodedTempSubmitName}&entry_1067461077=${encodedUrlSubmit}&entry_318793106=${
-                                    _USER.name}&entry_1149649663=${encodedPlacePL}`;
-                                approvalAddon = `?entry_839085807=${pnhNameTempWeb}&entry_1125435193=${approvalMessage}&entry_318793106=${
-                                    _USER.name}&entry_1149649663=${encodedPlacePL}`;
-                                break;
-                            default: regionFormURL = '';
-                        }
-                        const newPlaceUrl = regionFormURL + newPlaceAddon;
-                        const approveRegionURL = regionFormURL + approvalAddon;
-
-                        if (pnhMatchData[0] === 'ApprovalNeeded') {
-                            _buttonBanner.ApprovalSubmit = new Flag.ApprovalSubmit(approveRegionURL);
-                        } else if (pnhMatchData[0] === 'NoMatch') {
-                            _buttonBanner.NewPlaceSubmit = new Flag.NewPlaceSubmit(newPlaceUrl);
-                        }
-                    }
+                    args.pnhMatchData = findPnhMatch(args.nameBase, args.state2L, args.region, args.countryCode, args.categories, venue);
                 }
             } else {
-                pnhMatchData = ['Highlight'];
+                args.pnhMatchData = ['Highlight'];
             }
 
-            pnhNameRegMatch = false;
-            if (pnhMatchData[0] !== 'NoMatch' && pnhMatchData[0] !== 'ApprovalNeeded' && pnhMatchData[0] !== 'Highlight') { // *** Replace place data with PNH data
-                pnhNameRegMatch = true;
-                let showDispNote = true;
+            args.pnhDataHeaders = [];
+
+            args.pnhNameRegMatch = args.pnhMatchData[0] !== 'NoMatch'
+                && args.pnhMatchData[0] !== 'ApprovalNeeded'
+                && args.pnhMatchData[0] !== 'Highlight';
+
+            if (args.pnhNameRegMatch) { // *** Replace place data with PNH data
                 let updatePNHName = true;
                 // Break out the data headers
-                const pnhDataHeaders = _PNH_DATA[countryCode].pnh[0].split('|');
-                const phNameIdx = pnhDataHeaders.indexOf('ph_name');
-                const phAliasesIdx = pnhDataHeaders.indexOf('ph_aliases');
-                const phCategory1Idx = pnhDataHeaders.indexOf('ph_category1');
-                const phCategory2Idx = pnhDataHeaders.indexOf('ph_category2');
-                const phDescriptionIdx = pnhDataHeaders.indexOf('ph_description');
-                const phUrlIdx = pnhDataHeaders.indexOf('ph_url');
-                const phOrderIdx = pnhDataHeaders.indexOf('ph_order');
+                args.pnhDataHeaders = PNH_DATA[args.countryCode].pnh[0].split('|');
+                args.phNameIdx = args.pnhDataHeaders.indexOf('ph_name');
+                const phAliasesIdx = args.pnhDataHeaders.indexOf('ph_aliases');
+                const phCategory1Idx = args.pnhDataHeaders.indexOf('ph_category1');
+                const phCategory2Idx = args.pnhDataHeaders.indexOf('ph_category2');
+                const phDescriptionIdx = args.pnhDataHeaders.indexOf('ph_description');
+                const phUrlIdx = args.pnhDataHeaders.indexOf('ph_url');
+                const phOrderIdx = args.pnhDataHeaders.indexOf('ph_order');
                 // var ph_notes_ix = _PNH_DATA_headers.indexOf('ph_notes');
-                const phSpecCaseIdx = pnhDataHeaders.indexOf('ph_speccase');
-                const phStoreFinderUrlIdx = pnhDataHeaders.indexOf('ph_sfurl');
-                const phStoreFinderUrlLocalIdx = pnhDataHeaders.indexOf('ph_sfurllocal');
+                args.phSpecCaseIdx = args.pnhDataHeaders.indexOf('ph_speccase');
                 // var ph_forcecat_ix = _PNH_DATA_headers.indexOf('ph_forcecat');
-                const phDisplayNoteIdx = pnhDataHeaders.indexOf('ph_displaynote');
+                args.phDisplayNoteIdx = args.pnhDataHeaders.indexOf('ph_displaynote');
 
                 // Retrieve the data from the PNH line(s)
                 let nsMultiMatch = false;
                 const orderList = [];
-                if (pnhMatchData.length > 1) { // If multiple matches, then
+                if (args.pnhMatchData.length > 1) { // If multiple matches, then
                     let brandParent = -1;
-                    let pnhMatchDataHold = pnhMatchData[0].split('|');
-                    for (let pmdix = 0; pmdix < pnhMatchData.length; pmdix++) { // For each of the matches,
-                        const pmdTemp = pnhMatchData[pmdix].split('|'); // Split the PNH data line
+                    let pnhMatchDataHold = args.pnhMatchData[0].split('|');
+                    for (let pmdix = 0; pmdix < args.pnhMatchData.length; pmdix++) { // For each of the matches,
+                        const pmdTemp = args.pnhMatchData[pmdix].split('|'); // Split the PNH data line
                         orderList.push(pmdTemp[phOrderIdx]); // Add Order number to a list
-                        if (pmdTemp[phSpecCaseIdx].match(/brandParent(\d{1})/) !== null) { // If there is a brandParent flag, prioritize by highest match
-                            const [, pmdSpecCases] = pmdTemp[phSpecCaseIdx].match(/brandParent(\d{1})/);
+                        if (pmdTemp[args.phSpecCaseIdx].match(/brandParent(\d{1})/) !== null) { // If there is a brandParent flag, prioritize by highest match
+                            const [, pmdSpecCases] = pmdTemp[args.phSpecCaseIdx].match(/brandParent(\d{1})/);
                             if (pmdSpecCases > brandParent) { // if the match is more specific than the previous ones:
                                 brandParent = pmdSpecCases; // Update the brandParent level
                                 pnhMatchDataHold = pmdTemp; // Update the PNH data line
                             }
-                        } else { // if any item has no brandParent structure, use highest brandParent match but post an error
+                        } else { // if any venue has no brandParent structure, use highest brandParent match but post an error
                             nsMultiMatch = true;
                         }
                     }
-                    pnhMatchData = pnhMatchDataHold;
+                    args.pnhMatchData = pnhMatchDataHold;
                 } else {
-                    pnhMatchData = pnhMatchData[0].split('|'); // Single match just gets direct split
+                    args.pnhMatchData = args.pnhMatchData[0].split('|'); // Single match just gets direct split
                 }
 
-                const priPNHPlaceCat = catTranslate(pnhMatchData[phCategory1Idx]); // translate primary category to WME code
+                args.priPNHPlaceCat = getCategoryIdFromName(args.pnhMatchData[phCategory1Idx], args.countryCode); // translate primary category to WME code
 
                 // if the location has multiple matches, then pop an alert that will make a forum post to the thread
                 if (nsMultiMatch) {
@@ -5858,12 +6280,12 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                         });
                     } */
                     WazeWrap.Alerts.confirm(
-                        _SCRIPT_NAME,
+                        SCRIPT_NAME,
                         'WMEPH: Multiple matches found!<br>Double check the script changes.<br>Click OK to report this situation.',
                         () => {
                             reportError({
                                 subject: `Order Nos. "${orderList.join(', ')}" WMEPH Multiple match report`,
-                                message: `Error report: PNH Order Nos. "${orderList.join(', ')}" are ambiguous multiple matches.\n \nExample Permalink: ${placePL}`
+                                message: `Error report: PNH Order Nos. "${orderList.join(', ')}" are ambiguous multiple matches.\n \nExample Permalink: ${args.placePL}`
                             });
                         },
                         () => { }
@@ -5871,16 +6293,14 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                 }
 
                 // Check special cases
-                let specCases;
-                let localURLcheck = '';
-                if (phSpecCaseIdx > -1) { // If the special cases column exists
-                    specCases = pnhMatchData[phSpecCaseIdx]; // pulls the speccases field from the PNH line
-                    if (!isNullOrWhitespace(specCases)) {
-                        specCases = specCases.replace(/, /g, ',').split(','); // remove spaces after commas and split by comma
+                if (args.phSpecCaseIdx > -1) { // If the special cases column exists
+                    args.specCases = args.pnhMatchData[args.phSpecCaseIdx]; // pulls the speccases field from the PNH line
+                    if (!isNullOrWhitespace(args.specCases)) {
+                        args.specCases = args.specCases.replace(/, /g, ',').split(','); // remove spaces after commas and split by comma
                     }
-                    for (let scix = 0; scix < specCases.length; scix++) {
+                    for (let scix = 0; scix < args.specCases.length; scix++) {
                         let scFlag;
-                        const specCase = specCases[scix];
+                        const specCase = args.specCases[scix];
                         let match;
 
                         /* eslint-disable no-cond-assign */
@@ -5888,39 +6308,35 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                         // find any button/message flags in the special case (format: buttOn_xyzXyz, etc.)
                         if (match = specCase.match(/^buttOn_(.+)/i)) {
                             [, scFlag] = match;
-                            let flag = null;
                             switch (scFlag) {
                                 case 'addCat2':
                                     // flag = new Flag.AddCat2();
                                     break;
                                 case 'addPharm':
-                                    flag = new Flag.AddPharm(item);
-                                    break;
                                 case 'addSuper':
-                                    flag = new Flag.AddSuper(item);
-                                    break;
                                 case 'appendAMPM':
-                                    flag = new Flag.AppendAMPM(item);
-                                    break;
                                 case 'addATM':
-                                    flag = new Flag.AddATM(item);
-                                    break;
                                 case 'addConvStore':
-                                    flag = new Flag.AddConvStore(item);
+                                    args.specialCases[scFlag] = true;
                                     break;
                                 default:
                                     console.error('WMEPH:', `Could not process specCase value: buttOn_${scFlag}`);
                             }
-                            _buttonBanner[scFlag] = flag;
                         } else if (match = specCase.match(/^buttOff_(.+)/i)) {
                             [, scFlag] = match;
-                            _buttonBanner[scFlag] = null;
-                        } else if (match = specCase.match(/^messOn_(.+)/i)) {
-                            [, scFlag] = match;
-                            _buttonBanner[scFlag].active = true;
-                        } else if (match = specCase.match(/^messOff_(.+)/i)) {
-                            [, scFlag] = match;
-                            _buttonBanner[scFlag].active = false;
+                            switch (scFlag) {
+                                case 'addConvStore':
+                                    FlagBase.currentFlags.remove(Flag.AddConvStore);
+                                    break;
+                                default:
+                                    console.error(`WMEPH: Could not process specCase value: buttOff_${scFlag}`);
+                            }
+                        // } else if (match = specCase.match(/^messOn_(.+)/i)) {
+                        //    [, scFlag] = match;
+                        //    _buttonBanner[scFlag].active = true;
+                        // } else if (match = specCase.match(/^messOff_(.+)/i)) {
+                        //    [, scFlag] = match;
+                        //    _buttonBanner[scFlag].active = false;
                         } else if (match = specCase.match(/^psOn_(.+)/i)) {
                             [, scFlag] = match;
                             _servicesBanner[scFlag].actionOn(actions);
@@ -5929,160 +6345,45 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                             [, scFlag] = match;
                             _servicesBanner[scFlag].actionOff(actions);
                             _servicesBanner[scFlag].pnhOverride = true;
-                        }
-
-                        // If brand is going to be forced, use that.  Otherwise, use existing brand.
-                        if (match = /forceBrand<>([^,<]+)/i.exec(pnhMatchData[phSpecCaseIdx])) {
-                            [, newBrand] = match;
-                        }
-
-                        // parseout localURL data if exists (meaning place can have a URL distinct from the chain URL
-                        if (match = specCase.match(/^localURL_(.+)/i)) {
-                            [, localURLcheck] = match;
-                        }
-
-                        // parse out optional alt-name
-                        _buttonBanner.addAlias = Flag.AddAlias.eval(item, specCase, specCases, newAliases);
-
-                        // Gas Station forceBranding
-                        if (['GAS_STATION'].includes(priPNHPlaceCat) && (match = specCase.match(/^forceBrand<>(.+)/i))) {
+                        } else if (match = /forceBrand<>([^,<]+)/i.exec(args.pnhMatchData[args.phSpecCaseIdx])) {
+                            // If brand is going to be forced, use that.  Otherwise, use existing brand.
+                            [, args.brand] = match;
+                        } else if (match = specCase.match(/^localURL_(.+)/i)) {
+                            // parseout localURL data if exists (meaning place can have a URL distinct from the chain URL
+                            [, args.localURLcheck] = match;
+                        } else if ([CAT.GAS_STATION].includes(args.priPNHPlaceCat) && (match = specCase.match(/^forceBrand<>(.+)/i))) {
+                            // Gas Station forceBranding
                             const [, forceBrand] = match;
-                            if (item.attributes.brand !== forceBrand) {
-                                actions.push(new UpdateObject(item, { brand: forceBrand }));
-                                _UPDATED_FIELDS.brand.updated = true;
+                            if (venue.attributes.brand !== forceBrand) {
+                                actions.push(new UpdateObject(venue, { brand: forceBrand }));
+                                UPDATED_FIELDS.brand.updated = true;
                                 logDev('Gas brand updated from PNH');
                             }
-                        }
-
-                        // Check Localization
-                        let displayNote;
-                        if (phDisplayNoteIdx > -1 && !isNullOrWhitespace(pnhMatchData[phDisplayNoteIdx])) {
-                            displayNote = pnhMatchData[phDisplayNoteIdx];
-                        }
-                        result = Flag.LocalizedName.eval(newName, newNameSuffix, specCase, displayNote, wl);
-                        if (!result.showDisplayNote) {
-                            showDispNote = false;
-                        }
-                        if (result.flag) {
-                            _buttonBanner.localizedName = result.flag;
-                        }
-
-                        /* eslint-enable no-cond-assign */
-
-                        // Prevent name change
-                        if (specCase.match(/keepName/g) !== null) {
+                        } else if (match = specCase.match(/^checkLocalization<>(.+)/i)) {
+                            args.showDispNote = false;
+                            const [, localizationString] = match;
+                            args.localizationRegEx = new RegExp(localizationString, 'g');
+                        } else if (match = specCase.match(/phone<>(.*?)<>/)) {
+                            args.recommendedPhone = normalizePhone(match[0], args.outputPhoneFormat);
+                        } else if (/keepName/g.test(specCase)) {
+                            // Prevent name change
                             updatePNHName = false;
+                        } else if (match = specCase.match(/^optionAltName<>(.+)/i)) {
+                            [, args.optionalAlias] = match;
                         }
-
-                        _buttonBanner.addRecommendedPhone = Flag.AddRecommendedPhone.eval(item, pnhMatchData[phSpecCaseIdx], outputPhoneFormat, wl);
+                        /* eslint-enable no-cond-assign */
                     }
                 }
-
-                // If it's a place that also sells fuel, enable the button
-                if (pnhMatchData[phSpecCaseIdx] === 'subFuel' && !newName.toUpperCase().includes('GAS') && !newName.toUpperCase().includes('FUEL')) {
-                    _buttonBanner.subFuel = new Flag.SubFuel();
-                    if (wl.subFuel) {
-                        _buttonBanner.subFuel.WLactive = false;
-                    }
-                }
-
-                // Display any notes for the specific place
-                _buttonBanner.specCaseMessage = Flag.SpecCaseMessage.eval(item, pnhMatchData[phDisplayNoteIdx], showDispNote, specCases);
-
-                // Localized Storefinder code:
-                _customStoreFinderLocal = false;
-                _customStoreFinderLocalURL = '';
-                _customStoreFinder = false;
-                _customStoreFinderURL = '';
-                if (phStoreFinderUrlIdx > -1) { // if the sfurl column exists...
-                    if (phStoreFinderUrlLocalIdx > -1 && !isNullOrWhitespace(pnhMatchData[phStoreFinderUrlLocalIdx])) {
-                        // I'm not sure why this check for localizedName was here.
-                        // if (!_buttonBanner.localizedName) {
-                        _buttonBanner.PlaceWebsite = new Flag.PlaceWebsite();
-                        _buttonBanner.PlaceWebsite.value = 'Location Finder (L)';
-                        // }
-                        const tempLocalURL = pnhMatchData[phStoreFinderUrlLocalIdx].replace(/ /g, '').split('<>');
-                        let searchStreet = '';
-                        let searchCity = '';
-                        let searchState = '';
-                        if (typeof addr.street.name === 'string') {
-                            searchStreet = addr.street.name;
-                        }
-                        const searchStreetPlus = searchStreet.replace(/ /g, '+');
-                        searchStreet = searchStreet.replace(/ /g, '%20');
-                        if (typeof addr.city.attributes.name === 'string') {
-                            searchCity = addr.city.attributes.name;
-                        }
-                        const searchCityPlus = searchCity.replace(/ /g, '+');
-                        searchCity = searchCity.replace(/ /g, '%20');
-                        if (typeof addr.state.name === 'string') {
-                            searchState = addr.state.name;
-                        }
-                        const searchStatePlus = searchState.replace(/ /g, '+');
-                        searchState = searchState.replace(/ /g, '%20');
-
-                        const centroid = item.attributes.geometry.getCentroid();
-                        if (!itemGPS) itemGPS = OpenLayers.Layer.SphericalMercator.inverseMercator(centroid.x, centroid.y);
-                        for (let tlix = 1; tlix < tempLocalURL.length; tlix++) {
-                            if (tempLocalURL[tlix] === 'ph_streetName') {
-                                _customStoreFinderLocalURL += searchStreet;
-                            } else if (tempLocalURL[tlix] === 'ph_streetNamePlus') {
-                                _customStoreFinderLocalURL += searchStreetPlus;
-                            } else if (tempLocalURL[tlix] === 'ph_cityName') {
-                                _customStoreFinderLocalURL += searchCity;
-                            } else if (tempLocalURL[tlix] === 'ph_cityNamePlus') {
-                                _customStoreFinderLocalURL += searchCityPlus;
-                            } else if (tempLocalURL[tlix] === 'ph_stateName') {
-                                _customStoreFinderLocalURL += searchState;
-                            } else if (tempLocalURL[tlix] === 'ph_stateNamePlus') {
-                                _customStoreFinderLocalURL += searchStatePlus;
-                            } else if (tempLocalURL[tlix] === 'ph_state2L') {
-                                _customStoreFinderLocalURL += state2L;
-                            } else if (tempLocalURL[tlix] === 'ph_latitudeEW') {
-                                // customStoreFinderLocalURL = customStoreFinderLocalURL + itemGPS[0];
-                            } else if (tempLocalURL[tlix] === 'ph_longitudeNS') {
-                                // customStoreFinderLocalURL = customStoreFinderLocalURL + itemGPS[1];
-                            } else if (tempLocalURL[tlix] === 'ph_latitudePM') {
-                                _customStoreFinderLocalURL += itemGPS.lat;
-                            } else if (tempLocalURL[tlix] === 'ph_longitudePM') {
-                                _customStoreFinderLocalURL += itemGPS.lon;
-                            } else if (tempLocalURL[tlix] === 'ph_latitudePMBuffMin') {
-                                _customStoreFinderLocalURL += (itemGPS.lat - 0.025).toString();
-                            } else if (tempLocalURL[tlix] === 'ph_longitudePMBuffMin') {
-                                _customStoreFinderLocalURL += (itemGPS.lon - 0.025).toString();
-                            } else if (tempLocalURL[tlix] === 'ph_latitudePMBuffMax') {
-                                _customStoreFinderLocalURL += (itemGPS.lat + 0.025).toString();
-                            } else if (tempLocalURL[tlix] === 'ph_longitudePMBuffMax') {
-                                _customStoreFinderLocalURL += (itemGPS.lon + 0.025).toString();
-                            } else if (tempLocalURL[tlix] === 'ph_houseNumber') {
-                                _customStoreFinderLocalURL += (item.attributes.houseNumber ? item.attributes.houseNumber : '');
-                            } else {
-                                _customStoreFinderLocalURL += tempLocalURL[tlix];
-                            }
-                        }
-                        if (_customStoreFinderLocalURL.indexOf('http') !== 0) {
-                            _customStoreFinderLocalURL = `http://${_customStoreFinderLocalURL}`;
-                        }
-                        _customStoreFinderLocal = true;
-                    } else if (!isNullOrWhitespace(pnhMatchData[phStoreFinderUrlIdx])) {
-                        // I'm not sure why this check for localizedName was here.
-                        // if (!_buttonBanner.localizedName) {
-                        _buttonBanner.PlaceWebsite = new Flag.PlaceWebsite();
-                        // }
-                        _customStoreFinderURL = pnhMatchData[phStoreFinderUrlIdx];
-                        if (_customStoreFinderURL.indexOf('http') !== 0) {
-                            _customStoreFinderURL = `http://${_customStoreFinderURL}`;
-                        }
-                        _customStoreFinder = true;
-                    }
+                if (args.phDisplayNoteIdx > -1 && !isNullOrWhitespace(args.pnhMatchData[args.phDisplayNoteIdx])) {
+                    args.displayNote = args.pnhMatchData[args.phDisplayNoteIdx];
                 }
 
                 // Category translations
-                let altCategories = pnhMatchData[phCategory2Idx];
+                let altCategories = args.pnhMatchData[phCategory2Idx];
                 if (altCategories && altCategories.length) { //  translate alt-cats to WME code
                     altCategories = altCategories.replace(/,[^A-Za-z0-9]*/g, ',').split(','); // tighten and split by comma
                     for (let catix = 0; catix < altCategories.length; catix++) {
-                        const newAltTemp = catTranslate(altCategories[catix]); // translate altCats into WME cat codes
+                        const newAltTemp = getCategoryIdFromName(altCategories[catix], args.countryCode); // translate altCats into WME cat codes
                         if (newAltTemp === 'ERROR') { // if no translation, quit the loop
                             log(`Category ${altCategories[catix]} cannot be translated.`);
                             return undefined;
@@ -6092,1006 +6393,511 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                 }
 
                 // name parsing with category exceptions
-                if (['HOTEL'].includes(priPNHPlaceCat)) {
-                    const nameToCheck = newName + (newNameSuffix || '');
-                    if (nameToCheck.toUpperCase() === pnhMatchData[phNameIdx].toUpperCase()) { // If no localization
-                        _buttonBanner.catHotel = new Flag.CatHotel(pnhMatchData[phNameIdx]);
-                        newName = pnhMatchData[phNameIdx];
+                if (args.priPNHPlaceCat === CAT.HOTEL) {
+                    const nameToCheck = args.nameBase + (args.nameSuffix || '');
+                    if (nameToCheck.toUpperCase() === args.pnhMatchData[args.phNameIdx].toUpperCase()) { // If no localization
+                        args.nameBase = args.pnhMatchData[args.phNameIdx];
                     } else {
                         // Replace PNH part of name with PNH name
-                        const splix = newName.toUpperCase().replace(/[-/]/g, ' ').indexOf(pnhMatchData[phNameIdx].toUpperCase().replace(/[-/]/g, ' '));
+                        const splix = args.nameBase.toUpperCase().replace(/[-/]/g, ' ').indexOf(args.pnhMatchData[args.phNameIdx].toUpperCase().replace(/[-/]/g, ' '));
                         if (splix > -1) {
-                            const frontText = newName.slice(0, splix);
-                            const backText = newName.slice(splix + pnhMatchData[phNameIdx].length);
-                            newName = pnhMatchData[phNameIdx];
-                            if (frontText.length > 0) { newName = `${frontText} ${newName}`; }
-                            if (backText.length > 0) { newName = `${newName} ${backText}`; }
-                            newName = newName.replace(/ {2,}/g, ' ');
+                            const frontText = args.nameBase.slice(0, splix);
+                            const backText = args.nameBase.slice(splix + args.pnhMatchData[args.phNameIdx].length);
+                            args.nameBase = args.pnhMatchData[args.phNameIdx];
+                            if (frontText.length > 0) { args.nameBase = `${frontText} ${args.nameBase}`; }
+                            if (backText.length > 0) { args.nameBase = `${args.nameBase} ${backText}`; }
+                            args.nameBase = args.nameBase.replace(/ {2,}/g, ' ');
                         } else {
-                            newName = pnhMatchData[phNameIdx];
+                            args.nameBase = args.pnhMatchData[args.phNameIdx];
                         }
                     }
                     if (altCategories && altCategories.length) { // if PNH alts exist
-                        insertAtIndex(newCategories, altCategories, 1); //  then insert the alts into the existing category array after the GS category
+                        insertAtIndex(args.categories, altCategories, 1); //  then insert the alts into the existing category array after the GS category
                     }
-                    if (newCategories.indexOf('HOTEL') !== 0) { // If no HOTEL category in the primary, flag it
-                        _buttonBanner.hotelMkPrim = new Flag.HotelMkPrim(item);
-                        if (wl.hotelMkPrim) {
-                            _buttonBanner.hotelMkPrim.WLactive = false;
-                        } else {
-                            lockOK = false;
-                        }
-                    } else if (newCategories.includes('HOTEL')) {
+                    if (args.categories.includes(CAT.HOTEL)) {
                         // Remove LODGING if it exists
-                        const lodgingIdx = newCategories.indexOf('LODGING');
+                        const lodgingIdx = args.categories.indexOf(CAT.LODGING);
                         if (lodgingIdx > -1) {
-                            newCategories.splice(lodgingIdx, 1);
+                            args.categories.splice(lodgingIdx, 1);
                         }
                     }
                     // If PNH match, set wifi service.
-                    if (pnhMatchData && !_servicesBanner.addWiFi.checked) {
+                    if (args.pnhMatchData && !_servicesBanner.addWiFi.checked) {
                         _servicesBanner.addWiFi.action();
                     }
                     // Set hotel hours to 24/7 for all hotels.
                     if (!_servicesBanner.add247.checked) {
                         _servicesBanner.add247.action();
                     }
-                } else if (newCategories.includes('BANK_FINANCIAL') && !pnhMatchData[phSpecCaseIdx].includes('notABank')) {
-                    // PNH Bank treatment
-                    _ixBank = item.attributes.categories.indexOf('BANK_FINANCIAL');
-                    _ixATM = item.attributes.categories.indexOf('ATM');
-                    _ixOffices = item.attributes.categories.indexOf('OFFICES');
-                    // if the name contains ATM in it
-                    if (/\batm\b/ig.test(newName)) {
-                        if (_ixOffices === 0) {
-                            _buttonBanner.bankType1 = new Flag.BankType1();
-                            _buttonBanner.bankBranch = new Flag.BankBranch(item);
-                            _buttonBanner.standaloneATM = new Flag.StandaloneATM(item);
-                            _buttonBanner.bankCorporate = new Flag.BankCorporate(item);
-                        } else if (_ixBank === -1 && _ixATM === -1) {
-                            _buttonBanner.bankBranch = new Flag.BankBranch(item);
-                            _buttonBanner.standaloneATM = new Flag.StandaloneATM(item);
-                        } else if (_ixATM === 0 && _ixBank > 0) {
-                            _buttonBanner.bankBranch = new Flag.BankBranch(item);
-                        } else if (_ixBank > -1) {
-                            _buttonBanner.bankBranch = new Flag.BankBranch(item);
-                            _buttonBanner.standaloneATM = new Flag.StandaloneATM(item);
-                        }
-                        newName = `${pnhMatchData[phNameIdx]} ATM`;
-                        newCategories = insertAtIndex(newCategories, 'ATM', 0);
-                        // Net result: If the place has ATM cat only and ATM in the name, then it will be green and renamed Bank Name ATM
-                    } else if (_ixBank > -1 || _ixATM > -1) { // if no ATM in name but with a banking category:
-                        if (_ixOffices === 0) {
-                            _buttonBanner.bankBranch = new Flag.BankBranch(item);
-                        } else if (_ixBank > -1 && _ixATM === -1) {
-                            _buttonBanner.addATM = new Flag.AddATM(item);
-                        } else if (_ixATM === 0 && _ixBank === -1) {
-                            _buttonBanner.bankBranch = new Flag.BankBranch(item);
-                            _buttonBanner.standaloneATM = new Flag.StandaloneATM(item);
-                        } else if (_ixBank > 0 && _ixATM > 0) {
-                            _buttonBanner.bankBranch = new Flag.BankBranch(item);
-                            _buttonBanner.standaloneATM = new Flag.StandaloneATM(item);
-                        }
-                        newName = pnhMatchData[phNameIdx];
-                        // Net result: If the place has Bank category first, then it will be green with PNH name replaced
-                    } else { // for PNH match with neither bank type category, make it a bank
-                        newCategories = insertAtIndex(newCategories, 'BANK_FINANCIAL', 1);
-                        _buttonBanner.standaloneATM = new Flag.StandaloneATM(item);
-                        _buttonBanner.bankCorporate = new Flag.BankCorporate(item);
-                    }// END PNH bank treatment
-                } else if (['GAS_STATION'].includes(priPNHPlaceCat)) { // for PNH gas stations, don't replace existing sub-categories
-                    if (altCategories?.length) { // if PNH alts exist
-                        insertAtIndex(newCategories, altCategories, 1); //  then insert the alts into the existing category array after the GS category
+                } else if (args.priPNHPlaceCat === CAT.BANK_FINANCIAL && !args.pnhMatchData[args.phSpecCaseIdx].includes('notABank')) {
+                    if (/\batm\b/ig.test(args.nameBase)) {
+                        args.nameBase = `${args.pnhMatchData[args.phNameIdx]} ATM`;
+                    } else {
+                        args.nameBase = args.pnhMatchData[args.phNameIdx];
                     }
-                    newName = pnhMatchData[phNameIdx];
+                } else if (args.priPNHPlaceCat === CAT.GAS_STATION) { // for PNH gas stations, don't replace existing sub-categories
+                    if (altCategories?.length) { // if PNH alts exist
+                        insertAtIndex(args.categories, altCategories, 1); //  then insert the alts into the existing category array after the GS category
+                    }
+                    args.nameBase = args.pnhMatchData[args.phNameIdx];
                 } else if (updatePNHName) { // if not a special category then update the name
-                    newName = pnhMatchData[phNameIdx];
-                    newCategories = insertAtIndex(newCategories, priPNHPlaceCat, 0);
-                    if (altCategories && altCategories.length && !specCases.includes('buttOn_addCat2') && !specCases.includes('optionCat2')) {
-                        newCategories = insertAtIndex(newCategories, altCategories, 1);
+                    args.nameBase = args.pnhMatchData[args.phNameIdx];
+                    args.categories = insertAtIndex(args.categories, args.priPNHPlaceCat, 0);
+                    if (altCategories && altCategories.length && !args.specCases.includes('buttOn_addCat2') && !args.specCases.includes('optionCat2')) {
+                        args.categories = insertAtIndex(args.categories, altCategories, 1);
                     }
                 } else if (!updatePNHName) {
                     // Strong title case option for non-PNH places
-                    _buttonBanner.titleCaseName = Flag.TitleCaseName.eval(item, newName, newNameSuffix);
+                    Flag.TitleCaseName.eval(venue, args.nameBase, args.nameSuffix);
                 }
 
                 // *** need to add a section above to allow other permissible categories to remain? (optional)
 
                 // Parse URL data
-                if (!(localURLcheck && newUrl && (new RegExp(localURLcheck, 'i')).test(newUrl))) {
-                    newUrl = pnhMatchData[phUrlIdx];
+                if (!(args.localURLcheck && args.url && (new RegExp(args.localURLcheck, 'i')).test(args.url))) {
+                    args.pnhUrl = normalizeURL(args.pnhMatchData[phUrlIdx]);
                 }
-                newUrl = normalizeURL(newUrl, false, true, item, region, wl);
-
-                _buttonBanner.localURL = Flag.LocalURL.eval(newUrl, localURLcheck);
 
                 // Parse PNH Aliases
-                let [newAliasesTemp] = pnhMatchData[phAliasesIdx].match(/([^(]*)/i);
+                let [newAliasesTemp] = args.pnhMatchData[phAliasesIdx].match(/([^(]*)/i);
                 if (!isNullOrWhitespace(newAliasesTemp)) { // make aliases array
                     newAliasesTemp = newAliasesTemp.replace(/,[^A-za-z0-9]*/g, ','); // tighten up commas if more than one alias.
                     newAliasesTemp = newAliasesTemp.split(','); // split by comma
                 }
-                if (!specCases.includes('noUpdateAlias') && (!containsAll(newAliases, newAliasesTemp)
-                    && newAliasesTemp && newAliasesTemp.length && !specCases.includes('optionName2'))) {
-                    newAliases = insertAtIndex(newAliases, newAliasesTemp, 0);
+                if (!args.specCases.includes('noUpdateAlias') && (!containsAll(args.aliases, newAliasesTemp)
+                    && newAliasesTemp && newAliasesTemp.length && !args.specCases.includes('optionName2'))) {
+                    args.aliases = insertAtIndex(args.aliases, newAliasesTemp, 0);
+                    addUpdateAction(venue, { aliases: args.aliases }, actions);
                 }
 
                 // Remove unnecessary parent categories
-                const catData = _PNH_DATA.USA.categories.map(cat => cat.split('|'));
-                const catParentIdx = catData[0].indexOf('pc_catparent');
-                const catNameIdx = catData[0].indexOf('pc_wmecat');
-                const parentCats = _.uniq(newCategories.map(catName => catData.find(cat => cat[catNameIdx] === catName)[catParentIdx]))
-                    .filter(parent => parent.trim(' ').length > 0);
-                newCategories = newCategories.filter(cat => !parentCats.includes(cat));
+                const parentCats = _.uniq(args.categories.map(category => args.pnhCategoryInfos.getById(category).parent))
+                    .filter(parent => parent.trim().length > 0);
+                args.categories = args.categories.filter(cat => !parentCats.includes(cat));
 
                 // update categories if different and no Cat2 option
-                if (!matchSets(_.uniq(item.attributes.categories), _.uniq(newCategories))) {
-                    if (!specCases.includes('optionCat2') && !specCases.includes('buttOn_addCat2')) {
-                        logDev(`Categories updated with ${newCategories}`);
-                        addUpdateAction(item, { categories: newCategories }, actions);
+                if (!matchSets(_.uniq(venue.attributes.categories), _.uniq(args.categories))) {
+                    if (!args.specCases.includes('optionCat2') && !args.specCases.includes('buttOn_addCat2')) {
+                        logDev(`Categories updated with ${args.categories}`);
+                        addUpdateAction(venue, { categories: args.categories }, actions);
                     } else { // if second cat is optional
-                        logDev(`Primary category updated with ${priPNHPlaceCat}`);
-                        newCategories = insertAtIndex(newCategories, priPNHPlaceCat, 0);
-                        addUpdateAction(item, { categories: newCategories });
+                        logDev(`Primary category updated with ${args.priPNHPlaceCat}`);
+                        args.categories = insertAtIndex(args.categories, args.priPNHPlaceCat, 0);
+                        addUpdateAction(venue, { categories: args.categories });
                     }
                 }
                 // Enable optional 2nd category button
-                _buttonBanner.addCat2 = Flag.AddCat2.eval(item, specCases, newCategories, altCategories[0]);
+                Flag.AddCat2.eval(venue, args.specCases, args.categories, altCategories[0]);
 
                 // Description update
-                newDescripion = pnhMatchData[phDescriptionIdx];
-                if (!isNullOrWhitespace(newDescripion) && !item.attributes.description.toUpperCase().includes(newDescripion.toUpperCase())) {
-                    if (item.attributes.description !== '' && item.attributes.description !== null && item.attributes.description !== ' ') {
-                        _buttonBanner.checkDescription = new Flag.CheckDescription();
+                args.description = args.pnhMatchData[phDescriptionIdx];
+                if (!isNullOrWhitespace(args.description) && !venue.attributes.description.toUpperCase().includes(args.description.toUpperCase())) {
+                    if (!isNullOrWhitespace(venue.attributes.description)) {
+                        args.descriptionInserted = true;
                     }
                     logDev('Description updated');
-                    newDescripion = `${newDescripion}\n${item.attributes.description}`;
-                    actions.push(new UpdateObject(item, { description: newDescripion }));
-                    _UPDATED_FIELDS.description.updated = true;
+                    args.description = `${args.description}\n${venue.attributes.description}`;
+                    actions.push(new UpdateObject(venue, { description: args.description }));
+                    UPDATED_FIELDS.description.updated = true;
                 }
 
                 // Special Lock by PNH
-                if (specCases.includes('lockAt5')) {
+                if (args.specCases.includes('lockAt5')) {
                     pnhLockLevel = 4;
                 }
-            } else { // if no PNH match found
-                // Strong title case option for non-PNH places
-                _buttonBanner.titleCaseName = Flag.TitleCaseName.eval(item, newName, newNameSuffix);
-
-                newUrl = normalizeURL(newUrl, true, false, item, region, wl); // Normalize url
-
-                // Generic Bank treatment
-                _ixBank = item.attributes.categories.indexOf('BANK_FINANCIAL');
-                _ixATM = item.attributes.categories.indexOf('ATM');
-                _ixOffices = item.attributes.categories.indexOf('OFFICES');
-                // if the name contains ATM in it
-                if (newName.match(/\batm\b/ig) !== null) {
-                    if (_ixOffices === 0) {
-                        _buttonBanner.bankType1 = new Flag.BankType1();
-                        _buttonBanner.bankBranch = new Flag.BankBranch(item);
-                        _buttonBanner.standaloneATM = new Flag.StandaloneATM(item);
-                        _buttonBanner.bankCorporate = new Flag.BankCorporate(item);
-                    } else if (_ixBank === -1 && _ixATM === -1) {
-                        _buttonBanner.bankBranch = new Flag.BankBranch(item);
-                        _buttonBanner.standaloneATM = new Flag.StandaloneATM(item);
-                    } else if (_ixATM === 0 && _ixBank > 0) {
-                        _buttonBanner.bankBranch = new Flag.BankBranch(item);
-                    } else if (_ixBank > -1) {
-                        _buttonBanner.bankBranch = new Flag.BankBranch(item);
-                        _buttonBanner.standaloneATM = new Flag.StandaloneATM(item);
-                    }
-                    // Net result: If the place has ATM cat only and ATM in the name, then it will be green
-                } else if (_ixBank > -1 || _ixATM > -1) { // if no ATM in name:
-                    if (_ixOffices === 0) {
-                        _buttonBanner.bankBranch = new Flag.BankBranch(item);
-                    } else if (_ixBank > -1 && _ixATM === -1) {
-                        _buttonBanner.addATM = new Flag.AddATM(item);
-                    } else if (_ixATM === 0 && _ixBank === -1) {
-                        _buttonBanner.bankBranch = new Flag.BankBranch(item);
-                        _buttonBanner.standaloneATM = new Flag.StandaloneATM(item);
-                    } else if (_ixBank > 0 && _ixATM > 0) {
-                        _buttonBanner.bankBranch = new Flag.BankBranch(item);
-                        _buttonBanner.standaloneATM = new Flag.StandaloneATM(item);
-                    }
-                    // Net result: If the place has Bank category first, then it will be green
-                } // END generic bank treatment
             } // END PNH match/no-match updates
 
-            // Category/Name-based Services, added to any existing services:
-            const catData = _PNH_DATA[countryCode].categories;
-            const catNames = _PNH_DATA[countryCode].categoryNames;
-            const catDataHeaders = catData[0].split('|');
-            const catDataKeys = catData[1].split('|');
-            let catDataTemp;
-
-            if (!highlightOnly) {
-                // Update name:
-                if ((newName + (newNameSuffix || '')) !== item.attributes.name) {
-                    logDev('Name updated');
-                    actions.push(new UpdateObject(item, { name: newName + (newNameSuffix || '') }));
-                    // actions.push(new UpdateObject(item, { name: newName }));
-                    _UPDATED_FIELDS.name.updated = true;
-                }
-
-                // Update aliases
-                newAliases = removeSFAliases(newName, newAliases);
-                if (newAliases.some(alias => !item.attributes.aliases.includes(alias)) || newAliases.length !== item.attributes.aliases.length) {
-                    logDev('Alt Names updated');
-                    actions.push(new UpdateObject(item, { aliases: newAliases }));
-                    _UPDATED_FIELDS.aliases.updated = true;
-                }
-
-                // PNH specific Services:
-
-                const servHeaders = [];
-                const servKeys = [];
-                for (let jjj = 0; jjj < catDataHeaders.length; jjj++) {
-                    const servHeaderCheck = catDataHeaders[jjj].match(/^ps_/i); // if it's a service header
-                    if (servHeaderCheck) {
-                        servHeaders.push(jjj);
-                        servKeys.push(catDataKeys[jjj]);
-                    }
-                }
-
-                if (newCategories.length > 0) {
-                    for (let iii = 0; iii < catNames.length; iii++) {
-                        if (newCategories.includes(catNames[iii])) {
-                            catDataTemp = catData[iii].split('|');
-                            for (let psix = 0; psix < servHeaders.length; psix++) {
-                                if (!_servicesBanner[servKeys[psix]].pnhOverride) {
-                                    if (catDataTemp[servHeaders[psix]] !== '') {
-                                        // This section of code previously checked for values of "1", "2", and state/region codes.
-                                        // A value of "2" or a state/region code would auto-add the service.  However, it was
-                                        // felt that this was a problem since it is difficult to prove that every place in a
-                                        // category would *always* offer a specific service.  So now, any value entered in the
-                                        // spreadsheet cell will only display the service button, not turn it on.
-                                        _servicesBanner[servKeys[psix]].active = true;
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-
-            const isPoint = item.isPoint();
+            const isPoint = venue.isPoint();
             // NOTE: do not use is2D() function. It doesn't seem to be 100% reliable.
             const isArea = !isPoint;
-            let maxPointSeverity = _SEVERITY.GREEN;
-            let maxAreaSeverity = _SEVERITY.RED;
             let highestCategoryLock = -1;
+            // Category/Name-based Services, added to any existing services:
+            args.categories.forEach(category => {
+                const pnhCategoryInfo = args.pnhCategoryInfos.getById(category);
 
-            for (let ixPlaceCat = 0; ixPlaceCat < newCategories.length; ixPlaceCat++) {
-                const category = newCategories[ixPlaceCat];
-                const ixPNHCat = catNames.indexOf(category);
-                if (ixPNHCat > -1) {
-                    catDataTemp = catData[ixPNHCat].split('|');
-                    // CH_DATA_headers
-                    // pc_area    pc_regpoint    pc_regarea    pc_lock1    pc_lock2    pc_lock3    pc_lock4    pc_lock5    pc_rare    pc_parent    pc_message
-                    let pvaPoint = catDataTemp[catDataHeaders.indexOf('pc_point')];
-                    let pvaArea = catDataTemp[catDataHeaders.indexOf('pc_area')];
-                    const regPoint = catDataTemp[catDataHeaders.indexOf('pc_regpoint')].replace(/,[^A-za-z0-9]*/g, ',').split(',');
-                    const regArea = catDataTemp[catDataHeaders.indexOf('pc_regarea')].replace(/,[^A-za-z0-9]*/g, ',').split(',');
-                    if (regPoint.includes(state2L) || regPoint.includes(region) || regPoint.includes(countryCode)) {
-                        pvaPoint = '1';
-                        pvaArea = '';
-                    } else if (regArea.includes(state2L) || regArea.includes(region) || regArea.includes(countryCode)) {
-                        pvaPoint = '';
-                        pvaArea = '1';
-                    }
-
-                    // If Post Office and VPO or CPU is in the name, always a point.
-                    if (newCategories.includes('POST_OFFICE') && /\b(?:cpu|vpo)\b/i.test(item.attributes.name)) {
-                        pvaPoint = '1';
-                        pvaArea = '';
-                    }
-
-                    const pointSeverity = getPvaSeverity(pvaPoint, item);
-                    const areaSeverity = getPvaSeverity(pvaArea, item);
-
-                    if (isPoint && pointSeverity > _SEVERITY.GREEN) {
-                        maxPointSeverity = Math.max(pointSeverity, maxPointSeverity);
-                    } else if (isArea) {
-                        maxAreaSeverity = Math.min(areaSeverity, maxAreaSeverity);
-                    }
-
-                    // display any messages regarding the category
-                    const catMessage = catDataTemp[catDataHeaders.indexOf('pc_message')];
-                    _buttonBanner.pnhCatMess = Flag.PnhCatMess.eval(item, catMessage, newCategories, highlightOnly);
-                    // Unmapped categories
-                    const catRare = catDataTemp[catDataHeaders.indexOf('pc_rare')].replace(/,[^A-Za-z0-9}]+/g, ',').split(',');
-                    if (catRare.includes(state2L) || catRare.includes(region) || catRare.includes(countryCode)) {
-                        if (catDataTemp[0] === 'OTHER' && ['GLR', 'NER', 'NWR', 'PLN', 'SCR', 'SER', 'NOR', 'HI', 'SAT'].includes(region)) {
-                            if (!isLocked) {
-                                _buttonBanner.unmappedRegion = new Flag.UnmappedRegion();
-                                _buttonBanner.unmappedRegion.WLactive = false;
-                                _buttonBanner.unmappedRegion.severity = _SEVERITY.BLUE;
-                                _buttonBanner.unmappedRegion.message = 'The "Other" category should only be used if no other category applies.  Manually lock the place to override this flag.';
-                                lockOK = false;
-                            }
-                        } else {
-                            _buttonBanner.unmappedRegion = new Flag.UnmappedRegion();
-                            if (wl.unmappedRegion) {
-                                _buttonBanner.unmappedRegion.WLactive = false;
-                                _buttonBanner.unmappedRegion.severity = _SEVERITY.GREEN;
-                            } else {
-                                lockOK = false;
-                            }
-                        }
-                    }
-                    // Parent Category
-                    const catParent = catDataTemp[catDataHeaders.indexOf('pc_parent')].replace(/,[^A-Za-z0-9}]+/g, ',').split(',');
-                    if (catParent.includes(state2L) || catParent.includes(region) || catParent.includes(countryCode)) {
-                        _buttonBanner.parentCategory = new Flag.ParentCategory();
-                        if (wl.parentCategory) {
-                            _buttonBanner.parentCategory.WLactive = false;
-                        }
-                    }
-                    // Set lock level
-                    for (let lockix = 1; lockix < 6; lockix++) {
-                        const catLockTemp = catDataTemp[catDataHeaders.indexOf(`pc_lock${lockix}`)].replace(/,[^A-Za-z0-9}]+/g, ',').split(',');
-                        if (lockix - 1 > highestCategoryLock && (catLockTemp.includes(state2L) || catLockTemp.includes(region)
-                            || catLockTemp.includes(countryCode))) {
-                            highestCategoryLock = lockix - 1; // Offset by 1 since lock ranks start at 0
-                        }
-                    }
+                if (!pnhCategoryInfo) {
+                    throw new Error(`WMEPH: Unexpected category: ${category}`);
                 }
-            }
-
-            if (highestCategoryLock > -1) {
-                defaultLockLevel = highestCategoryLock;
-            }
-
-            if (isPoint) {
-                if (maxPointSeverity === _SEVERITY.RED) {
-                    _buttonBanner.areaNotPoint = new Flag.AreaNotPoint(item);
-                    if (wl.areaNotPoint || item.attributes.lockRank >= defaultLockLevel) {
-                        _buttonBanner.areaNotPoint.WLactive = false;
-                        _buttonBanner.areaNotPoint.severity = _SEVERITY.GREEN;
-                    } else {
-                        lockOK = false;
-                    }
-                } else if (maxPointSeverity === _SEVERITY.YELLOW) {
-                    _buttonBanner.areaNotPointMid = new Flag.AreaNotPointMid();
-                    if (wl.areaNotPoint || item.attributes.lockRank >= defaultLockLevel) {
-                        _buttonBanner.areaNotPointMid.WLactive = false;
-                        _buttonBanner.areaNotPointMid.severity = _SEVERITY.GREEN;
-                    } else {
-                        lockOK = false;
-                    }
-                } else if (maxPointSeverity === _SEVERITY.BLUE) {
-                    _buttonBanner.areaNotPointLow = new Flag.AreaNotPointLow();
-                    if (wl.areaNotPoint || item.attributes.lockRank >= defaultLockLevel) {
-                        _buttonBanner.areaNotPointLow.WLactive = false;
-                        _buttonBanner.areaNotPointLow.severity = 0;
-                    }
-                }
-            } else if (maxAreaSeverity === _SEVERITY.RED) {
-                _buttonBanner.pointNotArea = new Flag.PointNotArea(item);
-                if (wl.pointNotArea || item.attributes.lockRank >= defaultLockLevel) {
-                    _buttonBanner.pointNotArea.WLactive = false;
-                    _buttonBanner.pointNotArea.severity = 0;
-                } else {
-                    lockOK = false;
-                }
-            } else if (maxAreaSeverity === _SEVERITY.YELLOW) {
-                _buttonBanner.pointNotAreaMid = new Flag.PointNotAreaMid();
-                if (wl.pointNotArea || item.attributes.lockRank >= defaultLockLevel) {
-                    _buttonBanner.pointNotAreaMid.WLactive = false;
-                    _buttonBanner.pointNotAreaMid.severity = 0;
-                } else {
-                    lockOK = false;
-                }
-            } else if (maxAreaSeverity === _SEVERITY.BLUE) {
-                _buttonBanner.pointNotAreaLow = new Flag.PointNotAreaLow();
-                if (wl.pointNotArea || item.attributes.lockRank >= defaultLockLevel) {
-                    _buttonBanner.pointNotAreaLow.WLactive = false;
-                    _buttonBanner.pointNotAreaLow.severity = 0;
-                }
-            }
-
-            const anpNone = _COLLEGE_ABBREVIATIONS.split('|');
-            for (let cii = 0; cii < anpNone.length; cii++) {
-                const anpNoneRE = new RegExp(`\\b${anpNone[cii]}\\b`, 'g');
-                if (newName.match(anpNoneRE) !== null && _buttonBanner.areaNotPointLow) {
-                    _buttonBanner.areaNotPointLow.severity = 0;
-                    _buttonBanner.areaNotPointLow.WLactive = false;
-                }
-            }
-
-            _buttonBanner.noHours = Flag.NoHours.eval(item, newCategories, wl, highlightOnly, actions);
-            _buttonBanner.mismatch247 = Flag.Mismatch247.eval(item);
-
-            const hoursOverlap = venueHasOverlappingHours(item);
-            if (!hoursOverlap) {
-                const tempHours = item.attributes.openingHours.slice();
-                for (let ohix = 0; ohix < item.attributes.openingHours.length; ohix++) {
-                    if (tempHours[ohix].days.length === 2 && tempHours[ohix].days[0] === 1 && tempHours[ohix].days[1] === 0) {
-                        // separate hours
-                        logDev('Correcting M-S entry...');
-                        tempHours.push(new OpeningHour({ days: [0], fromHour: tempHours[ohix].fromHour, toHour: tempHours[ohix].toHour }));
-                        tempHours[ohix].days = [1];
-                        addUpdateAction(item, { openingHours: tempHours }, actions);
-                    }
-                }
-            }
-
-            _buttonBanner.hoursOverlap = Flag.HoursOverlap.eval(hoursOverlap);
-            _buttonBanner.oldHours = Flag.OldHours.eval(item, catData, highlightOnly);
-
-            if (!highlightOnly) {
-                // Highlight 24/7 button if hours are set that way, and add button for all places
-                if (isAlwaysOpen(item)) {
-                    _servicesBanner.add247.checked = true;
-                }
-                _servicesBanner.add247.active = true;
-            }
-
-            // URL updating
-            _updateURL = true;
-            if (newUrl !== item.attributes.url && !isNullOrWhitespace(newUrl)) {
-                if (pnhNameRegMatch && item.attributes.url !== null && item.attributes.url !== '' && newUrl !== 'badURL') { // for cases where there is an existing URL in the WME place, and there is a PNH url on queue:
-                    let newURLTemp = normalizeURL(newUrl, true, false, item, null, wl); // normalize
-                    const itemURL = normalizeURL(item.attributes.url, true, false, item, null, wl);
-                    newURLTemp = newURLTemp.replace(/^www\.(.*)$/i, '$1'); // strip www
-                    const itemURLTemp = itemURL.replace(/^www\.(.*)$/i, '$1'); // strip www
-                    if (newURLTemp !== itemURLTemp) { // if formatted URLs don't match, then alert the editor to check the existing URL
-                        _buttonBanner.longURL = new Flag.LongURL(item, placePL);
-                        if (wl.longURL) {
-                            _buttonBanner.longURL.severity = _SEVERITY.GREEN;
-                            _buttonBanner.longURL.WLactive = false;
-                        }
-                        if (!highlightOnly && _updateURL && itemURL !== item.attributes.url) { // Update the URL
-                            logDev('URL formatted');
-                            actions.push(new UpdateObject(item, { url: itemURL }));
-                            _UPDATED_FIELDS.url.updated = true;
-                        }
-                        _updateURL = false;
-                        _tempPNHURL = newUrl;
-                    }
-                }
-                if (!highlightOnly && _updateURL && newUrl !== 'badURL' && newUrl !== item.attributes.url) { // Update the URL
-                    logDev('URL updated');
-                    actions.push(new UpdateObject(item, { url: newUrl }));
-                    _UPDATED_FIELDS.url.updated = true;
-                }
-            }
-
-            let normalizedPhone;
-            if (newPhone) {
-                normalizedPhone = normalizePhone(newPhone, outputPhoneFormat);
-                if (normalizedPhone !== 'badPhone') newPhone = normalizedPhone;
-            }
-
-            _buttonBanner.phoneInvalid = Flag.PhoneInvalid.eval(normalizedPhone, outputPhoneFormat);
-            _buttonBanner.phoneMissing = Flag.PhoneMissing.eval(item, newPhone, wl, region, outputPhoneFormat, !!_buttonBanner.addRecommendedPhone);
-
-            // Check if valid area code  #LOC# USA and CAN only
-            if (!wl.aCodeWL && (countryCode === 'USA' || countryCode === 'CAN')) {
-                if (newPhone !== null && newPhone.match(/[2-9]\d{2}/) !== null) {
-                    const areaCode = newPhone.match(/[2-9]\d{2}/)[0];
-                    if (!_areaCodeList.includes(areaCode)) {
-                        _buttonBanner.badAreaCode = new Flag.BadAreaCode(item, newPhone, outputPhoneFormat);
-                    }
-                }
-            }
-            if (!highlightOnly && newPhone !== item.attributes.phone) {
-                logDev('Phone updated');
-                actions.push(new UpdateObject(item, { phone: newPhone }));
-                _UPDATED_FIELDS.phone.updated = true;
-            }
-
-            // Post Office check
-            _buttonBanner.isThisAPostOffice = Flag.IsThisAPostOffice.eval(item, highlightOnly, countryCode, newCategories, newName);
-            _buttonBanner.PlaceWebsite = Flag.PlaceWebsite.eval(item, highlightOnly, countryCode, newCategories, _buttonBanner.PlaceWebsite);
-
-            const isUspsPostOffice = countryCode === 'USA' && !newCategories.includes('PARKING_LOT') && newCategories.includes('POST_OFFICE');
-            _buttonBanner.missingUSPSZipAlt = Flag.MissingUSPSZipAlt.eval(item, isUspsPostOffice, newName, newAliases, wl, highlightOnly);
-            if (isUspsPostOffice) {
-                if (!highlightOnly) {
-                    _buttonBanner.NewPlaceSubmit = null;
-                    if (item.attributes.url !== 'usps.com') {
-                        actions.push(new UpdateObject(item, { url: 'usps.com' }));
-                        _UPDATED_FIELDS.url.updated = true;
-                        _buttonBanner.urlMissing = null;
-                    }
+                let pvaPoint = pnhCategoryInfo.point;
+                let pvaArea = pnhCategoryInfo.area;
+                if (pnhCategoryInfo.regPoint.includes(args.state2L) || pnhCategoryInfo.regPoint.includes(args.region)
+                    || pnhCategoryInfo.regPoint.includes(args.countryCode)) {
+                    pvaPoint = '1';
+                    pvaArea = '';
+                } else if (pnhCategoryInfo.regArea.includes(args.state2L) || pnhCategoryInfo.regArea.includes(args.region)
+                    || pnhCategoryInfo.regArea.includes(args.countryCode)) {
+                    pvaPoint = '';
+                    pvaArea = '1';
                 }
 
-                let postOfficeRegEx;
-                if (state2L === 'KY' || (state2L === 'NY' && addr.city && ['Queens', 'Bronx', 'Manhattan', 'Brooklyn', 'Staten Island'].includes(addr.city.attributes.name))) {
-                    postOfficeRegEx = /^post office \d{5}( [-–](?: cpu| vpo)?(?: [a-z0-9]+){1,})?$/i;
-                } else {
-                    postOfficeRegEx = /^post office [-–](?: cpu| vpo)?(?: [a-z0-9]+){1,}$/i;
-                }
-                newName = newName.trimLeft().replace(/ {2,}/, ' ');
-                if (newNameSuffix) {
-                    newNameSuffix = newNameSuffix.trimRight().replace(/\bvpo\b/i, 'VPO').replace(/\bcpu\b/i, 'CPU').replace(/ {2,}/, ' ');
-                }
-                const nameToCheck = newName + (newNameSuffix || '');
-                if (!postOfficeRegEx.test(nameToCheck)) {
-                    _buttonBanner.formatUSPS = new Flag.FormatUSPS();
-                    lockOK = false;
-                } else if (!highlightOnly) {
-                    if (nameToCheck !== item.attributes.name) {
-                        actions.push(new UpdateObject(item, { name: nameToCheck }));
-                    }
-                    _buttonBanner.catPostOffice = new Flag.CatPostOffice();
-                }
-                if (!newAliases.some(alias => alias.toUpperCase() === 'USPS')) {
-                    if (!highlightOnly) {
-                        newAliases.push('USPS');
-                        actions.push(new UpdateObject(item, { aliases: newAliases }));
-                        _UPDATED_FIELDS.aliases.updated = true;
-                    } else {
-                        _buttonBanner.missingUSPSAlt = new Flag.MissingUSPSAlt();
-                    }
+                // If Post Office and VPO or CPU is in the name, always a point.
+                if (args.categories.includes(CAT.POST_OFFICE) && /\b(?:cpu|vpo)\b/i.test(venue.attributes.name)) {
+                    pvaPoint = '1';
+                    pvaArea = '';
                 }
 
-                const descr = item.attributes.description;
-                const lines = descr.split('\n');
-                if (lines.length < 1 || !/^.{2,}, [A-Z]{2}\s{1,2}\d{5}$/.test(lines[0])) {
-                    _buttonBanner.missingUSPSDescription = new Flag.MissingUSPSDescription();
-                    if (wl.missingUSPSDescription) {
-                        _buttonBanner.missingUSPSDescription.severity = _SEVERITY.GREEN;
-                        _buttonBanner.missingUSPSDescription.WLactive = false;
-                    }
+                const pointSeverity = getPvaSeverity(pvaPoint, venue);
+                const areaSeverity = getPvaSeverity(pvaArea, venue);
+
+                if (isPoint && pointSeverity > SEVERITY.GREEN) {
+                    args.maxPointSeverity = Math.max(pointSeverity, args.maxPointSeverity);
+                } else if (isArea) {
+                    args.maxAreaSeverity = Math.min(areaSeverity, args.maxAreaSeverity);
                 }
-            } // END Post Office check
-        } // END if (!residential && has name)
 
-        _buttonBanner.gasMismatch = Flag.GasMismatch.eval(item, newCategories, newBrand, newName, wl);
+                // TODO: Process this flag outside the loop.
+                Flag.PnhCatMess.eval(venue, pnhCategoryInfo, args.categories, args.highlightOnly);
 
-        // Check EV charging stations:
-        _buttonBanner.evChargingStationWarning = Flag.EVChargingStationWarning.eval(item, highlightOnly);
-        _buttonBanner.addCommonEVPaymentMethods = Flag.AddCommonEVPaymentMethods.eval(item, highlightOnly, wl);
-        _buttonBanner.removeUncommonEVPaymentMethods = Flag.RemoveUncommonEVPaymentMethods.eval(item, highlightOnly, wl);
-        _buttonBanner.evcsPriceMissing = Flag.EVCSPriceMissing.eval(item, highlightOnly);
-
-        // Name check
-        _buttonBanner.nameMissing = Flag.NameMissing.eval(item, newName);
-        _buttonBanner.plaNameMissing = Flag.PlaNameMissing.eval(item, newName, _USER.rank);
-        _buttonBanner.plaNameNonStandard = Flag.PlaNameNonStandard.eval(item, wl);
-        _buttonBanner.gasNameMissing = Flag.GasNameMissing.eval(item, newName, newBrand, highlightOnly);
-
-        _buttonBanner.plaIsPublic = Flag.PlaIsPublic.eval(item, highlightOnly);
-
-        // House number / HN check
-        let currentHN = item.attributes.houseNumber;
-        // Check to see if there's an action that is currently updating the house number.
-        const updateHnAction = actions && actions.find(action => action.newAttributes && action.newAttributes.houseNumber);
-        if (updateHnAction) currentHN = updateHnAction.newAttributes.houseNumber;
-        // Use the inferred address street if currently no street.
-        const hasStreet = item.attributes.streetID || (inferredAddress && inferredAddress.street);
-
-        if (hasStreet && (!currentHN || currentHN.replace(/\D/g, '').length === 0)) {
-            if (!['BRIDGE', 'ISLAND', 'FOREST_GROVE', 'SEA_LAKE_POOL', 'RIVER_STREAM', 'CANAL',
-                'DAM', 'TUNNEL', 'JUNCTION_INTERCHANGE'].includes(item.attributes.categories[0])
-                && !item.attributes.categories.includes('REST_AREAS')) {
-                _buttonBanner.hnMissing = new Flag.HnMissing(item);
-                if (state2L === 'PR' || ['SCENIC_LOOKOUT_VIEWPOINT'].includes(item.attributes.categories[0])) {
-                    _buttonBanner.hnMissing.severity = _SEVERITY.GREEN;
-                    _buttonBanner.hnMissing.WLactive = false;
-                } else if (item.isParkingLot()) {
-                    _buttonBanner.hnMissing.WLactive = false;
-                    if (item.attributes.lockRank < 2) {
-                        lockOK = false;
-                        let msgAdd;
-                        if (_USER.rank < 3) {
-                            msgAdd = 'Request an R3+ lock to confirm no HN.';
-                        } else {
-                            msgAdd = 'Lock to R3+ to confirm no HN.';
-                        }
-                        _buttonBanner.hnMissing.suffixMessage = msgAdd;
-                        _buttonBanner.hnMissing.severity = _SEVERITY.BLUE;
-                    } else {
-                        _buttonBanner.hnMissing.severity = _SEVERITY.GREEN;
-                    }
-                } else if (wl.HNWL) {
-                    _buttonBanner.hnMissing.severity = _SEVERITY.GREEN;
-                    _buttonBanner.hnMissing.WLactive = false;
-                } else {
-                    lockOK = false;
-                }
-            }
-        } else if (currentHN) {
-            _buttonBanner.hnTooManyDigits = Flag.HnTooManyDigits.eval(currentHN, wl);
-
-            // 2020-10-5 Disabling HN validity checks for now. See the note on the HnNonStandard flag object for more details.
-
-            // let hnOK = false;
-            // let updateHNflag = false;
-            // const hnTemp = currentHN.replace(/[^\d]/g, ''); // Digits only
-            // const hnTempDash = currentHN.replace(/[^\d-]/g, ''); // Digits and dashes only
-            // if (hnTemp < 1000000 && state2L === 'NY' && addr.city.attributes.name === 'Queens' && hnTempDash.match(/^\d{1,4}-\d{1,4}$/g) !== null) {
-            //     updateHNflag = true;
-            //     // hnOK = true;
-            // }
-            // if (hnTemp === currentHN && hnTemp < 1000000) { //  general check that HN is 6 digits or less, & that it is only [0-9]
-            //     hnOK = true;
-            // }
-            // if (state2L === 'HI' && hnTempDash.match(/^\d{1,2}-\d{1,4}$/g) !== null) {
-            //     if (hnTempDash === hnTempDash.match(/^\d{1,2}-\d{1,4}$/g)[0]) {
-            //         hnOK = true;
-            //     }
-            // }
-
-            // if (!hnOK) {
-            //     _buttonBanner.hnNonStandard = new Flag.HnNonStandard();
-            //     if (_wl.hnNonStandard) {
-            //         _buttonBanner.hnNonStandard.WLactive = false;
-            //         _buttonBanner.hnNonStandard.severity = SEVERITY.GREEN;
-            //     } else {
-            //         lockOK = false;
-            //     }
-            // }
-            // if (updateHNflag) {
-            //     _buttonBanner.hnDashRemoved = new Flag.HnDashRemoved();
-            //     if (!highlightOnly) {
-            //         actions.push(new UpdateObject(item, { houseNumber: hnTemp }));
-            //         _UPDATED_FIELDS.address.updated = true;
-            //     } else if (highlightOnly) {
-            //         if (item.attributes.residential) {
-            //             _buttonBanner.hnDashRemoved.severity = SEVERITY.RED;
-            //         } else {
-            //             _buttonBanner.hnDashRemoved.severity = SEVERITY.BLUE;
-            //         }
-            //     }
-            // }
-        }
-
-        _buttonBanner.cityMissing = Flag.CityMissing.eval(item, addr, highlightOnly);
-        _buttonBanner.streetMissing = Flag.StreetMissing.eval(item, addr);
-        _buttonBanner.notAHospital = Flag.NotAHospital.eval(item, newCategories, newName, wl);
-
-        // CATEGORY vs. NAME checks
-        _buttonBanner.changeToPetVet = Flag.ChangeToPetVet.eval(item, newName, newCategories, wl);
-        _buttonBanner.changeToDoctorClinic = Flag.ChangeToDoctorClinic.eval(item, newCategories, highlightOnly, pnhNameRegMatch);
-        _buttonBanner.notASchool = Flag.NotASchool.eval(newName, newCategories, wl);
-
-        // Some cats don't need PNH messages and url/phone severities
-        if (['BRIDGE', 'FOREST_GROVE', 'DAM', 'TUNNEL', 'CEMETERY'].includes(item.attributes.categories[0])) {
-            _buttonBanner.NewPlaceSubmit = null;
-            if (_buttonBanner.phoneMissing) {
-                _buttonBanner.phoneMissing.severity = _SEVERITY.GREEN;
-                _buttonBanner.phoneMissing.WLactive = false;
-            }
-            if (_buttonBanner.urlMissing) {
-                _buttonBanner.urlMissing.severity = _SEVERITY.GREEN;
-                _buttonBanner.urlMissing.WLactive = false;
-            }
-        } else if (['ISLAND', 'SEA_LAKE_POOL', 'RIVER_STREAM', 'CANAL', 'JUNCTION_INTERCHANGE', 'SCENIC_LOOKOUT_VIEWPOINT'].includes(item.attributes.categories[0])) {
-            // Some cats don't need PNH messages and url/phone messages
-            _buttonBanner.NewPlaceSubmit = null;
-            _buttonBanner.phoneMissing = null;
-            _buttonBanner.urlMissing = null;
-        }
-
-        // *** Rest Area parsing
-        // check rest area name against standard formats or if has the right categories
-        const oldName = item.attributes.name;
-        const hasRestAreaCategory = newCategories.includes('REST_AREAS');
-        _buttonBanner.restAreaSpec = Flag.RestAreaSpec.eval(item, hasRestAreaCategory, newName, wl);
-        _buttonBanner.restAreaScenic = Flag.RestAreaScenic.eval(item, hasRestAreaCategory, newCategories, wl);
-        _buttonBanner.restAreaNoTransportation = Flag.RestAreaNoTransportation.eval(item, hasRestAreaCategory, newCategories);
-        _buttonBanner.restAreaGas = Flag.RestAreaGas.eval(hasRestAreaCategory, newCategories);
-        _buttonBanner.restAreaName = Flag.RestAreaName.eval(item, hasRestAreaCategory, wl);
-
-        if (hasRestAreaCategory) {
-            if (item.isPoint()) { // needs to be area
-                _buttonBanner.areaNotPoint = new Flag.AreaNotPoint(item);
-            }
-            _buttonBanner.pointNotArea = null;
-            _buttonBanner.unmappedRegion = null;
-
-            if (!highlightOnly && oldName.match(/^Rest Area.* - /) !== null) {
-                const newSuffix = newNameSuffix.replace(/Mile/i, 'mile');
-                if (newName + newSuffix !== item.attributes.name) {
-                    actions.push(new UpdateObject(item, { name: newName + newSuffix }));
-                    _UPDATED_FIELDS.name.updated = true;
-                    logDev('Lower case "mile"');
-                } else {
-                    // The new name matches the original name, so the only change would have been to capitalize "Mile", which
-                    // we don't want. So remove any previous name-change action.  Note: this feels like a hack and is probably
-                    // a fragile workaround.  The name shouldn't be capitalized in the first place, unless necessary.
-                    for (let i = 0; i < actions.length; i++) {
-                        const action = actions[i];
-                        if (action.newAttributes.name) {
-                            actions.splice(i, 1);
-                            _UPDATED_FIELDS.name.updated = false;
-                            break;
-                        }
-                    }
-                }
-            }
-
-            // switch to rest area wiki button
-            if (!highlightOnly) {
-                _buttonBanner2.restAreaWiki.active = true;
-                _buttonBanner2.placesWiki.active = false;
-            }
-
-            if (_buttonBanner.urlMissing) {
-                _buttonBanner.urlMissing.WLactive = false;
-                _buttonBanner.urlMissing.severity = _SEVERITY.GREEN;
-            }
-            if (_buttonBanner.phoneMissing) {
-                _buttonBanner.phoneMissing.severity = _SEVERITY.GREEN;
-                _buttonBanner.phoneMissing.WLactive = false;
-            }
-        }
-
-        // update Severity for banner messages
-        Object.keys(_buttonBanner).forEach(key => {
-            if (_buttonBanner[key] && _buttonBanner[key].active) {
-                totalSeverity = Math.max(_buttonBanner[key].severity, totalSeverity);
-            }
-        });
-
-        // Place locking
-        // final formatting of desired lock levels
-        let levelToLock;
-        if (pnhLockLevel !== -1 && !highlightOnly) {
-            logDev(`PNHLockLevel: ${pnhLockLevel}`);
-            levelToLock = pnhLockLevel;
-        } else {
-            levelToLock = defaultLockLevel;
-        }
-        if (region === 'SER') {
-            if (newCategories.includes('COLLEGE_UNIVERSITY') && newCategories.includes('PARKING_LOT')) {
-                levelToLock = _LOCK_LEVEL_4;
-            } else if (item.isPoint() && newCategories.includes('COLLEGE_UNIVERSITY') && (!newCategories.includes('HOSPITAL_MEDICAL_CARE')
-                || !newCategories.includes('HOSPITAL_URGENT_CARE'))) {
-                levelToLock = _LOCK_LEVEL_4;
-            }
-        }
-
-        if (levelToLock > (_USER.rank - 1)) { levelToLock = (_USER.rank - 1); } // Only lock up to the user's level
-
-        // Brand checking (be sure to check this after determining if brand will be forced, when harmonizing)
-        _buttonBanner.gasNoBrand = Flag.GasNoBrand.eval(item, newBrand, levelToLock);
-        _buttonBanner.gasUnbranded = Flag.GasUnbranded.eval(item, newBrand);
-
-        // If no Google link and severity would otherwise allow locking, ask if user wants to lock anyway.
-        if (!isLocked && _buttonBanner.extProviderMissing && _buttonBanner.extProviderMissing.active
-            && _buttonBanner.extProviderMissing.severity <= _SEVERITY.YELLOW) {
-            _buttonBanner.extProviderMissing.severity = _SEVERITY.RED;
-            totalSeverity = _SEVERITY.RED;
-            if (lockOK) {
-                _buttonBanner.extProviderMissing.value = `Lock anyway? (${levelToLock + 1})`;
-                _buttonBanner.extProviderMissing.title = 'If no Google link exists, lock this place.\nIf there is still no Google link after '
-                    + '6 months from the last update date, it will turn red as a reminder to search again.';
-                _buttonBanner.extProviderMissing.action = () => {
-                    addUpdateAction(item, { lockRank: levelToLock }, null, true);
-                };
-            }
-        }
-
-        if (!highlightOnly) {
-            // Update the lockOK value if "noLock" is set on any flag.
-            lockOK &&= !Object.keys(_buttonBanner).some(key => _buttonBanner[key]?.noLock);
-            logDev(`Severity: ${totalSeverity}; lockOK: ${lockOK}`);
-        }
-
-        _buttonBanner.placeLocked = Flag.PlaceLocked.eval(item, lockOK, totalSeverity, levelToLock, highlightOnly, actions);
-
-        // IGN check
-        if (!item.attributes.residential) {
-            const updatedBy = W.model.users.getObjectById(item.attributes.updatedBy);
-            if (updatedBy && /^ign_/i.test(updatedBy.userName)) {
-                _buttonBanner.ignEdited = new Flag.IgnEdited();
-            }
-        }
-
-        // waze_maint_bot check
-        const updatedById = item.attributes.updatedBy ? item.attributes.updatedBy : item.attributes.createdBy;
-        const updatedBy = W.model.users.getObjectById(updatedById);
-        const updatedByName = updatedBy ? updatedBy.userName : null;
-        const botNamesAndIDs = [
-            '^waze-maint', '^105774162$',
-            '^waze3rdparty$', '^361008095$',
-            '^WazeParking1$', '^338475699$',
-            '^admin$', '^-1$',
-            '^avsus$', '^107668852$'
-        ];
-
-        const botRegEx = new RegExp(botNamesAndIDs.join('|'), 'i');
-        if (item.isUnchanged() && !item.attributes.residential && updatedById && (botRegEx.test(updatedById.toString())
-            || (updatedByName && botRegEx.test(updatedByName)))) {
-            _buttonBanner.wazeBot = new Flag.WazeBot(item);
-        }
-
-        // RPP Locking option for R3+
-        _buttonBanner.lockRPP = Flag.LockRPP.eval(item, highlightOnly, defaultLockLevel);
-
-        // Turn off unnecessary buttons
-        if (newCategories.includes('PHARMACY')) {
-            if (_buttonBanner.addPharm) _buttonBanner.addPharm = null;
-        }
-        if (newCategories.includes('SUPERMARKET_GROCERY')) {
-            if (_buttonBanner.addSuper) _buttonBanner.addSuper = null;
-        }
-
-        // Final alerts for non-severe locations
-        if (!item.attributes.residential && totalSeverity < _SEVERITY.RED) {
-            const nameShortSpace = newName.toUpperCase().replace(/[^A-Z ']/g, '');
-            if (nameShortSpace.includes('\'S HOUSE') || nameShortSpace.includes('\'S HOME') || nameShortSpace.includes('\'S WORK')) {
-                if (!containsAny(newCategories, ['RESTAURANT', 'DESSERT', 'BAR']) && !pnhNameRegMatch) {
-                    _buttonBanner.resiTypeNameSoft = new Flag.ResiTypeNameSoft();
-                }
-            }
-            if (['HOME', 'MY HOME', 'HOUSE', 'MY HOUSE', 'PARENTS HOUSE', 'CASA', 'MI CASA', 'WORK', 'MY WORK', 'MY OFFICE',
-                'MOMS HOUSE', 'DADS HOUSE', 'MOM', 'DAD'].includes(nameShortSpace)) {
-                _buttonBanner.resiTypeName = new Flag.ResiTypeName();
-                if (wl.resiTypeName) {
-                    _buttonBanner.resiTypeName.WLactive = false;
-                }
-                _buttonBanner.resiTypeNameSoft = null;
-            }
-            if (item.attributes.description.toLowerCase().includes('google') || item.attributes.description.toLowerCase().includes('yelp')) {
-                _buttonBanner.suspectDesc = new Flag.SuspectDesc();
-                if (wl.suspectDesc) {
-                    _buttonBanner.suspectDesc.WLactive = false;
-                }
-            }
-        }
-
-        // Return severity for highlighter (no dupe run))
-        if (highlightOnly) {
-            // get severities from the banners
-            totalSeverity = _SEVERITY.GREEN;
-            Object.keys(_buttonBanner).forEach(tempKey => {
-                if (_buttonBanner[tempKey] && _buttonBanner[tempKey].active) { //  If the particular message is active
-                    if (_buttonBanner[tempKey].hasOwnProperty('WLactive')) {
-                        if (_buttonBanner[tempKey].WLactive) { // If there's a WL option, enable it
-                            totalSeverity = Math.max(_buttonBanner[tempKey].severity, totalSeverity);
-                        }
-                    } else {
-                        totalSeverity = Math.max(_buttonBanner[tempKey].severity, totalSeverity);
+                // Set lock level
+                for (let lockix = 1; lockix < 6; lockix++) {
+                    const categoryLock = pnhCategoryInfo[`lock${lockix}`];
+                    if (lockix - 1 > highestCategoryLock && (categoryLock.includes(args.state2L) || categoryLock.includes(args.region)
+                        || categoryLock.includes(args.countryCode))) {
+                        highestCategoryLock = lockix - 1; // Offset by 1 since lock ranks start at 0
                     }
                 }
             });
 
-            // Special case flags
-            if (item.attributes.lockRank === 0
-                && item.attributes.categories.some(cat => ['HOSPITAL_MEDICAL_CARE', 'HOSPITAL_URGENT_CARE', 'GAS_STATION'].includes(cat))) {
-                totalSeverity = _SEVERITY.PINK;
+            if (highestCategoryLock > -1) {
+                args.defaultLockLevel = highestCategoryLock;
             }
 
-            if (totalSeverity === _SEVERITY.GREEN && _buttonBanner.placeLocked?.hlLockFlag) {
-                totalSeverity = 'lock';
-            }
-            if (totalSeverity === 1 && _buttonBanner.placeLocked?.hlLockFlag) {
-                totalSeverity = 'lock1';
-            }
-            if (item.attributes.adLocked) {
-                totalSeverity = 'adLock';
+            if (!args.highlightOnly) {
+                // Update name:
+                if ((args.nameBase + (args.nameSuffix || '')) !== venue.attributes.name) {
+                    logDev('Name updated');
+                    addUpdateAction(venue, { name: args.nameBase + (args.nameSuffix || '') }, actions);
+                }
+
+                // Update aliases
+                const tempAliases = removeUnnecessaryAliases(args.nameBase, args.aliases);
+                if (tempAliases) {
+                    args.aliasesRemoved = true;
+                    args.aliases = tempAliases;
+                    logDev('Alt Names updated');
+                    addUpdateAction(venue, { aliases: args.aliases }, actions);
+                }
+
+                // PNH specific Services:
+                args.categories.forEach(category => {
+                    const pnhCategoryInfo = args.pnhCategoryInfos.getById(category);
+                    pnhCategoryInfo.services.forEach(service => {
+                        const serviceButton = _servicesBanner[service.pnhKey];
+                        if (!serviceButton.pnhOverride) {
+                            // This section of code previously checked for values of "1", "2", and state/region codes.
+                            // A value of "2" or a state/region code would auto-add the service.  However, it was
+                            // felt that this was a problem since it is difficult to prove that every place in a
+                            // category would *always* offer a specific service.  So now, any value entered in the
+                            // spreadsheet cell will only display the service button, not turn it on.
+                            serviceButton.active = true;
+                        }
+                    });
+                });
             }
 
-            return totalSeverity;
+            args.hoursOverlap = venueHasOverlappingHours(args.openingHours);
+
+            args.isUspsPostOffice = args.countryCode === 'USA' && !args.categories.includes(CAT.PARKING_LOT) && args.categories.includes(CAT.POST_OFFICE);
+
+            if (!args.highlightOnly) {
+                // Highlight 24/7 button if hours are set that way, and add button for all places
+                if (isAlwaysOpen(venue)) {
+                    _servicesBanner.add247.checked = true;
+                }
+                _servicesBanner.add247.active = true;
+
+                if (!args.hoursOverlap) {
+                    const tempHours = args.openingHours.slice();
+                    for (let ohix = 0; ohix < args.openingHours.length; ohix++) {
+                        if (tempHours[ohix].days.length === 2 && tempHours[ohix].days[0] === 1 && tempHours[ohix].days[1] === 0) {
+                            // separate hours
+                            logDev('Correcting M-S entry...');
+                            tempHours.push(new OpeningHour({ days: [0], fromHour: tempHours[ohix].fromHour, toHour: tempHours[ohix].toHour }));
+                            tempHours[ohix].days = [1];
+                            args.openingHours = tempHours;
+                            addUpdateAction(venue, { openingHours: tempHours }, actions);
+                        }
+                    }
+                }
+
+                // URL updating
+                // Invalid EVCS URL imported from PURs. Clear it.
+                if (Flag.ClearThisUrl.venueIsFlaggable(args)) {
+                    args.url = null;
+                    addUpdateAction(venue, { url: args.url }, actions);
+                }
+                args.normalizedUrl = normalizeURL(args.url);
+                if (args.isUspsPostOffice && args.url !== 'usps.com') {
+                    args.url = 'usps.com';
+                    addUpdateAction(venue, { url: args.url }, actions);
+                } else if (!args.pnhUrl && args.normalizedUrl !== args.url) {
+                    if (!args.normalizedUrl === BAD_URL) {
+                        args.url = args.normalizedUrl;
+                        logDev('URL formatted');
+                        addUpdateAction(venue, { url: args.url }, actions);
+                    }
+                } else if (args.pnhUrl && isNullOrWhitespace(args.url)) {
+                    args.url = args.pnhUrl;
+                    logDev('URL updated');
+                    addUpdateAction(venue, { url: args.url }, actions);
+                }
+
+                if (args.phone) {
+                    // Invalid EVCS phone # imported from PURs. Clear it.
+                    if (Flag.ClearThisPhone.venueIsFlaggable(args)) {
+                        args.phone = null;
+                    }
+                    const normalizedPhone = normalizePhone(args.phone, args.outputPhoneFormat);
+                    if (normalizedPhone !== BAD_PHONE) args.phone = normalizedPhone;
+                    if (args.phone !== venue.attributes.phone) {
+                        logDev('Phone updated');
+                        addUpdateAction(venue, { phone: args.phone }, actions);
+                    }
+                }
+
+                if (args.isUspsPostOffice) {
+                    const cleanNameParts = Flag.FormatUSPS.getCleanNameParts(args.nameBase, args.nameSuffix);
+                    const nameToCheck = cleanNameParts.join('');
+                    if (Flag.FormatUSPS.isNameOk(nameToCheck, args.state2L, args.addr)) {
+                        if (nameToCheck !== venue.attributes.name) {
+                            [args.nameBase, args.nameSuffix] = cleanNameParts;
+                            actions.push(new UpdateObject(venue, { name: nameToCheck }));
+                        }
+                    }
+                }
+            }
+        } // END if (!residential && has name)
+
+        if (!args.highlightOnly && args.categories.includes(CAT.REST_AREAS)) {
+            const oldName = venue.attributes.name;
+            if (oldName.match(/^Rest Area.* - /) !== null) {
+                const newSuffix = args.nameSuffix.replace(/\bMile\b/i, 'mile');
+                if (args.nameBase + newSuffix !== venue.attributes.name) {
+                    addUpdateAction(venue, { name: args.nameBase + newSuffix }, actions);
+                    logDev('Lower case "mile"');
+                }
+                // NOTE: I don't know if this else case is needed anymore...
+                // else {
+                //     // The new name matches the original name, so the only change would have been to capitalize "Mile", which
+                //     // we don't want. So remove any previous name-change action.  Note: this feels like a hack and is probably
+                //     // a fragile workaround.  The name shouldn't be capitalized in the first place, unless necessary.
+                //     for (let i = 0; i < actions.length; i++) {
+                //         const action = actions[i];
+                //         if (action.newAttributes?.name) {
+                //             actions.splice(i, 1);
+                //             _UPDATED_FIELDS.name.updated = false;
+                //             break;
+                //         }
+                //     }
+                // }
+            }
+
+            // switch to rest area wiki button
+            _buttonBanner2.restAreaWiki.active = true;
+            _buttonBanner2.placesWiki.active = false;
         }
 
-        // *** Below here is for harmonization only.  HL ends in previous step.
+        args.isLocked = venue.attributes.lockRank >= (pnhLockLevel > -1 ? pnhLockLevel : args.defaultLockLevel);
+        args.currentHN = venue.attributes.houseNumber;
+        // Check to see if there's an action that is currently updating the house number.
+        const updateHnAction = actions && actions.find(action => action.newAttributes && action.newAttributes.houseNumber);
+        if (updateHnAction) args.currentHN = updateHnAction.newAttributes.houseNumber;
+        // Use the inferred address street if currently no street.
+        args.hasStreet = venue.attributes.streetID || (inferredAddress && inferredAddress.street);
+        args.ignoreParkingLots = $('#WMEPH-DisablePLAExtProviderCheck').prop('checked');
 
-        // Run nearby duplicate place finder function
+        if (!venue.isResidential() && (venue.isParkingLot() || (args.nameBase?.trim().length))) {
+            if (args.pnhNameRegMatch) {
+                Flag.HotelMkPrim.eval(args);
+                Flag.LocalizedName.eval(args);
+                Flag.AddAlias.eval(args);
+                Flag.AddRecommendedPhone.eval(args);
+                Flag.SubFuel.eval(args);
+                Flag.SpecCaseMessage.eval(args);
+                Flag.LocalURL.eval(args);
+                Flag.UrlMismatch.eval(args);
+                Flag.CheckDescription.eval(args);
+                // eslint-disable-next-line max-len
+                Flag.LocationFinder.eval(args);
+                Flag.AddPharm.eval(args);
+                Flag.AddSuper.eval(args);
+                Flag.AppendAMPM.eval(args);
+                Flag.PlaceMatched.eval(args);
+            }
+            Flag.InvalidUrl.eval(args);
+            Flag.SFAliases.eval(args);
+            Flag.CatHotel.eval(args);
+            Flag.ExtProviderMissing.eval(args);
+            // eslint-disable-next-line max-len
+            Flag.NewPlaceSubmit.eval(args);
+            Flag.ApprovalSubmit.eval(args);
+            Flag.TitleCaseName.eval(args);
+            Flag.BankType1.eval(args);
+            Flag.BankBranch.eval(args);
+            Flag.StandaloneATM.eval(args);
+            Flag.BankCorporate.eval(args);
+            Flag.AddATM.eval(args);
+            Flag.NoHours.eval(args);
+            Flag.Mismatch247.eval(args);
+            Flag.HoursOverlap.eval(args);
+            Flag.OldHours.eval(args);
+            Flag.AllDayHoursFixed.eval(args);
+            Flag.IsThisAPostOffice.eval(args);
+            Flag.MissingUSPSZipAlt.eval(args);
+            Flag.FormatUSPS.eval(args);
+            Flag.CatPostOffice.eval(args);
+            Flag.MissingUSPSDescription.eval(args);
+            Flag.MissingUSPSAlt.eval(args);
+            Flag.UrlMissing.eval(args);
+            Flag.PhoneInvalid.eval(args);
+            // eslint-disable-next-line max-len
+            Flag.PhoneMissing.eval(args);
+            Flag.BadAreaCode.eval(args);
+            Flag.ParentCategory.eval(args);
+            Flag.ClearThisPhone.eval(args);
+            Flag.ClearThisUrl.eval(args);
+        }
+        Flag.UnmappedRegion.eval(args);
+        Flag.PlaCostTypeMissing.eval(args);
+        Flag.PlaLotElevationMissing.eval(args);
+        Flag.PlaSpaces.eval(args);
+        Flag.PlaLotTypeMissing.eval(args);
+        Flag.NoPlaStopPoint.eval(args);
+        Flag.PlaStopPointUnmoved.eval(args);
+        Flag.PlaCanExitWhileClosed.eval(args);
+        Flag.PlaPaymentTypeMissing.eval(args);
+        Flag.PlaHasAccessibleParking.eval(args);
+        Flag.ChangeToHospitalUrgentCare.eval(args);
+        Flag.IsThisAPilotTravelCenter.eval(args);
+        Flag.GasMkPrim.eval(args);
+        Flag.AddConvStore.eval(args);
+        Flag.IndianaLiquorStoreHours.eval(args);
+        Flag.PointNotArea.eval(args);
+        Flag.GasMismatch.eval(args);
+        Flag.EVChargingStationWarning.eval(args);
+        Flag.AddCommonEVPaymentMethods.eval(args);
+        Flag.RemoveUncommonEVPaymentMethods.eval(args);
+        Flag.EVCSPriceMissing.eval(args);
+        Flag.NameMissing.eval(args);
+        Flag.PlaNameMissing.eval(args);
+        Flag.PlaNameNonStandard.eval(args);
+        Flag.GasNameMissing.eval(args);
+        Flag.PlaIsPublic.eval(args);
+        Flag.HnMissing.eval(args);
+        Flag.HnTooManyDigits.eval(args);
+        Flag.CityMissing.eval(args);
+        Flag.StreetMissing.eval(args);
+        Flag.NotAHospital.eval(args);
+        Flag.ChangeToPetVet.eval(args);
+        Flag.ChangeToDoctorClinic.eval(args);
+        Flag.NotASchool.eval(args);
+
+        Flag.RestAreaSpec.eval(args);
+        Flag.RestAreaScenic.eval(args);
+        Flag.RestAreaNoTransportation.eval(args);
+        Flag.RestAreaGas.eval(args);
+        Flag.RestAreaName.eval(args);
+        Flag.AreaNotPoint.eval(args);
+
+        // update Severity for banner messages
+        const orderedFlags = FlagBase.currentFlags.getOrderedFlags();
+        orderedFlags.forEach(flag => {
+            args.totalSeverity = Math.max(flag.severity, args.totalSeverity);
+        });
+
+        // final updating of desired lock levels
+        if (pnhLockLevel !== -1 && !args.highlightOnly) {
+            logDev(`PNHLockLevel: ${pnhLockLevel}`);
+            args.levelToLock = pnhLockLevel;
+        } else {
+            args.levelToLock = args.defaultLockLevel;
+        }
+        if (args.region === 'SER') {
+            if (args.categories.includes(CAT.COLLEGE_UNIVERSITY) && args.categories.includes(CAT.PARKING_LOT)) {
+                args.levelToLock = LOCK_LEVEL_4;
+            } else if (venue.isPoint() && args.categories.includes(CAT.COLLEGE_UNIVERSITY) && (!args.categories.includes(CAT.HOSPITAL_MEDICAL_CARE)
+                || !args.categories.includes(CAT.HOSPITAL_URGENT_CARE))) {
+                args.levelToLock = LOCK_LEVEL_4;
+            }
+        }
+
+        if (args.levelToLock > (USER.rank - 1)) { args.levelToLock = (USER.rank - 1); } // Only lock up to the user's level
+
+        // Brand checking (be sure to check this after determining if brand will be forced, when harmonizing)
+        Flag.GasNoBrand.eval(args);
+        Flag.GasUnbranded.eval(args);
+
+        Flag.IgnEdited.eval(args);
+        Flag.WazeBot.eval(args);
+        Flag.LockRPP.eval(args);
+
+        // Allow flags to do any additional work before assigning severity and locks
+        orderedFlags.forEach(flag => flag.preProcess?.(args));
+
+        if (!args.highlightOnly) {
+            // Update the lockOK value if "noLock" is set on any flag.
+            args.lockOK &&= !orderedFlags.some(flag => flag.noLock);
+            logDev(`Severity: ${args.totalSeverity}; lockOK: ${args.lockOK}`);
+        }
+
+        const placeLockedFlag = Flag.PlaceLocked.eval(args);
+
+        // Turn off unnecessary buttons
+        // TODO: handle this in the flag class
+        if (args.categories.includes(CAT.PHARMACY)) {
+            FlagBase.currentFlags.remove(Flag.AddPharm);
+        }
+        if (args.categories.includes(CAT.SUPERMARKET_GROCERY)) {
+            FlagBase.currentFlags.remove(Flag.AddSuper);
+        }
+
+        // Final alerts for non-severe locations
+        Flag.ResiTypeName.eval(args);
+        Flag.SuspectDesc.eval(args);
+
         _dupeHNRangeList = [];
         _dupeBanner = {};
-        if (newName.replace(/[^A-Za-z0-9]/g, '').length > 0 && !item.attributes.residential && !isEmergencyRoom(item) && !isRestArea(item)) {
-            // don't zoom and pan for results outside of FOV
-            let duplicateName = findNearbyDuplicate(newName, newAliases, item, !$('#WMEPH-DisableDFZoom').prop('checked'));
-            if (duplicateName[1]) {
-                _buttonBanner.overlapping = new Flag.Overlapping();
+        if (!args.highlightOnly) runDuplicateFinder(venue, args.nameBase, args.aliases, args.addr, args.placePL);
+        // Check HN range (this depends on the returned dupefinder data, so must run after it)
+        Flag.HNRange.eval(args);
+
+        // Return severity for highlighter (no dupe run))
+        if (args.highlightOnly) {
+            // get severities from the banners
+            args.totalSeverity = SEVERITY.GREEN;
+            orderedFlags.forEach(flag => {
+                args.totalSeverity = Math.max(flag.severity, args.totalSeverity);
+            });
+
+            // Special case flags
+            if (venue.attributes.lockRank === 0
+                && venue.attributes.categories.some(cat => [CAT.HOSPITAL_MEDICAL_CARE, CAT.HOSPITAL_URGENT_CARE, CAT.GAS_STATION].includes(cat))) {
+                args.totalSeverity = SEVERITY.PINK;
             }
-            [duplicateName] = duplicateName;
-            if (duplicateName.length) {
-                if (duplicateName.length + 1 !== _dupeIDList.length && _USER.isDevUser) {
-                    // If there's an issue with the data return, allow an error report
-                    WazeWrap.Alerts.confirm(
-                        _SCRIPT_NAME,
-                        'WMEPH: Dupefinder Error!<br>Click OK to report this',
-                        () => {
-                            // if the category doesn't translate, then pop an alert that will make a forum post to the thread
-                            reportError({
-                                subject: 'WMEPH Bug report DupeID',
-                                message: `Script version: ${_SCRIPT_VERSION}${_BETA_VERSION_STR}\nPermalink: ${placePL}\nPlace name: ${
-                                    item.attributes.name}\nCountry: ${addr.country.name}\n--------\nDescribe the error:\nDupeID mismatch with dupeName list`
-                            });
-                        },
-                        () => { }
-                    );
-                } else {
-                    const wlAction = dID => {
-                        const wlKey = 'dupeWL';
-                        if (!_venueWhitelist.hasOwnProperty(itemID)) { // If venue is NOT on WL, then add it.
-                            _venueWhitelist[itemID] = { dupeWL: [] };
-                        }
-                        if (!_venueWhitelist[itemID].hasOwnProperty(wlKey)) { // If dupeWL key is not in venue WL, then initialize it.
-                            _venueWhitelist[itemID][wlKey] = [];
-                        }
-                        _venueWhitelist[itemID].dupeWL.push(dID); // WL the id for the duplicate venue
-                        _venueWhitelist[itemID].dupeWL = _.uniq(_venueWhitelist[itemID].dupeWL);
-                        // Make an entry for the opposite item
-                        if (!_venueWhitelist.hasOwnProperty(dID)) { // If venue is NOT on WL, then add it.
-                            _venueWhitelist[dID] = { dupeWL: [] };
-                        }
-                        if (!_venueWhitelist[dID].hasOwnProperty(wlKey)) { // If dupeWL key is not in venue WL, then initialize it.
-                            _venueWhitelist[dID][wlKey] = [];
-                        }
-                        _venueWhitelist[dID].dupeWL.push(itemID); // WL the id for the duplicate venue
-                        _venueWhitelist[dID].dupeWL = _.uniq(_venueWhitelist[dID].dupeWL);
-                        saveWhitelistToLS(true); // Save the WL to local storage
-                        wmephWhitelistCounter();
-                        _buttonBanner2.clearWL.active = true;
-                        _dupeBanner[dID].active = false;
-                        harmonizePlaceGo(item, 'harmonize');
-                    };
-                    for (let ijx = 1; ijx < duplicateName.length + 1; ijx++) {
-                        _dupeBanner[_dupeIDList[ijx]] = {
-                            active: true,
-                            severity: _SEVERITY.YELLOW,
-                            message: duplicateName[ijx - 1],
-                            WLactive: false,
-                            WLvalue: _WL_BUTTON_TEXT,
-                            WLtitle: 'Whitelist Duplicate',
-                            WLaction: wlAction
-                        };
-                        if (_venueWhitelist.hasOwnProperty(itemID) && _venueWhitelist[itemID].hasOwnProperty('dupeWL')
-                            && _venueWhitelist[itemID].dupeWL.includes(_dupeIDList[ijx])) {
-                            // if the dupe is on the whitelist then remove it from the banner
-                            _dupeBanner[_dupeIDList[ijx]].active = false;
-                        } else {
-                            // Otherwise, activate the WL button
-                            _dupeBanner[_dupeIDList[ijx]].WLactive = true;
-                        }
-                    } // END loop for duplicate venues
-                }
+
+            if (args.totalSeverity === SEVERITY.GREEN && placeLockedFlag?.hlLockFlag) {
+                args.totalSeverity = 'lock';
             }
+            if (args.totalSeverity === SEVERITY.BLUE && placeLockedFlag?.hlLockFlag) {
+                args.totalSeverity = 'lock1';
+            }
+            if (venue.attributes.adLocked) {
+                args.totalSeverity = 'adLock';
+            }
+
+            return args.totalSeverity;
         }
 
-        // Check HN range (this depends on the returned dupefinder data, so has to run after it)
-        if (_dupeHNRangeList.length > 3) {
-            let dhnix;
-            const dupeHNRangeListSorted = [];
-            sortWithIndex(_dupeHNRangeDistList);
-            for (dhnix = 0; dhnix < _dupeHNRangeList.length; dhnix++) {
-                dupeHNRangeListSorted.push(_dupeHNRangeList[_dupeHNRangeDistList.sortIndices[dhnix]]);
-            }
-            // Calculate HN/distance ratio with other venues
-            // var sumHNRatio = 0;
-            const arrayHNRatio = [];
-            for (dhnix = 0; dhnix < dupeHNRangeListSorted.length; dhnix++) {
-                arrayHNRatio.push(Math.abs((parseInt(item.attributes.houseNumber, 10) - dupeHNRangeListSorted[dhnix]) / _dupeHNRangeDistList[dhnix]));
-            }
-            sortWithIndex(arrayHNRatio);
-            // Examine either the median or the 8th index if length is >16
-            const arrayHNRatioCheckIX = Math.min(Math.round(arrayHNRatio.length / 2), 8);
-            if (arrayHNRatio[arrayHNRatioCheckIX] > 1.4) {
-                _buttonBanner.HNRange = new Flag.HNRange();
-                if (wl.HNRange) {
-                    _buttonBanner.HNRange.WLactive = false;
-                    _buttonBanner.HNRange.active = false;
-                }
-                if (arrayHNRatio[arrayHNRatioCheckIX] > 5) {
-                    _buttonBanner.HNRange.severity = _SEVERITY.RED;
-                }
-                // show stats if HN out of range
-                logDev(`HNs: ${dupeHNRangeListSorted}`);
-                logDev(`Distances: ${_dupeHNRangeDistList}`);
-                logDev(`arrayHNRatio: ${arrayHNRatio}`);
-                logDev(`HN Ratio Score: ${arrayHNRatio[Math.round(arrayHNRatio.length / 2)]}`);
-            }
-        }
-
-        executeMultiAction(actions);
-
-        if (!highlightOnly) {
+        if (!args.highlightOnly) {
             // Update icons to reflect current WME place services
             updateServicesChecks(_servicesBanner);
 
             // Add green highlighting to edit panel fields that have been updated by WMEPH
-            _UPDATED_FIELDS.updateEditPanelHighlights();
+            UPDATED_FIELDS.updateEditPanelHighlights();
 
-            // Assemble the banners
-            assembleBanner(); // Make Messaging banners
+            assembleBanner();
+
+            executeMultiAction(actions);
         }
 
         // showOpenPlaceWebsiteButton();
@@ -7102,16 +6908,91 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
         return undefined;
     } // END harmonizePlaceGo function
 
+    function runDuplicateFinder(venue, name, aliases, addr, placePL) {
+        const venueID = venue.attributes.id;
+        // Run nearby duplicate place finder function
+        if (name.replace(/[^A-Za-z0-9]/g, '').length > 0 && !venue.attributes.residential && !isEmergencyRoom(venue) && !isRestArea(venue)) {
+            // don't zoom and pan for results outside of FOV
+            let duplicateName = findNearbyDuplicate(name, aliases, venue, !$('#WMEPH-DisableDFZoom').prop('checked'));
+            if (duplicateName[1]) {
+                new Flag.Overlapping();
+            }
+            [duplicateName] = duplicateName;
+            if (duplicateName.length) {
+                if (duplicateName.length + 1 !== _dupeIDList.length && USER.isDevUser) {
+                    // If there's an issue with the data return, allow an error report
+                    WazeWrap.Alerts.confirm(
+                        SCRIPT_NAME,
+                        'WMEPH: Dupefinder Error!<br>Click OK to report this',
+                        () => {
+                            // if the category doesn't translate, then pop an alert that will make a forum post to the thread
+                            reportError({
+                                subject: 'WMEPH Bug report DupeID',
+                                message: `Script version: ${SCRIPT_VERSION}${BETA_VERSION_STR}\nPermalink: ${placePL}\nPlace name: ${
+                                    venue.attributes.name}\nCountry: ${addr.country.name}\n--------\nDescribe the error:\nDupeID mismatch with dupeName list`
+                            });
+                        },
+                        () => { }
+                    );
+                } else {
+                    const wlAction = dID => {
+                        const wlKey = 'dupeWL';
+                        if (!_venueWhitelist.hasOwnProperty(venueID)) { // If venue is NOT on WL, then add it.
+                            _venueWhitelist[venueID] = { dupeWL: [] };
+                        }
+                        if (!_venueWhitelist[venueID].hasOwnProperty(wlKey)) { // If dupeWL key is not in venue WL, then initialize it.
+                            _venueWhitelist[venueID][wlKey] = [];
+                        }
+                        _venueWhitelist[venueID].dupeWL.push(dID); // WL the id for the duplicate venue
+                        _venueWhitelist[venueID].dupeWL = _.uniq(_venueWhitelist[venueID].dupeWL);
+                        // Make an entry for the opposite venue
+                        if (!_venueWhitelist.hasOwnProperty(dID)) { // If venue is NOT on WL, then add it.
+                            _venueWhitelist[dID] = { dupeWL: [] };
+                        }
+                        if (!_venueWhitelist[dID].hasOwnProperty(wlKey)) { // If dupeWL key is not in venue WL, then initialize it.
+                            _venueWhitelist[dID][wlKey] = [];
+                        }
+                        _venueWhitelist[dID].dupeWL.push(venueID); // WL the id for the duplicate venue
+                        _venueWhitelist[dID].dupeWL = _.uniq(_venueWhitelist[dID].dupeWL);
+                        saveWhitelistToLS(true); // Save the WL to local storage
+                        wmephWhitelistCounter();
+                        _buttonBanner2.clearWL.active = true;
+                        harmonizePlaceGo(venue, 'harmonize');
+                    };
+                    for (let ijx = 1; ijx < duplicateName.length + 1; ijx++) {
+                        _dupeBanner[_dupeIDList[ijx]] = {
+                            active: true,
+                            severity: SEVERITY.YELLOW,
+                            message: duplicateName[ijx - 1],
+                            WLactive: false,
+                            WLvalue: WL_BUTTON_TEXT,
+                            wlTooltip: 'Whitelist Duplicate',
+                            WLaction: wlAction
+                        };
+                        if (_venueWhitelist.hasOwnProperty(venueID) && _venueWhitelist[venueID].hasOwnProperty('dupeWL')
+                            && _venueWhitelist[venueID].dupeWL.includes(_dupeIDList[ijx])) {
+                            // if the dupe is on the whitelist then remove it from the banner
+                            _dupeBanner[_dupeIDList[ijx]].active = false;
+                        } else {
+                            // Otherwise, activate the WL button
+                            _dupeBanner[_dupeIDList[ijx]].WLactive = true;
+                        }
+                    } // END loop for duplicate venues
+                }
+            }
+        }
+    }
+
     // Set up banner messages
     function assembleBanner() {
+        const flags = FlagBase.currentFlags.getOrderedFlags();
         const venue = getSelectedVenue();
         if (!venue) return;
         logDev('Building banners');
         let dupesFound = 0;
-        let rowData;
         let $rowDiv;
         let rowDivs = [];
-        let totalSeverity = _SEVERITY.GREEN;
+        let totalSeverity = SEVERITY.GREEN;
 
         const func = elem => ({ id: elem.getAttribute('id'), val: elem.value });
         _textEntryValues = $('#WMEPH_banner input[type="text"]').toArray().map(func);
@@ -7120,7 +7001,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
         // Setup duplicates banners
         $rowDiv = $('<div class="banner-row yellow">');
         Object.keys(_dupeBanner).forEach(tempKey => {
-            rowData = _dupeBanner[tempKey];
+            const rowData = _dupeBanner[tempKey];
             if (rowData.active) {
                 dupesFound += 1;
                 const $dupeDiv = $('<div class="dupe">').appendTo($rowDiv);
@@ -7133,7 +7014,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                     $dupeDiv.append($('<button>', {
                         class: 'btn btn-success btn-xs wmephwl-btn',
                         id: `WMEPH_WL${tempKey}`,
-                        title: rowData.WLtitle
+                        title: rowData.wlTooltip
                     }).text(rowData.WLvalue));
                 }
             }
@@ -7144,56 +7025,60 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
         }
 
         // Build banners above the Services
-        Object.keys(_buttonBanner).forEach(tempKey => {
-            rowData = _buttonBanner[tempKey];
-            if (rowData && rowData.active) { //  If the particular message is active
-                $rowDiv = $('<div class="banner-row">');
-                if (rowData.severity === _SEVERITY.RED) {
+        flags.forEach(flag => {
+            $rowDiv = $('<div class="banner-row">');
+            switch (flag.severity) {
+                case SEVERITY.RED:
                     $rowDiv.addClass('red');
-                } else if (rowData.severity === _SEVERITY.YELLOW) {
+                    break;
+                case SEVERITY.YELLOW:
                     $rowDiv.addClass('yellow');
-                } else if (rowData.severity === _SEVERITY.BLUE) {
+                    break;
+                case SEVERITY.BLUE:
                     $rowDiv.addClass('blue');
-                } else if (rowData.severity === _SEVERITY.GREEN) {
+                    break;
+                case SEVERITY.GREEN:
                     $rowDiv.addClass('gray');
-                }
-                if (rowData.divId) {
-                    $rowDiv.attr('id', rowData.divId);
-                }
-                if (rowData.message && rowData.message.length) {
-                    $rowDiv.append($('<span>').css({ 'margin-right': '4px' }).append(`&bull; ${rowData.message}`));
-                }
-                if (rowData.value) {
-                    $rowDiv.append($('<button>', {
-                        class: 'btn btn-default btn-xs wmeph-btn',
-                        id: `WMEPH_${tempKey}`,
-                        title: rowData.title || ''
-                    }).css({ 'margin-right': '4px' }).html(rowData.value));
-                }
-                if (rowData.value2) {
-                    $rowDiv.append($('<button>', {
-                        class: 'btn btn-default btn-xs wmeph-btn',
-                        id: `WMEPH_${tempKey}_2`,
-                        title: rowData.title2 || ''
-                    }).css({ 'margin-right': '4px' }).html(rowData.value2));
-                }
-                if (rowData.WLactive) {
-                    if (rowData.WLaction) { // If there's a WL option, enable it
-                        totalSeverity = Math.max(rowData.severity, totalSeverity);
-                        $rowDiv.append(
-                            $('<button>', { class: 'btn btn-success btn-xs wmephwl-btn', id: `WMEPH_WL${tempKey}`, title: rowData.WLtitle })
-                                .text('WL')
-                        );
-                    }
-                } else {
-                    totalSeverity = Math.max(rowData.severity, totalSeverity);
-                }
-                if (rowData.suffixMessage) {
-                    $rowDiv.append($('<div>').css({ 'margin-top': '2px' }).append(rowData.suffixMessage));
-                }
-
-                rowDivs.push($rowDiv);
+                    break;
+                default:
+                    throw new Error(`WMEPH: Unexpected severity value while building banner: ${flag.severity}`);
             }
+            if (flag.divId) {
+                $rowDiv.attr('id', flag.divId);
+            }
+            if (flag.message && flag.message.length) {
+                $rowDiv.append($('<span>').css({ 'margin-right': '4px' }).append(`&bull; ${flag.message}`));
+            }
+            if (flag.buttonText) {
+                $rowDiv.append($('<button>', {
+                    class: 'btn btn-default btn-xs wmeph-btn',
+                    id: `WMEPH_${flag.name}`,
+                    title: flag.title || ''
+                }).css({ 'margin-right': '4px' }).html(flag.buttonText));
+            }
+            if (flag.value2) {
+                $rowDiv.append($('<button>', {
+                    class: 'btn btn-default btn-xs wmeph-btn',
+                    id: `WMEPH_${flag.name}_2`,
+                    title: flag.title2 || ''
+                }).css({ 'margin-right': '4px' }).html(flag.value2));
+            }
+            if (flag.showWL) {
+                if (flag.WLaction) { // If there's a WL option, enable it
+                    totalSeverity = Math.max(flag.severity, totalSeverity);
+                    $rowDiv.append(
+                        $('<button>', { class: 'btn btn-success btn-xs wmephwl-btn', id: `WMEPH_WL${flag.name}`, title: flag.wlTooltip })
+                            .text('WL')
+                    );
+                }
+            } else {
+                totalSeverity = Math.max(flag.severity, totalSeverity);
+            }
+            if (flag.suffixMessage) {
+                $rowDiv.append($('<div>').css({ 'margin-top': '2px' }).append(flag.suffixMessage));
+            }
+
+            rowDivs.push($rowDiv);
         });
 
         if ($('#WMEPH-ColorHighlighting').prop('checked')) {
@@ -7207,13 +7092,13 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
         }
         let bgColor;
         switch (totalSeverity) {
-            case _SEVERITY.BLUE:
+            case SEVERITY.BLUE:
                 bgColor = 'rgb(50, 50, 230)'; // blue
                 break;
-            case _SEVERITY.YELLOW:
+            case SEVERITY.YELLOW:
                 bgColor = 'rgb(217, 173, 42)'; // yellow
                 break;
-            case _SEVERITY.RED:
+            case SEVERITY.RED:
                 bgColor = 'rgb(211, 48, 48)'; // red
                 break;
             default:
@@ -7255,15 +7140,16 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
 
         // Set up Duplicate onclicks
         if (dupesFound) {
-            setupButtons(_dupeBanner);
+            setupButtonsOld(_dupeBanner);
         }
         // Setup bannButt onclicks
-        setupButtons(_buttonBanner);
+        setupButtons(flags);
 
         // Setup bannButt2 onclicks
-        setupButtons(_buttonBanner2);
+        setupButtonsOld(_buttonBanner2);
 
         // Add click handlers for parking lot helper buttons.
+        // TODO: move this to PlaSpaces class
         $('.wmeph-pla-spaces-btn').click(evt => {
             const selectedVenue = getSelectedVenue();
             const selectedValue = $(evt.currentTarget).attr('id').replace('wmeph_', '');
@@ -7277,30 +7163,8 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                 });
             }
             newAttr.estimatedNumberOfSpots = selectedValue;
-            _UPDATED_FIELDS.parkingSpots.updated = true;
+            UPDATED_FIELDS.parkingSpots.updated = true;
             addUpdateAction(selectedVenue, { categoryAttributes: { PARKING_LOT: newAttr } }, null, true);
-        });
-
-        // If pressing enter in the HN entry box, add the HN
-        $('#WMEPH-HNAdd').keyup(evt => {
-            if (evt.keyCode === 13 && $('#WMEPH-HNAdd').val() !== '') {
-                $('#WMEPH_hnMissing').click();
-            }
-        });
-
-        // If pressing enter in the phone entry box, add the phone
-        $('#WMEPH-PhoneAdd').keyup(evt => {
-            if (evt.keyCode === 13 && $('#WMEPH-PhoneAdd').val() !== '') {
-                $('#WMEPH_phoneMissing').click();
-                $('#WMEPH_badAreaCode').click();
-            }
-        });
-
-        // If pressing enter in the URL entry box, add the URL
-        $('#WMEPH-UrlAdd').keyup(evt => {
-            if (evt.keyCode === 13 && $('#WMEPH-UrlAdd').val() !== '') {
-                $('#WMEPH_urlMissing').click();
-            }
         });
 
         // Format "no hours" section and hook up button events.
@@ -7311,12 +7175,9 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
         }
 
         // Allow flags to do any additional work (hook up events, etc);
-        Object.keys(_buttonBanner)
-            .map(key => _buttonBanner[key])
-            .filter(flag => flag?.active)
-            .forEach(flag => {
-                flag.postProcess?.();
-            });
+        flags.forEach(flag => {
+            flag.postProcess?.();
+        });
 
         processGoogleLinks(venue);
     } // END assemble Banner function
@@ -7520,55 +7381,83 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
 
             // Setup bannServ onclicks
             if (!venue.isResidential()) {
-                setupButtons(_servicesBanner);
+                setupButtonsOld(_servicesBanner);
             }
         }
     }
 
     // Button onclick event handler
-    function setupButtons(b) {
-        Object.keys(b).forEach(tempKey => { // Loop through the banner possibilities
-            if (b[tempKey] && b[tempKey].active) { //  If the particular message is active
-                if (b[tempKey].action && b[tempKey].value) { // If there is an action, set onclick
-                    buttonAction(b, tempKey);
-                }
-                if (b[tempKey].action2 && b[tempKey].value2) { // If there is an action2, set onclick
-                    buttonAction2(b, tempKey);
-                }
-                // If there's a WL option, set up onclick
-                if (b[tempKey].WLactive && b[tempKey].WLaction) {
-                    buttonWhitelist(b, tempKey);
-                }
+    function setupButtons(flags) {
+        flags.forEach(flag => { // Loop through the banner possibilities
+            if (flag.action && flag.buttonText) { // If there is an action, set onclick
+                buttonAction(flag);
+            }
+            if (flag.action2 && flag.value2) { // If there is an action2, set onclick
+                buttonAction2(flag);
+            }
+            // If there's a WL option, set up onclick
+            if (flag.showWL && flag.WLaction) {
+                buttonWhitelist(flag);
             }
         });
     }
 
-    function buttonAction(b, bKey) {
-        const button = document.getElementById(`WMEPH_${bKey}`);
-        button.onclick = () => {
-            b[bKey].action();
-            if (!b[bKey].noBannerAssemble) assembleBanner();
-        };
-        return button;
-    }
-    function buttonAction2(b, bKey) {
-        const button = document.getElementById(`WMEPH_${bKey}_2`);
-        button.onclick = () => {
-            b[bKey].action2();
-            if (!b[bKey].noBannerAssemble) assembleBanner();
-        };
-        return button;
-    }
-    function buttonWhitelist(b, bKey) {
-        const button = document.getElementById(`WMEPH_WL${bKey}`);
-        button.onclick = () => {
-            if (bKey.match(/^\d{5,}/) !== null) {
-                b[bKey].WLaction(bKey);
-            } else {
-                b[bKey].WLaction();
+    function setupButtonsOld(banner) {
+        Object.keys(banner).forEach(flagKey => {
+            const flag = banner[flagKey];
+            if (flag?.active && flag.action && flag.value) {
+                buttonActionOld(flagKey, flag);
             }
-            b[bKey].WLactive = false;
-            b[bKey].severity = _SEVERITY.GREEN;
+            if (flag?.WLactive && flag.WLaction) {
+                buttonWhitelistOld(flagKey, flag);
+            }
+        });
+    }
+    function buttonActionOld(flagKey, flag) {
+        const button = document.getElementById(`WMEPH_${flagKey}`);
+        button.onclick = () => {
+            flag.action();
+            if (!flag.noBannerAssemble) harmonizePlaceGo(getSelectedVenue(), 'harmonize');
+        };
+    }
+    function buttonWhitelistOld(flagKey, flag) {
+        const button = document.getElementById(`WMEPH_WL${flagKey}`);
+        button.onclick = () => {
+            if (flagKey.match(/^\d{5,}/) !== null) {
+                flag.WLaction(flagKey);
+            } else {
+                flag.WLaction();
+            }
+            flag.WLactive = false;
+            flag.severity = SEVERITY.GREEN;
+        };
+        return button;
+    }
+
+    function buttonAction(flag) {
+        const button = document.getElementById(`WMEPH_${flag.name}`);
+        button.onclick = () => {
+            flag.action();
+            if (!flag.noBannerAssemble) harmonizePlaceGo(getSelectedVenue(), 'harmonize');
+        };
+        return button;
+    }
+    function buttonAction2(flag) {
+        const button = document.getElementById(`WMEPH_${flag.name}_2`);
+        button.onclick = () => {
+            flag.action2();
+            if (!flag.noBannerAssemble) harmonizePlaceGo(getSelectedVenue(), 'harmonize');
+        };
+        return button;
+    }
+    function buttonWhitelist(flag) {
+        const button = document.getElementById(`WMEPH_WL${flag.name}`);
+        button.onclick = () => {
+            if (flag.name.match(/^\d{5,}/) !== null) {
+                flag.WLaction(flag.name);
+            } else {
+                flag.WLaction();
+            }
         };
         return button;
     }
@@ -7708,11 +7597,11 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
             if ($('#WMEPH-WebSearchNewTab').prop('checked')) {
                 window.open(url);
             } else {
-                window.open(url, _SEARCH_RESULTS_WINDOW_NAME, _searchResultsWindowSpecs);
+                window.open(url, SEARCH_RESULTS_WINDOW_NAME, _searchResultsWindowSpecs);
             }
         } catch (ex) {
             console.error(ex);
-            WazeWrap.Alerts.error(_SCRIPT_NAME, 'Possible invalid URL. Check the place\'s Website field.');
+            WazeWrap.Alerts.error(SCRIPT_NAME, 'Possible invalid URL. Check the place\'s Website field.');
         }
     }
 
@@ -7724,10 +7613,10 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
             if ($('#WMEPH-WebSearchNewTab').prop('checked')) {
                 window.open(url);
             } else {
-                window.open(url, _SEARCH_RESULTS_WINDOW_NAME, _searchResultsWindowSpecs);
+                window.open(url, SEARCH_RESULTS_WINDOW_NAME, _searchResultsWindowSpecs);
             }
         } else {
-            WazeWrap.Alerts.error(_SCRIPT_NAME, 'The state and country haven\'t been set for this place yet.  Edit the address first.');
+            WazeWrap.Alerts.error(SCRIPT_NAME, 'The state and country haven\'t been set for this place yet.  Edit the address first.');
         }
     }
 
@@ -7746,7 +7635,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
 
     // Catch PLs and reloads that have a place selected already and limit attempts to about 10 seconds
     function updateWmephPanel(clearBanner = false) {
-        logDev('updateWmephPanel');
+        logDev(`updateWmephPanel: clearBanner=${clearBanner}`);
 
         const venue = getSelectedVenue();
 
@@ -7773,7 +7662,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
         let $plugshareSearchButton;
 
         if (!$('#wmeph-panel').length) {
-            const devVersSuffix = _IS_BETA_VERSION ? '-β' : '';
+            const devVersSuffix = IS_BETA_VERSION ? '-β' : '';
             $wmephPanel = $('<div>', { id: 'wmeph-panel' });
             $wmephRunPanel = $('<div>', { id: 'wmeph-run-panel' });
             $runButton = $('<input>', {
@@ -7782,7 +7671,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                 title: `Run WMEPH${devVersSuffix} on Place`,
                 type: 'button',
                 value: `Run WMEPH${devVersSuffix}`
-            }).click(harmonizePlace);
+            }).click(() => { harmonizePlace(); });
             $websiteButton = $('<input>', {
                 class: 'btn btn-success btn-xs wmeph-fat-btn',
                 id: 'WMEPHurl',
@@ -7839,50 +7728,6 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
         }
     }
 
-    // Find field divs
-    // function getPanelFields() {
-    //     let panelFieldsList = $('.form-control');
-    //     for (let pfix = 0; pfix < panelFieldsList.length; pfix++) {
-    //         const pfa = panelFieldsList[pfix].name;
-    //         if (pfa === 'name') {
-    //             _PANEL_FIELDS.name = pfix;
-    //         }
-    //         if (pfa === 'lockRank') {
-    //             _PANEL_FIELDS.lockRank = pfix;
-    //         }
-    //         if (pfa === 'description') {
-    //             _PANEL_FIELDS.description = pfix;
-    //         }
-    //         if (pfa === 'url') {
-    //             _PANEL_FIELDS.url = pfix;
-    //         }
-    //         if (pfa === 'phone') {
-    //             _PANEL_FIELDS.phone = pfix;
-    //         }
-    //         if (pfa === 'brand') {
-    //             _PANEL_FIELDS.brand = pfix;
-    //         }
-    //     }
-    //     const placeNavTabs = $('.nav');
-    //     for (let pfix = 0; pfix < placeNavTabs.length; pfix++) {
-    //         const pfa = placeNavTabs[pfix].innerHTML;
-    //         if (pfa.includes('venue-edit')) {
-    //             panelFieldsList = placeNavTabs[pfix].children;
-    //             _PANEL_FIELDS.navTabsIX = pfix;
-    //             break;
-    //         }
-    //     }
-    //     for (let pfix = 0; pfix < panelFieldsList.length; pfix++) {
-    //         const pfa = panelFieldsList[pfix].innerHTML;
-    //         if (pfa.includes('venue-edit-general')) {
-    //             _PANEL_FIELDS.navTabGeneral = pfix;
-    //         }
-    //         if (pfa.includes('venue-edit-more')) {
-    //             _PANEL_FIELDS.navTabMore = pfix;
-    //         }
-    //     }
-    // }
-
     // Function to clone info from a place
     function clonePlace() {
         log('Cloning info...');
@@ -7912,7 +7757,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
             }
             if (updateItem) {
                 addUpdateAction(new UpdateObject(venue, cloneItems));
-                logDev('Item details cloned');
+                logDev('Venue details cloned');
             }
 
             const copyStreet = isChecked('WMEPH_CPstr');
@@ -7921,15 +7766,15 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
 
             if (copyStreet || copyCity || copyHn) {
                 const originalAddress = venue.getAddress();
-                const itemRepl = {
+                const newAddress = {
                     street: copyStreet ? _cloneMaster.addr.street : originalAddress.attributes.street,
                     city: copyCity ? _cloneMaster.addr.city : originalAddress.attributes.city,
                     state: copyCity ? _cloneMaster.addr.state : originalAddress.attributes.state,
                     country: copyCity ? _cloneMaster.addr.country : originalAddress.attributes.country,
                     houseNumber: copyHn ? _cloneMaster.addr.houseNumber : originalAddress.attributes.houseNumber
                 };
-                updateAddress(venue, itemRepl);
-                logDev('Item address cloned');
+                updateAddress(venue, newAddress);
+                logDev('Venue address cloned');
             }
         } else {
             log('Please copy a place');
@@ -7947,18 +7792,17 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
         return venue && venue.attributes.openingHours && venue.attributes.openingHours.map(formatOpeningHour);
     }
 
-    function venueHasOverlappingHours(venue) {
-        const hours = venue.attributes.openingHours;
-        if (hours.length < 2) {
+    function venueHasOverlappingHours(openingHours) {
+        if (openingHours.length < 2) {
             return false;
         }
 
         for (let day2Ch = 0; day2Ch < 7; day2Ch++) { // Go thru each day of the week
             const daysObj = [];
-            for (let hourSet = 0; hourSet < hours.length; hourSet++) { // For each set of hours
-                if (hours[hourSet].days.includes(day2Ch)) { // pull out hours that are for the current day, add 2400 if it goes past midnight, and store
-                    const fromHourTemp = hours[hourSet].fromHour.replace(/:/g, '');
-                    let toHourTemp = hours[hourSet].toHour.replace(/:/g, '');
+            for (let hourSet = 0; hourSet < openingHours.length; hourSet++) { // For each set of hours
+                if (openingHours[hourSet].days.includes(day2Ch)) { // pull out hours that are for the current day, add 2400 if it goes past midnight, and store
+                    const fromHourTemp = openingHours[hourSet].fromHour.replace(/:/g, '');
+                    let toHourTemp = openingHours[hourSet].toHour.replace(/:/g, '');
                     if (toHourTemp <= fromHourTemp) {
                         toHourTemp = parseInt(toHourTemp, 10) + 2400;
                     }
@@ -7981,6 +7825,10 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
         return false;
     }
 
+    const NO_NUM_SKIP = ['BANK', 'ATM', 'HOTEL', 'MOTEL', 'STORE', 'MARKET', 'SUPERMARKET', 'GYM', 'GAS', 'GASOLINE',
+        'GASSTATION', 'CAFE', 'OFFICE', 'OFFICES', 'CARRENTAL', 'RENTALCAR', 'RENTAL', 'SALON', 'BAR',
+        'BUILDING', 'LOT', ...COLLEGE_ABBREVIATIONS];
+
     // Duplicate place finder  ###bmtg
     function findNearbyDuplicate(selectedVenueName, selectedVenueAliases, selectedVenue, recenterOption) {
         // Helper function to prep a name for comparisons.
@@ -7993,9 +7841,6 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
         const padFrac = 0.15; // how much to pad the zoomed window
 
         // generic terms to skip if it's all that remains after stripping numbers
-        let noNumSkip = 'BANK|ATM|HOTEL|MOTEL|STORE|MARKET|SUPERMARKET|GYM|GAS|GASOLINE|GASSTATION|CAFE|OFFICE|OFFICES'
-            + '|CARRENTAL|RENTALCAR|RENTAL|SALON|BAR|BUILDING|LOT';
-        noNumSkip = `${noNumSkip}|${_COLLEGE_ABBREVIATIONS}`.split('|');
         const allowedTwoLetters = ['BP', 'DQ', 'BK', 'BW', 'LQ', 'QT', 'DB', 'PO'];
 
         // Make the padded extent
@@ -8031,25 +7876,25 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
         const selectedVenueAttr = selectedVenue.attributes;
 
         // Clear non-letter characters for alternate match ( HOLLYIVYPUB23 --> HOLLYIVYPUB )
-        const itemNameNoNum = selectedVenueNameRF.replace(/[^A-Z]/g, '');
-        if (((itemNameNoNum.length > 2 && !noNumSkip.includes(itemNameNoNum)) || allowedTwoLetters.includes(itemNameNoNum))
-            && !selectedVenueAttr.categories.includes('PARKING_LOT')) {
+        const venueNameNoNum = selectedVenueNameRF.replace(/[^A-Z]/g, '');
+        if (((venueNameNoNum.length > 2 && !NO_NUM_SKIP.includes(venueNameNoNum)) || allowedTwoLetters.includes(venueNameNoNum))
+            && !selectedVenueAttr.categories.includes(CAT.PARKING_LOT)) {
             // only add de-numbered name if anything remains
-            currNameList.push(itemNameNoNum);
+            currNameList.push(venueNameNoNum);
         }
 
         if (selectedVenueAliases.length > 0) {
             for (let aliix = 0; aliix < selectedVenueAliases.length; aliix++) {
                 // Format name
                 const aliasNameRF = formatName(selectedVenueAliases[aliix]);
-                if ((aliasNameRF.length > 2 && !noNumSkip.includes(aliasNameRF)) || allowedTwoLetters.includes(aliasNameRF)) {
+                if ((aliasNameRF.length > 2 && !NO_NUM_SKIP.includes(aliasNameRF)) || allowedTwoLetters.includes(aliasNameRF)) {
                     // only add de-numbered name if anything remains
                     currNameList.push(aliasNameRF);
                 }
                 // Clear non-letter characters for alternate match ( HOLLYIVYPUB23 --> HOLLYIVYPUB )
                 const aliasNameNoNum = aliasNameRF.replace(/[^A-Z]/g, '');
-                if (((aliasNameNoNum.length > 2 && !noNumSkip.includes(aliasNameNoNum)) || allowedTwoLetters.includes(aliasNameNoNum))
-                    && !selectedVenueAttr.categories.includes('PARKING_LOT')) {
+                if (((aliasNameNoNum.length > 2 && !NO_NUM_SKIP.includes(aliasNameNoNum)) || allowedTwoLetters.includes(aliasNameNoNum))
+                    && !selectedVenueAttr.categories.includes(CAT.PARKING_LOT)) {
                     // only add de-numbered name if anything remains
                     currNameList.push(aliasNameNoNum);
                 }
@@ -8108,7 +7953,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                 if (!whitelistedDupes.includes(testVenueId) && _dupeIDList.length < 6 && pt2ptDistance < 800
                     && !testVenue.isResidential() && testVenueId !== selectedVenueId && !testVenue.isNew()
                     && testVenueAttr.name !== null && testVenueAttr.name.length > 1) {
-                    // If item has a complete address and test venue does, and they are different, then no dupe
+                    // If venue has a complete address and test venue does, and they are different, then no dupe
                     let suppressMatch = false;
                     if (selectedVenueAddrIsComplete && testVenueAddr.street !== null && testVenueAddr.street.name !== null
                         && testVenueHN && testVenueHN.match(/\d/g) !== null) {
@@ -8128,7 +7973,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                         // Reformat the testPlace name
                         const strippedTestName = formatName(testVenueAttr.name)
                             .replace(/\s+[-(].*$/, ''); // Remove localization text
-                        if ((strippedTestName.length > 2 && !noNumSkip.includes(strippedTestName))
+                        if ((strippedTestName.length > 2 && !NO_NUM_SKIP.includes(strippedTestName))
                             || allowedTwoLetters.includes(strippedTestName)) {
                             testNameList = [strippedTestName];
                         } else {
@@ -8137,8 +7982,8 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                         }
 
                         const testNameNoNum = strippedTestName.replace(/[^A-Z]/g, ''); // Clear non-letter characters for alternate match
-                        if (((testNameNoNum.length > 2 && !noNumSkip.includes(testNameNoNum)) || allowedTwoLetters.includes(testNameNoNum))
-                            && !testVenueAttr.categories.includes('PARKING_LOT')) { //  only add de-numbered name if at least 2 chars remain
+                        if (((testNameNoNum.length > 2 && !NO_NUM_SKIP.includes(testNameNoNum)) || allowedTwoLetters.includes(testNameNoNum))
+                            && !testVenueAttr.categories.includes(CAT.PARKING_LOT)) { //  only add de-numbered name if at least 2 chars remain
                             testNameList.push(testNameNoNum);
                         }
 
@@ -8158,15 +8003,15 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                         if (!nameMatch && testVenueAttr.aliases.length > 0) {
                             for (let aliix = 0; aliix < testVenueAttr.aliases.length; aliix++) {
                                 const aliasNameRF = formatName(testVenueAttr.aliases[aliix]);
-                                if ((aliasNameRF.length > 2 && !noNumSkip.includes(aliasNameRF)) || allowedTwoLetters.includes(aliasNameRF)) {
+                                if ((aliasNameRF.length > 2 && !NO_NUM_SKIP.includes(aliasNameRF)) || allowedTwoLetters.includes(aliasNameRF)) {
                                     testNameList = [aliasNameRF];
                                 } else {
                                     testNameList = [`ALIASNAMETOOSHORTQOFUH${randInt}`];
                                     randInt++;
                                 }
                                 const aliasNameNoNum = aliasNameRF.replace(/[^A-Z]/g, ''); // Clear non-letter characters for alternate match ( HOLLYIVYPUB23 --> HOLLYIVYPUB )
-                                if (((aliasNameNoNum.length > 2 && !noNumSkip.includes(aliasNameNoNum)) || allowedTwoLetters.includes(aliasNameNoNum))
-                                    && !testVenueAttr.categories.includes('PARKING_LOT')) { //  only add de-numbered name if at least 2 characters remain
+                                if (((aliasNameNoNum.length > 2 && !NO_NUM_SKIP.includes(aliasNameNoNum)) || allowedTwoLetters.includes(aliasNameNoNum))
+                                    && !testVenueAttr.categories.includes(CAT.PARKING_LOT)) { //  only add de-numbered name if at least 2 characters remain
                                     testNameList.push(aliasNameNoNum);
                                 } else {
                                     testNameList.push(`111231643239${randInt}`); //  just to keep track of the alias in question, always add something.
@@ -8186,7 +8031,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                         }
                         // If a match was found:
                         if (nameMatch || altNameMatch > -1) {
-                            _dupeIDList.push(testVenueAttr.id); // Add the item to the list of matches
+                            _dupeIDList.push(testVenueAttr.id); // Add the venue to the list of matches
                             _dupeLayer.setVisibility(true); // If anything found, make visible the dupe layer
 
                             const labelText = nameMatch ? testVenueAttr.name : `${testVenueAttr.aliases[altNameMatch]} (Alt)`;
@@ -8517,11 +8362,12 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
         return `http://www.google.com/search?q=${encodeURIComponent(searchName)}`;
     }
 
-    // WME Category translation from Natural language to object language  (Bank / Financial --> BANK_FINANCIAL)
-    function catTranslate(natCategories) {
-        const catNameUpper = natCategories.trim().toUpperCase();
-        if (_CATEGORY_LOOKUP.hasOwnProperty(catNameUpper)) {
-            return _CATEGORY_LOOKUP[catNameUpper];
+    // Translation from PNH "natural language" category name to category ID  (Bank / Financial --> BANK_FINANCIAL)
+    function getCategoryIdFromName(pnhCategoryName, countryCode) {
+        const categoryInfo = PNH_DATA[countryCode].categoryInfos.getByName(pnhCategoryName);
+
+        if (categoryInfo) {
+            return categoryInfo.id;
         }
 
         // if the category doesn't translate, then pop an alert that will make a forum post to the thread
@@ -8533,18 +8379,18 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
             });
         } */
         WazeWrap.Alerts.confirm(
-            _SCRIPT_NAME,
+            SCRIPT_NAME,
             'WMEPH: Category Error!<br>Click OK to report this error',
             () => {
                 reportError({
                     subject: 'WMEPH Bug report: no tns',
-                    message: `Error report: Category "${natCategories}" was not found in the PNH categories sheet.`
+                    message: `Error report: Category "${pnhCategoryName}" was not found in the PNH categories sheet.`
                 });
             },
             () => { }
         );
         return 'ERROR';
-    } // END catTranslate function
+    }
 
     // compares two arrays to see if equal, regardless of order
     function matchSets(array1, array2) {
@@ -8569,10 +8415,17 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
     }
 
     // function that checks if any element of target are in source
+    /**
+     * Checks if any element of target are in source
+     *
+     * @param {Array|string} source Source array.
+     * @param {Array|string} target Array of items to check against source.
+     * @return {boolean} True if any item in target exists in source.
+     */
     function containsAny(source, target) {
         if (typeof source === 'string') { source = [source]; } // if a single string, convert to an array
         if (typeof target === 'string') { target = [target]; } // if a single string, convert to an array
-        return source.some(tt => target.includes(tt));
+        return source.some(item => target.includes(item));
     }
 
     /**
@@ -8595,18 +8448,19 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
         return array1.legth === array2.length && array1.every((item, index) => item === array2[index]);
     }
 
-    // Function to remove unnecessary aliases
-    function removeSFAliases(nName, nAliases) {
-        const newAliasesUpdate = [];
-        nName = nName.toUpperCase().replace(/'/g, '').replace(/-/g, ' ').replace(/\/ /g, ' ').replace(/ \//g, ' ').replace(/ {2,}/g, ' ');
-        for (let naix = 0; naix < nAliases.length; naix++) {
-            if (!nName.startsWith(nAliases[naix].toUpperCase().replace(/'/g, '').replace(/-/g, ' ').replace(/\/ /g, ' ').replace(/ \//g, ' ').replace(/ {2,}/g, ' '))) {
-                newAliasesUpdate.push(nAliases[naix]);
+    function removeUnnecessaryAliases(venueName, aliases) {
+        const newAliases = [];
+        let aliasesRemoved = false;
+        venueName = venueName.replace(/['=\\/]/i, '');
+        venueName = venueName.toUpperCase().replace(/'/g, '').replace(/(-|\/ | \/| {2,})/g, ' ');
+        for (let naix = 0; naix < aliases.length; naix++) {
+            if (!venueName.startsWith(aliases[naix].toUpperCase().replace(/'/g, '').replace(/(-|\/ | \/| {2,})/g, ' '))) {
+                newAliases.push(aliases[naix]);
             } else {
-                _buttonBanner.sfAliases = new Flag.SFAliases();
+                aliasesRemoved = true;
             }
         }
-        return newAliasesUpdate;
+        return aliasesRemoved ? newAliases : null;
     }
 
     // used for phone reformatting
@@ -8648,9 +8502,9 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
 
         _shortcutParse = parseKBSShift($shortcutInput.val());
         $warn.empty(); // remove any warning
-        _SHORTCUT.remove(_modifKey + _shortcutParse);
+        SHORTCUT.remove(_modifKey + _shortcutParse);
         _modifKey = modifKeyNew;
-        _SHORTCUT.add(_modifKey + _shortcutParse, harmonizePlace);
+        SHORTCUT.add(_modifKey + _shortcutParse, harmonizePlace);
         $('#PlaceHarmonizerKBCurrent').empty().append(
             `<span style="font-weight:bold">Current shortcut: ${_modifKey}${_shortcutParse}</span>`
         );
@@ -8667,9 +8521,9 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
         if (newKey.match(/^[a-z]{1}$/i) !== null) { // If a single letter...
             _shortcutParse = parseKBSShift(oldKey);
             const shortcutParseNew = parseKBSShift(newKey);
-            _SHORTCUT.remove(_modifKey + _shortcutParse);
+            SHORTCUT.remove(_modifKey + _shortcutParse);
             _shortcutParse = shortcutParseNew;
-            _SHORTCUT.add(_modifKey + _shortcutParse, harmonizePlace);
+            SHORTCUT.add(_modifKey + _shortcutParse, harmonizePlace);
             $(localStorage.setItem(keyId, newKey));
             $('#PlaceHarmonizerKBCurrent').empty().append(`<span style="font-weight:bold">Current shortcut: ${_modifKey}${_shortcutParse}</span>`);
         } else { // if not a letter then reset and flag
@@ -8687,7 +8541,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
     // User pref for KB Shortcut:
     function initShortcutKey() {
         const $current = $('#PlaceHarmonizerKBCurrent');
-        const defaultShortcutKey = _IS_BETA_VERSION ? 'S' : 'A';
+        const defaultShortcutKey = IS_BETA_VERSION ? 'S' : 'A';
         const shortcutID = 'WMEPH-KeyboardShortcut';
         let shortcutKey = localStorage.getItem(shortcutID);
         const $shortcutInput = $(`#${shortcutID}`);
@@ -8703,7 +8557,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
             _modifKey = 'Ctrl+';
         }
         _shortcutParse = parseKBSShift(shortcutKey);
-        if (!_initAlreadyRun) _SHORTCUT.add(_modifKey + _shortcutParse, harmonizePlace);
+        if (!_initAlreadyRun) SHORTCUT.add(_modifKey + _shortcutParse, harmonizePlace);
         $current.empty().append(`<span style="font-weight:bold">Current shortcut: ${_modifKey}${_shortcutParse}</span>`);
 
         $('#WMEPH-KBSModifierKey').click(onKBShortcutModifierKeyClick);
@@ -8724,7 +8578,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                 saveWhitelistToLS(true);
             } */
             WazeWrap.Alerts.confirm( // if the category doesn't translate, then pop an alert that will make a forum post to the thread
-                _SCRIPT_NAME,
+                SCRIPT_NAME,
                 '***Do you want to reset all Whitelist data?<br>Click OK to erase.',
                 () => {
                     _venueWhitelist = { '1.1.1': { Placeholder: {} } }; // Populate with a dummy place
@@ -8758,7 +8612,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
     function onWLPullClick() {
         $('#WMEPH-WLInput').val(
             LZString.decompressFromUTF16(
-                localStorage.getItem(_WL_LOCAL_STORE_NAME_COMPRESSED)
+                localStorage.getItem(WL_LOCAL_STORE_NAME_COMPRESSED)
             )
         );
         $('#PlaceHarmonizerWLToolsMsg').empty().append(
@@ -8770,7 +8624,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
     function onWLStatsClick() {
         const currWLData = JSON.parse(
             LZString.decompressFromUTF16(
-                localStorage.getItem(_WL_LOCAL_STORE_NAME_COMPRESSED)
+                localStorage.getItem(WL_LOCAL_STORE_NAME_COMPRESSED)
             )
         );
         const countryWL = {};
@@ -8810,7 +8664,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
         } else {
             const currWLData = JSON.parse(
                 LZString.decompressFromUTF16(
-                    localStorage.getItem(_WL_LOCAL_STORE_NAME_COMPRESSED)
+                    localStorage.getItem(WL_LOCAL_STORE_NAME_COMPRESSED)
                 )
             );
             const venuesToRemove = Object.keys(currWLData).filter(
@@ -8819,22 +8673,8 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
             );
             if (venuesToRemove.length > 0) {
                 if (localStorage.WMEPH_WLAddCount === '1') {
-                    /* if (confirm(`Are you sure you want to clear all whitelist data for ${
-                        stateToRemove}? This CANNOT be undone. Press OK to delete, cancel to preserve the data.`)) {
-                        backupWhitelistToLS(true);
-                        venuesToRemove.forEach(venueKey => {
-                            delete _venueWhitelist[venueKey];
-                        });
-                        saveWhitelistToLS(true);
-                        msgColor = 'green';
-                        msgText = `${venuesToRemove.length} items removed from WL`;
-                        $wlInput.val('');
-                    } else {
-                        msgColor = 'blue';
-                        msgText = 'No changes made';
-                    } */
                     WazeWrap.Alerts.confirm(
-                        _SCRIPT_NAME,
+                        SCRIPT_NAME,
                         `Are you sure you want to clear all whitelist data for ${stateToRemove}? This CANNOT be undone. `
                         + 'Press OK to delete, cancel to preserve the data.',
                         () => {
@@ -8844,7 +8684,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                             });
                             saveWhitelistToLS(true);
                             $wlInput.val('');
-                            $('#PlaceHarmonizerWLToolsMsg').empty().append($('<p>').css({ color: 'green' }).text(`${venuesToRemove.length} items removed from WL`));
+                            $('#PlaceHarmonizerWLToolsMsg').empty().append($('<p>').css({ color: 'green' }).text(`${venuesToRemove.length} venues removed from WL`));
                         },
                         () => { $('#PlaceHarmonizerWLToolsMsg').empty().append($('<p>').css({ color: 'blue' }).text('No changes made')); }
                     );
@@ -8862,40 +8702,49 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
     }
 
     function onWLShareClick() {
-        window.open(`https://docs.google.com/forms/d/1k_5RyOq81Fv4IRHzltC34kW3IUbXnQqDVMogwJKFNbE/viewform?entry.1173700072=${_USER.name}`);
+        window.open(`https://docs.google.com/forms/d/1k_5RyOq81Fv4IRHzltC34kW3IUbXnQqDVMogwJKFNbE/viewform?entry.1173700072=${USER.name}`);
     }
 
     // settings tab
     function initWmephTab() {
+        const multicall = (func, names) => names.forEach(name => func(name));
+
         // Enable certain settings by default if not set by the user:
-        setCheckedByDefault('WMEPH-ColorHighlighting');
-        setCheckedByDefault('WMEPH-ExcludePLADupes');
-        setCheckedByDefault('WMEPH-DisablePLAExtProviderCheck');
+        multicall(setCheckedByDefault, [
+            'WMEPH-ColorHighlighting',
+            'WMEPH-ExcludePLADupes',
+            'WMEPH-DisablePLAExtProviderCheck'
+        ]);
 
         // Initialize settings checkboxes
-        initSettingsCheckbox('WMEPH-WebSearchNewTab');
-        initSettingsCheckbox('WMEPH-DisableDFZoom');
-        initSettingsCheckbox('WMEPH-EnableIAZoom');
-        initSettingsCheckbox('WMEPH-HidePlacesWiki');
-        initSettingsCheckbox('WMEPH-HideReportError');
-        initSettingsCheckbox('WMEPH-HideServicesButtons');
-        initSettingsCheckbox('WMEPH-HidePURWebSearch');
-        initSettingsCheckbox('WMEPH-ExcludePLADupes');
-        initSettingsCheckbox('WMEPH-ShowPLAExitWhileClosed');
-        if (_USER.isDevUser || _USER.isBetaUser || _USER.rank >= 2) {
-            initSettingsCheckbox('WMEPH-DisablePLAExtProviderCheck');
-            initSettingsCheckbox('WMEPH-AddAddresses');
-            initSettingsCheckbox('WMEPH-EnableCloneMode');
-            initSettingsCheckbox('WMEPH-AutoLockRPPs');
+        multicall(initSettingsCheckbox, [
+            'WMEPH-WebSearchNewTab',
+            'WMEPH-DisableDFZoom',
+            'WMEPH-EnableIAZoom',
+            'WMEPH-HidePlacesWiki',
+            'WMEPH-HideReportError',
+            'WMEPH-HideServicesButtons',
+            'WMEPH-HidePURWebSearch',
+            'WMEPH-ExcludePLADupes',
+            'WMEPH-ShowPLAExitWhileClosed'
+        ]);
+        if (USER.isDevUser || USER.isBetaUser || USER.rank >= 2) {
+            multicall(initSettingsCheckbox, [
+                'WMEPH-DisablePLAExtProviderCheck',
+                'WMEPH-AddAddresses',
+                'WMEPH-EnableCloneMode',
+                'WMEPH-AutoLockRPPs'
+            ]);
         }
-        initSettingsCheckbox('WMEPH-ColorHighlighting');
-        initSettingsCheckbox('WMEPH-DisableHoursHL');
-        initSettingsCheckbox('WMEPH-DisableRankHL');
-        initSettingsCheckbox('WMEPH-DisableWLHL');
-        initSettingsCheckbox('WMEPH-PLATypeFill');
-        initSettingsCheckbox('WMEPH-KBSModifierKey');
+        multicall(initSettingsCheckbox, ['WMEPH-ColorHighlighting',
+            'WMEPH-DisableHoursHL',
+            'WMEPH-DisableRankHL',
+            'WMEPH-DisableWLHL',
+            'WMEPH-PLATypeFill',
+            'WMEPH-KBSModifierKey'
+        ]);
 
-        if (_USER.isDevUser) {
+        if (USER.isDevUser) {
             initSettingsCheckbox('WMEPH-RegionOverride');
         }
 
@@ -8969,7 +8818,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
         createSettingsCheckbox($harmonizerTab, 'WMEPH-HidePURWebSearch', 'Hide "Web Search" button on PUR popups');
         createSettingsCheckbox($harmonizerTab, 'WMEPH-ExcludePLADupes', 'Exclude parking lots when searching for duplicate places');
         createSettingsCheckbox($harmonizerTab, 'WMEPH-ShowPLAExitWhileClosed', 'Always ask if cars can exit parking lots');
-        if (_USER.isDevUser || _USER.isBetaUser || _USER.rank >= 2) {
+        if (USER.isDevUser || USER.isBetaUser || USER.rank >= 2) {
             createSettingsCheckbox($harmonizerTab, 'WMEPH-DisablePLAExtProviderCheck', 'Disable check for "Google place link" on Parking Lot Areas');
             createSettingsCheckbox($harmonizerTab, 'WMEPH-AddAddresses', 'Add detected address fields to places with no address');
             createSettingsCheckbox($harmonizerTab, 'WMEPH-EnableCloneMode', 'Enable place cloning tools');
@@ -8984,7 +8833,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
         $phShortcutDiv.append('<div id="PlaceHarmonizerKBWarn"></div>Shortcut Letter (a-Z): <input type="text" maxlength="1" id="WMEPH-KeyboardShortcut" style="width: 30px;padding-left:8px"><div id="PlaceHarmonizerKBCurrent"></div>');
         createSettingsCheckbox($phShortcutDiv, 'WMEPH-KBSModifierKey', 'Use Ctrl instead of Alt'); // Add Alt-->Ctrl checkbox
 
-        if (_USER.isDevUser) { // Override script regionality (devs only)
+        if (USER.isDevUser) { // Override script regionality (devs only)
             $phShortcutDiv.append('<hr class="wmeph-hr" align="center" width="100%"><p>Dev Only Settings:</p>');
             createSettingsCheckbox($phShortcutDiv, 'WMEPH-RegionOverride', 'Disable Region Specificity');
         }
@@ -8992,8 +8841,8 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
         $harmonizerTab.append(
             $phShortcutDiv,
             '<hr class="wmeph-hr" align="center" width="100%">',
-            `<div><a href="${_URLS.placesWiki}" target="_blank">Open the WME Places Wiki page</a></div>`,
-            `<div><a href="${_URLS.forum}" target="_blank">Submit script feedback & suggestions</a></div>`,
+            `<div><a href="${URLS.placesWiki}" target="_blank">Open the WME Places Wiki page</a></div>`,
+            `<div><a href="${URLS.forum}" target="_blank">Submit script feedback & suggestions</a></div>`,
             '<hr class="wmeph-hr" align="center" width="95%">'
         );
 
@@ -9004,7 +8853,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
         createSettingsCheckbox($highlighterTab, 'WMEPH-DisableRankHL', 'Disable highlighting for places locked above your rank');
         createSettingsCheckbox($highlighterTab, 'WMEPH-DisableWLHL', 'Disable Whitelist highlighting (shows all missing info regardless of WL)');
         createSettingsCheckbox($highlighterTab, 'WMEPH-PLATypeFill', 'Fill parking lots based on type (public=blue, restricted=yellow, private=red)');
-        if (_USER.isDevUser || _USER.isBetaUser || _USER.rank >= 3) {
+        if (USER.isDevUser || USER.isBetaUser || USER.rank >= 3) {
             // createSettingsCheckbox($highlighterTab 'WMEPH-UnlockedRPPs','Highlight unlocked residential place points');
         }
 
@@ -9062,7 +8911,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
         );
 
         const { tabLabel, tabPane } = W.userscripts.registerSidebarTab('WMEPH');
-        tabLabel.innerHTML = `<span title="WME Place Harmonizer">WMEPH${_IS_BETA_VERSION ? '-β' : ''}</span>`;
+        tabLabel.innerHTML = `<span title="WME Place Harmonizer">WMEPH${IS_BETA_VERSION ? '-β' : ''}</span>`;
         tabPane.innerHTML = $container.html();
         await W.userscripts.waitForElementConnected(tabPane);
         // Fix tab content div spacing.
@@ -9139,8 +8988,8 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
     // Get services checkbox status
     function getServicesChecks(venue) {
         const servArrayCheck = [];
-        for (let wsix = 0; wsix < _WME_SERVICES_ARRAY.length; wsix++) {
-            if (venue.attributes.services.includes(_WME_SERVICES_ARRAY[wsix])) {
+        for (let wsix = 0; wsix < WME_SERVICES_ARRAY.length; wsix++) {
+            if (venue.attributes.services.includes(WME_SERVICES_ARRAY[wsix])) {
                 servArrayCheck[wsix] = true;
             } else {
                 servArrayCheck[wsix] = false;
@@ -9178,7 +9027,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
         document.body.removeChild(tmp);
     }
 
-    // Pulls the item PL
+    // Pulls the venue PL
     function getCurrentPL() {
         // Return the current PL
 
@@ -9213,22 +9062,22 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
     }
 
     function updateUserInfo() {
-        _USER.ref = W.loginManager.user;
-        _USER.name = _USER.ref.userName;
-        _USER.rank = _USER.ref.rank + 1; // get editor's level (actual level)
+        USER.ref = W.loginManager.user;
+        USER.name = USER.ref.userName;
+        USER.rank = USER.ref.rank + 1; // get editor's level (actual level)
         if (!_wmephBetaList || _wmephBetaList.length === 0) {
-            if (_IS_BETA_VERSION) {
-                WazeWrap.Alerts.warning(_SCRIPT_NAME, 'Beta user list access issue.  Please post in the GHO or PM/DM MapOMatic about this message.  Script should still work.');
+            if (IS_BETA_VERSION) {
+                WazeWrap.Alerts.warning(SCRIPT_NAME, 'Beta user list access issue.  Please post in the GHO or PM/DM MapOMatic about this message.  Script should still work.');
             }
-            _USER.isBetaUser = false;
-            _USER.isDevUser = false;
+            USER.isBetaUser = false;
+            USER.isDevUser = false;
         } else {
-            const lcName = _USER.name.toLowerCase();
-            _USER.isDevUser = _wmephDevList.includes(lcName);
-            _USER.isBetaUser = _wmephBetaList.includes(lcName);
+            const lcName = USER.name.toLowerCase();
+            USER.isDevUser = _wmephDevList.includes(lcName);
+            USER.isBetaUser = _wmephBetaList.includes(lcName);
         }
-        if (_USER.isDevUser) {
-            _USER.isBetaUser = true; // dev users are beta users
+        if (USER.isDevUser) {
+            USER.isBetaUser = true; // dev users are beta users
         }
     }
 
@@ -9237,10 +9086,10 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
         logDev('placeHarmonizerInit'); // Be sure to update User info before calling logDev()
 
         // Check for script updates.
-        const downloadUrl = _IS_BETA_VERSION ? dec(BETA_DOWNLOAD_URL) : PROD_DOWNLOAD_URL;
+        const downloadUrl = IS_BETA_VERSION ? dec(BETA_DOWNLOAD_URL) : PROD_DOWNLOAD_URL;
         let updateMonitor;
         try {
-            updateMonitor = new WazeWrap.Alerts.ScriptUpdateMonitor(_SCRIPT_NAME, _SCRIPT_VERSION, downloadUrl, GM_xmlhttpRequest);
+            updateMonitor = new WazeWrap.Alerts.ScriptUpdateMonitor(SCRIPT_NAME, SCRIPT_VERSION, downloadUrl, GM_xmlhttpRequest);
             updateMonitor.start();
         } catch (ex) {
             // Report, but don't stop if ScriptUpdateMonitor fails.
@@ -9267,7 +9116,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
         OpeningHour = require('Waze/Model/Objects/OpeningHour');
 
         // For debugging purposes.  May be removed when no longer needed.
-        unsafeWindow.PNH_DATA = _PNH_DATA;
+        unsafeWindow.PNH_DATA = PNH_DATA;
 
         // Append a form div for submitting to the forum, if it doesn't exist yet:
         const tempDiv = document.createElement('div');
@@ -9284,7 +9133,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
         // Array.prototype.isEmpty = function () { return 0 === this.length; };
 
         appendServiceButtonIconCss();
-        _UPDATED_FIELDS.init();
+        UPDATED_FIELDS.init();
         addPURWebSearchButton();
 
         // Create duplicatePlaceName layer
@@ -9323,22 +9172,22 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
         if (xrayMode) setTimeout(() => toggleXrayMode(true), 2000); // Give other layers time to load before enabling.
 
         // Whitelist initialization
-        if (validateWLS(LZString.decompressFromUTF16(localStorage.getItem(_WL_LOCAL_STORE_NAME_COMPRESSED))) === false) { // If no compressed WL string exists
-            if (validateWLS(localStorage.getItem(_WL_LOCAL_STORE_NAME)) === false) { // If no regular WL exists
+        if (validateWLS(LZString.decompressFromUTF16(localStorage.getItem(WL_LOCAL_STORE_NAME_COMPRESSED))) === false) { // If no compressed WL string exists
+            if (validateWLS(localStorage.getItem(WL_LOCAL_STORE_NAME)) === false) { // If no regular WL exists
                 _venueWhitelist = { '1.1.1': { Placeholder: {} } }; // Populate with a dummy place
                 saveWhitelistToLS(false);
                 saveWhitelistToLS(true);
             } else { // if regular WL string exists, then transfer to compressed version
-                localStorage.setItem('WMEPH-OneTimeWLBU', localStorage.getItem(_WL_LOCAL_STORE_NAME));
+                localStorage.setItem('WMEPH-OneTimeWLBU', localStorage.getItem(WL_LOCAL_STORE_NAME));
                 loadWhitelistFromLS(false);
                 saveWhitelistToLS(true);
-                WazeWrap.Alerts.info(_SCRIPT_NAME, 'Whitelists are being converted to a compressed format.  If you have trouble with your WL, please submit an error report.');
+                WazeWrap.Alerts.info(SCRIPT_NAME, 'Whitelists are being converted to a compressed format.  If you have trouble with your WL, please submit an error report.');
             }
         } else {
             loadWhitelistFromLS(true);
         }
 
-        if (_USER.name === 'ggrane') {
+        if (USER.name === 'ggrane') {
             _searchResultsWindowSpecs = `"resizable=yes, top=${
                 Math.round(window.screen.height * 0.1)}, left=${
                 Math.round(window.screen.width * 0.3)}, width=${
@@ -9347,11 +9196,11 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
         }
 
         // Settings setup
-        if (!localStorage.getItem(_SETTING_IDS.gLinkWarning)) { // store settings so the warning is only given once
-            localStorage.setItem(_SETTING_IDS.gLinkWarning, '0');
+        if (!localStorage.getItem(SETTING_IDS.gLinkWarning)) { // store settings so the warning is only given once
+            localStorage.setItem(SETTING_IDS.gLinkWarning, '0');
         }
-        if (!localStorage.getItem(_SETTING_IDS.sfUrlWarning)) { // store settings so the warning is only given once
-            localStorage.setItem(_SETTING_IDS.sfUrlWarning, '0');
+        if (!localStorage.getItem(SETTING_IDS.sfUrlWarning)) { // store settings so the warning is only given once
+            localStorage.setItem(SETTING_IDS.sfUrlWarning, '0');
         }
 
         WazeWrap.Events.register('mousemove', W.map, e => errorHandler(() => {
@@ -9360,10 +9209,10 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
         }));
 
         // Add zoom shortcut
-        _SHORTCUT.add('Control+Alt+Z', zoomPlace);
+        SHORTCUT.add('Control+Alt+Z', zoomPlace);
 
         // Add Color Highlighting shortcut
-        _SHORTCUT.add('Control+Alt+h', () => {
+        SHORTCUT.add('Control+Alt+h', () => {
             $('#WMEPH-ColorHighlighting').trigger('click');
         });
 
@@ -9394,7 +9243,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
         _catTransWaze2Lang = I18n.translations[_userLanguage].venues.categories; // pulls the category translations
 
         // Split out state-based data
-        const _stateHeaders = _PNH_DATA.states[0].split('|');
+        const _stateHeaders = PNH_DATA.states[0].split('|');
         _psStateIx = _stateHeaders.indexOf('ps_state');
         _psState2LetterIx = _stateHeaders.indexOf('ps_state2L');
         _psRegionIx = _stateHeaders.indexOf('ps_region');
@@ -9437,7 +9286,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
     async function placeHarmonizerBootstrap() {
         log('Waiting for WME and WazeWrap...');
         await waitForReady();
-        WazeWrap.Interface.ShowScriptUpdate(_SCRIPT_NAME, _SCRIPT_VERSION, _SCRIPT_UPDATE_MESSAGE);
+        WazeWrap.Interface.ShowScriptUpdate(SCRIPT_NAME, SCRIPT_VERSION, _SCRIPT_UPDATE_MESSAGE);
         await placeHarmonizerInit();
     }
 
@@ -9446,49 +9295,161 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
     const API_KEY = 'YTJWNVBVRkplbUZUZVVObU1YVXpSRVZ3ZW5OaFRFSk1SbTR4VGxKblRURjJlRTFYY3pOQ2NXZElPQT09';
     const dec = s => atob(atob(s));
 
+    class PnhCategoryInfos {
+        #categoriesById = {};
+        #categoriesByName = {};
+
+        add(categoryInfo) {
+            this.#categoriesById[categoryInfo.id] = categoryInfo;
+            this.#categoriesByName[categoryInfo.name.toUpperCase()] = categoryInfo;
+        }
+
+        getById(id) {
+            return this.#categoriesById[id];
+        }
+
+        getByName(name) {
+            return this.#categoriesByName[name.toUpperCase()];
+        }
+
+        toArray() {
+            return Object.values(this.#categoriesById);
+        }
+    }
+
+    function processPnhCategories(categoryDataRows, categoryInfos) {
+        let headers;
+        let pnhServiceKeys;
+        let wmeServiceIds;
+        const splitValues = (value => (value.trim() ? value.split(',').map(v => v.trim()) : []));
+        categoryDataRows.forEach((row, iRow) => {
+            row = row.split('|');
+            if (iRow === 0) {
+                headers = row;
+            } else if (iRow === 1) {
+                pnhServiceKeys = row;
+            } else if (iRow === 2) {
+                wmeServiceIds = row;
+            } else {
+                const categoryInfo = {
+                    services: []
+                };
+                row.forEach((value, iCol) => {
+                    const headerValue = headers[iCol].trim();
+                    value = value.trim();
+                    switch (headerValue) {
+                        case 'pc_wmecat':
+                            categoryInfo.id = value;
+                            break;
+                        case 'pc_transcat':
+                            categoryInfo.name = value;
+                            break;
+                        case 'pc_catparent':
+                            categoryInfo.parent = value;
+                            break;
+                        case 'pc_point':
+                            categoryInfo.point = value;
+                            break;
+                        case 'pc_area':
+                            categoryInfo.area = value;
+                            break;
+                        case 'pc_regpoint':
+                            categoryInfo.regPoint = splitValues(value);
+                            break;
+                        case 'pc_regarea':
+                            categoryInfo.regArea = splitValues(value);
+                            break;
+                        case 'pc_lock1':
+                            categoryInfo.lock1 = splitValues(value);
+                            break;
+                        case 'pc_lock2':
+                            categoryInfo.lock2 = splitValues(value);
+                            break;
+                        case 'pc_lock3':
+                            categoryInfo.lock3 = splitValues(value);
+                            break;
+                        case 'pc_lock4':
+                            categoryInfo.lock4 = splitValues(value);
+                            break;
+                        case 'pc_lock5':
+                            categoryInfo.lock5 = splitValues(value);
+                            break;
+                        case 'pc_rare':
+                            categoryInfo.rare = splitValues(value);
+                            break;
+                        case 'pc_parent':
+                            categoryInfo.disallowedParent = splitValues(value);
+                            break;
+                        case 'pc_message':
+                            categoryInfo.messagae = value;
+                            break;
+                        case 'ps_valet':
+                        case 'ps_drivethru':
+                        case 'ps_wifi':
+                        case 'ps_restrooms':
+                        case 'ps_cc':
+                        case 'ps_reservations':
+                        case 'ps_outside':
+                        case 'ps_ac':
+                        case 'ps_parking':
+                        case 'ps_deliveries':
+                        case 'ps_takeaway':
+                        case 'ps_wheelchair':
+                            if (value) {
+                                categoryInfo.services.push({ wmeId: wmeServiceIds[iCol], pnhKey: pnhServiceKeys[iCol] });
+                            }
+                            break;
+                        case '':
+                            // ignore blank column
+                            break;
+                        default:
+                            throw new Error(`WMEPH: Unexpected category data from PNH sheet: ${headerValue}`);
+                    }
+                });
+                categoryInfos.add(categoryInfo);
+            }
+        });
+    }
+
+    function processImportedDataColumn(allData, columnIndex) {
+        return allData.filter(row => row.length >= columnIndex + 1).map(row => row[columnIndex]);
+    }
     function getSpreadsheetUrl(id, range, key) {
         return `https://sheets.googleapis.com/v4/spreadsheets/${id}/values/${range}?${dec(key)}`;
     }
     function downloadPnhData() {
         log('PNH data download started...');
         return new Promise((resolve, reject) => {
-            // TODO change the _PNH_DATA cache to use an object so we don't have to rely on ugly array index lookups.
-            const processData1 = (data, colIdx) => data.filter(row => row.length >= colIdx + 1).map(row => row[colIdx]);
             const url = getSpreadsheetUrl(SPREADSHEET_ID, SPREADSHEET_RANGE, API_KEY);
 
             $.getJSON(url).done(res => {
                 const { values } = res;
                 if (values[0][0].toLowerCase() === 'obsolete') {
-                    WazeWrap.Alerts.error(_SCRIPT_NAME, 'You are using an outdated version of WMEPH that doesn\'t work anymore. Update or disable the script.');
+                    WazeWrap.Alerts.error(SCRIPT_NAME, 'You are using an outdated version of WMEPH that doesn\'t work anymore. Update or disable the script.');
                     return;
                 }
 
                 // This needs to be performed before makeNameCheckList() is called.
-                _wordVariations = processData1(values, 11).slice(1).map(row => row.toUpperCase().replace(/[^A-z0-9,]/g, '').split(','));
+                _wordVariations = processImportedDataColumn(values, 11).slice(1).map(row => row.toUpperCase().replace(/[^A-z0-9,]/g, '').split(','));
 
-                _PNH_DATA.USA.pnh = processData1(values, 0);
-                _PNH_DATA.USA.pnhNames = makeNameCheckList(_PNH_DATA.USA.pnh);
+                PNH_DATA.USA.categoryInfos = new PnhCategoryInfos();
+                processPnhCategories(processImportedDataColumn(values, 3), PNH_DATA.USA.categoryInfos);
+                PNH_DATA.USA.pnh = processImportedDataColumn(values, 0);
+                PNH_DATA.USA.pnhNames = makeNameCheckList(PNH_DATA.USA);
+                PNH_DATA.states = processImportedDataColumn(values, 1);
 
-                _PNH_DATA.states = processData1(values, 1);
+                PNH_DATA.CAN.categoryInfos = PNH_DATA.USA.categoryInfos;
+                PNH_DATA.CAN.pnh = processImportedDataColumn(values, 2);
+                PNH_DATA.CAN.pnhNames = makeNameCheckList(PNH_DATA.CAN);
 
-                _PNH_DATA.CAN.pnh = processData1(values, 2);
-                _PNH_DATA.CAN.pnhNames = makeNameCheckList(_PNH_DATA.CAN.pnh);
-
-                _PNH_DATA.USA.categories = processData1(values, 3);
-                _PNH_DATA.USA.categoryNames = makeCatCheckList(_PNH_DATA.USA.categories);
-
-                // For now, Canada uses some of the same settings as USA.
-                _PNH_DATA.CAN.categories = _PNH_DATA.USA.categories;
-                _PNH_DATA.CAN.categoryNames = _PNH_DATA.USA.categoryNames;
-
-                const WMEPHuserList = processData1(values, 4)[1].split('|');
+                const WMEPHuserList = processImportedDataColumn(values, 4)[1].split('|');
                 const betaix = WMEPHuserList.indexOf('BETAUSERS');
                 _wmephDevList = [];
                 _wmephBetaList = [];
                 for (let ulix = 1; ulix < betaix; ulix++) _wmephDevList.push(WMEPHuserList[ulix].toLowerCase().trim());
                 for (let ulix = betaix + 1; ulix < WMEPHuserList.length; ulix++) _wmephBetaList.push(WMEPHuserList[ulix].toLowerCase().trim());
 
-                const processTermsCell = (termsValues, colIdx) => processData1(termsValues, colIdx)[1]
+                const processTermsCell = (termsValues, colIdx) => processImportedDataColumn(termsValues, colIdx)[1]
                     .toLowerCase().split('|').map(value => value.trim());
                 _hospitalPartMatch = processTermsCell(values, 5);
                 _hospitalFullMatch = processTermsCell(values, 6);
@@ -9509,14 +9470,17 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
 
     function devTestCode() {
         if (W.loginManager.user.userName === 'MapOMatic') {
+            unsafeWindow.UpdateFeatureGeometry = UpdateFeatureGeometry;
             // test code here
+            // $('#redo-button').click(harmonizePlace);
+            // $('#undo-button').click(harmonizePlace);
         }
     }
 
     async function bootstrap() {
         // Quit if another version of WMEPH is already running.
         if (unsafeWindow.wmephRunning) {
-            WazeWrap.Alerts.error(_SCRIPT_NAME, 'Multiple versions of Place Harmonizer are turned on.  Only one will be enabled.');
+            WazeWrap.Alerts.error(SCRIPT_NAME, 'Multiple versions of Place Harmonizer are turned on.  Only one will be enabled.');
             return;
         }
         unsafeWindow.wmephRunning = 1;
