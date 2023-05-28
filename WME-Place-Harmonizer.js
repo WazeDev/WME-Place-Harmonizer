@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name        WME Place Harmonizer Beta
 // @namespace   WazeUSA
-// @version     2023.05.21.003
+// @version     2023.05.28.001
 // @description Harmonizes, formats, and locks a selected place
 // @author      WMEPH Development Group
 // @include     /^https:\/\/(www|beta)\.waze\.com\/(?!user\/)(.{2,6}\/)?editor\/?.*$/
@@ -4203,6 +4203,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
         },
         NoHours: class extends WLFlag {
             static WL_KEY = 'noHours';
+            static defaultSeverity = SEVERITY.BLUE;
             static defaultWLTooltip = 'Whitelist "No hours"';
 
             get message() {
