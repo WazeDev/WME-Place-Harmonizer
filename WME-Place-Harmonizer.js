@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name        WME Place Harmonizer
 // @namespace   WazeUSA
-// @version     2023.05.28.001
+// @version     2023.07.12.001
 // @description Harmonizes, formats, and locks a selected place
 // @author      WMEPH Development Group
 // @include     /^https:\/\/(www|beta)\.waze\.com\/(?!user\/)(.{2,6}\/)?editor\/?.*$/
@@ -951,9 +951,9 @@
     }
 
     function getSelectedVenue() {
-        const features = W.selectionManager.getSelectedFeatures();
+        const objects = W.selectionManager.getSelectedDataModelObjects();
         // Be sure to check for features.length === 1, in case multiple venues are currently selected.
-        return features.length === 1 && features[0].attributes.repositoryObject.type === 'venue' ? features[0].attributes.repositoryObject : null;
+        return objects.length === 1 && objects[0].type === 'venue' ? objects[0] : null;
     }
 
     function getVenueLonLat(venue) {
@@ -1574,7 +1574,7 @@
                 type: '==',
                 value,
                 evaluate(feature) {
-                    const attr = feature.attributes.repositoryObject?.attributes;
+                    const attr = feature.attributes.wazeFeature?._wmeObject?.attributes;
                     return attr?.wmephSeverity === this.value;
                 }
             }),
@@ -1694,7 +1694,7 @@
                 type: '==',
                 value,
                 evaluate(feature) {
-                    const attr = feature.attributes.repositoryObject?.attributes;
+                    const attr = feature.attributes.wazeFeature?._wmeObject?.attributes;
                     return attr?.wmephSeverity === this.value;
                 }
             }),
@@ -1801,7 +1801,7 @@
                     type: '==',
                     value,
                     evaluate(feature) {
-                        const attr = feature.attributes.repositoryObject?.attributes;
+                        const attr = feature.attributes.wazeFeature?._wmeObject?.attributes;
 
                         if (attr
                             && $('#WMEPH-PLATypeFill').prop('checked')
@@ -8801,12 +8801,13 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
             + '<li><a data-toggle="tab" href="#sidepanel-pnh-moderators">Moderators</a></li></ul>'
         );
         const $tabContent = $('<div class="tab-content">');
+        const $versionDiv = $('<div>').text(`WMEPH ${BETA_VERSION_STR} v${SCRIPT_VERSION}`).css({ color: '#999', fontSize: '13px' });
         const $harmonizerTab = $('<div class="tab-pane wmeph-pane active" id="sidepanel-harmonizer"></div>');
         const $highlighterTab = $('<div class="tab-pane wmeph-pane" id="sidepanel-highlighter"></div>');
         const $wlToolsTab = $('<div class="tab-pane wmeph-pane" id="sidepanel-wltools"></div>');
         const $moderatorsTab = $('<div class="tab-pane wmeph-pane" id="sidepanel-pnh-moderators"></div>');
         $tabContent.append($harmonizerTab, $highlighterTab, $wlToolsTab, $moderatorsTab);
-        $container.append($reloadDataBtn, $navTabs, $tabContent);
+        $container.append($reloadDataBtn, $navTabs, $tabContent, $versionDiv);
 
         // Harmonizer settings
         createSettingsCheckbox($harmonizerTab, 'WMEPH-WebSearchNewTab', 'Open URL & Search Results in new tab instead of new window');
