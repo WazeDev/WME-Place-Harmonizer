@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name        WME Place Harmonizer Beta
 // @namespace   WazeUSA
-// @version     2023.05.28.001
+// @version     2023.07.12.001
 // @description Harmonizes, formats, and locks a selected place
 // @author      WMEPH Development Group
 // @include     /^https:\/\/(www|beta)\.waze\.com\/(?!user\/)(.{2,6}\/)?editor\/?.*$/
@@ -951,9 +951,9 @@
     }
 
     function getSelectedVenue() {
-        const features = W.selectionManager.getSelectedFeatures();
+        const objects = W.selectionManager.getSelectedDataModelObjects();
         // Be sure to check for features.length === 1, in case multiple venues are currently selected.
-        return features.length === 1 && features[0].attributes.repositoryObject.type === 'venue' ? features[0].attributes.repositoryObject : null;
+        return objects.length === 1 && objects[0].type === 'venue' ? objects[0] : null;
     }
 
     function getVenueLonLat(venue) {
@@ -1574,7 +1574,7 @@
                 type: '==',
                 value,
                 evaluate(feature) {
-                    const attr = feature.attributes.repositoryObject?.attributes;
+                    const attr = feature.attributes.wazeFeature?._wmeObject?.attributes;
                     return attr?.wmephSeverity === this.value;
                 }
             }),
@@ -1694,7 +1694,7 @@
                 type: '==',
                 value,
                 evaluate(feature) {
-                    const attr = feature.attributes.repositoryObject?.attributes;
+                    const attr = feature.attributes.wazeFeature?._wmeObject?.attributes;
                     return attr?.wmephSeverity === this.value;
                 }
             }),
@@ -1801,7 +1801,7 @@
                     type: '==',
                     value,
                     evaluate(feature) {
-                        const attr = feature.attributes.repositoryObject?.attributes;
+                        const attr = feature.attributes.wazeFeature?._wmeObject?.attributes;
 
                         if (attr
                             && $('#WMEPH-PLATypeFill').prop('checked')
