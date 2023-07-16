@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name        WME Place Harmonizer
 // @namespace   WazeUSA
-// @version     2023.07.12.001
+// @version     2023.07.16.001
 // @description Harmonizes, formats, and locks a selected place
 // @author      WMEPH Development Group
 // @include     /^https:\/\/(www|beta)\.waze\.com\/(?!user\/)(.{2,6}\/)?editor\/?.*$/
@@ -474,12 +474,39 @@
     };
     // Common payment types found at: https://wazeopedia.waze.com/wiki/USA/Places/EV_charging_station
     const COMMON_EV_PAYMENT_METHODS = {
-        'Blink Charging': [EV_PAYMENT_METHOD.APP, EV_PAYMENT_METHOD.MEMBERSHIP_CARD, EV_PAYMENT_METHOD.PLUG_IN_AUTO_CHARGER, EV_PAYMENT_METHOD.OTHER],
-        ChargePoint: [EV_PAYMENT_METHOD.APP, EV_PAYMENT_METHOD.CREDIT, EV_PAYMENT_METHOD.MEMBERSHIP_CARD],
-        'Electrify America': [EV_PAYMENT_METHOD.APP, EV_PAYMENT_METHOD.CREDIT, EV_PAYMENT_METHOD.DEBIT, EV_PAYMENT_METHOD.MEMBERSHIP_CARD, EV_PAYMENT_METHOD.PLUG_IN_AUTO_CHARGER],
-        EVgo: [EV_PAYMENT_METHOD.APP, EV_PAYMENT_METHOD.CREDIT, EV_PAYMENT_METHOD.DEBIT, EV_PAYMENT_METHOD.PLUG_IN_AUTO_CHARGER],
-        SemaConnect: [EV_PAYMENT_METHOD.APP, EV_PAYMENT_METHOD.MEMBERSHIP_CARD, EV_PAYMENT_METHOD.OTHER],
-        Tesla: [EV_PAYMENT_METHOD.PLUG_IN_AUTO_CHARGER]
+        'Blink Charging': [
+            EV_PAYMENT_METHOD.APP,
+            EV_PAYMENT_METHOD.MEMBERSHIP_CARD,
+            EV_PAYMENT_METHOD.PLUG_IN_AUTO_CHARGER,
+            EV_PAYMENT_METHOD.OTHER
+        ],
+        ChargePoint: [
+            EV_PAYMENT_METHOD.APP,
+            EV_PAYMENT_METHOD.CREDIT,
+            EV_PAYMENT_METHOD.MEMBERSHIP_CARD
+        ],
+        'Electrify America': [
+            EV_PAYMENT_METHOD.APP,
+            EV_PAYMENT_METHOD.CREDIT,
+            EV_PAYMENT_METHOD.DEBIT,
+            EV_PAYMENT_METHOD.MEMBERSHIP_CARD,
+            EV_PAYMENT_METHOD.PLUG_IN_AUTO_CHARGER
+        ],
+        EVgo: [
+            EV_PAYMENT_METHOD.APP,
+            EV_PAYMENT_METHOD.CREDIT,
+            EV_PAYMENT_METHOD.DEBIT,
+            EV_PAYMENT_METHOD.MEMBERSHIP_CARD,
+            EV_PAYMENT_METHOD.PLUG_IN_AUTO_CHARGER
+        ],
+        SemaConnect: [
+            EV_PAYMENT_METHOD.APP,
+            EV_PAYMENT_METHOD.MEMBERSHIP_CARD,
+            EV_PAYMENT_METHOD.OTHER
+        ],
+        Tesla: [
+            EV_PAYMENT_METHOD.PLUG_IN_AUTO_CHARGER
+        ]
     };
     const WME_SERVICES_ARRAY = ['VALLET_SERVICE', 'DRIVETHROUGH', 'WI_FI', 'RESTROOMS', 'CREDIT_CARDS', 'RESERVATIONS', 'OUTSIDE_SEATING',
         'AIR_CONDITIONING', 'PARKING_FOR_CUSTOMERS', 'DELIVERIES', 'TAKE_AWAY', 'CURBSIDE_PICKUP', 'WHEELCHAIR_ACCESSIBLE', 'DISABILITY_PARKING'];
