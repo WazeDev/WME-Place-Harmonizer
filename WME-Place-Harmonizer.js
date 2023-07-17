@@ -7783,7 +7783,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                 updateItem = true;
             }
             if (updateItem) {
-                addUpdateAction(new UpdateObject(venue, cloneItems));
+                addUpdateAction(venue, cloneItems);
                 logDev('Venue details cloned');
             }
 
