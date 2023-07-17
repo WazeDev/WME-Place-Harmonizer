@@ -3683,7 +3683,7 @@
                 if (args.categories.includes(CAT.CHARGING_STATION) && !this.isWhitelisted(args)) {
                     const stationAttr = args.venue.attributes.categoryAttributes.CHARGING_STATION;
                     const network = stationAttr?.network;
-                    return !!(stationAttr?.paymentMethods?.some(method => !COMMON_EV_PAYMENT_METHODS[network]?.includes(method)));
+                    return COMMON_EV_PAYMENT_METHODS.hasOwnProperty(network) && !!(stationAttr?.paymentMethods?.some(method => !COMMON_EV_PAYMENT_METHODS[network]?.includes(method)));
                 }
                 return false;
             }
@@ -3703,7 +3703,7 @@
 
                 const commonPaymentMethods = COMMON_EV_PAYMENT_METHODS[network];
                 const newPaymentMethods = (stationAttr.paymentMethods?.slice() ?? [])
-                    .filter(method => commonPaymentMethods.includes(method));
+                    .filter(method => commonPaymentMethods?.includes(method));
 
                 const categoryAttrClone = JSON.parse(JSON.stringify(this.args.venue.getCategoryAttributes()));
                 categoryAttrClone.CHARGING_STATION ??= {};
