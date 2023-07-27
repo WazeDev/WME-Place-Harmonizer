@@ -1025,16 +1025,22 @@
 
         function panelContainerChanged() {
             if (!$('#WMEPH-HidePURWebSearch').prop('checked')) {
-                const $panelNav = $('.place-update-edit.panel .categories.small');
-                if ($('#PHPURWebSearchButton').length === 0 && $panelNav.length > 0) {
-                    const $btn = $('<button>', {
-                        class: 'btn btn-primary', id: 'PHPURWebSearchButton', title: 'Search the web for this place.  Do not copy info from 3rd party sources!'
-                    }) // NOTE: Don't use btn-block class. Causes conflict with URO+ "Done" button.
-                        .css({
-                            width: '100%', display: 'block', marginTop: '4px', marginBottom: '4px'
-                        })
-                        .text('Web Search')
-                        .click(() => { openWebSearch(); });
+                const $panelNav = $('.place-update-edit .place-update > div > span');
+                if ($('#PHPURWebSearchButton').length === 0 && $panelNav.length) {
+                    const $btn = $('<div>').css({
+                        paddingLeft: '15px',
+                        paddingBottom: '8px'
+                    }).append(
+                        $('<button>', {
+                            class: 'btn btn-danger', id: 'PHPURWebSearchButton', title: 'Search Google for this place. Do not copy info from 3rd party sources!'
+                        }) // NOTE: Don't use btn-block class. Causes conflict with URO+ "Done" button.
+                            .css({
+                                marginTop: '-10px',
+                                fontSize: '14px'
+                            })
+                            .text('Google')
+                            .click(() => { openWebSearch(); })
+                    );
                     $panelNav.after($btn);
                 }
             }
@@ -1063,8 +1069,17 @@
         }
 
         function openWebSearch() {
-            const name = $('.place-update-edit.panel .name').first().text();
-            const addr = $('.place-update-edit.panel .address').first().text();
+            const nameElem = $('.place-update-edit.panel .name');
+            let name = null;
+            let addr = null;
+            if (nameElem.length) {
+                name = $('.place-update-edit.panel .name').first().text();
+                addr = $('.place-update-edit.panel .address').first().text();
+            } else {
+                name = $('.place-update-edit.panel .changes div div')[0].textContent;
+                addr = $('.place-update-edit.panel .changes div div')[1].textContent;
+            }
+            if (!name) return;
             if ($('#WMEPH-WebSearchNewTab').prop('checked')) {
                 window.open(buildSearchUrl(name, addr));
             } else {
