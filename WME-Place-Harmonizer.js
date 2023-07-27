@@ -3597,9 +3597,9 @@
 
             static venueIsFlaggable(args) {
                 return !this.isWhitelisted(args)
-                    && args.pnhMatchData[args.phSpecCaseIdx] === 'subFuel'
-                    && !/\bgas\b/i.test(args.nameBase)
-                    && !/\bfueld\b/i.test(args.nameBase);
+                    && args.specCases.includes('subFuel')
+                    && !/\bgas(oline)?\b/i.test(args.venue.attributes.name)
+                    && !/\bfuel\b/i.test(args.venue.attributes.name);
             }
         },
         AddCommonEVPaymentMethods: class extends WLActionFlag {
