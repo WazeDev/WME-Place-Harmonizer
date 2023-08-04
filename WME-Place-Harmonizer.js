@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name        WME Place Harmonizer Beta
 // @namespace   WazeUSA
-// @version     2023.07.17.001
+// @version     2023.08.04.001
 // @description Harmonizes, formats, and locks a selected place
 // @author      WMEPH Development Group
 // @include     /^https:\/\/(www|beta)\.waze\.com\/(?!user\/)(.{2,6}\/)?editor\/?.*$/
@@ -2326,29 +2326,29 @@
                 this.inferredAddress = inferredAddress;
             }
 
-            static eval(venue, addr, actions, highlightOnly, categories) {
+            static eval(args) {
                 let result = null;
-                if (!highlightOnly) {
-                    if (!addr.state || !addr.country) {
+                if (!args.highlightOnly) {
+                    if (!args.addr.state || !args.addr.country) {
                         if (W.map.getZoom() < 4) {
                             if ($('#WMEPH-EnableIAZoom').prop('checked')) {
-                                W.map.moveTo(getVenueLonLat(venue), 5);
+                                W.map.moveTo(getVenueLonLat(args.venue), 5);
                             } else {
                                 WazeWrap.Alerts.error(SCRIPT_NAME, 'No address and the state cannot be determined. Please zoom in and rerun the script. '
                                     + 'You can enable autozoom for this type of case in the options.');
                             }
                             result = { exit: true }; // Don't bother returning a Flag. This will exit the rest of the harmonizePlaceGo function.
                         } else {
-                            let inferredAddress = inferAddress(venue, 7); // Pull address info from nearby segments
+                            let inferredAddress = inferAddress(args.venue, 7); // Pull address info from nearby segments
                             inferredAddress = inferredAddress.attributes ?? inferredAddress;
 
                             if (inferredAddress?.state && inferredAddress.country) {
                                 if ($('#WMEPH-AddAddresses').prop('checked')) { // update the venue's address if option is enabled
-                                    updateAddress(venue, inferredAddress, actions);
+                                    updateAddress(args.venue, inferredAddress, args.actions);
                                     UPDATED_FIELDS.address.updated = true;
                                     result = new this(inferredAddress);
-                                } else if (![CAT.JUNCTION_INTERCHANGE].includes(categories[0])) {
-                                    new Flag.CityMissing();
+                                } else if (![CAT.JUNCTION_INTERCHANGE].includes(args.categories[0])) {
+                                    new Flag.CityMissing(args);
                                 }
                             } else { //  if the inference doesn't work...
                                 WazeWrap.Alerts.error(SCRIPT_NAME, 'This place has no address data and the address cannot be inferred from nearby segments. Please edit the address and run WMEPH again.');
@@ -2356,12 +2356,12 @@
                             }
                         }
                     }
-                } else if (!addr.state || !addr.country) { // only highlighting
+                } else if (!args.addr.state || !args.addr.country) { // only highlighting
                     result = { exit: true };
-                    if (venue.attributes.adLocked) {
+                    if (args.venue.attributes.adLocked) {
                         result.severity = 'adLock';
                     } else {
-                        const cat = venue.attributes.categories;
+                        const cat = args.venue.attributes.categories;
                         if (containsAny(cat, [CAT.HOSPITAL_MEDICAL_CARE, CAT.HOSPITAL_URGENT_CARE, CAT.GAS_STATION])) {
                             logDev('Unaddressed HUC/GS');
                             result.severity = SEVERITY.PINK;
@@ -6057,7 +6057,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
         }
 
         // Some user submitted places have no data in the country, state and address fields.
-        const result = Flag.FullAddressInference.eval(venue, args.addr, actions, args.highlightOnly, args.categories);
+        const result = Flag.FullAddressInference.eval(args);
         if (result?.exit) return result.severity;
         const inferredAddress = result?.inferredAddress;
         args.addr = inferredAddress ?? args.addr;
@@ -8352,8 +8352,8 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
         let newAttributes;
         if (feature && address) {
             newAttributes = {
-                countryID: address.country.id,
-                stateID: address.state.id,
+                countryID: address.country.attributes.id,
+                stateID: address.state.attributes.id,
                 cityName: address.city.getName(),
                 emptyCity: address.city.hasName() ? null : true,
                 streetName: address.street.getName(),
