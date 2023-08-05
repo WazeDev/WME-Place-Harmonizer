@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name        WME Place Harmonizer Beta
 // @namespace   WazeUSA
-// @version     2023.08.04.001
+// @version     2023.08.05.001
 // @description Harmonizes, formats, and locks a selected place
 // @author      WMEPH Development Group
 // @include     /^https:\/\/beta\.waze\.com\/(?!user\/)(.{2,6}\/)?editor\/?.*$/
@@ -7319,6 +7319,9 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                     }
 
                     $bannerDiv.append($row);
+
+                    $row.attr('uuid', result.uuid);
+                    addGoogleLinkHoverEvent($row);
                 }
             });
             $('#WMEPH_banner').append($bannerDiv);
@@ -7339,6 +7342,9 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
     }
 
     const _googleResults = {};
+    let _googlePlacePtFeature;
+    let _googlePlaceLineFeature;
+    let _destroyGooglePlacePointTimeoutId;
 
     function fetchGoogleLinkInfo(uuid) {
         const refreshInterval = 5 * 60 * 1000; // silently refresh data if it's over 5 minutes old
@@ -7362,7 +7368,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
         return new Promise(resolve => {
             _placesService.getDetails({
                 placeId: uuid,
-                fields: ['website', 'business_status', 'url', 'name']
+                fields: ['website', 'business_status', 'url', 'name', 'geometry']
             }, googleResult => {
                 googleResult.uuid = uuid;
                 googleResult.timestamp = Date.now();
@@ -7370,6 +7376,115 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                 resolve(googleResult);
             });
         });
+    }
+
+    function drawGooglePlacePoint(uuid) {
+        if (!uuid) return;
+        const link = _googleResults[uuid];
+        if (link) {
+            const coord = link.geometry.location;
+            const poiPt = new OpenLayers.Geometry.Point(coord.lng(), coord.lat());
+            poiPt.transform(W.Config.map.projection.remote, W.map.getProjectionObject().projCode);
+            const placeGeom = W.selectionManager.getSelectedDataModelObjects()[0].geometry.getCentroid();
+            const placePt = new OpenLayers.Geometry.Point(placeGeom.x, placeGeom.y);
+            const ext = W.map.getExtent();
+            const lsBounds = new OpenLayers.Geometry.LineString([
+                new OpenLayers.Geometry.Point(ext.left, ext.bottom),
+                new OpenLayers.Geometry.Point(ext.left, ext.top),
+                new OpenLayers.Geometry.Point(ext.right, ext.top),
+                new OpenLayers.Geometry.Point(ext.right, ext.bottom),
+                new OpenLayers.Geometry.Point(ext.left, ext.bottom)]);
+            let lsLine = new OpenLayers.Geometry.LineString([placePt, poiPt]);
+
+            // If the line extends outside the bounds, split it so we don't draw a line across the world.
+            const splits = lsLine.splitWith(lsBounds);
+            let label = '';
+            if (splits) {
+                let splitPoints;
+                splits.forEach(split => {
+                    split.components.forEach(component => {
+                        if (component.x === placePt.x && component.y === placePt.y) splitPoints = split;
+                    });
+                });
+                lsLine = new OpenLayers.Geometry.LineString([splitPoints.components[0], splitPoints.components[1]]);
+                let distance = WazeWrap.Geometry.calculateDistance([poiPt, placePt]);
+                let unitConversion;
+                let unit1;
+                let unit2;
+                if (W.model.isImperial) {
+                    distance *= 3.28084;
+                    unitConversion = 5280;
+                    unit1 = ' ft';
+                    unit2 = ' mi';
+                } else {
+                    unitConversion = 1000;
+                    unit1 = ' m';
+                    unit2 = ' km';
+                }
+                if (distance > unitConversion * 10) {
+                    label = Math.round(distance / unitConversion) + unit2;
+                } else if (distance > 1000) {
+                    label = (Math.round(distance / (unitConversion / 10)) / 10) + unit2;
+                } else {
+                    label = Math.round(distance) + unit1;
+                }
+            }
+
+            destroyGooglePlacePoint(); // Just in case it still exists.
+            _googlePlacePtFeature = new OpenLayers.Feature.Vector(poiPt, { poiCoord: true }, {
+                pointRadius: 6,
+                strokeWidth: 30,
+                strokeColor: '#FF0',
+                fillColor: '#FF0',
+                strokeOpacity: 0.5
+            });
+            _googlePlaceLineFeature = new OpenLayers.Feature.Vector(lsLine, {}, {
+                strokeWidth: 3,
+                strokeDashstyle: '12 8',
+                strokeColor: '#FF0',
+                label,
+                labelYOffset: 45,
+                fontColor: '#FF0',
+                fontWeight: 'bold',
+                labelOutlineColor: '#000',
+                labelOutlineWidth: 4,
+                fontSize: '18'
+            });
+            W.map.getLayerByUniqueName('venues').addFeatures([_googlePlacePtFeature, _googlePlaceLineFeature]);
+            timeoutDestroyGooglePlacePoint();
+        } else {
+            fetchGoogleLinkInfo(uuid).then(res => {
+                if (res.error || res.apiDisabled) {
+                    // API was temporarily disabled.  Ignore for now.
+                } else {
+                    drawGooglePlacePoint(uuid);
+                }
+            });
+        }
+    }
+
+    // Destroy the point after some time, if it hasn't been destroyed already.
+    function timeoutDestroyGooglePlacePoint() {
+        if (_destroyGooglePlacePointTimeoutId) clearTimeout(_destroyGooglePlacePointTimeoutId);
+        _destroyGooglePlacePointTimeoutId = setTimeout(() => destroyGooglePlacePoint(), 4000);
+    }
+
+    // Remove the POI point from the map.
+    function destroyGooglePlacePoint() {
+        if (_googlePlacePtFeature) {
+            _googlePlacePtFeature.destroy();
+            _googlePlacePtFeature = null;
+            _googlePlaceLineFeature.destroy();
+            _googlePlaceLineFeature = null;
+        }
+    }
+
+    function addGoogleLinkHoverEvent($el) {
+        $el.hover(() => drawGooglePlacePoint(getGooglePlaceUuidFromElement($el)), () => destroyGooglePlacePoint());
+    }
+
+    function getGooglePlaceUuidFromElement($el) {
+        return $el.attr('uuid');
     }
 
     function assembleServicesBanner() {
