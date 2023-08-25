@@ -3834,7 +3834,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
         MissingUSPSDescription: class extends WLFlag {
             static defaultSeverity = SEVERITY.BLUE;
             static defaultMessage = `The first line of the description for a <a href="${
-                URLS.uspsWiki}" style="color:#3232e6" target="_blank">USPS post office</a> must be CITY, STATE ZIP, e.g. "Lexington, KY 40511"`;
+                URLS.uspsWiki}" style="color:#3232e6" target="_blank">USPS post office</a> must be CITY, STATE(2-letter) ZIP, e.g. "Lexington, KY 40511"`;
 
             static WL_KEY = 'missingUSPSDescription';
             static defaultWLTooltip = 'Whitelist missing USPS address line in description';
