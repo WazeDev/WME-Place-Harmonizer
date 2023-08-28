@@ -5156,7 +5156,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
             #titleCaseName;
             noBannerAssemble = true;
 
-            get message() { return `<span style="margin-left: 4px;font-size: 14px">&bull; ${this.#titleCaseName}${this.args.nameSuffix || ''}</span>`; }
+            get message() { return `${this.#titleCaseName}${this.args.nameSuffix || ''}`; }
             get buttonTooltip() { return `Rename to: ${this.#titleCaseName}${this.args.nameSuffix || ''}`; }
 
             constructor(args) {
