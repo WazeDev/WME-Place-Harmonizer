@@ -547,7 +547,11 @@
         CAT.RIVER_STREAM,
         CAT.CANAL,
         CAT.JUNCTION_INTERCHANGE,
-        CAT.SCENIC_LOOKOUT_VIEWPOINT];
+        CAT.SCENIC_LOOKOUT_VIEWPOINT
+    ];
+    const CATS_THAT_DONT_NEED_NAMES = [
+        CAT.SEA_LAKE_POOL
+    ];
     const BAD_URL = 'badURL';
     const BAD_PHONE = 'badPhone';
 
@@ -6226,7 +6230,9 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                     // no field HL
                 }
             }
-        } else if (venue.isParkingLot() || (args.nameBase?.trim().length)) { // for non-residential places
+        } else if (venue.isParkingLot()
+          || (args.nameBase?.trim().length)
+          || containsAny(args.categories, CATS_THAT_DONT_NEED_NAMES)) { // for non-residential places
             // Phone formatting
             args.outputPhoneFormat = '({0}) {1}-{2}';
             if (containsAny(['CA', 'CO'], [args.region, args.state2L]) && (/^\d{3}-\d{3}-\d{4}$/.test(venue.attributes.phone))) {
