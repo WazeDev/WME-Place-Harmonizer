@@ -4998,8 +4998,10 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                 let flaggable = false;
                 if (args.specialCases.addATM) {
                     flaggable = true;
+                } else if (args.pnhMatchData[args.phSpecCaseIdx]?.includes('notABank')) {
+                    // do nothing
                 } else if (!args.categories.includes(CAT.ATM) && args.categories.includes(CAT.BANK_FINANCIAL)) {
-                    if (args.priPNHPlaceCat === CAT.BANK_FINANCIAL && !args.pnhMatchData[args.phSpecCaseIdx].includes('notABank')) {
+                    if (args.priPNHPlaceCat === CAT.BANK_FINANCIAL) {
                         if ((args.categories.indexOf(CAT.OFFICES) !== 0)) {
                             flaggable = true;
                         }
@@ -5154,7 +5156,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
             #titleCaseName;
             noBannerAssemble = true;
 
-            get message() { return `<span style="margin-left: 4px;font-size: 14px">&bull; ${this.#titleCaseName}${this.args.nameSuffix || ''}</span>`; }
+            get message() { return `${this.#titleCaseName}${this.args.nameSuffix || ''}`; }
             get buttonTooltip() { return `Rename to: ${this.#titleCaseName}${this.args.nameSuffix || ''}`; }
 
             constructor(args) {
@@ -6761,7 +6763,6 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                 Flag.LocalURL.eval(args);
                 Flag.UrlMismatch.eval(args);
                 Flag.CheckDescription.eval(args);
-                // eslint-disable-next-line max-len
                 Flag.LocationFinder.eval(args);
                 Flag.AddPharm.eval(args);
                 Flag.AddSuper.eval(args);
@@ -6772,7 +6773,6 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
             Flag.SFAliases.eval(args);
             Flag.CatHotel.eval(args);
             Flag.ExtProviderMissing.eval(args);
-            // eslint-disable-next-line max-len
             Flag.NewPlaceSubmit.eval(args);
             Flag.ApprovalSubmit.eval(args);
             Flag.TitleCaseName.eval(args);
@@ -6794,7 +6794,6 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
             Flag.MissingUSPSAlt.eval(args);
             Flag.UrlMissing.eval(args);
             Flag.PhoneInvalid.eval(args);
-            // eslint-disable-next-line max-len
             Flag.PhoneMissing.eval(args);
             Flag.BadAreaCode.eval(args);
             Flag.ParentCategory.eval(args);
