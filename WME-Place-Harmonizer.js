@@ -9645,7 +9645,8 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
     async function bootstrap() {
         // Quit if another version of WMEPH is already running.
         if (unsafeWindow.wmephRunning) {
-            WazeWrap.Alerts.error(SCRIPT_NAME, 'Multiple versions of Place Harmonizer are turned on.  Only one will be enabled.');
+            // Don't use WazeWrap alerts here. It isn't loaded yet.
+            alert('Multiple versions of WME Place Harmonizer are turned on. Only one will be enabled.');
             return;
         }
         unsafeWindow.wmephRunning = 1;
