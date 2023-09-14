@@ -6683,7 +6683,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                     args.url = 'usps.com';
                     addUpdateAction(venue, { url: args.url }, actions);
                 } else if (!args.pnhUrl && args.normalizedUrl !== args.url) {
-                    if (!args.normalizedUrl === BAD_URL) {
+                    if (args.normalizedUrl !== BAD_URL) {
                         args.url = args.normalizedUrl;
                         logDev('URL formatted');
                         addUpdateAction(venue, { url: args.url }, actions);
