@@ -6683,7 +6683,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                     args.url = 'usps.com';
                     addUpdateAction(venue, { url: args.url }, actions);
                 } else if (!args.pnhUrl && args.normalizedUrl !== args.url) {
-                    if (!args.normalizedUrl === BAD_URL) {
+                    if (args.normalizedUrl !== BAD_URL) {
                         args.url = args.normalizedUrl;
                         logDev('URL formatted');
                         addUpdateAction(venue, { url: args.url }, actions);
@@ -9645,7 +9645,8 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
     async function bootstrap() {
         // Quit if another version of WMEPH is already running.
         if (unsafeWindow.wmephRunning) {
-            WazeWrap.Alerts.error(SCRIPT_NAME, 'Multiple versions of Place Harmonizer are turned on.  Only one will be enabled.');
+            // Don't use WazeWrap alerts here. It isn't loaded yet.
+            alert('Multiple versions of WME Place Harmonizer are turned on. Only one will be enabled.');
             return;
         }
         unsafeWindow.wmephRunning = 1;
