@@ -1,10 +1,10 @@
 // ==UserScript==
 // @name        WME Place Harmonizer
 // @namespace   WazeUSA
-// @version     2023.08.22.001
+// @version     2023.09.14.001
 // @description Harmonizes, formats, and locks a selected place
 // @author      WMEPH Development Group
-// @include     /^https:\/\/www\.waze\.com\/(?!user\/)(.{2,6}\/)?editor\/?.*$/
+// @include     /^https:\/\/(www|beta)\.waze\.com\/(?!user\/)(.{2,6}\/)?editor\/?.*$/
 // @require     https://greasyfork.org/scripts/24851-wazewrap/code/WazeWrap.js
 // @require     https://greasyfork.org/scripts/37486-wme-utils-hoursparser/code/WME%20Utils%20-%20HoursParser.js
 // @require     https://cdnjs.cloudflare.com/ajax/libs/lz-string/1.4.4/lz-string.min.js
@@ -536,6 +536,7 @@
     const ANY_CATS_TO_FLAG_GREEN_MISSING_PHONE_URL = [CAT.REST_AREAS];
     const REGIONS_THAT_WANT_PLA_PHONE_URL = ['SER'];
     const CHAIN_APPROVAL_PRIMARY_CATS_TO_IGNORE = [
+        CAT.POST_OFFICE,
         CAT.BRIDGE,
         CAT.FOREST_GROVE,
         CAT.DAM,
@@ -546,7 +547,11 @@
         CAT.RIVER_STREAM,
         CAT.CANAL,
         CAT.JUNCTION_INTERCHANGE,
-        CAT.SCENIC_LOOKOUT_VIEWPOINT];
+        CAT.SCENIC_LOOKOUT_VIEWPOINT
+    ];
+    const CATS_THAT_DONT_NEED_NAMES = [
+        CAT.SEA_LAKE_POOL
+    ];
     const BAD_URL = 'badURL';
     const BAD_PHONE = 'badPhone';
 
@@ -3833,7 +3838,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
         MissingUSPSDescription: class extends WLFlag {
             static defaultSeverity = SEVERITY.BLUE;
             static defaultMessage = `The first line of the description for a <a href="${
-                URLS.uspsWiki}" style="color:#3232e6" target="_blank">USPS post office</a> must be CITY, STATE ZIP, e.g. "Lexington, KY 40511"`;
+                URLS.uspsWiki}" style="color:#3232e6" target="_blank">USPS post office</a> must be CITY, STATE(2-letter) ZIP, e.g. "Lexington, KY 40511"`;
 
             static WL_KEY = 'missingUSPSDescription';
             static defaultWLTooltip = 'Whitelist missing USPS address line in description';
@@ -4997,8 +5002,10 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                 let flaggable = false;
                 if (args.specialCases.addATM) {
                     flaggable = true;
+                } else if (args.pnhMatchData[args.phSpecCaseIdx]?.includes('notABank')) {
+                    // do nothing
                 } else if (!args.categories.includes(CAT.ATM) && args.categories.includes(CAT.BANK_FINANCIAL)) {
-                    if (args.priPNHPlaceCat === CAT.BANK_FINANCIAL && !args.pnhMatchData[args.phSpecCaseIdx].includes('notABank')) {
+                    if (args.priPNHPlaceCat === CAT.BANK_FINANCIAL) {
                         if ((args.categories.indexOf(CAT.OFFICES) !== 0)) {
                             flaggable = true;
                         }
@@ -5153,7 +5160,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
             #titleCaseName;
             noBannerAssemble = true;
 
-            get message() { return `<span style="margin-left: 4px;font-size: 14px">&bull; ${this.#titleCaseName}${this.args.nameSuffix || ''}</span>`; }
+            get message() { return `${this.#titleCaseName}${this.args.nameSuffix || ''}`; }
             get buttonTooltip() { return `Rename to: ${this.#titleCaseName}${this.args.nameSuffix || ''}`; }
 
             constructor(args) {
@@ -6223,7 +6230,9 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                     // no field HL
                 }
             }
-        } else if (venue.isParkingLot() || (args.nameBase?.trim().length)) { // for non-residential places
+        } else if (venue.isParkingLot()
+          || (args.nameBase?.trim().length)
+          || containsAny(args.categories, CATS_THAT_DONT_NEED_NAMES)) { // for non-residential places
             // Phone formatting
             args.outputPhoneFormat = '({0}) {1}-{2}';
             if (containsAny(['CA', 'CO'], [args.region, args.state2L]) && (/^\d{3}-\d{3}-\d{4}$/.test(venue.attributes.phone))) {
@@ -6674,7 +6683,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                     args.url = 'usps.com';
                     addUpdateAction(venue, { url: args.url }, actions);
                 } else if (!args.pnhUrl && args.normalizedUrl !== args.url) {
-                    if (!args.normalizedUrl === BAD_URL) {
+                    if (args.normalizedUrl !== BAD_URL) {
                         args.url = args.normalizedUrl;
                         logDev('URL formatted');
                         addUpdateAction(venue, { url: args.url }, actions);
@@ -6760,7 +6769,6 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                 Flag.LocalURL.eval(args);
                 Flag.UrlMismatch.eval(args);
                 Flag.CheckDescription.eval(args);
-                // eslint-disable-next-line max-len
                 Flag.LocationFinder.eval(args);
                 Flag.AddPharm.eval(args);
                 Flag.AddSuper.eval(args);
@@ -6771,7 +6779,6 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
             Flag.SFAliases.eval(args);
             Flag.CatHotel.eval(args);
             Flag.ExtProviderMissing.eval(args);
-            // eslint-disable-next-line max-len
             Flag.NewPlaceSubmit.eval(args);
             Flag.ApprovalSubmit.eval(args);
             Flag.TitleCaseName.eval(args);
@@ -6793,7 +6800,6 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
             Flag.MissingUSPSAlt.eval(args);
             Flag.UrlMissing.eval(args);
             Flag.PhoneInvalid.eval(args);
-            // eslint-disable-next-line max-len
             Flag.PhoneMissing.eval(args);
             Flag.BadAreaCode.eval(args);
             Flag.ParentCategory.eval(args);
@@ -9639,7 +9645,8 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
     async function bootstrap() {
         // Quit if another version of WMEPH is already running.
         if (unsafeWindow.wmephRunning) {
-            WazeWrap.Alerts.error(SCRIPT_NAME, 'Multiple versions of Place Harmonizer are turned on.  Only one will be enabled.');
+            // Don't use WazeWrap alerts here. It isn't loaded yet.
+            alert('Multiple versions of WME Place Harmonizer are turned on. Only one will be enabled.');
             return;
         }
         unsafeWindow.wmephRunning = 1;
