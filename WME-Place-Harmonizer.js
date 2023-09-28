@@ -989,7 +989,7 @@
     }
 
     function getVenueLonLat(venue) {
-        const pt = venue.geometry.getCentroid();
+        const pt = venue.attributes.geometry.getCentroid();
         return new OpenLayers.LonLat(pt.x, pt.y);
     }
 
@@ -1267,15 +1267,15 @@
     }
 
     function nudgeVenue(venue) {
-        const originalGeometry = venue.geometry.clone();
+        const originalGeometry = venue.attributes.geometry.clone();
         const moveNegative = Math.random() > 0.5;
         const nudgeDistance = 0.00000001 * (moveNegative ? -1 : 1);
         if (venue.isPoint()) {
-            venue.geometry.x += nudgeDistance;
+            venue.attributes.geometry.x += nudgeDistance;
         } else {
-            venue.geometry.components[0].components[0].x += nudgeDistance;
+            venue.attributes.geometry.components[0].components[0].x += nudgeDistance;
         }
-        const action = new UpdateFeatureGeometry(venue, W.model.venues, originalGeometry, venue.geometry);
+        const action = new UpdateFeatureGeometry(venue, W.model.venues, originalGeometry, venue.attributes.geometry);
         const mAction = new MultiAction([action], { description: 'Place nudged by WMEPH' });
         W.model.actionManager.add(mAction);
     }
@@ -2979,7 +2979,7 @@
 
             action() {
                 const { venue } = this.args;
-                W.model.actionManager.add(new UpdateFeatureGeometry(venue, venue.model.venues, venue.geometry, venue.getPolygonGeometry()));
+                W.model.actionManager.add(new UpdateFeatureGeometry(venue, venue.model.venues, venue.attributes.geometry, venue.getPolygonGeometry()));
                 harmonizePlaceGo(venue, 'harmonize');
             }
         },
@@ -7391,7 +7391,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
             const coord = link.geometry.location;
             const poiPt = new OpenLayers.Geometry.Point(coord.lng(), coord.lat());
             poiPt.transform(W.Config.map.projection.remote, W.map.getProjectionObject().projCode);
-            const placeGeom = W.selectionManager.getSelectedDataModelObjects()[0].geometry.getCentroid();
+            const placeGeom = W.selectionManager.getSelectedDataModelObjects()[0].attributes.geometry.getCentroid();
             const placePt = new OpenLayers.Geometry.Point(placeGeom.x, placeGeom.y);
             const ext = W.map.getExtent();
             const lsBounds = new OpenLayers.Geometry.LineString([
@@ -8016,7 +8016,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
         let overlappingFlag = false;
 
         // Initialize the coordinate extents for duplicates
-        const selectedCentroid = selectedVenue.geometry.getCentroid();
+        const selectedCentroid = selectedVenue.attributes.geometry.getCentroid();
         let minLon = selectedCentroid.x;
         let minLat = selectedCentroid.y;
         let maxLon = minLon;
@@ -8094,7 +8094,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                 const testVenueId = testVenueAttr.id;
 
                 // Check for overlapping PP's
-                const testCentroid = testVenue.geometry.getCentroid();
+                const testCentroid = testVenue.attributes.geometry.getCentroid();
                 const pt2ptDistance = selectedCentroid.distanceTo(testCentroid);
                 if (selectedVenue.isPoint() && testVenue.isPoint() && pt2ptDistance < 2 && selectedVenueId !== testVenueId) {
                     overlappingFlag = true;
@@ -8398,14 +8398,14 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
             stopPoint = entryExitPoints.find(pt => pt.isPrimary()) || entryExitPoints[0];
         } else {
             // If no stop points, just use the venue's centroid.
-            stopPoint = venue.geometry.getCentroid();
+            stopPoint = venue.attributes.geometry.getCentroid();
         }
 
         // Go through segment array and calculate distances to segments.
         for (i = 0, n = segments.length; i < n; i++) {
             // Make sure the segment is not an ignored roadType.
             if (!IGNORE_ROAD_TYPES.includes(segments[i].attributes.roadType)) {
-                distanceToSegment = (stopPoint.getPoint ? stopPoint.getPoint() : stopPoint).distanceTo(segments[i].geometry);
+                distanceToSegment = (stopPoint.getPoint ? stopPoint.getPoint() : stopPoint).distanceTo(segments[i].attributes.geometry);
                 // Add segment object and its distanceTo to an array.
                 orderedSegments.push({
                     distance: distanceToSegment,
