@@ -9438,7 +9438,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
     function waitForReady() {
         return new Promise(resolve => {
             function loop() {
-                if (W && W.loginManager && W.loginManager.user && W.map && WazeWrap && WazeWrap.Ready && W.model.categoryBrands.PARKING_LOT && require) {
+                if (typeof W === 'object' && W.userscripts?.state.isReady && WazeWrap?.Ready) {
                     resolve();
                 } else {
                     setTimeout(loop, 100);
