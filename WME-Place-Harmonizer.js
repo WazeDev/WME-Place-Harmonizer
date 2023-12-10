@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name        WME Place Harmonizer Beta
 // @namespace   WazeUSA
-// @version     2023.09.27.001
+// @version     2023.12.10.001
 // @description Harmonizes, formats, and locks a selected place
 // @author      WMEPH Development Group
 // @include     /^https:\/\/(www|beta)\.waze\.com\/(?!user\/)(.{2,6}\/)?editor\/?.*$/
@@ -9448,7 +9448,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
     function waitForReady() {
         return new Promise(resolve => {
             function loop() {
-                if (typeof W === 'object' && W.userscripts?.state.isReady && WazeWrap?.Ready) {
+                if (typeof W === 'object' && W.userscripts?.state.isReady && WazeWrap?.Ready && W.model.categoryBrands.PARKING_LOT) {
                     resolve();
                 } else {
                     setTimeout(loop, 100);
