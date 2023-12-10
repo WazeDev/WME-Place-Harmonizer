@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name        WME Place Harmonizer
 // @namespace   WazeUSA
-// @version     2023.09.27.001
+// @version     2023.12.10.001
 // @description Harmonizes, formats, and locks a selected place
 // @author      WMEPH Development Group
 // @include     /^https:\/\/(www|beta)\.waze\.com\/(?!user\/)(.{2,6}\/)?editor\/?.*$/
@@ -12,6 +12,8 @@
 // @connect     greasyfork.org
 // @grant       GM_addStyle
 // @grant       GM_xmlhttpRequest
+// @downloadURL https://update.greasyfork.org/scripts/28690/WME%20Place%20Harmonizer.user.js
+// @updateURL https://update.greasyfork.org/scripts/28690/WME%20Place%20Harmonizer.meta.js
 // ==/UserScript==
 
 /* global W */
@@ -9452,6 +9454,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
         log('Waiting for WME and WazeWrap...');
         await waitForReady();
         WazeWrap.Interface.ShowScriptUpdate(SCRIPT_NAME, SCRIPT_VERSION, _SCRIPT_UPDATE_MESSAGE);
+        await downloadPnhData();
         await placeHarmonizerInit();
     }
 
@@ -9651,7 +9654,6 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
         }
         unsafeWindow.wmephRunning = 1;
         // Start downloading the PNH spreadsheet data in the background.  Starts the script once data is ready.
-        await downloadPnhData();
         await placeHarmonizerBootstrap();
         devTestCode();
     }
