@@ -9454,6 +9454,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
         log('Waiting for WME and WazeWrap...');
         await waitForReady();
         WazeWrap.Interface.ShowScriptUpdate(SCRIPT_NAME, SCRIPT_VERSION, _SCRIPT_UPDATE_MESSAGE);
+        // Start downloading the PNH spreadsheet data in the background.  Starts the script once data is ready.
         await downloadPnhData();
         await placeHarmonizerInit();
     }
@@ -9653,7 +9654,6 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
             return;
         }
         unsafeWindow.wmephRunning = 1;
-        // Start downloading the PNH spreadsheet data in the background.  Starts the script once data is ready.
         await placeHarmonizerBootstrap();
         devTestCode();
     }
