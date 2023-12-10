@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name        WME Place Harmonizer Beta
 // @namespace   WazeUSA
-// @version     2023.09.27.001
+// @version     2023.12.10.001
 // @description Harmonizes, formats, and locks a selected place
 // @author      WMEPH Development Group
 // @include     /^https:\/\/(www|beta)\.waze\.com\/(?!user\/)(.{2,6}\/)?editor\/?.*$/
@@ -662,7 +662,7 @@
                 .map(key => this[key]);
         },
         getUpdatedTabNames() {
-            return _.uniq(this.getFieldProperties()
+            return uniq(this.getFieldProperties()
                 .filter(prop => prop.updated)
                 .map(prop => prop.tab));
         },
@@ -1109,6 +1109,10 @@
         }
     }
 
+    function uniq(arrayIn) {
+        return [...new Set(arrayIn)];
+    }
+
     // This function runs at script load, and builds the search name dataset to compare the WME selected place name to.
     function makeNameCheckList(countryData) {
         const pnhData = countryData.pnh;
@@ -1201,7 +1205,7 @@
                 // Add entries for word/spelling variations
                 _wordVariations.forEach(variationsList => addSpellingVariants(newNameList, variationsList));
 
-                return _.uniq(newNameList).join('|').replace(/\|{2,}/g, '|').replace(/\|+$/g, '');
+                return uniq(newNameList).join('|').replace(/\|{2,}/g, '|').replace(/\|+$/g, '');
             } // END if valid line
             return '00';
         });
@@ -2851,7 +2855,7 @@
 
             action() {
                 let updated = false;
-                let categories = _.uniq(this.args.venue.attributes.categories.slice());
+                let categories = uniq(this.args.venue.attributes.categories.slice());
                 categories.forEach((cat, idx) => {
                     if (cat === CAT.HOSPITAL_URGENT_CARE || cat === CAT.DOCTOR_CLINIC) {
                         categories[idx] = CAT.PET_STORE_VETERINARIAN_SERVICES;
@@ -2859,7 +2863,7 @@
                     }
                 });
                 if (updated) {
-                    categories = _.uniq(categories);
+                    categories = uniq(categories);
                 }
                 addUpdateAction(this.args.venue, { categories }, null, true);
             }
@@ -3979,7 +3983,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
 
             action() {
                 if (this.actionType === 'changeToDoctorClinic') {
-                    const categories = _.uniq(this.venue.attributes.categories.slice());
+                    const categories = uniq(this.venue.attributes.categories.slice());
                     const indexOfHospital = categories.indexOf(CAT.HOSPITAL_URGENT_CARE);
                     if (indexOfHospital > -1) {
                         categories[indexOfHospital] = CAT.DOCTOR_CLINIC;
@@ -4796,10 +4800,16 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
 
             static venueIsFlaggable(args) {
                 const attr = args.venue.attributes;
-                if (args.venue.isParkingLot() && attr.entryExitPoints && attr.entryExitPoints.length) {
-                    const stopPoint = attr.entryExitPoints[0].getPoint();
+                if (args.venue.isParkingLot() && attr.entryExitPoints?.length) {
+                    let stopPoint = attr.entryExitPoints[0].getPoint();
                     const areaCenter = attr.geometry.getCentroid();
-                    if (stopPoint.equals(areaCenter)) {
+                    // TODO: 2023.09.29 (mapomatic) Remove the if block around this (keep the conversion) after WME v2.188 is pushed to prod.
+                    if (!stopPoint.equals) {
+                        stopPoint = WazeWrap.Geometry.ConvertTo900913(stopPoint.coordinates);
+                        if (Math.abs(areaCenter.x - stopPoint.lon) < 0.1 && Math.abs(areaCenter.y - stopPoint.lat) < 0.1) {
+                            return true;
+                        }
+                    } else if (stopPoint.equals(areaCenter)) { // delete this after WME prod updates
                         return true;
                     }
                 }
@@ -5105,7 +5115,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                         categories[idx] = CAT.DOCTOR_CLINIC;
                         updateIt = true;
                     }
-                    categories = _.uniq(categories);
+                    categories = uniq(categories);
                 } else {
                     categories.push(CAT.DOCTOR_CLINIC);
                     updateIt = true;
@@ -5142,7 +5152,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                             updateIt = true;
                         }
                     });
-                    categories = _.uniq(categories);
+                    categories = uniq(categories);
                 } else {
                     categories.push(CAT.DOCTOR_CLINIC);
                     updateIt = true;
@@ -6523,12 +6533,12 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                 }
 
                 // Remove unnecessary parent categories
-                const parentCats = _.uniq(args.categories.map(category => args.pnhCategoryInfos.getById(category).parent))
+                const parentCats = uniq(args.categories.map(category => args.pnhCategoryInfos.getById(category).parent))
                     .filter(parent => parent.trim().length > 0);
                 args.categories = args.categories.filter(cat => !parentCats.includes(cat));
 
                 // update categories if different and no Cat2 option
-                if (!matchSets(_.uniq(venue.attributes.categories), _.uniq(args.categories))) {
+                if (!matchSets(uniq(venue.attributes.categories), uniq(args.categories))) {
                     if (!args.specCases.includes('optionCat2') && !args.specCases.includes('buttOn_addCat2')) {
                         logDev(`Categories updated with ${args.categories}`);
                         addUpdateAction(venue, { categories: args.categories }, actions);
@@ -6993,7 +7003,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                             _venueWhitelist[venueID][wlKey] = [];
                         }
                         _venueWhitelist[venueID].dupeWL.push(dID); // WL the id for the duplicate venue
-                        _venueWhitelist[venueID].dupeWL = _.uniq(_venueWhitelist[venueID].dupeWL);
+                        _venueWhitelist[venueID].dupeWL = uniq(_venueWhitelist[venueID].dupeWL);
                         // Make an entry for the opposite venue
                         if (!_venueWhitelist.hasOwnProperty(dID)) { // If venue is NOT on WL, then add it.
                             _venueWhitelist[dID] = { dupeWL: [] };
@@ -7002,7 +7012,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                             _venueWhitelist[dID][wlKey] = [];
                         }
                         _venueWhitelist[dID].dupeWL.push(venueID); // WL the id for the duplicate venue
-                        _venueWhitelist[dID].dupeWL = _.uniq(_venueWhitelist[dID].dupeWL);
+                        _venueWhitelist[dID].dupeWL = uniq(_venueWhitelist[dID].dupeWL);
                         saveWhitelistToLS(true); // Save the WL to local storage
                         wmephWhitelistCounter();
                         _buttonBanner2.clearWL.active = true;
@@ -8064,7 +8074,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                 }
             }
         }
-        currNameList = _.uniq(currNameList); //  remove duplicates
+        currNameList = uniq(currNameList); //  remove duplicates
 
         let selectedVenueAddr = selectedVenue.getAddress();
         selectedVenueAddr = selectedVenueAddr.attributes || selectedVenueAddr;
@@ -8605,7 +8615,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
         const sourceCopy = sourceArray.slice();
         if (!Array.isArray(toInsert)) toInsert = [toInsert];
         sourceCopy.splice(atIndex, 0, ...toInsert);
-        return _.uniq(sourceCopy);
+        return uniq(sourceCopy);
     }
 
     function arraysAreEqual(array1, array2) {
@@ -9438,7 +9448,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
     function waitForReady() {
         return new Promise(resolve => {
             function loop() {
-                if (typeof W === 'object' && W.userscripts?.state.isReady && WazeWrap?.Ready) {
+                if (typeof W === 'object' && W.userscripts?.state.isReady && WazeWrap?.Ready && W.model.categoryBrands.PARKING_LOT) {
                     resolve();
                 } else {
                     setTimeout(loop, 100);
