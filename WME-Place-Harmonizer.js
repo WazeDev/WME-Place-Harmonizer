@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name        WME Place Harmonizer
 // @namespace   WazeUSA
-// @version     2023.12.10.001
+// @version     2023.12.11.001
 // @description Harmonizes, formats, and locks a selected place
 // @author      WMEPH Development Group
 // @include     /^https:\/\/(www|beta)\.waze\.com\/(?!user\/)(.{2,6}\/)?editor\/?.*$/
@@ -989,7 +989,7 @@
     }
 
     function getVenueLonLat(venue) {
-        const pt = venue.attributes.geometry.getCentroid();
+        const pt = venue.getOLGeometry().getCentroid();
         return new OpenLayers.LonLat(pt.x, pt.y);
     }
 
@@ -1271,15 +1271,15 @@
     }
 
     function nudgeVenue(venue) {
-        const originalGeometry = venue.attributes.geometry.clone();
+        const newGeometry = structuredClone(venue.getGeometry());
         const moveNegative = Math.random() > 0.5;
         const nudgeDistance = 0.00000001 * (moveNegative ? -1 : 1);
         if (venue.isPoint()) {
-            venue.attributes.geometry.x += nudgeDistance;
+            newGeometry.coordinates[0] += nudgeDistance;
         } else {
-            venue.attributes.geometry.components[0].components[0].x += nudgeDistance;
+            newGeometry.coordinates[0][0][0] += nudgeDistance;
         }
-        const action = new UpdateFeatureGeometry(venue, W.model.venues, originalGeometry, venue.attributes.geometry);
+        const action = new UpdateFeatureGeometry(venue, W.model.venues, venue.getGeometry(), newGeometry);
         const mAction = new MultiAction([action], { description: 'Place nudged by WMEPH' });
         W.model.actionManager.add(mAction);
     }
@@ -1334,7 +1334,7 @@
             WazeWrap.Alerts.error(SCRIPT_NAME, 'Whitelisting requires an address. Enter the place\'s address and try again.');
             return false;
         }
-        const centroid = venue.attributes.geometry.getCentroid();
+        const centroid = venue.getOLGeometry().getCentroid();
         const venueGPS = OpenLayers.Layer.SphericalMercator.inverseMercator(centroid.x, centroid.y);
         if (!_venueWhitelist.hasOwnProperty(venueID)) { // If venue is NOT on WL, then add it.
             _venueWhitelist[venueID] = {};
@@ -2983,7 +2983,7 @@
 
             action() {
                 const { venue } = this.args;
-                W.model.actionManager.add(new UpdateFeatureGeometry(venue, venue.model.venues, venue.attributes.geometry, venue.getPolygonGeometry()));
+                W.model.actionManager.add(new UpdateFeatureGeometry(venue, venue.model.venues, venue.getOLGeometry(), venue.getPolygonGeometry()));
                 harmonizePlaceGo(venue, 'harmonize');
             }
         },
@@ -4794,28 +4794,32 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                 harmonizePlaceGo(this.args.venue, 'harmonize');
             }
         },
-        PlaStopPointUnmoved: class extends FlagBase {
-            static defaultSeverity = SEVERITY.BLUE;
-            static defaultMessage = 'Entry/exit point has not been moved.';
+        // 2023-12-11 (mapomatic) I have not been able to figure out how WME is calculating the centroid
+        // of an area place since they switched to GeoJSON. The OL method and turf.centroid() both return
+        // different coordinates. Disabling this flag for now.
 
-            static venueIsFlaggable(args) {
-                const attr = args.venue.attributes;
-                if (args.venue.isParkingLot() && attr.entryExitPoints?.length) {
-                    let stopPoint = attr.entryExitPoints[0].getPoint();
-                    const areaCenter = attr.geometry.getCentroid();
-                    // TODO: 2023.09.29 (mapomatic) Remove the if block around this (keep the conversion) after WME v2.188 is pushed to prod.
-                    if (!stopPoint.equals) {
-                        stopPoint = WazeWrap.Geometry.ConvertTo900913(stopPoint.coordinates);
-                        if (Math.abs(areaCenter.x - stopPoint.lon) < 0.1 && Math.abs(areaCenter.y - stopPoint.lat) < 0.1) {
-                            return true;
-                        }
-                    } else if (stopPoint.equals(areaCenter)) { // delete this after WME prod updates
-                        return true;
-                    }
-                }
-                return false;
-            }
-        },
+        // PlaStopPointUnmoved: class extends FlagBase {
+        //     static defaultSeverity = SEVERITY.BLUE;
+        //     static defaultMessage = 'Entry/exit point has not been moved.';
+
+        //     static venueIsFlaggable(args) {
+        //         const attr = args.venue.attributes;
+        //         if (args.venue.isParkingLot() && attr.entryExitPoints?.length) {
+        //             let stopPoint = attr.entryExitPoints[0].getPoint();
+        //             const areaCenter = attr.geometry.getCentroid();
+        //             // TODO: 2023.09.29 (mapomatic) Remove the if block around this (keep the conversion) after WME v2.188 is pushed to prod.
+        //             if (!stopPoint.equals) {
+        //                 stopPoint = WazeWrap.Geometry.ConvertTo900913(stopPoint.coordinates);
+        //                 if (Math.abs(areaCenter.x - stopPoint.lon) < 0.1 && Math.abs(areaCenter.y - stopPoint.lat) < 0.1) {
+        //                     return true;
+        //                 }
+        //             } else if (stopPoint.equals(areaCenter)) { // delete this after WME prod updates
+        //                 return true;
+        //             }
+        //         }
+        //         return false;
+        //     }
+        // },
         PlaCanExitWhileClosed: class extends ActionFlag {
             static defaultMessage = 'Can cars exit when lot is closed? ';
             static defaultButtonText = 'Yes';
@@ -5348,7 +5352,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
 
             #processUrl(venue, addr, state2L, venueGPS) {
                 if (this.#isCustom) {
-                    const location = venue.attributes.geometry.getCentroid();
+                    const location = venue.getOLGeometry().getCentroid();
                     const { houseNumber } = venue.attributes;
 
                     const urlParts = this.#storeFinderUrl.replace(/ /g, '').split('<>');
@@ -5539,7 +5543,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
             Flag.PlaLotElevationMissing,
             Flag.PlaSpaces,
             Flag.NoPlaStopPoint,
-            Flag.PlaStopPointUnmoved,
+            // Flag.PlaStopPointUnmoved,
             Flag.PlaCanExitWhileClosed,
             Flag.PlaHasAccessibleParking,
             Flag.LocalURL,
@@ -6099,7 +6103,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
             if (!args.highlightOnly) {
                 // get GPS lat/long coords from place, call as venueGPS.lat, venueGPS.lon
                 if (!args.venueGPS) {
-                    const centroid = venue.attributes.geometry.getCentroid();
+                    const centroid = venue.getOLGeometry().getCentroid();
                     args.venueGPS = OpenLayers.Layer.SphericalMercator.inverseMercator(centroid.x, centroid.y);
                 }
                 _venueWhitelist[venueID].city = args.addr.city.getName(); // Store city for the venue
@@ -6822,7 +6826,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
         Flag.PlaSpaces.eval(args);
         Flag.PlaLotTypeMissing.eval(args);
         Flag.NoPlaStopPoint.eval(args);
-        Flag.PlaStopPointUnmoved.eval(args);
+        // Flag.PlaStopPointUnmoved.eval(args);
         Flag.PlaCanExitWhileClosed.eval(args);
         Flag.PlaPaymentTypeMissing.eval(args);
         Flag.PlaHasAccessibleParking.eval(args);
@@ -7401,7 +7405,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
             const coord = link.geometry.location;
             const poiPt = new OpenLayers.Geometry.Point(coord.lng(), coord.lat());
             poiPt.transform(W.Config.map.projection.remote, W.map.getProjectionObject().projCode);
-            const placeGeom = W.selectionManager.getSelectedDataModelObjects()[0].attributes.geometry.getCentroid();
+            const placeGeom = W.selectionManager.getSelectedDataModelObjects()[0].getOLGeometry().getCentroid();
             const placePt = new OpenLayers.Geometry.Point(placeGeom.x, placeGeom.y);
             const ext = W.map.getExtent();
             const lsBounds = new OpenLayers.Geometry.LineString([
@@ -7751,7 +7755,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
 
     function onPlugshareSearchClick() {
         const venue = getSelectedVenue();
-        const olPoint = venue.attributes.geometry.getCentroid();
+        const olPoint = venue.getOLGeometry().getCentroid();
         const point = WazeWrap.Geometry.ConvertTo4326(olPoint.x, olPoint.y);
         const url = `https://www.plugshare.com/?latitude=${point.lat}&longitude=${point.lon}&spanLat=.005&spanLng=.005`;
         if ($('#WMEPH-WebSearchNewTab').prop('checked')) {
@@ -8026,7 +8030,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
         let overlappingFlag = false;
 
         // Initialize the coordinate extents for duplicates
-        const selectedCentroid = selectedVenue.attributes.geometry.getCentroid();
+        const selectedCentroid = selectedVenue.getOLGeometry().getCentroid();
         let minLon = selectedCentroid.x;
         let minLat = selectedCentroid.y;
         let maxLon = minLon;
@@ -8104,7 +8108,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                 const testVenueId = testVenueAttr.id;
 
                 // Check for overlapping PP's
-                const testCentroid = testVenue.attributes.geometry.getCentroid();
+                const testCentroid = testVenue.getOLGeometry().getCentroid();
                 const pt2ptDistance = selectedCentroid.distanceTo(testCentroid);
                 if (selectedVenue.isPoint() && testVenue.isPoint() && pt2ptDistance < 2 && selectedVenueId !== testVenueId) {
                     overlappingFlag = true;
@@ -8363,8 +8367,8 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
             const nodeB = W.model.nodes.getObjectById(closestSegment.attributes.toNodeID);
             if (nodeA && nodeB) {
                 const pt = stopPoint.getPoint ? stopPoint.getPoint() : stopPoint;
-                distanceA = pt.distanceTo(nodeA.attributes.geometry);
-                distanceB = pt.distanceTo(nodeB.attributes.geometry);
+                distanceA = pt.distanceTo(nodeA.getOLGeometry());
+                distanceB = pt.distanceTo(nodeB.getOLGeometry());
                 return distanceA < distanceB ? nodeA.attributes.id : nodeB.attributes.id;
             }
             return undefined;
@@ -8408,14 +8412,14 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
             stopPoint = entryExitPoints.find(pt => pt.isPrimary()) || entryExitPoints[0];
         } else {
             // If no stop points, just use the venue's centroid.
-            stopPoint = venue.attributes.geometry.getCentroid();
+            stopPoint = venue.getOLGeometry().getCentroid();
         }
 
         // Go through segment array and calculate distances to segments.
         for (i = 0, n = segments.length; i < n; i++) {
             // Make sure the segment is not an ignored roadType.
             if (!IGNORE_ROAD_TYPES.includes(segments[i].attributes.roadType)) {
-                distanceToSegment = (stopPoint.getPoint ? stopPoint.getPoint() : stopPoint).distanceTo(segments[i].attributes.geometry);
+                distanceToSegment = (stopPoint.getPoint ? stopPoint.getPoint() : stopPoint).distanceTo(segments[i].getOLGeometry());
                 // Add segment object and its distanceTo to an array.
                 orderedSegments.push({
                     distance: distanceToSegment,
@@ -9645,10 +9649,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
 
     function devTestCode() {
         if (W.loginManager.user.getUsername() === 'MapOMatic') {
-            unsafeWindow.UpdateFeatureGeometry = UpdateFeatureGeometry;
             // test code here
-            // $('#redo-button').click(harmonizePlace);
-            // $('#undo-button').click(harmonizePlace);
         }
     }
 
