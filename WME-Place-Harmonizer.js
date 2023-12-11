@@ -1334,7 +1334,7 @@
             WazeWrap.Alerts.error(SCRIPT_NAME, 'Whitelisting requires an address. Enter the place\'s address and try again.');
             return false;
         }
-        const centroid = venue.attributes.geometry.getCentroid();
+        const centroid = venue.getOLGeometry().getCentroid();
         const venueGPS = OpenLayers.Layer.SphericalMercator.inverseMercator(centroid.x, centroid.y);
         if (!_venueWhitelist.hasOwnProperty(venueID)) { // If venue is NOT on WL, then add it.
             _venueWhitelist[venueID] = {};
@@ -2983,7 +2983,7 @@
 
             action() {
                 const { venue } = this.args;
-                W.model.actionManager.add(new UpdateFeatureGeometry(venue, venue.model.venues, venue.attributes.geometry, venue.getPolygonGeometry()));
+                W.model.actionManager.add(new UpdateFeatureGeometry(venue, venue.model.venues, venue.getOLGeometry(), venue.getPolygonGeometry()));
                 harmonizePlaceGo(venue, 'harmonize');
             }
         },
