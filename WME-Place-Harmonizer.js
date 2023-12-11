@@ -989,7 +989,7 @@
     }
 
     function getVenueLonLat(venue) {
-        const pt = venue.attributes.geometry.getCentroid();
+        const pt = venue.getOLGeometry().getCentroid();
         return new OpenLayers.LonLat(pt.x, pt.y);
     }
 
@@ -1271,15 +1271,15 @@
     }
 
     function nudgeVenue(venue) {
-        const originalGeometry = structuredClone(venue.getGeometry());
+        const newGeometry = structuredClone(venue.getGeometry());
         const moveNegative = Math.random() > 0.5;
         const nudgeDistance = 0.00000001 * (moveNegative ? -1 : 1);
         if (venue.isPoint()) {
-            venue.attributes.geometry.x += nudgeDistance;
+            newGeometry.coordinates[0] += nudgeDistance;
         } else {
-            venue.attributes.geometry.components[0].components[0].x += nudgeDistance;
+            newGeometry.coordinates[0][0][0] += nudgeDistance;
         }
-        const action = new UpdateFeatureGeometry(venue, W.model.venues, originalGeometry, venue.getGeometry());
+        const action = new UpdateFeatureGeometry(venue, W.model.venues, venue.getGeometry(), newGeometry);
         const mAction = new MultiAction([action], { description: 'Place nudged by WMEPH' });
         W.model.actionManager.add(mAction);
     }
@@ -9645,7 +9645,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
 
     function devTestCode() {
         if (W.loginManager.user.getUsername() === 'MapOMatic') {
-            unsafeWindow.UpdateFeatureGeometry = UpdateFeatureGeometry;
+            unsafeWindow.nudgeVenue = nudgeVenue;
             // test code here
             // $('#redo-button').click(harmonizePlace);
             // $('#undo-button').click(harmonizePlace);
