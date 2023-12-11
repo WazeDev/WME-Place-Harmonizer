@@ -5352,7 +5352,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
 
             #processUrl(venue, addr, state2L, venueGPS) {
                 if (this.#isCustom) {
-                    const location = venue.attributes.geometry.getCentroid();
+                    const location = venue.getOLGeometry().getCentroid();
                     const { houseNumber } = venue.attributes;
 
                     const urlParts = this.#storeFinderUrl.replace(/ /g, '').split('<>');
@@ -6103,7 +6103,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
             if (!args.highlightOnly) {
                 // get GPS lat/long coords from place, call as venueGPS.lat, venueGPS.lon
                 if (!args.venueGPS) {
-                    const centroid = venue.attributes.geometry.getCentroid();
+                    const centroid = venue.getOLGeometry().getCentroid();
                     args.venueGPS = OpenLayers.Layer.SphericalMercator.inverseMercator(centroid.x, centroid.y);
                 }
                 _venueWhitelist[venueID].city = args.addr.city.getName(); // Store city for the venue
@@ -7405,7 +7405,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
             const coord = link.geometry.location;
             const poiPt = new OpenLayers.Geometry.Point(coord.lng(), coord.lat());
             poiPt.transform(W.Config.map.projection.remote, W.map.getProjectionObject().projCode);
-            const placeGeom = W.selectionManager.getSelectedDataModelObjects()[0].attributes.geometry.getCentroid();
+            const placeGeom = W.selectionManager.getSelectedDataModelObjects()[0].getOLGeometry().getCentroid();
             const placePt = new OpenLayers.Geometry.Point(placeGeom.x, placeGeom.y);
             const ext = W.map.getExtent();
             const lsBounds = new OpenLayers.Geometry.LineString([
@@ -7755,7 +7755,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
 
     function onPlugshareSearchClick() {
         const venue = getSelectedVenue();
-        const olPoint = venue.attributes.geometry.getCentroid();
+        const olPoint = venue.getOLGeometry().getCentroid();
         const point = WazeWrap.Geometry.ConvertTo4326(olPoint.x, olPoint.y);
         const url = `https://www.plugshare.com/?latitude=${point.lat}&longitude=${point.lon}&spanLat=.005&spanLng=.005`;
         if ($('#WMEPH-WebSearchNewTab').prop('checked')) {
@@ -8030,7 +8030,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
         let overlappingFlag = false;
 
         // Initialize the coordinate extents for duplicates
-        const selectedCentroid = selectedVenue.attributes.geometry.getCentroid();
+        const selectedCentroid = selectedVenue.getOLGeometry().getCentroid();
         let minLon = selectedCentroid.x;
         let minLat = selectedCentroid.y;
         let maxLon = minLon;
@@ -8108,7 +8108,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                 const testVenueId = testVenueAttr.id;
 
                 // Check for overlapping PP's
-                const testCentroid = testVenue.attributes.geometry.getCentroid();
+                const testCentroid = testVenue.getOLGeometry().getCentroid();
                 const pt2ptDistance = selectedCentroid.distanceTo(testCentroid);
                 if (selectedVenue.isPoint() && testVenue.isPoint() && pt2ptDistance < 2 && selectedVenueId !== testVenueId) {
                     overlappingFlag = true;
@@ -8367,8 +8367,8 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
             const nodeB = W.model.nodes.getObjectById(closestSegment.attributes.toNodeID);
             if (nodeA && nodeB) {
                 const pt = stopPoint.getPoint ? stopPoint.getPoint() : stopPoint;
-                distanceA = pt.distanceTo(nodeA.attributes.geometry);
-                distanceB = pt.distanceTo(nodeB.attributes.geometry);
+                distanceA = pt.distanceTo(nodeA.getOLGeometry());
+                distanceB = pt.distanceTo(nodeB.getOLGeometry());
                 return distanceA < distanceB ? nodeA.attributes.id : nodeB.attributes.id;
             }
             return undefined;
@@ -8412,14 +8412,14 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
             stopPoint = entryExitPoints.find(pt => pt.isPrimary()) || entryExitPoints[0];
         } else {
             // If no stop points, just use the venue's centroid.
-            stopPoint = venue.attributes.geometry.getCentroid();
+            stopPoint = venue.getOLGeometry().getCentroid();
         }
 
         // Go through segment array and calculate distances to segments.
         for (i = 0, n = segments.length; i < n; i++) {
             // Make sure the segment is not an ignored roadType.
             if (!IGNORE_ROAD_TYPES.includes(segments[i].attributes.roadType)) {
-                distanceToSegment = (stopPoint.getPoint ? stopPoint.getPoint() : stopPoint).distanceTo(segments[i].attributes.geometry);
+                distanceToSegment = (stopPoint.getPoint ? stopPoint.getPoint() : stopPoint).distanceTo(segments[i].getOLGeometry());
                 // Add segment object and its distanceTo to an array.
                 orderedSegments.push({
                     distance: distanceToSegment,
