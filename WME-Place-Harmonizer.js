@@ -9645,10 +9645,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
 
     function devTestCode() {
         if (W.loginManager.user.getUsername() === 'MapOMatic') {
-            unsafeWindow.nudgeVenue = nudgeVenue;
             // test code here
-            // $('#redo-button').click(harmonizePlace);
-            // $('#undo-button').click(harmonizePlace);
         }
     }
 
