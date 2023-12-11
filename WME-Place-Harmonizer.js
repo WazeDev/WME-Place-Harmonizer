@@ -4794,28 +4794,32 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                 harmonizePlaceGo(this.args.venue, 'harmonize');
             }
         },
-        PlaStopPointUnmoved: class extends FlagBase {
-            static defaultSeverity = SEVERITY.BLUE;
-            static defaultMessage = 'Entry/exit point has not been moved.';
+        // 2023-12-11 (mapomatic) I have not been able to figure out how WME is calculating the centroid
+        // of an area place since they switched to GeoJSON. The OL method and turf.centroid() both return
+        // different coordinates. Disabling this flag for now.
 
-            static venueIsFlaggable(args) {
-                const attr = args.venue.attributes;
-                if (args.venue.isParkingLot() && attr.entryExitPoints?.length) {
-                    let stopPoint = attr.entryExitPoints[0].getPoint();
-                    const areaCenter = attr.geometry.getCentroid();
-                    // TODO: 2023.09.29 (mapomatic) Remove the if block around this (keep the conversion) after WME v2.188 is pushed to prod.
-                    if (!stopPoint.equals) {
-                        stopPoint = WazeWrap.Geometry.ConvertTo900913(stopPoint.coordinates);
-                        if (Math.abs(areaCenter.x - stopPoint.lon) < 0.1 && Math.abs(areaCenter.y - stopPoint.lat) < 0.1) {
-                            return true;
-                        }
-                    } else if (stopPoint.equals(areaCenter)) { // delete this after WME prod updates
-                        return true;
-                    }
-                }
-                return false;
-            }
-        },
+        // PlaStopPointUnmoved: class extends FlagBase {
+        //     static defaultSeverity = SEVERITY.BLUE;
+        //     static defaultMessage = 'Entry/exit point has not been moved.';
+
+        //     static venueIsFlaggable(args) {
+        //         const attr = args.venue.attributes;
+        //         if (args.venue.isParkingLot() && attr.entryExitPoints?.length) {
+        //             let stopPoint = attr.entryExitPoints[0].getPoint();
+        //             const areaCenter = attr.geometry.getCentroid();
+        //             // TODO: 2023.09.29 (mapomatic) Remove the if block around this (keep the conversion) after WME v2.188 is pushed to prod.
+        //             if (!stopPoint.equals) {
+        //                 stopPoint = WazeWrap.Geometry.ConvertTo900913(stopPoint.coordinates);
+        //                 if (Math.abs(areaCenter.x - stopPoint.lon) < 0.1 && Math.abs(areaCenter.y - stopPoint.lat) < 0.1) {
+        //                     return true;
+        //                 }
+        //             } else if (stopPoint.equals(areaCenter)) { // delete this after WME prod updates
+        //                 return true;
+        //             }
+        //         }
+        //         return false;
+        //     }
+        // },
         PlaCanExitWhileClosed: class extends ActionFlag {
             static defaultMessage = 'Can cars exit when lot is closed? ';
             static defaultButtonText = 'Yes';
@@ -5539,7 +5543,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
             Flag.PlaLotElevationMissing,
             Flag.PlaSpaces,
             Flag.NoPlaStopPoint,
-            Flag.PlaStopPointUnmoved,
+            // Flag.PlaStopPointUnmoved,
             Flag.PlaCanExitWhileClosed,
             Flag.PlaHasAccessibleParking,
             Flag.LocalURL,
@@ -6822,7 +6826,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
         Flag.PlaSpaces.eval(args);
         Flag.PlaLotTypeMissing.eval(args);
         Flag.NoPlaStopPoint.eval(args);
-        Flag.PlaStopPointUnmoved.eval(args);
+        // Flag.PlaStopPointUnmoved.eval(args);
         Flag.PlaCanExitWhileClosed.eval(args);
         Flag.PlaPaymentTypeMissing.eval(args);
         Flag.PlaHasAccessibleParking.eval(args);
