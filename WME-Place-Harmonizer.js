@@ -4796,10 +4796,6 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                 harmonizePlaceGo(this.args.venue, 'harmonize');
             }
         },
-        // 2023-12-11 (mapomatic) I have not been able to figure out how WME is calculating the centroid
-        // of an area place since they switched to GeoJSON. The OL method and turf.centroid() both return
-        // different coordinates. Disabling this flag for now.
-
         PlaStopPointUnmoved: class extends FlagBase {
             static defaultSeverity = SEVERITY.BLUE;
             static defaultMessage = 'Entry/exit point has not been moved.';
