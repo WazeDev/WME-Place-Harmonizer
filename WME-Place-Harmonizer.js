@@ -8,6 +8,7 @@
 // @require     https://greasyfork.org/scripts/24851-wazewrap/code/WazeWrap.js
 // @require     https://greasyfork.org/scripts/37486-wme-utils-hoursparser/code/WME%20Utils%20-%20HoursParser.js
 // @require     https://cdnjs.cloudflare.com/ajax/libs/lz-string/1.4.4/lz-string.min.js
+// @require     https://cdnjs.cloudflare.com/ajax/libs/Turf.js/6.5.0/turf.min.js
 // @license     GNU GPL v3
 // @connect     greasyfork.org
 // @grant       GM_addStyle
@@ -22,6 +23,7 @@
 /* global HoursParser */
 /* global I18n */
 /* global google */
+/* global turf */
 
 /* eslint-disable max-classes-per-file */
 
@@ -4798,28 +4800,20 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
         // of an area place since they switched to GeoJSON. The OL method and turf.centroid() both return
         // different coordinates. Disabling this flag for now.
 
-        // PlaStopPointUnmoved: class extends FlagBase {
-        //     static defaultSeverity = SEVERITY.BLUE;
-        //     static defaultMessage = 'Entry/exit point has not been moved.';
+        PlaStopPointUnmoved: class extends FlagBase {
+            static defaultSeverity = SEVERITY.BLUE;
+            static defaultMessage = 'Entry/exit point has not been moved.';
 
-        //     static venueIsFlaggable(args) {
-        //         const attr = args.venue.attributes;
-        //         if (args.venue.isParkingLot() && attr.entryExitPoints?.length) {
-        //             let stopPoint = attr.entryExitPoints[0].getPoint();
-        //             const areaCenter = attr.geometry.getCentroid();
-        //             // TODO: 2023.09.29 (mapomatic) Remove the if block around this (keep the conversion) after WME v2.188 is pushed to prod.
-        //             if (!stopPoint.equals) {
-        //                 stopPoint = WazeWrap.Geometry.ConvertTo900913(stopPoint.coordinates);
-        //                 if (Math.abs(areaCenter.x - stopPoint.lon) < 0.1 && Math.abs(areaCenter.y - stopPoint.lat) < 0.1) {
-        //                     return true;
-        //                 }
-        //             } else if (stopPoint.equals(areaCenter)) { // delete this after WME prod updates
-        //                 return true;
-        //             }
-        //         }
-        //         return false;
-        //     }
-        // },
+            static venueIsFlaggable(args) {
+                const attr = args.venue.attributes;
+                if (args.venue.isParkingLot() && attr.entryExitPoints?.length) {
+                    const stopPoint = attr.entryExitPoints[0].getPoint().coordinates;
+                    const areaCenter = turf.centroid(args.venue.getGeometry()).geometry.coordinates;
+                    return stopPoint[0] === areaCenter[0] && stopPoint[1] === areaCenter[1];
+                }
+                return false;
+            }
+        },
         PlaCanExitWhileClosed: class extends ActionFlag {
             static defaultMessage = 'Can cars exit when lot is closed? ';
             static defaultButtonText = 'Yes';
@@ -5543,7 +5537,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
             Flag.PlaLotElevationMissing,
             Flag.PlaSpaces,
             Flag.NoPlaStopPoint,
-            // Flag.PlaStopPointUnmoved,
+            Flag.PlaStopPointUnmoved,
             Flag.PlaCanExitWhileClosed,
             Flag.PlaHasAccessibleParking,
             Flag.LocalURL,
@@ -6826,7 +6820,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
         Flag.PlaSpaces.eval(args);
         Flag.PlaLotTypeMissing.eval(args);
         Flag.NoPlaStopPoint.eval(args);
-        // Flag.PlaStopPointUnmoved.eval(args);
+        Flag.PlaStopPointUnmoved.eval(args);
         Flag.PlaCanExitWhileClosed.eval(args);
         Flag.PlaPaymentTypeMissing.eval(args);
         Flag.PlaHasAccessibleParking.eval(args);
