@@ -2112,13 +2112,9 @@
     }
 
     // Add array of actions to a MultiAction to be executed at once (counts as one edit for redo/undo purposes)
-    function executeMultiAction(actions, description) {
+    function executeMultiAction(actions) {
         if (actions.length > 0) {
-            const mAction = new MultiAction();
-            mAction.setModel(W.model);
-            mAction._description = description || mAction._description || 'Change(s) made by WMEPH';
-            actions.forEach(action => { mAction.doSubAction(action); });
-            W.model.actionManager.add(mAction);
+            W.model.actionManager.add(new MultiAction(actions));
         }
     }
 
@@ -8484,12 +8480,12 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                 streetName: address.street.getName(),
                 emptyStreet: address.street.attributes.isEmpty ? true : null
             };
-            const multiAction = new MultiAction([], { description: 'Update venue address' });
-            multiAction.setModel(W.model);
-            multiAction.doSubAction(new UpdateFeatureAddress(feature, newAttributes));
+            const newActions = [];
+            newActions.push(new UpdateFeatureAddress(feature, newAttributes));
             if (address.hasOwnProperty('houseNumber')) {
-                multiAction.doSubAction(new UpdateObject(feature, { houseNumber: address.houseNumber }));
+                newActions.push(new UpdateObject(feature, { houseNumber: address.houseNumber }));
             }
+            const multiAction = new MultiAction(newActions, { description: 'Update venue address' });
             if (actions) {
                 actions.push(multiAction);
             } else {
