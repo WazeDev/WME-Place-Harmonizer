@@ -9627,13 +9627,9 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
 
             $.getJSON(url).done(res => {
                 const { values } = res;
-                if (values[0][0].toLowerCase() === 'obsolete') {
-                    WazeWrap.Alerts.error(SCRIPT_NAME, 'You are using an outdated version of WMEPH that doesn\'t work anymore. Update or disable the script.');
-                    return;
-                }
 
                 try {
-                    res.values.forEach(regionArray => {
+                    values.forEach(regionArray => {
                         const region = regionArray[0];
                         const mods = regionArray.slice(3);
                         _pnhModerators[region] = mods;
