@@ -191,6 +191,8 @@
     const PROD_DOWNLOAD_URL = 'https://greasyfork.org/scripts/28690-wme-place-harmonizer/code/WME%20Place%20Harmonizer.user.js';
     const BETA_DOWNLOAD_URL = 'YUhSMGNITTZMeTluY21WaGMzbG1iM0pyTG05eVp5OXpZM0pwY0hSekx6STROamc1TFhkdFpTMXdiR0ZqWlMxb1lYSnRiMjVwZW1WeUxXSmxkR0V2WTI5a1pTOVhUVVVsTWpCUWJHRmpaU1V5TUVoaGNtMXZibWw2WlhJbE1qQkNaWFJoTG5WelpYSXVhbk09';
 
+    const _pnhModerators = {};
+
     let _wordVariations;
     let _resultsCache = {};
     let _initAlreadyRun = false; // This is used to skip a couple things if already run once.  This could probably be handled better...
@@ -9045,31 +9047,16 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
         );
         $wlToolsTab.append(phWLContentHtml);
 
-        const pnhModerators = {
-            ATR: ['cotero2002'],
-            GLR: ['JustinS83', 'wxw777'],
-            HI: ['Nacron'],
-            MAR: ['ct13', 'jr1982jr'],
-            NER: ['JayWazin', 'SNYOWL'],
-            NOR: ['Joyriding', 'ehcool68', 'PesachZ'],
-            NWR: ['SkyviewGuru', 'dmee92'],
-            PLN: ['ehepner1977', 'dmee92'],
-            SAT: ['whathappened15', 'Luke6270'],
-            SCR: ['jm6087', 'sketch'],
-            SER: ['willdanneriv', 'Ardan74'],
-            SWR: ['tonestertm']
-        };
-
         $moderatorsTab.append(
             $('<div>', { style: 'margin-bottom: 10px;' }).text('Moderators are responsible for reviewing chain submissions for their region.'
                 + ' If you have questions or suggestions regarding a chain, please contact any of your regional moderators.'),
             $('<table>').append(
-                Object.keys(pnhModerators).map(region => $('<tr>').append(
+                Object.keys(_pnhModerators).sort().map(region => $('<tr>').append(
                     $('<td>', { class: 'wmeph-mods-table-cell title' }).append(
                         $('<div>').text(region)
                     ),
                     $('<td>', { class: 'wmeph-mods-table-cell' }).append(
-                        $('<div>').text(pnhModerators[region].join(', '))
+                        $('<div>').text(_pnhModerators[region].join(', '))
                     )
                 ))
             )
@@ -9457,6 +9444,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
 
     const SPREADSHEET_ID = '1pBz4l4cNapyGyzfMJKqA4ePEFLkmz2RryAt1UV39B4g';
     const SPREADSHEET_RANGE = '2019.01.20.001!A2:L';
+    const SPREADSHEET_MODERATORS_RANGE = 'Moderators!A1:F';
     const API_KEY = 'YTJWNVBVRkplbUZUZVVObU1YVXpSRVZ3ZW5OaFRFSk1SbTR4VGxKblRURjJlRTFYY3pOQ2NXZElPQT09';
     const dec = s => atob(atob(s));
 
@@ -9632,6 +9620,41 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
             });
         });
     }
+    function downloadPnhModerators() {
+        log('PNH moderators download started...');
+        return new Promise(resolve => {
+            const url = getSpreadsheetUrl(SPREADSHEET_ID, SPREADSHEET_MODERATORS_RANGE, API_KEY);
+
+            $.getJSON(url).done(res => {
+                const { values } = res;
+                if (values[0][0].toLowerCase() === 'obsolete') {
+                    WazeWrap.Alerts.error(SCRIPT_NAME, 'You are using an outdated version of WMEPH that doesn\'t work anymore. Update or disable the script.');
+                    return;
+                }
+
+                try {
+                    res.values.forEach(regionArray => {
+                        const region = regionArray[0];
+                        const mods = regionArray.slice(3);
+                        _pnhModerators[region] = mods;
+                    });
+                } catch (ex) {
+                    _pnhModerators['?'] = ['Error downloading moderators!'];
+                }
+
+                // delete Texas region, if it exists
+                delete _pnhModerators.TX;
+
+                log('PNH moderators download completed');
+                resolve();
+            }).fail(res => {
+                const message = res.responseJSON && res.responseJSON.error ? res.responseJSON.error : 'See response error message above.';
+                console.error('WMEPH failed to load moderator list:', message);
+                _pnhModerators['?'] = ['Error downloading moderators!'];
+                resolve();
+            });
+        });
+    }
 
     function devTestCode() {
         if (W.loginManager.user.getUsername() === 'MapOMatic') {
@@ -9649,6 +9672,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
         unsafeWindow.wmephRunning = 1;
         // Start downloading the PNH spreadsheet data in the background.  Starts the script once data is ready.
         await downloadPnhData();
+        await downloadPnhModerators();
         await placeHarmonizerBootstrap();
         devTestCode();
     }
