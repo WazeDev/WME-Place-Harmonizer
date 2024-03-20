@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name        WME Place Harmonizer
 // @namespace   WazeUSA
-// @version     2024.03.09.001
+// @version     2024.03.20.001
 // @description Harmonizes, formats, and locks a selected place
 // @author      WMEPH Development Group
 // @include     /^https:\/\/(www|beta)\.waze\.com\/(?!user\/)(.{2,6}\/)?editor\/?.*$/
@@ -6776,6 +6776,8 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                 Flag.AddSuper.eval(args);
                 Flag.AppendAMPM.eval(args);
                 Flag.PlaceMatched.eval(args);
+            } else if (!args.highlightOnly && args.categories.includes(CAT.POST_OFFICE)) {
+                Flag.LocationFinder.eval(args);
             }
             Flag.InvalidUrl.eval(args);
             Flag.SFAliases.eval(args);
