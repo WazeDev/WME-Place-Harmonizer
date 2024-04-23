@@ -472,7 +472,7 @@
         CREDIT: 'CREDIT',
         DEBIT: 'DEBIT',
         MEMBERSHIP_CARD: 'MEMBERSHIP_CARD',
-        ONLENE_PAYMENT: 'ONLINE_PAYMENT',
+        ONLINE_PAYMENT: 'ONLINE_PAYMENT',
         PLUG_IN_AUTO_CHARGER: 'PLUG_IN_AUTO_CHARGE',
         OTHER: 'OTHER'
     };
@@ -9447,6 +9447,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
     const SPREADSHEET_ID = '1pBz4l4cNapyGyzfMJKqA4ePEFLkmz2RryAt1UV39B4g';
     const SPREADSHEET_RANGE = '2019.01.20.001!A2:L';
     const SPREADSHEET_MODERATORS_RANGE = 'Moderators!A1:F';
+    const SPREADSHEET_EVCS_PAYMENTS_RANGE = '\'EVCS Payments\'!A1:M';
     const API_KEY = 'YTJWNVBVRkplbUZUZVVObU1YVXpSRVZ3ZW5OaFRFSk1SbTR4VGxKblRURjJlRTFYY3pOQ2NXZElPQT09';
     const dec = s => atob(atob(s));
 
@@ -9652,6 +9653,38 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                 resolve();
             });
         });
+    }
+    function downloadEvcsPaymentTypes() {
+        log('PNH EVCS payment types download started...');
+        return new Promise(resolve => {
+            const url = getSpreadsheetUrl(SPREADSHEET_ID, SPREADSHEET_EVCS_PAYMENTS_RANGE, API_KEY);
+
+            $.getJSON(url).done(res => {
+                const { values } = res;
+
+                try {
+
+                    values.forEach(regionArray => {
+                        const region = regionArray[0];
+                        const mods = regionArray.slice(3);
+                        _pnhModerators[region] = mods;
+                    });
+                } catch (ex) {
+                    _pnhModerators['?'] = ['Error downloading moderators!'];
+                }
+
+                // delete Texas region, if it exists
+                delete _pnhModerators.TX;
+
+                log('PNH moderators download completed');
+                resolve();
+            }).fail(res => {
+                const message = res.responseJSON && res.responseJSON.error ? res.responseJSON.error : 'See response error message above.';
+                console.error('WMEPH failed to load moderator list:', message);
+                _pnhModerators['?'] = ['Error downloading moderators!'];
+                resolve();
+            });
+        });        
     }
 
     function devTestCode() {
