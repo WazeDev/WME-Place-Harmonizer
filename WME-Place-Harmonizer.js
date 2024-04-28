@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name        WME Place Harmonizer Beta
 // @namespace   WazeUSA
-// @version     2024.04.27.001
+// @version     2024.04.28.001
 // @description Harmonizes, formats, and locks a selected place
 // @author      WMEPH Development Group
 // @include     /^https:\/\/(www|beta)\.waze\.com\/(?!user\/)(.{2,6}\/)?editor\/?.*$/
@@ -7809,6 +7809,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
 
         if (!venue) {
             $('#wmeph-panel').remove();
+            $('#wmeph-pre-panel').remove();
             return;
         }
 
@@ -7902,22 +7903,24 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
 
         // Check if there's a backend feed for PLAs
         // TODO: put this in a separate function?
-        if (venue.isParkingLot()) {
+        if (venue) {
             // It doesn't seem to matter what we pass for lon/lat, so use first geometry point.
-            const firstPoint = venue.getGeometry().coordinates[0][0];
+            const firstPoint = venue.isPoint() ? venue.getGeometry().coordinates[0][0] : venue.getGeometry().coordinates;
             const lon = firstPoint[0];
             const lat = firstPoint[1];
-            const url = `https://www.waze.com/SearchServer/mozi?lon=${lon}&lat=${lat}&format=PROTO_JSON_FULL&venue_id=venues.${venue.getID()}`;
+            const url = `https://${location.host}/SearchServer/mozi?lon=${lon}&lat=${lat}&format=PROTO_JSON_FULL&venue_id=venues.${venue.getID()}`;
             $.getJSON(url).done(res => {
-                const hasFeed = res.venue.external_providers?.some(prov => prov.provider.toLowerCase() !== 'Google');
+                const hasFeed = res.venue.external_providers?.some(prov => prov.provider.toLowerCase() !== 'google');
                 if (hasFeed) {
                     const $rowDiv = $('<div>')
                         .css({ padding: '3px 4px 0px 4px', 'background-color': 'yellow' });
-                    $rowDiv.append($('<span>')
-                        .append('Parking lot is connected to the parking feed. Please do not delete.'));
+                    $rowDiv.append(
+                        $('<div>').text('This place is connected to a feed.'),
+                        $('<div>').text('PLEASE DO NOT DELETE').css({ 'font-weight': '500' })
+                    );
                     $wmephPrePanel.append($rowDiv);
                     // Potential code to hide the delete key if needed.
-                    // setTimeout(() => document.querySelector('#delete-button').setAttribute('disabled', true), 200);
+                    // setTimeout(() => $('#delete-button').setAttribute('disabled', true), 200);
                 }
             });
         }
