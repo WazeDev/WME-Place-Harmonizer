@@ -7820,9 +7820,11 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
             $('#WMEPH_banner').remove();
             $('#WMEPH_services').remove();
             $('#WMEPH_tools').remove();
+            $('#wmeph-pre-panel').remove();
         }
 
         let $wmephPanel;
+        let $wmephPrePanel;
         let $wmephRunPanel;
         let $runButton;
         let $websiteButton;
@@ -7831,6 +7833,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
 
         if (!$('#wmeph-panel').length) {
             const devVersSuffix = IS_BETA_VERSION ? '-β' : '';
+            $wmephPrePanel = $('<dev>', { id: 'wmeph-pre-panel' });
             $wmephPanel = $('<div>', { id: 'wmeph-panel' });
             $wmephRunPanel = $('<div>', { id: 'wmeph-run-panel' });
             $runButton = $('<input>', {
@@ -7864,6 +7867,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
             }).click(onPlugshareSearchClick);
 
             $('#edit-panel > .contents').prepend(
+                $wmephPrePanel,
                 $wmephPanel.append(
                     $wmephRunPanel.append(
                         $runButton,
@@ -7874,6 +7878,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                 )
             );
         } else {
+            $wmephPrePanel = $('wmeph-pre-panel');
             $wmephPanel = $('#wmeph-panel');
             $wmephRunPanel = $('#wmeph-run-panel');
             $runButton = $('#runWMEPH');
@@ -7893,6 +7898,28 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
         // If the user selects a place in the dupe list, don't clear the labels yet
         if (_dupeIDList.includes(venue.attributes.id)) {
             destroyDupeLabels();
+        }
+
+        // Check if there's a backend feed for PLAs
+        // TODO: put this in a separate function?
+        if (venue.isParkingLot()) {
+            // It doesn't seem to matter what we pass for lon/lat, so use first geometry point.
+            const firstPoint = venue.getGeometry().coordinates[0][0];
+            const lon = firstPoint[0];
+            const lat = firstPoint[1];
+            const url = `https://www.waze.com/SearchServer/mozi?lon=${lon}&lat=${lat}&format=PROTO_JSON_FULL&venue_id=venues.${venue.getID()}`;
+            $.getJSON(url).done(res => {
+                const hasFeed = res.venue.external_providers?.some(prov => prov.provider.toLowerCase() !== 'Google');
+                if (hasFeed) {
+                    const $rowDiv = $('<div>')
+                        .css({ padding: '3px 4px 0px 4px', 'background-color': 'yellow' });
+                    $rowDiv.append($('<span>')
+                        .append('Parking lot is connected to the parking feed. Please do not delete.'));
+                    $wmephPrePanel.append($rowDiv);
+                    // Potential code to hide the delete key if needed.
+                    // setTimeout(() => document.querySelector('#delete-button').setAttribute('disabled', true), 200);
+                }
+            });
         }
     }
 
