@@ -7905,7 +7905,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
         // TODO: put this in a separate function?
         if (venue) {
             // It doesn't seem to matter what we pass for lon/lat, so use first geometry point.
-            const firstPoint = venue.isPoint() ? venue.getGeometry().coordinates[0][0] : venue.getGeometry().coordinates;
+            const firstPoint = venue.isPoint() ? venue.getGeometry().coordinates : venue.getGeometry().coordinates[0][0];
             const lon = firstPoint[0];
             const lat = firstPoint[1];
             const url = `https://${location.host}/SearchServer/mozi?lon=${lon}&lat=${lat}&format=PROTO_JSON_FULL&venue_id=venues.${venue.getID()}`;
