@@ -9276,6 +9276,26 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
         }
     }
 
+    function onFilterHighlightToggleShortcutKey() {
+        $('#WMEPH-ShowFilterHighlight').click();
+    }
+
+    function onWindowBeforeUnload() {
+        localStorage.setItem('WMEPH_FilterHighlightShortcut', getShortcutKeys(W.accelerators.Actions.wmephFilterHighlightToggle));
+    }
+    function getShortcutKeys(shortcutAction) {
+        let keys = '';
+        const { shortcut } = shortcutAction;
+        if (shortcut) {
+            if (shortcut.altKey) keys += 'A';
+            if (shortcut.shiftKey) keys += 'S';
+            if (shortcut.ctrlKey) keys += 'C';
+            if (keys.length) keys += '+';
+            if (shortcut.keyCode) keys += shortcut.keyCode;
+        }
+        return keys;
+    }
+
     async function placeHarmonizerInit() {
         updateUserInfo();
         logDev('placeHarmonizerInit'); // Be sure to update User info before calling logDev()
@@ -9411,6 +9431,17 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
             $('#WMEPH-ColorHighlighting').trigger('click');
         });
 
+        // Add filter highlight shortcut
+        new WazeWrap.Interface.Shortcut(
+            'wmephFilterHighlightToggle',
+            'Toggle "missing Customer Parking service" highlight',
+            'WMEPH',
+            'WMEPH',
+            localStorage.getItem('WMEPH_FilterHighlightShortcut') ?? '',
+            onFilterHighlightToggleShortcutKey,
+            null
+        ).add();
+
         await addWmephTab(); // initialize the settings tab
 
         // Event listeners
@@ -9421,6 +9452,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
         W.model.venues.on('objectssynced', () => errorHandler(destroyDupeLabels));
         W.model.venues.on('objectssynced', e => errorHandler(() => syncWL(e)));
         W.model.venues.on('objectschanged', venues => errorHandler(onVenuesChanged, venues));
+        window.addEventListener('beforeunload', onWindowBeforeUnload, false);
 
         // Remove any temporary ID values (ID < 0) from the WL store at startup.
         let removedWLCount = 0;
