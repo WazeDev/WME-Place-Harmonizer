@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name        WME Place Harmonizer
 // @namespace   WazeUSA
-// @version     2024.05.02.003
+// @version     2024.05.02.004
 // @description Harmonizes, formats, and locks a selected place
 // @author      WMEPH Development Group
 // @include     /^https:\/\/(www|beta)\.waze\.com\/(?!user\/)(.{2,6}\/)?editor\/?.*$/
@@ -558,6 +558,8 @@
     ];
     const BAD_URL = 'badURL';
     const BAD_PHONE = 'badPhone';
+    // Feeds that are not in use and it's safe to delete the place. Use lowercase.
+    const FEEDS_TO_SKIP = ['google', 'yext', 'yext2'];
 
     // Split out state-based data
     let _psStateIx;
@@ -7834,7 +7836,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
 
         if (!$('#wmeph-panel').length) {
             const devVersSuffix = IS_BETA_VERSION ? '-β' : '';
-            $wmephPrePanel = $('<dev>', { id: 'wmeph-pre-panel' });
+            $wmephPrePanel = $('<div>', { id: 'wmeph-pre-panel' });
             $wmephPanel = $('<div>', { id: 'wmeph-panel' });
             $wmephRunPanel = $('<div>', { id: 'wmeph-run-panel' });
             $runButton = $('<input>', {
@@ -7901,7 +7903,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
             destroyDupeLabels();
         }
 
-        // Check if there's a backend feed for PLAs
+        // Check if there's a backend feed
         // TODO: put this in a separate function?
         if (venue) {
             // It doesn't seem to matter what we pass for lon/lat, so use first geometry point.
@@ -7910,7 +7912,8 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
             const lat = firstPoint[1];
             const url = `https://${location.host}/SearchServer/mozi?lon=${lon}&lat=${lat}&format=PROTO_JSON_FULL&venue_id=venues.${venue.getID()}`;
             $.getJSON(url).done(res => {
-                const feedNames = res.venue.external_providers?.filter(prov => prov.provider.toLowerCase() !== 'google').map(prov => prov.provider);
+                const feedNames = res.venue.external_providers
+                    ?.filter(prov => !FEEDS_TO_SKIP.includes(prov.provider.toLowerCase())).map(prov => prov.provider);
                 if (feedNames?.length) {
                     const $rowDiv = $('<div>')
                         .css({ padding: '3px 4px 0px 4px', 'background-color': 'yellow' });
