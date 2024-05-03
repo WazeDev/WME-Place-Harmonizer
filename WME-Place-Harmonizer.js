@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name        WME Place Harmonizer Beta
 // @namespace   WazeUSA
-// @version     2024.04.28.001
+// @version     2024.05.02.001
 // @description Harmonizes, formats, and locks a selected place
 // @author      WMEPH Development Group
 // @include     /^https:\/\/(www|beta)\.waze\.com\/(?!user\/)(.{2,6}\/)?editor\/?.*$/
@@ -7910,13 +7910,15 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
             const lat = firstPoint[1];
             const url = `https://${location.host}/SearchServer/mozi?lon=${lon}&lat=${lat}&format=PROTO_JSON_FULL&venue_id=venues.${venue.getID()}`;
             $.getJSON(url).done(res => {
-                const hasFeed = res.venue.external_providers?.some(prov => prov.provider.toLowerCase() !== 'google');
-                if (hasFeed) {
+                const feedNames = res.venue.external_providers.filter(prov => prov.provider.toLowerCase() !== 'google').map(prov => prov.provider);
+                if (feedNames.length) {
                     const $rowDiv = $('<div>')
                         .css({ padding: '3px 4px 0px 4px', 'background-color': 'yellow' });
                     $rowDiv.append(
-                        $('<div>').text('This place is connected to a feed.'),
-                        $('<div>').text('PLEASE DO NOT DELETE').css({ 'font-weight': '500' })
+                        $('<div>').text('PLEASE DO NOT DELETE').css({ 'font-weight': '500' }),
+                        $('<div>').text(`Place is connected to the following feed${feedNames.length > 1 ? 's' : ''}:`)
+                            .css({ 'font-size': '13px' }),
+                        $('<div>').text(feedNames.join(', ')).css({ 'font-size': '13px' })
                     );
                     $wmephPrePanel.append($rowDiv);
                     // Potential code to hide the delete key if needed.
