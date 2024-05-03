@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name        WME Place Harmonizer Beta
 // @namespace   WazeUSA
-// @version     2024.04.27.001
+// @version     2024.05.02.001
 // @description Harmonizes, formats, and locks a selected place
 // @author      WMEPH Development Group
 // @include     /^https:\/\/(www|beta)\.waze\.com\/(?!user\/)(.{2,6}\/)?editor\/?.*$/
@@ -7809,6 +7809,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
 
         if (!venue) {
             $('#wmeph-panel').remove();
+            $('#wmeph-pre-panel').remove();
             return;
         }
 
@@ -7902,22 +7903,26 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
 
         // Check if there's a backend feed for PLAs
         // TODO: put this in a separate function?
-        if (venue.isParkingLot()) {
+        if (venue) {
             // It doesn't seem to matter what we pass for lon/lat, so use first geometry point.
-            const firstPoint = venue.getGeometry().coordinates[0][0];
+            const firstPoint = venue.isPoint() ? venue.getGeometry().coordinates : venue.getGeometry().coordinates[0][0];
             const lon = firstPoint[0];
             const lat = firstPoint[1];
-            const url = `https://www.waze.com/SearchServer/mozi?lon=${lon}&lat=${lat}&format=PROTO_JSON_FULL&venue_id=venues.${venue.getID()}`;
+            const url = `https://${location.host}/SearchServer/mozi?lon=${lon}&lat=${lat}&format=PROTO_JSON_FULL&venue_id=venues.${venue.getID()}`;
             $.getJSON(url).done(res => {
-                const hasFeed = res.venue.external_providers?.some(prov => prov.provider.toLowerCase() !== 'Google');
-                if (hasFeed) {
+                const feedNames = res.venue.external_providers.filter(prov => prov.provider.toLowerCase() !== 'google').map(prov => prov.provider);
+                if (feedNames.length) {
                     const $rowDiv = $('<div>')
                         .css({ padding: '3px 4px 0px 4px', 'background-color': 'yellow' });
-                    $rowDiv.append($('<span>')
-                        .append('Parking lot is connected to the parking feed. Please do not delete.'));
+                    $rowDiv.append(
+                        $('<div>').text('PLEASE DO NOT DELETE').css({ 'font-weight': '500' }),
+                        $('<div>').text(`Place is connected to the following feed${feedNames.length > 1 ? 's' : ''}:`)
+                            .css({ 'font-size': '13px' }),
+                        $('<div>').text(feedNames.join(', ')).css({ 'font-size': '13px' })
+                    );
                     $wmephPrePanel.append($rowDiv);
                     // Potential code to hide the delete key if needed.
-                    // setTimeout(() => document.querySelector('#delete-button').setAttribute('disabled', true), 200);
+                    // setTimeout(() => $('#delete-button').setAttribute('disabled', true), 200);
                 }
             });
         }
@@ -8936,7 +8941,8 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
             'WMEPH-DisableRankHL',
             'WMEPH-DisableWLHL',
             'WMEPH-PLATypeFill',
-            'WMEPH-KBSModifierKey'
+            'WMEPH-KBSModifierKey',
+            'WMEPH-ShowFilterHighlight'
         ]);
 
         if (USER.isDevUser) {
@@ -8979,6 +8985,13 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
         $('#WMEPH-DisableRankHL').click(bootstrapWmephColorHighlights);
         $('#WMEPH-DisableWLHL').click(bootstrapWmephColorHighlights);
         $('#WMEPH-PLATypeFill').click(() => applyHighlightsTest(W.model.venues.getObjectArray()));
+        $('#WMEPH-ShowFilterHighlight').click(() => {
+            if ($('#WMEPH-ShowFilterHighlight').prop('checked')) {
+                processFilterHighlights();
+            } else {
+                clearFilterHighlights();
+            }
+        });
 
         _initAlreadyRun = true;
     }
@@ -9049,6 +9062,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
         createSettingsCheckbox($highlighterTab, 'WMEPH-DisableRankHL', 'Disable highlighting for places locked above your rank');
         createSettingsCheckbox($highlighterTab, 'WMEPH-DisableWLHL', 'Disable Whitelist highlighting (shows all missing info regardless of WL)');
         createSettingsCheckbox($highlighterTab, 'WMEPH-PLATypeFill', 'Fill parking lots based on type (public=blue, restricted=yellow, private=red)');
+        createSettingsCheckbox($highlighterTab, 'WMEPH-ShowFilterHighlight', 'Highlight places without Customer Parking service');
         if (USER.isDevUser || USER.isBetaUser || USER.rank >= 3) {
             // createSettingsCheckbox($highlighterTab 'WMEPH-UnlockedRPPs','Highlight unlocked residential place points');
         }
@@ -9449,6 +9463,14 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
 
         log('Starting Highlighter');
         bootstrapWmephColorHighlights();
+
+        // Set up filter highlights
+        if ($('#WMEPH-ShowFilterHighlight').prop('checked')) {
+            processFilterHighlights();
+        }
+        W.model.venues.on('objectschanged', () => errorHandler(processFilterHighlights));
+        W.model.venues.on('objectsremoved', () => errorHandler(clearFilterHighlights));
+        W.model.venues.on('objectsadded', () => errorHandler(processFilterHighlights));
     } // END placeHarmonizer_init function
 
     function waitForReady() {
@@ -9679,6 +9701,48 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                 resolve();
             });
         });
+    }
+
+    function clearFilterHighlights() {
+        const layer = W.map.venueLayer;
+        layer.removeFeatures(layer.getFeaturesByAttribute('wmephHighlight', '1'));
+    }
+    function processFilterHighlights() {
+        if (!$('#WMEPH-ShowFilterHighlight').prop('checked')) {
+            return;
+        }
+        // clear existing highlights
+        clearFilterHighlights();
+        const featuresToAdd = [];
+        W.model.venues.getObjectArray(v => !v.isResidential()
+            && !v.isParkingLot() && !v.attributes.services.includes('PARKING_FOR_CUSTOMERS'))
+            .forEach(v => {
+                let style;
+                if (v.isPoint()) {
+                    style = {
+                        pointRadius: 10,
+                        strokeWidth: 10,
+                        strokeColor: '#F0F',
+                        strokeOpacity: 0.7,
+                        fillOpacity: 0,
+                        graphicZIndex: -9999,
+                        strokeDashstyle: 'solid' // '3 6'
+                    };
+                } else {
+                    style = {
+                        strokeWidth: 12,
+                        strokeColor: '#F0F',
+                        strokeOpacity: 0.7,
+                        fillOpacity: 0,
+                        graphicZIndex: -9999999,
+                        strokeDashstyle: 'solid' // '3 6'
+                    };
+                }
+                const geometry = v.getOLGeometry().clone();
+                const f = new OpenLayers.Feature.Vector(geometry, { wmephHighlight: '1' }, style);
+                featuresToAdd.push(f);
+            });
+        W.map.venueLayer.addFeatures(featuresToAdd);
     }
 
     function devTestCode() {
