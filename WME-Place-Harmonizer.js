@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name        WME Place Harmonizer
 // @namespace   WazeUSA
-// @version     2024.03.20.001
+// @version     2024.05.04.001
 // @description Harmonizes, formats, and locks a selected place
 // @author      WMEPH Development Group
 // @include     /^https:\/\/(www|beta)\.waze\.com\/(?!user\/)(.{2,6}\/)?editor\/?.*$/
@@ -360,7 +360,7 @@
         // CITY_HALL: 'CITY_HALL',
         // CLUB: 'CLUB',
         COLLEGE_UNIVERSITY: 'COLLEGE_UNIVERSITY',
-        // CONSTRUCTION_SITE: 'CONSTRUCTION_SITE',
+        CONSTRUCTION_SITE: 'CONSTRUCTION_SITE',
         CONVENIENCE_STORE: 'CONVENIENCE_STORE',
         CONVENTIONS_EVENT_CENTER: 'CONVENTIONS_EVENT_CENTER',
         COTTAGE_CABIN: 'COTTAGE_CABIN',
@@ -558,6 +558,24 @@
     ];
     const BAD_URL = 'badURL';
     const BAD_PHONE = 'badPhone';
+    // Feeds that are not in use and it's safe to delete the place. Use lowercase.
+    const FEEDS_TO_SKIP = ['google', 'yext', 'yext2'];
+    // Do not highlight places if any of these are the primary category.
+    const CATS_TO_IGNORE_CUSTOMER_PARKING_HIGHLIGHT = [
+        CAT.BRIDGE,
+        CAT.CANAL,
+        CAT.CHARGING_STATION,
+        CAT.CONSTRUCTION_SITE,
+        CAT.ISLAND,
+        CAT.JUNCTION_INTERCHANGE,
+        CAT.NATURAL_FEATURES,
+        CAT.PARKING_LOT,
+        CAT.RESIDENCE_HOME,
+        CAT.RIVER_STREAM,
+        CAT.SEA_LAKE_POOL,
+        CAT.SWAMP_MARSH,
+        CAT.TUNNEL
+    ];
 
     // Split out state-based data
     let _psStateIx;
@@ -7809,6 +7827,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
 
         if (!venue) {
             $('#wmeph-panel').remove();
+            $('#wmeph-pre-panel').remove();
             return;
         }
 
@@ -7820,9 +7839,11 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
             $('#WMEPH_banner').remove();
             $('#WMEPH_services').remove();
             $('#WMEPH_tools').remove();
+            $('#wmeph-pre-panel').remove();
         }
 
         let $wmephPanel;
+        let $wmephPrePanel;
         let $wmephRunPanel;
         let $runButton;
         let $websiteButton;
@@ -7831,6 +7852,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
 
         if (!$('#wmeph-panel').length) {
             const devVersSuffix = IS_BETA_VERSION ? '-β' : '';
+            $wmephPrePanel = $('<div>', { id: 'wmeph-pre-panel' });
             $wmephPanel = $('<div>', { id: 'wmeph-panel' });
             $wmephRunPanel = $('<div>', { id: 'wmeph-run-panel' });
             $runButton = $('<input>', {
@@ -7864,6 +7886,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
             }).click(onPlugshareSearchClick);
 
             $('#edit-panel > .contents').prepend(
+                $wmephPrePanel,
                 $wmephPanel.append(
                     $wmephRunPanel.append(
                         $runButton,
@@ -7874,6 +7897,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                 )
             );
         } else {
+            $wmephPrePanel = $('wmeph-pre-panel');
             $wmephPanel = $('#wmeph-panel');
             $wmephRunPanel = $('#wmeph-run-panel');
             $runButton = $('#runWMEPH');
@@ -7893,6 +7917,33 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
         // If the user selects a place in the dupe list, don't clear the labels yet
         if (_dupeIDList.includes(venue.attributes.id)) {
             destroyDupeLabels();
+        }
+
+        // Check if there's a backend feed
+        // TODO: put this in a separate function?
+        if (venue) {
+            // It doesn't seem to matter what we pass for lon/lat, so use first geometry point.
+            const firstPoint = venue.isPoint() ? venue.getGeometry().coordinates : venue.getGeometry().coordinates[0][0];
+            const lon = firstPoint[0];
+            const lat = firstPoint[1];
+            const url = `https://${location.host}/SearchServer/mozi?lon=${lon}&lat=${lat}&format=PROTO_JSON_FULL&venue_id=venues.${venue.getID()}`;
+            $.getJSON(url).done(res => {
+                const feedNames = res.venue.external_providers
+                    ?.filter(prov => !FEEDS_TO_SKIP.includes(prov.provider.toLowerCase())).map(prov => prov.provider);
+                if (feedNames?.length) {
+                    const $rowDiv = $('<div>')
+                        .css({ padding: '3px 4px 0px 4px', 'background-color': 'yellow' });
+                    $rowDiv.append(
+                        $('<div>').text('PLEASE DO NOT DELETE').css({ 'font-weight': '500' }),
+                        $('<div>').text(`Place is connected to the following feed${feedNames.length > 1 ? 's' : ''}:`)
+                            .css({ 'font-size': '13px' }),
+                        $('<div>').text(feedNames.join(', ')).css({ 'font-size': '13px' })
+                    );
+                    $wmephPrePanel.append($rowDiv);
+                    // Potential code to hide the delete key if needed.
+                    // setTimeout(() => $('#delete-button').setAttribute('disabled', true), 200);
+                }
+            });
         }
     }
 
@@ -8909,7 +8960,8 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
             'WMEPH-DisableRankHL',
             'WMEPH-DisableWLHL',
             'WMEPH-PLATypeFill',
-            'WMEPH-KBSModifierKey'
+            'WMEPH-KBSModifierKey',
+            'WMEPH-ShowFilterHighlight'
         ]);
 
         if (USER.isDevUser) {
@@ -8952,6 +9004,13 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
         $('#WMEPH-DisableRankHL').click(bootstrapWmephColorHighlights);
         $('#WMEPH-DisableWLHL').click(bootstrapWmephColorHighlights);
         $('#WMEPH-PLATypeFill').click(() => applyHighlightsTest(W.model.venues.getObjectArray()));
+        $('#WMEPH-ShowFilterHighlight').click(() => {
+            if ($('#WMEPH-ShowFilterHighlight').prop('checked')) {
+                processFilterHighlights();
+            } else {
+                clearFilterHighlights();
+            }
+        });
 
         _initAlreadyRun = true;
     }
@@ -9022,6 +9081,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
         createSettingsCheckbox($highlighterTab, 'WMEPH-DisableRankHL', 'Disable highlighting for places locked above your rank');
         createSettingsCheckbox($highlighterTab, 'WMEPH-DisableWLHL', 'Disable Whitelist highlighting (shows all missing info regardless of WL)');
         createSettingsCheckbox($highlighterTab, 'WMEPH-PLATypeFill', 'Fill parking lots based on type (public=blue, restricted=yellow, private=red)');
+        createSettingsCheckbox($highlighterTab, 'WMEPH-ShowFilterHighlight', 'Highlight places without Customer Parking service');
         if (USER.isDevUser || USER.isBetaUser || USER.rank >= 3) {
             // createSettingsCheckbox($highlighterTab 'WMEPH-UnlockedRPPs','Highlight unlocked residential place points');
         }
@@ -9235,6 +9295,26 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
         }
     }
 
+    function onFilterHighlightToggleShortcutKey() {
+        $('#WMEPH-ShowFilterHighlight').click();
+    }
+
+    function onWindowBeforeUnload() {
+        localStorage.setItem('WMEPH_FilterHighlightShortcut', getShortcutKeys(W.accelerators.Actions.wmephFilterHighlightToggle));
+    }
+    function getShortcutKeys(shortcutAction) {
+        let keys = '';
+        const { shortcut } = shortcutAction;
+        if (shortcut) {
+            if (shortcut.altKey) keys += 'A';
+            if (shortcut.shiftKey) keys += 'S';
+            if (shortcut.ctrlKey) keys += 'C';
+            if (keys.length) keys += '+';
+            if (shortcut.keyCode) keys += shortcut.keyCode;
+        }
+        return keys;
+    }
+
     async function placeHarmonizerInit() {
         updateUserInfo();
         logDev('placeHarmonizerInit'); // Be sure to update User info before calling logDev()
@@ -9370,6 +9450,17 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
             $('#WMEPH-ColorHighlighting').trigger('click');
         });
 
+        // Add filter highlight shortcut
+        new WazeWrap.Interface.Shortcut(
+            'wmephFilterHighlightToggle',
+            'Toggle "missing Customer Parking service" highlight',
+            'WMEPH',
+            'WMEPH',
+            localStorage.getItem('WMEPH_FilterHighlightShortcut') ?? '',
+            onFilterHighlightToggleShortcutKey,
+            null
+        ).add();
+
         await addWmephTab(); // initialize the settings tab
 
         // Event listeners
@@ -9380,6 +9471,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
         W.model.venues.on('objectssynced', () => errorHandler(destroyDupeLabels));
         W.model.venues.on('objectssynced', e => errorHandler(() => syncWL(e)));
         W.model.venues.on('objectschanged', venues => errorHandler(onVenuesChanged, venues));
+        window.addEventListener('beforeunload', onWindowBeforeUnload, false);
 
         // Remove any temporary ID values (ID < 0) from the WL store at startup.
         let removedWLCount = 0;
@@ -9422,6 +9514,14 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
 
         log('Starting Highlighter');
         bootstrapWmephColorHighlights();
+
+        // Set up filter highlights
+        if ($('#WMEPH-ShowFilterHighlight').prop('checked')) {
+            processFilterHighlights();
+        }
+        W.model.venues.on('objectschanged', () => errorHandler(processFilterHighlights));
+        W.model.venues.on('objectsremoved', () => errorHandler(clearFilterHighlights));
+        W.model.venues.on('objectsadded', () => errorHandler(processFilterHighlights));
     } // END placeHarmonizer_init function
 
     function waitForReady() {
@@ -9652,6 +9752,48 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                 resolve();
             });
         });
+    }
+
+    function clearFilterHighlights() {
+        const layer = W.map.venueLayer;
+        layer.removeFeatures(layer.getFeaturesByAttribute('wmephHighlight', '1'));
+    }
+    function processFilterHighlights() {
+        if (!$('#WMEPH-ShowFilterHighlight').prop('checked')) {
+            return;
+        }
+        // clear existing highlights
+        clearFilterHighlights();
+        const featuresToAdd = [];
+        W.model.venues.getObjectArray(v => !v.attributes.services.includes('PARKING_FOR_CUSTOMERS')
+            && !CATS_TO_IGNORE_CUSTOMER_PARKING_HIGHLIGHT.includes(v.attributes.categories[0]))
+            .forEach(v => {
+                let style;
+                if (v.isPoint()) {
+                    style = {
+                        pointRadius: 10,
+                        strokeWidth: 10,
+                        strokeColor: '#F0F',
+                        strokeOpacity: 0.7,
+                        fillOpacity: 0,
+                        graphicZIndex: -9999,
+                        strokeDashstyle: 'solid' // '3 6'
+                    };
+                } else {
+                    style = {
+                        strokeWidth: 12,
+                        strokeColor: '#F0F',
+                        strokeOpacity: 0.7,
+                        fillOpacity: 0,
+                        graphicZIndex: -9999999,
+                        strokeDashstyle: 'solid' // '3 6'
+                    };
+                }
+                const geometry = v.getOLGeometry().clone();
+                const f = new OpenLayers.Feature.Vector(geometry, { wmephHighlight: '1' }, style);
+                featuresToAdd.push(f);
+            });
+        W.map.venueLayer.addFeatures(featuresToAdd);
     }
 
     function devTestCode() {
