@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name        WME Place Harmonizer Beta
 // @namespace   WazeUSA
-// @version     2024.05.03.004
+// @version     2024.05.04.001
 // @description Harmonizes, formats, and locks a selected place
 // @author      WMEPH Development Group
 // @include     /^https:\/\/(www|beta)\.waze\.com\/(?!user\/)(.{2,6}\/)?editor\/?.*$/
@@ -360,7 +360,7 @@
         // CITY_HALL: 'CITY_HALL',
         // CLUB: 'CLUB',
         COLLEGE_UNIVERSITY: 'COLLEGE_UNIVERSITY',
-        // CONSTRUCTION_SITE: 'CONSTRUCTION_SITE',
+        CONSTRUCTION_SITE: 'CONSTRUCTION_SITE',
         CONVENIENCE_STORE: 'CONVENIENCE_STORE',
         CONVENTIONS_EVENT_CENTER: 'CONVENTIONS_EVENT_CENTER',
         COTTAGE_CABIN: 'COTTAGE_CABIN',
@@ -560,6 +560,22 @@
     const BAD_PHONE = 'badPhone';
     // Feeds that are not in use and it's safe to delete the place. Use lowercase.
     const FEEDS_TO_SKIP = ['google', 'yext', 'yext2'];
+    // Do not highlight places if any of these are the primary category.
+    const CATS_TO_IGNORE_CUSTOMER_PARKING_HIGHLIGHT = [
+        CAT.BRIDGE,
+        CAT.CANAL,
+        CAT.CHARGING_STATION,
+        CAT.CONSTRUCTION_SITE,
+        CAT.ISLAND,
+        CAT.JUNCTION_INTERCHANGE,
+        CAT.NATURAL_FEATURES,
+        CAT.PARKING_LOT,
+        CAT.RESIDENCE_HOME,
+        CAT.RIVER_STREAM,
+        CAT.SEA_LAKE_POOL,
+        CAT.SWAMP_MARSH,
+        CAT.TUNNEL
+    ];
 
     // Split out state-based data
     let _psStateIx;
@@ -9749,8 +9765,8 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
         // clear existing highlights
         clearFilterHighlights();
         const featuresToAdd = [];
-        W.model.venues.getObjectArray(v => !v.isResidential()
-            && !v.isParkingLot() && !v.attributes.services.includes('PARKING_FOR_CUSTOMERS'))
+        W.model.venues.getObjectArray(v => !v.attributes.services.includes('PARKING_FOR_CUSTOMERS')
+            && !CATS_TO_IGNORE_CUSTOMER_PARKING_HIGHLIGHT.includes(v.attributes.categories[0]))
             .forEach(v => {
                 let style;
                 if (v.isPoint()) {
