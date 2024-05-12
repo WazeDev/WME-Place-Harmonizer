@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name        WME Place Harmonizer
 // @namespace   WazeUSA
-// @version     2024.05.04.001
+// @version     2024.05.12.001
 // @description Harmonizes, formats, and locks a selected place
 // @author      WMEPH Development Group
 // @include     /^https:\/\/(www|beta)\.waze\.com\/(?!user\/)(.{2,6}\/)?editor\/?.*$/
@@ -558,8 +558,8 @@
     ];
     const BAD_URL = 'badURL';
     const BAD_PHONE = 'badPhone';
-    // Feeds that are not in use and it's safe to delete the place. Use lowercase.
-    const FEEDS_TO_SKIP = ['google', 'yext', 'yext2'];
+    // Feeds that are not in use and it's safe to delete the place. Use regex.
+    const FEEDS_TO_SKIP = [/^google$/i, /^yext\d?/i, /^wazeads$/i, /^parkme$/i];
     // Do not highlight places if any of these are the primary category.
     const CATS_TO_IGNORE_CUSTOMER_PARKING_HIGHLIGHT = [
         CAT.BRIDGE,
@@ -7929,7 +7929,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
             const url = `https://${location.host}/SearchServer/mozi?lon=${lon}&lat=${lat}&format=PROTO_JSON_FULL&venue_id=venues.${venue.getID()}`;
             $.getJSON(url).done(res => {
                 const feedNames = res.venue.external_providers
-                    ?.filter(prov => !FEEDS_TO_SKIP.includes(prov.provider.toLowerCase())).map(prov => prov.provider);
+                    ?.filter(prov => !FEEDS_TO_SKIP.some(skipRegex => skipRegex.test(prov.provider))).map(prov => prov.provider);
                 if (feedNames?.length) {
                     const $rowDiv = $('<div>')
                         .css({ padding: '3px 4px 0px 4px', 'background-color': 'yellow' });
