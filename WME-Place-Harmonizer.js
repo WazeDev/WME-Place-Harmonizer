@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name        WME Place Harmonizer
 // @namespace   WazeUSA
-// @version     2024.05.12.001
+// @version     2024.05.17.001
 // @description Harmonizes, formats, and locks a selected place
 // @author      WMEPH Development Group
 // @include     /^https:\/\/(www|beta)\.waze\.com\/(?!user\/)(.{2,6}\/)?editor\/?.*$/
@@ -559,7 +559,7 @@
     const BAD_URL = 'badURL';
     const BAD_PHONE = 'badPhone';
     // Feeds that are not in use and it's safe to delete the place. Use regex.
-    const FEEDS_TO_SKIP = [/^google$/i, /^yext\d?/i, /^wazeads$/i, /^parkme$/i];
+    const FEEDS_TO_SKIP = [/^google$/i, /^yext\d?/i, /^wazeads$/i, /^parkme$/i, /^navads(na)?$/i];
     // Do not highlight places if any of these are the primary category.
     const CATS_TO_IGNORE_CUSTOMER_PARKING_HIGHLIGHT = [
         CAT.BRIDGE,
