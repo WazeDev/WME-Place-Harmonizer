@@ -3614,6 +3614,37 @@
                 }
             }
         },
+        UrlAnalytics: class extends WLActionFlag {
+            static defaultSeverity = SEVERITY.YELLOW;
+            static defaultMessage = 'URL contains analytics queries. Strip them?';
+            static defaultButtonText = 'Yes';
+            static defaultButtonTooltip = 'Strip analytics queries from the URL';
+            static WL_KEY = 'urlAnalytics';
+            static defaultWLTooltip = 'Whitelist existing URL';
+            static URL_ANALYTICS_REGEX = /(?<=&|\?)(utm|y)_.*?(&|$)/ig;
+
+            static venueIsFlaggable(args) {
+                return !isNullOrWhitespace(args.url)
+                    && args.url !== args.pnhUrl
+                    && Flag.UrlAnalytics.URL_ANALYTICS_REGEX.test(args.url);
+            }
+
+            action() {
+                const url = Flag.UrlAnalytics.#stripUrlAnalyticsQueries(this.args.url);
+                addUpdateAction(this.args.venue, { url }, null, true);
+            }
+
+            static #stripUrlAnalyticsQueries(url) {
+                // utm_* queries are generally used by Google.
+                // y_* queries are used by yext.
+                url = url.replace(Flag.UrlAnalytics.URL_ANALYTICS_REGEX, '');
+
+                // Strip the ending ? if all queries were removed.
+                url = url.replace(/\?$/, '');
+
+                return url;
+            }
+        },
         GasNoBrand: class extends FlagBase {
             static defaultSeverity = SEVERITY.BLUE;
 
@@ -5520,6 +5551,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
             Flag.ResiTypeName,
             Flag.PhoneInvalid,
             Flag.UrlMismatch,
+            Flag.UrlAnalytics,
             Flag.GasNoBrand,
             Flag.SubFuel,
             Flag.FormatUSPS,
@@ -6827,6 +6859,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
             Flag.ParentCategory.eval(args);
             Flag.ClearThisPhone.eval(args);
             Flag.ClearThisUrl.eval(args);
+            Flag.UrlAnalytics.eval(args);
         }
         Flag.UnmappedRegion.eval(args);
         Flag.PlaCostTypeMissing.eval(args);
