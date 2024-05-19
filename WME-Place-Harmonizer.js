@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name        WME Place Harmonizer Beta
 // @namespace   WazeUSA
-// @version     2024.05.17.001
+// @version     2024.05.19.001
 // @description Harmonizes, formats, and locks a selected place
 // @author      WMEPH Development Group
 // @include     /^https:\/\/(www|beta)\.waze\.com\/(?!user\/)(.{2,6}\/)?editor\/?.*$/
@@ -595,7 +595,7 @@
         name: {
             updated: false,
             selector: '#venue-edit-general wz-text-input[name="name"]',
-            shadowSelector: '#id',
+            shadowSelector: 'input',
             tab: 'general'
         },
         aliases: {
@@ -617,7 +617,7 @@
         description: {
             updated: false,
             selector: '#venue-edit-general wz-textarea[name="description"]',
-            shadowSelector: '#id',
+            shadowSelector: 'textarea',
             tab: 'general'
         },
         lockRank: {
@@ -634,13 +634,13 @@
         url: {
             updated: false,
             selector: '#venue-url',
-            shadowSelector: '#id',
+            shadowSelector: 'input',
             tab: 'more-info'
         },
         phone: {
             updated: false,
             selector: '#venue-phone',
-            shadowSelector: '#id',
+            shadowSelector: 'input',
             tab: 'more-info'
         },
         openingHours: {
