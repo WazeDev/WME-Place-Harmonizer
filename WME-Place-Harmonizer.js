@@ -3621,7 +3621,7 @@
             static defaultButtonTooltip = 'Strip analytics queries from the URL';
             static WL_KEY = 'urlAnalytics';
             static defaultWLTooltip = 'Whitelist existing URL';
-            static URL_ANALYTICS_REGEX = /(?<=&|\?)(utm|y)_.*?(&|$)/ig;
+            static URL_ANALYTICS_REGEX = /(?<=&|\?)(utm_|y_|(wtextnd)?source=|cmpid=|cid=).*?(&|$)/ig;
 
             static venueIsFlaggable(args) {
                 return !isNullOrWhitespace(args.url)
