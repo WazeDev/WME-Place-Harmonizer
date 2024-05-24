@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name        WME Place Harmonizer Beta
 // @namespace   WazeUSA
-// @version     2024.05.19.001
+// @version     2024.05.24.001
 // @description Harmonizes, formats, and locks a selected place
 // @author      WMEPH Development Group
 // @include     /^https:\/\/(www|beta)\.waze\.com\/(?!user\/)(.{2,6}\/)?editor\/?.*$/
@@ -3621,7 +3621,7 @@
             static defaultButtonTooltip = 'Strip analytics queries from the URL';
             static WL_KEY = 'urlAnalytics';
             static defaultWLTooltip = 'Whitelist existing URL';
-            static URL_ANALYTICS_REGEX = /(?<=&|\?)(utm|y)_.*?(&|$)/ig;
+            static URL_ANALYTICS_REGEX = /(?<=&|\?)(utm_|y_|(wtextnd)?source=|cmpid=|cid=|otppartnerid=|campaignid=|ref=|cmp=).*?(&|$)/ig;
 
             static venueIsFlaggable(args) {
                 return !isNullOrWhitespace(args.url)
@@ -9332,9 +9332,15 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
         $('#WMEPH-ShowFilterHighlight').click();
     }
 
+    function onShowHighlightColorsToggleShortcutKey() {
+        $('#WMEPH-ColorHighlighting').click();
+    }
+
     function onWindowBeforeUnload() {
         localStorage.setItem('WMEPH_FilterHighlightShortcut', getShortcutKeys(W.accelerators.Actions.wmephFilterHighlightToggle));
+        localStorage.setItem('WMEPH_ColorHighlighting', getShortcutKeys(W.accelerators.Actions.wmephColorHighlightingToggle));
     }
+
     function getShortcutKeys(shortcutAction) {
         let keys = '';
         const { shortcut } = shortcutAction;
@@ -9491,6 +9497,17 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
             'WMEPH',
             localStorage.getItem('WMEPH_FilterHighlightShortcut') ?? '',
             onFilterHighlightToggleShortcutKey,
+            null
+        ).add();
+
+        // Add color highlighting shortcut
+        new WazeWrap.Interface.Shortcut(
+            'wmephColorHighlightingToggle',
+            'Toggle place color highlighting',
+            'WMEPH',
+            'WMEPH',
+            localStorage.getItem('WMEPH_ColorHighlighting') ?? '',
+            onShowHighlightColorsToggleShortcutKey,
             null
         ).add();
 
