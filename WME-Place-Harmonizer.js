@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name        WME Place Harmonizer Beta
 // @namespace   WazeUSA
-// @version     2024.06.13.000
+// @version     2024.06.13.001
 // @description Harmonizes, formats, and locks a selected place
 // @author      WMEPH Development Group
 // @include     /^https:\/\/(www|beta)\.waze\.com\/(?!user\/)(.{2,6}\/)?editor\/?.*$/
@@ -2712,13 +2712,16 @@
         },
         EVCSAltNameMissing: class extends ActionFlag {
             static defaultSeverity = SEVERITY.BLUE;
-            static defaultMessage = 'EV charging stations should have an alternate name of "EV Charging Station"';
+            static defaultMessage = 'Public and restricted EV charging stations should have an alternate name of "EV Charging Station"';
             static defaultButtonText = 'Add it';
             static defaultButtonTooltip = 'Add EVCS alternate name';
 
             static venueIsFlaggable(args) {
-                return args.categories.includes(CAT.CHARGING_STATION)
-                    && !args.aliases.some(alias => alias.toLowerCase() === 'ev charging station');
+                const evcsAttr = args.venue.attributes.categoryAttributes?.CHARGING_STATION;
+                return evcsAttr && args.categories.includes(CAT.CHARGING_STATION)
+                    && !args.aliases.some(alias => alias.toLowerCase() === 'ev charging station')
+                    && evcsAttr.accessType !== 'PRIVATE'
+                    && !args.venue.getName().toLowerCase().includes('(private)');
             }
 
             action() {
