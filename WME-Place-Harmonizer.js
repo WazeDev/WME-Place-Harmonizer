@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name        WME Place Harmonizer Beta
 // @namespace   WazeUSA
-// @version     2024.05.24.001
+// @version     2024.06.13.000
 // @description Harmonizes, formats, and locks a selected place
 // @author      WMEPH Development Group
 // @include     /^https:\/\/(www|beta)\.waze\.com\/(?!user\/)(.{2,6}\/)?editor\/?.*$/
@@ -2708,6 +2708,23 @@
 
             static venueIsFlaggable(args) {
                 return !args.highlightOnly && args.categories.includes(CAT.CHARGING_STATION);
+            }
+        },
+        EVCSAltNameMissing: class extends ActionFlag {
+            static defaultSeverity = SEVERITY.BLUE;
+            static defaultMessage = 'EV charging stations should have an alternate name of "EV Charging Station"';
+            static defaultButtonText = 'Add it';
+            static defaultButtonTooltip = 'Add EVCS alternate name';
+
+            static venueIsFlaggable(args) {
+                return args.categories.includes(CAT.CHARGING_STATION)
+                    && !args.aliases.some(alias => alias.toLowerCase() === 'ev charging station');
+            }
+
+            action() {
+                let aliases = this.args.venue.attributes.aliases.slice();
+                aliases = insertAtIndex(aliases, 'EV Charging Station', 0);
+                addUpdateAction(this.args.venue, { aliases }, null);
             }
         },
         EVCSPriceMissing: class extends FlagBase {
@@ -5587,6 +5604,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
             Flag.LocalURL,
             Flag.LockRPP,
             Flag.AddAlias,
+            Flag.EVCSAltNameMissing,
             Flag.AddCat2,
             Flag.AddPharm,
             Flag.AddSuper,
@@ -6860,6 +6878,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
             Flag.ClearThisPhone.eval(args);
             Flag.ClearThisUrl.eval(args);
             Flag.UrlAnalytics.eval(args);
+            Flag.EVCSAltNameMissing.eval(args);
         }
         Flag.UnmappedRegion.eval(args);
         Flag.PlaCostTypeMissing.eval(args);
