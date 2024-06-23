@@ -2344,6 +2344,15 @@
         // HnDashRemoved: class extends FlagBase {
         //     constructor() { super(SEVERITY.GREEN, 'Dash removed from house number. Verify'); }
         // },
+        ChainIsClosed: class extends FlagBase {
+            static defaultSeverity = SEVERITY.RED;
+            static defaultMessage = 'This chain has been reported as closed. '
+                + 'Follow the <a target="_blank" href="https://www.waze.com/wiki/USA/Places#Closed">wiki instructions</a> for closed places.';
+
+            static venueIsFlaggable(args) {
+                return args.isChainClosed;
+            }
+        },
         FullAddressInference: class extends FlagBase {
             static defaultSeverity = SEVERITY.RED;
             static defaultMessage = 'Missing address was inferred from nearby segments. Verify the address and run WMEPH again.';
@@ -5526,6 +5535,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
 
     class FlagContainer {
         static #flagOrder = [
+            Flag.ChainIsClosed,
             Flag.EVChargingStationWarning,
             Flag.PnhCatMess,
             Flag.NotAHospital,
@@ -6495,6 +6505,8 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                             updatePNHName = false;
                         } else if (match = specCase.match(/^optionAltName<>(.+)/i)) {
                             [, args.optionalAlias] = match;
+                        } else if (/closed/i.test(specCase)) {
+                            args.isChainClosed = true;
                         }
                         /* eslint-enable no-cond-assign */
                     }
@@ -6833,6 +6845,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
 
         if (!venue.isResidential() && (venue.isParkingLot() || (args.nameBase?.trim().length))) {
             if (args.pnhNameRegMatch) {
+                Flag.ChainIsClosed.eval(args);
                 Flag.HotelMkPrim.eval(args);
                 Flag.LocalizedName.eval(args);
                 Flag.AddAlias.eval(args);
