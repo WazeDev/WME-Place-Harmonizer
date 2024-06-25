@@ -1861,6 +1861,15 @@
             strokeDashstyle: '4 2'
         });
 
+        const severity6 = ruleGenerator(6, {
+            strokeColor: '#f80',
+            strokeWidth: 6,
+            externalGraphic: '',
+            label: '',
+            pointRadius: 10,
+            fillColor: '#ba85bf'
+        });
+
         const severityAdLock = ruleGenerator('adLock', {
             pointRadius: 1,
             fillColor: 'yellow',
@@ -1910,7 +1919,7 @@
         });
 
         _layer.styleMap.styles.default.rules.push(...[severity0, severityLock, severity1, severityLock1, severity2,
-            severity3, severity4, severityHigh, severityAdLock, publicPLA, restrictedPLA, privatePLA]);
+            severity3, severity4, severity6, severityHigh, severityAdLock, publicPLA, restrictedPLA, privatePLA]);
     }
 
     /**
@@ -2349,8 +2358,9 @@
         // HnDashRemoved: class extends FlagBase {
         //     constructor() { super(SEVERITY.GREEN, 'Dash removed from house number. Verify'); }
         // },
-        ChainIsClosed: class extends FlagBase {
+        ChainIsClosed: class extends WLFlag {
             static defaultSeverity = SEVERITY.ORANGE;
+            static WL_KEY = 'chainIsClosed';
 
             static venueIsFlaggable(args) {
                 return args.chainIsClosed;
@@ -2358,7 +2368,7 @@
 
             get message() {
                 const pnhName = this.args.pnhMatchData[1];
-                return `Place matched to PNH chain "${pnhName}" which is reported as closed.<br/><br/>`
+                return `Place matched to PNH entry "${pnhName}", which is no longer in business.<br/><br/>`
                 + 'Follow the <a target="_blank" href="https://www.waze.com/wiki/USA/Places#Closed">wiki instructions</a> for closed places.';
             }
         },
