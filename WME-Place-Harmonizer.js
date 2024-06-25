@@ -6524,7 +6524,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                             updatePNHName = false;
                         } else if (match = specCase.match(/^optionAltName<>(.+)/i)) {
                             [, args.optionalAlias] = match;
-                        } else if (/closed/i.test(specCase)) {
+                        } else if (/^closed$/i.test(specCase) && !Flag.ChainIsClosed.isWhitelisted(args)) {
                             args.chainIsClosed = true;
                         }
                         /* eslint-enable no-cond-assign */
