@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name        WME Place Harmonizer Beta
 // @namespace   WazeUSA
-// @version     2024.06.25.000
+// @version     2024.07.01.000
 // @description Harmonizes, formats, and locks a selected place
 // @author      WMEPH Development Group
 // @include     /^https:\/\/(www|beta)\.waze\.com\/(?!user\/)(.{2,6}\/)?editor\/?.*$/
@@ -9909,7 +9909,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                         strokeColor: '#F0F',
                         strokeOpacity: 0.7,
                         fillOpacity: 0,
-                        graphicZIndex: -9999999,
+                        graphicZIndex: -9999999999,
                         strokeDashstyle: 'solid' // '3 6'
                     };
                 }
