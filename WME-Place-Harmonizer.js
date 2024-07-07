@@ -1237,9 +1237,6 @@
                     }
                 }
                 /* TEST */
-                if (this.name === 'McDonald\'s') {
-                    throw new Error('Testing');
-                }
             } catch (ex) {
                 result.warningMessages.push(`An unexpected error occurred while parsing. PNH entry will be ignored! :\n${ex.toString()}`);
                 this.disabled = true;
