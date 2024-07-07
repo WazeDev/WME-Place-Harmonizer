@@ -989,227 +989,242 @@
          * @returns
          */
         #parseSpreadsheetRow(columnHeaders, rowString, categoryInfos) {
+            /**  Contains values needed for immediate processing, but not to be stored in the PnhEntry */
             const result = {
                 searchnamebase: null,
                 searchnamemid: null,
                 searchnameend: null,
-                skipAltNameMatch: null
+                skipAltNameMatch: null,
+                warningMessages: []
             };
 
             try {
                 const columnValues = rowString.split('|');
 
+                // Do any preprocessing here:
+                const disabled = columnValues[columnHeaders.indexOf(Pnh.SSHeader.disable)].trim();
+                if (disabled === '1') {
+                    // If the row is disabled, no need to process the rest of it.
+                    this.disabled = true;
+                    return result;
+                }
+
                 columnHeaders.forEach((header, i) => {
-                    // If an invalid value is found, don't bother parsing the rest of the row data.
-                    if (!this.invalid) {
-                        let value = columnValues[i].trim();
-                        if (!value.length) {
-                            value = undefined;
-                        } else if (header === Pnh.SSHeader.aliases) {
-                            // TODO: Are these two checks really needed?
-                            if (value.startsWith('(')) {
-                                value = undefined; // ignore aliases if the cell starts with paren
-                            } else {
-                                value = value.replace(/,[^A-za-z0-9]*/g, ','); // tighten up commas if more than one alias.
+                    try {
+                        if (Pnh.COLUMNS_TO_IGNORE.includes(header)) return result;
+
+                        // If an invalid value is found, don't bother parsing the rest of the row data.
+                        if (!this.invalid) {
+                            let value = columnValues[i].trim();
+                            if (!value.length) {
+                                value = undefined;
+                            } else if (header === Pnh.SSHeader.aliases) {
+                                // TODO: Are these two checks really needed?
+                                if (value.startsWith('(')) {
+                                    value = undefined; // ignore aliases if the cell starts with paren
+                                } else {
+                                    value = value.replace(/,[^A-za-z0-9]*/g, ','); // tighten up commas if more than one alias.
+                                }
+                            }
+
+                            switch (header) {
+                                case Pnh.SSHeader.order:
+                                case Pnh.SSHeader.description:
+                                case Pnh.SSHeader.notes:
+                                case Pnh.SSHeader.displaynote:
+                                case Pnh.SSHeader.sfurl:
+                                case Pnh.SSHeader.sfurllocal:
+                                    header = header.substring(3);
+                                    this[header] = value;
+                                    break;
+                                case Pnh.SSHeader.url:
+                                    if (value) this.url = normalizeURL(value);
+                                    break;
+                                case Pnh.SSHeader.searchnamebase:
+                                    result.searchnamebase = value;
+                                    break;
+                                case Pnh.SSHeader.searchnamemid:
+                                    result.searchnamemid = value;
+                                    break;
+                                case Pnh.SSHeader.searchnameend:
+                                    result.searchnameend = value;
+                                    break;
+                                case Pnh.SSHeader.searchnameword:
+                                    this.searchnameword = value?.toUpperCase().replace(/, /g, ',').split(',');
+                                    break;
+                                case Pnh.SSHeader.name:
+                                    if (value?.toUpperCase() !== 'PLEASE REUSE') {
+                                        this.name = value;
+                                    } else {
+                                        // No need to post warning here. Just skip it.
+                                        this.invalid = true;
+                                    }
+                                    break;
+                                case Pnh.SSHeader.aliases:
+                                    this.aliases = value?.split(',').map(v => v.trim()) || [];
+                                    break;
+                                case Pnh.SSHeader.category1:
+                                    if (value) {
+                                        this.primaryCategory = categoryInfos.getByName(value)?.id;
+                                        if (typeof this.primaryCategory === 'undefined') {
+                                            result.warningMessages.push(`Unrecognized primary category value: ${value}`);
+                                        }
+                                    } else {
+                                        result.warningMessages.push('No primary category assigned. PNH entry will be ignored!');
+                                        this.invalid = true;
+                                    }
+                                    break;
+                                case Pnh.SSHeader.category2:
+                                    this.altCategories = value?.split(',').map(v => v.trim()).map(catName => {
+                                        const cat = categoryInfos.getByName(catName)?.id;
+                                        if (!cat) {
+                                            result.warningMessages.push(`Unrecognized alternate category: ${catName}`);
+                                        }
+                                        return cat;
+                                    }).filter(cat => typeof cat === 'string');
+                                    break;
+                                case Pnh.SSHeader.region:
+                                    if (value) {
+                                        this.regions = value.toUpperCase().split(',').map(v => v.trim());
+                                        // TODO: Check for valid regions.
+                                    } else {
+                                        // If no regions, ignore it.
+                                        this.invalid = true;
+                                        result.warningMessages.push('No regions specified. PNH entry will be ignored!');
+                                    }
+                                    break;
+                                case Pnh.SSHeader.disable:
+                                    // Handled the '1' case earlier in preprocessing
+                                    if (value === 'altName') {
+                                        result.skipAltNameMatch = true;
+                                    } else if (value) {
+                                        result.warningMessages.push(`Unrecognized value in ${Pnh.SSHeader.disable} column: ${value}`);
+                                    }
+                                    return result;
+                                case Pnh.SSHeader.forcecat:
+                                    if (!value || value === '0') {
+                                        this.forceCategoryMatching = Pnh.ForceCategoryMatchingType.NONE;
+                                    } else if (value === '1') {
+                                        this.forceCategoryMatching = Pnh.ForceCategoryMatchingType.PRIMARY;
+                                    } else if (value === '2') {
+                                        this.forceCategoryMatching = Pnh.ForceCategoryMatchingType.ANY;
+                                    } else {
+                                        result.warningMessages.push(`Unrecognized value in ${Pnh.SSHeader.forcecat} column: ${value}`);
+                                    }
+                                    break;
+                                case Pnh.SSHeader.speccase:
+                                    if (value) {
+                                        this.hasSpecialCases = true;
+                                        value = value.split(',').map(v => v.trim());
+                                        /* eslint-disable no-cond-assign */
+                                        value.forEach(specialCase => {
+                                            let match;
+                                            if (match = specialCase.match(/^buttOn_(.*)/i)) {
+                                                const [, scFlag] = match;
+                                                switch (scFlag) {
+                                                    case 'addCat2':
+                                                        // flag = new Flag.AddCat2();
+                                                        break;
+                                                    case 'addPharm':
+                                                    case 'addSuper':
+                                                    case 'appendAMPM':
+                                                    case 'addATM':
+                                                    case 'addConvStore':
+                                                        this.flagsToAdd[scFlag] = true;
+                                                        break;
+                                                    default:
+                                                        result.warningMessages.push(`Unrecognized ph_specCase value: ${specialCase}`);
+                                                }
+                                            } else if (match = specialCase.match(/^buttOff_(.+)/i)) {
+                                                const [, scFlag] = match;
+                                                switch (scFlag) {
+                                                    case 'addConvStore':
+                                                        this.flagsToRemove[scFlag] = true;
+                                                        break;
+                                                    default:
+                                                        result.warningMessages.push(`Unrecognized ph_specCase value: ${specialCase}`);
+                                                }
+                                                // } else if (match = specCase.match(/^messOn_(.+)/i)) {
+                                                //    [, scFlag] = match;
+                                                //    _buttonBanner[scFlag].active = true;
+                                                // } else if (match = specCase.match(/^messOff_(.+)/i)) {
+                                                //    [, scFlag] = match;
+                                                //    _buttonBanner[scFlag].active = false;
+                                            } else if (match = specialCase.match(/^psOn_(.+)/i)) {
+                                                const [, scFlag] = match;
+                                                // TODO: Add check for valid services.
+                                                this.servicesToAdd.push(scFlag);
+                                            } else if (match = specialCase.match(/^psOff_(.+)/i)) {
+                                                const [, scFlag] = match;
+                                                // TODO: Add check for valid services.
+                                                this.servicesToRemove.push(scFlag);
+                                            } else if (match = specialCase.match(/forceBrand<>([^,<]+)/i)) {
+                                                // If brand is going to be forced, use that.  Otherwise, use existing brand.
+                                                [, this.forceBrand] = match;
+                                            } else if (match = specialCase.match(/^localURL_(.+)/i)) {
+                                                // parseout localURL data if exists (meaning place can have a URL distinct from the chain URL
+                                                [, this.localURLcheck] = new RegExp(match, 'i');
+                                            } else if (match = specialCase.match(/^checkLocalization<>(.+)/i)) {
+                                                const [, localizationString] = match;
+                                                this.localizationRegEx = new RegExp(localizationString, 'g');
+                                            } else if (match = specialCase.match(/phone<>(.*?)<>/)) {
+                                                [, this.recommendedPhone] = match;
+                                            } else if (/keepName/g.test(specialCase)) {
+                                                this.keepName = true;
+                                            } else if (match = specialCase.match(/^optionAltName<>(.+)/i)) {
+                                                [, this.optionalAlias] = match;
+                                            } else if (/^closed$/i.test(specialCase)) {
+                                                this.chainIsClosed = true;
+                                            } else if (match = specialCase.match(/^brandParent(\d+)/)) {
+                                                try {
+                                                    this.brandParentLevel = parseInt(match[1], 10);
+                                                } catch {
+                                                    result.warningMessages.push(`Invalid forceBrand value: ${specialCase}`);
+                                                }
+                                            } else if (/^strMatchAny$/i.test(specialCase)) {
+                                                this.strMatchAny = true;
+                                            } else if (/^pharmhours$/i.test(specialCase)) {
+                                                this.pharmhours = true;
+                                            } else if (/^notABank$/i.test(specialCase)) {
+                                                this.notABank = true;
+                                            } else if (/^optionCat2$/i.test(specialCase)) {
+                                                this.optionCat2 = true;
+                                            } else if (/^optionName2$/i.test(specialCase)) {
+                                                this.optionName2 = true;
+                                            } else if (/^altName2Desc$/i.test(specialCase)) {
+                                                this.altName2Desc = true;
+                                            } else if (/^subFuel$/i.test(specialCase)) {
+                                                this.subFuel = true;
+                                            } else if (match = specialCase.match(/^regexNameMatch<>(.+)<>/i)) {
+                                                this.regexNameMatch = new RegExp(match[1].replace(/\\/, '\\').replace(/<or>/g, '|'), 'i');
+                                            } else if (match = specialCase.match(/^lockAt(\d)$/i)) {
+                                                try {
+                                                    this.lockAt = parseInt(match[1], 10);
+                                                    if (this.lockAt < 1 || this.lockAt > 6) {
+                                                        throw new Error();
+                                                    }
+                                                } catch {
+                                                    result.warningMessages.push(`Invalid ph_speccase lockAt value (must be between 1 and 6): ${specialCase}`);
+                                                }
+                                            } else if (/^noUpdateAlias$/i.test(specialCase)) {
+                                                this.noUpdateAlias = true;
+                                            } else if (/^betaEnable$/i.test(specialCase)) {
+                                                this.betaEnable = true;
+                                            } else {
+                                                result.warningMessages.push(`Unrecognized ph_speccase value: ${specialCase}`);
+                                            }
+                                        });
+                                        /* eslint-enable no-cond-assign */
+                                    }
+                                    break;
+                                case '': // Ignore this
+                                    break;
+                                default:
+                                        // Ignore unrecognized headers here.
                             }
                         }
-
-                        switch (header) {
-                            case Pnh.SSHeader.order:
-                            case Pnh.SSHeader.description:
-                            case Pnh.SSHeader.notes:
-                            case Pnh.SSHeader.displaynote:
-                            case Pnh.SSHeader.sfurl:
-                            case Pnh.SSHeader.sfurllocal:
-                                header = header.substring(3);
-                                this[header] = value;
-                                break;
-                            case Pnh.SSHeader.url:
-                                if (value) this.url = normalizeURL(value);
-                                break;
-                            case Pnh.SSHeader.searchnamebase:
-                                result.searchnamebase = value;
-                                break;
-                            case Pnh.SSHeader.searchnamemid:
-                                result.searchnamemid = value;
-                                break;
-                            case Pnh.SSHeader.searchnameend:
-                                result.searchnameend = value;
-                                break;
-                            case Pnh.SSHeader.searchnameword:
-                                this.searchnameword = value?.toUpperCase().replace(/, /g, ',').split(',');
-                                break;
-                            case Pnh.SSHeader.name:
-                                if (value) {
-                                    this.name = value;
-                                } else {
-                                    this.invalid = true;
-                                }
-                                break;
-                            case Pnh.SSHeader.aliases:
-                                this.aliases = value?.split(',').map(v => v.trim()) || [];
-                                break;
-                            case Pnh.SSHeader.category1:
-                                if (value) {
-                                    this.primaryCategory = getCategoryIdFromName(value);
-                                    if (typeof this.primaryCategory === 'undefined') {
-                                        console.warn(`WMEPH: Unrecognized primary category value in Order # ${this.order}: ${value}`);
-                                    }
-                                } else {
-                                    console.warn(`WMEPH: PNH Order # ${this.order} has no primary category assigned.`);
-                                }
-                                break;
-                            case Pnh.SSHeader.category2:
-                                this.altCategories = value?.split(',').map(v => v.trim()).map(catName => {
-                                    const cat = getCategoryIdFromName(catName);
-                                    if (!cat) {
-                                        console.warn(`WMEPH: Unrecognized alternate category value in Order # ${this.order}: ${catName}`);
-                                    }
-                                    return cat;
-                                }).filter(cat => typeof cat === 'string');
-                                break;
-                            case Pnh.SSHeader.region:
-                                if (value) {
-                                    this.regions = value.toUpperCase().split(',').map(v => v.trim());
-                                    // TODO: Check for valid regions.
-                                } else {
-                                    // If no regions, ignore it.
-                                    this.disabled = true;
-                                    console.warn(`WMEPH: PNH Order # ${this.order} has no regions specified.`);
-                                }
-                                break;
-                            case Pnh.SSHeader.disable:
-                                if (value === '1') {
-                                    this.disabled = true;
-                                } else if (value === 'altName') {
-                                    result.skipAltNameMatch = true;
-                                } else if (value) {
-                                    console.warn(`WMEPH: Unrecognized value in ${Pnh.SSHeader.disable} column of Order # ${this.order}: ${value}`);
-                                }
-                                break;
-                            case Pnh.SSHeader.forcecat:
-                                if (!value || value === '0') {
-                                    this.forceCategoryMatching = Pnh.ForceCategoryMatchingType.NONE;
-                                } else if (value === '1') {
-                                    this.forceCategoryMatching = Pnh.ForceCategoryMatchingType.PRIMARY;
-                                } else if (value === '2') {
-                                    this.forceCategoryMatching = Pnh.ForceCategoryMatchingType.ANY;
-                                } else {
-                                    console.warn(`WMEPH: Unrecognized value in ${Pnh.SSHeader.forcecat} column of Order # ${this.order}: ${value}`);
-                                }
-                                break;
-                            case Pnh.SSHeader.speccase:
-                                if (value) {
-                                    this.hasSpecialCases = true;
-                                    value = value.split(',').map(v => v.trim());
-                                    /* eslint-disable no-cond-assign */
-                                    value.forEach(specialCase => {
-                                        let match;
-                                        if (match = specialCase.match(/^buttOn_(.*)/i)) {
-                                            const [, scFlag] = match;
-                                            switch (scFlag) {
-                                                case 'addCat2':
-                                                    // flag = new Flag.AddCat2();
-                                                    break;
-                                                case 'addPharm':
-                                                case 'addSuper':
-                                                case 'appendAMPM':
-                                                case 'addATM':
-                                                case 'addConvStore':
-                                                    this.flagsToAdd[scFlag] = true;
-                                                    break;
-                                                default:
-                                                    console.warn(`WMEPH: Unrecognized ph_specCase value in Order # ${this.order}: ${specialCase}`);
-                                            }
-                                        } else if (match = specialCase.match(/^buttOff_(.+)/i)) {
-                                            const [, scFlag] = match;
-                                            switch (scFlag) {
-                                                case 'addConvStore':
-                                                    this.flagsToRemove[scFlag] = true;
-                                                    break;
-                                                default:
-                                                    console.warn(`WMEPH: Unrecognized ph_specCase value in Order # ${this.order}: ${specialCase}`);
-                                            }
-                                            // } else if (match = specCase.match(/^messOn_(.+)/i)) {
-                                            //    [, scFlag] = match;
-                                            //    _buttonBanner[scFlag].active = true;
-                                            // } else if (match = specCase.match(/^messOff_(.+)/i)) {
-                                            //    [, scFlag] = match;
-                                            //    _buttonBanner[scFlag].active = false;
-                                        } else if (match = specialCase.match(/^psOn_(.+)/i)) {
-                                            const [, scFlag] = match;
-                                            // TODO: Add check for valid services.
-                                            this.servicesToAdd.push(scFlag);
-                                        } else if (match = specialCase.match(/^psOff_(.+)/i)) {
-                                            const [, scFlag] = match;
-                                            // TODO: Add check for valid services.
-                                            this.servicesToRemove.push(scFlag);
-                                        } else if (match = specialCase.match(/forceBrand<>([^,<]+)/i)) {
-                                            // If brand is going to be forced, use that.  Otherwise, use existing brand.
-                                            [, this.forceBrand] = match;
-                                        } else if (match = specialCase.match(/^localURL_(.+)/i)) {
-                                            // parseout localURL data if exists (meaning place can have a URL distinct from the chain URL
-                                            [, this.localURLcheck] = new RegExp(match, 'i');
-                                        } else if (match = specialCase.match(/^checkLocalization<>(.+)/i)) {
-                                            const [, localizationString] = match;
-                                            this.localizationRegEx = new RegExp(localizationString, 'g');
-                                        } else if (match = specialCase.match(/phone<>(.*?)<>/)) {
-                                            [, this.recommendedPhone] = match;
-                                        } else if (/keepName/g.test(specialCase)) {
-                                            this.keepName = true;
-                                        } else if (match = specialCase.match(/^optionAltName<>(.+)/i)) {
-                                            [, this.optionalAlias] = match;
-                                        } else if (/^closed$/i.test(specialCase)) {
-                                            this.chainIsClosed = true;
-                                        } else if (match = specialCase.match(/^brandParent(\d+)/)) {
-                                            try {
-                                                this.brandParentLevel = parseInt(match[1], 10);
-                                            } catch {
-                                                console.warn(`WMEPH: Invalid forceBrand value in Order # ${this.order}`);
-                                            }
-                                        } else if (/^strMatchAny$/i.test(specialCase)) {
-                                            this.strMatchAny = true;
-                                        } else if (/^pharmhours$/i.test(specialCase)) {
-                                            this.pharmhours = true;
-                                        } else if (/^notABank$/i.test(specialCase)) {
-                                            this.notABank = true;
-                                        } else if (/^optionCat2$/i.test(specialCase)) {
-                                            this.optionCat2 = true;
-                                        } else if (/^optionName2$/i.test(specialCase)) {
-                                            this.optionName2 = true;
-                                        } else if (/^altName2Desc$/i.test(specialCase)) {
-                                            this.altName2Desc = true;
-                                        } else if (/^subFuel$/i.test(specialCase)) {
-                                            this.subFuel = true;
-                                        } else if (match = specialCase.match(/^regexNameMatch<>(.+)<>/i)) {
-                                            this.regexNameMatch = new RegExp(match[1].replace(/\\/, '\\').replace(/<or>/g, '|'), 'i');
-                                        } else if (match = specialCase.match(/^lockAt(\d)$/i)) {
-                                            try {
-                                                this.lockAt = parseInt(match[1], 10);
-                                                if (this.lockAt < 1 || this.lockAt > 6) {
-                                                    throw new Error();
-                                                }
-                                            } catch {
-                                                console.warn(`WMEPH: Invalid lockAt value in Order # ${this.order}`);
-                                            }
-                                        } else if (/^noUpdateAlias$/i.test(specialCase)) {
-                                            this.noUpdateAlias = true;
-                                        } else if (/^betaEnable$/i.test(specialCase)) {
-                                            this.betaEnable = true;
-                                        } else {
-                                            console.warn(`WMEPH: Unrecognized ph_speccase value in Order # ${this.order}: ${specialCase}`);
-                                        }
-                                    });
-                                    /* eslint-enable no-cond-assign */
-                                }
-                                break;
-                            case Pnh.SSHeader.tempfield: // Ignore this
-                                break;
-                            case '': // Ignore this
-                                break;
-                            default:
-                                    // Ignore unrecognized headers here.
-                        }
+                    } catch (ex) {
+                        result.warningMessages.push(`An unexpected error occurred while processing column: ${header}. PNH entry will be ignored.`);
                     }
                 }); // END ROW PROCESSING
 
@@ -1221,12 +1236,18 @@
                         this.spaceMatchList.push(...this.searchnameword);
                     }
                 }
+                /* TEST */
+                if (this.name === 'McDonald\'s') {
+                    throw new Error('Testing');
+                }
             } catch (ex) {
-                console.warn(`WMEPH: An error occurred while parsing PNH Order # ${this.order}:`);
-                console.log(ex);
+                result.warningMessages.push(`An unexpected error occurred while parsing. PNH entry will be ignored! :\n${ex.toString()}`);
                 this.disabled = true;
             }
 
+            if (result.warningMessages.length) {
+                console.warn('WMEPH:', `PNH Order # ${this.order} parsing issues:\n- ${result.warningMessages.join('\n- ')}`);
+            }
             return result;
         }
 
@@ -1303,14 +1324,14 @@
         }
     }
 
-    /**
-     * "Namespace" for classes and methods related to handling PNH spreadsheet data
-     */
+    /** "Namespace" for classes and methods related to handling PNH spreadsheet data */
     const Pnh = {
         SPREADSHEET_ID: '1pBz4l4cNapyGyzfMJKqA4ePEFLkmz2RryAt1UV39B4g',
         SPREADSHEET_RANGE: '2019.01.20.001!A2:L',
         SPREADSHEET_MODERATORS_RANGE: 'Moderators!A1:F',
         API_KEY: 'YTJWNVBVRkplbUZUZVVObU1YVXpSRVZ3ZW5OaFRFSk1SbTR4VGxKblRURjJlRTFYY3pOQ2NXZElPQT09',
+        /** Columns that can be ignored when importing */
+        COLUMNS_TO_IGNORE: ['temp_field', 'ph_services', 'ph_national', 'logo', ''],
         _wordVariations: null,
 
         ForceCategoryMatchingType: Object.freeze({
@@ -1337,7 +1358,6 @@
             searchnameend: 'ph_searchnameend',
             searchnameword: 'ph_searchnameword',
             sfurl: 'ph_sfurl',
-            tempfield: 'temp_field', // ???
             sfurllocal: 'ph_sfurllocal',
             toValueArray: () => Object.values(Pnh.SSHeader).filter(v => typeof v === 'string')
         }),
@@ -1485,13 +1505,15 @@
             return ['NoMatch'];
         },
 
-        validateSSColumnHeaders: headers => {
+        validatePnhSSColumnHeaders: headers => {
             let valid = true;
             const expectedHeaders = Pnh.SSHeader.toValueArray();
 
             // Warn if extra headers are found in the spreadsheet.
             headers.forEach(header => {
-                if (header.length && !expectedHeaders.includes(header)) {
+                // temp_field currently exists on the USA sheet but may not be needed
+                if (header.length && header !== 'temp_field' && !expectedHeaders.includes(header)
+                    && !Pnh.COLUMNS_TO_IGNORE.includes(header)) {
                     console.warn(`WMEPH: Unexpected column header found in PNH spreadsheet: ${header}`);
                 }
             });
@@ -1513,9 +1535,13 @@
          * @param {PnhCategoryInfos} categoryInfos
          * @returns
          */
-        processSSRows: (rows, categoryInfos) => {
+        processPnhSSRows: (rows, categoryInfos) => {
             const columnHeaders = rows.splice(0, 1)[0].split('|').map(h => h.trim());
-            if (!Pnh.validateSSColumnHeaders(columnHeaders)) {
+
+            // Canada's spreadsheet is missing 'ph_order' in the first column header.
+            if (!columnHeaders[0].length) columnHeaders[0] = Pnh.SSHeader.order;
+
+            if (!Pnh.validatePnhSSColumnHeaders(columnHeaders)) {
                 throw new Error('WMEPH: WMEPH exiting due to missing spreadsheet column headers.');
             }
             return rows.map(row => new PnhEntry(columnHeaders, row, categoryInfos))
@@ -1545,13 +1571,13 @@
 
                     PNH_DATA.USA.categoryInfos = new PnhCategoryInfos();
                     Pnh.processCategories(Pnh.processImportedDataColumn(values, 3), PNH_DATA.USA.categoryInfos);
-                    PNH_DATA.USA.pnh = Pnh.processSSRows(Pnh.processImportedDataColumn(values, 0), PNH_DATA.USA.categoryInfos);
+                    PNH_DATA.USA.pnh = Pnh.processPnhSSRows(Pnh.processImportedDataColumn(values, 0), PNH_DATA.USA.categoryInfos);
 
                     // PNH_DATA.USA.pnhNames = makeNameCheckList(PNH_DATA.USA);
                     PNH_DATA.states = Pnh.processImportedDataColumn(values, 1);
 
-                    // PNH_DATA.CAN.categoryInfos = PNH_DATA.USA.categoryInfos;
-                    // PNH_DATA.CAN.pnh = Pnh.processSSRows(Pnh.processImportedDataColumn(values, 2), PNH_DATA.CAN.categoryInfos);
+                    PNH_DATA.CAN.categoryInfos = PNH_DATA.USA.categoryInfos;
+                    PNH_DATA.CAN.pnh = Pnh.processPnhSSRows(Pnh.processImportedDataColumn(values, 2), PNH_DATA.CAN.categoryInfos);
 
                     const WMEPHuserList = Pnh.processImportedDataColumn(values, 4)[1].split('|');
                     const betaix = WMEPHuserList.indexOf('BETAUSERS');
@@ -7236,7 +7262,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                         }
                     }
                     // Enable optional 2nd category button
-                    Flag.AddCat2.eval(args, altCategories[0]);
+                    Flag.AddCat2.eval(args, altCategories?.[0]);
 
                     // Description update
                     args.description = args.pnhMatch.description;
@@ -10305,6 +10331,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
     function devTestCode() {
         if (W.loginManager.user.getUsername() === 'MapOMatic') {
             // test code here
+            unsafeWindow.pnh = PNH_DATA;
         }
     }
 
