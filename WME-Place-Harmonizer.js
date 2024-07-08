@@ -191,16 +191,20 @@
     const BETA_VERSION_STR = IS_BETA_VERSION ? 'Beta' : ''; // strings to differentiate DOM elements between regular and beta script
     const PNH_DATA = {
         USA: {
-            /** @type {string} */
-            code: 'USA',
+            countryCode: 'USA',
+            countryName: 'USA',
             /** @type {PnhCategoryInfos} */
-            categoryInfos: null
+            categoryInfos: null,
+            /** @type {PnhEntry[]} */
+            pnh: null
         },
         CAN: {
-            /** @type {string} */
-            code: 'CAN',
+            countryCode: 'CAN',
+            countryName: 'Canada',
             /** @type {PnhCategoryInfos} */
-            categoryInfos: null
+            categoryInfos: null,
+            /** @type {PnhEntry[]} */
+            pnh: null
         }
     };
     const DEFAULT_HOURS_TEXT = 'Paste hours here';
@@ -1318,7 +1322,7 @@
             }
 
             // Add entries for word/spelling variations
-            Pnh._wordVariations.forEach(variationsList => addSpellingVariants(newNameList, variationsList));
+            Pnh.WORD_VARIATIONS.forEach(variationsList => addSpellingVariants(newNameList, variationsList));
 
             this.searchNameList = uniq(newNameList);
         }
@@ -1332,7 +1336,7 @@
         API_KEY: 'YTJWNVBVRkplbUZUZVVObU1YVXpSRVZ3ZW5OaFRFSk1SbTR4VGxKblRURjJlRTFYY3pOQ2NXZElPQT09',
         /** Columns that can be ignored when importing */
         COLUMNS_TO_IGNORE: ['temp_field', 'ph_services', 'ph_national', 'logo', ''],
-        _wordVariations: null,
+        WORD_VARIATIONS: null,
 
         ForceCategoryMatchingType: Object.freeze({
             NONE: Symbol('none'),
@@ -1363,17 +1367,17 @@
         }),
 
         /**
-             *  Function that checks current place against the Harmonization Data.  Returns place data or "NoMatch"
-             * @param {string} name
-             * @param {string} state2L
-             * @param {string} region3L
-             * @param {string} country
-             * @param {string[]} categories
-             * @param {venue} venue
-             * @returns
-             */
+         *  Function that checks current place against the Harmonization Data.  Returns place data or "NoMatch"
+         * @param {string} name
+         * @param {string} state2L
+         * @param {string} region3L
+         * @param {string} country
+         * @param {string[]} categories
+         * @param {venue} venue
+         * @returns
+         */
         findMatch: (name, state2L, region3L, country, categories, venue) => {
-            if (country !== PNH_DATA.USA.code && country !== PNH_DATA.CAN.code) {
+            if (country !== PNH_DATA.USA.countryCode && country !== PNH_DATA.CAN.countryCode) {
                 WazeWrap.Alerts.info(SCRIPT_NAME, 'No PNH data exists for this country.');
                 return ['NoMatch'];
             }
@@ -1567,7 +1571,7 @@
                     }
 
                     // This needs to be performed before makeNameCheckList() is called.
-                    Pnh._wordVariations = Pnh.processImportedDataColumn(values, 11).slice(1).map(row => row.toUpperCase().replace(/[^A-z0-9,]/g, '').split(','));
+                    Pnh.WORD_VARIATIONS = Pnh.processImportedDataColumn(values, 11).slice(1).map(row => row.toUpperCase().replace(/[^A-z0-9,]/g, '').split(','));
 
                     PNH_DATA.USA.categoryInfos = new PnhCategoryInfos();
                     Pnh.processCategories(Pnh.processImportedDataColumn(values, 3), PNH_DATA.USA.categoryInfos);
@@ -5854,7 +5858,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
 
             static venueIsFlaggable(args) {
                 return !args.highlightOnly
-                    && args.countryCode === PNH_DATA.USA.code
+                    && args.countryCode === PNH_DATA.USA.countryCode
                     && !args.venue.isParkingLot()
                     && !args.categories.includes(CAT.POST_OFFICE)
                     && /\bUSP[OS]\b|\bpost(al)?\s+(service|office)\b/i.test(args.nameBase.replace(/[/\-.]/g, ''));
@@ -6123,7 +6127,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
 
             // TODO: Can this be put into venueIsFlaggable?
             static eval(args) {
-                const isUsps = args.countryCode === PNH_DATA.USA.code && !args.categories.includes(CAT.PARKING_LOT)
+                const isUsps = args.countryCode === PNH_DATA.USA.countryCode && !args.categories.includes(CAT.PARKING_LOT)
                     && args.categories.includes(CAT.POST_OFFICE);
                 let storeFinderUrl;
                 let isCustom = false;
@@ -6931,9 +6935,9 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
         const countryName = args.addr.country.getName();
         const stateName = args.addr.state.getName();
         if (['United States', 'American Samoa', 'Guam', 'Northern Mariana Islands', 'Puerto Rico', 'Virgin Islands (U.S.)'].includes(countryName)) {
-            args.countryCode = PNH_DATA.USA.code;
-        } else if (countryName === 'Canada') {
-            args.countryCode = PNH_DATA.CAN.code;
+            args.countryCode = PNH_DATA.USA.countryCode;
+        } else if (countryName === PNH_DATA.CAN.countryName) {
+            args.countryCode = PNH_DATA.CAN.countryCode;
         } else {
             if (!args.highlightOnly) {
                 WazeWrap.Alerts.error(SCRIPT_NAME, `This script is not currently supported in ${countryName}.`);
@@ -7066,7 +7070,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                 args.outputPhoneFormat = '{0}-{1}-{2}';
             } else if (args.state2L === 'NV') {
                 args.outputPhoneFormat = '{0}-{1}-{2}';
-            } else if (args.countryCode === PNH_DATA.CAN.code) {
+            } else if (args.countryCode === PNH_DATA.CAN.countryCode) {
                 args.outputPhoneFormat = '+1-{0}-{1}-{2}';
             }
 
@@ -7403,7 +7407,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
 
                 args.hoursOverlap = venueHasOverlappingHours(args.openingHours);
 
-                args.isUspsPostOffice = args.countryCode === PNH_DATA.USA.code && !args.categories.includes(CAT.PARKING_LOT)
+                args.isUspsPostOffice = args.countryCode === PNH_DATA.USA.countryCode && !args.categories.includes(CAT.PARKING_LOT)
                     && args.categories.includes(CAT.POST_OFFICE);
 
                 if (!args.highlightOnly) {
@@ -10080,9 +10084,6 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
         UpdateFeatureAddress = require('Waze/Action/UpdateFeatureAddress');
         OpeningHour = require('Waze/Model/Objects/OpeningHour');
 
-        // For debugging purposes.  May be removed when no longer needed.
-        unsafeWindow.PNH_DATA = PNH_DATA;
-
         // Append a form div for submitting to the forum, if it doesn't exist yet:
         const tempDiv = document.createElement('div');
         tempDiv.id = 'WMEPH_formDiv';
@@ -10330,8 +10331,8 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
 
     function devTestCode() {
         if (W.loginManager.user.getUsername() === 'MapOMatic') {
-            // test code here
-            unsafeWindow.pnh = PNH_DATA;
+            // For debugging purposes.  May be removed when no longer needed.
+            unsafeWindow.PNH_DATA = PNH_DATA;
         }
     }
 
