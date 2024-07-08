@@ -2970,7 +2970,7 @@
         #severity;
         #message;
         #noLock;
-        /** @type {{pnhMatch :PnhEntry}} */
+        /** @type {HarmonizationArgs} */
         args;
 
         get name() { return this.constructor.name; }
@@ -2988,6 +2988,11 @@
             FlagBase.currentFlags.add(this);
         }
 
+        /**
+         *
+         * @param {HarmonizationArgs} args
+         * @returns
+         */
         static eval(args) {
             if (this.venueIsFlaggable(args)) {
                 const flag = new this(args);
@@ -3029,6 +3034,11 @@
             }
         }
 
+        /**
+         *
+         * @param {HarmonizationArgs} args
+         * @returns
+         */
         static isWhitelisted(args) {
             return !!args.wl[this.WL_KEY];
         }
@@ -3045,7 +3055,7 @@
         set buttonTooltip(value) { this.#buttonTooltip = value; }
     }
 
-    // Namespace to keep these grouped.
+    /** Namespace to keep flags grouped. */
     const Flag = {
         // 2020-10-5 Disabling HN validity checks for now. See note on HnNonStandard flag for details.
         // HnDashRemoved: class extends FlagBase {
@@ -3055,6 +3065,11 @@
             static defaultSeverity = SEVERITY.ORANGE;
             static WL_KEY = 'chainIsClosed';
 
+            /**
+             *
+             * @param {HarmonizationArgs} args
+             * @returns
+             */
             static venueIsFlaggable(args) {
                 return args.chainIsClosed;
             }
@@ -6751,33 +6766,76 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
         };
     } // END getButtonBanner2()
 
-    function generateNewArgs() {
-        return {
-            venue: null,
-            actions: null,
-            highlightOnly: null,
-            totalSeverity: SEVERITY.GREEN,
-            levelToLock: null,
-            lockOK: true,
-            isLocked: null,
+    class HarmonizationArgs {
+        venue = null;
+        actions = null;
+        highlightOnly = true;
+        /** @type {SEVERITY} */
+        totalSeverity = SEVERITY.GREEN;
+        /** @type {number} */
+        levelToLock = null;
+        lockOK = true;
+        isLocked = false;
 
-            // Current venue attributes
-            categories: null,
-            nameSuffix: null,
-            nameBase: null,
-            aliases: null,
-            description: null,
-            url: null,
-            phone: null,
-            openingHours: null,
+        // Current venue attributes
+        /** @type {string[]} */
+        categories = null;
+        /** @type {string} */
+        nameSuffix = null;
+        /** @type {string} */
+        nameBase = null;
+        /** @type {string[]} */
+        aliases = null;
+        /** @type {string} */
+        description = null;
+        /** @type {string} */
+        url = null;
+        /** @type {string} */
+        phone = null;
+        /** @type {[]} */
+        openingHours = null;
 
-            /**
-             * Will temporarily contain an array of information
-             * during matching, but eventually contains a single PnhEntry object.
-             * @type {PnhEntry}
-            */
-            pnhMatch: null
-        };
+        /**
+         * Will temporarily contain an array of information
+         * during matching, but eventually contains a single PnhEntry object.
+         * @type {PnhEntry}
+        */
+        pnhMatch = null;
+        showDispNote = true;
+        hoursOverlap = false;
+        descriptionInserted = false;
+        aliasesRemoved = false;
+        isUspsPostOffice = false;
+        maxPointSeverity = SEVERITY.GREEN;
+        maxAreaSeverity = SEVERITY.RED;
+        almostAllDayHoursEntries = [];
+        defaultLockLevel = LOCK_LEVEL_2;
+        state2L = 'Unknown';
+        region = 'Unknown';
+        gFormState = '';
+        wl = {};
+
+        constructor(venue, actions, highlightOnly) {
+            this.venue = venue;
+
+            this.highlightOnly = highlightOnly;
+            this.addr = venue.getAddress();
+            this.addr = this.addr.attributes ?? this.addr;
+
+            this.actions = actions;
+            this.categories = venue.attributes.categories.slice();
+            const nameParts = getNameParts(venue.attributes.name);
+            this.nameSuffix = nameParts.suffix;
+            this.nameBase = nameParts.base;
+            this.aliases = venue.attributes.aliases.slice();
+            this.description = venue.attributes.description;
+            this.url = venue.attributes.url;
+            this.phone = venue.attributes.phone;
+            this.openingHours = venue.attributes.openingHours;
+            // Set up a variable (newBrand) to contain the brand. When harmonizing, it may be forced to a new value.
+            // Other brand flags should use it since it won't be updated on the actual venue until later.
+            this.brand = venue.attributes.brand;
+        }
     }
 
     // Main script
@@ -6790,37 +6848,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
         actions = actions || [];
 
         FlagBase.currentFlags = new FlagContainer();
-        const args = generateNewArgs();
-        args.venue = venue;
-        args.wl = {};
-        args.highlightOnly = !useFlag.includes('harmonize');
-        args.addr = venue.getAddress();
-        args.addr = args.addr.attributes ?? args.addr;
-        args.state2L = 'Unknown';
-        args.region = 'Unknown';
-        args.gFormState = '';
-        args.actions = actions;
-        args.categories = venue.attributes.categories.slice();
-        const nameParts = getNameParts(venue.attributes.name);
-        args.nameSuffix = nameParts.suffix;
-        args.nameBase = nameParts.base;
-        args.aliases = venue.attributes.aliases.slice();
-        args.description = venue.attributes.description;
-        args.url = venue.attributes.url;
-        args.phone = venue.attributes.phone;
-        args.openingHours = venue.attributes.openingHours;
-        // Set up a variable (newBrand) to contain the brand. When harmonizing, it may be forced to a new value.
-        // Other brand flags should use it since it won't be updated on the actual venue until later.
-        args.brand = venue.attributes.brand;
-        args.showDispNote = true;
-        args.hoursOverlap = false;
-        args.descriptionInserted = false;
-        args.aliasesRemoved = false;
-        args.isUspsPostOffice = false;
-        args.maxPointSeverity = SEVERITY.GREEN;
-        args.maxAreaSeverity = SEVERITY.RED;
-        args.almostAllDayHoursEntries = [];
-        args.defaultLockLevel = LOCK_LEVEL_2;
+        const args = new HarmonizationArgs(venue, actions, !useFlag.includes('harmonize'));
 
         let pnhLockLevel;
         if (!args.highlightOnly) {
