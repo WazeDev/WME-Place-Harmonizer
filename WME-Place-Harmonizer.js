@@ -211,7 +211,6 @@
     const MAX_CACHE_SIZE = 25000;
     const PROD_DOWNLOAD_URL = 'https://greasyfork.org/scripts/28690-wme-place-harmonizer/code/WME%20Place%20Harmonizer.user.js';
     const BETA_DOWNLOAD_URL = 'YUhSMGNITTZMeTluY21WaGMzbG1iM0pyTG05eVp5OXpZM0pwY0hSekx6STROamc1TFhkdFpTMXdiR0ZqWlMxb1lYSnRiMjVwZW1WeUxXSmxkR0V2WTI5a1pTOVhUVVVsTWpCUWJHRmpaU1V5TUVoaGNtMXZibWw2WlhJbE1qQkNaWFJoTG5WelpYSXVhbk09';
-    const _pnhModerators = {};
 
     let _resultsCache = {};
     let _initAlreadyRun = false; // This is used to skip a couple things if already run once.  This could probably be handled better...
@@ -1337,6 +1336,7 @@
         /** Columns that can be ignored when importing */
         COLUMNS_TO_IGNORE: ['temp_field', 'ph_services', 'ph_national', 'logo', ''],
         WORD_VARIATIONS: null,
+        MODERATORS: {},
 
         ForceCategoryMatchingType: Object.freeze({
             NONE: Symbol('none'),
@@ -1621,21 +1621,21 @@
                         values.forEach(regionArray => {
                             const region = regionArray[0];
                             const mods = regionArray.slice(3);
-                            _pnhModerators[region] = mods;
+                            Pnh.MODERATORS[region] = mods;
                         });
                     } catch (ex) {
-                        _pnhModerators['?'] = ['Error downloading moderators!'];
+                        Pnh.MODERATORS['?'] = ['Error downloading moderators!'];
                     }
 
                     // delete Texas region, if it exists
-                    delete _pnhModerators.TX;
+                    delete Pnh.MODERATORS.TX;
 
                     log('PNH moderators download completed');
                     resolve();
                 }).fail(res => {
                     const message = res.responseJSON && res.responseJSON.error ? res.responseJSON.error : 'See response error message above.';
                     console.error('WMEPH failed to load moderator list:', message);
-                    _pnhModerators['?'] = ['Error downloading moderators!'];
+                    Pnh.MODERATORS['?'] = ['Error downloading moderators!'];
                     resolve();
                 });
             });
@@ -9842,12 +9842,12 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
             $('<div>', { style: 'margin-bottom: 10px;' }).text('Moderators are responsible for reviewing chain submissions for their region.'
                 + ' If you have questions or suggestions regarding a chain, please contact any of your regional moderators.'),
             $('<table>').append(
-                Object.keys(_pnhModerators).sort().map(region => $('<tr>').append(
+                Object.keys(Pnh.MODERATORS).sort().map(region => $('<tr>').append(
                     $('<td>', { class: 'wmeph-mods-table-cell title' }).append(
                         $('<div>').text(region)
                     ),
                     $('<td>', { class: 'wmeph-mods-table-cell' }).append(
-                        $('<div>').text(_pnhModerators[region].join(', '))
+                        $('<div>').text(Pnh.MODERATORS[region].join(', '))
                     )
                 ))
             )
