@@ -191,10 +191,14 @@
     const BETA_VERSION_STR = IS_BETA_VERSION ? 'Beta' : ''; // strings to differentiate DOM elements between regular and beta script
     const PNH_DATA = {
         USA: {
+            /** @type {string} */
+            code: 'USA',
             /** @type {PnhCategoryInfos} */
             categoryInfos: null
         },
         CAN: {
+            /** @type {string} */
+            code: 'CAN',
             /** @type {PnhCategoryInfos} */
             categoryInfos: null
         }
@@ -203,7 +207,6 @@
     const MAX_CACHE_SIZE = 25000;
     const PROD_DOWNLOAD_URL = 'https://greasyfork.org/scripts/28690-wme-place-harmonizer/code/WME%20Place%20Harmonizer.user.js';
     const BETA_DOWNLOAD_URL = 'YUhSMGNITTZMeTluY21WaGMzbG1iM0pyTG05eVp5OXpZM0pwY0hSekx6STROamc1TFhkdFpTMXdiR0ZqWlMxb1lYSnRiMjVwZW1WeUxXSmxkR0V2WTI5a1pTOVhUVVVsTWpCUWJHRmpaU1V5TUVoaGNtMXZibWw2WlhJbE1qQkNaWFJoTG5WelpYSXVhbk09';
-
     const _pnhModerators = {};
 
     let _resultsCache = {};
@@ -852,9 +855,9 @@
         regions;
 
         /**
-             * If this is true, the PNH entry should be ignored.
-             * @type {boolean}
-             * */
+         * If this is true, the PNH entry should be ignored.
+         * @type {boolean}
+         * */
         disabled;
 
         /** @type {Symbol} */
@@ -883,9 +886,9 @@
         recommendedPhone;
 
         /**
-             * Prevent name change
-             * @type {boolean}
-             */
+         * Prevent name change
+         * @type {boolean}
+         */
         keepName = false;
 
         /** @type {string} */
@@ -895,9 +898,9 @@
         chainIsClosed;
 
         /**
-             * Value is -1 if no value has been set in PNH.
-             * @type {number}
-             */
+         * Value is -1 if no value has been set in PNH.
+         * @type {number}
+         */
         brandParentLevel = -1;
 
         /** @type {boolean} */
@@ -946,17 +949,17 @@
         hasSpecialCases = false;
 
         /**
-             * true if the PNH entry is invalid and should be skipped
-             * @type {boolean}
-             */
+         * true if the PNH entry is invalid and should be skipped
+         * @type {boolean}
+         */
         invalid = false;
 
         /**
-             *
-             * @param {string[]} columnHeaders
-             * @param {string} rowString A pipe-separated string with all of the PNH entry's data
-             * @param {PnhCategoryInfos} categoryInfos
-             */
+         *
+         * @param {string[]} columnHeaders
+         * @param {string} rowString A pipe-separated string with all of the PNH entry's data
+         * @param {PnhCategoryInfos} categoryInfos
+         */
         constructor(columnHeaders, rowString, categoryInfos) {
             const parseResult = this.#parseSpreadsheetRow(columnHeaders, rowString, categoryInfos);
             if (!this.invalid && (!this.disabled || this.betaEnable)) {
@@ -965,18 +968,18 @@
         }
 
         /**
-             * Makes a string uppercase, then removes AND (anywhere), THE (only at the beginning),
-             * and any non-alphanumeric characters.
-             * @param {string} str
-             */
+         * Makes a string uppercase, then removes AND (anywhere), THE (only at the beginning),
+         * and any non-alphanumeric characters.
+         * @param {string} str
+         */
         static #tighten(str) {
             return str.toUpperCase().replace(/ AND /g, '').replace(/^THE /g, '').replace(/[^A-Z0-9]/g, '');
         }
 
         /**
-             * Makes a string uppercase and removes any non-alphanumeric characters except for commas.
-             * @param {string} str
-             */
+         * Makes a string uppercase and removes any non-alphanumeric characters except for commas.
+         * @param {string} str
+         */
         static #stripNonAlphaKeepCommas(str) {
             return str.toUpperCase().replace(/[^A-Z0-9,]/g, '');
         }
@@ -1009,9 +1012,10 @@
                     return result;
                 }
 
+                // Step through columns and process the row values.
                 columnHeaders.forEach((header, i) => {
                     try {
-                        if (Pnh.COLUMNS_TO_IGNORE.includes(header)) return result;
+                        if (Pnh.COLUMNS_TO_IGNORE.includes(header)) return;
 
                         // If an invalid value is found, don't bother parsing the rest of the row data.
                         if (!this.invalid) {
@@ -1100,7 +1104,7 @@
                                     } else if (value) {
                                         result.warningMessages.push(`Unrecognized value in ${Pnh.SSHeader.disable} column: ${value}`);
                                     }
-                                    return result;
+                                    return;
                                 case Pnh.SSHeader.forcecat:
                                     if (!value || value === '0') {
                                         this.forceCategoryMatching = Pnh.ForceCategoryMatchingType.NONE;
@@ -1236,7 +1240,6 @@
                         this.spaceMatchList.push(...this.searchnameword);
                     }
                 }
-                /* TEST */
             } catch (ex) {
                 result.warningMessages.push(`An unexpected error occurred while parsing. PNH entry will be ignored! :\n${ex.toString()}`);
                 this.disabled = true;
@@ -1370,7 +1373,7 @@
              * @returns
              */
         findMatch: (name, state2L, region3L, country, categories, venue) => {
-            if (country !== 'USA' && country !== 'CAN') {
+            if (country !== PNH_DATA.USA.code && country !== PNH_DATA.CAN.code) {
                 WazeWrap.Alerts.info(SCRIPT_NAME, 'No PNH data exists for this country.');
                 return ['NoMatch'];
             }
@@ -4958,7 +4961,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
             static venueIsFlaggable(args) {
                 return args.phone
                     && !this.isWhitelisted(args)
-                    && ['USA', 'CAN'].includes(args.countryCode)
+                    // && ['USA', 'CAN'].includes(args.countryCode) // This check shouldn't be needed here.
                     && !_areaCodeList.includes(args.phone.match(/[2-9]\d{2}/)?.[0]);
             }
 
@@ -5836,7 +5839,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
 
             static venueIsFlaggable(args) {
                 return !args.highlightOnly
-                    && args.countryCode === 'USA'
+                    && args.countryCode === PNH_DATA.USA.code
                     && !args.venue.isParkingLot()
                     && !args.categories.includes(CAT.POST_OFFICE)
                     && /\bUSP[OS]\b|\bpost(al)?\s+(service|office)\b/i.test(args.nameBase.replace(/[/\-.]/g, ''));
@@ -6105,7 +6108,8 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
 
             // TODO: Can this be put into venueIsFlaggable?
             static eval(args) {
-                const isUsps = args.countryCode === 'USA' && !args.categories.includes(CAT.PARKING_LOT) && args.categories.includes(CAT.POST_OFFICE);
+                const isUsps = args.countryCode === PNH_DATA.USA.code && !args.categories.includes(CAT.PARKING_LOT)
+                    && args.categories.includes(CAT.POST_OFFICE);
                 let storeFinderUrl;
                 let isCustom = false;
                 if (isUsps) {
@@ -6899,9 +6903,9 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
         const countryName = args.addr.country.getName();
         const stateName = args.addr.state.getName();
         if (['United States', 'American Samoa', 'Guam', 'Northern Mariana Islands', 'Puerto Rico', 'Virgin Islands (U.S.)'].includes(countryName)) {
-            args.countryCode = 'USA';
+            args.countryCode = PNH_DATA.USA.code;
         } else if (countryName === 'Canada') {
-            args.countryCode = 'CAN';
+            args.countryCode = PNH_DATA.CAN.code;
         } else {
             if (!args.highlightOnly) {
                 WazeWrap.Alerts.error(SCRIPT_NAME, `This script is not currently supported in ${countryName}.`);
@@ -7034,7 +7038,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                 args.outputPhoneFormat = '{0}-{1}-{2}';
             } else if (args.state2L === 'NV') {
                 args.outputPhoneFormat = '{0}-{1}-{2}';
-            } else if (args.countryCode === 'CAN') {
+            } else if (args.countryCode === PNH_DATA.CAN.code) {
                 args.outputPhoneFormat = '+1-{0}-{1}-{2}';
             }
 
@@ -7371,7 +7375,8 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
 
                 args.hoursOverlap = venueHasOverlappingHours(args.openingHours);
 
-                args.isUspsPostOffice = args.countryCode === 'USA' && !args.categories.includes(CAT.PARKING_LOT) && args.categories.includes(CAT.POST_OFFICE);
+                args.isUspsPostOffice = args.countryCode === PNH_DATA.USA.code && !args.categories.includes(CAT.PARKING_LOT)
+                    && args.categories.includes(CAT.POST_OFFICE);
 
                 if (!args.highlightOnly) {
                     // Highlight 24/7 button if hours are set that way, and add button for all places
@@ -9300,36 +9305,6 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
         searchName = searchName + (searchName ? ', ' : '') + searchHN + searchStreet
             + searchCity + addr.getStateName();
         return `http://www.google.com/search?q=${encodeURIComponent(searchName)}`;
-    }
-
-    // Translation from PNH "natural language" category name to category ID  (Bank / Financial --> BANK_FINANCIAL)
-    function getCategoryIdFromName(pnhCategoryName, countryCode) {
-        const categoryInfo = PNH_DATA[countryCode].categoryInfos.getByName(pnhCategoryName);
-
-        if (categoryInfo) {
-            return categoryInfo.id;
-        }
-
-        // if the category doesn't translate, then pop an alert that will make a forum post to the thread
-        // Generally this means the category used in the PNH sheet is not close enough to the natural language categories used inside the WME translations
-        /* if (confirm('WMEPH: Category Error!\nClick OK to report this error')) {
-            reportError({
-                subject: 'WMEPH Bug report: no tns',
-                message: `Error report: Category "${natCategories}" was not found in the PNH categories sheet.`
-            });
-        } */
-        WazeWrap.Alerts.confirm(
-            SCRIPT_NAME,
-            'WMEPH: Category Error!<br>Click OK to report this error',
-            () => {
-                reportError({
-                    subject: 'WMEPH Bug report: no tns',
-                    message: `Error report: Category "${pnhCategoryName}" was not found in the PNH categories sheet.`
-                });
-            },
-            () => { }
-        );
-        return 'ERROR';
     }
 
     // compares two arrays to see if equal, regardless of order
