@@ -189,15 +189,29 @@
     const SCRIPT_NAME = GM_info.script.name;
     const IS_BETA_VERSION = /Beta/i.test(SCRIPT_NAME); //  enables dev messages and unique DOM options if the script is called "... Beta"
     const BETA_VERSION_STR = IS_BETA_VERSION ? 'Beta' : ''; // strings to differentiate DOM elements between regular and beta script
-    const PNH_DATA = { USA: {}, CAN: {} };
+    const PNH_DATA = {
+        USA: {
+            countryCode: 'USA',
+            countryName: 'USA',
+            /** @type {PnhCategoryInfos} */
+            categoryInfos: null,
+            /** @type {PnhEntry[]} */
+            pnh: null
+        },
+        CAN: {
+            countryCode: 'CAN',
+            countryName: 'Canada',
+            /** @type {PnhCategoryInfos} */
+            categoryInfos: null,
+            /** @type {PnhEntry[]} */
+            pnh: null
+        }
+    };
     const DEFAULT_HOURS_TEXT = 'Paste hours here';
     const MAX_CACHE_SIZE = 25000;
     const PROD_DOWNLOAD_URL = 'https://greasyfork.org/scripts/28690-wme-place-harmonizer/code/WME%20Place%20Harmonizer.user.js';
     const BETA_DOWNLOAD_URL = 'YUhSMGNITTZMeTluY21WaGMzbG1iM0pyTG05eVp5OXpZM0pwY0hSekx6STROamc1TFhkdFpTMXdiR0ZqWlMxb1lYSnRiMjVwZW1WeUxXSmxkR0V2WTI5a1pTOVhUVVVsTWpCUWJHRmpaU1V5TUVoaGNtMXZibWw2WlhJbE1qQkNaWFJoTG5WelpYSXVhbk09';
 
-    const _pnhModerators = {};
-
-    let _wordVariations;
     let _resultsCache = {};
     let _initAlreadyRun = false; // This is used to skip a couple things if already run once.  This could probably be handled better...
     let _textEntryValues = null; // Store the values entered in text boxes so they can be re-added when the banner is reassembled.
@@ -581,6 +595,7 @@
         CAT.SWAMP_MARSH,
         CAT.TUNNEL
     ];
+    const dec = s => atob(atob(s));
 
     // Split out state-based data
     let _psStateIx;
@@ -791,6 +806,953 @@
             checkAttribute('lockRank');
         }
     };
+
+    class PnhCategoryInfos {
+        #categoriesById = {};
+        #categoriesByName = {};
+
+        add(categoryInfo) {
+            this.#categoriesById[categoryInfo.id] = categoryInfo;
+            this.#categoriesByName[categoryInfo.name.toUpperCase()] = categoryInfo;
+        }
+
+        getById(id) {
+            return this.#categoriesById[id];
+        }
+
+        getByName(name) {
+            return this.#categoriesByName[name.toUpperCase()];
+        }
+
+        toArray() {
+            return Object.values(this.#categoriesById);
+        }
+    }
+
+    class PnhEntry {
+        /** @type {string} */
+        order;
+
+        /** @type {string */
+        name;
+
+        /** @type {string[]} */
+        aliases;
+
+        /** @type {string} */
+        primaryCategory;
+
+        /** @type {string[]} */
+        altCategories;
+
+        /** @type {string} */
+        description;
+
+        /** @type {string} */
+        url;
+
+        /** @type {string} */
+        notes;
+
+        /** @type {string[]} */
+        regions;
+
+        /**
+         * If this is true, the PNH entry should be ignored.
+         * @type {boolean}
+         * */
+        disabled;
+
+        /** @type {Symbol} */
+        forceCategoryMatching;
+
+        flagsToAdd = {};
+
+        flagsToRemove = {};
+
+        /** @type {string[]} */
+        servicesToAdd = [];
+
+        /** @type {string[]} */
+        servicesToRemove = [];
+
+        /** @type {string} */
+        forceBrand;
+
+        /** @type {RegExp} */
+        localUrlCheckRegEx;
+
+        /** @type {RegExp} */
+        localizationRegEx;
+
+        /** @type {string} */
+        recommendedPhone;
+
+        /**
+         * Prevent name change
+         * @type {boolean}
+         */
+        keepName = false;
+
+        /** @type {string} */
+        optionalAlias;
+
+        /** @type {boolean} */
+        chainIsClosed;
+
+        /**
+         * Value is -1 if no value has been set in PNH.
+         * @type {number}
+         */
+        brandParentLevel = -1;
+
+        /** @type {boolean} */
+        strMatchAny;
+
+        /** @type {string[]} */
+        spaceMatchList;
+
+        /** @type {boolean} */
+        pharmhours;
+
+        /** @type {boolean} */
+        notABank;
+
+        /** @type {boolean} */
+        optionCat2;
+
+        /** @type {boolean} */
+        optionName2;
+
+        /** @type {boolean} */
+        altName2Desc;
+
+        /** @type {boolean} */
+        subFuel;
+
+        /** @type {RegExp} */
+        regexNameMatch;
+
+        /** @type {number} */
+        lockAt;
+
+        /** @type {boolean} */
+        noUpdateAlias;
+
+        /** @type {boolean} */
+        betaEnable;
+
+        /** @type {string[]} */
+        searchnameword;
+
+        /** @type {string[]} */
+        searchNameList;
+
+        /** @type {boolean} */
+        hasSpecialCases = false;
+
+        /**
+         * true if the PNH entry is invalid and should be skipped
+         * @type {boolean}
+         */
+        invalid = false;
+
+        /**
+         *
+         * @param {string[]} columnHeaders
+         * @param {string} rowString A pipe-separated string with all of the PNH entry's data
+         * @param {PnhCategoryInfos} categoryInfos
+         */
+        constructor(columnHeaders, rowString, categoryInfos) {
+            const parseResult = this.#parseSpreadsheetRow(columnHeaders, rowString, categoryInfos);
+            if (!this.invalid && (!this.disabled || this.betaEnable)) {
+                this.#buildSearchNameList(parseResult);
+            }
+        }
+
+        /**
+         * Makes a string uppercase, then removes AND (anywhere), THE (only at the beginning),
+         * and any non-alphanumeric characters.
+         * @param {string} str
+         */
+        static #tighten(str) {
+            return str.toUpperCase().replace(/ AND /g, '').replace(/^THE /g, '').replace(/[^A-Z0-9]/g, '');
+        }
+
+        /**
+         * Makes a string uppercase and removes any non-alphanumeric characters except for commas.
+         * @param {string} str
+         */
+        static #stripNonAlphaKeepCommas(str) {
+            return str.toUpperCase().replace(/[^A-Z0-9,]/g, '');
+        }
+
+        /**
+         *
+         * @param {string[]} columnHeaders
+         * @param {string} rowString
+         * @param {PnhCategoryInfos} categoryInfos
+         * @returns
+         */
+        #parseSpreadsheetRow(columnHeaders, rowString, categoryInfos) {
+            /**  Contains values needed for immediate processing, but not to be stored in the PnhEntry */
+            const result = {
+                searchnamebase: null,
+                searchnamemid: null,
+                searchnameend: null,
+                skipAltNameMatch: null,
+                warningMessages: []
+            };
+
+            try {
+                const columnValues = rowString.split('|');
+
+                // Do any preprocessing here:
+                const disabled = columnValues[columnHeaders.indexOf(Pnh.SSHeader.disable)].trim();
+                if (disabled === '1') {
+                    // If the row is disabled, no need to process the rest of it.
+                    this.disabled = true;
+                    return result;
+                }
+
+                // Step through columns and process the row values.
+                columnHeaders.forEach((header, i) => {
+                    try {
+                        if (Pnh.COLUMNS_TO_IGNORE.includes(header)) return;
+
+                        // If an invalid value is found, don't bother parsing the rest of the row data.
+                        if (!this.invalid) {
+                            let value = columnValues[i].trim();
+                            if (!value.length) {
+                                value = undefined;
+                            } else if (header === Pnh.SSHeader.aliases) {
+                                // TODO: Are these two checks really needed?
+                                if (value.startsWith('(')) {
+                                    value = undefined; // ignore aliases if the cell starts with paren
+                                } else {
+                                    value = value.replace(/,[^A-za-z0-9]*/g, ','); // tighten up commas if more than one alias.
+                                }
+                            }
+
+                            switch (header) {
+                                case Pnh.SSHeader.order:
+                                case Pnh.SSHeader.description:
+                                case Pnh.SSHeader.notes:
+                                case Pnh.SSHeader.displaynote:
+                                case Pnh.SSHeader.sfurl:
+                                case Pnh.SSHeader.sfurllocal:
+                                    header = header.substring(3);
+                                    this[header] = value;
+                                    break;
+                                case Pnh.SSHeader.url:
+                                    if (value) this.url = normalizeURL(value);
+                                    break;
+                                case Pnh.SSHeader.searchnamebase:
+                                    result.searchnamebase = value;
+                                    break;
+                                case Pnh.SSHeader.searchnamemid:
+                                    result.searchnamemid = value;
+                                    break;
+                                case Pnh.SSHeader.searchnameend:
+                                    result.searchnameend = value;
+                                    break;
+                                case Pnh.SSHeader.searchnameword:
+                                    this.searchnameword = value?.toUpperCase().replace(/, /g, ',').split(',');
+                                    break;
+                                case Pnh.SSHeader.name:
+                                    if (value?.toUpperCase() !== 'PLEASE REUSE') {
+                                        this.name = value;
+                                    } else {
+                                        // No need to post warning here. Just skip it.
+                                        this.invalid = true;
+                                    }
+                                    break;
+                                case Pnh.SSHeader.aliases:
+                                    this.aliases = value?.split(',').map(v => v.trim()) || [];
+                                    break;
+                                case Pnh.SSHeader.category1:
+                                    if (value) {
+                                        this.primaryCategory = categoryInfos.getByName(value)?.id;
+                                        if (typeof this.primaryCategory === 'undefined') {
+                                            result.warningMessages.push(`Unrecognized primary category value: ${value}`);
+                                        }
+                                    } else {
+                                        result.warningMessages.push('No primary category assigned. PNH entry will be ignored!');
+                                        this.invalid = true;
+                                    }
+                                    break;
+                                case Pnh.SSHeader.category2:
+                                    this.altCategories = value?.split(',').map(v => v.trim()).map(catName => {
+                                        const cat = categoryInfos.getByName(catName)?.id;
+                                        if (!cat) {
+                                            result.warningMessages.push(`Unrecognized alternate category: ${catName}`);
+                                        }
+                                        return cat;
+                                    }).filter(cat => typeof cat === 'string');
+                                    break;
+                                case Pnh.SSHeader.region:
+                                    if (value) {
+                                        this.regions = value.toUpperCase().split(',').map(v => v.trim());
+                                        // TODO: Check for valid regions.
+                                    } else {
+                                        // If no regions, ignore it.
+                                        this.invalid = true;
+                                        result.warningMessages.push('No regions specified. PNH entry will be ignored!');
+                                    }
+                                    break;
+                                case Pnh.SSHeader.disable:
+                                    // Handled the '1' case earlier in preprocessing
+                                    if (value === 'altName') {
+                                        result.skipAltNameMatch = true;
+                                    } else if (value) {
+                                        result.warningMessages.push(`Unrecognized value in ${Pnh.SSHeader.disable} column: ${value}`);
+                                    }
+                                    return;
+                                case Pnh.SSHeader.forcecat:
+                                    if (!value || value === '0') {
+                                        this.forceCategoryMatching = Pnh.ForceCategoryMatchingType.NONE;
+                                    } else if (value === '1') {
+                                        this.forceCategoryMatching = Pnh.ForceCategoryMatchingType.PRIMARY;
+                                    } else if (value === '2') {
+                                        this.forceCategoryMatching = Pnh.ForceCategoryMatchingType.ANY;
+                                    } else {
+                                        result.warningMessages.push(`Unrecognized value in ${Pnh.SSHeader.forcecat} column: ${value}`);
+                                    }
+                                    break;
+                                case Pnh.SSHeader.speccase:
+                                    if (value) {
+                                        this.hasSpecialCases = true;
+                                        value = value.split(',').map(v => v.trim());
+                                        /* eslint-disable no-cond-assign */
+                                        value.forEach(specialCase => {
+                                            let match;
+                                            if (match = specialCase.match(/^buttOn_(.*)/i)) {
+                                                const [, scFlag] = match;
+                                                switch (scFlag) {
+                                                    case 'addCat2':
+                                                        // flag = new Flag.AddCat2();
+                                                        break;
+                                                    case 'addPharm':
+                                                    case 'addSuper':
+                                                    case 'appendAMPM':
+                                                    case 'addATM':
+                                                    case 'addConvStore':
+                                                        this.flagsToAdd[scFlag] = true;
+                                                        break;
+                                                    default:
+                                                        result.warningMessages.push(`Unrecognized ph_specCase value: ${specialCase}`);
+                                                }
+                                            } else if (match = specialCase.match(/^buttOff_(.+)/i)) {
+                                                const [, scFlag] = match;
+                                                switch (scFlag) {
+                                                    case 'addConvStore':
+                                                        this.flagsToRemove[scFlag] = true;
+                                                        break;
+                                                    default:
+                                                        result.warningMessages.push(`Unrecognized ph_specCase value: ${specialCase}`);
+                                                }
+                                                // } else if (match = specCase.match(/^messOn_(.+)/i)) {
+                                                //    [, scFlag] = match;
+                                                //    _buttonBanner[scFlag].active = true;
+                                                // } else if (match = specCase.match(/^messOff_(.+)/i)) {
+                                                //    [, scFlag] = match;
+                                                //    _buttonBanner[scFlag].active = false;
+                                            } else if (match = specialCase.match(/^psOn_(.+)/i)) {
+                                                const [, scFlag] = match;
+                                                // TODO: Add check for valid services.
+                                                this.servicesToAdd.push(scFlag);
+                                            } else if (match = specialCase.match(/^psOff_(.+)/i)) {
+                                                const [, scFlag] = match;
+                                                // TODO: Add check for valid services.
+                                                this.servicesToRemove.push(scFlag);
+                                            } else if (match = specialCase.match(/forceBrand<>([^,<]+)/i)) {
+                                                // If brand is going to be forced, use that.  Otherwise, use existing brand.
+                                                [, this.forceBrand] = match;
+                                            } else if (match = specialCase.match(/^localURL_(.+)/i)) {
+                                                // parseout localURL data if exists (meaning place can have a URL distinct from the chain URL
+                                                [, this.localURLcheck] = new RegExp(match, 'i');
+                                            } else if (match = specialCase.match(/^checkLocalization<>(.+)/i)) {
+                                                const [, localizationString] = match;
+                                                this.localizationRegEx = new RegExp(localizationString, 'g');
+                                            } else if (match = specialCase.match(/phone<>(.*?)<>/)) {
+                                                [, this.recommendedPhone] = match;
+                                            } else if (/keepName/g.test(specialCase)) {
+                                                this.keepName = true;
+                                            } else if (match = specialCase.match(/^optionAltName<>(.+)/i)) {
+                                                [, this.optionalAlias] = match;
+                                            } else if (/^closed$/i.test(specialCase)) {
+                                                this.chainIsClosed = true;
+                                            } else if (match = specialCase.match(/^brandParent(\d+)/)) {
+                                                try {
+                                                    this.brandParentLevel = parseInt(match[1], 10);
+                                                } catch {
+                                                    result.warningMessages.push(`Invalid forceBrand value: ${specialCase}`);
+                                                }
+                                            } else if (/^strMatchAny$/i.test(specialCase)) {
+                                                this.strMatchAny = true;
+                                            } else if (/^pharmhours$/i.test(specialCase)) {
+                                                this.pharmhours = true;
+                                            } else if (/^notABank$/i.test(specialCase)) {
+                                                this.notABank = true;
+                                            } else if (/^optionCat2$/i.test(specialCase)) {
+                                                this.optionCat2 = true;
+                                            } else if (/^optionName2$/i.test(specialCase)) {
+                                                this.optionName2 = true;
+                                            } else if (/^altName2Desc$/i.test(specialCase)) {
+                                                this.altName2Desc = true;
+                                            } else if (/^subFuel$/i.test(specialCase)) {
+                                                this.subFuel = true;
+                                            } else if (match = specialCase.match(/^regexNameMatch<>(.+)<>/i)) {
+                                                this.regexNameMatch = new RegExp(match[1].replace(/\\/, '\\').replace(/<or>/g, '|'), 'i');
+                                            } else if (match = specialCase.match(/^lockAt(\d)$/i)) {
+                                                try {
+                                                    this.lockAt = parseInt(match[1], 10);
+                                                    if (this.lockAt < 1 || this.lockAt > 6) {
+                                                        throw new Error();
+                                                    }
+                                                } catch {
+                                                    result.warningMessages.push(`Invalid ph_speccase lockAt value (must be between 1 and 6): ${specialCase}`);
+                                                }
+                                            } else if (/^noUpdateAlias$/i.test(specialCase)) {
+                                                this.noUpdateAlias = true;
+                                            } else if (/^betaEnable$/i.test(specialCase)) {
+                                                this.betaEnable = true;
+                                            } else {
+                                                result.warningMessages.push(`Unrecognized ph_speccase value: ${specialCase}`);
+                                            }
+                                        });
+                                        /* eslint-enable no-cond-assign */
+                                    }
+                                    break;
+                                case '': // Ignore this
+                                    break;
+                                default:
+                                        // Ignore unrecognized headers here.
+                            }
+                        }
+                    } catch (ex) {
+                        result.warningMessages.push(`An unexpected error occurred while processing column: ${header}. PNH entry will be ignored.`);
+                    }
+                }); // END ROW PROCESSING
+
+                // Do any post-processing of row values here:
+                if (this.strMatchAny || this.primaryCategory === CAT.HOTEL) {
+                    // NOTE: the replace functions here are not the same as the #tighten function, so don't use that.
+                    this.spaceMatchList = [this.name.toUpperCase().replace(/ AND /g, ' ').replace(/^THE /g, '').replace(/[^A-Z0-9 ]/g, ' ').replace(/ {2,}/g, ' ')];
+                    if (this.searchnameword) {
+                        this.spaceMatchList.push(...this.searchnameword);
+                    }
+                }
+            } catch (ex) {
+                result.warningMessages.push(`An unexpected error occurred while parsing. PNH entry will be ignored! :\n${ex.toString()}`);
+                this.disabled = true;
+            }
+
+            if (result.warningMessages.length) {
+                console.warn('WMEPH:', `PNH Order # ${this.order} parsing issues:\n- ${result.warningMessages.join('\n- ')}`);
+            }
+            return result;
+        }
+
+        #buildSearchNameList(parseResult) {
+            let newNameList = [PnhEntry.#tighten(this.name)];
+
+            if (!parseResult.skipAltNameMatch) {
+                // Add any aliases
+                newNameList = newNameList.concat(this.aliases.map(alias => PnhEntry.#tighten(alias)));
+            }
+
+            // The following code sets up alternate search names as outlined in the PNH dataset.
+            // Formula, with P = PNH primary; A1, A2 = PNH aliases; B1, B2 = base terms; M1, M2 = mid terms; E1, E2 = end terms
+            // Search list will build: P, A, B, PM, AM, BM, PE, AE, BE, PME, AME, BME.
+            // Multiple M terms are applied singly and in pairs (B1M2M1E2).  Multiple B and E terms are applied singly (e.g B1B2M1 not used).
+            // Any doubles like B1E2=P are purged at the end to eliminate redundancy.
+            if (!isNullOrWhitespace(parseResult.searchnamebase)) { // If base terms exist, otherwise only the primary name is matched
+                newNameList = newNameList.concat(PnhEntry.#stripNonAlphaKeepCommas(parseResult.searchnamebase).split(','));
+
+                if (!isNullOrWhitespace(parseResult.searchnamemid)) {
+                    let pnhSearchNameMid = PnhEntry.#stripNonAlphaKeepCommas(parseResult.searchnamemid).split(',');
+                    if (pnhSearchNameMid.length > 1) { // if there are more than one mid terms, it adds a permutation of the first 2
+                        pnhSearchNameMid = pnhSearchNameMid
+                            .concat([pnhSearchNameMid[0] + pnhSearchNameMid[1], pnhSearchNameMid[1] + pnhSearchNameMid[0]]);
+                    }
+                    const midLen = pnhSearchNameMid.length;
+                    // extend the list by adding Mid terms onto the SearchNameBase names
+                    for (let extix = 1, len = newNameList.length; extix < len; extix++) {
+                        for (let midix = 0; midix < midLen; midix++) {
+                            newNameList.push(newNameList[extix] + pnhSearchNameMid[midix]);
+                        }
+                    }
+                }
+
+                if (!isNullOrWhitespace(parseResult.searchnameend)) {
+                    const pnhSearchNameEnd = PnhEntry.#stripNonAlphaKeepCommas(parseResult.searchnameend).split(',');
+                    const endLen = pnhSearchNameEnd.length;
+                    // extend the list by adding End terms onto all the SearchNameBase & Base+Mid names
+                    for (let extix = 1, len = newNameList.length; extix < len; extix++) {
+                        for (let endix = 0; endix < endLen; endix++) {
+                            newNameList.push(newNameList[extix] + pnhSearchNameEnd[endix]);
+                        }
+                    }
+                }
+            }
+
+            // Clear out any empty entries
+            newNameList = newNameList.filter(name => name.length > 1);
+
+            // Next, add extensions to the search names based on the WME place category
+            const categoryInfo = this.primaryCategory;
+            const appendWords = [];
+            if (categoryInfo) {
+                if (categoryInfo.id === CAT.HOTEL) {
+                    appendWords.push('HOTEL');
+                } else if (categoryInfo.id === CAT.BANK_FINANCIAL && !this.notABank) {
+                    appendWords.push('BANK', 'ATM');
+                } else if (categoryInfo.id === CAT.SUPERMARKET_GROCERY) {
+                    appendWords.push('SUPERMARKET');
+                } else if (categoryInfo.id === CAT.GYM_FITNESS) {
+                    appendWords.push('GYM');
+                } else if (categoryInfo.id === CAT.GAS_STATION) {
+                    appendWords.push('GAS', 'GASOLINE', 'FUEL', 'STATION', 'GASSTATION');
+                } else if (categoryInfo.id === CAT.CAR_RENTAL) {
+                    appendWords.push('RENTAL', 'RENTACAR', 'CARRENTAL', 'RENTALCAR');
+                }
+                appendWords.forEach(word => { newNameList = newNameList.concat(newNameList.map(name => name + word)); });
+            }
+
+            // Add entries for word/spelling variations
+            Pnh.WORD_VARIATIONS.forEach(variationsList => addSpellingVariants(newNameList, variationsList));
+
+            this.searchNameList = uniq(newNameList);
+        }
+
+        /**
+         *  Function that checks current place against the Harmonization Data.  Returns place data or "NoMatch"
+         * @param {string} name
+         * @param {string} state2L
+         * @param {string} region3L
+         * @param {string} country
+         * @param {string[]} categories
+         * @param {venue} venue
+         * @returns
+         */
+        getMatchInfo(name, state2L, region3L, country, categories, venue, venueNameSpace) {
+            const matchInfo = {
+                isMatch: false,
+                allowMultiMatch: true, // TODO: This can probably be removed
+                matchOutOfRegion: false
+            };
+            let nameMatch = false;
+
+            // Name Matching
+            if (this.regexNameMatch) {
+                nameMatch = this.regexNameMatch.test(venue.attributes.name);
+            } else if (this.strMatchAny || this.primaryCategory === CAT.HOTEL) {
+                // Match any part of WME name with either the PNH name or any spaced names
+                matchInfo.allowMultiMatch = true; // TODO: This can probably be removed
+
+                for (let nmix = 0; nmix < this.spaceMatchList.length; nmix++) {
+                    if (venueNameSpace.includes(` ${this.spaceMatchList[nmix]} `)) {
+                        nameMatch = true;
+                        break;
+                    }
+                }
+            } else {
+                // Split all possible search names for the current PNH entry
+                const { searchNameList } = this;
+
+                // Clear non-letter characters for alternate match ( HOLLYIVYPUB23 --> HOLLYIVYPUB )
+                const venueNameNoNum = name.replace(/[^A-Z]/g, '');
+
+                /*
+                 * I could not find strMatchStart or strMatchEnd in the PNH spreadsheet. Assuming these
+                 * are no longer needed.
+                 */
+                // if (specCases.includes('strMatchStart')) {
+                //     //  Match the beginning part of WME name with any search term
+                //     for (let nmix = 0; nmix < searchNameList.length; nmix++) {
+                //         if (name.startsWith(searchNameList[nmix]) || venueNameNoNum.startsWith(searchNameList[nmix])) {
+                //             PNHStringMatch = true;
+                //         }
+                //     }
+                // } else if (specCases.includes('strMatchEnd')) {
+                //     //  Match the end part of WME name with any search term
+                //     for (let nmix = 0; nmix < searchNameList.length; nmix++) {
+                //         if (name.endsWith(searchNameList[nmix]) || venueNameNoNum.endsWith(searchNameList[nmix])) {
+                //             PNHStringMatch = true;
+                //         }
+                //     }
+                /* } else */ if (searchNameList.includes(name) || searchNameList.includes(venueNameNoNum)) {
+                    // full match of any term only
+                    nameMatch = true;
+                }
+            }
+
+            // if a match was found:
+            if (nameMatch) { // Compare WME place name to PNH search name list
+                logDev(`Matched PNH Order No.: ${this.order}`);
+
+                const PNHPriCat = this.primaryCategory; // Primary category of PNH data
+                let PNHForceCat = this.forceCategoryMatching; // Primary category of PNH data
+
+                // Gas stations only harmonized if the WME place category is already gas station (prevents Costco Gas becoming Costco Store)
+                if (categories[0] === CAT.GAS_STATION) {
+                    PNHForceCat = Pnh.ForceCategoryMatchingType.PRIMARY;
+                }
+
+                // Name and primary category match
+                matchInfo.isMatch = (PNHForceCat === Pnh.ForceCategoryMatchingType.PRIMARY && categories.indexOf(PNHPriCat) === 0)
+                    // Name and any category match
+                    || (PNHForceCat === Pnh.ForceCategoryMatchingType.ANY && categories.includes(PNHPriCat))
+                    // Name only match
+                    || (PNHForceCat === Pnh.ForceCategoryMatchingType.NONE);
+            }
+
+            if (!(this.regions.includes(state2L) || this.regions.includes(region3L) // if the WME-selected venue matches the state, region
+                || this.regions.includes(country) //  OR if the country code is in the data then it is approved for all regions therein
+                || $('#WMEPH-RegionOverride').prop('checked'))) { // OR if region override is selected (dev setting)
+                matchInfo.matchOutOfRegion = true;
+            }
+
+            return matchInfo;
+        }
+    }
+
+    /** "Namespace" for classes and methods related to handling PNH spreadsheet data */
+    class Pnh {
+        static SPREADSHEET_ID = '1pBz4l4cNapyGyzfMJKqA4ePEFLkmz2RryAt1UV39B4g';
+        static SPREADSHEET_RANGE = '2019.01.20.001!A2:L';
+        static SPREADSHEET_MODERATORS_RANGE = 'Moderators!A1:F';
+        static API_KEY = 'YTJWNVBVRkplbUZUZVVObU1YVXpSRVZ3ZW5OaFRFSk1SbTR4VGxKblRURjJlRTFYY3pOQ2NXZElPQT09';
+        /** Columns that can be ignored when importing */
+        static COLUMNS_TO_IGNORE = ['temp_field', 'ph_services', 'ph_national', 'logo', ''];
+        static WORD_VARIATIONS = null;
+        static MODERATORS = {};
+
+        static ForceCategoryMatchingType = Object.freeze({
+            NONE: Symbol('none'),
+            PRIMARY: Symbol('primary'),
+            ANY: Symbol('any')
+        });
+
+        static SSHeader = Object.freeze({
+            order: 'ph_order',
+            name: 'ph_name',
+            aliases: 'ph_aliases',
+            category1: 'ph_category1',
+            category2: 'ph_category2',
+            description: 'ph_description',
+            url: 'ph_url',
+            notes: 'ph_notes',
+            region: 'ph_region',
+            disable: 'ph_disable',
+            forcecat: 'ph_forcecat',
+            displaynote: 'ph_displaynote',
+            speccase: 'ph_speccase',
+            searchnamebase: 'ph_searchnamebase',
+            searchnamemid: 'ph_searchnamemid',
+            searchnameend: 'ph_searchnameend',
+            searchnameword: 'ph_searchnameword',
+            sfurl: 'ph_sfurl',
+            sfurllocal: 'ph_sfurllocal',
+            toValueArray: () => Object.values(Pnh.SSHeader).filter(v => typeof v === 'string')
+        });
+
+        /**
+         * Function that checks current place against the Harmonization Data. Returns place data, "NoMatch", or "Approval Needed"
+         * @param {string} name
+         * @param {string} state2L
+         * @param {string} region3L
+         * @param {string} country
+         * @param {string[]} categories
+         * @param {venue} venue
+         * @returns
+         */
+        static findMatch(name, state2L, region3L, country, categories, venue) {
+            if (country !== PNH_DATA.USA.countryCode && country !== PNH_DATA.CAN.countryCode) {
+                WazeWrap.Alerts.info(SCRIPT_NAME, 'No PNH data exists for this country.');
+                return ['NoMatch'];
+            }
+            if (venue.isParkingLot()) {
+                return ['NoMatch'];
+            }
+            /** @type {PnhEntry[]} */
+            const pnhData = PNH_DATA[country].pnh;
+            const matchPNHRegionData = []; // array of matched data with regional approval
+            const pnhOrderNum = [];
+            const pnhNameTemp = [];
+            let matchOutOfRegion = false; // tracks match status
+            let matchInRegion = false;
+
+            name = name.toUpperCase().replace(/ AND /g, ' ').replace(/^THE /g, '');
+            const venueNameSpace = ` ${name.replace(/[^A-Z0-9 ]/g, ' ').replace(/ {2,}/g, ' ')} `;
+            name = name.replace(/[^A-Z0-9]/g, ''); // Clear all non-letter and non-number characters ( HOLLYIVY PUB #23 -- > HOLLYIVYPUB23 )
+
+            // for each entry in the PNH list (skipping headers at index 0)
+            for (let pnhIdx = 0; pnhIdx < pnhData.length; pnhIdx++) {
+                const pnhEntry = pnhData[pnhIdx];
+                const matchInfo = pnhEntry.getMatchInfo(name, state2L, region3L, country, categories, venue, venueNameSpace);
+                if (matchInfo.isMatch) {
+                    // if (!matchInfo.allowMultiMatch) {
+                    //     return [pnhEntry];
+                    // }
+                    matchInRegion = true;
+                    if (matchInfo.matchOutOfRegion) {
+                        // PNH match found (once true, stays true)
+                        matchOutOfRegion = true;
+                        // temp name for approval return
+                        pnhNameTemp.push(pnhEntry.name);
+
+                        // temp order number for approval return
+                        pnhOrderNum.push(pnhEntry.order);
+                    } else {
+                        matchPNHRegionData.push(pnhEntry);
+                    }
+                }
+            } // END loop through PNH entries
+
+            // If name & region match was found:
+            if (matchInRegion) {
+                return matchPNHRegionData;
+            }
+            if (matchOutOfRegion) { // if a name match was found but not for region, prod the user to get it approved
+                return ['ApprovalNeeded', pnhNameTemp, pnhOrderNum];
+            }
+            if (matchPNHRegionData.length) {
+                return matchOutOfRegion;
+            }
+            // if no match was found, suggest adding the place to the sheet if it's a chain
+            return ['NoMatch'];
+        }
+
+        static validatePnhSSColumnHeaders(headers) {
+            let valid = true;
+            const expectedHeaders = Pnh.SSHeader.toValueArray();
+
+            // Warn if extra headers are found in the spreadsheet.
+            headers.forEach(header => {
+                // temp_field currently exists on the USA sheet but may not be needed
+                if (header.length && header !== 'temp_field' && !expectedHeaders.includes(header)
+                    && !Pnh.COLUMNS_TO_IGNORE.includes(header)) {
+                    console.warn(`WMEPH: Unexpected column header found in PNH spreadsheet: ${header}`);
+                }
+            });
+
+            // Return invalid if expected headers are not found in spreadsheet.
+            expectedHeaders.forEach(header => {
+                if (!headers.includes(header)) {
+                    console.error(`WMEPH: Column header missing from PNH spreadsheet data: ${header}`);
+                    valid = false;
+                }
+            });
+
+            return valid;
+        }
+
+        /**
+         *
+         * @param {string[]} rows
+         * @param {PnhCategoryInfos} categoryInfos
+         * @returns
+         */
+        static processPnhSSRows(rows, categoryInfos) {
+            const columnHeaders = rows.splice(0, 1)[0].split('|').map(h => h.trim());
+
+            // Canada's spreadsheet is missing 'ph_order' in the first column header.
+            if (!columnHeaders[0].length) columnHeaders[0] = Pnh.SSHeader.order;
+
+            if (!Pnh.validatePnhSSColumnHeaders(columnHeaders)) {
+                throw new Error('WMEPH: WMEPH exiting due to missing spreadsheet column headers.');
+            }
+            return rows.map(row => new PnhEntry(columnHeaders, row, categoryInfos))
+                .filter(entry => !entry.disabled && !entry.invalid);
+        }
+
+        static processImportedDataColumn(allData, columnIndex) {
+            return allData.filter(row => row.length >= columnIndex + 1).map(row => row[columnIndex]);
+        }
+
+        static getSpreadsheetUrl(id, range, key) {
+            return `https://sheets.googleapis.com/v4/spreadsheets/${id}/values/${range}?${dec(key)}`;
+        }
+
+        static downloadPnhData() {
+            log('PNH data download started...');
+            return new Promise((resolve, reject) => {
+                const url = this.getSpreadsheetUrl(this.SPREADSHEET_ID, this.SPREADSHEET_RANGE, this.API_KEY);
+
+                $.getJSON(url).done(res => {
+                    const { values } = res;
+                    if (values[0][0].toLowerCase() === 'obsolete') {
+                        WazeWrap.Alerts.error(SCRIPT_NAME, 'You are using an outdated version of WMEPH that doesn\'t work anymore. Update or disable the script.');
+                        return;
+                    }
+
+                    // This needs to be performed before makeNameCheckList() is called.
+                    Pnh.WORD_VARIATIONS = Pnh.processImportedDataColumn(values, 11).slice(1).map(row => row.toUpperCase().replace(/[^A-z0-9,]/g, '').split(','));
+
+                    PNH_DATA.USA.categoryInfos = new PnhCategoryInfos();
+                    Pnh.processCategories(Pnh.processImportedDataColumn(values, 3), PNH_DATA.USA.categoryInfos);
+                    PNH_DATA.USA.pnh = Pnh.processPnhSSRows(Pnh.processImportedDataColumn(values, 0), PNH_DATA.USA.categoryInfos);
+
+                    // PNH_DATA.USA.pnhNames = makeNameCheckList(PNH_DATA.USA);
+                    PNH_DATA.states = Pnh.processImportedDataColumn(values, 1);
+
+                    PNH_DATA.CAN.categoryInfos = PNH_DATA.USA.categoryInfos;
+                    PNH_DATA.CAN.pnh = Pnh.processPnhSSRows(Pnh.processImportedDataColumn(values, 2), PNH_DATA.CAN.categoryInfos);
+
+                    const WMEPHuserList = Pnh.processImportedDataColumn(values, 4)[1].split('|');
+                    const betaix = WMEPHuserList.indexOf('BETAUSERS');
+                    _wmephDevList = [];
+                    _wmephBetaList = [];
+                    for (let ulix = 1; ulix < betaix; ulix++) _wmephDevList.push(WMEPHuserList[ulix].toLowerCase().trim());
+                    for (let ulix = betaix + 1; ulix < WMEPHuserList.length; ulix++) _wmephBetaList.push(WMEPHuserList[ulix].toLowerCase().trim());
+
+                    const processTermsCell = (termsValues, colIdx) => Pnh.processImportedDataColumn(termsValues, colIdx)[1]
+                        .toLowerCase().split('|').map(value => value.trim());
+                    _hospitalPartMatch = processTermsCell(values, 5);
+                    _hospitalFullMatch = processTermsCell(values, 6);
+                    _animalPartMatch = processTermsCell(values, 7);
+                    _animalFullMatch = processTermsCell(values, 8);
+                    _schoolPartMatch = processTermsCell(values, 9);
+                    _schoolFullMatch = processTermsCell(values, 10);
+
+                    log('PNH data download completed');
+                    resolve();
+                }).fail(res => {
+                    const message = res.responseJSON && res.responseJSON.error ? res.responseJSON.error : 'See response error message above.';
+                    console.error('WMEPH failed to load spreadsheet:', message);
+                    reject();
+                });
+            });
+        }
+
+        static downloadPnhModerators() {
+            log('PNH moderators download started...');
+            return new Promise(resolve => {
+                const url = Pnh.getSpreadsheetUrl(Pnh.SPREADSHEET_ID, Pnh.SPREADSHEET_MODERATORS_RANGE, Pnh.API_KEY);
+
+                $.getJSON(url).done(res => {
+                    const { values } = res;
+
+                    try {
+                        values.forEach(regionArray => {
+                            const region = regionArray[0];
+                            const mods = regionArray.slice(3);
+                            Pnh.MODERATORS[region] = mods;
+                        });
+                    } catch (ex) {
+                        Pnh.MODERATORS['?'] = ['Error downloading moderators!'];
+                    }
+
+                    // delete Texas region, if it exists
+                    delete Pnh.MODERATORS.TX;
+
+                    log('PNH moderators download completed');
+                    resolve();
+                }).fail(res => {
+                    const message = res.responseJSON && res.responseJSON.error ? res.responseJSON.error : 'See response error message above.';
+                    console.error('WMEPH failed to load moderator list:', message);
+                    Pnh.MODERATORS['?'] = ['Error downloading moderators!'];
+                    resolve();
+                });
+            });
+        }
+
+        static processCategories(categoryDataRows, categoryInfos) {
+            let headers;
+            let pnhServiceKeys;
+            let wmeServiceIds;
+            const splitValues = (value => (value.trim() ? value.split(',').map(v => v.trim()) : []));
+            categoryDataRows.forEach((row, iRow) => {
+                row = row.split('|');
+                if (iRow === 0) {
+                    headers = row;
+                } else if (iRow === 1) {
+                    pnhServiceKeys = row;
+                } else if (iRow === 2) {
+                    wmeServiceIds = row;
+                } else {
+                    const categoryInfo = {
+                        services: []
+                    };
+                    row.forEach((value, iCol) => {
+                        const headerValue = headers[iCol].trim();
+                        value = value.trim();
+                        switch (headerValue) {
+                            case 'pc_wmecat':
+                                categoryInfo.id = value;
+                                break;
+                            case 'pc_transcat':
+                                categoryInfo.name = value;
+                                break;
+                            case 'pc_catparent':
+                                categoryInfo.parent = value;
+                                break;
+                            case 'pc_point':
+                                categoryInfo.point = value;
+                                break;
+                            case 'pc_area':
+                                categoryInfo.area = value;
+                                break;
+                            case 'pc_regpoint':
+                                categoryInfo.regPoint = splitValues(value);
+                                break;
+                            case 'pc_regarea':
+                                categoryInfo.regArea = splitValues(value);
+                                break;
+                            case 'pc_lock1':
+                                categoryInfo.lock1 = splitValues(value);
+                                break;
+                            case 'pc_lock2':
+                                categoryInfo.lock2 = splitValues(value);
+                                break;
+                            case 'pc_lock3':
+                                categoryInfo.lock3 = splitValues(value);
+                                break;
+                            case 'pc_lock4':
+                                categoryInfo.lock4 = splitValues(value);
+                                break;
+                            case 'pc_lock5':
+                                categoryInfo.lock5 = splitValues(value);
+                                break;
+                            case 'pc_rare':
+                                categoryInfo.rare = splitValues(value);
+                                break;
+                            case 'pc_parent':
+                                categoryInfo.disallowedParent = splitValues(value);
+                                break;
+                            case 'pc_message':
+                                categoryInfo.messagae = value;
+                                break;
+                            case 'ps_valet':
+                            case 'ps_drivethru':
+                            case 'ps_wifi':
+                            case 'ps_restrooms':
+                            case 'ps_cc':
+                            case 'ps_reservations':
+                            case 'ps_outside':
+                            case 'ps_ac':
+                            case 'ps_parking':
+                            case 'ps_deliveries':
+                            case 'ps_takeaway':
+                            case 'ps_wheelchair':
+                                if (value) {
+                                    categoryInfo.services.push({ wmeId: wmeServiceIds[iCol], pnhKey: pnhServiceKeys[iCol] });
+                                }
+                                break;
+                            case '':
+                                // ignore blank column
+                                break;
+                            default:
+                                throw new Error(`WMEPH: Unexpected category data from PNH sheet: ${headerValue}`);
+                        }
+                    });
+                    categoryInfos.add(categoryInfo);
+                }
+            });
+        }
+    }
 
     // KB Shortcut object
     const SHORTCUT = {
@@ -1140,104 +2102,6 @@
         return [...new Set(arrayIn)];
     }
 
-    // This function runs at script load, and builds the search name dataset to compare the WME selected place name to.
-    function makeNameCheckList(countryData) {
-        const pnhData = countryData.pnh;
-        const headers = pnhData[0].split('|');
-        const nameIdx = headers.indexOf('ph_name');
-        const aliasesIdx = headers.indexOf('ph_aliases');
-        const category1Idx = headers.indexOf('ph_category1');
-        const searchNameBaseIdx = headers.indexOf('ph_searchnamebase');
-        const searchNameMidIdx = headers.indexOf('ph_searchnamemid');
-        const searchNameEndIdx = headers.indexOf('ph_searchnameend');
-        const disableIdx = headers.indexOf('ph_disable');
-        const specCaseIdx = headers.indexOf('ph_speccase');
-        const tighten = str => str.toUpperCase().replace(/ AND /g, '').replace(/^THE /g, '').replace(/[^A-Z0-9]/g, '');
-        const stripNonAlphaKeepCommas = str => str.toUpperCase().replace(/[^A-Z0-9,]/g, '');
-
-        return pnhData.map(entry => {
-            const splits = entry.split('|');
-            const specCase = splits[specCaseIdx];
-
-            if (splits[disableIdx] !== '1' || specCase.includes('betaEnable')) {
-                let newNameList = [tighten(splits[nameIdx])];
-
-                if (splits[disableIdx] !== 'altName') {
-                    // Add any aliases
-                    const tempAliases = splits[aliasesIdx];
-                    if (!isNullOrWhitespace(tempAliases)) {
-                        newNameList = newNameList.concat(tempAliases.replace(/,[^A-Za-z0-9]*/g, ',').split(',').map(alias => tighten(alias)));
-                    }
-                }
-
-                // The following code sets up alternate search names as outlined in the PNH dataset.
-                // Formula, with P = PNH primary; A1, A2 = PNH aliases; B1, B2 = base terms; M1, M2 = mid terms; E1, E2 = end terms
-                // Search list will build: P, A, B, PM, AM, BM, PE, AE, BE, PME, AME, BME.
-                // Multiple M terms are applied singly and in pairs (B1M2M1E2).  Multiple B and E terms are applied singly (e.g B1B2M1 not used).
-                // Any doubles like B1E2=P are purged at the end to eliminate redundancy.
-                const nameBaseStr = splits[searchNameBaseIdx];
-                if (!isNullOrWhitespace(nameBaseStr)) { // If base terms exist, otherwise only the primary name is matched
-                    newNameList = newNameList.concat(stripNonAlphaKeepCommas(nameBaseStr).split(','));
-
-                    const nameMidStr = splits[searchNameMidIdx];
-                    if (!isNullOrWhitespace(nameMidStr)) {
-                        let pnhSearchNameMid = stripNonAlphaKeepCommas(nameMidStr).split(',');
-                        if (pnhSearchNameMid.length > 1) { // if there are more than one mid terms, it adds a permutation of the first 2
-                            pnhSearchNameMid = pnhSearchNameMid.concat([pnhSearchNameMid[0] + pnhSearchNameMid[1], pnhSearchNameMid[1] + pnhSearchNameMid[0]]);
-                        }
-                        const midLen = pnhSearchNameMid.length;
-                        // extend the list by adding Mid terms onto the SearchNameBase names
-                        for (let extix = 1, len = newNameList.length; extix < len; extix++) {
-                            for (let midix = 0; midix < midLen; midix++) {
-                                newNameList.push(newNameList[extix] + pnhSearchNameMid[midix]);
-                            }
-                        }
-                    }
-
-                    const nameEndStr = splits[searchNameEndIdx];
-                    if (!isNullOrWhitespace(nameEndStr)) {
-                        const pnhSearchNameEnd = stripNonAlphaKeepCommas(nameEndStr).split(',');
-                        const endLen = pnhSearchNameEnd.length;
-                        // extend the list by adding End terms onto all the SearchNameBase & Base+Mid names
-                        for (let extix = 1, len = newNameList.length; extix < len; extix++) {
-                            for (let endix = 0; endix < endLen; endix++) {
-                                newNameList.push(newNameList[extix] + pnhSearchNameEnd[endix]);
-                            }
-                        }
-                    }
-                }
-                // Clear out any empty entries
-                newNameList = newNameList.filter(name => name.length > 1);
-
-                // Next, add extensions to the search names based on the WME place category
-                const categoryInfo = countryData.categoryInfos.getByName(splits[category1Idx]);
-                const appendWords = [];
-                if (categoryInfo) {
-                    if (categoryInfo.id === CAT.HOTEL) {
-                        appendWords.push('HOTEL');
-                    } else if (categoryInfo.id === CAT.BANK_FINANCIAL && !/\bnotABank\b/.test(specCase)) {
-                        appendWords.push('BANK', 'ATM');
-                    } else if (categoryInfo.id === CAT.SUPERMARKET_GROCERY) {
-                        appendWords.push('SUPERMARKET');
-                    } else if (categoryInfo.id === CAT.GYM_FITNESS) {
-                        appendWords.push('GYM');
-                    } else if (categoryInfo.id === CAT.GAS_STATION) {
-                        appendWords.push('GAS', 'GASOLINE', 'FUEL', 'STATION', 'GASSTATION');
-                    } else if (categoryInfo.id === CAT.CAR_RENTAL) {
-                        appendWords.push('RENTAL', 'RENTACAR', 'CARRENTAL', 'RENTALCAR');
-                    }
-                    appendWords.forEach(word => { newNameList = newNameList.concat(newNameList.map(name => name + word)); });
-                }
-
-                // Add entries for word/spelling variations
-                _wordVariations.forEach(variationsList => addSpellingVariants(newNameList, variationsList));
-
-                return uniq(newNameList).join('|').replace(/\|{2,}/g, '|').replace(/\|+$/g, '');
-            } // END if valid line
-            return '00';
-        });
-    } // END makeNameCheckList
-
     function clickGeneralTab() {
         // Make sure the General tab is selected before clicking on the external provider element.
         // These selector strings are very specific.  Could probably make them more generalized for robustness.
@@ -1430,157 +2294,6 @@
         ];
         $('head').append($('<style>', { type: 'text/css' }).html(cssArray.join('\n')));
     }
-
-    // Function that checks current place against the Harmonization Data.  Returns place data or "NoMatch"
-    function findPnhMatch(name, state2L, region3L, country, categories, venue) {
-        if (country !== 'USA' && country !== 'CAN') {
-            WazeWrap.Alerts.info(SCRIPT_NAME, 'No PNH data exists for this country.');
-            return ['NoMatch'];
-        }
-        if (venue.isParkingLot()) {
-            return ['NoMatch'];
-        }
-        const { pnhNames, pnh: pnhData } = PNH_DATA[country];
-        const pnhHeaders = pnhData[0].split('|');
-        const phNameIdx = pnhHeaders.indexOf('ph_name');
-        const phCategory1Idx = pnhHeaders.indexOf('ph_category1');
-        const phForceCatIdx = pnhHeaders.indexOf('ph_forcecat');
-        const phRegionIdx = pnhHeaders.indexOf('ph_region');
-        const phOrderIdx = pnhHeaders.indexOf('ph_order');
-        const phSpecCaseIdx = pnhHeaders.indexOf('ph_speccase');
-        const phSearchNameWordIdx = pnhHeaders.indexOf('ph_searchnameword');
-        let approvedRegions; // filled with the regions that are approved for the place, when match is found
-        const matchPNHRegionData = []; // array of matched data with regional approval
-        let allowMultiMatch = false;
-        const pnhOrderNum = [];
-        const pnhNameTemp = [];
-        let matchOutOfRegion = false; // tracks match status
-        let matchInRegion = false;
-
-        name = name.toUpperCase().replace(/ AND /g, ' ').replace(/^THE /g, '');
-        const venueNameSpace = ` ${name.replace(/[^A-Z0-9 ]/g, ' ').replace(/ {2,}/g, ' ')} `;
-        name = name.replace(/[^A-Z0-9]/g, ''); // Clear all non-letter and non-number characters ( HOLLYIVY PUB #23 -- > HOLLYIVYPUB23 )
-
-        // for each place on the PNH list (skipping headers at index 0)
-        for (let pnhIdx = 1, len = pnhNames.length; pnhIdx < len; pnhIdx++) {
-            let PNHStringMatch = false;
-            const pnhEntry = pnhData[pnhIdx];
-            const pnhEntrySplits = pnhEntry.split('|'); // Split the PNH place data into string array
-
-            // Name Matching
-            const specCases = pnhEntrySplits[phSpecCaseIdx];
-            if (specCases.includes('regexNameMatch')) {
-                // Check for regex name matching instead of "standard" name matching.
-                const match = specCases.match(/regexNameMatch<>(.+?)<>/i);
-                if (match !== null) {
-                    const reStr = match[1].replace(/\\/, '\\').replace(/<or>/g, '|');
-                    const re = new RegExp(reStr, 'i');
-                    PNHStringMatch = re.test(venue.attributes.name);
-                }
-            } else if (specCases.includes('strMatchAny') || pnhEntrySplits[phCategory1Idx] === 'Hotel') {
-                // Match any part of WME name with either the PNH name or any spaced names
-                allowMultiMatch = true;
-                const spaceMatchList = [];
-                spaceMatchList.push(pnhEntrySplits[phNameIdx].toUpperCase().replace(/ AND /g, ' ').replace(/^THE /g, '').replace(/[^A-Z0-9 ]/g, ' ').replace(/ {2,}/g, ' '));
-                if (pnhEntrySplits[phSearchNameWordIdx] !== '') {
-                    spaceMatchList.push(...pnhEntrySplits[phSearchNameWordIdx].toUpperCase().replace(/, /g, ',').split(','));
-                }
-                for (let nmix = 0; nmix < spaceMatchList.length; nmix++) {
-                    if (venueNameSpace.includes(` ${spaceMatchList[nmix]} `)) {
-                        PNHStringMatch = true;
-                    }
-                }
-            } else {
-                // Split all possible search names for the current PNH entry
-                const nameComps = pnhNames[pnhIdx].split('|');
-
-                // Clear non-letter characters for alternate match ( HOLLYIVYPUB23 --> HOLLYIVYPUB )
-                const venueNameNoNum = name.replace(/[^A-Z]/g, '');
-
-                if (specCases.includes('strMatchStart')) {
-                    //  Match the beginning part of WME name with any search term
-                    for (let nmix = 0; nmix < nameComps.length; nmix++) {
-                        if (name.startsWith(nameComps[nmix]) || venueNameNoNum.startsWith(nameComps[nmix])) {
-                            PNHStringMatch = true;
-                        }
-                    }
-                } else if (specCases.includes('strMatchEnd')) {
-                    //  Match the end part of WME name with any search term
-                    for (let nmix = 0; nmix < nameComps.length; nmix++) {
-                        if (name.endsWith(nameComps[nmix]) || venueNameNoNum.endsWith(nameComps[nmix])) {
-                            PNHStringMatch = true;
-                        }
-                    }
-                } else if (nameComps.includes(name) || nameComps.includes(venueNameNoNum)) {
-                    // full match of any term only
-                    PNHStringMatch = true;
-                }
-            }
-
-            // if a match was found:
-            if (PNHStringMatch) { // Compare WME place name to PNH search name list
-                logDev(`Matched PNH Order No.: ${pnhEntrySplits[phOrderIdx]}`);
-
-                const PNHPriCat = getCategoryIdFromName(pnhEntrySplits[phCategory1Idx], country); // Primary category of PNH data
-                let PNHForceCat = pnhEntrySplits[phForceCatIdx]; // Primary category of PNH data
-
-                // Gas stations only harmonized if the WME place category is already gas station (prevents Costco Gas becoming Costco Store)
-                if (categories[0] === CAT.GAS_STATION) {
-                    PNHForceCat = '1';
-                }
-
-                let PNHMatchProceed = false;
-                if (PNHForceCat === '1' && categories.indexOf(PNHPriCat) === 0) {
-                    // Name and primary category match
-                    PNHMatchProceed = true;
-                } else if (PNHForceCat === '2' && categories.includes(PNHPriCat)) {
-                    // Name and any category match
-                    PNHMatchProceed = true;
-                } else if (PNHForceCat === '0' || PNHForceCat === '') {
-                    // Name only match
-                    PNHMatchProceed = true;
-                }
-
-                if (PNHMatchProceed) {
-                    // remove spaces, upper case the approved regions, and split by commas
-                    approvedRegions = pnhEntrySplits[phRegionIdx].replace(/ /g, '').toUpperCase().split(',');
-
-                    if (approvedRegions.includes(state2L) || approvedRegions.includes(region3L) // if the WME-selected venue matches the state, region
-                        || approvedRegions.includes(country) //  OR if the country code is in the data then it is approved for all regions therein
-                        || $('#WMEPH-RegionOverride').prop('checked')) { // OR if region override is selected (dev setting)
-                        matchPNHRegionData.push(pnhEntry);
-                        matchInRegion = true;
-                        if (!allowMultiMatch) {
-                            // Return the PNH data string array to the main script
-                            return matchPNHRegionData;
-                        }
-                    } else {
-                        // PNH match found (once true, stays true)
-                        matchOutOfRegion = true;
-
-                        // Pull the data line from the PNH data table.  (**Set in array for future multimatch features)
-                        // matchPNHData.push(pnhEntry);
-
-                        // temp name for approval return
-                        pnhNameTemp.push(pnhEntrySplits[phNameIdx]);
-
-                        // temp order number for approval return
-                        pnhOrderNum.push(pnhEntrySplits[phOrderIdx]);
-                    }
-                }
-            }
-        } // END loop through PNH places
-
-        // If name & region match was found:
-        if (matchInRegion) {
-            return matchPNHRegionData;
-        }
-        if (matchOutOfRegion) { // if a name match was found but not for region, prod the user to get it approved
-            return ['ApprovalNeeded', pnhNameTemp, pnhOrderNum];
-        }
-        // if no match was found, suggest adding the place to the sheet if it's a chain
-        return ['NoMatch'];
-    } // END harmoList function
 
     function onVenuesChanged(venueProxies) {
         logDev('onVenuesChanged');
@@ -2279,6 +2992,8 @@
         #severity;
         #message;
         #noLock;
+        /** @type {HarmonizationArgs} */
+        args;
 
         get name() { return this.constructor.name; }
 
@@ -2295,6 +3010,11 @@
             FlagBase.currentFlags.add(this);
         }
 
+        /**
+         *
+         * @param {HarmonizationArgs} args
+         * @returns
+         */
         static eval(args) {
             if (this.venueIsFlaggable(args)) {
                 const flag = new this(args);
@@ -2336,6 +3056,11 @@
             }
         }
 
+        /**
+         *
+         * @param {HarmonizationArgs} args
+         * @returns
+         */
         static isWhitelisted(args) {
             return !!args.wl[this.WL_KEY];
         }
@@ -2352,7 +3077,7 @@
         set buttonTooltip(value) { this.#buttonTooltip = value; }
     }
 
-    // Namespace to keep these grouped.
+    /** Namespace to keep flags grouped. */
     const Flag = {
         // 2020-10-5 Disabling HN validity checks for now. See note on HnNonStandard flag for details.
         // HnDashRemoved: class extends FlagBase {
@@ -2362,12 +3087,17 @@
             static defaultSeverity = SEVERITY.ORANGE;
             static WL_KEY = 'chainIsClosed';
 
+            /**
+             *
+             * @param {HarmonizationArgs} args
+             * @returns
+             */
             static venueIsFlaggable(args) {
                 return args.chainIsClosed;
             }
 
             get message() {
-                const pnhName = this.args.pnhMatchData[1];
+                const pnhName = this.args.pnhMatch.name;
                 return `Place matched to PNH entry "${pnhName}", which is no longer in business.<br/><br/>`
                 + 'Follow the <a target="_blank" href="https://www.waze.com/wiki/USA/Places#Closed">wiki instructions</a> for closed places.';
             }
@@ -3329,7 +4059,7 @@
             static defaultMessage = 'Clarify the type of bank: the name has ATM but the primary category is Offices';
 
             static venueIsFlaggable(args) {
-                return (!args.pnhNameRegMatch || (args.pnhNameRegMatch && args.priPNHPlaceCat === CAT.BANK_FINANCIAL && !args.pnhMatchData[args.phSpecCaseIdx].includes('notABank')))
+                return (!args.pnhNameRegMatch || (args.pnhNameRegMatch && args.priPNHPlaceCat === CAT.BANK_FINANCIAL && !args.pnhMatch.notABank))
                     && args.categories[0] === CAT.OFFICES
                     && /\batm\b/i.test(name);
             }
@@ -3343,7 +4073,7 @@
 
             static venueIsFlaggable(args) {
                 let flaggable = false;
-                if (!args.priPNHPlaceCat || (args.priPNHPlaceCat === CAT.BANK_FINANCIAL && !args.pnhMatchData[args.phSpecCaseIdx].includes('notABank'))) {
+                if (!args.priPNHPlaceCat || (args.priPNHPlaceCat === CAT.BANK_FINANCIAL && !args.pnhMatch.notABank)) {
                     const ixBank = args.categories.indexOf(CAT.BANK_FINANCIAL);
                     const ixATM = args.categories.indexOf(CAT.ATM);
                     const ixOffices = args.categories.indexOf(CAT.OFFICES);
@@ -3391,7 +4121,7 @@
 
             static venueIsFlaggable(args) {
                 let flaggable = false;
-                if (!args.priPNHPlaceCat || (args.priPNHPlaceCat === CAT.BANK_FINANCIAL && !args.pnhMatchData[args.phSpecCaseIdx].includes('notABank'))) {
+                if (!args.priPNHPlaceCat || (args.priPNHPlaceCat === CAT.BANK_FINANCIAL && !args.pnhMatch.notABank)) {
                     const ixBank = args.categories.indexOf(CAT.BANK_FINANCIAL);
                     const ixATM = args.categories.indexOf(CAT.ATM);
                     const ixOffices = args.categories.indexOf(CAT.OFFICES);
@@ -3437,7 +4167,7 @@
                 let flaggable = false;
                 if (!args.priPNHPlaceCat) {
                     flaggable = (/\batm\b/ig.test(args.nameBase) && args.categories.indexOf(CAT.OFFICES) === 0);
-                } else if (args.priPNHPlaceCat === CAT.BANK_FINANCIAL && !args.pnhMatchData[args.phSpecCaseIdx].includes('notABank')) {
+                } else if (args.priPNHPlaceCat === CAT.BANK_FINANCIAL && !args.pnhMatch.notABank) {
                     flaggable = !containsAny(args.categories, [CAT.BANK_FINANCIAL, CAT.ATM])
                         && !/\bcorporate offices\b/i.test(args.nameSuffix);
                 }
@@ -3718,7 +4448,7 @@
 
             static venueIsFlaggable(args) {
                 return !this.isWhitelisted(args)
-                    && args.specCases.includes('subFuel')
+                    && args.pnhMatch.subFuel
                     && !/\bgas(oline)?\b/i.test(args.venue.attributes.name)
                     && !/\bfuel\b/i.test(args.venue.attributes.name);
             }
@@ -3955,13 +4685,13 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
         },
         CatHotel: class extends FlagBase {
             constructor(args) {
-                const pnhName = args.pnhMatchData[args.phNameIdx];
+                const pnhName = args.pnhMatch.name;
                 super(`Check hotel website for any name localization (e.g. ${pnhName} - Tampa Airport).`);
             }
 
             static venueIsFlaggable(args) {
                 return args.priPNHPlaceCat === CAT.HOTEL
-                    && (args.nameBase + (args.nameSuffix || '')).toUpperCase() === args.pnhMatchData[args.phNameIdx].toUpperCase();
+                    && (args.nameBase + (args.nameSuffix || '')).toUpperCase() === args.pnhMatch.name.toUpperCase();
             }
         },
         LocalizedName: class extends WLFlag {
@@ -3969,11 +4699,11 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
             static WL_KEY = 'localizedName';
             static defaultWLTooltip = 'Whitelist localization';
 
-            get message() { return this.args.displayNote || 'Place needs localization information'; }
+            get message() { return this.args.pnhMatch.displaynote || 'Place needs localization information'; }
 
             static venueIsFlaggable(args) {
-                return args.localizationRegEx
-                    && !args.localizationRegEx.test(args.nameBase + (args.nameSuffix || ''));
+                return args.pnhMatch.localizationRegEx
+                    && !args.pnhMatch.localizationRegEx.test(args.nameBase + (args.nameSuffix || ''));
             }
         },
         SpecCaseMessage: class extends FlagBase {
@@ -3983,7 +4713,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
             static #rivianW = /<b>rivian waypoints<\/b> charger/i;
 
             constructor(args) {
-                let message = args.pnhMatchData[args.phDisplayNoteIdx];
+                let message = args.pnhMatch.displaynote;
 
                 // 3/23/2023 - This is a temporary solution to add a disambiguator for Tesla & Rivian chargers.
                 let isRivian = false;
@@ -4038,14 +4768,15 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
             }
 
             static venueIsFlaggable(args) {
-                const message = args.pnhMatchData[args.phDisplayNoteIdx];
+                const message = args.pnhMatch.displaynote;
                 if (args.showDispNote && !isNullOrWhitespace(message)) {
-                    if (args.specialCases.pharmhours) {
+                    if (args.pnhMatch.pharmhours) {
                         if (!args.description.toUpperCase().includes('PHARMACY') || (!args.description.toUpperCase().includes('HOURS')
                             && !args.description.toUpperCase().includes('HRS'))) {
                             return true;
                         }
-                    } else if (args.specialCases.drivethruhours) {
+                        // TODO: figure out what drivethruhours was supposed to be in PNH speccase column
+                    } else if (args.pnhMatch.drivethruhours) {
                         if (!args.description.toUpperCase().includes('DRIVE') || (!args.description.toUpperCase().includes('HOURS')
                             && !args.description.toUpperCase().includes('HRS'))) {
                             if ($('#service-checkbox-DRIVETHROUGH').prop('checked')) {
@@ -4267,7 +4998,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
             static venueIsFlaggable(args) {
                 return args.phone
                     && !this.isWhitelisted(args)
-                    && ['USA', 'CAN'].includes(args.countryCode)
+                    // && ['USA', 'CAN'].includes(args.countryCode) // This check shouldn't be needed here.
                     && !_areaCodeList.includes(args.phone.match(/[2-9]\d{2}/)?.[0]);
             }
 
@@ -5002,19 +5733,19 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
         AddAlias: class extends ActionFlag {
             static defaultButtonText = 'Yes';
 
-            get message() { return `Is there a ${this.args.optionalAlias} at this location?`; }
-            get buttonTooltip() { return `Add ${this.args.optionalAlias}`; }
+            get message() { return `Is there a ${this.args.pnhMatch.optionalAlias} at this location?`; }
+            get buttonTooltip() { return `Add ${this.args.pnhMatch.optionalAlias}`; }
 
             static venueIsFlaggable(args) {
-                return args.optionalAlias
-                    && !args.aliases.includes(args.optionalAlias);
+                return args.pnhMatch.optionalAlias
+                    && !args.aliases.includes(args.pnhMatch.optionalAlias);
             }
 
             action() {
                 const attr = this.args.venue.attributes;
-                const alias = this.args.optionalAlias;
+                const alias = this.args.pnhMatch.optionalAlias;
                 let aliases = insertAtIndex(attr.aliases.slice(), alias, 0);
-                if (this.args.specCases.includes('altName2Desc') && !attr.description.toUpperCase().includes(alias.toUpperCase())) {
+                if (this.args.pnhMatch.altName2Desc && !attr.description.toUpperCase().includes(alias.toUpperCase())) {
                     const description = `${alias}\n${attr.description}`;
                     addUpdateAction(this.args.venue, { description }, null, false);
                 }
@@ -5034,10 +5765,10 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                 this.venue = venue;
             }
 
-            static eval(venue, specCases, categories, altCategory) {
+            static eval(args, altCategory) {
                 let result = null;
-                if (specCases.includes('buttOn_addCat2') && !categories.includes(altCategory)) {
-                    result = new this(venue, altCategory);
+                if (args.pnhMatch.flagsToAdd.addCat2 && !args.categories.includes(altCategory)) {
+                    result = new this(args.venue, altCategory);
                 }
                 return result;
             }
@@ -5053,7 +5784,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
             static defaultButtonTooltip = 'Add Pharmacy category';
 
             static venueIsFlaggable(args) {
-                return args.specialCases.addPharm && !args.categories.includes(CAT.PHARMACY);
+                return args.pnhMatch.flagsToAdd.addPharm && !args.categories.includes(CAT.PHARMACY);
             }
 
             action() {
@@ -5067,7 +5798,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
             static defaultButtonTooltip = 'Add Supermarket category';
 
             static venueIsFlaggable(args) {
-                return args.specialCases.addSuper && !args.categories.includes(CAT.SUPERMARKET_GROCERY);
+                return args.pnhMatch.flagsToAdd.addSuper && !args.categories.includes(CAT.SUPERMARKET_GROCERY);
             }
 
             action() {
@@ -5084,7 +5815,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
             static venueIsFlaggable(args) {
                 // No need to check for name/catgory. After the action is run, the name will match the "ARCO ampm"
                 // PNH entry, which doesn't have this flag.
-                return args.specialCases.appendAMPM;
+                return args.pnhMatch.flagsToAdd.appendAMPM;
             }
 
             action() {
@@ -5099,9 +5830,9 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
 
             static venueIsFlaggable(args) {
                 let flaggable = false;
-                if (args.specialCases.addATM) {
+                if (args.pnhMatch.flagsToAdd?.addATM) {
                     flaggable = true;
-                } else if (args.pnhMatchData[args.phSpecCaseIdx]?.includes('notABank')) {
+                } else if (args.pnhMatch.notABank) {
                     // do nothing
                 } else if (!args.categories.includes(CAT.ATM) && args.categories.includes(CAT.BANK_FINANCIAL)) {
                     if (args.priPNHPlaceCat === CAT.BANK_FINANCIAL) {
@@ -5129,7 +5860,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                 return (args.categories.includes(CAT.GAS_STATION)
                     && !args.categories.includes(CAT.CONVENIENCE_STORE)
                     && !this.currentFlags.hasFlag(Flag.SubFuel)) // Don't flag if already asking if this is really a gas station
-                    || args.specialCases.addConvStore;
+                    || args.pnhMatch?.flagsToAdd?.addConvStore;
             }
 
             action() {
@@ -5145,7 +5876,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
 
             static venueIsFlaggable(args) {
                 return !args.highlightOnly
-                    && args.countryCode === 'USA'
+                    && args.countryCode === PNH_DATA.USA.countryCode
                     && !args.venue.isParkingLot()
                     && !args.categories.includes(CAT.POST_OFFICE)
                     && /\bUSP[OS]\b|\bpost(al)?\s+(service|office)\b/i.test(args.nameBase.replace(/[/\-.]/g, ''));
@@ -5346,7 +6077,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
 
             static venueIsFlaggable(args) {
                 return !args.highlightOnly
-                    && args.pnhMatchData[0] === 'NoMatch'
+                    && args.pnhMatch[0] === 'NoMatch'
                     && !args.venue.isParkingLot()
                     && !CHAIN_APPROVAL_PRIMARY_CATS_TO_IGNORE.includes(args.categories[0])
                     && !args.categories.includes(CAT.REST_AREAS);
@@ -5365,8 +6096,8 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
             constructor(args) {
                 super();
 
-                const encodedName = encodeURIComponent(args.pnhMatchData[1][0]); // Just do the first match
-                const pnhOrderNum = args.pnhMatchData[2].join(',');
+                const encodedName = encodeURIComponent(args.pnhMatch[1][0]); // Just do the first match
+                const pnhOrderNum = args.pnhMatch[2].join(',');
                 const approvalMessage = `Submitted via WMEPH. PNH order number ${pnhOrderNum}`;
                 const encodedPermalink = encodeURIComponent(args.placePL);
                 const regionSettings = REGION_SETTINGS[args.region];
@@ -5381,7 +6112,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
 
             static venueIsFlaggable(args) {
                 return !args.highlightOnly
-                    && args.pnhMatchData[0] === 'ApprovalNeeded'
+                    && args.pnhMatch[0] === 'ApprovalNeeded'
                     && !args.venue.isParkingLot()
                     && !CHAIN_APPROVAL_PRIMARY_CATS_TO_IGNORE.includes(args.categories[0])
                     && !args.categories.includes(CAT.REST_AREAS);
@@ -5414,19 +6145,18 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
 
             // TODO: Can this be put into venueIsFlaggable?
             static eval(args) {
-                const isUsps = args.countryCode === 'USA' && !args.categories.includes(CAT.PARKING_LOT) && args.categories.includes(CAT.POST_OFFICE);
+                const isUsps = args.countryCode === PNH_DATA.USA.countryCode && !args.categories.includes(CAT.PARKING_LOT)
+                    && args.categories.includes(CAT.POST_OFFICE);
                 let storeFinderUrl;
                 let isCustom = false;
                 if (isUsps) {
                     storeFinderUrl = this.#USPS_LOCATION_FINDER_URL;
                 } else {
-                    let colIndex = args.pnhDataHeaders.indexOf('ph_sfurllocal');
-                    storeFinderUrl = args.pnhMatchData[colIndex]?.trim();
+                    storeFinderUrl = args.pnhMatch.sfurllocal;
                     if (storeFinderUrl) {
                         isCustom = true;
                     } else {
-                        colIndex = args.pnhDataHeaders.indexOf('ph_sfurl');
-                        storeFinderUrl = args.pnhMatchData[colIndex]?.trim();
+                        storeFinderUrl = args.pnhMatch.sfurl;
                     }
                 }
 
@@ -6058,26 +6788,76 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
         };
     } // END getButtonBanner2()
 
-    function generateNewArgs() {
-        return {
-            venue: null,
-            actions: null,
-            highlightOnly: null,
-            totalSeverity: SEVERITY.GREEN,
-            levelToLock: null,
-            lockOK: true,
-            isLocked: null,
+    class HarmonizationArgs {
+        venue = null;
+        actions = null;
+        highlightOnly = true;
+        /** @type {SEVERITY} */
+        totalSeverity = SEVERITY.GREEN;
+        /** @type {number} */
+        levelToLock = null;
+        lockOK = true;
+        isLocked = false;
 
-            // Current venue attributes
-            categories: null,
-            nameSuffix: null,
-            nameBase: null,
-            aliases: null,
-            description: null,
-            url: null,
-            phone: null,
-            openingHours: null
-        };
+        // Current venue attributes
+        /** @type {string[]} */
+        categories = null;
+        /** @type {string} */
+        nameSuffix = null;
+        /** @type {string} */
+        nameBase = null;
+        /** @type {string[]} */
+        aliases = null;
+        /** @type {string} */
+        description = null;
+        /** @type {string} */
+        url = null;
+        /** @type {string} */
+        phone = null;
+        /** @type {[]} */
+        openingHours = null;
+
+        /**
+         * Will temporarily contain an array of information
+         * during matching, but eventually contains a single PnhEntry object.
+         * @type {PnhEntry}
+        */
+        pnhMatch = null;
+        showDispNote = true;
+        hoursOverlap = false;
+        descriptionInserted = false;
+        aliasesRemoved = false;
+        isUspsPostOffice = false;
+        maxPointSeverity = SEVERITY.GREEN;
+        maxAreaSeverity = SEVERITY.RED;
+        almostAllDayHoursEntries = [];
+        defaultLockLevel = LOCK_LEVEL_2;
+        state2L = 'Unknown';
+        region = 'Unknown';
+        gFormState = '';
+        wl = {};
+
+        constructor(venue, actions, highlightOnly) {
+            this.venue = venue;
+
+            this.highlightOnly = highlightOnly;
+            this.addr = venue.getAddress();
+            this.addr = this.addr.attributes ?? this.addr;
+
+            this.actions = actions;
+            this.categories = venue.attributes.categories.slice();
+            const nameParts = getNameParts(venue.attributes.name);
+            this.nameSuffix = nameParts.suffix;
+            this.nameBase = nameParts.base;
+            this.aliases = venue.attributes.aliases.slice();
+            this.description = venue.attributes.description;
+            this.url = venue.attributes.url;
+            this.phone = venue.attributes.phone;
+            this.openingHours = venue.attributes.openingHours;
+            // Set up a variable (newBrand) to contain the brand. When harmonizing, it may be forced to a new value.
+            // Other brand flags should use it since it won't be updated on the actual venue until later.
+            this.brand = venue.attributes.brand;
+        }
     }
 
     // Main script
@@ -6090,44 +6870,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
         actions = actions || [];
 
         FlagBase.currentFlags = new FlagContainer();
-        const args = generateNewArgs();
-        args.venue = venue;
-        args.wl = {};
-        args.highlightOnly = !useFlag.includes('harmonize');
-        args.addr = venue.getAddress();
-        args.addr = args.addr.attributes ?? args.addr;
-        args.state2L = 'Unknown';
-        args.region = 'Unknown';
-        args.gFormState = '';
-        args.actions = actions;
-        args.categories = venue.attributes.categories.slice();
-        const nameParts = getNameParts(venue.attributes.name);
-        args.nameSuffix = nameParts.suffix;
-        args.nameBase = nameParts.base;
-        args.aliases = venue.attributes.aliases.slice();
-        args.description = venue.attributes.description;
-        args.url = venue.attributes.url;
-        args.phone = venue.attributes.phone;
-        args.openingHours = venue.attributes.openingHours;
-        // Set up a variable (newBrand) to contain the brand. When harmonizing, it may be forced to a new value.
-        // Other brand flags should use it since it won't be updated on the actual venue until later.
-        args.brand = venue.attributes.brand;
-        args.showDispNote = true;
-        args.hoursOverlap = false;
-        args.descriptionInserted = false;
-        args.aliasesRemoved = false;
-        args.isUspsPostOffice = false;
-        args.maxPointSeverity = SEVERITY.GREEN;
-        args.maxAreaSeverity = SEVERITY.RED;
-        args.specialCases = {
-            addPharm: false,
-            addSuper: false,
-            appendAMPM: false,
-            addATM: false,
-            addConvStore: false
-        };
-        args.almostAllDayHoursEntries = [];
-        args.defaultLockLevel = LOCK_LEVEL_2;
+        const args = new HarmonizationArgs(venue, actions, !useFlag.includes('harmonize'));
 
         let pnhLockLevel;
         if (!args.highlightOnly) {
@@ -6210,9 +6953,9 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
         const countryName = args.addr.country.getName();
         const stateName = args.addr.state.getName();
         if (['United States', 'American Samoa', 'Guam', 'Northern Mariana Islands', 'Puerto Rico', 'Virgin Islands (U.S.)'].includes(countryName)) {
-            args.countryCode = 'USA';
-        } else if (countryName === 'Canada') {
-            args.countryCode = 'CAN';
+            args.countryCode = PNH_DATA.USA.countryCode;
+        } else if (countryName === PNH_DATA.CAN.countryName) {
+            args.countryCode = PNH_DATA.CAN.countryCode;
         } else {
             if (!args.highlightOnly) {
                 WazeWrap.Alerts.error(SCRIPT_NAME, `This script is not currently supported in ${countryName}.`);
@@ -6345,7 +7088,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                 args.outputPhoneFormat = '{0}-{1}-{2}';
             } else if (args.state2L === 'NV') {
                 args.outputPhoneFormat = '{0}-{1}-{2}';
-            } else if (args.countryCode === 'CAN') {
+            } else if (args.countryCode === PNH_DATA.CAN.countryCode) {
                 args.outputPhoneFormat = '+1-{0}-{1}-{2}';
             }
 
@@ -6368,62 +7111,46 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
             // Place Harmonization
             if (!args.highlightOnly) {
                 if (venue.isParkingLot() || venue.isResidential()) {
-                    args.pnhMatchData = ['NoMatch'];
+                    args.pnhMatch = ['NoMatch'];
                 } else {
                     // check against the PNH list
-                    args.pnhMatchData = findPnhMatch(args.nameBase, args.state2L, args.region, args.countryCode, args.categories, venue);
+                    args.pnhMatch = Pnh.findMatch(args.nameBase, args.state2L, args.region, args.countryCode, args.categories, venue);
                 }
             } else {
-                args.pnhMatchData = ['Highlight'];
+                args.pnhMatch = ['Highlight'];
             }
 
-            args.pnhDataHeaders = [];
-
-            args.pnhNameRegMatch = args.pnhMatchData[0] !== 'NoMatch'
-                && args.pnhMatchData[0] !== 'ApprovalNeeded'
-                && args.pnhMatchData[0] !== 'Highlight';
+            args.pnhNameRegMatch = args.pnhMatch[0] !== 'NoMatch'
+                && args.pnhMatch[0] !== 'ApprovalNeeded'
+                && args.pnhMatch[0] !== 'Highlight';
 
             if (args.pnhNameRegMatch) { // *** Replace place data with PNH data
                 let updatePNHName = true;
-                // Break out the data headers
-                args.pnhDataHeaders = PNH_DATA[args.countryCode].pnh[0].split('|');
-                args.phNameIdx = args.pnhDataHeaders.indexOf('ph_name');
-                const phAliasesIdx = args.pnhDataHeaders.indexOf('ph_aliases');
-                const phCategory1Idx = args.pnhDataHeaders.indexOf('ph_category1');
-                const phCategory2Idx = args.pnhDataHeaders.indexOf('ph_category2');
-                const phDescriptionIdx = args.pnhDataHeaders.indexOf('ph_description');
-                const phUrlIdx = args.pnhDataHeaders.indexOf('ph_url');
-                const phOrderIdx = args.pnhDataHeaders.indexOf('ph_order');
-                // var ph_notes_ix = _PNH_DATA_headers.indexOf('ph_notes');
-                args.phSpecCaseIdx = args.pnhDataHeaders.indexOf('ph_speccase');
-                // var ph_forcecat_ix = _PNH_DATA_headers.indexOf('ph_forcecat');
-                args.phDisplayNoteIdx = args.pnhDataHeaders.indexOf('ph_displaynote');
 
                 // Retrieve the data from the PNH line(s)
                 let nsMultiMatch = false;
                 const orderList = [];
-                if (args.pnhMatchData.length > 1) { // If multiple matches, then
-                    let brandParent = -1;
-                    let pnhMatchDataHold = args.pnhMatchData[0].split('|');
-                    for (let pmdix = 0; pmdix < args.pnhMatchData.length; pmdix++) { // For each of the matches,
-                        const pmdTemp = args.pnhMatchData[pmdix].split('|'); // Split the PNH data line
-                        orderList.push(pmdTemp[phOrderIdx]); // Add Order number to a list
-                        if (pmdTemp[args.phSpecCaseIdx].match(/brandParent(\d{1})/) !== null) { // If there is a brandParent flag, prioritize by highest match
-                            const [, pmdSpecCases] = pmdTemp[args.phSpecCaseIdx].match(/brandParent(\d{1})/);
-                            if (pmdSpecCases > brandParent) { // if the match is more specific than the previous ones:
-                                brandParent = pmdSpecCases; // Update the brandParent level
-                                pnhMatchDataHold = pmdTemp; // Update the PNH data line
+                if (args.pnhMatch.length > 1) { // If multiple matches, then
+                    let maxBrandParentLevel = -1;
+                    let pnhMatchHold = args.pnhMatch[0];
+                    for (let pnhEntryIdx = 0; pnhEntryIdx < args.pnhMatch.length; pnhEntryIdx++) { // For each of the matches,
+                        const pnhEntry = args.pnhMatch[pnhEntryIdx];
+                        orderList.push(pnhEntry.order); // Add Order number to a list
+                        if (pnhEntry.brandParentLevel > -1) { // If there is a brandParent flag, prioritize by highest match
+                            if (pnhEntry.brandParentLevel > maxBrandParentLevel) { // if the match is more specific than the previous ones:
+                                maxBrandParentLevel = pnhEntry.brandParentLevel; // Update the brandParent level
+                                pnhMatchHold = pnhEntry; // Update the PNH data line
                             }
                         } else { // if any venue has no brandParent structure, use highest brandParent match but post an error
                             nsMultiMatch = true;
                         }
                     }
-                    args.pnhMatchData = pnhMatchDataHold;
+                    args.pnhMatch = pnhMatchHold;
                 } else {
-                    args.pnhMatchData = args.pnhMatchData[0].split('|'); // Single match just gets direct split
+                    [args.pnhMatch] = args.pnhMatch; // Single match
                 }
 
-                args.priPNHPlaceCat = getCategoryIdFromName(args.pnhMatchData[phCategory1Idx], args.countryCode); // translate primary category to WME code
+                args.priPNHPlaceCat = args.pnhMatch.primaryCategory;
 
                 // if the location has multiple matches, then pop an alert that will make a forum post to the thread
                 if (nsMultiMatch) {
@@ -6447,126 +7174,71 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                 }
 
                 // Check special cases
-                if (args.phSpecCaseIdx > -1) { // If the special cases column exists
-                    args.specCases = args.pnhMatchData[args.phSpecCaseIdx]; // pulls the speccases field from the PNH line
-                    if (!isNullOrWhitespace(args.specCases)) {
-                        args.specCases = args.specCases.replace(/, /g, ',').split(','); // remove spaces after commas and split by comma
+                if (args.pnhMatch.hasSpecialCases) { // If the special cases column exists
+                    // find any button/message flags in the special case (format: buttOn_xyzXyz, etc.)
+                    if (args.pnhMatch.flagsToRemove.addConvStore) {
+                        FlagBase.currentFlags.remove(Flag.AddConvStore);
                     }
-                    for (let scix = 0; scix < args.specCases.length; scix++) {
-                        let scFlag;
-                        const specCase = args.specCases[scix];
-                        let match;
-
-                        /* eslint-disable no-cond-assign */
-
-                        // find any button/message flags in the special case (format: buttOn_xyzXyz, etc.)
-                        if (match = specCase.match(/^buttOn_(.+)/i)) {
-                            [, scFlag] = match;
-                            switch (scFlag) {
-                                case 'addCat2':
-                                    // flag = new Flag.AddCat2();
-                                    break;
-                                case 'addPharm':
-                                case 'addSuper':
-                                case 'appendAMPM':
-                                case 'addATM':
-                                case 'addConvStore':
-                                    args.specialCases[scFlag] = true;
-                                    break;
-                                default:
-                                    console.error('WMEPH:', `Could not process specCase value: buttOn_${scFlag}`);
-                            }
-                        } else if (match = specCase.match(/^buttOff_(.+)/i)) {
-                            [, scFlag] = match;
-                            switch (scFlag) {
-                                case 'addConvStore':
-                                    FlagBase.currentFlags.remove(Flag.AddConvStore);
-                                    break;
-                                default:
-                                    console.error(`WMEPH: Could not process specCase value: buttOff_${scFlag}`);
-                            }
-                        // } else if (match = specCase.match(/^messOn_(.+)/i)) {
-                        //    [, scFlag] = match;
-                        //    _buttonBanner[scFlag].active = true;
-                        // } else if (match = specCase.match(/^messOff_(.+)/i)) {
-                        //    [, scFlag] = match;
-                        //    _buttonBanner[scFlag].active = false;
-                        } else if (match = specCase.match(/^psOn_(.+)/i)) {
-                            [, scFlag] = match;
-                            _servicesBanner[scFlag].actionOn(actions);
-                            _servicesBanner[scFlag].pnhOverride = true;
-                        } else if (match = specCase.match(/^psOff_(.+)/i)) {
-                            [, scFlag] = match;
-                            _servicesBanner[scFlag].actionOff(actions);
-                            _servicesBanner[scFlag].pnhOverride = true;
-                        } else if (match = /forceBrand<>([^,<]+)/i.exec(args.pnhMatchData[args.phSpecCaseIdx])) {
-                            // If brand is going to be forced, use that.  Otherwise, use existing brand.
-                            [, args.brand] = match;
-                        } else if (match = specCase.match(/^localURL_(.+)/i)) {
-                            // parseout localURL data if exists (meaning place can have a URL distinct from the chain URL
-                            [, args.localURLcheck] = match;
-                        } else if ([CAT.GAS_STATION].includes(args.priPNHPlaceCat) && (match = specCase.match(/^forceBrand<>(.+)/i))) {
-                            // Gas Station forceBranding
-                            const [, forceBrand] = match;
-                            if (venue.attributes.brand !== forceBrand) {
-                                actions.push(new UpdateObject(venue, { brand: forceBrand }));
-                                UPDATED_FIELDS.brand.updated = true;
-                                logDev('Gas brand updated from PNH');
-                            }
-                        } else if (match = specCase.match(/^checkLocalization<>(.+)/i)) {
-                            args.showDispNote = false;
-                            const [, localizationString] = match;
-                            args.localizationRegEx = new RegExp(localizationString, 'g');
-                        } else if (match = specCase.match(/phone<>(.*?)<>/)) {
-                            args.recommendedPhone = normalizePhone(match[0], args.outputPhoneFormat);
-                        } else if (/keepName/g.test(specCase)) {
-                            // Prevent name change
-                            updatePNHName = false;
-                        } else if (match = specCase.match(/^optionAltName<>(.+)/i)) {
-                            [, args.optionalAlias] = match;
-                        } else if (/^closed$/i.test(specCase) && !Flag.ChainIsClosed.isWhitelisted(args)) {
-                            args.chainIsClosed = true;
-                        }
-                        /* eslint-enable no-cond-assign */
+                    // } else if (match = specCase.match(/^messOn_(.+)/i)) {
+                    //    [, scFlag] = match;
+                    //    _buttonBanner[scFlag].active = true;
+                    // } else if (match = specCase.match(/^messOff_(.+)/i)) {
+                    //    [, scFlag] = match;
+                    //    _buttonBanner[scFlag].active = false;
+                    args.pnhMatch.servicesToAdd.forEach(scFlag => {
+                        _servicesBanner[scFlag].actionOn(actions);
+                        _servicesBanner[scFlag].pnhOverride = true;
+                    });
+                    args.pnhMatch.servicesToRemove.forEach(scFlag => {
+                        _servicesBanner[scFlag].actionOff(actions);
+                        _servicesBanner[scFlag].pnhOverride = true;
+                    });
+                    if (args.pnhMatch.forceBrand) {
+                        // If brand is going to be forced, use that.  Otherwise, use existing brand.
+                        [, args.brand] = args.pnhMatch.forceBrand;
+                    }
+                    if (args.pnhMatch.forceBrand && args.priPNHPlaceCat === CAT.GAS_STATION
+                        && venue.attributes.brand !== args.pnhMatch.forceBrand) {
+                        actions.push(new UpdateObject(venue, { brand: args.pnhMatch.forceBrand }));
+                        UPDATED_FIELDS.brand.updated = true;
+                        logDev('Gas brand updated from PNH');
+                    }
+                    if (args.pnhMatch.localizationRegEx) {
+                        args.showDispNote = false;
+                    }
+                    if (args.pnhMatch.recommendedPhone) {
+                        args.recommendedPhone = normalizePhone(args.pnhMatch.recommendedPhone, args.outputPhoneFormat);
+                    }
+                    if (args.pnhMatch.keepName) {
+                        // Prevent name change
+                        updatePNHName = false;
+                    }
+                    if (args.pnhMatch.chainIsClosed && !Flag.ChainIsClosed.isWhitelisted(args)) {
+                        args.chainIsClosed = true;
                     }
                 }
 
                 if (!args.chainIsClosed) {
-                    if (args.phDisplayNoteIdx > -1 && !isNullOrWhitespace(args.pnhMatchData[args.phDisplayNoteIdx])) {
-                        args.displayNote = args.pnhMatchData[args.phDisplayNoteIdx];
-                    }
-
                     // Category translations
-                    let altCategories = args.pnhMatchData[phCategory2Idx];
-                    if (altCategories && altCategories.length) { //  translate alt-cats to WME code
-                        altCategories = altCategories.replace(/,[^A-Za-z0-9]*/g, ',').split(','); // tighten and split by comma
-                        for (let catix = 0; catix < altCategories.length; catix++) {
-                            const newAltTemp = getCategoryIdFromName(altCategories[catix], args.countryCode); // translate altCats into WME cat codes
-                            if (newAltTemp === 'ERROR') { // if no translation, quit the loop
-                                log(`Category ${altCategories[catix]} cannot be translated.`);
-                                return undefined;
-                            }
-                            altCategories[catix] = newAltTemp; // replace with translated element
-                        }
-                    }
+                    const { altCategories } = args.pnhMatch;
 
                     // name parsing with category exceptions
                     if (args.priPNHPlaceCat === CAT.HOTEL) {
                         const nameToCheck = args.nameBase + (args.nameSuffix || '');
-                        if (nameToCheck.toUpperCase() === args.pnhMatchData[args.phNameIdx].toUpperCase()) { // If no localization
-                            args.nameBase = args.pnhMatchData[args.phNameIdx];
+                        if (nameToCheck.toUpperCase() === args.pnhMatch.name.toUpperCase()) { // If no localization
+                            args.nameBase = args.pnhMatch.name;
                         } else {
                             // Replace PNH part of name with PNH name
-                            const splix = args.nameBase.toUpperCase().replace(/[-/]/g, ' ').indexOf(args.pnhMatchData[args.phNameIdx].toUpperCase().replace(/[-/]/g, ' '));
+                            const splix = args.nameBase.toUpperCase().replace(/[-/]/g, ' ').indexOf(args.pnhMatch.name.toUpperCase().replace(/[-/]/g, ' '));
                             if (splix > -1) {
                                 const frontText = args.nameBase.slice(0, splix);
-                                const backText = args.nameBase.slice(splix + args.pnhMatchData[args.phNameIdx].length);
-                                args.nameBase = args.pnhMatchData[args.phNameIdx];
+                                const backText = args.nameBase.slice(splix + args.pnhMatch.name.length);
+                                args.nameBase = args.pnhMatch.name;
                                 if (frontText.length > 0) { args.nameBase = `${frontText} ${args.nameBase}`; }
                                 if (backText.length > 0) { args.nameBase = `${args.nameBase} ${backText}`; }
                                 args.nameBase = args.nameBase.replace(/ {2,}/g, ' ');
                             } else {
-                                args.nameBase = args.pnhMatchData[args.phNameIdx];
+                                args.nameBase = args.pnhMatch.name;
                             }
                         }
                         if (altCategories && altCategories.length) { // if PNH alts exist
@@ -6580,28 +7252,28 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                             }
                         }
                         // If PNH match, set wifi service.
-                        if (args.pnhMatchData && !_servicesBanner.addWiFi.checked) {
+                        if (args.pnhMatch && !_servicesBanner.addWiFi.checked) {
                             _servicesBanner.addWiFi.action();
                         }
                         // Set hotel hours to 24/7 for all hotels.
                         if (!_servicesBanner.add247.checked) {
                             _servicesBanner.add247.action();
                         }
-                    } else if (args.priPNHPlaceCat === CAT.BANK_FINANCIAL && !args.pnhMatchData[args.phSpecCaseIdx].includes('notABank')) {
+                    } else if (args.priPNHPlaceCat === CAT.BANK_FINANCIAL && !args.pnhMatch.notABank) {
                         if (/\batm\b/ig.test(args.nameBase)) {
-                            args.nameBase = `${args.pnhMatchData[args.phNameIdx]} ATM`;
+                            args.nameBase = `${args.pnhMatch.name} ATM`;
                         } else {
-                            args.nameBase = args.pnhMatchData[args.phNameIdx];
+                            args.nameBase = args.pnhMatch.name;
                         }
                     } else if (args.priPNHPlaceCat === CAT.GAS_STATION) { // for PNH gas stations, don't replace existing sub-categories
                         if (altCategories?.length) { // if PNH alts exist
                             insertAtIndex(args.categories, altCategories, 1); //  then insert the alts into the existing category array after the GS category
                         }
-                        args.nameBase = args.pnhMatchData[args.phNameIdx];
+                        args.nameBase = args.pnhMatch.name;
                     } else if (updatePNHName) { // if not a special category then update the name
-                        args.nameBase = args.pnhMatchData[args.phNameIdx];
+                        args.nameBase = args.pnhMatch.name;
                         args.categories = insertAtIndex(args.categories, args.priPNHPlaceCat, 0);
-                        if (altCategories && altCategories.length && !args.specCases.includes('buttOn_addCat2') && !args.specCases.includes('optionCat2')) {
+                        if (altCategories?.length && !args.pnhMatch.flagsToAdd.addCat2 && !args.pnhMatch.optionCat2) {
                             args.categories = insertAtIndex(args.categories, altCategories, 1);
                         }
                     } else if (!updatePNHName) {
@@ -6612,30 +7284,26 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                     // *** need to add a section above to allow other permissible categories to remain? (optional)
 
                     // Parse URL data
-                    if (!(args.localURLcheck && args.url && (new RegExp(args.localURLcheck, 'i')).test(args.url))) {
-                        args.pnhUrl = normalizeURL(args.pnhMatchData[phUrlIdx]);
+                    if (!(args.pnhMatch.localUrlCheckRegEx?.test(args?.url))) {
+                        args.pnhUrl = args.pnhMatch.url;
                     }
 
                     // Parse PNH Aliases
-                    let [newAliasesTemp] = args.pnhMatchData[phAliasesIdx].match(/([^(]*)/i);
-                    if (!isNullOrWhitespace(newAliasesTemp)) { // make aliases array
-                        newAliasesTemp = newAliasesTemp.replace(/,[^A-za-z0-9]*/g, ','); // tighten up commas if more than one alias.
-                        newAliasesTemp = newAliasesTemp.split(','); // split by comma
-                    }
-                    if (!args.specCases.includes('noUpdateAlias') && (!containsAll(args.aliases, newAliasesTemp)
-                        && newAliasesTemp && newAliasesTemp.length && !args.specCases.includes('optionName2'))) {
-                        args.aliases = insertAtIndex(args.aliases, newAliasesTemp, 0);
+                    if (!args.pnhMatch.noUpdateAlias && (!containsAll(args.aliases, args.pnhMatch.aliases)
+                        && args.pnhMatch.aliases?.length && !args.pnhMatch.optionName2)) {
+                        args.aliases = insertAtIndex(args.aliases, args.pnhMatch.aliases, 0);
                         addUpdateAction(venue, { aliases: args.aliases }, actions);
                     }
 
                     // Remove unnecessary parent categories
+                    // TODO: This seems like it could be made more efficient.
                     const parentCats = uniq(args.categories.map(category => args.pnhCategoryInfos.getById(category).parent))
                         .filter(parent => parent.trim().length > 0);
                     args.categories = args.categories.filter(cat => !parentCats.includes(cat));
 
                     // update categories if different and no Cat2 option
                     if (!matchSets(uniq(venue.attributes.categories), uniq(args.categories))) {
-                        if (!args.specCases.includes('optionCat2') && !args.specCases.includes('buttOn_addCat2')) {
+                        if (!args.pnhMatch.optionCat2 && !args.pnhMatch.flagsToAdd.addCat2) {
                             logDev(`Categories updated with ${args.categories}`);
                             addUpdateAction(venue, { categories: args.categories }, actions);
                         } else { // if second cat is optional
@@ -6645,10 +7313,10 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                         }
                     }
                     // Enable optional 2nd category button
-                    Flag.AddCat2.eval(venue, args.specCases, args.categories, altCategories[0]);
+                    Flag.AddCat2.eval(args, altCategories?.[0]);
 
                     // Description update
-                    args.description = args.pnhMatchData[phDescriptionIdx];
+                    args.description = args.pnhMatch.description;
                     if (!isNullOrWhitespace(args.description) && !venue.attributes.description.toUpperCase().includes(args.description.toUpperCase())) {
                         if (!isNullOrWhitespace(venue.attributes.description)) {
                             args.descriptionInserted = true;
@@ -6660,8 +7328,8 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                     }
 
                     // Special Lock by PNH
-                    if (args.specCases.includes('lockAt5')) {
-                        pnhLockLevel = 4;
+                    if (args.pnhMatch.lockAt) {
+                        pnhLockLevel = args.pnhMatch.lockAt - 1;
                     }
                 }
             } // END PNH match/no-match updates
@@ -6757,7 +7425,8 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
 
                 args.hoursOverlap = venueHasOverlappingHours(args.openingHours);
 
-                args.isUspsPostOffice = args.countryCode === 'USA' && !args.categories.includes(CAT.PARKING_LOT) && args.categories.includes(CAT.POST_OFFICE);
+                args.isUspsPostOffice = args.countryCode === PNH_DATA.USA.countryCode && !args.categories.includes(CAT.PARKING_LOT)
+                    && args.categories.includes(CAT.POST_OFFICE);
 
                 if (!args.highlightOnly) {
                     // Highlight 24/7 button if hours are set that way, and add button for all places
@@ -8688,36 +9357,6 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
         return `http://www.google.com/search?q=${encodeURIComponent(searchName)}`;
     }
 
-    // Translation from PNH "natural language" category name to category ID  (Bank / Financial --> BANK_FINANCIAL)
-    function getCategoryIdFromName(pnhCategoryName, countryCode) {
-        const categoryInfo = PNH_DATA[countryCode].categoryInfos.getByName(pnhCategoryName);
-
-        if (categoryInfo) {
-            return categoryInfo.id;
-        }
-
-        // if the category doesn't translate, then pop an alert that will make a forum post to the thread
-        // Generally this means the category used in the PNH sheet is not close enough to the natural language categories used inside the WME translations
-        /* if (confirm('WMEPH: Category Error!\nClick OK to report this error')) {
-            reportError({
-                subject: 'WMEPH Bug report: no tns',
-                message: `Error report: Category "${natCategories}" was not found in the PNH categories sheet.`
-            });
-        } */
-        WazeWrap.Alerts.confirm(
-            SCRIPT_NAME,
-            'WMEPH: Category Error!<br>Click OK to report this error',
-            () => {
-                reportError({
-                    subject: 'WMEPH Bug report: no tns',
-                    message: `Error report: Category "${pnhCategoryName}" was not found in the PNH categories sheet.`
-                });
-            },
-            () => { }
-        );
-        return 'ERROR';
-    }
-
     // compares two arrays to see if equal, regardless of order
     function matchSets(array1, array2) {
         if (array1.length !== array2.length) { return false; } // compare lengths
@@ -8731,7 +9370,8 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
 
     // function that checks if all elements of target are in array:source
     function containsAll(source, target) {
-        if (typeof (target) === 'string') { target = [target]; } // if a single string, convert to an array
+        if (typeof target === 'undefined' || target === null) return false;
+        if (typeof target === 'string') { target = [target]; } // if a single string, convert to an array
         for (let ixx = 0; ixx < target.length; ixx++) {
             if (!source.includes(target[ixx])) {
                 return false;
@@ -9094,7 +9734,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
         // Reload Data button click event
         $('#WMEPH-ReloadDataBtn').click(async() => {
             $('#WMEPH-ReloadDataBtn').attr('disabled', true);
-            await downloadPnhData();
+            await Pnh.downloadPnhData();
             $('#WMEPH-ReloadDataBtn').attr('disabled', false);
         });
 
@@ -9220,12 +9860,12 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
             $('<div>', { style: 'margin-bottom: 10px;' }).text('Moderators are responsible for reviewing chain submissions for their region.'
                 + ' If you have questions or suggestions regarding a chain, please contact any of your regional moderators.'),
             $('<table>').append(
-                Object.keys(_pnhModerators).sort().map(region => $('<tr>').append(
+                Object.keys(Pnh.MODERATORS).sort().map(region => $('<tr>').append(
                     $('<td>', { class: 'wmeph-mods-table-cell title' }).append(
                         $('<div>').text(region)
                     ),
                     $('<td>', { class: 'wmeph-mods-table-cell' }).append(
-                        $('<div>').text(_pnhModerators[region].join(', '))
+                        $('<div>').text(Pnh.MODERATORS[region].join(', '))
                     )
                 ))
             )
@@ -9462,9 +10102,6 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
         UpdateFeatureAddress = require('Waze/Action/UpdateFeatureAddress');
         OpeningHour = require('Waze/Model/Objects/OpeningHour');
 
-        // For debugging purposes.  May be removed when no longer needed.
-        unsafeWindow.PNH_DATA = PNH_DATA;
-
         // Append a form div for submitting to the forum, if it doesn't exist yet:
         const tempDiv = document.createElement('div');
         tempDiv.id = 'WMEPH_formDiv';
@@ -9668,216 +10305,6 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
         await placeHarmonizerInit();
     }
 
-    const SPREADSHEET_ID = '1pBz4l4cNapyGyzfMJKqA4ePEFLkmz2RryAt1UV39B4g';
-    const SPREADSHEET_RANGE = '2019.01.20.001!A2:L';
-    const SPREADSHEET_MODERATORS_RANGE = 'Moderators!A1:F';
-    const API_KEY = 'YTJWNVBVRkplbUZUZVVObU1YVXpSRVZ3ZW5OaFRFSk1SbTR4VGxKblRURjJlRTFYY3pOQ2NXZElPQT09';
-    const dec = s => atob(atob(s));
-
-    class PnhCategoryInfos {
-        #categoriesById = {};
-        #categoriesByName = {};
-
-        add(categoryInfo) {
-            this.#categoriesById[categoryInfo.id] = categoryInfo;
-            this.#categoriesByName[categoryInfo.name.toUpperCase()] = categoryInfo;
-        }
-
-        getById(id) {
-            return this.#categoriesById[id];
-        }
-
-        getByName(name) {
-            return this.#categoriesByName[name.toUpperCase()];
-        }
-
-        toArray() {
-            return Object.values(this.#categoriesById);
-        }
-    }
-
-    function processPnhCategories(categoryDataRows, categoryInfos) {
-        let headers;
-        let pnhServiceKeys;
-        let wmeServiceIds;
-        const splitValues = (value => (value.trim() ? value.split(',').map(v => v.trim()) : []));
-        categoryDataRows.forEach((row, iRow) => {
-            row = row.split('|');
-            if (iRow === 0) {
-                headers = row;
-            } else if (iRow === 1) {
-                pnhServiceKeys = row;
-            } else if (iRow === 2) {
-                wmeServiceIds = row;
-            } else {
-                const categoryInfo = {
-                    services: []
-                };
-                row.forEach((value, iCol) => {
-                    const headerValue = headers[iCol].trim();
-                    value = value.trim();
-                    switch (headerValue) {
-                        case 'pc_wmecat':
-                            categoryInfo.id = value;
-                            break;
-                        case 'pc_transcat':
-                            categoryInfo.name = value;
-                            break;
-                        case 'pc_catparent':
-                            categoryInfo.parent = value;
-                            break;
-                        case 'pc_point':
-                            categoryInfo.point = value;
-                            break;
-                        case 'pc_area':
-                            categoryInfo.area = value;
-                            break;
-                        case 'pc_regpoint':
-                            categoryInfo.regPoint = splitValues(value);
-                            break;
-                        case 'pc_regarea':
-                            categoryInfo.regArea = splitValues(value);
-                            break;
-                        case 'pc_lock1':
-                            categoryInfo.lock1 = splitValues(value);
-                            break;
-                        case 'pc_lock2':
-                            categoryInfo.lock2 = splitValues(value);
-                            break;
-                        case 'pc_lock3':
-                            categoryInfo.lock3 = splitValues(value);
-                            break;
-                        case 'pc_lock4':
-                            categoryInfo.lock4 = splitValues(value);
-                            break;
-                        case 'pc_lock5':
-                            categoryInfo.lock5 = splitValues(value);
-                            break;
-                        case 'pc_rare':
-                            categoryInfo.rare = splitValues(value);
-                            break;
-                        case 'pc_parent':
-                            categoryInfo.disallowedParent = splitValues(value);
-                            break;
-                        case 'pc_message':
-                            categoryInfo.messagae = value;
-                            break;
-                        case 'ps_valet':
-                        case 'ps_drivethru':
-                        case 'ps_wifi':
-                        case 'ps_restrooms':
-                        case 'ps_cc':
-                        case 'ps_reservations':
-                        case 'ps_outside':
-                        case 'ps_ac':
-                        case 'ps_parking':
-                        case 'ps_deliveries':
-                        case 'ps_takeaway':
-                        case 'ps_wheelchair':
-                            if (value) {
-                                categoryInfo.services.push({ wmeId: wmeServiceIds[iCol], pnhKey: pnhServiceKeys[iCol] });
-                            }
-                            break;
-                        case '':
-                            // ignore blank column
-                            break;
-                        default:
-                            throw new Error(`WMEPH: Unexpected category data from PNH sheet: ${headerValue}`);
-                    }
-                });
-                categoryInfos.add(categoryInfo);
-            }
-        });
-    }
-
-    function processImportedDataColumn(allData, columnIndex) {
-        return allData.filter(row => row.length >= columnIndex + 1).map(row => row[columnIndex]);
-    }
-    function getSpreadsheetUrl(id, range, key) {
-        return `https://sheets.googleapis.com/v4/spreadsheets/${id}/values/${range}?${dec(key)}`;
-    }
-    function downloadPnhData() {
-        log('PNH data download started...');
-        return new Promise((resolve, reject) => {
-            const url = getSpreadsheetUrl(SPREADSHEET_ID, SPREADSHEET_RANGE, API_KEY);
-
-            $.getJSON(url).done(res => {
-                const { values } = res;
-                if (values[0][0].toLowerCase() === 'obsolete') {
-                    WazeWrap.Alerts.error(SCRIPT_NAME, 'You are using an outdated version of WMEPH that doesn\'t work anymore. Update or disable the script.');
-                    return;
-                }
-
-                // This needs to be performed before makeNameCheckList() is called.
-                _wordVariations = processImportedDataColumn(values, 11).slice(1).map(row => row.toUpperCase().replace(/[^A-z0-9,]/g, '').split(','));
-
-                PNH_DATA.USA.categoryInfos = new PnhCategoryInfos();
-                processPnhCategories(processImportedDataColumn(values, 3), PNH_DATA.USA.categoryInfos);
-                PNH_DATA.USA.pnh = processImportedDataColumn(values, 0);
-                PNH_DATA.USA.pnhNames = makeNameCheckList(PNH_DATA.USA);
-                PNH_DATA.states = processImportedDataColumn(values, 1);
-
-                PNH_DATA.CAN.categoryInfos = PNH_DATA.USA.categoryInfos;
-                PNH_DATA.CAN.pnh = processImportedDataColumn(values, 2);
-                PNH_DATA.CAN.pnhNames = makeNameCheckList(PNH_DATA.CAN);
-
-                const WMEPHuserList = processImportedDataColumn(values, 4)[1].split('|');
-                const betaix = WMEPHuserList.indexOf('BETAUSERS');
-                _wmephDevList = [];
-                _wmephBetaList = [];
-                for (let ulix = 1; ulix < betaix; ulix++) _wmephDevList.push(WMEPHuserList[ulix].toLowerCase().trim());
-                for (let ulix = betaix + 1; ulix < WMEPHuserList.length; ulix++) _wmephBetaList.push(WMEPHuserList[ulix].toLowerCase().trim());
-
-                const processTermsCell = (termsValues, colIdx) => processImportedDataColumn(termsValues, colIdx)[1]
-                    .toLowerCase().split('|').map(value => value.trim());
-                _hospitalPartMatch = processTermsCell(values, 5);
-                _hospitalFullMatch = processTermsCell(values, 6);
-                _animalPartMatch = processTermsCell(values, 7);
-                _animalFullMatch = processTermsCell(values, 8);
-                _schoolPartMatch = processTermsCell(values, 9);
-                _schoolFullMatch = processTermsCell(values, 10);
-
-                log('PNH data download completed');
-                resolve();
-            }).fail(res => {
-                const message = res.responseJSON && res.responseJSON.error ? res.responseJSON.error : 'See response error message above.';
-                console.error('WMEPH failed to load spreadsheet:', message);
-                reject();
-            });
-        });
-    }
-    function downloadPnhModerators() {
-        log('PNH moderators download started...');
-        return new Promise(resolve => {
-            const url = getSpreadsheetUrl(SPREADSHEET_ID, SPREADSHEET_MODERATORS_RANGE, API_KEY);
-
-            $.getJSON(url).done(res => {
-                const { values } = res;
-
-                try {
-                    values.forEach(regionArray => {
-                        const region = regionArray[0];
-                        const mods = regionArray.slice(3);
-                        _pnhModerators[region] = mods;
-                    });
-                } catch (ex) {
-                    _pnhModerators['?'] = ['Error downloading moderators!'];
-                }
-
-                // delete Texas region, if it exists
-                delete _pnhModerators.TX;
-
-                log('PNH moderators download completed');
-                resolve();
-            }).fail(res => {
-                const message = res.responseJSON && res.responseJSON.error ? res.responseJSON.error : 'See response error message above.';
-                console.error('WMEPH failed to load moderator list:', message);
-                _pnhModerators['?'] = ['Error downloading moderators!'];
-                resolve();
-            });
-        });
-    }
-
     function clearFilterHighlights() {
         const layer = W.map.venueLayer;
         layer.removeFeatures(layer.getFeaturesByAttribute('wmephHighlight', '1'));
@@ -9922,7 +10349,8 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
 
     function devTestCode() {
         if (W.loginManager.user.getUsername() === 'MapOMatic') {
-            // test code here
+            // For debugging purposes.  May be removed when no longer needed.
+            unsafeWindow.PNH_DATA = PNH_DATA;
         }
     }
 
@@ -9935,8 +10363,8 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
         }
         unsafeWindow.wmephRunning = 1;
         // Start downloading the PNH spreadsheet data in the background.  Starts the script once data is ready.
-        await downloadPnhData();
-        await downloadPnhModerators();
+        await Pnh.downloadPnhData();
+        await Pnh.downloadPnhModerators();
         await placeHarmonizerBootstrap();
         devTestCode();
     }
