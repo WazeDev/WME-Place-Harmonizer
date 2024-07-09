@@ -1325,25 +1325,117 @@
 
             this.searchNameList = uniq(newNameList);
         }
+
+        /**
+         *  Function that checks current place against the Harmonization Data.  Returns place data or "NoMatch"
+         * @param {string} name
+         * @param {string} state2L
+         * @param {string} region3L
+         * @param {string} country
+         * @param {string[]} categories
+         * @param {venue} venue
+         * @returns
+         */
+        getMatchInfo(name, state2L, region3L, country, categories, venue, venueNameSpace) {
+            const matchInfo = {
+                isMatch: false,
+                allowMultiMatch: true, // TODO: This can probably be removed
+                matchOutOfRegion: false
+            };
+            let nameMatch = false;
+
+            // Name Matching
+            if (this.regexNameMatch) {
+                nameMatch = this.regexNameMatch.test(venue.attributes.name);
+            } else if (this.strMatchAny || this.primaryCategory === CAT.HOTEL) {
+                // Match any part of WME name with either the PNH name or any spaced names
+                matchInfo.allowMultiMatch = true; // TODO: This can probably be removed
+
+                for (let nmix = 0; nmix < this.spaceMatchList.length; nmix++) {
+                    if (venueNameSpace.includes(` ${this.spaceMatchList[nmix]} `)) {
+                        nameMatch = true;
+                        break;
+                    }
+                }
+            } else {
+                // Split all possible search names for the current PNH entry
+                const { searchNameList } = this;
+
+                // Clear non-letter characters for alternate match ( HOLLYIVYPUB23 --> HOLLYIVYPUB )
+                const venueNameNoNum = name.replace(/[^A-Z]/g, '');
+
+                /*
+                 * I could not find strMatchStart or strMatchEnd in the PNH spreadsheet. Assuming these
+                 * are no longer needed.
+                 */
+                // if (specCases.includes('strMatchStart')) {
+                //     //  Match the beginning part of WME name with any search term
+                //     for (let nmix = 0; nmix < searchNameList.length; nmix++) {
+                //         if (name.startsWith(searchNameList[nmix]) || venueNameNoNum.startsWith(searchNameList[nmix])) {
+                //             PNHStringMatch = true;
+                //         }
+                //     }
+                // } else if (specCases.includes('strMatchEnd')) {
+                //     //  Match the end part of WME name with any search term
+                //     for (let nmix = 0; nmix < searchNameList.length; nmix++) {
+                //         if (name.endsWith(searchNameList[nmix]) || venueNameNoNum.endsWith(searchNameList[nmix])) {
+                //             PNHStringMatch = true;
+                //         }
+                //     }
+                /* } else */ if (searchNameList.includes(name) || searchNameList.includes(venueNameNoNum)) {
+                    // full match of any term only
+                    nameMatch = true;
+                }
+            }
+
+            // if a match was found:
+            if (nameMatch) { // Compare WME place name to PNH search name list
+                logDev(`Matched PNH Order No.: ${this.order}`);
+
+                const PNHPriCat = this.primaryCategory; // Primary category of PNH data
+                let PNHForceCat = this.forceCategoryMatching; // Primary category of PNH data
+
+                // Gas stations only harmonized if the WME place category is already gas station (prevents Costco Gas becoming Costco Store)
+                if (categories[0] === CAT.GAS_STATION) {
+                    PNHForceCat = Pnh.ForceCategoryMatchingType.PRIMARY;
+                }
+
+                // Name and primary category match
+                matchInfo.isMatch = (PNHForceCat === Pnh.ForceCategoryMatchingType.PRIMARY && categories.indexOf(PNHPriCat) === 0)
+                    // Name and any category match
+                    || (PNHForceCat === Pnh.ForceCategoryMatchingType.ANY && categories.includes(PNHPriCat))
+                    // Name only match
+                    || (PNHForceCat === Pnh.ForceCategoryMatchingType.NONE);
+            }
+
+            if (!(this.regions.includes(state2L) || this.regions.includes(region3L) // if the WME-selected venue matches the state, region
+                || this.regions.includes(country) //  OR if the country code is in the data then it is approved for all regions therein
+                || $('#WMEPH-RegionOverride').prop('checked'))) { // OR if region override is selected (dev setting)
+                matchInfo.matchOutOfRegion = true;
+            }
+
+            return matchInfo;
+        }
     }
 
     /** "Namespace" for classes and methods related to handling PNH spreadsheet data */
-    const Pnh = {
-        SPREADSHEET_ID: '1pBz4l4cNapyGyzfMJKqA4ePEFLkmz2RryAt1UV39B4g',
-        SPREADSHEET_RANGE: '2019.01.20.001!A2:L',
-        SPREADSHEET_MODERATORS_RANGE: 'Moderators!A1:F',
-        API_KEY: 'YTJWNVBVRkplbUZUZVVObU1YVXpSRVZ3ZW5OaFRFSk1SbTR4VGxKblRURjJlRTFYY3pOQ2NXZElPQT09',
+    class Pnh {
+        static SPREADSHEET_ID = '1pBz4l4cNapyGyzfMJKqA4ePEFLkmz2RryAt1UV39B4g';
+        static SPREADSHEET_RANGE = '2019.01.20.001!A2:L';
+        static SPREADSHEET_MODERATORS_RANGE = 'Moderators!A1:F';
+        static API_KEY = 'YTJWNVBVRkplbUZUZVVObU1YVXpSRVZ3ZW5OaFRFSk1SbTR4VGxKblRURjJlRTFYY3pOQ2NXZElPQT09';
         /** Columns that can be ignored when importing */
-        COLUMNS_TO_IGNORE: ['temp_field', 'ph_services', 'ph_national', 'logo', ''],
-        WORD_VARIATIONS: null,
-        MODERATORS: {},
+        static COLUMNS_TO_IGNORE = ['temp_field', 'ph_services', 'ph_national', 'logo', ''];
+        static WORD_VARIATIONS = null;
+        static MODERATORS = {};
 
-        ForceCategoryMatchingType: Object.freeze({
+        static ForceCategoryMatchingType = Object.freeze({
             NONE: Symbol('none'),
             PRIMARY: Symbol('primary'),
             ANY: Symbol('any')
-        }),
-        SSHeader: Object.freeze({
+        });
+
+        static SSHeader = Object.freeze({
             order: 'ph_order',
             name: 'ph_name',
             aliases: 'ph_aliases',
@@ -1364,10 +1456,10 @@
             sfurl: 'ph_sfurl',
             sfurllocal: 'ph_sfurllocal',
             toValueArray: () => Object.values(Pnh.SSHeader).filter(v => typeof v === 'string')
-        }),
+        });
 
         /**
-         *  Function that checks current place against the Harmonization Data.  Returns place data or "NoMatch"
+         * Function that checks current place against the Harmonization Data. Returns place data, "NoMatch", or "Approval Needed"
          * @param {string} name
          * @param {string} state2L
          * @param {string} region3L
@@ -1376,7 +1468,7 @@
          * @param {venue} venue
          * @returns
          */
-        findMatch: (name, state2L, region3L, country, categories, venue) => {
+        static findMatch(name, state2L, region3L, country, categories, venue) {
             if (country !== PNH_DATA.USA.countryCode && country !== PNH_DATA.CAN.countryCode) {
                 WazeWrap.Alerts.info(SCRIPT_NAME, 'No PNH data exists for this country.');
                 return ['NoMatch'];
@@ -1386,10 +1478,7 @@
             }
             /** @type {PnhEntry[]} */
             const pnhData = PNH_DATA[country].pnh;
-
-            let approvedRegions; // filled with the regions that are approved for the place, when match is found
             const matchPNHRegionData = []; // array of matched data with regional approval
-            let allowMultiMatch = false;
             const pnhOrderNum = [];
             const pnhNameTemp = [];
             let matchOutOfRegion = false; // tracks match status
@@ -1401,99 +1490,23 @@
 
             // for each entry in the PNH list (skipping headers at index 0)
             for (let pnhIdx = 0; pnhIdx < pnhData.length; pnhIdx++) {
-                let PNHStringMatch = false;
-
                 const pnhEntry = pnhData[pnhIdx];
+                const matchInfo = pnhEntry.getMatchInfo(name, state2L, region3L, country, categories, venue, venueNameSpace);
+                if (matchInfo.isMatch) {
+                    // if (!matchInfo.allowMultiMatch) {
+                    //     return [pnhEntry];
+                    // }
+                    matchInRegion = true;
+                    if (matchInfo.matchOutOfRegion) {
+                        // PNH match found (once true, stays true)
+                        matchOutOfRegion = true;
+                        // temp name for approval return
+                        pnhNameTemp.push(pnhEntry.name);
 
-                // Name Matching
-                if (pnhEntry.regexNameMatch) {
-                    PNHStringMatch = pnhEntry.regexNameMatch.test(venue.attributes.name);
-                } else if (pnhEntry.strMatchAny || pnhEntry.primaryCategory === CAT.HOTEL) {
-                    // Match any part of WME name with either the PNH name or any spaced names
-                    allowMultiMatch = true;
-
-                    for (let nmix = 0; nmix < pnhEntry.spaceMatchList.length; nmix++) {
-                        if (venueNameSpace.includes(` ${pnhEntry.spaceMatchList[nmix]} `)) {
-                            PNHStringMatch = true;
-                            break;
-                        }
-                    }
-                } else {
-                    // Split all possible search names for the current PNH entry
-                    const { searchNameList } = pnhEntry;
-
-                    // Clear non-letter characters for alternate match ( HOLLYIVYPUB23 --> HOLLYIVYPUB )
-                    const venueNameNoNum = name.replace(/[^A-Z]/g, '');
-
-                    /*
-                     * I could not find strMatchStart or strMatchEnd in the PNH spreadsheet. Assuming these
-                     * are no longer needed.
-                     */
-                    // if (specCases.includes('strMatchStart')) {
-                    //     //  Match the beginning part of WME name with any search term
-                    //     for (let nmix = 0; nmix < searchNameList.length; nmix++) {
-                    //         if (name.startsWith(searchNameList[nmix]) || venueNameNoNum.startsWith(searchNameList[nmix])) {
-                    //             PNHStringMatch = true;
-                    //         }
-                    //     }
-                    // } else if (specCases.includes('strMatchEnd')) {
-                    //     //  Match the end part of WME name with any search term
-                    //     for (let nmix = 0; nmix < searchNameList.length; nmix++) {
-                    //         if (name.endsWith(searchNameList[nmix]) || venueNameNoNum.endsWith(searchNameList[nmix])) {
-                    //             PNHStringMatch = true;
-                    //         }
-                    //     }
-                    /* } else */ if (searchNameList.includes(name) || searchNameList.includes(venueNameNoNum)) {
-                        // full match of any term only
-                        PNHStringMatch = true;
-                    }
-                }
-
-                // if a match was found:
-                if (PNHStringMatch) { // Compare WME place name to PNH search name list
-                    logDev(`Matched PNH Order No.: ${pnhEntry.order}`);
-
-                    const PNHPriCat = pnhEntry.primaryCategory; // Primary category of PNH data
-                    let PNHForceCat = pnhEntry.forceCategoryMatching; // Primary category of PNH data
-
-                    // Gas stations only harmonized if the WME place category is already gas station (prevents Costco Gas becoming Costco Store)
-                    if (categories[0] === CAT.GAS_STATION) {
-                        PNHForceCat = Pnh.ForceCategoryMatchingType.PRIMARY;
-                    }
-
-                    // Name and primary category match
-                    const PNHMatchProceed = (PNHForceCat === Pnh.ForceCategoryMatchingType.PRIMARY && categories.indexOf(PNHPriCat) === 0)
-                        // Name and any category match
-                        || (PNHForceCat === Pnh.ForceCategoryMatchingType.ANY && categories.includes(PNHPriCat))
-                        // Name only match
-                        || (PNHForceCat === Pnh.ForceCategoryMatchingType.NONE);
-
-                    if (PNHMatchProceed) {
-                        // remove spaces, upper case the approved regions, and split by commas
-                        approvedRegions = pnhEntry.regions;
-
-                        if (approvedRegions.includes(state2L) || approvedRegions.includes(region3L) // if the WME-selected venue matches the state, region
-                                || approvedRegions.includes(country) //  OR if the country code is in the data then it is approved for all regions therein
-                                || $('#WMEPH-RegionOverride').prop('checked')) { // OR if region override is selected (dev setting)
-                            matchPNHRegionData.push(pnhEntry);
-                            matchInRegion = true;
-                            if (!allowMultiMatch) {
-                                // Return the PNH data string array to the main script
-                                return matchPNHRegionData;
-                            }
-                        } else {
-                            // PNH match found (once true, stays true)
-                            matchOutOfRegion = true;
-
-                            // Pull the data line from the PNH data table.  (**Set in array for future multimatch features)
-                            // matchPNHData.push(pnhEntry);
-
-                            // temp name for approval return
-                            pnhNameTemp.push(pnhEntry.name);
-
-                            // temp order number for approval return
-                            pnhOrderNum.push(pnhEntry.order);
-                        }
+                        // temp order number for approval return
+                        pnhOrderNum.push(pnhEntry.order);
+                    } else {
+                        matchPNHRegionData.push(pnhEntry);
                     }
                 }
             } // END loop through PNH entries
@@ -1505,11 +1518,14 @@
             if (matchOutOfRegion) { // if a name match was found but not for region, prod the user to get it approved
                 return ['ApprovalNeeded', pnhNameTemp, pnhOrderNum];
             }
+            if (matchPNHRegionData.length) {
+                return matchOutOfRegion;
+            }
             // if no match was found, suggest adding the place to the sheet if it's a chain
             return ['NoMatch'];
-        },
+        }
 
-        validatePnhSSColumnHeaders: headers => {
+        static validatePnhSSColumnHeaders(headers) {
             let valid = true;
             const expectedHeaders = Pnh.SSHeader.toValueArray();
 
@@ -1531,7 +1547,7 @@
             });
 
             return valid;
-        },
+        }
 
         /**
          *
@@ -1539,7 +1555,7 @@
          * @param {PnhCategoryInfos} categoryInfos
          * @returns
          */
-        processPnhSSRows: (rows, categoryInfos) => {
+        static processPnhSSRows(rows, categoryInfos) {
             const columnHeaders = rows.splice(0, 1)[0].split('|').map(h => h.trim());
 
             // Canada's spreadsheet is missing 'ph_order' in the first column header.
@@ -1550,18 +1566,20 @@
             }
             return rows.map(row => new PnhEntry(columnHeaders, row, categoryInfos))
                 .filter(entry => !entry.disabled && !entry.invalid);
-        },
+        }
 
-        processImportedDataColumn: (allData, columnIndex) => allData
-            .filter(row => row.length >= columnIndex + 1).map(row => row[columnIndex]),
+        static processImportedDataColumn(allData, columnIndex) {
+            return allData.filter(row => row.length >= columnIndex + 1).map(row => row[columnIndex]);
+        }
 
-        getSpreadsheetUrl: (id, range, key) => `https://sheets.googleapis.com/v4/spreadsheets/${
-            id}/values/${range}?${dec(key)}`,
+        static getSpreadsheetUrl(id, range, key) {
+            return `https://sheets.googleapis.com/v4/spreadsheets/${id}/values/${range}?${dec(key)}`;
+        }
 
-        downloadPnhData: () => {
+        static downloadPnhData() {
             log('PNH data download started...');
             return new Promise((resolve, reject) => {
-                const url = Pnh.getSpreadsheetUrl(Pnh.SPREADSHEET_ID, Pnh.SPREADSHEET_RANGE, Pnh.API_KEY);
+                const url = this.getSpreadsheetUrl(this.SPREADSHEET_ID, this.SPREADSHEET_RANGE, this.API_KEY);
 
                 $.getJSON(url).done(res => {
                     const { values } = res;
@@ -1607,9 +1625,9 @@
                     reject();
                 });
             });
-        },
+        }
 
-        downloadPnhModerators: () => {
+        static downloadPnhModerators() {
             log('PNH moderators download started...');
             return new Promise(resolve => {
                 const url = Pnh.getSpreadsheetUrl(Pnh.SPREADSHEET_ID, Pnh.SPREADSHEET_MODERATORS_RANGE, Pnh.API_KEY);
@@ -1639,9 +1657,9 @@
                     resolve();
                 });
             });
-        },
+        }
 
-        processCategories: (categoryDataRows, categoryInfos) => {
+        static processCategories(categoryDataRows, categoryInfos) {
             let headers;
             let pnhServiceKeys;
             let wmeServiceIds;
@@ -1734,7 +1752,7 @@
                 }
             });
         }
-    };
+    }
 
     // KB Shortcut object
     const SHORTCUT = {
