@@ -216,14 +216,6 @@
     let _initAlreadyRun = false; // This is used to skip a couple things if already run once.  This could probably be handled better...
     let _textEntryValues = null; // Store the values entered in text boxes so they can be re-added when the banner is reassembled.
 
-    // vars for cat-name checking
-    let _hospitalPartMatch;
-    let _hospitalFullMatch;
-    let _animalPartMatch;
-    let _animalFullMatch;
-    let _schoolPartMatch;
-    let _schoolFullMatch;
-
     let _attributionEl;
     let _placesService;
 
@@ -1428,6 +1420,19 @@
         static COLUMNS_TO_IGNORE = ['temp_field', 'ph_services', 'ph_national', 'logo', ''];
         static WORD_VARIATIONS = null;
         static MODERATORS = {};
+        // vars for category name checking
+        /** @type {string[]} */
+        static HOSPITAL_PART_MATCH;
+        /** @type {string[]} */
+        static HOSPITAL_FULL_MATCH;
+        /** @type {string[]} */
+        static ANIMAL_PART_MATCH;
+        /** @type {string[]} */
+        static ANIMAL_FULL_MATCH;
+        /** @type {string[]} */
+        static SCHOOL_PART_MATCH;
+        /** @type {string[]} */
+        static SCHOOL_FULL_MATCH;
 
         static ForceCategoryMatchingType = Object.freeze({
             NONE: Symbol('none'),
@@ -1460,12 +1465,12 @@
 
         /**
          * Function that checks current place against the Harmonization Data. Returns place data, "NoMatch", or "Approval Needed"
-         * @param {string} name
-         * @param {string} state2L
-         * @param {string} region3L
-         * @param {string} country
-         * @param {string[]} categories
-         * @param {venue} venue
+         * @param {string} name The venue's base name, i.e. everything before a hyphen or parentheses
+         * @param {string} state2L The 2-letter state abbreviation
+         * @param {string} region3L The 3-letter region abbreviation
+         * @param {string} country The country code
+         * @param {string[]} categories The venue's current category array
+         * @param {venue} venue The venue object
          * @returns
          */
         static findMatch(name, state2L, region3L, country, categories, venue) {
@@ -1553,7 +1558,7 @@
          *
          * @param {string[]} rows
          * @param {PnhCategoryInfos} categoryInfos
-         * @returns
+         * @returns {PnhEntry[]}
          */
         static processPnhSSRows(rows, categoryInfos) {
             const columnHeaders = rows.splice(0, 1)[0].split('|').map(h => h.trim());
@@ -1610,12 +1615,12 @@
 
                     const processTermsCell = (termsValues, colIdx) => Pnh.processImportedDataColumn(termsValues, colIdx)[1]
                         .toLowerCase().split('|').map(value => value.trim());
-                    _hospitalPartMatch = processTermsCell(values, 5);
-                    _hospitalFullMatch = processTermsCell(values, 6);
-                    _animalPartMatch = processTermsCell(values, 7);
-                    _animalFullMatch = processTermsCell(values, 8);
-                    _schoolPartMatch = processTermsCell(values, 9);
-                    _schoolFullMatch = processTermsCell(values, 10);
+                    this.HOSPITAL_PART_MATCH = processTermsCell(values, 5);
+                    this.HOSPITAL_FULL_MATCH = processTermsCell(values, 6);
+                    this.ANIMAL_PART_MATCH = processTermsCell(values, 7);
+                    this.ANIMAL_FULL_MATCH = processTermsCell(values, 8);
+                    this.SCHOOL_PART_MATCH = processTermsCell(values, 9);
+                    this.SCHOOL_FULL_MATCH = processTermsCell(values, 10);
 
                     log('PNH data download completed');
                     resolve();
@@ -3642,7 +3647,7 @@
                     const testName = name.toLowerCase().replace(/[^a-z]/g, ' ');
                     const testNameWords = testName.split(' ');
                     if ((args.categories.includes(CAT.HOSPITAL_URGENT_CARE) || args.categories.includes(CAT.DOCTOR_CLINIC))
-                        && (containsAny(testNameWords, _animalFullMatch) || _animalPartMatch.some(match => testName.includes(match)))) {
+                        && (containsAny(testNameWords, Pnh.ANIMAL_FULL_MATCH) || Pnh.ANIMAL_PART_MATCH.some(match => testName.includes(match)))) {
                         return true;
                     }
                 }
@@ -3676,7 +3681,7 @@
                     const testNameWords = testName.split(' ');
 
                     if (args.categories.includes(CAT.SCHOOL)
-                        && (containsAny(testNameWords, _schoolFullMatch) || _schoolPartMatch.some(match => testName.includes(match)))) {
+                        && (containsAny(testNameWords, Pnh.SCHOOL_FULL_MATCH) || Pnh.SCHOOL_PART_MATCH.some(match => testName.includes(match)))) {
                         return true;
                     }
                 }
@@ -5921,7 +5926,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                 if (args.categories.includes(CAT.HOSPITAL_URGENT_CARE) && !this.isWhitelisted(args)) {
                     const testName = args.nameBase.toLowerCase().replace(/[^a-z]/g, ' ');
                     const testNameWords = testName.split(' ');
-                    return containsAny(testNameWords, _hospitalFullMatch) || _hospitalPartMatch.some(match => testName.includes(match));
+                    return containsAny(testNameWords, Pnh.HOSPITAL_FULL_MATCH) || Pnh.HOSPITAL_PART_MATCH.some(match => testName.includes(match));
                 }
                 return false;
             }
