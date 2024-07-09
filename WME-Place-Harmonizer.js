@@ -189,24 +189,37 @@
     const SCRIPT_NAME = GM_info.script.name;
     const IS_BETA_VERSION = /Beta/i.test(SCRIPT_NAME); //  enables dev messages and unique DOM options if the script is called "... Beta"
     const BETA_VERSION_STR = IS_BETA_VERSION ? 'Beta' : ''; // strings to differentiate DOM elements between regular and beta script
-    const PNH_DATA = {
-        USA: {
-            countryCode: 'USA',
-            countryName: 'USA',
-            /** @type {PnhCategoryInfos} */
-            categoryInfos: null,
-            /** @type {PnhEntry[]} */
-            pnh: null
-        },
-        CAN: {
-            countryCode: 'CAN',
-            countryName: 'Canada',
-            /** @type {PnhCategoryInfos} */
-            categoryInfos: null,
-            /** @type {PnhEntry[]} */
-            pnh: null
+
+    class Country {
+        countryCode;
+        countryName;
+        categoryInfos;
+        pnh;
+
+        /**
+         * Creates an instance of Country.
+         * @param {string} code Country code, e.g. USA, CAN
+         * @param {string} name Country name, for display purposes
+         * @param {PnhCategoryInfos} categoryInfos
+         * @param {PnhEntry[]} pnh
+         * @memberof Country
+         */
+        constructor(code, name, allSpreadsheetData, categoryColumnIndex, pnhColumnIndex) {
+            this.countryCode = code;
+            this.countryName = name;
+            this.categoryInfos = new PnhCategoryInfos();
+            Pnh.processCategories(Pnh.processImportedDataColumn(allSpreadsheetData, categoryColumnIndex), this.categoryInfos);
+            this.pnh = Pnh.processPnhSSRows(allSpreadsheetData, pnhColumnIndex, this);
         }
+    }
+
+    const PNH_DATA = {
+        /** @type {Country} */
+        USA: null,
+        /** @type {Country} */
+        CAN: null
     };
+
     const DEFAULT_HOURS_TEXT = 'Paste hours here';
     const MAX_CACHE_SIZE = 25000;
     const PROD_DOWNLOAD_URL = 'https://greasyfork.org/scripts/28690-wme-place-harmonizer/code/WME%20Place%20Harmonizer.user.js';
@@ -953,10 +966,10 @@
          *
          * @param {string[]} columnHeaders
          * @param {string} rowString A pipe-separated string with all of the PNH entry's data
-         * @param {PnhCategoryInfos} categoryInfos
+         * @param {Country} country
          */
-        constructor(columnHeaders, rowString, categoryInfos) {
-            const parseResult = this.#parseSpreadsheetRow(columnHeaders, rowString, categoryInfos);
+        constructor(columnHeaders, rowString, country) {
+            const parseResult = this.#parseSpreadsheetRow(columnHeaders, rowString, country);
             if (!this.invalid && (!this.disabled || this.betaEnable)) {
                 this.#buildSearchNameList(parseResult);
             }
@@ -983,10 +996,10 @@
          *
          * @param {string[]} columnHeaders
          * @param {string} rowString
-         * @param {PnhCategoryInfos} categoryInfos
+         * @param {Country} country
          * @returns
          */
-        #parseSpreadsheetRow(columnHeaders, rowString, categoryInfos) {
+        #parseSpreadsheetRow(columnHeaders, rowString, country) {
             /**  Contains values needed for immediate processing, but not to be stored in the PnhEntry */
             const result = {
                 searchnamebase: null,
@@ -1064,7 +1077,7 @@
                                     break;
                                 case Pnh.SSHeader.category1:
                                     if (value) {
-                                        this.primaryCategory = categoryInfos.getByName(value)?.id;
+                                        this.primaryCategory = country.categoryInfos.getByName(value)?.id;
                                         if (typeof this.primaryCategory === 'undefined') {
                                             result.warningMessages.push(`Unrecognized primary category value: ${value}`);
                                         }
@@ -1075,7 +1088,7 @@
                                     break;
                                 case Pnh.SSHeader.category2:
                                     this.altCategories = value?.split(',').map(v => v.trim()).map(catName => {
-                                        const cat = categoryInfos.getByName(catName)?.id;
+                                        const cat = country.categoryInfos.getByName(catName)?.id;
                                         if (!cat) {
                                             result.warningMessages.push(`Unrecognized alternate category: ${catName}`);
                                         }
@@ -1241,7 +1254,7 @@
             }
 
             if (result.warningMessages.length) {
-                console.warn('WMEPH:', `PNH Order # ${this.order} parsing issues:\n- ${result.warningMessages.join('\n- ')}`);
+                console.warn(`WMEPH ${country.countryName}:`, `PNH Order # ${this.order} parsing issues:\n- ${result.warningMessages.join('\n- ')}`);
             }
             return result;
         }
@@ -1412,10 +1425,10 @@
 
     /** "Namespace" for classes and methods related to handling PNH spreadsheet data */
     class Pnh {
-        static SPREADSHEET_ID = '1pBz4l4cNapyGyzfMJKqA4ePEFLkmz2RryAt1UV39B4g';
-        static SPREADSHEET_RANGE = '2019.01.20.001!A2:L';
-        static SPREADSHEET_MODERATORS_RANGE = 'Moderators!A1:F';
-        static API_KEY = 'YTJWNVBVRkplbUZUZVVObU1YVXpSRVZ3ZW5OaFRFSk1SbTR4VGxKblRURjJlRTFYY3pOQ2NXZElPQT09';
+        static #SPREADSHEET_ID = '1pBz4l4cNapyGyzfMJKqA4ePEFLkmz2RryAt1UV39B4g';
+        static #SPREADSHEET_RANGE = '2019.01.20.001!A2:L';
+        static #SPREADSHEET_MODERATORS_RANGE = 'Moderators!A1:F';
+        static #API_KEY = 'YTJWNVBVRkplbUZUZVVObU1YVXpSRVZ3ZW5OaFRFSk1SbTR4VGxKblRURjJlRTFYY3pOQ2NXZElPQT09';
         /** Columns that can be ignored when importing */
         static COLUMNS_TO_IGNORE = ['temp_field', 'ph_services', 'ph_national', 'logo', ''];
         static WORD_VARIATIONS = null;
@@ -1530,7 +1543,7 @@
             return ['NoMatch'];
         }
 
-        static validatePnhSSColumnHeaders(headers) {
+        static #validatePnhSSColumnHeaders(headers) {
             let valid = true;
             const expectedHeaders = Pnh.SSHeader.toValueArray();
 
@@ -1557,19 +1570,20 @@
         /**
          *
          * @param {string[]} rows
-         * @param {PnhCategoryInfos} categoryInfos
+         * @param {Country} country
          * @returns {PnhEntry[]}
          */
-        static processPnhSSRows(rows, categoryInfos) {
+        static processPnhSSRows(allData, columnIndex, country) {
+            const rows = this.processImportedDataColumn(allData, columnIndex);
             const columnHeaders = rows.splice(0, 1)[0].split('|').map(h => h.trim());
 
             // Canada's spreadsheet is missing 'ph_order' in the first column header.
             if (!columnHeaders[0].length) columnHeaders[0] = Pnh.SSHeader.order;
 
-            if (!Pnh.validatePnhSSColumnHeaders(columnHeaders)) {
+            if (!Pnh.#validatePnhSSColumnHeaders(columnHeaders)) {
                 throw new Error('WMEPH: WMEPH exiting due to missing spreadsheet column headers.');
             }
-            return rows.map(row => new PnhEntry(columnHeaders, row, categoryInfos))
+            return rows.map(row => new PnhEntry(columnHeaders, row, country))
                 .filter(entry => !entry.disabled && !entry.invalid);
         }
 
@@ -1577,14 +1591,19 @@
             return allData.filter(row => row.length >= columnIndex + 1).map(row => row[columnIndex]);
         }
 
-        static getSpreadsheetUrl(id, range, key) {
+        static #getSpreadsheetUrl(id, range, key) {
             return `https://sheets.googleapis.com/v4/spreadsheets/${id}/values/${range}?${dec(key)}`;
+        }
+
+        static async downloadAllData() {
+            await this.downloadPnhData();
+            await this.#downloadPnhModerators();
         }
 
         static downloadPnhData() {
             log('PNH data download started...');
             return new Promise((resolve, reject) => {
-                const url = this.getSpreadsheetUrl(this.SPREADSHEET_ID, this.SPREADSHEET_RANGE, this.API_KEY);
+                const url = this.#getSpreadsheetUrl(this.#SPREADSHEET_ID, this.#SPREADSHEET_RANGE, this.#API_KEY);
 
                 $.getJSON(url).done(res => {
                     const { values } = res;
@@ -1596,15 +1615,9 @@
                     // This needs to be performed before makeNameCheckList() is called.
                     Pnh.WORD_VARIATIONS = Pnh.processImportedDataColumn(values, 11).slice(1).map(row => row.toUpperCase().replace(/[^A-z0-9,]/g, '').split(','));
 
-                    PNH_DATA.USA.categoryInfos = new PnhCategoryInfos();
-                    Pnh.processCategories(Pnh.processImportedDataColumn(values, 3), PNH_DATA.USA.categoryInfos);
-                    PNH_DATA.USA.pnh = Pnh.processPnhSSRows(Pnh.processImportedDataColumn(values, 0), PNH_DATA.USA.categoryInfos);
-
-                    // PNH_DATA.USA.pnhNames = makeNameCheckList(PNH_DATA.USA);
+                    PNH_DATA.USA = new Country('USA', 'USA', values, 3, 0);
+                    PNH_DATA.CAN = new Country('CAN', 'Canada', values, 3, 2);
                     PNH_DATA.states = Pnh.processImportedDataColumn(values, 1);
-
-                    PNH_DATA.CAN.categoryInfos = PNH_DATA.USA.categoryInfos;
-                    PNH_DATA.CAN.pnh = Pnh.processPnhSSRows(Pnh.processImportedDataColumn(values, 2), PNH_DATA.CAN.categoryInfos);
 
                     const WMEPHuserList = Pnh.processImportedDataColumn(values, 4)[1].split('|');
                     const betaix = WMEPHuserList.indexOf('BETAUSERS');
@@ -1632,10 +1645,10 @@
             });
         }
 
-        static downloadPnhModerators() {
+        static #downloadPnhModerators() {
             log('PNH moderators download started...');
             return new Promise(resolve => {
-                const url = Pnh.getSpreadsheetUrl(Pnh.SPREADSHEET_ID, Pnh.SPREADSHEET_MODERATORS_RANGE, Pnh.API_KEY);
+                const url = Pnh.#getSpreadsheetUrl(Pnh.#SPREADSHEET_ID, Pnh.#SPREADSHEET_MODERATORS_RANGE, Pnh.#API_KEY);
 
                 $.getJSON(url).done(res => {
                     const { values } = res;
@@ -6841,6 +6854,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
         region = 'Unknown';
         gFormState = '';
         wl = {};
+        outputPhoneFormat = '({0}) {1}-{2}';
 
         constructor(venue, actions, highlightOnly) {
             this.venue = venue;
@@ -7084,7 +7098,6 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
           || (args.nameBase?.trim().length)
           || containsAny(args.categories, CATS_THAT_DONT_NEED_NAMES)) { // for non-residential places
             // Phone formatting
-            args.outputPhoneFormat = '({0}) {1}-{2}';
             if (containsAny(['CA', 'CO'], [args.region, args.state2L]) && (/^\d{3}-\d{3}-\d{4}$/.test(venue.attributes.phone))) {
                 args.outputPhoneFormat = '{0}-{1}-{2}';
             } else if (args.region === 'SER' && !(/^\(\d{3}\) \d{3}-\d{4}$/.test(venue.attributes.phone))) {
@@ -10368,8 +10381,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
         }
         unsafeWindow.wmephRunning = 1;
         // Start downloading the PNH spreadsheet data in the background.  Starts the script once data is ready.
-        await Pnh.downloadPnhData();
-        await Pnh.downloadPnhModerators();
+        await Pnh.downloadAllData();
         await placeHarmonizerBootstrap();
         devTestCode();
     }
