@@ -195,6 +195,7 @@
         countryName;
         categoryInfos;
         pnh;
+        regions;
 
         /**
          * Creates an instance of Country.
@@ -204,12 +205,13 @@
          * @param {PnhEntry[]} pnh
          * @memberof Country
          */
-        constructor(code, name, allSpreadsheetData, categoryColumnIndex, pnhColumnIndex) {
+        constructor(code, name, allSpreadsheetData, categoryColumnIndex, pnhColumnIndex, regions) {
             this.countryCode = code;
             this.countryName = name;
             this.categoryInfos = new PnhCategoryInfos();
             Pnh.processCategories(Pnh.processImportedDataColumn(allSpreadsheetData, categoryColumnIndex), this.categoryInfos);
             this.pnh = Pnh.processPnhSSRows(allSpreadsheetData, pnhColumnIndex, this);
+            this.regions = regions;
         }
     }
 
@@ -286,11 +288,13 @@
     class Region {
         static #defaultNewChainRequestEntryIds = ['entry.925969794', 'entry.1970139752', 'entry.1749047694'];
         static #defaultApproveChainRequestEntryIds = ['entry.925969794', 'entry.50214576', 'entry.1749047694'];
+        regionCode;
         #formId;
         #newChainRequestEntryIds;
         #approveChainRequestEntryIds;
 
-        constructor(formId, newChainRequestEntryIds, approveChainRequestEntryIds) {
+        constructor(regionCode, formId, newChainRequestEntryIds, approveChainRequestEntryIds) {
+            this.regionCode = regionCode;
             this.#formId = formId;
             this.#newChainRequestEntryIds = newChainRequestEntryIds ?? Region.#defaultNewChainRequestEntryIds;
             this.#approveChainRequestEntryIds = approveChainRequestEntryIds ?? Region.#defaultApproveChainRequestEntryIds;
@@ -309,38 +313,7 @@
             return this.#getFormUrl(this.#approveChainRequestEntryIds, entryValues);
         }
     }
-    const REGION_SETTINGS = {
-        NWR: new Region('1hv5hXBlGr1pTMmo4n3frUx1DovUODbZodfDBwwTc7HE'),
-        SWR: new Region('1Qf2N4fSkNzhVuXJwPBJMQBmW0suNuy8W9itCo1qgJL4'),
-        HI: new Region('1K7Dohm8eamIKry3KwMTVnpMdJLaMIyDGMt7Bw6iqH_A', null, ['entry.1497446659', 'entry.50214576', 'entry.1749047694']),
-        PLN: new Region('1ycXtAppoR5eEydFBwnghhu1hkHq26uabjUu8yAlIQuI'),
-        SCR: new Region('1KZzLdlX0HLxED5Bv0wFB-rWccxUp2Mclih5QJIQFKSQ'),
-        GLR: new Region('19btj-Qt2-_TCRlcS49fl6AeUT95Wnmu7Um53qzjj9BA'),
-        SAT: new Region(
-            '1bxgK_20Jix2ahbmUvY1qcY0-RmzUBT6KbE5kjDEObF8',
-            ['entry.2063110249', 'entry.2018912633', 'entry.1924826395'],
-            ['entry.2063110249', 'entry.123778794', 'entry.1924826395']
-        ),
-        SER: new Region(
-            '1jYBcxT3jycrkttK5BxhvPXR240KUHnoFMtkZAXzPg34',
-            ['entry.822075961', 'entry.1422079728', 'entry.1891389966'],
-            ['entry.822075961', 'entry.607048307', 'entry.1891389966']
-        ),
-        ATR: new Region('1v7JhffTfr62aPSOp8qZHA_5ARkBPldWWJwDeDzEioR0'),
-        NER: new Region('1UgFAMdSQuJAySHR0D86frvphp81l7qhEdJXZpyBZU6c'),
-        NOR: new Region('1iYq2rd9HRd-RBsKqmbHDIEBGuyWBSyrIHC6QLESfm4c'),
-        MAR: new Region('1PhL1iaugbRMc3W-yGdqESoooeOz-TJIbjdLBRScJYOk'),
-        CA_EN: new Region(
-            '13JwXsrWPNmCdfGR5OVr5jnGZw-uNGohwgjim-JYbSws',
-            ['entry_839085807', 'entry_1067461077', 'entry_318793106', 'entry_1149649663'],
-            ['entry_839085807', 'entry_1125435193', 'entry_318793106', 'entry_1149649663']
-        ),
-        QC: new Region(
-            '13JwXsrWPNmCdfGR5OVr5jnGZw-uNGohwgjim-JYbSws',
-            ['entry_839085807', 'entry_1067461077', 'entry_318793106', 'entry_1149649663'],
-            ['entry_839085807', 'entry_1125435193', 'entry_318793106', 'entry_1149649663']
-        )
-    };
+
     let _userLanguage;
     // lock levels are offset by one
     const LOCK_LEVEL_2 = 1;
@@ -1615,8 +1588,44 @@
                     // This needs to be performed before makeNameCheckList() is called.
                     Pnh.WORD_VARIATIONS = Pnh.processImportedDataColumn(values, 11).slice(1).map(row => row.toUpperCase().replace(/[^A-z0-9,]/g, '').split(','));
 
-                    PNH_DATA.USA = new Country('USA', 'USA', values, 3, 0);
-                    PNH_DATA.CAN = new Country('CAN', 'Canada', values, 3, 2);
+                    PNH_DATA.USA = new Country('USA', 'USA', values, 3, 0, {
+                        NWR: new Region('NWR', '1hv5hXBlGr1pTMmo4n3frUx1DovUODbZodfDBwwTc7HE'),
+                        SWR: new Region('SWR', '1Qf2N4fSkNzhVuXJwPBJMQBmW0suNuy8W9itCo1qgJL4'),
+                        HI: new Region('HI', '1K7Dohm8eamIKry3KwMTVnpMdJLaMIyDGMt7Bw6iqH_A', null, ['entry.1497446659', 'entry.50214576', 'entry.1749047694']),
+                        PLN: new Region('PLN', '1ycXtAppoR5eEydFBwnghhu1hkHq26uabjUu8yAlIQuI'),
+                        SCR: new Region('SCR', '1KZzLdlX0HLxED5Bv0wFB-rWccxUp2Mclih5QJIQFKSQ'),
+                        GLR: new Region('GLR', '19btj-Qt2-_TCRlcS49fl6AeUT95Wnmu7Um53qzjj9BA'),
+                        SAT: new Region(
+                            'SAT',
+                            '1bxgK_20Jix2ahbmUvY1qcY0-RmzUBT6KbE5kjDEObF8',
+                            ['entry.2063110249', 'entry.2018912633', 'entry.1924826395'],
+                            ['entry.2063110249', 'entry.123778794', 'entry.1924826395']
+                        ),
+                        SER: new Region(
+                            'SER',
+                            '1jYBcxT3jycrkttK5BxhvPXR240KUHnoFMtkZAXzPg34',
+                            ['entry.822075961', 'entry.1422079728', 'entry.1891389966'],
+                            ['entry.822075961', 'entry.607048307', 'entry.1891389966']
+                        ),
+                        ATR: new Region('ATR', '1v7JhffTfr62aPSOp8qZHA_5ARkBPldWWJwDeDzEioR0'),
+                        NER: new Region('NER', '1UgFAMdSQuJAySHR0D86frvphp81l7qhEdJXZpyBZU6c'),
+                        NOR: new Region('NOR', '1iYq2rd9HRd-RBsKqmbHDIEBGuyWBSyrIHC6QLESfm4c'),
+                        MAR: new Region('MAR', '1PhL1iaugbRMc3W-yGdqESoooeOz-TJIbjdLBRScJYOk')
+                    });
+                    PNH_DATA.CAN = new Country('CAN', 'Canada', values, 3, 2, {
+                        CA_EN: new Region(
+                            'CA_EN',
+                            '13JwXsrWPNmCdfGR5OVr5jnGZw-uNGohwgjim-JYbSws',
+                            ['entry_839085807', 'entry_1067461077', 'entry_318793106', 'entry_1149649663'],
+                            ['entry_839085807', 'entry_1125435193', 'entry_318793106', 'entry_1149649663']
+                        ),
+                        QC: new Region(
+                            'QC',
+                            '13JwXsrWPNmCdfGR5OVr5jnGZw-uNGohwgjim-JYbSws',
+                            ['entry_839085807', 'entry_1067461077', 'entry_318793106', 'entry_1149649663'],
+                            ['entry_839085807', 'entry_1125435193', 'entry_318793106', 'entry_1149649663']
+                        )
+                    });
                     PNH_DATA.states = Pnh.processImportedDataColumn(values, 1);
 
                     const WMEPHuserList = Pnh.processImportedDataColumn(values, 4)[1].split('|');
@@ -3320,7 +3329,7 @@
             get noLock() {
                 return Flag.UnmappedRegion.#getRareCategoryInfos(this.args)
                     .some(categoryInfo => (categoryInfo.id === CAT.OTHER
-                        && Flag.UnmappedRegion.#regionsToFlagOther.includes(this.args.region)
+                        && Flag.UnmappedRegion.#regionsToFlagOther.includes(this.args.regionCode)
                         && !this.args.isLocked)
                             || !Flag.UnmappedRegion.isWhitelisted(this.args));
             }
@@ -6083,7 +6092,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                 const encodedName = encodeURIComponent(args.nameBase);
                 const encodedPermalink = encodeURIComponent(args.placePL);
                 const encodedUrl = encodeURIComponent(args.newUrl?.trim() ?? '');
-                const regionSettings = REGION_SETTINGS[args.region];
+                const regionSettings = PNH_DATA[args.countryCode].regions[args.regionCode];
                 let entryValues;
                 if (['CA_EN', 'QC'].includes(args.region)) {
                     entryValues = [encodedName, encodedUrl, USER.name, encodedPermalink];
@@ -6118,7 +6127,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                 const pnhOrderNum = args.pnhMatch[2].join(',');
                 const approvalMessage = `Submitted via WMEPH. PNH order number ${pnhOrderNum}`;
                 const encodedPermalink = encodeURIComponent(args.placePL);
-                const regionSettings = REGION_SETTINGS[args.region];
+                const regionSettings = PNH_DATA[args.countryCode].regions[args.regionCode];
                 let entryValues;
                 if (['CA_EN', 'QC'].includes(args.region)) {
                     entryValues = [encodedName, approvalMessage, USER.name, encodedPermalink];
@@ -6851,7 +6860,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
         almostAllDayHoursEntries = [];
         defaultLockLevel = LOCK_LEVEL_2;
         state2L = 'Unknown';
-        region = 'Unknown';
+        regionCode = 'Unknown';
         gFormState = '';
         wl = {};
         outputPhoneFormat = '({0}) {1}-{2}';
@@ -6989,7 +6998,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
             _stateDataTemp = PNH_DATA.states[usdix].split('|');
             if (stateName === _stateDataTemp[_psStateIx]) {
                 args.state2L = _stateDataTemp[_psState2LetterIx];
-                args.region = _stateDataTemp[_psRegionIx];
+                args.regionCode = _stateDataTemp[_psRegionIx];
                 args.gFormState = _stateDataTemp[_psGoogleFormStateIx];
                 if (_stateDataTemp[_psDefaultLockLevelIx].match(/[1-5]{1}/) !== null) {
                     args.defaultLockLevel = _stateDataTemp[_psDefaultLockLevelIx] - 1; // normalize by -1
@@ -7004,7 +7013,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
             // If State is not found, then use the country
             if (countryName === _stateDataTemp[_psStateIx]) {
                 args.state2L = _stateDataTemp[_psState2LetterIx];
-                args.region = _stateDataTemp[_psRegionIx];
+                args.regionCode = _stateDataTemp[_psRegionIx];
                 args.gFormState = _stateDataTemp[_psGoogleFormStateIx];
                 if (_stateDataTemp[_psDefaultLockLevelIx].match(/[1-5]{1}/) !== null) {
                     args.defaultLockLevel = _stateDataTemp[_psDefaultLockLevelIx] - 1; // normalize by -1
@@ -7017,7 +7026,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                 break;
             }
         }
-        if (args.state2L === 'Unknown' || args.region === 'Unknown') { // if nothing found:
+        if (args.state2L === 'Unknown' || args.regionCode === 'Unknown') { // if nothing found:
             if (!args.highlightOnly) {
                 /* if (confirm('WMEPH: Localization Error!\nClick OK to report this error')) {
                     // if the category doesn't translate, then pop an alert that will make a forum post to the thread
@@ -7098,11 +7107,11 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
           || (args.nameBase?.trim().length)
           || containsAny(args.categories, CATS_THAT_DONT_NEED_NAMES)) { // for non-residential places
             // Phone formatting
-            if (containsAny(['CA', 'CO'], [args.region, args.state2L]) && (/^\d{3}-\d{3}-\d{4}$/.test(venue.attributes.phone))) {
+            if (containsAny(['CA', 'CO'], [args.regionCode, args.state2L]) && (/^\d{3}-\d{3}-\d{4}$/.test(venue.attributes.phone))) {
                 args.outputPhoneFormat = '{0}-{1}-{2}';
-            } else if (args.region === 'SER' && !(/^\(\d{3}\) \d{3}-\d{4}$/.test(venue.attributes.phone))) {
+            } else if (args.regionCode === 'SER' && !(/^\(\d{3}\) \d{3}-\d{4}$/.test(venue.attributes.phone))) {
                 args.outputPhoneFormat = '{0}-{1}-{2}';
-            } else if (args.region === 'GLR') {
+            } else if (args.regionCode === 'GLR') {
                 args.outputPhoneFormat = '{0}-{1}-{2}';
             } else if (args.state2L === 'NV') {
                 args.outputPhoneFormat = '{0}-{1}-{2}';
@@ -7132,7 +7141,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                     args.pnhMatch = ['NoMatch'];
                 } else {
                     // check against the PNH list
-                    args.pnhMatch = Pnh.findMatch(args.nameBase, args.state2L, args.region, args.countryCode, args.categories, venue);
+                    args.pnhMatch = Pnh.findMatch(args.nameBase, args.state2L, args.regionCode, args.countryCode, args.categories, venue);
                 }
             } else {
                 args.pnhMatch = ['Highlight'];
@@ -7366,11 +7375,11 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                     }
                     let pvaPoint = pnhCategoryInfo.point;
                     let pvaArea = pnhCategoryInfo.area;
-                    if (pnhCategoryInfo.regPoint.includes(args.state2L) || pnhCategoryInfo.regPoint.includes(args.region)
+                    if (pnhCategoryInfo.regPoint.includes(args.state2L) || pnhCategoryInfo.regPoint.includes(args.regionCode)
                         || pnhCategoryInfo.regPoint.includes(args.countryCode)) {
                         pvaPoint = '1';
                         pvaArea = '';
-                    } else if (pnhCategoryInfo.regArea.includes(args.state2L) || pnhCategoryInfo.regArea.includes(args.region)
+                    } else if (pnhCategoryInfo.regArea.includes(args.state2L) || pnhCategoryInfo.regArea.includes(args.regionCode)
                         || pnhCategoryInfo.regArea.includes(args.countryCode)) {
                         pvaPoint = '';
                         pvaArea = '1';
@@ -7397,7 +7406,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                     // Set lock level
                     for (let lockix = 1; lockix < 6; lockix++) {
                         const categoryLock = pnhCategoryInfo[`lock${lockix}`];
-                        if (lockix - 1 > highestCategoryLock && (categoryLock.includes(args.state2L) || categoryLock.includes(args.region)
+                        if (lockix - 1 > highestCategoryLock && (categoryLock.includes(args.state2L) || categoryLock.includes(args.regionCode)
                             || categoryLock.includes(args.countryCode))) {
                             highestCategoryLock = lockix - 1; // Offset by 1 since lock ranks start at 0
                         }
@@ -7667,7 +7676,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
             } else {
                 args.levelToLock = args.defaultLockLevel;
             }
-            if (args.region === 'SER') {
+            if (args.regionCode === 'SER') {
                 if (args.categories.includes(CAT.COLLEGE_UNIVERSITY) && args.categories.includes(CAT.PARKING_LOT)) {
                     args.levelToLock = LOCK_LEVEL_4;
                 } else if (venue.isPoint() && args.categories.includes(CAT.COLLEGE_UNIVERSITY) && (!args.categories.includes(CAT.HOSPITAL_MEDICAL_CARE)
