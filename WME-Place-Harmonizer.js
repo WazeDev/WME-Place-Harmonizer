@@ -196,6 +196,8 @@
         categoryInfos;
         pnh;
         regions;
+        /** @type {PnhEntry[]} */
+        closedChains;
 
         /**
          * Creates an instance of Country.
@@ -211,6 +213,7 @@
             this.categoryInfos = new PnhCategoryInfos();
             Pnh.processCategories(Pnh.processImportedDataColumn(allSpreadsheetData, categoryColumnIndex), this.categoryInfos);
             this.pnh = Pnh.processPnhSSRows(allSpreadsheetData, pnhColumnIndex, this);
+            this.closedChains = this.pnh.filter(entry => entry.chainIsClosed);
             this.regions = regions;
         }
     }
@@ -1459,16 +1462,16 @@
          * @param {venue} venue The venue object
          * @returns
          */
-        static findMatch(name, state2L, region3L, country, categories, venue) {
+        static findMatch(name, state2L, region3L, country, categories, venue, closeChainsOnly) {
             if (country !== PNH_DATA.USA.countryCode && country !== PNH_DATA.CAN.countryCode) {
-                WazeWrap.Alerts.info(SCRIPT_NAME, 'No PNH data exists for this country.');
+                //WazeWrap.Alerts.info(SCRIPT_NAME, 'No PNH data exists for this country.');
                 return ['NoMatch'];
             }
             if (venue.isParkingLot()) {
                 return ['NoMatch'];
             }
             /** @type {PnhEntry[]} */
-            const pnhData = PNH_DATA[country].pnh;
+            const pnhData = closeChainsOnly ? PNH_DATA[country].closedChains : PNH_DATA[country].pnh;
             const matchPNHRegionData = []; // array of matched data with regional approval
             const pnhOrderNum = [];
             const pnhNameTemp = [];
@@ -5794,7 +5797,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
 
             static eval(args, altCategory) {
                 let result = null;
-                if (args.pnhMatch.flagsToAdd.addCat2 && !args.categories.includes(altCategory)) {
+                if (args.pnhMatch.flagsToAdd?.addCat2 && !args.categories.includes(altCategory)) {
                     result = new this(args.venue, altCategory);
                 }
                 return result;
@@ -5811,7 +5814,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
             static defaultButtonTooltip = 'Add Pharmacy category';
 
             static venueIsFlaggable(args) {
-                return args.pnhMatch.flagsToAdd.addPharm && !args.categories.includes(CAT.PHARMACY);
+                return args.pnhMatch.flagsToAdd?.addPharm && !args.categories.includes(CAT.PHARMACY);
             }
 
             action() {
@@ -5825,7 +5828,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
             static defaultButtonTooltip = 'Add Supermarket category';
 
             static venueIsFlaggable(args) {
-                return args.pnhMatch.flagsToAdd.addSuper && !args.categories.includes(CAT.SUPERMARKET_GROCERY);
+                return args.pnhMatch.flagsToAdd?.addSuper && !args.categories.includes(CAT.SUPERMARKET_GROCERY);
             }
 
             action() {
@@ -5842,7 +5845,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
             static venueIsFlaggable(args) {
                 // No need to check for name/catgory. After the action is run, the name will match the "ARCO ampm"
                 // PNH entry, which doesn't have this flag.
-                return args.pnhMatch.flagsToAdd.appendAMPM;
+                return args.pnhMatch.flagsToAdd?.appendAMPM;
             }
 
             action() {
@@ -7144,10 +7147,12 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                     args.pnhMatch = Pnh.findMatch(args.nameBase, args.state2L, args.regionCode, args.countryCode, args.categories, venue);
                 }
             } else {
-                args.pnhMatch = ['Highlight'];
+                args.pnhMatch = Pnh.findMatch(args.nameBase, args.state2L, args.regionCode, args.countryCode, args.categories, venue, true);
+                //args.pnhMatch = ['Highlight'];
             }
 
-            args.pnhNameRegMatch = args.pnhMatch[0] !== 'NoMatch'
+            args.pnhNameRegMatch = args.pnhMatch?.length
+                && args.pnhMatch[0] !== 'NoMatch'
                 && args.pnhMatch[0] !== 'ApprovalNeeded'
                 && args.pnhMatch[0] !== 'Highlight';
 
@@ -7180,7 +7185,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                 args.priPNHPlaceCat = args.pnhMatch.primaryCategory;
 
                 // if the location has multiple matches, then pop an alert that will make a forum post to the thread
-                if (nsMultiMatch) {
+                if (nsMultiMatch && !args.highlightOnly) {
                     /* if (confirm('WMEPH: Multiple matches found!\nDouble check the script changes.\nClick OK to report this situation.')) {
                         reportError({
                             subject: `Order Nos. "${orderList.join(', ')}" WMEPH Multiple match report`,
@@ -7300,7 +7305,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                     } else if (updatePNHName) { // if not a special category then update the name
                         args.nameBase = args.pnhMatch.name;
                         args.categories = insertAtIndex(args.categories, args.priPNHPlaceCat, 0);
-                        if (altCategories?.length && !args.pnhMatch.flagsToAdd.addCat2 && !args.pnhMatch.optionCat2) {
+                        if (altCategories?.length && !args.pnhMatch.flagsToAdd?.addCat2 && !args.pnhMatch.optionCat2) {
                             args.categories = insertAtIndex(args.categories, altCategories, 1);
                         }
                     } else if (!updatePNHName) {
@@ -7330,7 +7335,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
 
                     // update categories if different and no Cat2 option
                     if (!matchSets(uniq(venue.attributes.categories), uniq(args.categories))) {
-                        if (!args.pnhMatch.optionCat2 && !args.pnhMatch.flagsToAdd.addCat2) {
+                        if (!args.pnhMatch.optionCat2 && !args.pnhMatch.flagsToAdd?.addCat2) {
                             logDev(`Categories updated with ${args.categories}`);
                             addUpdateAction(venue, { categories: args.categories }, actions);
                         } else { // if second cat is optional
