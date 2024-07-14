@@ -1460,18 +1460,18 @@
          * @param {string} country The country code
          * @param {string[]} categories The venue's current category array
          * @param {venue} venue The venue object
+         * @param {boolean} [closedChainsOnly] Use true if only finding closed chains, i.e. when doing map highlights
          * @returns
          */
-        static findMatch(name, state2L, region3L, country, categories, venue, closeChainsOnly) {
+        static findMatch(name, state2L, region3L, country, categories, venue, closedChainsOnly) {
             if (country !== PNH_DATA.USA.countryCode && country !== PNH_DATA.CAN.countryCode) {
-                //WazeWrap.Alerts.info(SCRIPT_NAME, 'No PNH data exists for this country.');
                 return ['NoMatch'];
             }
             if (venue.isParkingLot()) {
                 return ['NoMatch'];
             }
             /** @type {PnhEntry[]} */
-            const pnhData = closeChainsOnly ? PNH_DATA[country].closedChains : PNH_DATA[country].pnh;
+            const pnhData = closedChainsOnly ? PNH_DATA[country].closedChains : PNH_DATA[country].pnh;
             const matchPNHRegionData = []; // array of matched data with regional approval
             const pnhOrderNum = [];
             const pnhNameTemp = [];
@@ -7148,7 +7148,6 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                 }
             } else {
                 args.pnhMatch = Pnh.findMatch(args.nameBase, args.state2L, args.regionCode, args.countryCode, args.categories, venue, true);
-                //args.pnhMatch = ['Highlight'];
             }
 
             args.pnhNameRegMatch = args.pnhMatch?.length
@@ -10383,6 +10382,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
         if (W.loginManager.user.getUsername() === 'MapOMatic') {
             // For debugging purposes.  May be removed when no longer needed.
             unsafeWindow.PNH_DATA = PNH_DATA;
+            unsafeWindow.WMEPH_FLAG = Flag;
         }
     }
 
