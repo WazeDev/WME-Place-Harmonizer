@@ -189,24 +189,42 @@
     const SCRIPT_NAME = GM_info.script.name;
     const IS_BETA_VERSION = /Beta/i.test(SCRIPT_NAME); //  enables dev messages and unique DOM options if the script is called "... Beta"
     const BETA_VERSION_STR = IS_BETA_VERSION ? 'Beta' : ''; // strings to differentiate DOM elements between regular and beta script
-    const PNH_DATA = {
-        USA: {
-            countryCode: 'USA',
-            countryName: 'USA',
-            /** @type {PnhCategoryInfos} */
-            categoryInfos: null,
-            /** @type {PnhEntry[]} */
-            pnh: null
-        },
-        CAN: {
-            countryCode: 'CAN',
-            countryName: 'Canada',
-            /** @type {PnhCategoryInfos} */
-            categoryInfos: null,
-            /** @type {PnhEntry[]} */
-            pnh: null
+
+    class Country {
+        countryCode;
+        countryName;
+        categoryInfos;
+        pnh;
+        regions;
+        /** @type {PnhEntry[]} */
+        closedChains;
+
+        /**
+         * Creates an instance of Country.
+         * @param {string} code Country code, e.g. USA, CAN
+         * @param {string} name Country name, for display purposes
+         * @param {PnhCategoryInfos} categoryInfos
+         * @param {PnhEntry[]} pnh
+         * @memberof Country
+         */
+        constructor(code, name, allSpreadsheetData, categoryColumnIndex, pnhColumnIndex, regions) {
+            this.countryCode = code;
+            this.countryName = name;
+            this.categoryInfos = new PnhCategoryInfos();
+            Pnh.processCategories(Pnh.processImportedDataColumn(allSpreadsheetData, categoryColumnIndex), this.categoryInfos);
+            this.pnh = Pnh.processPnhSSRows(allSpreadsheetData, pnhColumnIndex, this);
+            this.closedChains = this.pnh.filter(entry => entry.chainIsClosed);
+            this.regions = regions;
         }
+    }
+
+    const PNH_DATA = {
+        /** @type {Country} */
+        USA: null,
+        /** @type {Country} */
+        CAN: null
     };
+
     const DEFAULT_HOURS_TEXT = 'Paste hours here';
     const MAX_CACHE_SIZE = 25000;
     const PROD_DOWNLOAD_URL = 'https://greasyfork.org/scripts/28690-wme-place-harmonizer/code/WME%20Place%20Harmonizer.user.js';
@@ -215,14 +233,6 @@
     let _resultsCache = {};
     let _initAlreadyRun = false; // This is used to skip a couple things if already run once.  This could probably be handled better...
     let _textEntryValues = null; // Store the values entered in text boxes so they can be re-added when the banner is reassembled.
-
-    // vars for cat-name checking
-    let _hospitalPartMatch;
-    let _hospitalFullMatch;
-    let _animalPartMatch;
-    let _animalFullMatch;
-    let _schoolPartMatch;
-    let _schoolFullMatch;
 
     let _attributionEl;
     let _placesService;
@@ -281,11 +291,13 @@
     class Region {
         static #defaultNewChainRequestEntryIds = ['entry.925969794', 'entry.1970139752', 'entry.1749047694'];
         static #defaultApproveChainRequestEntryIds = ['entry.925969794', 'entry.50214576', 'entry.1749047694'];
+        regionCode;
         #formId;
         #newChainRequestEntryIds;
         #approveChainRequestEntryIds;
 
-        constructor(formId, newChainRequestEntryIds, approveChainRequestEntryIds) {
+        constructor(regionCode, formId, newChainRequestEntryIds, approveChainRequestEntryIds) {
+            this.regionCode = regionCode;
             this.#formId = formId;
             this.#newChainRequestEntryIds = newChainRequestEntryIds ?? Region.#defaultNewChainRequestEntryIds;
             this.#approveChainRequestEntryIds = approveChainRequestEntryIds ?? Region.#defaultApproveChainRequestEntryIds;
@@ -304,38 +316,7 @@
             return this.#getFormUrl(this.#approveChainRequestEntryIds, entryValues);
         }
     }
-    const REGION_SETTINGS = {
-        NWR: new Region('1hv5hXBlGr1pTMmo4n3frUx1DovUODbZodfDBwwTc7HE'),
-        SWR: new Region('1Qf2N4fSkNzhVuXJwPBJMQBmW0suNuy8W9itCo1qgJL4'),
-        HI: new Region('1K7Dohm8eamIKry3KwMTVnpMdJLaMIyDGMt7Bw6iqH_A', null, ['entry.1497446659', 'entry.50214576', 'entry.1749047694']),
-        PLN: new Region('1ycXtAppoR5eEydFBwnghhu1hkHq26uabjUu8yAlIQuI'),
-        SCR: new Region('1KZzLdlX0HLxED5Bv0wFB-rWccxUp2Mclih5QJIQFKSQ'),
-        GLR: new Region('19btj-Qt2-_TCRlcS49fl6AeUT95Wnmu7Um53qzjj9BA'),
-        SAT: new Region(
-            '1bxgK_20Jix2ahbmUvY1qcY0-RmzUBT6KbE5kjDEObF8',
-            ['entry.2063110249', 'entry.2018912633', 'entry.1924826395'],
-            ['entry.2063110249', 'entry.123778794', 'entry.1924826395']
-        ),
-        SER: new Region(
-            '1jYBcxT3jycrkttK5BxhvPXR240KUHnoFMtkZAXzPg34',
-            ['entry.822075961', 'entry.1422079728', 'entry.1891389966'],
-            ['entry.822075961', 'entry.607048307', 'entry.1891389966']
-        ),
-        ATR: new Region('1v7JhffTfr62aPSOp8qZHA_5ARkBPldWWJwDeDzEioR0'),
-        NER: new Region('1UgFAMdSQuJAySHR0D86frvphp81l7qhEdJXZpyBZU6c'),
-        NOR: new Region('1iYq2rd9HRd-RBsKqmbHDIEBGuyWBSyrIHC6QLESfm4c'),
-        MAR: new Region('1PhL1iaugbRMc3W-yGdqESoooeOz-TJIbjdLBRScJYOk'),
-        CA_EN: new Region(
-            '13JwXsrWPNmCdfGR5OVr5jnGZw-uNGohwgjim-JYbSws',
-            ['entry_839085807', 'entry_1067461077', 'entry_318793106', 'entry_1149649663'],
-            ['entry_839085807', 'entry_1125435193', 'entry_318793106', 'entry_1149649663']
-        ),
-        QC: new Region(
-            '13JwXsrWPNmCdfGR5OVr5jnGZw-uNGohwgjim-JYbSws',
-            ['entry_839085807', 'entry_1067461077', 'entry_318793106', 'entry_1149649663'],
-            ['entry_839085807', 'entry_1125435193', 'entry_318793106', 'entry_1149649663']
-        )
-    };
+
     let _userLanguage;
     // lock levels are offset by one
     const LOCK_LEVEL_2 = 1;
@@ -961,10 +942,10 @@
          *
          * @param {string[]} columnHeaders
          * @param {string} rowString A pipe-separated string with all of the PNH entry's data
-         * @param {PnhCategoryInfos} categoryInfos
+         * @param {Country} country
          */
-        constructor(columnHeaders, rowString, categoryInfos) {
-            const parseResult = this.#parseSpreadsheetRow(columnHeaders, rowString, categoryInfos);
+        constructor(columnHeaders, rowString, country) {
+            const parseResult = this.#parseSpreadsheetRow(columnHeaders, rowString, country);
             if (!this.invalid && (!this.disabled || this.betaEnable)) {
                 this.#buildSearchNameList(parseResult);
             }
@@ -991,10 +972,10 @@
          *
          * @param {string[]} columnHeaders
          * @param {string} rowString
-         * @param {PnhCategoryInfos} categoryInfos
+         * @param {Country} country
          * @returns
          */
-        #parseSpreadsheetRow(columnHeaders, rowString, categoryInfos) {
+        #parseSpreadsheetRow(columnHeaders, rowString, country) {
             /**  Contains values needed for immediate processing, but not to be stored in the PnhEntry */
             const result = {
                 searchnamebase: null,
@@ -1072,7 +1053,7 @@
                                     break;
                                 case Pnh.SSHeader.category1:
                                     if (value) {
-                                        this.primaryCategory = categoryInfos.getByName(value)?.id;
+                                        this.primaryCategory = country.categoryInfos.getByName(value)?.id;
                                         if (typeof this.primaryCategory === 'undefined') {
                                             result.warningMessages.push(`Unrecognized primary category value: ${value}`);
                                         }
@@ -1083,7 +1064,7 @@
                                     break;
                                 case Pnh.SSHeader.category2:
                                     this.altCategories = value?.split(',').map(v => v.trim()).map(catName => {
-                                        const cat = categoryInfos.getByName(catName)?.id;
+                                        const cat = country.categoryInfos.getByName(catName)?.id;
                                         if (!cat) {
                                             result.warningMessages.push(`Unrecognized alternate category: ${catName}`);
                                         }
@@ -1249,7 +1230,7 @@
             }
 
             if (result.warningMessages.length) {
-                console.warn('WMEPH:', `PNH Order # ${this.order} parsing issues:\n- ${result.warningMessages.join('\n- ')}`);
+                console.warn(`WMEPH ${country.countryName}:`, `PNH Order # ${this.order} parsing issues:\n- ${result.warningMessages.join('\n- ')}`);
             }
             return result;
         }
@@ -1420,14 +1401,27 @@
 
     /** "Namespace" for classes and methods related to handling PNH spreadsheet data */
     class Pnh {
-        static SPREADSHEET_ID = '1pBz4l4cNapyGyzfMJKqA4ePEFLkmz2RryAt1UV39B4g';
-        static SPREADSHEET_RANGE = '2019.01.20.001!A2:L';
-        static SPREADSHEET_MODERATORS_RANGE = 'Moderators!A1:F';
-        static API_KEY = 'YTJWNVBVRkplbUZUZVVObU1YVXpSRVZ3ZW5OaFRFSk1SbTR4VGxKblRURjJlRTFYY3pOQ2NXZElPQT09';
+        static #SPREADSHEET_ID = '1pBz4l4cNapyGyzfMJKqA4ePEFLkmz2RryAt1UV39B4g';
+        static #SPREADSHEET_RANGE = '2019.01.20.001!A2:L';
+        static #SPREADSHEET_MODERATORS_RANGE = 'Moderators!A1:F';
+        static #API_KEY = 'YTJWNVBVRkplbUZUZVVObU1YVXpSRVZ3ZW5OaFRFSk1SbTR4VGxKblRURjJlRTFYY3pOQ2NXZElPQT09';
         /** Columns that can be ignored when importing */
         static COLUMNS_TO_IGNORE = ['temp_field', 'ph_services', 'ph_national', 'logo', ''];
         static WORD_VARIATIONS = null;
         static MODERATORS = {};
+        // vars for category name checking
+        /** @type {string[]} */
+        static HOSPITAL_PART_MATCH;
+        /** @type {string[]} */
+        static HOSPITAL_FULL_MATCH;
+        /** @type {string[]} */
+        static ANIMAL_PART_MATCH;
+        /** @type {string[]} */
+        static ANIMAL_FULL_MATCH;
+        /** @type {string[]} */
+        static SCHOOL_PART_MATCH;
+        /** @type {string[]} */
+        static SCHOOL_FULL_MATCH;
 
         static ForceCategoryMatchingType = Object.freeze({
             NONE: Symbol('none'),
@@ -1460,24 +1454,24 @@
 
         /**
          * Function that checks current place against the Harmonization Data. Returns place data, "NoMatch", or "Approval Needed"
-         * @param {string} name
-         * @param {string} state2L
-         * @param {string} region3L
-         * @param {string} country
-         * @param {string[]} categories
-         * @param {venue} venue
+         * @param {string} name The venue's base name, i.e. everything before a hyphen or parentheses
+         * @param {string} state2L The 2-letter state abbreviation
+         * @param {string} region3L The 3-letter region abbreviation
+         * @param {string} country The country code
+         * @param {string[]} categories The venue's current category array
+         * @param {venue} venue The venue object
          * @returns
          */
-        static findMatch(name, state2L, region3L, country, categories, venue) {
+        static findMatch(name, state2L, region3L, country, categories, venue, closeChainsOnly) {
             if (country !== PNH_DATA.USA.countryCode && country !== PNH_DATA.CAN.countryCode) {
-                WazeWrap.Alerts.info(SCRIPT_NAME, 'No PNH data exists for this country.');
+                //WazeWrap.Alerts.info(SCRIPT_NAME, 'No PNH data exists for this country.');
                 return ['NoMatch'];
             }
             if (venue.isParkingLot()) {
                 return ['NoMatch'];
             }
             /** @type {PnhEntry[]} */
-            const pnhData = PNH_DATA[country].pnh;
+            const pnhData = closeChainsOnly ? PNH_DATA[country].closedChains : PNH_DATA[country].pnh;
             const matchPNHRegionData = []; // array of matched data with regional approval
             const pnhOrderNum = [];
             const pnhNameTemp = [];
@@ -1525,7 +1519,7 @@
             return ['NoMatch'];
         }
 
-        static validatePnhSSColumnHeaders(headers) {
+        static #validatePnhSSColumnHeaders(headers) {
             let valid = true;
             const expectedHeaders = Pnh.SSHeader.toValueArray();
 
@@ -1552,19 +1546,20 @@
         /**
          *
          * @param {string[]} rows
-         * @param {PnhCategoryInfos} categoryInfos
-         * @returns
+         * @param {Country} country
+         * @returns {PnhEntry[]}
          */
-        static processPnhSSRows(rows, categoryInfos) {
+        static processPnhSSRows(allData, columnIndex, country) {
+            const rows = this.processImportedDataColumn(allData, columnIndex);
             const columnHeaders = rows.splice(0, 1)[0].split('|').map(h => h.trim());
 
             // Canada's spreadsheet is missing 'ph_order' in the first column header.
             if (!columnHeaders[0].length) columnHeaders[0] = Pnh.SSHeader.order;
 
-            if (!Pnh.validatePnhSSColumnHeaders(columnHeaders)) {
+            if (!Pnh.#validatePnhSSColumnHeaders(columnHeaders)) {
                 throw new Error('WMEPH: WMEPH exiting due to missing spreadsheet column headers.');
             }
-            return rows.map(row => new PnhEntry(columnHeaders, row, categoryInfos))
+            return rows.map(row => new PnhEntry(columnHeaders, row, country))
                 .filter(entry => !entry.disabled && !entry.invalid);
         }
 
@@ -1572,14 +1567,19 @@
             return allData.filter(row => row.length >= columnIndex + 1).map(row => row[columnIndex]);
         }
 
-        static getSpreadsheetUrl(id, range, key) {
+        static #getSpreadsheetUrl(id, range, key) {
             return `https://sheets.googleapis.com/v4/spreadsheets/${id}/values/${range}?${dec(key)}`;
+        }
+
+        static async downloadAllData() {
+            await this.downloadPnhData();
+            await this.#downloadPnhModerators();
         }
 
         static downloadPnhData() {
             log('PNH data download started...');
             return new Promise((resolve, reject) => {
-                const url = this.getSpreadsheetUrl(this.SPREADSHEET_ID, this.SPREADSHEET_RANGE, this.API_KEY);
+                const url = this.#getSpreadsheetUrl(this.#SPREADSHEET_ID, this.#SPREADSHEET_RANGE, this.#API_KEY);
 
                 $.getJSON(url).done(res => {
                     const { values } = res;
@@ -1591,15 +1591,45 @@
                     // This needs to be performed before makeNameCheckList() is called.
                     Pnh.WORD_VARIATIONS = Pnh.processImportedDataColumn(values, 11).slice(1).map(row => row.toUpperCase().replace(/[^A-z0-9,]/g, '').split(','));
 
-                    PNH_DATA.USA.categoryInfos = new PnhCategoryInfos();
-                    Pnh.processCategories(Pnh.processImportedDataColumn(values, 3), PNH_DATA.USA.categoryInfos);
-                    PNH_DATA.USA.pnh = Pnh.processPnhSSRows(Pnh.processImportedDataColumn(values, 0), PNH_DATA.USA.categoryInfos);
-
-                    // PNH_DATA.USA.pnhNames = makeNameCheckList(PNH_DATA.USA);
+                    PNH_DATA.USA = new Country('USA', 'USA', values, 3, 0, {
+                        NWR: new Region('NWR', '1hv5hXBlGr1pTMmo4n3frUx1DovUODbZodfDBwwTc7HE'),
+                        SWR: new Region('SWR', '1Qf2N4fSkNzhVuXJwPBJMQBmW0suNuy8W9itCo1qgJL4'),
+                        HI: new Region('HI', '1K7Dohm8eamIKry3KwMTVnpMdJLaMIyDGMt7Bw6iqH_A', null, ['entry.1497446659', 'entry.50214576', 'entry.1749047694']),
+                        PLN: new Region('PLN', '1ycXtAppoR5eEydFBwnghhu1hkHq26uabjUu8yAlIQuI'),
+                        SCR: new Region('SCR', '1KZzLdlX0HLxED5Bv0wFB-rWccxUp2Mclih5QJIQFKSQ'),
+                        GLR: new Region('GLR', '19btj-Qt2-_TCRlcS49fl6AeUT95Wnmu7Um53qzjj9BA'),
+                        SAT: new Region(
+                            'SAT',
+                            '1bxgK_20Jix2ahbmUvY1qcY0-RmzUBT6KbE5kjDEObF8',
+                            ['entry.2063110249', 'entry.2018912633', 'entry.1924826395'],
+                            ['entry.2063110249', 'entry.123778794', 'entry.1924826395']
+                        ),
+                        SER: new Region(
+                            'SER',
+                            '1jYBcxT3jycrkttK5BxhvPXR240KUHnoFMtkZAXzPg34',
+                            ['entry.822075961', 'entry.1422079728', 'entry.1891389966'],
+                            ['entry.822075961', 'entry.607048307', 'entry.1891389966']
+                        ),
+                        ATR: new Region('ATR', '1v7JhffTfr62aPSOp8qZHA_5ARkBPldWWJwDeDzEioR0'),
+                        NER: new Region('NER', '1UgFAMdSQuJAySHR0D86frvphp81l7qhEdJXZpyBZU6c'),
+                        NOR: new Region('NOR', '1iYq2rd9HRd-RBsKqmbHDIEBGuyWBSyrIHC6QLESfm4c'),
+                        MAR: new Region('MAR', '1PhL1iaugbRMc3W-yGdqESoooeOz-TJIbjdLBRScJYOk')
+                    });
+                    PNH_DATA.CAN = new Country('CAN', 'Canada', values, 3, 2, {
+                        CA_EN: new Region(
+                            'CA_EN',
+                            '13JwXsrWPNmCdfGR5OVr5jnGZw-uNGohwgjim-JYbSws',
+                            ['entry_839085807', 'entry_1067461077', 'entry_318793106', 'entry_1149649663'],
+                            ['entry_839085807', 'entry_1125435193', 'entry_318793106', 'entry_1149649663']
+                        ),
+                        QC: new Region(
+                            'QC',
+                            '13JwXsrWPNmCdfGR5OVr5jnGZw-uNGohwgjim-JYbSws',
+                            ['entry_839085807', 'entry_1067461077', 'entry_318793106', 'entry_1149649663'],
+                            ['entry_839085807', 'entry_1125435193', 'entry_318793106', 'entry_1149649663']
+                        )
+                    });
                     PNH_DATA.states = Pnh.processImportedDataColumn(values, 1);
-
-                    PNH_DATA.CAN.categoryInfos = PNH_DATA.USA.categoryInfos;
-                    PNH_DATA.CAN.pnh = Pnh.processPnhSSRows(Pnh.processImportedDataColumn(values, 2), PNH_DATA.CAN.categoryInfos);
 
                     const WMEPHuserList = Pnh.processImportedDataColumn(values, 4)[1].split('|');
                     const betaix = WMEPHuserList.indexOf('BETAUSERS');
@@ -1610,12 +1640,12 @@
 
                     const processTermsCell = (termsValues, colIdx) => Pnh.processImportedDataColumn(termsValues, colIdx)[1]
                         .toLowerCase().split('|').map(value => value.trim());
-                    _hospitalPartMatch = processTermsCell(values, 5);
-                    _hospitalFullMatch = processTermsCell(values, 6);
-                    _animalPartMatch = processTermsCell(values, 7);
-                    _animalFullMatch = processTermsCell(values, 8);
-                    _schoolPartMatch = processTermsCell(values, 9);
-                    _schoolFullMatch = processTermsCell(values, 10);
+                    this.HOSPITAL_PART_MATCH = processTermsCell(values, 5);
+                    this.HOSPITAL_FULL_MATCH = processTermsCell(values, 6);
+                    this.ANIMAL_PART_MATCH = processTermsCell(values, 7);
+                    this.ANIMAL_FULL_MATCH = processTermsCell(values, 8);
+                    this.SCHOOL_PART_MATCH = processTermsCell(values, 9);
+                    this.SCHOOL_FULL_MATCH = processTermsCell(values, 10);
 
                     log('PNH data download completed');
                     resolve();
@@ -1627,10 +1657,10 @@
             });
         }
 
-        static downloadPnhModerators() {
+        static #downloadPnhModerators() {
             log('PNH moderators download started...');
             return new Promise(resolve => {
-                const url = Pnh.getSpreadsheetUrl(Pnh.SPREADSHEET_ID, Pnh.SPREADSHEET_MODERATORS_RANGE, Pnh.API_KEY);
+                const url = Pnh.#getSpreadsheetUrl(Pnh.#SPREADSHEET_ID, Pnh.#SPREADSHEET_MODERATORS_RANGE, Pnh.#API_KEY);
 
                 $.getJSON(url).done(res => {
                     const { values } = res;
@@ -3302,7 +3332,7 @@
             get noLock() {
                 return Flag.UnmappedRegion.#getRareCategoryInfos(this.args)
                     .some(categoryInfo => (categoryInfo.id === CAT.OTHER
-                        && Flag.UnmappedRegion.#regionsToFlagOther.includes(this.args.region)
+                        && Flag.UnmappedRegion.#regionsToFlagOther.includes(this.args.regionCode)
                         && !this.args.isLocked)
                             || !Flag.UnmappedRegion.isWhitelisted(this.args));
             }
@@ -3642,7 +3672,7 @@
                     const testName = name.toLowerCase().replace(/[^a-z]/g, ' ');
                     const testNameWords = testName.split(' ');
                     if ((args.categories.includes(CAT.HOSPITAL_URGENT_CARE) || args.categories.includes(CAT.DOCTOR_CLINIC))
-                        && (containsAny(testNameWords, _animalFullMatch) || _animalPartMatch.some(match => testName.includes(match)))) {
+                        && (containsAny(testNameWords, Pnh.ANIMAL_FULL_MATCH) || Pnh.ANIMAL_PART_MATCH.some(match => testName.includes(match)))) {
                         return true;
                     }
                 }
@@ -3676,7 +3706,7 @@
                     const testNameWords = testName.split(' ');
 
                     if (args.categories.includes(CAT.SCHOOL)
-                        && (containsAny(testNameWords, _schoolFullMatch) || _schoolPartMatch.some(match => testName.includes(match)))) {
+                        && (containsAny(testNameWords, Pnh.SCHOOL_FULL_MATCH) || Pnh.SCHOOL_PART_MATCH.some(match => testName.includes(match)))) {
                         return true;
                     }
                 }
@@ -5767,7 +5797,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
 
             static eval(args, altCategory) {
                 let result = null;
-                if (args.pnhMatch.flagsToAdd.addCat2 && !args.categories.includes(altCategory)) {
+                if (args.pnhMatch.flagsToAdd?.addCat2 && !args.categories.includes(altCategory)) {
                     result = new this(args.venue, altCategory);
                 }
                 return result;
@@ -5784,7 +5814,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
             static defaultButtonTooltip = 'Add Pharmacy category';
 
             static venueIsFlaggable(args) {
-                return args.pnhMatch.flagsToAdd.addPharm && !args.categories.includes(CAT.PHARMACY);
+                return args.pnhMatch.flagsToAdd?.addPharm && !args.categories.includes(CAT.PHARMACY);
             }
 
             action() {
@@ -5798,7 +5828,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
             static defaultButtonTooltip = 'Add Supermarket category';
 
             static venueIsFlaggable(args) {
-                return args.pnhMatch.flagsToAdd.addSuper && !args.categories.includes(CAT.SUPERMARKET_GROCERY);
+                return args.pnhMatch.flagsToAdd?.addSuper && !args.categories.includes(CAT.SUPERMARKET_GROCERY);
             }
 
             action() {
@@ -5815,7 +5845,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
             static venueIsFlaggable(args) {
                 // No need to check for name/catgory. After the action is run, the name will match the "ARCO ampm"
                 // PNH entry, which doesn't have this flag.
-                return args.pnhMatch.flagsToAdd.appendAMPM;
+                return args.pnhMatch.flagsToAdd?.appendAMPM;
             }
 
             action() {
@@ -5921,7 +5951,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                 if (args.categories.includes(CAT.HOSPITAL_URGENT_CARE) && !this.isWhitelisted(args)) {
                     const testName = args.nameBase.toLowerCase().replace(/[^a-z]/g, ' ');
                     const testNameWords = testName.split(' ');
-                    return containsAny(testNameWords, _hospitalFullMatch) || _hospitalPartMatch.some(match => testName.includes(match));
+                    return containsAny(testNameWords, Pnh.HOSPITAL_FULL_MATCH) || Pnh.HOSPITAL_PART_MATCH.some(match => testName.includes(match));
                 }
                 return false;
             }
@@ -6065,7 +6095,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                 const encodedName = encodeURIComponent(args.nameBase);
                 const encodedPermalink = encodeURIComponent(args.placePL);
                 const encodedUrl = encodeURIComponent(args.newUrl?.trim() ?? '');
-                const regionSettings = REGION_SETTINGS[args.region];
+                const regionSettings = PNH_DATA[args.countryCode].regions[args.regionCode];
                 let entryValues;
                 if (['CA_EN', 'QC'].includes(args.region)) {
                     entryValues = [encodedName, encodedUrl, USER.name, encodedPermalink];
@@ -6100,7 +6130,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                 const pnhOrderNum = args.pnhMatch[2].join(',');
                 const approvalMessage = `Submitted via WMEPH. PNH order number ${pnhOrderNum}`;
                 const encodedPermalink = encodeURIComponent(args.placePL);
-                const regionSettings = REGION_SETTINGS[args.region];
+                const regionSettings = PNH_DATA[args.countryCode].regions[args.regionCode];
                 let entryValues;
                 if (['CA_EN', 'QC'].includes(args.region)) {
                     entryValues = [encodedName, approvalMessage, USER.name, encodedPermalink];
@@ -6833,9 +6863,10 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
         almostAllDayHoursEntries = [];
         defaultLockLevel = LOCK_LEVEL_2;
         state2L = 'Unknown';
-        region = 'Unknown';
+        regionCode = 'Unknown';
         gFormState = '';
         wl = {};
+        outputPhoneFormat = '({0}) {1}-{2}';
 
         constructor(venue, actions, highlightOnly) {
             this.venue = venue;
@@ -6970,7 +7001,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
             _stateDataTemp = PNH_DATA.states[usdix].split('|');
             if (stateName === _stateDataTemp[_psStateIx]) {
                 args.state2L = _stateDataTemp[_psState2LetterIx];
-                args.region = _stateDataTemp[_psRegionIx];
+                args.regionCode = _stateDataTemp[_psRegionIx];
                 args.gFormState = _stateDataTemp[_psGoogleFormStateIx];
                 if (_stateDataTemp[_psDefaultLockLevelIx].match(/[1-5]{1}/) !== null) {
                     args.defaultLockLevel = _stateDataTemp[_psDefaultLockLevelIx] - 1; // normalize by -1
@@ -6985,7 +7016,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
             // If State is not found, then use the country
             if (countryName === _stateDataTemp[_psStateIx]) {
                 args.state2L = _stateDataTemp[_psState2LetterIx];
-                args.region = _stateDataTemp[_psRegionIx];
+                args.regionCode = _stateDataTemp[_psRegionIx];
                 args.gFormState = _stateDataTemp[_psGoogleFormStateIx];
                 if (_stateDataTemp[_psDefaultLockLevelIx].match(/[1-5]{1}/) !== null) {
                     args.defaultLockLevel = _stateDataTemp[_psDefaultLockLevelIx] - 1; // normalize by -1
@@ -6998,7 +7029,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                 break;
             }
         }
-        if (args.state2L === 'Unknown' || args.region === 'Unknown') { // if nothing found:
+        if (args.state2L === 'Unknown' || args.regionCode === 'Unknown') { // if nothing found:
             if (!args.highlightOnly) {
                 /* if (confirm('WMEPH: Localization Error!\nClick OK to report this error')) {
                     // if the category doesn't translate, then pop an alert that will make a forum post to the thread
@@ -7079,12 +7110,11 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
           || (args.nameBase?.trim().length)
           || containsAny(args.categories, CATS_THAT_DONT_NEED_NAMES)) { // for non-residential places
             // Phone formatting
-            args.outputPhoneFormat = '({0}) {1}-{2}';
-            if (containsAny(['CA', 'CO'], [args.region, args.state2L]) && (/^\d{3}-\d{3}-\d{4}$/.test(venue.attributes.phone))) {
+            if (containsAny(['CA', 'CO'], [args.regionCode, args.state2L]) && (/^\d{3}-\d{3}-\d{4}$/.test(venue.attributes.phone))) {
                 args.outputPhoneFormat = '{0}-{1}-{2}';
-            } else if (args.region === 'SER' && !(/^\(\d{3}\) \d{3}-\d{4}$/.test(venue.attributes.phone))) {
+            } else if (args.regionCode === 'SER' && !(/^\(\d{3}\) \d{3}-\d{4}$/.test(venue.attributes.phone))) {
                 args.outputPhoneFormat = '{0}-{1}-{2}';
-            } else if (args.region === 'GLR') {
+            } else if (args.regionCode === 'GLR') {
                 args.outputPhoneFormat = '{0}-{1}-{2}';
             } else if (args.state2L === 'NV') {
                 args.outputPhoneFormat = '{0}-{1}-{2}';
@@ -7114,13 +7144,15 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                     args.pnhMatch = ['NoMatch'];
                 } else {
                     // check against the PNH list
-                    args.pnhMatch = Pnh.findMatch(args.nameBase, args.state2L, args.region, args.countryCode, args.categories, venue);
+                    args.pnhMatch = Pnh.findMatch(args.nameBase, args.state2L, args.regionCode, args.countryCode, args.categories, venue);
                 }
             } else {
-                args.pnhMatch = ['Highlight'];
+                args.pnhMatch = Pnh.findMatch(args.nameBase, args.state2L, args.regionCode, args.countryCode, args.categories, venue, true);
+                //args.pnhMatch = ['Highlight'];
             }
 
-            args.pnhNameRegMatch = args.pnhMatch[0] !== 'NoMatch'
+            args.pnhNameRegMatch = args.pnhMatch?.length
+                && args.pnhMatch[0] !== 'NoMatch'
                 && args.pnhMatch[0] !== 'ApprovalNeeded'
                 && args.pnhMatch[0] !== 'Highlight';
 
@@ -7153,7 +7185,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                 args.priPNHPlaceCat = args.pnhMatch.primaryCategory;
 
                 // if the location has multiple matches, then pop an alert that will make a forum post to the thread
-                if (nsMultiMatch) {
+                if (nsMultiMatch && !args.highlightOnly) {
                     /* if (confirm('WMEPH: Multiple matches found!\nDouble check the script changes.\nClick OK to report this situation.')) {
                         reportError({
                             subject: `Order Nos. "${orderList.join(', ')}" WMEPH Multiple match report`,
@@ -7273,7 +7305,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                     } else if (updatePNHName) { // if not a special category then update the name
                         args.nameBase = args.pnhMatch.name;
                         args.categories = insertAtIndex(args.categories, args.priPNHPlaceCat, 0);
-                        if (altCategories?.length && !args.pnhMatch.flagsToAdd.addCat2 && !args.pnhMatch.optionCat2) {
+                        if (altCategories?.length && !args.pnhMatch.flagsToAdd?.addCat2 && !args.pnhMatch.optionCat2) {
                             args.categories = insertAtIndex(args.categories, altCategories, 1);
                         }
                     } else if (!updatePNHName) {
@@ -7303,7 +7335,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
 
                     // update categories if different and no Cat2 option
                     if (!matchSets(uniq(venue.attributes.categories), uniq(args.categories))) {
-                        if (!args.pnhMatch.optionCat2 && !args.pnhMatch.flagsToAdd.addCat2) {
+                        if (!args.pnhMatch.optionCat2 && !args.pnhMatch.flagsToAdd?.addCat2) {
                             logDev(`Categories updated with ${args.categories}`);
                             addUpdateAction(venue, { categories: args.categories }, actions);
                         } else { // if second cat is optional
@@ -7348,11 +7380,11 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                     }
                     let pvaPoint = pnhCategoryInfo.point;
                     let pvaArea = pnhCategoryInfo.area;
-                    if (pnhCategoryInfo.regPoint.includes(args.state2L) || pnhCategoryInfo.regPoint.includes(args.region)
+                    if (pnhCategoryInfo.regPoint.includes(args.state2L) || pnhCategoryInfo.regPoint.includes(args.regionCode)
                         || pnhCategoryInfo.regPoint.includes(args.countryCode)) {
                         pvaPoint = '1';
                         pvaArea = '';
-                    } else if (pnhCategoryInfo.regArea.includes(args.state2L) || pnhCategoryInfo.regArea.includes(args.region)
+                    } else if (pnhCategoryInfo.regArea.includes(args.state2L) || pnhCategoryInfo.regArea.includes(args.regionCode)
                         || pnhCategoryInfo.regArea.includes(args.countryCode)) {
                         pvaPoint = '';
                         pvaArea = '1';
@@ -7379,7 +7411,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                     // Set lock level
                     for (let lockix = 1; lockix < 6; lockix++) {
                         const categoryLock = pnhCategoryInfo[`lock${lockix}`];
-                        if (lockix - 1 > highestCategoryLock && (categoryLock.includes(args.state2L) || categoryLock.includes(args.region)
+                        if (lockix - 1 > highestCategoryLock && (categoryLock.includes(args.state2L) || categoryLock.includes(args.regionCode)
                             || categoryLock.includes(args.countryCode))) {
                             highestCategoryLock = lockix - 1; // Offset by 1 since lock ranks start at 0
                         }
@@ -7649,7 +7681,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
             } else {
                 args.levelToLock = args.defaultLockLevel;
             }
-            if (args.region === 'SER') {
+            if (args.regionCode === 'SER') {
                 if (args.categories.includes(CAT.COLLEGE_UNIVERSITY) && args.categories.includes(CAT.PARKING_LOT)) {
                     args.levelToLock = LOCK_LEVEL_4;
                 } else if (venue.isPoint() && args.categories.includes(CAT.COLLEGE_UNIVERSITY) && (!args.categories.includes(CAT.HOSPITAL_MEDICAL_CARE)
@@ -10363,8 +10395,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
         }
         unsafeWindow.wmephRunning = 1;
         // Start downloading the PNH spreadsheet data in the background.  Starts the script once data is ready.
-        await Pnh.downloadPnhData();
-        await Pnh.downloadPnhModerators();
+        await Pnh.downloadAllData();
         await placeHarmonizerBootstrap();
         devTestCode();
     }
