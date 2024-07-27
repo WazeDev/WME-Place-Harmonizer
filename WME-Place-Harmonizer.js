@@ -3415,7 +3415,8 @@
             static defaultWLTooltip = 'Whitelist rest area name';
 
             static venueIsFlaggable(args) {
-                return args.categories.includes(CAT.REST_AREAS) && !/^Rest Area.* - /.test(args.nameBase + (args.nameSuffix ?? ''));
+                return args.countryCode === PNH_DATA.USA.countryCode && args.categories.includes(CAT.REST_AREAS)
+                    && !/^Rest Area.* - /.test(args.nameBase + (args.nameSuffix ?? ''));
             }
         },
         RestAreaNoTransportation: class extends ActionFlag {
@@ -4798,26 +4799,23 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
             }
 
             static venueIsFlaggable(args) {
+                // TODO: Are the pharmhours and drivethruhours checks really needed?
+                // They hide the displaynote message if the key words exist in the
+                // venue description, but it could be argued it's ok if the message
+                // shows up regardless.
                 const message = args.pnhMatch.displaynote;
+                let showFlag = false;
                 if (args.showDispNote && !isNullOrWhitespace(message)) {
                     if (args.pnhMatch.pharmhours) {
-                        if (!args.description.toUpperCase().includes('PHARMACY') || (!args.description.toUpperCase().includes('HOURS')
-                            && !args.description.toUpperCase().includes('HRS'))) {
-                            return true;
-                        }
+                        showFlag = !/\bpharmacy\b\s*\bh(ou)?rs\b/i.test(args.venue.attributes.description);
                         // TODO: figure out what drivethruhours was supposed to be in PNH speccase column
                     } else if (args.pnhMatch.drivethruhours) {
-                        if (!args.description.toUpperCase().includes('DRIVE') || (!args.description.toUpperCase().includes('HOURS')
-                            && !args.description.toUpperCase().includes('HRS'))) {
-                            if ($('#service-checkbox-DRIVETHROUGH').prop('checked')) {
-                                return true;
-                            }
-                        }
+                        showFlag = !/\bdrive[\s-]?(thru|through)\b\s*\bh(ou)?rs\b/i.test(args.venue.attributes.description);
                     } else {
-                        return true;
+                        showFlag = true;
                     }
                 }
-                return false;
+                return showFlag;
             }
         },
         PnhCatMess: class extends ActionFlag {
@@ -6820,6 +6818,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
 
     class HarmonizationArgs {
         venue = null;
+        countryCode = null;
         actions = null;
         highlightOnly = true;
         /** @type {SEVERITY} */
@@ -7531,8 +7530,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
 
         if (!args.chainIsClosed) {
             if (!args.highlightOnly && args.categories.includes(CAT.REST_AREAS)) {
-                const oldName = venue.attributes.name;
-                if (oldName.match(/^Rest Area.* - /) !== null) {
+                if (venue.attributes.name.match(/^Rest Area.* - /) !== null && args.countryCode === PNH_DATA.USA.countryCode) {
                     const newSuffix = args.nameSuffix.replace(/\bMile\b/i, 'mile');
                     if (args.nameBase + newSuffix !== venue.attributes.name) {
                         addUpdateAction(venue, { name: args.nameBase + newSuffix }, actions);
