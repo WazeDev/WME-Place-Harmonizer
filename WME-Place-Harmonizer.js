@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name        WME Place Harmonizer Beta
 // @namespace   WazeUSA
-// @version     2024.07.27.000
+// @version     2024.07.28.000
 // @description Harmonizes, formats, and locks a selected place
 // @author      WMEPH Development Group
 // @include     /^https:\/\/(www|beta)\.waze\.com\/(?!user\/)(.{2,6}\/)?editor\/?.*$/
@@ -2198,7 +2198,10 @@
         if (venue.isPoint()) {
             newGeometry.coordinates[0] += nudgeDistance;
         } else {
-            newGeometry.coordinates[0][0][0] += nudgeDistance;
+            // Be sure to edit the 2nd coordinate. Editing the 1st would also require editing the last,
+            // otherwise the polygon is not "complete" and another point (geonode) may be added behind the scenes
+            // to complete it.
+            newGeometry.coordinates[0][1][0] += nudgeDistance;
         }
         const action = new UpdateFeatureGeometry(venue, W.model.venues, venue.getGeometry(), newGeometry);
         const mAction = new MultiAction([action], { description: 'Place nudged by WMEPH' });
