@@ -2854,7 +2854,7 @@
     // normalize phone
     function normalizePhone(s, outputFormat) {
         if (isNullOrWhitespace(s)) return s;
-        s = s.replace(/(\d{3}.*)\W+(?:extension|ext|xt|x).*/i, '$1');
+        s = s.replace(/(\d{3}.*[0-9A-Z]{4})\W+(?:extension|ext|xt|x).*/i, '$1');
         let s1 = s.replace(/\D/g, ''); // remove non-number characters
 
         // Ignore leading 1, and also don't allow area code or exchange to start with 0 or 1 (***USA/CAN specific)
