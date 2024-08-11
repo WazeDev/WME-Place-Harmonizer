@@ -24,6 +24,7 @@
 /* global I18n */
 /* global google */
 /* global turf */
+/* global getWmeSdk */
 
 /* eslint-disable max-classes-per-file */
 
@@ -34,6 +35,7 @@
 
     // BE SURE TO SET THIS TO NULL OR AN EMPTY STRING WHEN RELEASING A NEW UPDATE.
     const _SCRIPT_UPDATE_MESSAGE = '';
+    let sdk;
     const _CSS = `
     #edit-panel .venue-feature-editor {
         overflow: initial;
@@ -10055,9 +10057,9 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
     }
 
     function updateUserInfo() {
-        USER.ref = W.loginManager.user;
-        USER.name = USER.ref.getUsername();
-        USER.rank = USER.ref.getRank() + 1; // get editor's level (actual level)
+        USER.ref = sdk.State.userInfo;
+        USER.name = USER.ref.userName;
+        USER.rank = USER.ref.rank + 1; // get editor's level (actual level)
         if (!_wmephBetaList || _wmephBetaList.length === 0) {
             if (IS_BETA_VERSION) {
                 WazeWrap.Alerts.warning(SCRIPT_NAME, 'Beta user list access issue.  Please post in the GHO or PM/DM MapOMatic about this message.  Script should still work.');
@@ -10101,6 +10103,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
     }
 
     async function placeHarmonizerInit() {
+        sdk = getWmeSdk({ scriptId: SCRIPT_NAME, scriptName: SCRIPT_NAME });
         updateUserInfo();
         logDev('placeHarmonizerInit'); // Be sure to update User info before calling logDev()
 
@@ -10320,7 +10323,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
     function waitForReady() {
         return new Promise(resolve => {
             function loop() {
-                if (typeof W === 'object' && W.userscripts?.state.isReady && WazeWrap?.Ready && W.model.categoryBrands.PARKING_LOT) {
+                if (unsafeWindow.getWmeSdk && unsafeWindow.WazeWrap?.Ready) {
                     resolve();
                 } else {
                     setTimeout(loop, 100);
@@ -10380,7 +10383,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
     }
 
     function devTestCode() {
-        if (W.loginManager.user.getUsername() === 'MapOMatic') {
+        if (sdk.State.userInfo.userName === 'MapOMatic') {
             // For debugging purposes.  May be removed when no longer needed.
             unsafeWindow.PNH_DATA = PNH_DATA;
             unsafeWindow.WMEPH_FLAG = Flag;
