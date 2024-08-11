@@ -10103,7 +10103,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
     }
 
     async function placeHarmonizerInit() {
-        sdk = getWmeSdk({ scriptId: SCRIPT_NAME, scriptName: SCRIPT_NAME });
+        sdk = getWmeSdk({ scriptId: 'wmePlaceHarmonizer', scriptName: SCRIPT_NAME });
         updateUserInfo();
         logDev('placeHarmonizerInit'); // Be sure to update User info before calling logDev()
 
