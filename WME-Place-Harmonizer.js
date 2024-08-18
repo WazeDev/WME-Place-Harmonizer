@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name        WME Place Harmonizer Beta
 // @namespace   WazeUSA
-// @version     2024.08.08.000
+// @version     2024.08.18.000
 // @description Harmonizes, formats, and locks a selected place
 // @author      WMEPH Development Group
 // @include     /^https:\/\/(www|beta)\.waze\.com\/(?!user\/)(.{2,6}\/)?editor\/?.*$/
@@ -2854,7 +2854,7 @@
     // normalize phone
     function normalizePhone(s, outputFormat) {
         if (isNullOrWhitespace(s)) return s;
-        s = s.replace(/(\d{3}.*)\W+(?:extension|ext|xt|x).*/i, '$1');
+        s = s.replace(/(\d{3}.*[0-9A-Z]{4})\W+(?:extension|ext|xt|x).*/i, '$1');
         let s1 = s.replace(/\D/g, ''); // remove non-number characters
 
         // Ignore leading 1, and also don't allow area code or exchange to start with 0 or 1 (***USA/CAN specific)
@@ -8213,6 +8213,15 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
         });
     }
 
+    function getOLMapExtent() {
+        let extent = W.map.getExtent();
+        if (Array.isArray(extent)) {
+            extent = new OpenLayers.Bounds(extent);
+            extent.transform('EPSG:4326', 'EPSG:3857');
+        }
+        return extent;
+    }
+
     function drawGooglePlacePoint(uuid) {
         if (!uuid) return;
         const link = _googleResults[uuid];
@@ -8222,7 +8231,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
             poiPt.transform(W.Config.map.projection.remote, W.map.getProjectionObject().projCode);
             const placeGeom = W.selectionManager.getSelectedDataModelObjects()[0].getOLGeometry().getCentroid();
             const placePt = new OpenLayers.Geometry.Point(placeGeom.x, placeGeom.y);
-            const ext = W.map.getExtent();
+            const ext = getOLMapExtent();
             const lsBounds = new OpenLayers.Geometry.LineString([
                 new OpenLayers.Geometry.Point(ext.left, ext.bottom),
                 new OpenLayers.Geometry.Point(ext.left, ext.top),
@@ -8864,7 +8873,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
         // Remove any previous search labels
         _dupeLayer.destroyFeatures();
 
-        const mapExtent = W.map.getExtent();
+        const mapExtent = getOLMapExtent();
         const padFrac = 0.15; // how much to pad the zoomed window
 
         // generic terms to skip if it's all that remains after stripping numbers
