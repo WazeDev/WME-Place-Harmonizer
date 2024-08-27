@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name        WME Place Harmonizer
 // @namespace   WazeUSA
-// @version     2024.08.18.000
+// @version     2024.08.27.000
 // @description Harmonizes, formats, and locks a selected place
 // @author      WMEPH Development Group
 // @include     /^https:\/\/(www|beta)\.waze\.com\/(?!user\/)(.{2,6}\/)?editor\/?.*$/
@@ -4961,7 +4961,6 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
 
             static isWhitelisted(args) {
                 return super.isWhitelisted(args)
-                    || (args.venue.isParkingLot() && !this.#venueHasOperator(args.venue))
                     || PRIMARY_CATS_TO_FLAG_GREEN_MISSING_PHONE_URL.includes(args.categories[0])
                     || ANY_CATS_TO_FLAG_GREEN_MISSING_PHONE_URL.some(category => args.categories.includes(category));
             }
@@ -4969,12 +4968,8 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
             static venueIsFlaggable(args) {
                 return !args.url?.trim().length
                     && (!args.venue.isParkingLot()
-                        || (args.venue.isParkingLot() && (REGIONS_THAT_WANT_PLA_PHONE_URL.includes(args.region) || this.#venueHasOperator(args.venue))))
+                        || (args.venue.isParkingLot() && REGIONS_THAT_WANT_PLA_PHONE_URL.includes(args.region)))
                     && !PRIMARY_CATS_TO_IGNORE_MISSING_PHONE_URL.includes(args.categories[0]);
-            }
-
-            static #venueHasOperator(venue) {
-                return venue.attributes.brand && W.model.categoryBrands.PARKING_LOT.includes(venue.attributes.brand);
             }
 
             static #getTextbox() {
@@ -5072,8 +5067,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
             noBannerAssemble = true;
 
             static isWhitelisted(args) {
-                return (args.venue.isParkingLot() && !Flag.PhoneMissing.#venueHasOperator(args.venue))
-                    || super.isWhitelisted(args)
+                return super.isWhitelisted(args)
                     || PRIMARY_CATS_TO_FLAG_GREEN_MISSING_PHONE_URL.includes(args.categories[0])
                     || ANY_CATS_TO_FLAG_GREEN_MISSING_PHONE_URL.some(category => args.categories.includes(category));
             }
@@ -5082,12 +5076,8 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                 return !args.phone
                     && !FlagBase.currentFlags.hasFlag(Flag.AddRecommendedPhone)
                     && (!args.venue.isParkingLot()
-                        || (args.venue.isParkingLot() && (REGIONS_THAT_WANT_PLA_PHONE_URL.includes(args.region) || this.#venueHasOperator(args.venue))))
+                        || (args.venue.isParkingLot() && REGIONS_THAT_WANT_PLA_PHONE_URL.includes(args.region)))
                     && !PRIMARY_CATS_TO_IGNORE_MISSING_PHONE_URL.includes(args.categories[0]);
-            }
-
-            static #venueHasOperator(venue) {
-                return venue.attributes.brand && W.model.categoryBrands.PARKING_LOT.includes(venue.attributes.brand);
             }
 
             action() {
@@ -10329,7 +10319,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
     function waitForReady() {
         return new Promise(resolve => {
             function loop() {
-                if (typeof W === 'object' && W.userscripts?.state.isReady && WazeWrap?.Ready && W.model.categoryBrands.PARKING_LOT) {
+                if (typeof W === 'object' && W.userscripts?.state.isReady && WazeWrap?.Ready) {
                     resolve();
                 } else {
                     setTimeout(loop, 100);
