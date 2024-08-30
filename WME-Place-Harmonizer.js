@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name        WME Place Harmonizer
 // @namespace   WazeUSA
-// @version     2024.08.27.000
+// @version     2024.08.30.000
 // @description Harmonizes, formats, and locks a selected place
 // @author      WMEPH Development Group
 // @include     /^https:\/\/(www|beta)\.waze\.com\/(?!user\/)(.{2,6}\/)?editor\/?.*$/
@@ -487,6 +487,7 @@
         ChargePoint: [
             EV_PAYMENT_METHOD.APP,
             EV_PAYMENT_METHOD.CREDIT,
+            EV_PAYMENT_METHOD.DEBIT,
             EV_PAYMENT_METHOD.MEMBERSHIP_CARD
         ],
         'Electrify America': [
