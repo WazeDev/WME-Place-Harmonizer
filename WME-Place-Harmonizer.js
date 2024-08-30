@@ -487,6 +487,7 @@
         ChargePoint: [
             EV_PAYMENT_METHOD.APP,
             EV_PAYMENT_METHOD.CREDIT,
+            EV_PAYMENT_METHOD.DEBIT,
             EV_PAYMENT_METHOD.MEMBERSHIP_CARD
         ],
         'Electrify America': [
