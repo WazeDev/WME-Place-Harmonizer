@@ -9,6 +9,7 @@
 // @require     https://greasyfork.org/scripts/37486-wme-utils-hoursparser/code/WME%20Utils%20-%20HoursParser.js
 // @require     https://cdnjs.cloudflare.com/ajax/libs/lz-string/1.4.4/lz-string.min.js
 // @require     https://cdn.jsdelivr.net/npm/@turf/turf@7/turf.min.js
+// @require     https://update.greasyfork.org/scripts/509664/WME%20Utils%20-%20Bootstrap.js
 // @license     GNU GPL v3
 // @connect     greasyfork.org
 // @grant       GM_addStyle
@@ -24,11 +25,11 @@
 /* global I18n */
 /* global google */
 /* global turf */
-/* global getWmeSdk */
+/* global bootstrap */
 
 /* eslint-disable max-classes-per-file */
 
-(function main() {
+(async function main() {
     'use strict';
 
     // Script update info
@@ -275,7 +276,7 @@
     const USER = {
         ref: null,
         rank: null,
-        name: null,
+        userName: null,
         isBetaUser: false,
         isDevUser: false
     };
@@ -6092,9 +6093,9 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                 const regionSettings = PNH_DATA[args.countryCode].regions[args.regionCode];
                 let entryValues;
                 if (['CA_EN', 'QC'].includes(args.region)) {
-                    entryValues = [encodedName, encodedUrl, USER.name, encodedPermalink];
+                    entryValues = [encodedName, encodedUrl, USER.userName, encodedPermalink];
                 } else {
-                    entryValues = [encodedName, encodedUrl, USER.name + args.gFormState];
+                    entryValues = [encodedName, encodedUrl, USER.userName + args.gFormState];
                 }
                 this.#formUrl = regionSettings.getNewChainFormUrl(entryValues);
             }
@@ -6127,9 +6128,9 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                 const regionSettings = PNH_DATA[args.countryCode].regions[args.regionCode];
                 let entryValues;
                 if (['CA_EN', 'QC'].includes(args.region)) {
-                    entryValues = [encodedName, approvalMessage, USER.name, encodedPermalink];
+                    entryValues = [encodedName, approvalMessage, USER.userName, encodedPermalink];
                 } else {
-                    entryValues = [encodedName, approvalMessage, USER.name + args.gFormState];
+                    entryValues = [encodedName, approvalMessage, USER.userName + args.gFormState];
                 }
                 this.#formUrl = regionSettings.getApproveChainFormUrl(entryValues);
             }
@@ -9702,7 +9703,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
     }
 
     function onWLShareClick() {
-        window.open(`https://docs.google.com/forms/d/1k_5RyOq81Fv4IRHzltC34kW3IUbXnQqDVMogwJKFNbE/viewform?entry.1173700072=${USER.name}`);
+        window.open(`https://docs.google.com/forms/d/1k_5RyOq81Fv4IRHzltC34kW3IUbXnQqDVMogwJKFNbE/viewform?entry.1173700072=${USER.userName}`);
     }
 
     // settings tab
@@ -9905,7 +9906,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
             )
         );
 
-        const { tabLabel, tabPane } = W.userscripts.registerSidebarTab('WMEPH');
+        const { tabLabel, tabPane } = await sdk.Sidebar.registerScriptTab();
         tabLabel.innerHTML = `<span title="WME Place Harmonizer">WMEPH${IS_BETA_VERSION ? '-β' : ''}</span>`;
         tabPane.innerHTML = $container.html();
         await W.userscripts.waitForElementConnected(tabPane);
@@ -10057,8 +10058,8 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
     }
 
     function updateUserInfo() {
-        USER.ref = sdk.State.userInfo;
-        USER.name = USER.ref.userName;
+        USER.ref = sdk.State.getUserInfo();
+        USER.userName = USER.ref.userName;
         USER.rank = USER.ref.rank + 1; // get editor's level (actual level)
         if (!_wmephBetaList || _wmephBetaList.length === 0) {
             if (IS_BETA_VERSION) {
@@ -10067,7 +10068,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
             USER.isBetaUser = false;
             USER.isDevUser = false;
         } else {
-            const lcName = USER.name.toLowerCase();
+            const lcName = USER.userName.toLowerCase();
             USER.isDevUser = _wmephDevList.includes(lcName);
             USER.isBetaUser = _wmephBetaList.includes(lcName);
         }
@@ -10103,7 +10104,6 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
     }
 
     async function placeHarmonizerInit() {
-        sdk = getWmeSdk({ scriptId: 'wmePlaceHarmonizer', scriptName: SCRIPT_NAME });
         updateUserInfo();
         logDev('placeHarmonizerInit'); // Be sure to update User info before calling logDev()
 
@@ -10206,7 +10206,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
             loadWhitelistFromLS(true);
         }
 
-        if (USER.name === 'ggrane') {
+        if (USER.userName === 'ggrane') {
             _searchResultsWindowSpecs = `"resizable=yes, top=${
                 Math.round(window.screen.height * 0.1)}, left=${
                 Math.round(window.screen.width * 0.3)}, width=${
@@ -10320,26 +10320,6 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
         W.model.venues.on('objectsadded', () => errorHandler(processFilterHighlights));
     } // END placeHarmonizer_init function
 
-    function waitForReady() {
-        return new Promise(resolve => {
-            function loop() {
-                if (unsafeWindow.getWmeSdk && unsafeWindow.WazeWrap?.Ready) {
-                    resolve();
-                } else {
-                    setTimeout(loop, 100);
-                }
-            }
-            loop();
-        });
-    }
-
-    async function placeHarmonizerBootstrap() {
-        log('Waiting for WME and WazeWrap...');
-        await waitForReady();
-        WazeWrap.Interface.ShowScriptUpdate(SCRIPT_NAME, SCRIPT_VERSION, _SCRIPT_UPDATE_MESSAGE);
-        await placeHarmonizerInit();
-    }
-
     function clearFilterHighlights() {
         const layer = W.map.venueLayer;
         layer.removeFeatures(layer.getFeaturesByAttribute('wmephHighlight', '1'));
@@ -10383,26 +10363,24 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
     }
 
     function devTestCode() {
-        if (sdk.State.userInfo.userName === 'MapOMatic') {
+        if (sdk.State.getUserInfo().userName === 'MapOMatic') {
             // For debugging purposes.  May be removed when no longer needed.
             unsafeWindow.PNH_DATA = PNH_DATA;
             unsafeWindow.WMEPH_FLAG = Flag;
         }
     }
 
-    async function bootstrap() {
-        // Quit if another version of WMEPH is already running.
-        if (unsafeWindow.wmephRunning) {
-            // Don't use WazeWrap alerts here. It isn't loaded yet.
-            alert('Multiple versions of WME Place Harmonizer are turned on. Only one will be enabled.');
-            return;
-        }
-        unsafeWindow.wmephRunning = 1;
-        // Start downloading the PNH spreadsheet data in the background.  Starts the script once data is ready.
-        await Pnh.downloadAllData();
-        await placeHarmonizerBootstrap();
-        devTestCode();
+    // Quit if another version of WMEPH is already running.
+    if (unsafeWindow.wmephRunning) {
+        // Don't use WazeWrap alerts here. It isn't loaded yet.
+        alert('Multiple versions of WME Place Harmonizer are turned on. Only one will be enabled.');
+        return;
     }
-
-    bootstrap();
+    unsafeWindow.wmephRunning = 1;
+    // Start downloading the PNH spreadsheet data in the background.
+    await Pnh.downloadAllData();
+    sdk = await bootstrap();
+    WazeWrap.Interface.ShowScriptUpdate(SCRIPT_NAME, SCRIPT_VERSION, _SCRIPT_UPDATE_MESSAGE);
+    await placeHarmonizerInit();
+    devTestCode();
 })();
