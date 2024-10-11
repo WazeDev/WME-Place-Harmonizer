@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name        WME Place Harmonizer Beta
 // @namespace   WazeUSA
-// @version     2024.08.27.000
+// @version     2024.10.11.000
 // @description Harmonizes, formats, and locks a selected place
 // @author      WMEPH Development Group
 // @include     /^https:\/\/(www|beta)\.waze\.com\/(?!user\/)(.{2,6}\/)?editor\/?.*$/
@@ -487,6 +487,7 @@
         ChargePoint: [
             EV_PAYMENT_METHOD.APP,
             EV_PAYMENT_METHOD.CREDIT,
+            EV_PAYMENT_METHOD.DEBIT,
             EV_PAYMENT_METHOD.MEMBERSHIP_CARD
         ],
         'Electrify America': [
@@ -1377,7 +1378,7 @@
                 let PNHForceCat = this.forceCategoryMatching; // Primary category of PNH data
 
                 // Gas stations only harmonized if the WME place category is already gas station (prevents Costco Gas becoming Costco Store)
-                if (categories[0] === CAT.GAS_STATION) {
+                if (categories[0] === CAT.GAS_STATION || PNHPriCat === CAT.GAS_STATION) {
                     PNHForceCat = Pnh.ForceCategoryMatchingType.PRIMARY;
                 }
 
