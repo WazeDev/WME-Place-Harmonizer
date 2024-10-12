@@ -282,7 +282,7 @@
         gLinkWarning: 'GLinkWarning' // Warning message for first time using Google search to not to use the Google info itself.
     };
     const URLS = {
-        forum: 'https://www.waze.com/forum/posting.php?mode=reply&f=819&t=239985',
+        forum: 'https://www.waze.com/discuss/t/178574',
         usaPnh: 'https://docs.google.com/spreadsheets/d/1-f-JTWY5UnBx-rFTa4qhyGMYdHBZWNirUTOgn222zMY/edit#gid=0',
         placesWiki: 'https://wazeopedia.waze.com/wiki/USA/Places',
         restAreaWiki: 'https://wazeopedia.waze.com/wiki/USA/Rest_areas#Adding_a_Place',
@@ -10051,7 +10051,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
 
     // Sets up error reporting
     function reportError() {
-        window.open('https://www.waze.com/forum/viewtopic.php?t=239985', '_blank');
+        window.open(URLS.forum, '_blank');
     }
 
     function updateUserInfo() {
