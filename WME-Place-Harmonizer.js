@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name        WME Place Harmonizer
 // @namespace   WazeUSA
-// @version     2024.08.30.000
+// @version     2024.10.27.000
 // @description Harmonizes, formats, and locks a selected place
 // @author      WMEPH Development Group
 // @include     /^https:\/\/(www|beta)\.waze\.com\/(?!user\/)(.{2,6}\/)?editor\/?.*$/
@@ -282,7 +282,7 @@
         gLinkWarning: 'GLinkWarning' // Warning message for first time using Google search to not to use the Google info itself.
     };
     const URLS = {
-        forum: 'https://www.waze.com/forum/posting.php?mode=reply&f=819&t=239985',
+        forum: 'https://www.waze.com/discuss/t/178574',
         usaPnh: 'https://docs.google.com/spreadsheets/d/1-f-JTWY5UnBx-rFTa4qhyGMYdHBZWNirUTOgn222zMY/edit#gid=0',
         placesWiki: 'https://wazeopedia.waze.com/wiki/USA/Places',
         restAreaWiki: 'https://wazeopedia.waze.com/wiki/USA/Rest_areas#Adding_a_Place',
@@ -1378,7 +1378,7 @@
                 let PNHForceCat = this.forceCategoryMatching; // Primary category of PNH data
 
                 // Gas stations only harmonized if the WME place category is already gas station (prevents Costco Gas becoming Costco Store)
-                if (categories[0] === CAT.GAS_STATION) {
+                if (categories[0] === CAT.GAS_STATION || PNHPriCat === CAT.GAS_STATION) {
                     PNHForceCat = Pnh.ForceCategoryMatchingType.PRIMARY;
                 }
 
@@ -2514,6 +2514,8 @@
     }
 
     function initializeHighlights() {
+        OpenLayers.Renderer.symbol.triangle = [0, -10, 10, 10, -10, 10, 0, -10]; // [0, 10, 10, -10, -10, -10, 0, 10];
+
         const ruleGenerator = (value, symbolizer) => new W.Rule({
             filter: new OpenLayers.Filter.Comparison({
                 type: '==',
@@ -2524,6 +2526,21 @@
                 }
             }),
             symbolizer,
+            wmephStyle: 'default'
+        });
+
+        const rppRule = new W.Rule({
+            filter: new OpenLayers.Filter.Comparison({
+                type: '==',
+                value: true,
+                evaluate(feature) {
+                    return feature.attributes.wazeFeature?._wmeObject.isResidential();
+                }
+            }),
+            symbolizer: {
+                graphicName: 'triangle',
+                pointRadius: 7
+            },
             wmephStyle: 'default'
         });
 
@@ -2666,7 +2683,7 @@
         });
 
         _layer.styleMap.styles.default.rules.push(...[severity0, severityLock, severity1, severityLock1, severity2,
-            severity3, severity4, severity6, severityHigh, severityAdLock, publicPLA, restrictedPLA, privatePLA]);
+            severity3, severity4, severity6, severityHigh, severityAdLock, rppRule, publicPLA, restrictedPLA, privatePLA]);
     }
 
     /**
@@ -10051,7 +10068,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
 
     // Sets up error reporting
     function reportError() {
-        window.open('https://www.waze.com/forum/viewtopic.php?t=239985', '_blank');
+        window.open(URLS.forum, '_blank');
     }
 
     function updateUserInfo() {
