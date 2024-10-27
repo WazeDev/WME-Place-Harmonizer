@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name        WME Place Harmonizer Beta
 // @namespace   WazeUSA
-// @version     2024.10.11.000
+// @version     2024.10.27.000
 // @description Harmonizes, formats, and locks a selected place
 // @author      WMEPH Development Group
 // @include     /^https:\/\/(www|beta)\.waze\.com\/(?!user\/)(.{2,6}\/)?editor\/?.*$/
@@ -2514,6 +2514,8 @@
     }
 
     function initializeHighlights() {
+        OpenLayers.Renderer.symbol.triangle = [0, -10, 10, 10, -10, 10, 0, -10]; // [0, 10, 10, -10, -10, -10, 0, 10];
+
         const ruleGenerator = (value, symbolizer) => new W.Rule({
             filter: new OpenLayers.Filter.Comparison({
                 type: '==',
@@ -2524,6 +2526,21 @@
                 }
             }),
             symbolizer,
+            wmephStyle: 'default'
+        });
+
+        const rppRule = new W.Rule({
+            filter: new OpenLayers.Filter.Comparison({
+                type: '==',
+                value: true,
+                evaluate(feature) {
+                    return feature.attributes.wazeFeature?._wmeObject.isResidential();
+                }
+            }),
+            symbolizer: {
+                graphicName: 'triangle',
+                pointRadius: 7
+            },
             wmephStyle: 'default'
         });
 
@@ -2666,7 +2683,7 @@
         });
 
         _layer.styleMap.styles.default.rules.push(...[severity0, severityLock, severity1, severityLock1, severity2,
-            severity3, severity4, severity6, severityHigh, severityAdLock, publicPLA, restrictedPLA, privatePLA]);
+            severity3, severity4, severity6, severityHigh, severityAdLock, rppRule, publicPLA, restrictedPLA, privatePLA]);
     }
 
     /**
