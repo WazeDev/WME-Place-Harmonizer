@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name        WME Place Harmonizer Beta
 // @namespace   WazeUSA
-// @version     2024.10.27.000
+// @version     2024.11.09.000
 // @description Harmonizes, formats, and locks a selected place
 // @author      WMEPH Development Group
 // @include     /^https:\/\/(www|beta)\.waze\.com\/(?!user\/)(.{2,6}\/)?editor\/?.*$/
@@ -1491,7 +1491,6 @@
                     // if (!matchInfo.allowMultiMatch) {
                     //     return [pnhEntry];
                     // }
-                    matchInRegion = true;
                     if (matchInfo.matchOutOfRegion) {
                         // PNH match found (once true, stays true)
                         matchOutOfRegion = true;
@@ -1501,6 +1500,7 @@
                         // temp order number for approval return
                         pnhOrderNum.push(pnhEntry.order);
                     } else {
+                        matchInRegion = true;
                         matchPNHRegionData.push(pnhEntry);
                     }
                 }
