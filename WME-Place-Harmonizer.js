@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name        WME Place Harmonizer
 // @namespace   WazeUSA
-// @version     2024.11.09.000
+// @version     2024.11.11.000
 // @description Harmonizes, formats, and locks a selected place
 // @author      WMEPH Development Group
 // @include     /^https:\/\/(www|beta)\.waze\.com\/(?!user\/)(.{2,6}\/)?editor\/?.*$/
@@ -8098,7 +8098,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
             );
             venue.attributes.externalProviderIDs.forEach(link => {
                 const result = googleResults.find(r => r.uuid === link.attributes.uuid);
-                if (result) {
+                if (result && !result.brokenLink) {
                     const linkStyle = 'margin-left: 5px;text-decoration: none;color: cadetblue;';
                     let $nameSpan;
                     const $row = $('<div>', { class: 'banner-row', style: 'border-top: 1px solid #ccc;' }).append(
@@ -8193,12 +8193,12 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
         const refreshInterval = 5 * 60 * 1000; // silently refresh data if it's over 5 minutes old
         const staleLimit = 15 * 60 * 1000; // require new data if it's over 15 minutes old
         if (_googleResults.hasOwnProperty(uuid)) {
-            const result = _googleResults[uuid];
+            let result = _googleResults[uuid];
             const age = Date.now() - result.timestamp;
             if (age < staleLimit) {
                 if (age > refreshInterval) {
                     // Refresh the data in the background.
-                    fetchGooglePlace(uuid);
+                    result = fetchGooglePlace(uuid);
                 }
                 return Promise.resolve(result);
             }
@@ -8213,6 +8213,11 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                 placeId: uuid,
                 fields: ['website', 'business_status', 'url', 'name', 'geometry']
             }, googleResult => {
+                if (!googleResult) {
+                    googleResult = {
+                        brokenLink: true
+                    };
+                }
                 googleResult.uuid = uuid;
                 googleResult.timestamp = Date.now();
                 _googleResults[uuid] = googleResult;
@@ -8306,8 +8311,8 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
             timeoutDestroyGooglePlacePoint();
         } else {
             fetchGoogleLinkInfo(uuid).then(res => {
-                if (res.error || res.apiDisabled) {
-                    // API was temporarily disabled.  Ignore for now.
+                if (res.brokenLink || res.error || res.apiDisabled) {
+                    // API was temporarily disabled or result was a broken uuid link.  Ignore for now.
                 } else {
                     drawGooglePlacePoint(uuid);
                 }
