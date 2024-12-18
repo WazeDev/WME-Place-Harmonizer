@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name        WME Place Harmonizer Beta
 // @namespace   WazeUSA
-// @version     2024.11.11.000
+// @version     2024.12.18.000
 // @description Harmonizes, formats, and locks a selected place
 // @author      WMEPH Development Group
 // @include     /^https:\/\/(www|beta)\.waze\.com\/(?!user\/)(.{2,6}\/)?editor\/?.*$/
@@ -7681,6 +7681,8 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
         });
 
         let placeLockedFlag;
+        _dupeHNRangeList = [];
+        _dupeBanner = {};
         if (!args.chainIsClosed) {
             // final updating of desired lock levels
             if (pnhLockLevel !== -1 && !args.highlightOnly) {
@@ -7732,8 +7734,6 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
             Flag.ResiTypeName.eval(args);
             Flag.SuspectDesc.eval(args);
 
-            _dupeHNRangeList = [];
-            _dupeBanner = {};
             if (!args.highlightOnly) runDuplicateFinder(venue, args.nameBase, args.aliases, args.addr, args.placePL);
             // Check HN range (this depends on the returned dupefinder data, so must run after it)
             Flag.HNRange.eval(args);
