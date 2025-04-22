@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name        WME Place Harmonizer Beta
 // @namespace   WazeUSA
-// @version     2024.11.11.000
+// @version     2025.04.22.000
 // @description Harmonizes, formats, and locks a selected place
 // @author      WMEPH Development Group
 // @include     /^https:\/\/(www|beta)\.waze\.com\/(?!user\/)(.{2,6}\/)?editor\/?.*$/
@@ -5435,12 +5435,10 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
         OldHours: class extends ActionFlag {
             static defaultSeverity = SEVERITY.YELLOW;
             static #categoriesToCheck;
-            static #cutoffDateString = '3/15/2020';
-            static #cutoffDate = new Date(this.#cutoffDateString);
             static #parentCategoriesToCheck = [CAT.SHOPPING_AND_SERVICES, CAT.FOOD_AND_DRINK, CAT.CULTURE_AND_ENTERTAINEMENT];
 
             get message() {
-                let msg = `Last updated before ${Flag.OldHours.#cutoffDateString}. Verify hours are correct.`;
+                let msg = 'Last updated over 3 years ago. Verify hours are correct.';
                 if (this.args.venue.isUnchanged()) msg += ' If everything is current, nudge this place and save.';
                 return msg;
             }
@@ -5456,7 +5454,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
             static venueIsFlaggable(args) {
                 this.#initializeCategoriesToCheck(args.pnhCategoryInfos);
                 return !args.venue.isResidential()
-                    && this.#venueIsOld(args.venue)
+                    && this.#venueIsOld(args.venue) // Check uses the updated logic now
                     && args.openingHours?.length
                     && args.categories.some(cat => this.#categoriesToCheck.includes(cat));
             }
@@ -5472,8 +5470,22 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
             }
 
             static #venueIsOld(venue) {
-                const lastUpdated = venue.attributes.updatedOn ?? venue.attributes.createdOn;
-                return lastUpdated < this.#cutoffDate;
+                // Get the timestamp, prioritizing updatedOn, falling back to createdOn
+                const lastUpdatedTimestamp = venue.attributes.updatedOn ?? venue.attributes.createdOn;
+
+                // If neither timestamp exists, we can't determine age, so return false
+                if (!lastUpdatedTimestamp) {
+                    return false;
+                }
+
+                const lastUpdatedDate = new Date(lastUpdatedTimestamp);
+
+                // Calculate the date exactly 3 years ago from the current time
+                const threeYearsAgo = new Date(); // Gets current date and time
+                threeYearsAgo.setFullYear(threeYearsAgo.getFullYear() - 3); // Sets the year back by 3
+
+                // Check if the last updated date is before the date 3 years ago
+                return lastUpdatedDate < threeYearsAgo;
             }
 
             action() {
