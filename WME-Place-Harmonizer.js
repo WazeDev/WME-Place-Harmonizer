@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name        WME Place Harmonizer
 // @namespace   WazeUSA
-// @version     2025.01.13.000
+// @version     2025.04.22.001
 // @description Harmonizes, formats, and locks a selected place
 // @author      WMEPH Development Group
 // @include     /^https:\/\/(www|beta)\.waze\.com\/(?!user\/)(.{2,6}\/)?editor\/?.*$/
@@ -22,6 +22,7 @@
 /* global LZString */
 /* global HoursParser */
 /* global I18n */
+/* global google */
 /* global turf */
 
 /* eslint-disable max-classes-per-file */
@@ -32,7 +33,7 @@
     // Script update info
 
     // BE SURE TO SET THIS TO NULL OR AN EMPTY STRING WHEN RELEASING A NEW UPDATE.
-    const _SCRIPT_UPDATE_MESSAGE = 'Removed Google link information, as requested by Waze. Sorry. I know that was useful.';
+    const _SCRIPT_UPDATE_MESSAGE = '';
     const _CSS = `
     #edit-panel .venue-feature-editor {
         overflow: initial;
@@ -5434,12 +5435,10 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
         OldHours: class extends ActionFlag {
             static defaultSeverity = SEVERITY.YELLOW;
             static #categoriesToCheck;
-            static #cutoffDateString = '3/15/2020';
-            static #cutoffDate = new Date(this.#cutoffDateString);
             static #parentCategoriesToCheck = [CAT.SHOPPING_AND_SERVICES, CAT.FOOD_AND_DRINK, CAT.CULTURE_AND_ENTERTAINEMENT];
 
             get message() {
-                let msg = `Last updated before ${Flag.OldHours.#cutoffDateString}. Verify hours are correct.`;
+                let msg = 'Last updated over 3 years ago. Verify hours are correct.';
                 if (this.args.venue.isUnchanged()) msg += ' If everything is current, nudge this place and save.';
                 return msg;
             }
@@ -5455,7 +5454,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
             static venueIsFlaggable(args) {
                 this.#initializeCategoriesToCheck(args.pnhCategoryInfos);
                 return !args.venue.isResidential()
-                    && this.#venueIsOld(args.venue)
+                    && this.#venueIsOld(args.venue) // Check uses the updated logic now
                     && args.openingHours?.length
                     && args.categories.some(cat => this.#categoriesToCheck.includes(cat));
             }
@@ -5471,8 +5470,22 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
             }
 
             static #venueIsOld(venue) {
-                const lastUpdated = venue.attributes.updatedOn ?? venue.attributes.createdOn;
-                return lastUpdated < this.#cutoffDate;
+                // Get the timestamp, prioritizing updatedOn, falling back to createdOn
+                const lastUpdatedTimestamp = venue.attributes.updatedOn ?? venue.attributes.createdOn;
+
+                // If neither timestamp exists, we can't determine age, so return false
+                if (!lastUpdatedTimestamp) {
+                    return false;
+                }
+
+                const lastUpdatedDate = new Date(lastUpdatedTimestamp);
+
+                // Calculate the date exactly 3 years ago from the current time
+                const threeYearsAgo = new Date(); // Gets current date and time
+                threeYearsAgo.setFullYear(threeYearsAgo.getFullYear() - 3); // Sets the year back by 3
+
+                // Check if the last updated date is before the date 3 years ago
+                return lastUpdatedDate < threeYearsAgo;
             }
 
             action() {
@@ -7677,8 +7690,6 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
         });
 
         let placeLockedFlag;
-        _dupeHNRangeList = [];
-        _dupeBanner = {};
         if (!args.chainIsClosed) {
             // final updating of desired lock levels
             if (pnhLockLevel !== -1 && !args.highlightOnly) {
@@ -7730,6 +7741,8 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
             Flag.ResiTypeName.eval(args);
             Flag.SuspectDesc.eval(args);
 
+            _dupeHNRangeList = [];
+            _dupeBanner = {};
             if (!args.highlightOnly) runDuplicateFinder(venue, args.nameBase, args.aliases, args.addr, args.placePL);
             // Check HN range (this depends on the returned dupefinder data, so must run after it)
             Flag.HNRange.eval(args);
@@ -8060,7 +8073,215 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
         flags.forEach(flag => {
             flag.postProcess?.();
         });
+
+        processGoogleLinks(venue);
     } // END assemble Banner function
+
+    async function processGoogleLinks(venue) {
+        const promises = venue.attributes.externalProviderIDs.map(link => _googlePlaces.getPlace(link.attributes.uuid));
+        const googleResults = await Promise.all(promises);
+        $('#wmeph-google-link-info').remove();
+        // Compare to venue to make sure a different place hasn't been selected since the results were requested.
+        if (googleResults.length && venue === getSelectedVenue()) {
+            const $bannerDiv = $('<div>', { id: 'wmeph-google-link-info' });
+            const googleLogoLetter = (letter, colorClass) => $('<span>', { class: 'google-logo' }).addClass(colorClass).text(letter);
+            $bannerDiv.append(
+                $('<div>', {
+                    class: 'banner-row gray',
+                    style: 'padding-top: 4px;color: #646464;padding-left: 8px;'
+                }).text(' Links').prepend(
+                    googleLogoLetter('G', 'blue'),
+                    googleLogoLetter('o', 'red'),
+                    googleLogoLetter('o', 'orange'),
+                    googleLogoLetter('g', 'blue'),
+                    googleLogoLetter('l', 'green'),
+                    googleLogoLetter('e', 'red')
+                ).prepend(
+                    $('<i>', {
+                        id: 'wmeph-ext-prov-jump',
+                        title: 'Jump to external providers section',
+                        class: 'fa fa-level-down',
+                        style: 'font-size: 15px;float: right;color: cadetblue;cursor: pointer;padding-left: 6px;'
+                    })
+                )
+            );
+            venue.attributes.externalProviderIDs.forEach(link => {
+                const result = googleResults.find(r => r.placeId === link.attributes.uuid);
+                if (result) {
+                    const linkStyle = 'margin-left: 5px;text-decoration: none;color: cadetblue;';
+                    let $nameSpan;
+                    const $row = $('<div>', { class: 'banner-row', style: 'border-top: 1px solid #ccc;' }).append(
+                        $('<table>', { style: 'width: 100%' }).append(
+                            $('<tbody>').append(
+                                $('<tr>').append(
+                                    $('<td>').append(
+                                        '&bull;',
+                                        $nameSpan = $('<span>', {
+                                            class:
+                                            'wmeph-google-place-name',
+                                            style: 'margin-left: 3px;font-weight: normal;'
+                                        }).text(`${result.requestStatus !== 'NOT_FOUND' ? result.name : result.placeId}`)
+                                    ),
+                                    $('<td>', { style: 'text-align: right;font-weight: 500;padding: 2px 2px 2px 0px;min-width: 65px;' }).append(
+                                        result.website && result.requestStatus !== 'NOT_FOUND' ? [$('<a>', {
+                                            style: linkStyle,
+                                            href: result.website,
+                                            target: '_blank',
+                                            title: 'Open the place\'s website, according to Google'
+                                        }).append(
+                                            $('<i>', {
+                                                class: 'fa fa-external-link',
+                                                style: 'font-size: 16px;position: relative;top: 1px;'
+                                            })
+                                        ),
+                                        $('<span>', {
+                                            style: 'text-align: center;margin-left: 8px;margin-right: 4px;color: #c5c5c5;cursor: default;'
+                                        }).text('|')] : null,
+                                        result.requestStatus !== 'NOT_FOUND' ? $('<a>', {
+                                            style: linkStyle,
+                                            href: result.url,
+                                            target: '_blank',
+                                            title: 'Open the place in Google Maps'
+                                        }).append(
+                                            $('<i>', {
+                                                class: 'fa fa-map-o',
+                                                style: 'font-size: 16px;'
+                                            })
+                                        ) : null
+                                    )
+                                )
+                            )
+                        )
+                    );
+
+                    if (result.requestStatus === 'NOT_FOUND') {
+                        $row.addClass('red');
+                        $row.attr('title', 'This Google place ID was not found. Please update the link in the External Providers section.');
+                    } else if (result.business_status === 'CLOSED_PERMANENTLY') {
+                        $nameSpan.append(' [CLOSED]');
+                        $row.addClass('red');
+                        $row.attr('title', 'Google indicates this linked place is permanently closed. Please verify.');
+                    } else if (result.business_status === 'CLOSED_TEMPORARILY') {
+                        $nameSpan.append(' [TEMPORARILY&nbsp;CLOSED]');
+                        $row.addClass('yellow');
+                        $row.attr('title', 'Google indicates this linked place is TEMPORARILY closed. Please verify.');
+                    } else if (googleResults.filter(otherResult => otherResult.placeId === result.placeId).length > 1) {
+                        $nameSpan.append(' [DUPLICATE]');
+                        $row.css('background-color', '#fde5c8');
+                        $row.attr('title', 'This place is linked more than once. Please remove extra links.');
+                    } else {
+                        $row.addClass('lightgray');
+                    }
+
+                    $bannerDiv.append($row);
+
+                    $row.attr('uuid', result.placeId);
+                    if (result.requestStatus !== 'NOT_FOUND') {
+                        addGoogleLinkHoverEvent($row);
+                    }
+                }
+            });
+            $('#WMEPH_banner').append($bannerDiv);
+            $('#wmeph-ext-prov-jump').click(() => {
+                const extProvSelector = '#venue-edit-general > div.external-providers-control.form-group';
+                document.querySelector('#edit-panel wz-tab.venue-edit-tab-general').isActive = true;
+                setTimeout(() => {
+                    document.querySelector(extProvSelector).scrollIntoView({ behavior: 'smooth' });
+                    setTimeout(() => {
+                        $(extProvSelector).addClass('highlight');
+                        setTimeout(() => {
+                            $(extProvSelector).removeClass('highlight');
+                        }, 1500);
+                    }, 250);
+                }, 0);
+            });
+        }
+    }
+
+    class GooglePlaceContainer {
+        places = new Map();
+        pendingRequests = new Map();
+
+        addPlace(placeId, placeData) {
+            this.places.set(placeId, placeData);
+
+            const requestsForId = this.pendingRequests.get(placeId);
+            if (requestsForId && requestsForId.length > 0) {
+                requestsForId.forEach(request => {
+                    clearTimeout(request.timeoutId);
+                    request.resolve(placeData);
+                });
+                this.pendingRequests.delete(placeId);
+            }
+        }
+
+        #removePendingRequest(placeId, requestToRemove) {
+            const requests = this.pendingRequests.get(placeId);
+            if (!requests) return;
+
+            const index = requests.indexOf(requestToRemove);
+            if (index > -1) {
+                requests.splice(index, 1);
+            }
+
+            if (requests.length === 0) {
+                this.pendingRequests.delete(placeId);
+            }
+        }
+
+        getPlace(placeId, timeoutMs = 3000) {
+            if (this.places.has(placeId)) {
+                return Promise.resolve(this.places.get(placeId));
+            }
+
+            return new Promise((resolve, reject) => {
+                let pendingRequest;
+
+                const timeoutId = setTimeout(() => {
+                    const error = new Error(`Request for place ID "${placeId}" timed out after ${timeoutMs / 1000} seconds.`);
+                    this.#removePendingRequest(placeId, pendingRequest);
+                    reject(error);
+                }, timeoutMs);
+
+                pendingRequest = { resolve, reject, timeoutId };
+
+                if (!this.pendingRequests.has(placeId)) {
+                    this.pendingRequests.set(placeId, []);
+                }
+                this.pendingRequests.get(placeId).push(pendingRequest);
+            });
+        }
+    }
+    const _googlePlaces = new GooglePlaceContainer();
+    let _googlePlacePtFeature;
+    let _googlePlaceLineFeature;
+    let _destroyGooglePlacePointTimeoutId;
+
+    function interceptGoogleGetDetails() {
+        if (typeof google === 'undefined' || !google.maps || !google.maps.places || !google.maps.places.PlacesService) {
+            console.debug('Google Maps PlacesService not loaded yet.');
+            setTimeout(interceptGoogleGetDetails, 500); // Retry until it loads
+            return;
+        }
+
+        const originalGetDetails = google.maps.places.PlacesService.prototype.getDetails;
+        google.maps.places.PlacesService.prototype.getDetails = function interceptedGetDetails(request, callback) {
+            console.debug('Intercepted getDetails call:', request);
+            const { placeId } = request;
+            const customCallback = function(result, status) {
+                const googleResult = { ...result };
+                googleResult.placeId = placeId;
+                googleResult.requestStatus = status;
+                _googlePlaces.addPlace(placeId, googleResult);
+                console.debug('Intercepted getDetails response:', googleResult, status);
+                callback(result, status); // Pass the result to the original callback
+            };
+
+            return originalGetDetails.call(this, request, customCallback);
+        };
+
+        console.debug('Google Maps PlacesService.getDetails intercepted successfully.');
+    }
 
     function getOLMapExtent() {
         let extent = W.map.getExtent();
@@ -8069,6 +8290,107 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
             extent.transform('EPSG:4326', 'EPSG:3857');
         }
         return extent;
+    }
+
+    async function drawGooglePlacePoint(uuid) {
+        if (!uuid) return;
+        const link = await _googlePlaces.getPlace(uuid);
+        if (link?.geometry) {
+            const coord = link.geometry.location;
+            const poiPt = new OpenLayers.Geometry.Point(coord.lng(), coord.lat());
+            poiPt.transform(W.Config.map.projection.remote, W.map.getProjectionObject().projCode);
+            const placeGeom = W.selectionManager.getSelectedDataModelObjects()[0].getOLGeometry().getCentroid();
+            const placePt = new OpenLayers.Geometry.Point(placeGeom.x, placeGeom.y);
+            const ext = getOLMapExtent();
+            const lsBounds = new OpenLayers.Geometry.LineString([
+                new OpenLayers.Geometry.Point(ext.left, ext.bottom),
+                new OpenLayers.Geometry.Point(ext.left, ext.top),
+                new OpenLayers.Geometry.Point(ext.right, ext.top),
+                new OpenLayers.Geometry.Point(ext.right, ext.bottom),
+                new OpenLayers.Geometry.Point(ext.left, ext.bottom)]);
+            let lsLine = new OpenLayers.Geometry.LineString([placePt, poiPt]);
+
+            // If the line extends outside the bounds, split it so we don't draw a line across the world.
+            const splits = lsLine.splitWith(lsBounds);
+            let label = '';
+            if (splits) {
+                let splitPoints;
+                splits.forEach(split => {
+                    split.components.forEach(component => {
+                        if (component.x === placePt.x && component.y === placePt.y) splitPoints = split;
+                    });
+                });
+                lsLine = new OpenLayers.Geometry.LineString([splitPoints.components[0], splitPoints.components[1]]);
+                let distance = WazeWrap.Geometry.calculateDistance([poiPt, placePt]);
+                let unitConversion;
+                let unit1;
+                let unit2;
+                if (W.model.isImperial) {
+                    distance *= 3.28084;
+                    unitConversion = 5280;
+                    unit1 = ' ft';
+                    unit2 = ' mi';
+                } else {
+                    unitConversion = 1000;
+                    unit1 = ' m';
+                    unit2 = ' km';
+                }
+                if (distance > unitConversion * 10) {
+                    label = Math.round(distance / unitConversion) + unit2;
+                } else if (distance > 1000) {
+                    label = (Math.round(distance / (unitConversion / 10)) / 10) + unit2;
+                } else {
+                    label = Math.round(distance) + unit1;
+                }
+            }
+
+            destroyGooglePlacePoint(); // Just in case it still exists.
+            _googlePlacePtFeature = new OpenLayers.Feature.Vector(poiPt, { poiCoord: true }, {
+                pointRadius: 6,
+                strokeWidth: 30,
+                strokeColor: '#FF0',
+                fillColor: '#FF0',
+                strokeOpacity: 0.5
+            });
+            _googlePlaceLineFeature = new OpenLayers.Feature.Vector(lsLine, {}, {
+                strokeWidth: 3,
+                strokeDashstyle: '12 8',
+                strokeColor: '#FF0',
+                label,
+                labelYOffset: 45,
+                fontColor: '#FF0',
+                fontWeight: 'bold',
+                labelOutlineColor: '#000',
+                labelOutlineWidth: 4,
+                fontSize: '18'
+            });
+            W.map.getLayerByUniqueName('venues').addFeatures([_googlePlacePtFeature, _googlePlaceLineFeature]);
+            timeoutDestroyGooglePlacePoint();
+        }
+    }
+
+    // Destroy the point after some time, if it hasn't been destroyed already.
+    function timeoutDestroyGooglePlacePoint() {
+        if (_destroyGooglePlacePointTimeoutId) clearTimeout(_destroyGooglePlacePointTimeoutId);
+        _destroyGooglePlacePointTimeoutId = setTimeout(() => destroyGooglePlacePoint(), 4000);
+    }
+
+    // Remove the POI point from the map.
+    function destroyGooglePlacePoint() {
+        if (_googlePlacePtFeature) {
+            _googlePlacePtFeature.destroy();
+            _googlePlacePtFeature = null;
+            _googlePlaceLineFeature.destroy();
+            _googlePlaceLineFeature = null;
+        }
+    }
+
+    function addGoogleLinkHoverEvent($el) {
+        $el.hover(() => drawGooglePlacePoint(getGooglePlaceUuidFromElement($el)), () => destroyGooglePlacePoint());
+    }
+
+    function getGooglePlaceUuidFromElement($el) {
+        return $el.attr('uuid');
     }
 
     function assembleServicesBanner(chainIsClosed) {
@@ -9850,6 +10172,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
     }
 
     async function placeHarmonizerInit() {
+        interceptGoogleGetDetails();
         updateUserInfo();
         logDev('placeHarmonizerInit'); // Be sure to update User info before calling logDev()
 
