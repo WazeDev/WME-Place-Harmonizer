@@ -8107,7 +8107,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
             );
             venue.attributes.externalProviderIDs.forEach(link => {
                 const result = googleResults.find(r => r.placeId === link.attributes.uuid);
-                if (result && !result.brokenLink) {
+                if (result) {
                     const linkStyle = 'margin-left: 5px;text-decoration: none;color: cadetblue;';
                     let $nameSpan;
                     const $row = $('<div>', { class: 'banner-row', style: 'border-top: 1px solid #ccc;' }).append(
@@ -8120,10 +8120,10 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                                             class:
                                             'wmeph-google-place-name',
                                             style: 'margin-left: 3px;font-weight: normal;'
-                                        }).text(`${result.name}`)
+                                        }).text(`${result.requestStatus !== 'NOT_FOUND' ? result.name : result.placeId}`)
                                     ),
                                     $('<td>', { style: 'text-align: right;font-weight: 500;padding: 2px 2px 2px 0px;min-width: 65px;' }).append(
-                                        result.website ? [$('<a>', {
+                                        result.website && result.requestStatus !== 'NOT_FOUND' ? [$('<a>', {
                                             style: linkStyle,
                                             href: result.website,
                                             target: '_blank',
@@ -8137,7 +8137,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                                         $('<span>', {
                                             style: 'text-align: center;margin-left: 8px;margin-right: 4px;color: #c5c5c5;cursor: default;'
                                         }).text('|')] : null,
-                                        $('<a>', {
+                                        result.requestStatus !== 'NOT_FOUND' ? $('<a>', {
                                             style: linkStyle,
                                             href: result.url,
                                             target: '_blank',
@@ -8147,14 +8147,17 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                                                 class: 'fa fa-map-o',
                                                 style: 'font-size: 16px;'
                                             })
-                                        )
+                                        ) : null
                                     )
                                 )
                             )
                         )
                     );
 
-                    if (result.business_status === 'CLOSED_PERMANENTLY') {
+                    if (result.requestStatus === 'NOT_FOUND') {
+                        $row.addClass('red');
+                        $row.attr('title', 'This Google place ID was not found. Please update the link in the External Providers section.');
+                    } else if (result.business_status === 'CLOSED_PERMANENTLY') {
                         $nameSpan.append(' [CLOSED]');
                         $row.addClass('red');
                         $row.attr('title', 'Google indicates this linked place is permanently closed. Please verify.');
@@ -8173,7 +8176,9 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                     $bannerDiv.append($row);
 
                     $row.attr('uuid', result.placeId);
-                    addGoogleLinkHoverEvent($row);
+                    if (result.requestStatus !== 'NOT_FOUND') {
+                        addGoogleLinkHoverEvent($row);
+                    }
                 }
             });
             $('#WMEPH_banner').append($bannerDiv);
@@ -8266,7 +8271,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
             const customCallback = function(result, status) {
                 const googleResult = { ...result };
                 googleResult.placeId = placeId;
-                googleResult.timestamp = Date.now();
+                googleResult.requestStatus = status;
                 _googlePlaces.addPlace(placeId, googleResult);
                 console.debug('Intercepted getDetails response:', googleResult, status);
                 callback(result, status); // Pass the result to the original callback
@@ -8290,7 +8295,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
     async function drawGooglePlacePoint(uuid) {
         if (!uuid) return;
         const link = await _googlePlaces.getPlace(uuid);
-        if (link) {
+        if (link?.geometry) {
             const coord = link.geometry.location;
             const poiPt = new OpenLayers.Geometry.Point(coord.lng(), coord.lat());
             poiPt.transform(W.Config.map.projection.remote, W.map.getProjectionObject().projCode);
