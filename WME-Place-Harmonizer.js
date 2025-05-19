@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name        WME Place Harmonizer Beta
 // @namespace   WazeUSA
-// @version     2025.04.22.001
+// @version     2025.05.19.000
 // @description Harmonizes, formats, and locks a selected place
 // @author      WMEPH Development Group
 // @include     /^https:\/\/(www|beta)\.waze\.com\/(?!user\/)(.{2,6}\/)?editor\/?.*$/
@@ -8807,8 +8807,10 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
             const lat = firstPoint[1];
             const url = `https://${location.host}/SearchServer/mozi?lon=${lon}&lat=${lat}&format=PROTO_JSON_FULL&venue_id=venues.${venue.getID()}`;
             $.getJSON(url).done(res => {
-                const feedNames = res.venue.external_providers
-                    ?.filter(prov => !FEEDS_TO_SKIP.some(skipRegex => skipRegex.test(prov.provider))).map(prov => prov.provider);
+                let feedNames = res.venue.external_providers
+                    ?.filter(prov => !FEEDS_TO_SKIP.some(skipRegex => skipRegex.test(prov.provider)))
+                    .map(prov => prov.provider);
+                if (feedNames) feedNames = [...new Set(feedNames)]; // Remove duplicates
                 if (feedNames?.length) {
                     const $rowDiv = $('<div>')
                         .css({ padding: '3px 4px 0px 4px', 'background-color': 'yellow' });
