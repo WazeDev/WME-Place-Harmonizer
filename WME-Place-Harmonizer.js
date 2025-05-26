@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name        WME Place Harmonizer Beta
 // @namespace   WazeUSA
-// @version     2024.08.30.000
+// @version     2025.05.19.000
 // @description Harmonizes, formats, and locks a selected place
 // @author      WMEPH Development Group
 // @include     /^https:\/\/(www|beta)\.waze\.com\/(?!user\/)(.{2,6}\/)?editor\/?.*$/
@@ -237,9 +237,6 @@
     let _initAlreadyRun = false; // This is used to skip a couple things if already run once.  This could probably be handled better...
     let _textEntryValues = null; // Store the values entered in text boxes so they can be re-added when the banner is reassembled.
 
-    let _attributionEl;
-    let _placesService;
-
     // Userlists
     let _wmephDevList;
     let _wmephBetaList;
@@ -285,7 +282,7 @@
         gLinkWarning: 'GLinkWarning' // Warning message for first time using Google search to not to use the Google info itself.
     };
     const URLS = {
-        forum: 'https://www.waze.com/forum/posting.php?mode=reply&f=819&t=239985',
+        forum: 'https://www.waze.com/discuss/t/178574',
         usaPnh: 'https://docs.google.com/spreadsheets/d/1-f-JTWY5UnBx-rFTa4qhyGMYdHBZWNirUTOgn222zMY/edit#gid=0',
         placesWiki: 'https://wazeopedia.waze.com/wiki/USA/Places',
         restAreaWiki: 'https://wazeopedia.waze.com/wiki/USA/Rest_areas#Adding_a_Place',
@@ -1381,7 +1378,7 @@
                 let PNHForceCat = this.forceCategoryMatching; // Primary category of PNH data
 
                 // Gas stations only harmonized if the WME place category is already gas station (prevents Costco Gas becoming Costco Store)
-                if (categories[0] === CAT.GAS_STATION) {
+                if (categories[0] === CAT.GAS_STATION || PNHPriCat === CAT.GAS_STATION) {
                     PNHForceCat = Pnh.ForceCategoryMatchingType.PRIMARY;
                 }
 
@@ -1494,7 +1491,6 @@
                     // if (!matchInfo.allowMultiMatch) {
                     //     return [pnhEntry];
                     // }
-                    matchInRegion = true;
                     if (matchInfo.matchOutOfRegion) {
                         // PNH match found (once true, stays true)
                         matchOutOfRegion = true;
@@ -1504,6 +1500,7 @@
                         // temp order number for approval return
                         pnhOrderNum.push(pnhEntry.order);
                     } else {
+                        matchInRegion = true;
                         matchPNHRegionData.push(pnhEntry);
                     }
                 }
@@ -2517,6 +2514,8 @@
     }
 
     function initializeHighlights() {
+        OpenLayers.Renderer.symbol.triangle = [0, -10, 10, 10, -10, 10, 0, -10]; // [0, 10, 10, -10, -10, -10, 0, 10];
+
         const ruleGenerator = (value, symbolizer) => new W.Rule({
             filter: new OpenLayers.Filter.Comparison({
                 type: '==',
@@ -2527,6 +2526,21 @@
                 }
             }),
             symbolizer,
+            wmephStyle: 'default'
+        });
+
+        const rppRule = new W.Rule({
+            filter: new OpenLayers.Filter.Comparison({
+                type: '==',
+                value: true,
+                evaluate(feature) {
+                    return feature.attributes.wazeFeature?._wmeObject.isResidential();
+                }
+            }),
+            symbolizer: {
+                graphicName: 'triangle',
+                pointRadius: 7
+            },
             wmephStyle: 'default'
         });
 
@@ -2669,7 +2683,7 @@
         });
 
         _layer.styleMap.styles.default.rules.push(...[severity0, severityLock, severity1, severityLock1, severity2,
-            severity3, severity4, severity6, severityHigh, severityAdLock, publicPLA, restrictedPLA, privatePLA]);
+            severity3, severity4, severity6, severityHigh, severityAdLock, rppRule, publicPLA, restrictedPLA, privatePLA]);
     }
 
     /**
@@ -5424,12 +5438,10 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
         OldHours: class extends ActionFlag {
             static defaultSeverity = SEVERITY.YELLOW;
             static #categoriesToCheck;
-            static #cutoffDateString = '3/15/2020';
-            static #cutoffDate = new Date(this.#cutoffDateString);
             static #parentCategoriesToCheck = [CAT.SHOPPING_AND_SERVICES, CAT.FOOD_AND_DRINK, CAT.CULTURE_AND_ENTERTAINEMENT];
 
             get message() {
-                let msg = `Last updated before ${Flag.OldHours.#cutoffDateString}. Verify hours are correct.`;
+                let msg = 'Last updated over 3 years ago. Verify hours are correct.';
                 if (this.args.venue.isUnchanged()) msg += ' If everything is current, nudge this place and save.';
                 return msg;
             }
@@ -5445,7 +5457,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
             static venueIsFlaggable(args) {
                 this.#initializeCategoriesToCheck(args.pnhCategoryInfos);
                 return !args.venue.isResidential()
-                    && this.#venueIsOld(args.venue)
+                    && this.#venueIsOld(args.venue) // Check uses the updated logic now
                     && args.openingHours?.length
                     && args.categories.some(cat => this.#categoriesToCheck.includes(cat));
             }
@@ -5461,8 +5473,22 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
             }
 
             static #venueIsOld(venue) {
-                const lastUpdated = venue.attributes.updatedOn ?? venue.attributes.createdOn;
-                return lastUpdated < this.#cutoffDate;
+                // Get the timestamp, prioritizing updatedOn, falling back to createdOn
+                const lastUpdatedTimestamp = venue.attributes.updatedOn ?? venue.attributes.createdOn;
+
+                // If neither timestamp exists, we can't determine age, so return false
+                if (!lastUpdatedTimestamp) {
+                    return false;
+                }
+
+                const lastUpdatedDate = new Date(lastUpdatedTimestamp);
+
+                // Calculate the date exactly 3 years ago from the current time
+                const threeYearsAgo = new Date(); // Gets current date and time
+                threeYearsAgo.setFullYear(threeYearsAgo.getFullYear() - 3); // Sets the year back by 3
+
+                // Check if the last updated date is before the date 3 years ago
+                return lastUpdatedDate < threeYearsAgo;
             }
 
             action() {
@@ -8055,7 +8081,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
     } // END assemble Banner function
 
     async function processGoogleLinks(venue) {
-        const promises = venue.attributes.externalProviderIDs.map(link => fetchGoogleLinkInfo(link.attributes.uuid));
+        const promises = venue.attributes.externalProviderIDs.map(link => _googlePlaces.getPlace(link.attributes.uuid));
         const googleResults = await Promise.all(promises);
         $('#wmeph-google-link-info').remove();
         // Compare to venue to make sure a different place hasn't been selected since the results were requested.
@@ -8083,7 +8109,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                 )
             );
             venue.attributes.externalProviderIDs.forEach(link => {
-                const result = googleResults.find(r => r.uuid === link.attributes.uuid);
+                const result = googleResults.find(r => r.placeId === link.attributes.uuid);
                 if (result) {
                     const linkStyle = 'margin-left: 5px;text-decoration: none;color: cadetblue;';
                     let $nameSpan;
@@ -8097,10 +8123,10 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                                             class:
                                             'wmeph-google-place-name',
                                             style: 'margin-left: 3px;font-weight: normal;'
-                                        }).text(`${result.name}`)
+                                        }).text(`${result.requestStatus !== 'NOT_FOUND' ? result.name : result.placeId}`)
                                     ),
                                     $('<td>', { style: 'text-align: right;font-weight: 500;padding: 2px 2px 2px 0px;min-width: 65px;' }).append(
-                                        result.website ? [$('<a>', {
+                                        result.website && result.requestStatus !== 'NOT_FOUND' ? [$('<a>', {
                                             style: linkStyle,
                                             href: result.website,
                                             target: '_blank',
@@ -8114,7 +8140,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                                         $('<span>', {
                                             style: 'text-align: center;margin-left: 8px;margin-right: 4px;color: #c5c5c5;cursor: default;'
                                         }).text('|')] : null,
-                                        $('<a>', {
+                                        result.requestStatus !== 'NOT_FOUND' ? $('<a>', {
                                             style: linkStyle,
                                             href: result.url,
                                             target: '_blank',
@@ -8124,14 +8150,17 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                                                 class: 'fa fa-map-o',
                                                 style: 'font-size: 16px;'
                                             })
-                                        )
+                                        ) : null
                                     )
                                 )
                             )
                         )
                     );
 
-                    if (result.business_status === 'CLOSED_PERMANENTLY') {
+                    if (result.requestStatus === 'NOT_FOUND') {
+                        $row.addClass('red');
+                        $row.attr('title', 'This Google place ID was not found. Please update the link in the External Providers section.');
+                    } else if (result.business_status === 'CLOSED_PERMANENTLY') {
                         $nameSpan.append(' [CLOSED]');
                         $row.addClass('red');
                         $row.attr('title', 'Google indicates this linked place is permanently closed. Please verify.');
@@ -8139,7 +8168,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                         $nameSpan.append(' [TEMPORARILY&nbsp;CLOSED]');
                         $row.addClass('yellow');
                         $row.attr('title', 'Google indicates this linked place is TEMPORARILY closed. Please verify.');
-                    } else if (googleResults.filter(otherResult => otherResult.uuid === result.uuid).length > 1) {
+                    } else if (googleResults.filter(otherResult => otherResult.placeId === result.placeId).length > 1) {
                         $nameSpan.append(' [DUPLICATE]');
                         $row.css('background-color', '#fde5c8');
                         $row.attr('title', 'This place is linked more than once. Please remove extra links.');
@@ -8149,8 +8178,10 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
 
                     $bannerDiv.append($row);
 
-                    $row.attr('uuid', result.uuid);
-                    addGoogleLinkHoverEvent($row);
+                    $row.attr('uuid', result.placeId);
+                    if (result.requestStatus !== 'NOT_FOUND') {
+                        addGoogleLinkHoverEvent($row);
+                    }
                 }
             });
             $('#WMEPH_banner').append($bannerDiv);
@@ -8170,41 +8201,89 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
         }
     }
 
-    const _googleResults = {};
+    class GooglePlaceContainer {
+        places = new Map();
+        pendingRequests = new Map();
+
+        addPlace(placeId, placeData) {
+            this.places.set(placeId, placeData);
+
+            const requestsForId = this.pendingRequests.get(placeId);
+            if (requestsForId && requestsForId.length > 0) {
+                requestsForId.forEach(request => {
+                    clearTimeout(request.timeoutId);
+                    request.resolve(placeData);
+                });
+                this.pendingRequests.delete(placeId);
+            }
+        }
+
+        #removePendingRequest(placeId, requestToRemove) {
+            const requests = this.pendingRequests.get(placeId);
+            if (!requests) return;
+
+            const index = requests.indexOf(requestToRemove);
+            if (index > -1) {
+                requests.splice(index, 1);
+            }
+
+            if (requests.length === 0) {
+                this.pendingRequests.delete(placeId);
+            }
+        }
+
+        getPlace(placeId, timeoutMs = 3000) {
+            if (this.places.has(placeId)) {
+                return Promise.resolve(this.places.get(placeId));
+            }
+
+            return new Promise((resolve, reject) => {
+                let pendingRequest;
+
+                const timeoutId = setTimeout(() => {
+                    const error = new Error(`Request for place ID "${placeId}" timed out after ${timeoutMs / 1000} seconds.`);
+                    this.#removePendingRequest(placeId, pendingRequest);
+                    reject(error);
+                }, timeoutMs);
+
+                pendingRequest = { resolve, reject, timeoutId };
+
+                if (!this.pendingRequests.has(placeId)) {
+                    this.pendingRequests.set(placeId, []);
+                }
+                this.pendingRequests.get(placeId).push(pendingRequest);
+            });
+        }
+    }
+    const _googlePlaces = new GooglePlaceContainer();
     let _googlePlacePtFeature;
     let _googlePlaceLineFeature;
     let _destroyGooglePlacePointTimeoutId;
 
-    function fetchGoogleLinkInfo(uuid) {
-        const refreshInterval = 5 * 60 * 1000; // silently refresh data if it's over 5 minutes old
-        const staleLimit = 15 * 60 * 1000; // require new data if it's over 15 minutes old
-        if (_googleResults.hasOwnProperty(uuid)) {
-            const result = _googleResults[uuid];
-            const age = Date.now() - result.timestamp;
-            if (age < staleLimit) {
-                if (age > refreshInterval) {
-                    // Refresh the data in the background.
-                    fetchGooglePlace(uuid);
-                }
-                return Promise.resolve(result);
-            }
+    function interceptGoogleGetDetails() {
+        if (typeof google === 'undefined' || !google.maps || !google.maps.places || !google.maps.places.PlacesService) {
+            console.debug('Google Maps PlacesService not loaded yet.');
+            setTimeout(interceptGoogleGetDetails, 500); // Retry until it loads
+            return;
         }
-        return fetchGooglePlace(uuid);
-    }
 
-    function fetchGooglePlace(uuid) {
-        logDev(`fetching ${uuid}`);
-        return new Promise(resolve => {
-            _placesService.getDetails({
-                placeId: uuid,
-                fields: ['website', 'business_status', 'url', 'name', 'geometry']
-            }, googleResult => {
-                googleResult.uuid = uuid;
-                googleResult.timestamp = Date.now();
-                _googleResults[uuid] = googleResult;
-                resolve(googleResult);
-            });
-        });
+        const originalGetDetails = google.maps.places.PlacesService.prototype.getDetails;
+        google.maps.places.PlacesService.prototype.getDetails = function interceptedGetDetails(request, callback) {
+            console.debug('Intercepted getDetails call:', request);
+            const { placeId } = request;
+            const customCallback = function(result, status) {
+                const googleResult = { ...result };
+                googleResult.placeId = placeId;
+                googleResult.requestStatus = status;
+                _googlePlaces.addPlace(placeId, googleResult);
+                console.debug('Intercepted getDetails response:', googleResult, status);
+                callback(result, status); // Pass the result to the original callback
+            };
+
+            return originalGetDetails.call(this, request, customCallback);
+        };
+
+        console.debug('Google Maps PlacesService.getDetails intercepted successfully.');
     }
 
     function getOLMapExtent() {
@@ -8216,10 +8295,10 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
         return extent;
     }
 
-    function drawGooglePlacePoint(uuid) {
+    async function drawGooglePlacePoint(uuid) {
         if (!uuid) return;
-        const link = _googleResults[uuid];
-        if (link) {
+        const link = await _googlePlaces.getPlace(uuid);
+        if (link?.geometry) {
             const coord = link.geometry.location;
             const poiPt = new OpenLayers.Geometry.Point(coord.lng(), coord.lat());
             poiPt.transform(W.Config.map.projection.remote, W.map.getProjectionObject().projCode);
@@ -8290,14 +8369,6 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
             });
             W.map.getLayerByUniqueName('venues').addFeatures([_googlePlacePtFeature, _googlePlaceLineFeature]);
             timeoutDestroyGooglePlacePoint();
-        } else {
-            fetchGoogleLinkInfo(uuid).then(res => {
-                if (res.error || res.apiDisabled) {
-                    // API was temporarily disabled.  Ignore for now.
-                } else {
-                    drawGooglePlacePoint(uuid);
-                }
-            });
         }
     }
 
@@ -8739,8 +8810,10 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
             const lat = firstPoint[1];
             const url = `https://${location.host}/SearchServer/mozi?lon=${lon}&lat=${lat}&format=PROTO_JSON_FULL&venue_id=venues.${venue.getID()}`;
             $.getJSON(url).done(res => {
-                const feedNames = res.venue.external_providers
-                    ?.filter(prov => !FEEDS_TO_SKIP.some(skipRegex => skipRegex.test(prov.provider))).map(prov => prov.provider);
+                let feedNames = res.venue.external_providers
+                    ?.filter(prov => !FEEDS_TO_SKIP.some(skipRegex => skipRegex.test(prov.provider)))
+                    .map(prov => prov.provider);
+                if (feedNames) feedNames = [...new Set(feedNames)]; // Remove duplicates
                 if (feedNames?.length) {
                     const $rowDiv = $('<div>')
                         .css({ padding: '3px 4px 0px 4px', 'background-color': 'yellow' });
@@ -10054,7 +10127,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
 
     // Sets up error reporting
     function reportError() {
-        window.open('https://www.waze.com/forum/viewtopic.php?t=239985', '_blank');
+        window.open(URLS.forum, '_blank');
     }
 
     function updateUserInfo() {
@@ -10104,6 +10177,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
     }
 
     async function placeHarmonizerInit() {
+        interceptGoogleGetDetails();
         updateUserInfo();
         logDev('placeHarmonizerInit'); // Be sure to update User info before calling logDev()
 
@@ -10117,10 +10191,6 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
             // Report, but don't stop if ScriptUpdateMonitor fails.
             console.error('WMEPH:', ex);
         }
-
-        // Set up Google place info service.
-        _attributionEl = document.createElement('div');
-        _placesService = new google.maps.places.PlacesService(_attributionEl);
 
         _layer = W.map.venueLayer;
 
