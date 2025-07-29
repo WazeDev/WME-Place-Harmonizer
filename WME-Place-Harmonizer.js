@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name        WME Place Harmonizer
 // @namespace   WazeUSA
-// @version     2025.05.19.000
+// @version     2025.07.29.000
 // @description Harmonizes, formats, and locks a selected place
 // @author      WMEPH Development Group
 // @include     /^https:\/\/(www|beta)\.waze\.com\/(?!user\/)(.{2,6}\/)?editor\/?.*$/
@@ -42,7 +42,7 @@
         width: auto;
         padding: 8px !important;
     }
-    #WMEPH_banner .wmeph-btn { 
+    #WMEPH_banner .wmeph-btn {
         background-color: #fbfbfb;
         box-shadow: 0 2px 0 #aaa;
         border: solid 1px #bbb;
@@ -62,7 +62,7 @@
         height: 18px;
         box-shadow: 0 2px 0 #b3b3b3;
     }
-    
+
     #WMEPH_banner .banner-row {
         padding:2px 4px;
         cursor: default;
@@ -141,23 +141,23 @@
         max-height: 300px;
         overflow-y: auto;
         overflow-x: hidden;
-    } 
-    .wmeph-hr {
-        border-color: #ccc;
     }
     .wmeph-hr {
         border-color: #ccc;
     }
-    
+    .wmeph-hr {
+        border-color: #ccc;
+    }
+
     @keyframes highlight {
         0% {
-            background: #ffff99; 
+            background: #ffff99;
         }
         100% {
             background: none;
         }
     }
-    
+
     .highlight {
         animation: highlight 1.5s;
     }
@@ -4960,6 +4960,27 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                 }
             }
         },
+        MultipleExtProviders: class extends FlagBase {
+            get message() {
+                const count = this.args.venue.attributes.externalProviderIDs.length;
+                return `This place has ${count} external provider links. Data such as the website, phone number, hours, and/or ratings may be affected.`;
+            }
+
+            static venueIsFlaggable(args) {
+                // Check if the setting is disabled
+                if ($('#WMEPH-DisableMultipleExtProviderCheck').prop('checked')) {
+                    return false;
+                }
+
+                if (USER.rank >= 2 && args.venue.areExternalProvidersEditable() && !(args.categories.includes(CAT.PARKING_LOT) && args.ignoreParkingLots)) {
+                    const provIDs = args.venue.attributes.externalProviderIDs;
+                    if (provIDs && provIDs.length > 1) {
+                        return true;
+                    }
+                }
+                return false;
+            }
+        },
         UrlMissing: class extends WLActionFlag {
             static defaultSeverity = SEVERITY.BLUE;
             static get defaultMessage() {
@@ -6390,6 +6411,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
             Flag.SpecCaseMessage,
             Flag.ChangeToDoctorClinic,
             Flag.ExtProviderMissing,
+            Flag.MultipleExtProviders,
             Flag.AddCommonEVPaymentMethods,
             Flag.RemoveUncommonEVPaymentMethods,
             Flag.UrlMissing,
@@ -7609,6 +7631,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                 Flag.SFAliases.eval(args);
                 Flag.CatHotel.eval(args);
                 Flag.ExtProviderMissing.eval(args);
+                Flag.MultipleExtProviders.eval(args);
                 Flag.NewPlaceSubmit.eval(args);
                 Flag.ApprovalSubmit.eval(args);
                 Flag.TitleCaseName.eval(args);
@@ -9784,7 +9807,8 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
         multicall(setCheckedByDefault, [
             'WMEPH-ColorHighlighting',
             'WMEPH-ExcludePLADupes',
-            'WMEPH-DisablePLAExtProviderCheck'
+            'WMEPH-DisablePLAExtProviderCheck',
+            'WMEPH-DisableMultipleExtProviderCheck'
         ]);
 
         // Initialize settings checkboxes
@@ -9802,6 +9826,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
         if (USER.isDevUser || USER.isBetaUser || USER.rank >= 2) {
             multicall(initSettingsCheckbox, [
                 'WMEPH-DisablePLAExtProviderCheck',
+                'WMEPH-DisableMultipleExtProviderCheck',
                 'WMEPH-AddAddresses',
                 'WMEPH-EnableCloneMode',
                 'WMEPH-AutoLockRPPs'
@@ -9900,6 +9925,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
         createSettingsCheckbox($harmonizerTab, 'WMEPH-ShowPLAExitWhileClosed', 'Always ask if cars can exit parking lots');
         if (USER.isDevUser || USER.isBetaUser || USER.rank >= 2) {
             createSettingsCheckbox($harmonizerTab, 'WMEPH-DisablePLAExtProviderCheck', 'Disable check for "Google place link" on Parking Lot Areas');
+            createSettingsCheckbox($harmonizerTab, 'WMEPH-DisableMultipleExtProviderCheck', 'Disable check for multiple external provider links');
             createSettingsCheckbox($harmonizerTab, 'WMEPH-AddAddresses', 'Add detected address fields to places with no address');
             createSettingsCheckbox($harmonizerTab, 'WMEPH-EnableCloneMode', 'Enable place cloning tools');
             createSettingsCheckbox($harmonizerTab, 'WMEPH-AutoLockRPPs', 'Lock residential place points to region default');
