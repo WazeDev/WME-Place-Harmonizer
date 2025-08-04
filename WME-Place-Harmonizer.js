@@ -10402,7 +10402,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
   }
 
   function getOLMapExtent() {
-    let extent = W.map.getExtent();
+    let extent = sdk.Map.getMapExtent();
     if (Array.isArray(extent)) {
       extent = new OpenLayers.Bounds(extent);
       extent.transform("EPSG:4326", "EPSG:3857");
@@ -12987,7 +12987,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
         const wmEvts = W.map.events
           ? W.map.events
           : W.map.getMapEventsListener();
-        _wmephMousePosition = W.map.getLonLatFromPixel(
+        _wmephMousePosition = sdk.Map.getLonLatFromPixel(
           wmEvts.getMousePosition(e)
         );
       })
