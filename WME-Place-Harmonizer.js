@@ -30,6 +30,14 @@
 (function main() {
   "use strict";
 
+  window.SDK_INITIALIZED.then(setupSDK);
+
+  let sdk;
+
+  function setupSDK() {
+    sdk = getWmeSdk({ scriptId: "wme-place-harmonizer", scriptName: "WMEPH" });
+  }
+
   // Script update info
 
   // BE SURE TO SET THIS TO NULL OR AN EMPTY STRING WHEN RELEASING A NEW UPDATE.
