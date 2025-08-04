@@ -856,9 +856,12 @@
       // });
       // observer.observe(document.getElementById('edit-panel'), { childList: true, subtree: true });
 
-      W.selectionManager.events.register("selectionchanged", null, () =>
-        errorHandler(() => this.reset())
-      );
+      sdk.Events.on({
+        eventName: "wme-selection-changed",
+        eventHandler: () => {
+          errorHandler(() => this.reset());
+        },
+      });
     },
     getTabElement(tabName) {
       let tabText;
@@ -13068,14 +13071,19 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
     // Setup highlight colors
     initializeHighlights();
 
-    W.model.venues.on("objectschanged", () =>
-      errorHandler(() => {
-        if ($("#WMEPH_banner").length > 0) {
-          updateServicesChecks();
-          assembleServicesBanner();
-        }
-      })
-    );
+    sdk.Events.trackDataModelEvents({ dataModelName: "venues" });
+
+    sdk.Events.on({
+      eventName: "wme-data-model-objects-changed",
+      eventHandler: () => {
+        errorHandler(() => {
+          if ($("#WMEPH_banner").length > 0) {
+            updateServicesChecks();
+            assembleServicesBanner();
+          }
+        });
+      },
+    });
 
     log("Starting Highlighter");
     bootstrapWmephColorHighlights();
@@ -13084,15 +13092,25 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
     if ($("#WMEPH-ShowFilterHighlight").prop("checked")) {
       processFilterHighlights();
     }
-    W.model.venues.on("objectschanged", () =>
-      errorHandler(processFilterHighlights)
-    );
-    W.model.venues.on("objectsremoved", () =>
-      errorHandler(clearFilterHighlights)
-    );
-    W.model.venues.on("objectsadded", () =>
-      errorHandler(processFilterHighlights)
-    );
+
+    sdk.Events.on({
+      eventName: "wme-data-model-objects-changed",
+      eventHandler: () => {
+        errorHandler(processFilterHighlights);
+      },
+    });
+    sdk.Events.on({
+      eventName: "wme-data-model-objects-removed",
+      eventHandler: () => {
+        errorHandler(clearFilterHighlights);
+      },
+    });
+    sdk.Events.on({
+      eventName: "wme-data-model-objects-added",
+      eventHandler: () => {
+        errorHandler(processFilterHighlights);
+      },
+    });
   } // END placeHarmonizer_init function
 
   function waitForReady() {
