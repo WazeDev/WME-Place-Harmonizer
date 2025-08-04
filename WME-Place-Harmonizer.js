@@ -2696,9 +2696,9 @@
   function zoomPlace() {
     const venue = getSelectedVenue();
     if (venue) {
-      W.map.moveTo(getVenueLonLat(venue), 7);
+      sdk.Map.setMapCenter(getVenueLonLat(venue), 7);
     } else {
-      W.map.moveTo(_wmephMousePosition, 5);
+      sdk.Map.setMapCenter(_wmephMousePosition, 5);
     }
   }
 
@@ -3891,9 +3891,9 @@
         let result = null;
         if (!args.highlightOnly) {
           if (!args.addr.state || !args.addr.country) {
-            if (W.map.getZoom() < 4) {
+            if (sdk.Map.getZoomLevel() < 4) {
               if ($("#WMEPH-EnableIAZoom").prop("checked")) {
-                W.map.moveTo(getVenueLonLat(args.venue), 5);
+                sdk.Map.setMapCenter(getVenueLonLat(args.venue), 5);
               } else {
                 WazeWrap.Alerts.error(
                   SCRIPT_NAME,
