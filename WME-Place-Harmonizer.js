@@ -30,7 +30,7 @@
 (function main() {
   "use strict";
 
-  window.SDK_INITIALIZED.then(setupSDK);
+  unsafeWindow.SDK_INITIALIZED.then(setupSDK);
 
   let sdk;
 
