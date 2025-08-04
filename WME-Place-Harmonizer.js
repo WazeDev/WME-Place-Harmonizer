@@ -13026,9 +13026,12 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
     await addWmephTab(); // initialize the settings tab
 
     // Event listeners
-    W.selectionManager.events.register("selectionchanged", null, () => {
-      logDev("selectionchanged");
-      errorHandler(updateWmephPanel, true);
+    sdk.Events.on({
+      eventName: "wme-selection-changed",
+      eventHandler: () => {
+        logDev("selectionchanged");
+        errorHandler(updateWmephPanel, true);
+      },
     });
     W.model.venues.on("objectssynced", () => errorHandler(destroyDupeLabels));
     W.model.venues.on("objectssynced", (e) => errorHandler(() => syncWL(e)));
