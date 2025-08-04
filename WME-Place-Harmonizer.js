@@ -13033,7 +13033,10 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
         errorHandler(updateWmephPanel, true);
       },
     });
-    W.model.venues.on("objectssynced", () => errorHandler(destroyDupeLabels));
+    sdk.Events.on({
+      eventName: "wme-data-model-objects-saved",
+      eventHandler: () => {errorHandler(destroyDupeLabels)},
+    });
     W.model.venues.on("objectssynced", (e) => errorHandler(() => syncWL(e)));
     W.model.venues.on("objectschanged", (venues) =>
       errorHandler(onVenuesChanged, venues)
