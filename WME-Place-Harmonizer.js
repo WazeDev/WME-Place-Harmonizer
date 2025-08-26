@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name        WME Place Harmonizer Beta
 // @namespace   WazeUSA
-// @version     2025.08.03.001
+// @version     2025.08.26.001
 // @description Harmonizes, formats, and locks a selected place
 // @author      WMEPH Development Group
 // @include     /^https:\/\/(www|beta)\.waze\.com\/(?!user\/)(.{2,6}\/)?editor\/?.*$/
@@ -33,9 +33,33 @@
   unsafeWindow.SDK_INITIALIZED.then(setupSDK);
 
   let sdk;
+  let severityById = {};
 
   function setupSDK() {
     sdk = getWmeSdk({ scriptId: "wme-place-harmonizer", scriptName: "WMEPH" });
+  }
+  // Filler functions that work with new SDK
+  function hasPermission(venue, permission = null) {
+      let permissionsQuery = {venueId: venue.id};
+      if (permission) {
+          permissionsQuery.permission = permission;
+      }
+      return sdk.DataModel.Venues.hasPermissions(permissionsQuery);
+  };
+  function isChargingStation(venue) {
+      return venue.categories.includes('CHARGING_STATION')
+  };
+  function getVenueAddress(venue) {
+      return sdk.DataModel.Venues.getAddress({"venueId": venue.id});
+  };
+  function getSegmentAddress(segment) {
+      return sdk.DataModel.Segments.getAddress({"segmentId": segment.id});
+  }
+  function isParkingLot(venue) {
+      return venue.categories.includes('PARKING_LOT')
+  };
+  function isPoint(venue) {
+      return venue.geometry.type === "Point";
   }
 
   // Script update info
@@ -50,7 +74,7 @@
         width: auto;
         padding: 8px !important;
     }
-    #WMEPH_banner .wmeph-btn { 
+    #WMEPH_banner .wmeph-btn {
         background-color: #fbfbfb;
         box-shadow: 0 2px 0 #aaa;
         border: solid 1px #bbb;
@@ -70,7 +94,7 @@
         height: 18px;
         box-shadow: 0 2px 0 #b3b3b3;
     }
-    
+
     #WMEPH_banner .banner-row {
         padding:2px 4px;
         cursor: default;
@@ -149,23 +173,23 @@
         max-height: 300px;
         overflow-y: auto;
         overflow-x: hidden;
-    } 
-    .wmeph-hr {
-        border-color: #ccc;
     }
     .wmeph-hr {
         border-color: #ccc;
     }
-    
+    .wmeph-hr {
+        border-color: #ccc;
+    }
+
     @keyframes highlight {
         0% {
-            background: #ffff99; 
+            background: #ffff99;
         }
         100% {
             background: none;
         }
     }
-    
+
     .highlight {
         animation: highlight 1.5s;
     }
@@ -922,7 +946,7 @@
       const checkAttribute = (name) => {
         if (
           newAttributes.hasOwnProperty(name) &&
-          JSON.stringify(venue.attributes[name]) !==
+          JSON.stringify(venue[name]) !==
             JSON.stringify(newAttributes[name])
         ) {
           UPDATED_FIELDS[name].updated = true;
@@ -1589,7 +1613,7 @@
 
       // Name Matching
       if (this.regexNameMatch) {
-        nameMatch = this.regexNameMatch.test(venue.attributes.name);
+        nameMatch = this.regexNameMatch.test(venue.name);
       } else if (this.strMatchAny || this.primaryCategory === CAT.HOTEL) {
         // Match any part of WME name with either the PNH name or any spaced names
         matchInfo.allowMultiMatch = true; // TODO: This can probably be removed
@@ -1764,7 +1788,7 @@
       ) {
         return ["NoMatch"];
       }
-      if (venue.isParkingLot()) {
+      if (isParkingLot(venue)) {
         return ["NoMatch"];
       }
       /** @type {PnhEntry[]} */
@@ -2470,40 +2494,52 @@
   }
 
   function getSelectedVenue() {
-    const objects = W.selectionManager.getSelectedDataModelObjects();
+    // Old W method
+    //const objects = W.selectionManager.getSelectedDataModelObjects();
+    let selection = sdk.Editing.getSelection();
+    if(!selection) {
+        return null;
+    }
+    if(selection.objectType !== "venue") {
+        return null;
+    }
+    const venue = sdk.DataModel.Venues.getById({"venueId": selection.ids[0]})
     // Be sure to check for features.length === 1, in case multiple venues are currently selected.
-    return objects.length === 1 && objects[0].type === "venue"
-      ? objects[0]
-      : null;
+    return venue ? venue : null;
   }
 
   function getVenueLonLat(venue) {
-    const pt = venue.getOLGeometry().getCentroid();
-    return new OpenLayers.LonLat(pt.x, pt.y);
+    //const pt = venue.getOLGeometry().getCentroid();
+    //return new OpenLayers.LonLat(pt.x, pt.y);
+    const pt = venue.geometry;
+    return {lon: pt.coordinates[0], lat: pt.coordinates[1]}
   }
 
   function isAlwaysOpen(venue) {
-    return is247Hours(venue.attributes.openingHours);
+    // use new venue object
+    return is247Hours(venue.openingHours);
   }
 
   function is247Hours(openingHours) {
     return (
       openingHours.length === 1 &&
       openingHours[0].days.length === 7 &&
-      openingHours[0].isAllDay()
+      (openingHours[0].fromHour === "00:00" && openingHours[0].toHour === "00:00")
     );
   }
 
   function isEmergencyRoom(venue) {
+    // use new venue object
     return /(?:emergency\s+(?:room|department|dept))|\b(?:er|ed)\b/i.test(
-      venue.attributes.name
+      venue.name
     );
   }
 
   function isRestArea(venue) {
+    // use new venue object
     return (
-      venue.attributes.categories.includes(CAT.REST_AREAS) &&
-      /rest\s*area/i.test(venue.attributes.name)
+      venue.categories.includes(CAT.REST_AREAS) &&
+      /rest\s*area/i.test(venue.name)
     );
   }
 
@@ -2709,7 +2745,7 @@
     const newGeometry = structuredClone(venue.getGeometry());
     const moveNegative = Math.random() > 0.5;
     const nudgeDistance = 0.00000001 * (moveNegative ? -1 : 1);
-    if (venue.isPoint()) {
+    if (isPoint(venue)) {
       newGeometry.coordinates[0] += nudgeDistance;
     } else {
       // Be sure to edit the 2nd coordinate. Editing the 1st would also require editing the last,
@@ -2782,10 +2818,7 @@
   //  Whitelist a flag. Returns true if successful. False if not.
   function whitelistAction(venueID, wlKeyName) {
     const venue = getSelectedVenue();
-    let addressTemp = venue.getAddress();
-    if (addressTemp.hasOwnProperty("attributes")) {
-      addressTemp = addressTemp.attributes;
-    }
+    let addressTemp = getVenueAddress(venue);
     if (!addressTemp.country) {
       WazeWrap.Alerts.error(
         SCRIPT_NAME,
@@ -2793,11 +2826,7 @@
       );
       return false;
     }
-    const centroid = venue.getOLGeometry().getCentroid();
-    const venueGPS = OpenLayers.Layer.SphericalMercator.inverseMercator(
-      centroid.x,
-      centroid.y
-    );
+    const venueGPS = getVenueLonLat(venue);
     if (!_venueWhitelist.hasOwnProperty(venueID)) {
       // If venue is NOT on WL, then add it.
       _venueWhitelist[venueID] = {};
@@ -2812,7 +2841,7 @@
     _buttonBanner2.clearWL.active = true;
 
     // Remove venue from the results cache so it can be updated again.
-    delete _resultsCache[venue.attributes.id];
+    delete _resultsCache[venue.id];
     return true;
   }
 
@@ -2879,21 +2908,21 @@
     );
   }
 
-  function onVenuesChanged(venueProxies) {
+  function onVenuesChanged(venueProxies = null) {
     logDev("onVenuesChanged");
     deleteDupeLabel();
 
     const venue = getSelectedVenue();
-    if (
+    if ( venueProxies &&
       venueProxies
-        .map((proxy) => proxy.attributes.id)
-        .includes(venue?.attributes.id)
+        .map((proxy) => proxy.id)
+        .includes(venue?.id)
     ) {
       if ($("#WMEPH_banner").length) {
         const actions = W.model.actionManager.getActions();
         const lastAction = actions[actions.length - 1];
         if (
-          lastAction?._venue?.attributes?.id === venue.attributes.id &&
+          lastAction?._venue?.id === venue.id &&
           lastAction._navigationPoint
         ) {
           harmonizePlaceGo(venue, "harmonize");
@@ -2911,7 +2940,7 @@
   function syncWL(newVenues) {
     newVenues.forEach((newVenue) => {
       const oldID = newVenue._prevID;
-      const newID = newVenue.attributes.id;
+      const newID = newVenue.id;
       if (oldID && newID && _venueWhitelist[oldID]) {
         _venueWhitelist[newID] = _venueWhitelist[oldID];
         delete _venueWhitelist[oldID];
@@ -2968,7 +2997,7 @@
           value,
           evaluate(feature) {
             const attr = feature.attributes.wazeFeature?._wmeObject?.attributes;
-            return attr?.wmephSeverity === this.value;
+            return severityById[attr.id] === this.value;
           },
         }),
         symbolizer,
@@ -3101,7 +3130,8 @@
           value,
           evaluate(feature) {
             const attr = feature.attributes.wazeFeature?._wmeObject?.attributes;
-            return attr?.wmephSeverity === this.value;
+            if (!attr) {return true;}
+            return severityById[attr.id] === this.value;
           },
         }),
         symbolizer,
@@ -3312,16 +3342,16 @@
     const disableRankHL = $("#WMEPH-DisableRankHL").prop("checked");
 
     venues.forEach((venue) => {
-      if (venue && venue.type === "venue" && venue.attributes) {
+      if (venue) {
         // Highlighting logic would go here
         // Severity can be: 0, 'lock', 1, 2, 3, 4, or 'high'. Set to
         // anything else to use default WME style.
         if (
           doHighlight &&
-          !(disableRankHL && venue.attributes.lockRank > USER.rank - 1)
+          !(disableRankHL && venue.lockRank > USER.rank - 1)
         ) {
           try {
-            const { id } = venue.attributes;
+            const { id } = venue;
             let severity;
             let cachedResult;
             // eslint-disable-next-line no-cond-assign
@@ -3329,20 +3359,22 @@
               force ||
               !isNaN(id) ||
               (cachedResult = _resultsCache[id]) === undefined ||
-              venue.updatedOn > cachedResult.u
+              venue.modificationData.updatedOn > cachedResult.u
             ) {
               severity = harmonizePlaceGo(venue, "highlight");
               if (isNaN(id))
-                _resultsCache[id] = { s: severity, u: venue.updatedOn || -1 };
+                _resultsCache[id] = { s: severity, u: venue.modificationData.updatedOn || -1 };
             } else {
               severity = cachedResult.s;
             }
-            venue.attributes.wmephSeverity = severity;
+            severityById[venue.id] = severity;
+            //venue.wmephSeverity = severity;
           } catch (err) {
             console.error("WMEPH highlight error: ", err);
           }
         } else {
-          venue.attributes.wmephSeverity = "default";
+           severityById[venue.id] = "default";
+          //venue.wmephSeverity = "default";
         }
       }
     });
@@ -3358,7 +3390,8 @@
 
     const venue = getSelectedVenue();
     if (venue) {
-      venue.attributes.wmephSeverity = harmonizePlaceGo(venue, "highlight");
+      severityById[venue.id] =  harmonizePlaceGo(venue, "highlight");
+      //venue.wmephSeverity = harmonizePlaceGo(venue, "highlight");
       _servicesBanner = storedBannServ;
       _buttonBanner2 = storedBannButt2;
     }
@@ -3374,33 +3407,43 @@
   function bootstrapWmephColorHighlights() {
     if (localStorage.getItem("WMEPH-ColorHighlighting") === "1") {
       // Add listeners
-      W.model.venues.on("objectschanged", (e) =>
-        errorHandler(() => {
+      //W.model.venues.on("objectschanged", (e) =>
+      //  errorHandler(() => {
+      //    if (!_disableHighlightTest) {
+      //      applyHighlightsTest(e, true);
+      //      _layer.redraw();
+      //    }
+      //  })
+      //);
+      sdk.Events.on({
+      eventName: "wme-data-model-objects-changed",
+      eventHandler: (e) => { errorHandler(() => {
           if (!_disableHighlightTest) {
-            applyHighlightsTest(e, true);
+            applyHighlightsTest(sdk.DataModel.Venues.getById({venueId: e.objectIds[0]}), true);
             _layer.redraw();
           }
-        })
-      );
+        })}
+    });
 
       // 2023-03-30 - beforefeaturesadded no longer works because data model objects may be reloaded without re-adding map features.
       // The wmephSeverity property is stored in the venue data model object. One workaround to look into would be to
       // store the wmephSeverity in the feature.
       // W.map.venueLayer.events.register('beforefeaturesadded', null, e => errorHandler(() => applyHighlightsTest(e.features.map(f => f.model))));
-      W.model.venues.on("objectsadded", (venues) => {
-        applyHighlightsTest(venues);
-        _layer.redraw();
-      });
+      sdk.Events.on({
+      eventName: "wme-data-model-objects-added",
+      eventHandler: () => { applyHighlightsTest(sdk.DataModel.Venues.getAll());
+        _layer.redraw();},
+    });
 
       // Clear the cache (highlight severities may need to be updated).
       _resultsCache = {};
 
       // Apply the colors
-      applyHighlightsTest(W.model.venues.getObjectArray());
+      applyHighlightsTest(sdk.DataModel.Venues.getAll());
       _layer.redraw();
     } else {
       // reset the colors to default
-      applyHighlightsTest(W.model.venues.getObjectArray());
+      applyHighlightsTest(sdk.DataModel.Venues.getAll());
       _layer.redraw();
     }
   }
@@ -3589,13 +3632,8 @@
       if (!dontHighlightFields) {
         UPDATED_FIELDS.checkNewAttributes(newAttributes, venue);
       }
-
-      const action = new UpdateObject(venue, newAttributes);
-      if (actions) {
-        actions.push(action);
-      } else {
-        W.model.actionManager.add(action);
-      }
+      newAttributes.venueId = venue.id;
+      sdk.DataModel.Venues.updateVenue(newAttributes);
     }
     if (runHarmonizer)
       setTimeout(() => harmonizePlaceGo(venue, "harmonize"), 0);
@@ -3627,7 +3665,7 @@
         }
       }
       if (!services) {
-        services = venue.attributes.services.slice();
+        services = venue.services.slice();
       } else {
         noAdd = services.includes(servID);
       }
@@ -3819,7 +3857,7 @@
 
     WLaction() {
       const venue = getSelectedVenue();
-      if (whitelistAction(venue.attributes.id, this.constructor.WL_KEY)) {
+      if (whitelistAction(venue.id, this.constructor.WL_KEY)) {
         harmonizePlaceGo(venue, "harmonize");
       }
     }
@@ -3933,10 +3971,10 @@
         } else if (!args.addr.state || !args.addr.country) {
           // only highlighting
           result = { exit: true };
-          if (args.venue.attributes.adLocked) {
+          if (args.venue.isAdLocked) {
             result.severity = "adLock";
           } else {
-            const cat = args.venue.attributes.categories;
+            const cat = args.venue.categories;
             if (
               containsAny(cat, [
                 CAT.HOSPITAL_MEDICAL_CARE,
@@ -4050,8 +4088,7 @@
       static venueIsFlaggable(args) {
         return (
           args.categories.includes(CAT.PARKING_LOT) &&
-          args.venue.attributes.categoryAttributes?.PARKING_LOT?.parkingType ===
-            "PUBLIC"
+          sdk.DataModel.Venues.ParkingLot.getParkingLotType({venueId: args.venue.id}) === "PUBLIC"
         );
       }
 
@@ -4085,7 +4122,7 @@
         return (
           args.categories.includes(CAT.PARKING_LOT) &&
           !args.nameBase?.replace(/[^A-Za-z0-9]/g, "").length &&
-          args.venue.attributes.lockRank < 2
+          args.venue.lockRank < 2
         );
       }
     },
@@ -4097,10 +4134,10 @@
       static defaultWLTooltip = "Whitelist non-standard PLA name";
 
       static venueIsFlaggable(args) {
-        if (!this.isWhitelisted(args) && args.venue.isParkingLot()) {
-          const name = args.venue.getName();
+        if (!this.isWhitelisted(args) && isParkingLot(args.venue)) {
+          const name = args.venue.name;
           if (name) {
-            const state = args.venue.getAddress().getStateName();
+            const state = getVenueAddress(args.venue).state.name;
             const re =
               state === "Quebec"
                 ? /\b(parking|stationnement)\b/i
@@ -4126,7 +4163,7 @@
           !args.highlightOnly &&
           !this.isWhitelisted(args) &&
           !args.categories.includes(CAT.RESIDENCE_HOME) &&
-          args.addr?.state.getName() === "Indiana" &&
+          args.addr?.state.name === "Indiana" &&
           /\b(beers?|wines?|liquors?|spirits)\b/i.test(args.nameBase) &&
           !args.openingHours.some((entry) => entry.days.includes(0))
         );
@@ -4229,7 +4266,11 @@
         return args.categories
           .map((cat) => args.pnhCategoryInfos.getById(cat))
           .filter((pnhCategoryInfo) => {
-            const rareLocalities = pnhCategoryInfo.rare;
+            let rareLocalities;
+            try {
+                rareLocalities = pnhCategoryInfo.rare;
+            }
+            catch {return false}
             if (
               rareLocalities.includes(args.state2L) ||
               rareLocalities.includes(args.region) ||
@@ -4384,16 +4425,14 @@
       static defaultButtonTooltip = "Add EVCS alternate name";
 
       static venueIsFlaggable(args) {
-        const evcsAttr =
-          args.venue.attributes.categoryAttributes?.CHARGING_STATION;
+        const stationAccessType = sdk.DataModel.Venues.ChargingStation.getChargersAccessType({venueId: args.venue.id});
         return (
-          evcsAttr &&
           args.categories.includes(CAT.CHARGING_STATION) &&
           !args.aliases.some(
             (alias) => alias.toLowerCase() === "ev charging station"
           ) &&
-          evcsAttr.accessType !== "PRIVATE" &&
-          !args.venue.getName().toLowerCase().includes("(private)")
+          stationAccessType !== "PRIVATE" &&
+          !args.venue.name.toLowerCase().includes("(private)")
         );
       }
 
@@ -4436,11 +4475,10 @@
       }
 
       static venueIsFlaggable(args) {
-        const evcsAttr =
-          args.venue.attributes.categoryAttributes?.CHARGING_STATION;
+        const evcsCostType = sdk.DataModel.Venues.ChargingStation.getCostType({venueId: args.venue.id});
         return (
           args.categories.includes(CAT.CHARGING_STATION) &&
-          (!evcsAttr?.costType || evcsAttr.costType === "COST_TYPE_UNSPECIFIED")
+          (!evcsCostType || evcsCostType === "COST_TYPE_UNSPECIFIED")
         );
       }
 
@@ -4672,7 +4710,7 @@
 
         const makeGreen =
           Flag.PointNotArea.isWhitelisted(args) ||
-          args.venue.attributes.lockRank >= args.defaultLockLevel;
+          args.venue.lockRank >= args.defaultLockLevel;
 
         if (makeGreen) {
           showWL = false;
@@ -4688,7 +4726,7 @@
 
       static venueIsFlaggable(args) {
         return (
-          !args.venue.isPoint() &&
+          !isPoint(args.venue) &&
           (args.categories.includes(CAT.RESIDENCE_HOME) ||
             (args.maxAreaSeverity > SEVERITY.BLUE &&
               !args.categories.includes(CAT.REST_AREAS)))
@@ -4696,7 +4734,7 @@
       }
 
       action() {
-        if (this.args.venue.isResidential()) {
+        if (this.args.venue.isResidential) {
           // 7/1/2022 - Not sure if this is necessary? Can residence be converted to area? Either way, updateFeatureGeometry function no longer works.
           // const centroid = venue.geometry.getCentroid();
           // updateFeatureGeometry(venue, new OpenLayers.Geometry.Point(centroid.x, centroid.y));
@@ -4726,7 +4764,7 @@
 
         const makeGreen =
           Flag.AreaNotPoint.isWhitelisted(args) ||
-          args.venue.attributes.lockRank >= args.defaultLockLevel ||
+          args.venue.lockRank >= args.defaultLockLevel ||
           (args.maxPointSeverity === SEVERITY.BLUE &&
             Flag.AreaNotPoint.#hasCollegeInName(args.nameBase));
 
@@ -4744,7 +4782,7 @@
 
       static venueIsFlaggable(args) {
         return (
-          args.venue.isPoint() &&
+          isPoint(args.venue) &&
           (args.maxPointSeverity > SEVERITY.GREEN ||
             args.categories.includes(CAT.REST_AREAS))
         );
@@ -4801,7 +4839,7 @@
 
         if (
           this.args.categories.includes(CAT.PARKING_LOT) &&
-          this.args.venue.attributes.lockRank < 2
+          this.args.venue.lockRank < 2
         ) {
           if (USER.rank < 3) {
             msg += "Request an R3+ lock to confirm no HN.";
@@ -4824,7 +4862,7 @@
           showWL = false;
         } else if (args.categories.includes(CAT.PARKING_LOT)) {
           showWL = false;
-          if (args.venue.attributes.lockRank < 2) {
+          if (args.venue.lockRank < 2) {
             noLock = true;
             severity = SEVERITY.BLUE;
           } else {
@@ -4862,11 +4900,12 @@
         const hnTemp = newHN.replace(/[^\d]/g, "");
         const hnTempDash = newHN.replace(/[^\d-]/g, "");
         if (hnTemp > 0 && hnTemp < 1000000) {
-          const action = new UpdateObject(this.args.venue, {
-            houseNumber: hnTempDash,
-          });
-          action.wmephDescription = `Changed house # to: ${hnTempDash}`;
-          harmonizePlaceGo(this.args.venue, "harmonize", [action]); // Rerun the script to update fields and lock
+          //const action = new UpdateObject(this.args.venue, {
+          //  houseNumber: hnTempDash,
+          //});
+          sdk.DataModel.Venues.updateAddress({houseNumber: hnTempDash, venueId: this.args.venue.id});
+          //action.wmephDescription = `Changed house # to: ${hnTempDash}`;
+          harmonizePlaceGo(this.args.venue, "harmonize"); // Rerun the script to update fields and lock
           UPDATED_FIELDS.address.updated = true;
         } else {
           Flag.HnMissing.#getTextbox()
@@ -5021,7 +5060,7 @@
       static venueIsFlaggable(args) {
         return (
           args.addr.city &&
-          (!args.addr.street || args.addr.street.attributes.isEmpty) &&
+          (!args.addr.street || args.addr.street.isEmpty) &&
           ![
             CAT.BRIDGE,
             CAT.ISLAND,
@@ -5075,7 +5114,7 @@
 
       static venueIsFlaggable(args) {
         return (
-          (!args.addr.city || args.addr.city.attributes.isEmpty) &&
+          (!args.addr.city || args.addr.city.isEmpty) &&
           ![
             CAT.BRIDGE,
             CAT.ISLAND,
@@ -5184,7 +5223,7 @@
         }
 
         // strip ATM from name if present
-        const originalName = this.args.venue.getName();
+        const originalName = this.args.venue.name;
         const newName = originalName
           .replace(/[- (]*ATM[- )]*/gi, " ")
           .replace(/^ /g, "")
@@ -5237,7 +5276,7 @@
       action() {
         const newAttributes = {};
 
-        const originalName = this.args.venue.getName();
+        const originalName = this.args.venue.name;
         if (!/\bATM\b/i.test(originalName)) {
           newAttributes.name = `${originalName} ATM`;
         }
@@ -5282,7 +5321,7 @@
         }
 
         // strip ATM from name if present
-        const originalName = this.args.venue.getName();
+        const originalName = this.args.venue.name;
         let newName = originalName
           .replace(/[- (]*atm[- )]*/gi, " ")
           .replace(/^ /g, "")
@@ -5313,7 +5352,7 @@
         let updatedBy;
         return (
           !args.categories.includes(CAT.RESIDENCE_HOME) &&
-          (updatedBy = args.venue.attributes.updatedBy) &&
+          (updatedBy = args.venue.modificationData.updatedBy) &&
           /^ign_/i.test(W.model.users.getObjectById(updatedBy)?.userName)
         );
       }
@@ -5336,20 +5375,14 @@
 
       static venueIsFlaggable(args) {
         let flaggable =
-          args.venue.isUnchanged() &&
+          // CHECK_THIS: No unchanged function in SDK
+          //args.venue.isUnchanged() &&
           !args.categories.includes(CAT.RESIDENCE_HOME);
-        if (flaggable) {
-          const lastUpdatedById =
-            args.venue.attributes.updatedBy ?? args.venue.attributes.createdBy;
-          flaggable = this.#botIds.includes(lastUpdatedById);
-          if (!flaggable) {
-            const lastUpdatedByName =
-              W.model.users.getObjectById(lastUpdatedById)?.userName;
+          if (flaggable) {
             flaggable = this.#botNames.some((botName) =>
-              botName.test(lastUpdatedByName)
+              botName.test(args.venue.modificationData.updatedBy)
             );
           }
-        }
         return flaggable;
       }
 
@@ -5420,7 +5453,7 @@
 
       static venueIsFlaggable(args) {
         return (
-          !args.venue.isResidential() &&
+          !args.venue.isResidential &&
           args.totalSeverity < SEVERITY.RED &&
           !this.isWhitelisted(args) &&
           /(google|yelp)/i.test(args.description)
@@ -5614,7 +5647,7 @@
         return (
           args.categories.includes(CAT.GAS_STATION) &&
           !args.brand &&
-          args.venue.attributes.lockRank < args.levelToLock
+          args.venue.lockRank < args.levelToLock
         );
       }
     },
@@ -5643,16 +5676,15 @@
       static defaultWLTooltip = "Whitelist common EV payment types";
 
       get message() {
-        const stationAttr =
-          this.args.venue.attributes.categoryAttributes.CHARGING_STATION;
-        const { network } = stationAttr;
+        const stationMethods = sdk.DataModel.Venues.ChargingStation.getPaymentMethods({venueId: this.args.venue.id})
+        const network = sdk.DataModel.Venues.ChargingStation.getNetwork({venueId: this.args.venue.id});
         let msg = `These common payment methods for the ${network} network are missing. Verify if they are needed here:`;
-        this.originalNetwork = stationAttr.network;
+        this.originalNetwork = network;
         const translations =
           I18n.translations[I18n.locale].edit.venue.category_attributes
             .payment_methods;
         const list = COMMON_EV_PAYMENT_METHODS[network]
-          .filter((method) => !stationAttr.paymentMethods?.includes(method))
+          .filter((method) => !stationMethods?.includes(method))
           .map((method) => `- ${translations[method]}`)
           .join("<br>");
         msg += `<br>${list}<br>`;
@@ -5664,11 +5696,10 @@
           args.categories.includes(CAT.CHARGING_STATION) &&
           !this.isWhitelisted(args)
         ) {
-          const stationAttr =
-            args.venue.attributes.categoryAttributes.CHARGING_STATION;
-          const network = stationAttr?.network;
+            const stationMethods = sdk.DataModel.Venues.ChargingStation.getPaymentMethods({venueId: args.venue.id});
+            const network = sdk.DataModel.Venues.ChargingStation.getNetwork({venueId: args.venue.id});
           return !!COMMON_EV_PAYMENT_METHODS[network]?.some(
-            (method) => !stationAttr.paymentMethods?.includes(method)
+            (method) => !stationMethods?.includes(method)
           );
         }
         return false;
@@ -5685,9 +5716,8 @@
           return;
         }
 
-        const stationAttr =
-          this.args.venue.attributes.categoryAttributes.CHARGING_STATION;
-        const network = stationAttr?.network;
+        const stationMethods = sdk.DataModel.Venues.ChargingStation.getPaymentMethods({venueId: this.args.venue.id})
+            const network = sdk.DataModel.Venues.ChargingStation.getNetwork({venueId: this.args.venue.id});
         if (network !== this.originalNetwork) {
           WazeWrap.Alerts.info(
             SCRIPT_NAME,
@@ -5698,11 +5728,12 @@
           return;
         }
 
-        const newPaymentMethods = stationAttr.paymentMethods?.slice() ?? [];
+        const newPaymentMethods = stationMethods?.slice() ?? [];
         const commonPaymentMethods = COMMON_EV_PAYMENT_METHODS[network];
         commonPaymentMethods.forEach((method) => {
-          if (!newPaymentMethods.includes(method))
+          if (!newPaymentMethods.includes(method)) {
             newPaymentMethods.push(method);
+          }
         });
 
         const categoryAttrClone = JSON.parse(
@@ -5753,12 +5784,11 @@
           args.categories.includes(CAT.CHARGING_STATION) &&
           !this.isWhitelisted(args)
         ) {
-          const stationAttr =
-            args.venue.attributes.categoryAttributes.CHARGING_STATION;
-          const network = stationAttr?.network;
+          const stationMethods = sdk.DataModel.Venues.ChargingStation.getPaymentMethods({venueId: args.venue.id});
+            const network = sdk.DataModel.Venues.ChargingStation.getNetwork({venueId: args.venue.id});
           return (
             COMMON_EV_PAYMENT_METHODS.hasOwnProperty(network) &&
-            !!stationAttr?.paymentMethods?.some(
+            !!stationMethods?.some(
               (method) => !COMMON_EV_PAYMENT_METHODS[network]?.includes(method)
             )
           );
@@ -5776,9 +5806,8 @@
           return;
         }
 
-        const stationAttr =
-          this.args.venue.attributes.categoryAttributes.CHARGING_STATION;
-        const network = stationAttr?.network;
+        const stationMethods = sdk.DataModel.Venues.ChargingStation.getPaymentMethods({venueId: this.args.venue.id});
+            const network = sdk.DataModel.Venues.ChargingStation.getNetwork({venueId: this.args.venue.id});
         if (network !== this.originalNetwork) {
           WazeWrap.Alerts.info(
             SCRIPT_NAME,
@@ -5791,7 +5820,7 @@
 
         const commonPaymentMethods = COMMON_EV_PAYMENT_METHODS[network];
         const newPaymentMethods = (
-          stationAttr.paymentMethods?.slice() ?? []
+          stationMethods?.slice() ?? []
         ).filter((method) => commonPaymentMethods?.includes(method));
 
         const categoryAttrClone = JSON.parse(
@@ -6087,12 +6116,12 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
         if (args.showDispNote && !isNullOrWhitespace(message)) {
           if (args.pnhMatch.pharmhours) {
             showFlag = !/\bpharmacy\b\s*\bh(ou)?rs\b/i.test(
-              args.venue.attributes.description
+              args.venue.description
             );
             // TODO: figure out what drivethruhours was supposed to be in PNH speccase column
           } else if (args.pnhMatch.drivethruhours) {
             showFlag = !/\bdrive[\s-]?(thru|through)\b\s*\bh(ou)?rs\b/i.test(
-              args.venue.attributes.description
+              args.venue.description
             );
           } else {
             showFlag = true;
@@ -6124,7 +6153,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
 
       action() {
         if (this.actionType === "changeToDoctorClinic") {
-          const categories = uniq(this.venue.attributes.categories.slice());
+          const categories = uniq(this.venue.categories.slice());
           const indexOfHospital = categories.indexOf(CAT.HOSPITAL_URGENT_CARE);
           if (indexOfHospital > -1) {
             categories[indexOfHospital] = CAT.DOCTOR_CLINIC;
@@ -6181,17 +6210,19 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
         const { venue } = this.args;
         if (this.args.isLocked) {
           let lastUpdated;
-          if (venue.isNew()) {
-            lastUpdated = Date.now();
-          } else if (venue.attributes.updatedOn) {
-            lastUpdated = venue.attributes.updatedOn;
+          // CHECK_THIS: No isNew function
+          //if (venue.isNew()) {
+          //  lastUpdated = Date.now();
+          if (venue.modificationData.updatedOn) {
+            lastUpdated = venue.modificationData.updatedOn;
           } else {
             lastUpdated = venue.attributes.createdOn;
           }
           const weeksSinceLastUpdate = (Date.now() - lastUpdated) / 604800000;
           if (
             weeksSinceLastUpdate >= 26 &&
-            !venue.isUpdated() &&
+            // CHECK_THIS: No isUpdated function
+            //!venue.isUpdated() &&
             (!this.args.actions || this.args.actions.length === 0)
           ) {
             return true;
@@ -6203,7 +6234,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
       static venueIsFlaggable(args) {
         if (
           USER.rank >= 2 &&
-          args.venue.areExternalProvidersEditable() &&
+          hasPermission(args.venue, "EDIT_EXTERNAL_PROVIDERS") &&
           !(args.categories.includes(CAT.PARKING_LOT) && args.ignoreParkingLots)
         ) {
           if (
@@ -6211,7 +6242,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
               this.#categoriesToIgnore.includes(cat)
             )
           ) {
-            const provIDs = args.venue.attributes.externalProviderIDs;
+            const provIDs = args.venue.externalProviderIds;
             if (!(provIDs && provIDs.length)) {
               return true;
             }
@@ -6227,7 +6258,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
 
       action2() {
         clickGeneralTab();
-        const venueName = this.args.venue.attributes.name;
+        const venueName = this.args.venue.name;
         $("wz-button.external-provider-add-new").click();
         setTimeout(() => {
           clickGeneralTab();
@@ -6299,8 +6330,8 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
       static venueIsFlaggable(args) {
         return (
           !args.url?.trim().length &&
-          (!args.venue.isParkingLot() ||
-            (args.venue.isParkingLot() &&
+          (!isParkingLot(args.venue) ||
+            (isParkingLot(args.venue) &&
               REGIONS_THAT_WANT_PLA_PHONE_URL.includes(args.region))) &&
           !PRIMARY_CATS_TO_IGNORE_MISSING_PHONE_URL.includes(args.categories[0])
         );
@@ -6439,8 +6470,8 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
         return (
           !args.phone &&
           !FlagBase.currentFlags.hasFlag(Flag.AddRecommendedPhone) &&
-          (!args.venue.isParkingLot() ||
-            (args.venue.isParkingLot() &&
+          (!isParkingLot(args.venue)  ||
+            (isParkingLot(args.venue) &&
               REGIONS_THAT_WANT_PLA_PHONE_URL.includes(args.region))) &&
           !PRIMARY_CATS_TO_IGNORE_MISSING_PHONE_URL.includes(args.categories[0])
         );
@@ -6693,7 +6724,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
       }
 
       static #getHoursString(hoursObject) {
-        if (hoursObject.isAllDay()) return "All day";
+        if (hoursObject.fromHour === "00:00" && hoursObject.toHour === "00:00") return "All day";
         const fromHour = this.#formatAmPm(hoursObject.fromHour);
         const toHour = this.#formatAmPm(hoursObject.toHour);
         return `${fromHour}–${toHour}`;
@@ -6885,23 +6916,29 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
 
       get message() {
         let msg = "Last updated over 3 years ago. Verify hours are correct.";
-        if (this.args.venue.isUnchanged())
-          msg += " If everything is current, nudge this place and save.";
+        // CHECK_THIS: No unchanged function
+        //if (this.args.venue.isUnchanged()){
+        //  msg += " If everything is current, nudge this place and save.";
+        //}
         return msg;
       }
 
       get buttonText() {
-        return this.args.venue.isUnchanged() ? "Nudge" : null;
+        // CHECK_THIS: No unchanged function
+        //return this.args.venue.isUnchanged() ? "Nudge" : null;
+        return null;
       }
 
       get severity() {
-        return this.args.venue.isUnchanged() ? super.severity : SEVERITY.GREEN;
+        // CHECK_THIS: No unchanged function
+        //return this.args.venue.isUnchanged() ? super.severity : SEVERITY.GREEN;
+        return SEVERITY.GREEN;
       }
 
       static venueIsFlaggable(args) {
         this.#initializeCategoriesToCheck(args.pnhCategoryInfos);
         return (
-          !args.venue.isResidential() &&
+          !args.venue.isResidential &&
           this.#venueIsOld(args.venue) && // Check uses the updated logic now
           args.openingHours?.length &&
           args.categories.some((cat) => this.#categoriesToCheck.includes(cat))
@@ -6923,7 +6960,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
       static #venueIsOld(venue) {
         // Get the timestamp, prioritizing updatedOn, falling back to createdOn
         const lastUpdatedTimestamp =
-          venue.attributes.updatedOn ?? venue.attributes.createdOn;
+          venue.modificationData.updatedOn ?? venue.modificationData.createdOn;
 
         // If neither timestamp exists, we can't determine age, so return false
         if (!lastUpdatedTimestamp) {
@@ -6966,9 +7003,8 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
 
       static venueIsFlaggable(args) {
         if (args.categories.includes(CAT.PARKING_LOT)) {
-          const catAttr = args.venue.attributes.categoryAttributes;
-          const parkAttr = catAttr ? catAttr.PARKING_LOT : undefined;
-          if (!parkAttr || !parkAttr.parkingType) {
+          const parkingLotType = sdk.DataModel.Venues.ParkingLot.getParkingLotType({venueId:args.venue.id});
+          if (!parkingLotType) {
             return true;
           }
         }
@@ -7023,11 +7059,10 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
       }
 
       static venueIsFlaggable(args) {
-        const parkingAttr =
-          args.venue.attributes.categoryAttributes?.PARKING_LOT;
+        const parkingCostType = sdk.DataModel.Venues.ParkingLot.getCostType({venueId: args.venue.id});
         return (
           args.categories.includes(CAT.PARKING_LOT) &&
-          (!parkingAttr?.costType || parkingAttr.costType === "UNKNOWN")
+          (!parkingCostType || parkingCostType === "UNKNOWN")
         );
       }
 
@@ -7064,14 +7099,14 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
 
       static venueIsFlaggable(args) {
         if (args.categories.includes(CAT.PARKING_LOT)) {
-          const catAttr = args.venue.attributes.categoryAttributes;
-          const parkAttr = catAttr ? catAttr.PARKING_LOT : undefined;
+          const parkingPaymentTypes = sdk.DataModel.Venues.ParkingLot.getPaymentMethods({venueId: args.venue.id});
+            const parkingCostType = sdk.DataModel.Venues.ParkingLot.getCostType({venueId: args.venue.id});
           if (
-            parkAttr &&
-            parkAttr.costType &&
-            parkAttr.costType !== "FREE" &&
-            parkAttr.costType !== "UNKNOWN" &&
-            (!parkAttr.paymentType || !parkAttr.paymentType.length)
+            parkingPaymentTypes &&
+            parkingCostType &&
+            parkingCostType !== "FREE" &&
+            parkingCostType !== "UNKNOWN" &&
+            (!parkingPaymentTypes || !parkingPaymentTypes.length)
           ) {
             return true;
           }
@@ -7104,9 +7139,8 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
 
       static venueIsFlaggable(args) {
         if (args.categories.includes(CAT.PARKING_LOT)) {
-          const catAttr = args.venue.attributes.categoryAttributes;
-          const parkAttr = catAttr ? catAttr.PARKING_LOT : undefined;
-          if (!parkAttr || !parkAttr.lotType || parkAttr.lotType.length === 0) {
+          const lotType = sdk.DataModel.Venues.ParkingLot.getLotTypes({venueId:args.venue.id});
+          if (!lotType || lotType.length === 0) {
             return true;
           }
         }
@@ -7165,12 +7199,10 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
 
       static venueIsFlaggable(args) {
         if (!args.highlightOnly && args.categories.includes(CAT.PARKING_LOT)) {
-          const catAttr = args.venue.attributes.categoryAttributes;
-          const parkAttr = catAttr ? catAttr.PARKING_LOT : undefined;
+          const estimatedNumberOfSpots = sdk.DataModel.Venues.ParkingLot.getEstimatedNumberOfSpots({venueId:args.venue.id});
           if (
-            !parkAttr ||
-            !parkAttr.estimatedNumberOfSpots ||
-            parkAttr.estimatedNumberOfSpots === "R_1_TO_10"
+            !estimatedNumberOfSpots ||
+            estimatedNumberOfSpots === "R_1_TO_10"
           ) {
             return true;
           }
@@ -7187,12 +7219,23 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
       static venueIsFlaggable(args) {
         return (
           args.categories.includes(CAT.PARKING_LOT) &&
-          !args.venue.attributes.entryExitPoints?.length
+          !args.venue.navigationPoints?.length
         );
       }
 
       action() {
-        $("wz-button.navigation-point-add-new").click();
+        let navigationPoints = [];
+        let point;
+        switch (this.args.venue.geometry.type) {
+            case "Polygon":
+                point = turf.center(this.args.venue.geometry).geometry;
+                break;
+            case "Point":
+                point = this.args.venue.geometry;
+                break;
+        }
+        navigationPoints[0] = {"point": point, isPrimary: true};
+        sdk.DataModel.Venues.replaceNavigationPoints({venueId: this.args.venue.id, navigationPoints: navigationPoints})
         harmonizePlaceGo(this.args.venue, "harmonize");
       }
     },
@@ -7201,10 +7244,10 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
       static defaultMessage = "Entry/exit point has not been moved.";
 
       static venueIsFlaggable(args) {
-        const attr = args.venue.attributes;
-        if (args.venue.isParkingLot() && attr.entryExitPoints?.length) {
-          const stopPoint = attr.entryExitPoints[0].getPoint().coordinates;
-          const areaCenter = turf.centroid(args.venue.getGeometry()).geometry
+        const attr = args.venue;
+        if (isParkingLot(args.venue) && attr.navigationPoints?.length) {
+          const stopPoint = attr.navigationPoints[0].point.coordinates;
+          const areaCenter = args.venue.geometry
             .coordinates;
           return (
             stopPoint[0] === areaCenter[0] && stopPoint[1] === areaCenter[1]
@@ -7221,8 +7264,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
         return (
           !args.highlightOnly &&
           args.categories.includes(CAT.PARKING_LOT) &&
-          !args.venue.attributes.categoryAttributes?.PARKING_LOT
-            ?.canExitWhileClosed &&
+          !sdk.DataModel.Venues.ParkingLot.canExitWhileClosed({venueId:args.venue.id}) &&
           ($("#WMEPH-ShowPLAExitWhileClosed").prop("checked") ||
             !(args.openingHours.length === 0 || is247Hours(args.openingHours)))
         );
@@ -7250,12 +7292,12 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
         return (
           !args.highlightOnly &&
           args.categories.includes(CAT.PARKING_LOT) &&
-          !args.venue.attributes.services?.includes("DISABILITY_PARKING")
+          !args.venue.services?.includes("DISABILITY_PARKING")
         );
       }
 
       action() {
-        const services = this.args.venue.attributes.services?.slice() ?? [];
+        const services = this.args.venue.services?.slice() ?? [];
         services.push("DISABILITY_PARKING");
         addUpdateAction(this.args.venue, { services }, null, true);
         UPDATED_FIELDS.services_DISABILITY_PARKING.updated = true;
@@ -7310,7 +7352,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
         }
         msg += "</select>";
         msg = `Current lock: ${
-          parseInt(this.args.venue.attributes.lockRank, 10) + 1
+          parseInt(this.args.venue.lockRank, 10) + 1
         }. ${msg} ?`;
         return msg;
       }
@@ -7330,7 +7372,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
         logDev(`RPPlevelToLock: ${levelToLock}`);
 
         levelToLock -= 1;
-        if (this.args.venue.attributes.lockRank !== levelToLock) {
+        if (this.args.venue.lockRank !== levelToLock) {
           addUpdateAction(
             this.args.venue,
             { lockRank: levelToLock },
@@ -7403,7 +7445,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
 
       action() {
         const categories = insertAtIndex(
-          this.venue.getCategories(),
+          this.venue.categories,
           this.altCategory,
           1
         );
@@ -7547,7 +7589,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
         return (
           !args.highlightOnly &&
           args.countryCode === PNH_DATA.USA.countryCode &&
-          !args.venue.isParkingLot() &&
+          !isParkingLot(args.venue) &&
           !args.categories.includes(CAT.POST_OFFICE) &&
           /\bUSP[OS]\b|\bpost(al)?\s+(service|office)\b/i.test(
             args.nameBase.replace(/[/\-.]/g, "")
@@ -7645,7 +7687,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
         // place has been edited since then, people would have already updated the category.
         return (
           !args.highlightOnly &&
-          args.venue.attributes.updatedOn < new Date("3/28/2017").getTime() &&
+          args.venue.modificationData.updatedOn < new Date("3/28/2017").getTime() &&
           ((args.categories.includes(CAT.PERSONAL_CARE) &&
             !args.pnhNameRegMatch) ||
             args.categories.includes(CAT.OFFICES))
@@ -7701,7 +7743,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
       }
 
       action() {
-        let name = this.args.venue.getName();
+        let name = this.args.venue.name;
         if (name === this.#originalName || this.#confirmChange) {
           const parts = getNameParts(this.#originalName);
           name = titleCase(parts.base);
@@ -7738,12 +7780,13 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
       constructor(args) {
         super();
 
-        if (args.venue.attributes.lockRank < args.levelToLock) {
+        if (args.venue.lockRank < args.levelToLock) {
           if (!args.highlightOnly) {
             logDev("Venue locked!");
-            args.actions.push(
-              new UpdateObject(args.venue, { lockRank: args.levelToLock })
-            );
+            //args.actions.push(
+            //  new UpdateObject(args.venue, { lockRank: args.levelToLock })
+            //);
+            sdk.DataModel.Venues.updateVenue({lockRank: args.levelToLock, venueId: args.venue.id});
             UPDATED_FIELDS.lockRank.updated = true;
           } else {
             this.hlLockFlag = true;
@@ -7784,7 +7827,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
         return (
           !args.highlightOnly &&
           args.pnhMatch[0] === "NoMatch" &&
-          !args.venue.isParkingLot() &&
+          !isParkingLot(args.venue) &&
           !CHAIN_APPROVAL_PRIMARY_CATS_TO_IGNORE.includes(args.categories[0]) &&
           !args.categories.includes(CAT.REST_AREAS)
         );
@@ -7833,7 +7876,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
         return (
           !args.highlightOnly &&
           args.pnhMatch[0] === "ApprovalNeeded" &&
-          !args.venue.isParkingLot() &&
+          !isParkingLot(args.venue) &&
           !CHAIN_APPROVAL_PRIMARY_CATS_TO_IGNORE.includes(args.categories[0]) &&
           !args.categories.includes(CAT.REST_AREAS)
         );
@@ -7901,34 +7944,33 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
 
       #processUrl(venue, addr, state2L, venueGPS) {
         if (this.#isCustom) {
-          const location = venue.getOLGeometry().getCentroid();
-          const { houseNumber } = venue.attributes;
+          const location = getVenueLonLat(venue);
+          const address = getVenueAddress(venue);
+          const { houseNumber } = address;
 
           const urlParts = this.#storeFinderUrl.replace(/ /g, "").split("<>");
           let searchStreet = "";
           let searchCity = "";
           let searchState = "";
-          if (typeof addr.street.getName() === "string") {
-            searchStreet = addr.street.getName();
+          if (typeof addr.street.name === "string") {
+            searchStreet = addr.street.name;
           }
           const searchStreetPlus = searchStreet.replace(/ /g, "+");
           searchStreet = searchStreet.replace(/ /g, "%20");
-          if (typeof addr.city.getName() === "string") {
-            searchCity = addr.city.getName();
+          if (typeof addr.city.name === "string") {
+            searchCity = addr.city.name;
           }
           const searchCityPlus = searchCity.replace(/ /g, "+");
           searchCity = searchCity.replace(/ /g, "%20");
-          if (typeof addr.state.getName() === "string") {
-            searchState = addr.state.getName();
+          if (typeof addr.state.name === "string") {
+            searchState = addr.state.name;
           }
           const searchStatePlus = searchState.replace(/ /g, "+");
           searchState = searchState.replace(/ /g, "%20");
 
-          if (!venueGPS)
-            venueGPS = OpenLayers.Layer.SphericalMercator.inverseMercator(
-              location.x,
-              location.y
-            );
+          if (!venueGPS) {
+            venueGPS = location;
+          }
           this.#storeFinderUrl = "";
           for (let tlix = 1; tlix < urlParts.length; tlix++) {
             let part = "";
@@ -8517,9 +8559,9 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
             SCRIPT_NAME,
             "Are you sure you want to clear all whitelisted fields for this place?",
             () => {
-              delete _venueWhitelist[venue.attributes.id];
+              delete _venueWhitelist[venue.id];
               // Remove venue from the results cache so it can be updated again.
-              delete _resultsCache[venue.attributes.id];
+              delete _resultsCache[venue.id];
               saveWhitelistToLS(true);
               harmonizePlaceGo(venue, "harmonize");
             },
@@ -8539,9 +8581,9 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
           reportError({
             subject: "WMEPH Bug report: Script Error",
             message: `Script version: ${SCRIPT_VERSION}${BETA_VERSION_STR}\nPermalink: ${placePL}\nPlace name: ${
-              venue.attributes.name
+              venue.name
             }\nCountry: ${
-              venue.getAddress().getCountry().name
+              getVenueAddress(venue).country.name
             }\n--------\nDescribe the error:  \n `,
           });
         },
@@ -8604,22 +8646,22 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
       this.venue = venue;
 
       this.highlightOnly = highlightOnly;
-      this.addr = venue.getAddress();
+      this.addr = getVenueAddress(venue);
       this.addr = this.addr.attributes ?? this.addr;
 
       this.actions = actions;
-      this.categories = venue.attributes.categories.slice();
-      const nameParts = getNameParts(venue.attributes.name);
+      this.categories = venue.categories.slice();
+      const nameParts = getNameParts(venue.name);
       this.nameSuffix = nameParts.suffix;
       this.nameBase = nameParts.base;
-      this.aliases = venue.attributes.aliases.slice();
-      this.description = venue.attributes.description;
-      this.url = venue.attributes.url;
-      this.phone = venue.attributes.phone;
-      this.openingHours = venue.attributes.openingHours;
+      this.aliases = venue.aliases.slice();
+      this.description = venue.description;
+      this.url = venue.url;
+      this.phone = venue.phone;
+      this.openingHours = venue.openingHours;
       // Set up a variable (newBrand) to contain the brand. When harmonizing, it may be forced to a new value.
       // Other brand flags should use it since it won't be updated on the actual venue until later.
-      this.brand = venue.attributes.brand;
+      this.brand = venue.brand;
     }
   }
 
@@ -8628,7 +8670,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
     if (useFlag === "harmonize")
       logDev('harmonizePlaceGo: useFlag="harmonize"');
 
-    const venueID = venue.attributes.id;
+    const venueID = venue.id;
 
     // Used for collecting all actions to be applied to the model.
     actions = actions || [];
@@ -8683,7 +8725,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
     args.addr = inferredAddress ?? args.addr;
 
     // Check parking lot attributes.
-    if (!args.highlightOnly && venue.isParkingLot())
+    if (!args.highlightOnly && isParkingLot(venue))
       _servicesBanner.addDisabilityParking.active = true;
 
     // Whitelist breakout if place exists on the Whitelist and the option is enabled
@@ -8714,16 +8756,12 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
       if (!args.highlightOnly) {
         // get GPS lat/long coords from place, call as venueGPS.lat, venueGPS.lon
         if (!args.venueGPS) {
-          const centroid = venue.getOLGeometry().getCentroid();
-          args.venueGPS = OpenLayers.Layer.SphericalMercator.inverseMercator(
-            centroid.x,
-            centroid.y
-          );
+          args.venueGPS = getVenueLonLat(venue);
         }
-        _venueWhitelist[venueID].city = args.addr.city.getName(); // Store city for the venue
-        _venueWhitelist[venueID].state = args.addr.state.getName(); // Store state for the venue
-        _venueWhitelist[venueID].country = args.addr.country.getName(); // Store country for the venue
-        _venueWhitelist[venueID].gps = args.venueGPS; // Store GPS coords for the venue
+        _venueWhitelist[venueID].city = args.addr.city.name; // Store city for the venue
+        _venueWhitelist[venueID].state = args.addr.state.name; // Store state for the venue
+        _venueWhitelist[venueID].country = args.addr.country.name; // Store country for the venue
+        _venueWhitelist[venueID].gps = getVenueLonLat(venue); // Store GPS coords for the venue
       }
     }
 
@@ -8736,8 +8774,8 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
       return undefined;
     }
 
-    const countryName = args.addr.country.getName();
-    const stateName = args.addr.state.getName();
+    const countryName = args.addr.country.name;
+    const stateName = args.addr.state.name;
     if (
       [
         "United States",
@@ -8852,47 +8890,47 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
     }
 
     // Clear attributes from residential places
-    if (venue.attributes.residential) {
+    if (venue.isResidential) {
       if (!args.highlightOnly) {
         if (!$("#WMEPH-AutoLockRPPs").prop("checked")) {
           args.lockOK = false;
         }
-        if (venue.attributes.name !== "") {
+        if (venue.name !== "") {
           // Set the residential place name to the address (to clear any personal info)
           logDev("Residential Name reset");
-          actions.push(new UpdateObject(venue, { name: "" }));
+          //actions.push(new UpdateObject(venue, { name: "" }));
           // no field HL
         }
         args.categories = ["RESIDENCE_HOME"];
         if (
-          venue.attributes.description !== null &&
-          venue.attributes.description !== ""
+          venue.description !== null &&
+          venue.description !== ""
         ) {
           // remove any description
           logDev("Residential description cleared");
-          actions.push(new UpdateObject(venue, { description: null }));
+          //actions.push(new UpdateObject(venue, { description: null }));
           // no field HL
         }
-        if (venue.attributes.phone !== null && venue.attributes.phone !== "") {
+        if (venue.phone !== null && venue.phone !== "") {
           // remove any phone info
           logDev("Residential Phone cleared");
-          actions.push(new UpdateObject(venue, { phone: null }));
+          //actions.push(new UpdateObject(venue, { phone: null }));
           // no field HL
         }
-        if (venue.attributes.url !== null && venue.attributes.url !== "") {
+        if (venue.url !== null && venue.url !== "") {
           // remove any url
           logDev("Residential URL cleared");
-          actions.push(new UpdateObject(venue, { url: null }));
+          //actions.push(new UpdateObject(venue, { url: null }));
           // no field HL
         }
-        if (venue.attributes.services.length > 0) {
+        if (venue.services.length > 0) {
           logDev("Residential services cleared");
-          actions.push(new UpdateObject(venue, { services: [] }));
+          //actions.push(new UpdateObject(venue, { services: [] }));
           // no field HL
         }
       }
     } else if (
-      venue.isParkingLot() ||
+      isParkingLot(venue) ||
       args.nameBase?.trim().length ||
       containsAny(args.categories, CATS_THAT_DONT_NEED_NAMES)
     ) {
@@ -8900,12 +8938,12 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
       // Phone formatting
       if (
         containsAny(["CA", "CO"], [args.regionCode, args.state2L]) &&
-        /^\d{3}-\d{3}-\d{4}$/.test(venue.attributes.phone)
+        /^\d{3}-\d{3}-\d{4}$/.test(venue.phone)
       ) {
         args.outputPhoneFormat = "{0}-{1}-{2}";
       } else if (
         args.regionCode === "SER" &&
-        !/^\(\d{3}\) \d{3}-\d{4}$/.test(venue.attributes.phone)
+        !/^\(\d{3}\) \d{3}-\d{4}$/.test(venue.phone)
       ) {
         args.outputPhoneFormat = "{0}-{1}-{2}";
       } else if (args.regionCode === "GLR") {
@@ -8937,7 +8975,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
 
       // Place Harmonization
       if (!args.highlightOnly) {
-        if (venue.isParkingLot() || venue.isResidential()) {
+        if (isParkingLot(venue) || venue.isResidential) {
           args.pnhMatch = ["NoMatch"];
         } else {
           // check against the PNH list
@@ -9061,11 +9099,12 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
           if (
             args.pnhMatch.forceBrand &&
             args.priPNHPlaceCat === CAT.GAS_STATION &&
-            venue.attributes.brand !== args.pnhMatch.forceBrand
+            venue.brand !== args.pnhMatch.forceBrand
           ) {
-            actions.push(
-              new UpdateObject(venue, { brand: args.pnhMatch.forceBrand })
-            );
+            //actions.push(
+            //  new UpdateObject(venue, { brand: args.pnhMatch.forceBrand })
+            //);
+           sdk.DataModel.Venues.updateVenue({brand: args.pnhMatch.forceBrand, venueId: venue.id});
             UPDATED_FIELDS.brand.updated = true;
             logDev("Gas brand updated from PNH");
           }
@@ -9221,7 +9260,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
 
           // update categories if different and no Cat2 option
           if (
-            !matchSets(uniq(venue.attributes.categories), uniq(args.categories))
+            !matchSets(uniq(venue.categories), uniq(args.categories))
           ) {
             if (
               !args.pnhMatch.optionCat2 &&
@@ -9247,18 +9286,19 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
           args.description = args.pnhMatch.description;
           if (
             !isNullOrWhitespace(args.description) &&
-            !venue.attributes.description
+            !venue.description
               .toUpperCase()
               .includes(args.description.toUpperCase())
           ) {
-            if (!isNullOrWhitespace(venue.attributes.description)) {
+            if (!isNullOrWhitespace(venue.description)) {
               args.descriptionInserted = true;
             }
             logDev("Description updated");
-            args.description = `${args.description}\n${venue.attributes.description}`;
-            actions.push(
-              new UpdateObject(venue, { description: args.description })
-            );
+            args.description = `${args.description}\n${venue.description}`;
+            //actions.push(
+            //  new UpdateObject(venue, { description: args.description })
+            //);
+            sdk.DataModel.Venues.updateVenue({description: args.description, venueId: venue.id});
             UPDATED_FIELDS.description.updated = true;
           }
 
@@ -9270,9 +9310,9 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
       } // END PNH match/no-match updates
 
       if (!args.chainIsClosed) {
-        const isPoint = venue.isPoint();
+        const isGeoPoint = isPoint(venue);
         // NOTE: do not use is2D() function. It doesn't seem to be 100% reliable.
-        const isArea = !isPoint;
+        const isArea = !isGeoPoint;
         let highestCategoryLock = -1;
         // Category/Name-based Services, added to any existing services:
         args.categories.forEach((category) => {
@@ -9302,7 +9342,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
           // If Post Office and VPO or CPU is in the name, always a point.
           if (
             args.categories.includes(CAT.POST_OFFICE) &&
-            /\b(?:cpu|vpo)\b/i.test(venue.attributes.name)
+            /\b(?:cpu|vpo)\b/i.test(venue.name)
           ) {
             pvaPoint = "1";
             pvaArea = "";
@@ -9350,7 +9390,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
           // Update name:
           if (
             args.nameBase + (args.nameSuffix || "") !==
-            venue.attributes.name
+            venue.name
           ) {
             logDev("Name updated");
             addUpdateAction(
@@ -9459,7 +9499,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
               args.outputPhoneFormat
             );
             if (normalizedPhone !== BAD_PHONE) args.phone = normalizedPhone;
-            if (args.phone !== venue.attributes.phone) {
+            if (args.phone !== venue.phone) {
               logDev("Phone updated");
               addUpdateAction(venue, { phone: args.phone }, actions);
             }
@@ -9474,9 +9514,10 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
             if (
               Flag.FormatUSPS.isNameOk(nameToCheck, args.state2L, args.addr)
             ) {
-              if (nameToCheck !== venue.attributes.name) {
+              if (nameToCheck !== venue.name) {
                 [args.nameBase, args.nameSuffix] = cleanNameParts;
-                actions.push(new UpdateObject(venue, { name: nameToCheck }));
+                //actions.push(new UpdateObject(venue, { name: nameToCheck }));
+                sdk.DataModel.Venues.updateVenue({name: nameToCheck, venueId: venue.id});
               }
             }
           }
@@ -9487,11 +9528,11 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
     if (!args.chainIsClosed) {
       if (!args.highlightOnly && args.categories.includes(CAT.REST_AREAS)) {
         if (
-          venue.attributes.name.match(/^Rest Area.* - /) !== null &&
+          venue.name.match(/^Rest Area.* - /) !== null &&
           args.countryCode === PNH_DATA.USA.countryCode
         ) {
           const newSuffix = args.nameSuffix.replace(/\bMile\b/i, "mile");
-          if (args.nameBase + newSuffix !== venue.attributes.name) {
+          if (args.nameBase + newSuffix !== venue.name) {
             addUpdateAction(
               venue,
               { name: args.nameBase + newSuffix },
@@ -9521,9 +9562,10 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
       }
 
       args.isLocked =
-        venue.attributes.lockRank >=
+        venue.lockRank >=
         (pnhLockLevel > -1 ? pnhLockLevel : args.defaultLockLevel);
-      args.currentHN = venue.attributes.houseNumber;
+      let venueAddress = getVenueAddress(venue);
+      args.currentHN = venueAddress.houseNumber;
       // Check to see if there's an action that is currently updating the house number.
       const updateHnAction =
         actions &&
@@ -9534,15 +9576,15 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
         args.currentHN = updateHnAction.newAttributes.houseNumber;
       // Use the inferred address street if currently no street.
       args.hasStreet =
-        venue.attributes.streetID ||
+       venueAddress.street ||
         (inferredAddress && inferredAddress.street);
       args.ignoreParkingLots = $("#WMEPH-DisablePLAExtProviderCheck").prop(
         "checked"
       );
 
       if (
-        !venue.isResidential() &&
-        (venue.isParkingLot() || args.nameBase?.trim().length)
+        !venue.isResidential &&
+        (isParkingLot(venue) || args.nameBase?.trim().length)
       ) {
         if (args.pnhNameRegMatch) {
           Flag.HotelMkPrim.eval(args);
@@ -9665,7 +9707,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
         ) {
           args.levelToLock = LOCK_LEVEL_4;
         } else if (
-          venue.isPoint() &&
+          isPoint(venue) &&
           args.categories.includes(CAT.COLLEGE_UNIVERSITY) &&
           (!args.categories.includes(CAT.HOSPITAL_MEDICAL_CARE) ||
             !args.categories.includes(CAT.HOSPITAL_URGENT_CARE))
@@ -9734,8 +9776,8 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
 
       // Special case flags
       if (
-        venue.attributes.lockRank === 0 &&
-        venue.attributes.categories.some((cat) =>
+        venue.lockRank === 0 &&
+        venue.categories.some((cat) =>
           [
             CAT.HOSPITAL_MEDICAL_CARE,
             CAT.HOSPITAL_URGENT_CARE,
@@ -9755,7 +9797,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
       if (args.totalSeverity === SEVERITY.BLUE && placeLockedFlag?.hlLockFlag) {
         args.totalSeverity = "lock1";
       }
-      if (venue.attributes.adLocked) {
+      if (venue.isAdLocked) {
         args.totalSeverity = "adLock";
       }
 
@@ -9783,11 +9825,11 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
   } // END harmonizePlaceGo function
 
   function runDuplicateFinder(venue, name, aliases, addr, placePL) {
-    const venueID = venue.attributes.id;
+    const venueID = venue.id;
     // Run nearby duplicate place finder function
     if (
       name.replace(/[^A-Za-z0-9]/g, "").length > 0 &&
-      !venue.attributes.residential &&
+      !venue.isResidential &&
       !isEmergencyRoom(venue) &&
       !isRestArea(venue)
     ) {
@@ -9812,7 +9854,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
               // if the category doesn't translate, then pop an alert that will make a forum post to the thread
               reportError({
                 subject: "WMEPH Bug report DupeID",
-                message: `Script version: ${SCRIPT_VERSION}${BETA_VERSION_STR}\nPermalink: ${placePL}\nPlace name: ${venue.attributes.name}\nCountry: ${addr.country.name}\n--------\nDescribe the error:\nDupeID mismatch with dupeName list`,
+                message: `Script version: ${SCRIPT_VERSION}${BETA_VERSION_STR}\nPermalink: ${placePL}\nPlace name: ${venue.name}\nCountry: ${addr.country.name}\n--------\nDescribe the error:\nDupeID mismatch with dupeName list`,
               });
             },
             () => {}
@@ -10009,7 +10051,8 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
     });
 
     if ($("#WMEPH-ColorHighlighting").prop("checked")) {
-      venue.attributes.wmephSeverity = totalSeverity;
+      severityById[venue.id] = totalSeverity;
+      //venue.wmephSeverity = totalSeverity;
     }
 
     if ($("#WMEPH_banner").length === 0) {
@@ -10128,8 +10171,8 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
   } // END assemble Banner function
 
   async function processGoogleLinks(venue) {
-    const promises = venue.attributes.externalProviderIDs.map((link) =>
-      _googlePlaces.getPlace(link.attributes.uuid)
+    const promises = venue.externalProviderIds.map((link) =>
+      _googlePlaces.getPlace(link)
     );
     const googleResults = await Promise.all(promises);
     $("#wmeph-google-link-info").remove();
@@ -10162,7 +10205,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
             })
           )
       );
-      venue.attributes.externalProviderIDs.forEach((link) => {
+      venue.externalProviderIds.forEach((link) => {
         const result = googleResults.find(
           (r) => r.placeId === link.attributes.uuid
         );
@@ -10560,7 +10603,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
     ) {
       // setup Add Service Buttons for suggested services
       const rowDivs = [];
-      if (!venue.isResidential()) {
+      if (!venue.isResidential) {
         const $rowDiv = $("<div>");
         const servButtHeight = "27";
         const buttons = [];
@@ -10603,7 +10646,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
       $("#WMEPH_services").append(rowDivs);
 
       // Setup bannServ onclicks
-      if (!venue.isResidential()) {
+      if (!venue.isResidential) {
         setupButtonsOld(_servicesBanner);
       }
     }
@@ -10709,7 +10752,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
 
   function onCopyClicked() {
     const venue = getSelectedVenue();
-    const attr = venue.attributes;
+    const attr = venue;
     _cloneMaster = {};
     _cloneMaster.addr = venue.getAddress();
     if (_cloneMaster.addr.hasOwnProperty("attributes")) {
@@ -10721,7 +10764,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
     _cloneMaster.description = attr.description;
     _cloneMaster.services = attr.services;
     _cloneMaster.openingHours = attr.openingHours;
-    _cloneMaster.isPLA = venue.isParkingLot();
+    _cloneMaster.isPLA = isParkingLot(venue);
     logDev("Place Cloned");
   }
 
@@ -10836,14 +10879,13 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
     const venue = getSelectedVenue();
     updateElementEnabledOrVisible(
       $("#pasteClone"),
-      venue?.isApproved() && venue.arePropertiesEditable()
+      hasPermission(venue)
     );
   }
 
   function onPlugshareSearchClick() {
     const venue = getSelectedVenue();
-    const olPoint = venue.getOLGeometry().getCentroid();
-    const point = WazeWrap.Geometry.ConvertTo4326(olPoint.x, olPoint.y);
+    let point = getVenueLonLat(venue)
     const url = `https://www.plugshare.com/?latitude=${point.lat}&longitude=${point.lon}&spanLat=.005&spanLng=.005`;
     if ($("#WMEPH-WebSearchNewTab").prop("checked")) {
       window.open(url);
@@ -10854,7 +10896,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
 
   function onOpenWebsiteClick() {
     const venue = getSelectedVenue();
-    let { url } = venue.attributes;
+    let { url } = venue;
     if (url.match(/^http/i) === null) {
       url = `http://${url}`;
     }
@@ -10878,9 +10920,9 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
     const addr = venue.getAddress();
     if (addr.hasState()) {
       const url = buildGLink(
-        venue.attributes.name,
+        venue.name,
         addr,
-        venue.attributes.houseNumber
+        venue.houseNumber
       );
       if ($("#WMEPH-WebSearchNewTab").prop("checked")) {
         window.open(url);
@@ -10920,7 +10962,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
       return;
     }
 
-    if (!venue.isApproved() || !venue.arePropertiesEditable()) {
+    if (hasPermission(venue)) {
       clearBanner = true;
     }
 
@@ -10999,25 +11041,25 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
     }
 
     updateElementEnabledOrVisible($runButton, {
-      enabled: venue.isApproved() && venue.arePropertiesEditable(),
+      enabled: hasPermission(venue),
     });
     updateElementEnabledOrVisible($websiteButton, {
-      enabled: venue.attributes.url?.trim().length,
-      visible: !venue.isResidential(),
+      enabled: venue.url?.trim().length,
+      visible: !venue.isResidential,
     });
     updateElementEnabledOrVisible($googleSearchButton, {
-      enabled: !venue.isResidential(),
-      visible: !venue.isResidential(),
+      enabled: !venue.isResidential,
+      visible: !venue.isResidential,
     });
     updateElementEnabledOrVisible($plugshareSearchButton, {
-      visible: venue.isChargingStation(),
+      visible: isChargingStation(venue),
     });
 
     if (localStorage.getItem("WMEPH-EnableCloneMode") === "1") {
       showCloneButton();
     }
     // If the user selects a place in the dupe list, don't clear the labels yet
-    if (_dupeIDList.includes(venue.attributes.id)) {
+    if (_dupeIDList.includes(venue.id)) {
       destroyDupeLabels();
     }
 
@@ -11025,14 +11067,14 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
     // TODO: put this in a separate function?
     if (venue) {
       // It doesn't seem to matter what we pass for lon/lat, so use first geometry point.
-      const firstPoint = venue.isPoint()
-        ? venue.getGeometry().coordinates
-        : venue.getGeometry().coordinates[0][0];
+      const firstPoint = isPoint(venue)
+        ? venue.geometry.coordinates
+        : venue.geometry.coordinates[0];
       const lon = firstPoint[0];
       const lat = firstPoint[1];
       const url = `https://${
         location.host
-      }/SearchServer/mozi?lon=${lon}&lat=${lat}&format=PROTO_JSON_FULL&venue_id=venues.${venue.getID()}`;
+      }/SearchServer/mozi?lon=${lon}&lat=${lat}&format=PROTO_JSON_FULL&venue_id=venues.${venue.id}`;
       $.getJSON(url).done((res) => {
         let feedNames = res.venue.external_providers
           ?.filter(
@@ -11088,7 +11130,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
       }
       if (
         isChecked("WMEPH_CPserv") &&
-        venue.isParkingLot() === _cloneMaster.isPLA
+        isParkingLot(venue) === _cloneMaster.isPLA
       ) {
         cloneItems.services = _cloneMaster.services;
         updateItem = true;
@@ -11110,20 +11152,20 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
         const originalAddress = venue.getAddress();
         const newAddress = {
           street: copyStreet
-            ? _cloneMaster.addr.street
-            : originalAddress.attributes.street,
+            ? _cloneMaster.street
+            : originalAddress.street,
           city: copyCity
-            ? _cloneMaster.addr.city
-            : originalAddress.attributes.city,
+            ? _cloneMaster.city
+            : originalAddress.city,
           state: copyCity
-            ? _cloneMaster.addr.state
-            : originalAddress.attributes.state,
+            ? _cloneMaster.state
+            : originalAddress.state,
           country: copyCity
-            ? _cloneMaster.addr.country
-            : originalAddress.attributes.country,
+            ? _cloneMaster.country
+            : originalAddress.country,
           houseNumber: copyHn
-            ? _cloneMaster.addr.houseNumber
-            : originalAddress.attributes.houseNumber,
+            ? _cloneMaster.houseNumber
+            : originalAddress.houseNumber,
         };
         updateAddress(venue, newAddress);
         logDev("Venue address cloned");
@@ -11151,8 +11193,8 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
   function getOpeningHours(venue) {
     return (
       venue &&
-      venue.attributes.openingHours &&
-      venue.attributes.openingHours.map(formatOpeningHour)
+      venue.openingHours &&
+      venue.openingHours.map(formatOpeningHour)
     );
   }
 
@@ -11265,9 +11307,9 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
     let overlappingFlag = false;
 
     // Initialize the coordinate extents for duplicates
-    const selectedCentroid = selectedVenue.getOLGeometry().getCentroid();
-    let minLon = selectedCentroid.x;
-    let minLat = selectedCentroid.y;
+    const selectedCentroid = selectedVenue.geometry
+    let minLon = selectedCentroid.coordinates[0];
+    let minLat = selectedCentroid.coordinates[1];
     let maxLon = minLon;
     let maxLat = minLat;
 
@@ -11289,7 +11331,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
       currNameList.push("PRIMNAMETOOSHORT_PJZWX");
     }
 
-    const selectedVenueAttr = selectedVenue.attributes;
+    const selectedVenueAttr = selectedVenue;
 
     // Clear non-letter characters for alternate match ( HOLLYIVYPUB23 --> HOLLYIVYPUB )
     const venueNameNoNum = selectedVenueNameRF.replace(/[^A-Z]/g, "");
@@ -11328,17 +11370,16 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
     }
     currNameList = uniq(currNameList); //  remove duplicates
 
-    let selectedVenueAddr = selectedVenue.getAddress();
-    selectedVenueAddr = selectedVenueAddr.attributes || selectedVenueAddr;
+    let selectedVenueAddr = getVenueAddress(selectedVenue);
     const selectedVenueHN = selectedVenueAttr.houseNumber;
 
     const selectedVenueAddrIsComplete =
       selectedVenueAddr.street !== null &&
-      selectedVenueAddr.street.getName() !== null &&
+      selectedVenueAddr.street.name !== null &&
       selectedVenueHN &&
       selectedVenueHN.match(/\d/g) !== null;
 
-    const venues = W.model.venues.getObjectArray();
+    const venues = sdk.DataModel.Venues.getAll();
     const selectedVenueId = selectedVenueAttr.id;
 
     _dupeIDList = [selectedVenueId];
@@ -11357,38 +11398,40 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
       if (
         (!excludePLADupes ||
           (excludePLADupes &&
-            !(selectedVenue.isParkingLot() || testVenue.isParkingLot()))) &&
+            !(isParkingLot(selectedVenue) || isParkingLot(testVenue)))) &&
         !isEmergencyRoom(testVenue)
       ) {
-        const testVenueAttr = testVenue.attributes;
+        const testVenueAttr = testVenue;
         const testVenueId = testVenueAttr.id;
 
         // Check for overlapping PP's
-        const testCentroid = testVenue.getOLGeometry().getCentroid();
-        const pt2ptDistance = selectedCentroid.distanceTo(testCentroid);
+        let testCentroid = testVenue.geometry;
+        if (testCentroid.type === "Polygon") {
+            testCentroid = turf.center(testCentroid);
+        }
+        const pt2ptDistance = turf.distance(selectedCentroid, testCentroid) * 1000
         if (
-          selectedVenue.isPoint() &&
-          testVenue.isPoint() &&
+          isPoint(selectedVenue) &&
+          isPoint(testVenue) &&
           pt2ptDistance < 2 &&
           selectedVenueId !== testVenueId
         ) {
           overlappingFlag = true;
         }
 
+        let testVenueAddr = getVenueAddress(testVenue);
         const testVenueHN = testVenueAttr.houseNumber;
-        let testVenueAddr = testVenue.getAddress();
-        testVenueAddr = testVenueAddr.attributes || testVenueAddr;
 
         // get HNs for places on same street
         if (
           selectedVenueAddrIsComplete &&
           testVenueAddr.street !== null &&
-          testVenueAddr.street.getName() !== null &&
+          testVenueAddr.street.name !== null &&
           testVenueHN &&
           testVenueHN !== "" &&
           testVenueId !== selectedVenueId &&
-          selectedVenueAddr.street.getName() ===
-            testVenueAddr.street.getName() &&
+          selectedVenueAddr.street.name ===
+            testVenueAddr.street.name &&
           testVenueHN < 1000000
         ) {
           _dupeHNRangeList.push(parseInt(testVenueHN, 10));
@@ -11401,9 +11444,10 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
           !whitelistedDupes.includes(testVenueId) &&
           _dupeIDList.length < 6 &&
           pt2ptDistance < 800 &&
-          !testVenue.isResidential() &&
+          !testVenue.isResidential &&
           testVenueId !== selectedVenueId &&
-          !testVenue.isNew() &&
+          // CHECK_THIS: No isNew function
+          //!testVenue.isNew() &&
           testVenueAttr.name !== null &&
           testVenueAttr.name.length > 1
         ) {
@@ -11412,22 +11456,22 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
           if (
             selectedVenueAddrIsComplete &&
             testVenueAddr.street !== null &&
-            testVenueAddr.street.getName() !== null &&
+            testVenueAddr.street.name !== null &&
             testVenueHN &&
             testVenueHN.match(/\d/g) !== null
           ) {
             if (selectedVenueAttr.lockRank > 0 && testVenueAttr.lockRank > 0) {
               if (
                 selectedVenueAttr.houseNumber !== testVenueHN ||
-                selectedVenueAddr.street.getName() !==
-                  testVenueAddr.street.getName()
+                selectedVenueAddr.street.name !==
+                  testVenueAddr.street.name
               ) {
                 suppressMatch = true;
               }
             } else if (
               selectedVenueHN !== testVenueHN &&
-              selectedVenueAddr.street.getName() !==
-                testVenueAddr.street.getName()
+              selectedVenueAddr.street.name !==
+                testVenueAddr.street.name
             ) {
               suppressMatch = true;
             }
@@ -11660,7 +11704,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
     };
     let n;
     let orderedSegments = [];
-    const segments = W.model.segments.getObjectArray();
+    const segments = sdk.DataModel.Segments.getAll();
     let stopPoint;
 
     // Make sure a place is selected and segments are loaded.
@@ -11682,28 +11726,28 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
     };
 
     const hasStreetName = (segment) => {
-      if (!segment || segment.type !== "segment") return false;
-      const addr = segment.getAddress();
-      return !(addr.isEmpty() || addr.isEmptyStreet());
+      if (!segment) return false;
+      const addr = getSegmentAddress(segment);
+      return addr.street.name;
     };
 
     const findClosestNode = () => {
       const closestSegment = orderedSegments[0].segment;
       let distanceA;
       let distanceB;
-      const nodeA = W.model.nodes.getObjectById(
-        closestSegment.attributes.fromNodeID
-      );
-      const nodeB = W.model.nodes.getObjectById(
-        closestSegment.attributes.toNodeID
-      );
+      const nodeA = sdk.DataModel.Nodes.getById({
+        nodeId: closestSegment.attributes.fromNodeID
+      });
+      const nodeB = sdk.DataModel.Nodes.getById({
+        nodeId: closestSegment.attributes.toNodeID
+      });
       if (nodeA && nodeB) {
         const pt = stopPoint.getPoint ? stopPoint.getPoint() : stopPoint;
         distanceA = pt.distanceTo(nodeA.getOLGeometry());
         distanceB = pt.distanceTo(nodeB.getOLGeometry());
         return distanceA < distanceB
-          ? nodeA.attributes.id
-          : nodeB.attributes.id;
+          ? nodeA.id
+          : nodeB.id;
       }
       return undefined;
     };
@@ -11745,29 +11789,29 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
       }
     };
 
-    const { entryExitPoints } = venue.attributes;
-    if (entryExitPoints.length) {
+    const { navigationPoints } = venue;
+    if (navigationPoints.length) {
       // Get the primary stop point, if one exists.  If none, get the first point.
       stopPoint =
-        entryExitPoints.find((pt) => pt.isPrimary()) || entryExitPoints[0];
+        navigationPoints.find((pt) => pt.isPrimary) || navigationPoints[0];
     } else {
       // If no stop points, just use the venue's centroid.
-      stopPoint = venue.getOLGeometry().getCentroid();
+      stopPoint = getVenueLonLat(venue);
     }
 
     // Go through segment array and calculate distances to segments.
     for (i = 0, n = segments.length; i < n; i++) {
       // Make sure the segment is not an ignored roadType.
-      if (!IGNORE_ROAD_TYPES.includes(segments[i].attributes.roadType)) {
+      if (!IGNORE_ROAD_TYPES.includes(segments[i].roadType)) {
         distanceToSegment = (
-          stopPoint.getPoint ? stopPoint.getPoint() : stopPoint
+          stopPoint.point
         ).distanceTo(segments[i].getOLGeometry());
         // Add segment object and its distanceTo to an array.
         orderedSegments.push({
           distance: distanceToSegment,
-          fromNodeID: segments[i].attributes.fromNodeID,
+          fromNodeID: segments[i].fromNodeID,
           segment: segments[i],
-          toNodeID: segments[i].attributes.toNodeID,
+          toNodeID: segments[i].toNodeID,
         });
       }
     }
@@ -11826,35 +11870,15 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
    * Updates the address for a place.
    * @param feature {WME Venue Object} The place to update.
    * @param address {Object} An object containing the country, state, city, and street
-   * @param actions {Array of actions} Optional. If performing multiple actions at once.
    * objects.
    */
-  function updateAddress(feature, address, actions) {
+  function updateAddress(feature, address) {
     let newAttributes;
     if (feature && address) {
-      newAttributes = {
-        countryID: address.country.attributes.id,
-        stateID: address.state.attributes.id,
-        cityName: address.city.getName(),
-        emptyCity: address.city.hasName() ? null : true,
-        streetName: address.street.getName(),
-        emptyStreet: address.street.attributes.isEmpty ? true : null,
-      };
-      const newActions = [];
-      newActions.push(new UpdateFeatureAddress(feature, newAttributes));
-      if (address.hasOwnProperty("houseNumber")) {
-        newActions.push(
-          new UpdateObject(feature, { houseNumber: address.houseNumber })
-        );
-      }
-      const multiAction = new MultiAction(newActions, {
-        description: "Update venue address",
-      });
-      if (actions) {
-        actions.push(multiAction);
-      } else {
-        W.model.actionManager.add(multiAction);
-      }
+      newAttributes = {venueId: feature.id};
+      if (address.street) {newAttributes.streetId = address.street.id}
+      if (address.houseNumber) {newAttributes.houseNumber = address.houseNumber}
+      sdk.DataModel.Venues.updateAddress(newAttributes);
       logDev("Address inferred and updated");
     }
   }
@@ -12374,7 +12398,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
     $("#WMEPH-DisableRankHL").click(bootstrapWmephColorHighlights);
     $("#WMEPH-DisableWLHL").click(bootstrapWmephColorHighlights);
     $("#WMEPH-PLATypeFill").click(() =>
-      applyHighlightsTest(W.model.venues.getObjectArray())
+      applyHighlightsTest(sdk.DataModel.Venues.getAll())
     );
     $("#WMEPH-ShowFilterHighlight").click(() => {
       if ($("#WMEPH-ShowFilterHighlight").prop("checked")) {
@@ -12705,7 +12729,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
   function getServicesChecks(venue) {
     const servArrayCheck = [];
     for (let wsix = 0; wsix < WME_SERVICES_ARRAY.length; wsix++) {
-      if (venue.attributes.services.includes(WME_SERVICES_ARRAY[wsix])) {
+      if (venue.services.includes(WME_SERVICES_ARRAY[wsix])) {
         servArrayCheck[wsix] = true;
       } else {
         servArrayCheck[wsix] = false;
@@ -13038,9 +13062,13 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
       eventHandler: () => {errorHandler(destroyDupeLabels)},
     });
     W.model.venues.on("objectssynced", (e) => errorHandler(() => syncWL(e)));
-    W.model.venues.on("objectschanged", (venues) =>
-      errorHandler(onVenuesChanged, venues)
-    );
+    //W.model.venues.on("objectschanged", (venues) =>
+    //  errorHandler(onVenuesChanged, venues)
+    //);
+    sdk.Events.on({
+      eventName: "wme-data-model-objects-changed",
+      eventHandler: (e) => {errorHandler(onVenuesChanged)}//, sdk.DataModel.Venues.getAll())},
+    });
     window.addEventListener("beforeunload", onWindowBeforeUnload, false);
 
     // Remove any temporary ID values (ID < 0) from the WL store at startup.
@@ -13200,7 +13228,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
   }
 
   function devTestCode() {
-    if (W.loginManager.user.getUsername() === "MapOMatic") {
+    if (W.loginManager.user.getUsername() === "gncnpk") {
       // For debugging purposes.  May be removed when no longer needed.
       unsafeWindow.PNH_DATA = PNH_DATA;
       unsafeWindow.WMEPH_FLAG = Flag;
