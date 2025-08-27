@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name        WME Place Harmonizer Beta
 // @namespace   WazeUSA
-// @version     2025.08.26.001
+// @version     2025.08.26.002
 // @description Harmonizes, formats, and locks a selected place
 // @author      WMEPH Development Group
 // @include     /^https:\/\/(www|beta)\.waze\.com\/(?!user\/)(.{2,6}\/)?editor\/?.*$/
@@ -4000,7 +4000,9 @@
 
       static venueIsFlaggable(args) {
         return (
-          !args.categories.includes(CAT.RESIDENCE_HOME) &&
+          !(args.categories.includes(CAT.RESIDENCE_HOME)
+          || args.categories.includes("RESIDENTIAL")
+          ) &&
           !args.nameBase?.replace(/[^A-Za-z0-9]/g, "") &&
           ![
             CAT.ISLAND,
@@ -13196,7 +13198,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
       )
       .forEach((v) => {
         let style;
-        if (v.isPoint()) {
+        if (isPoint(v)) {
           style = {
             pointRadius: 10,
             strokeWidth: 10,
