@@ -1,155 +1,70 @@
-# WME SDK TypeScript Example
+# Place Harmonizer
 
-This project helps you **bootstrap a TypeScript-based WME script** using the WME SDK.
+## Overview
+Place Harmonizer cleans and standardizes a single selected place in WME. It harmonizes chain data, fixes common formatting issues, highlights problems, and locks places when they meet regional standards.
 
-It provides a clean project setup with build scripts, type checking, and release automation — so you can focus on writing your script!
+## Quick Links
+- Production install: https://greasyfork.org/en/scripts/28690-wme-place-harmonizer
+- Beta install (beta list access required): https://greasyfork.org/en/scripts/28689-wme-place-harmonizer-beta
+- Bugs and issues: https://github.com/WazeDev/WME-Place-Harmonizer/issues
+- Contact: MapOMatic
 
----
+## Installation
+1. Install Tampermonkey or Greasemonkey for your browser.
+2. Open the production or beta install link above and confirm the userscript install.
 
-## Setup options
+## Usage
+1. Select a place in WME.
+2. Run the script via the "RUN WMEPH" button or shortcut `Shift-Alt-A`.
+3. Review the suggested changes, adjust if needed, and save.
 
-You can use this project in two ways:
+## Examples
+- McDonald's autocorrection:
+  - http://img.prntscr.com/img?url=http://i.imgur.com/YazP0ci.png
+- 7-Eleven autocorrection:
+  - http://img.prntscr.com/img?url=http://i.imgur.com/fi5hBPe.png
+- Standalone restaurant with no harmonization data:
+  - http://img.prntscr.com/img?url=http://i.imgur.com/1MLCQZB.png
 
-- 🟡 **Option 1: using DevContainers (recommended)** — no need to install anything globally
-- 🟡 **Option 2: manual local setup** — install Node.js and Rollup yourself
+## Feature Set
+- Localization
+  - Regional detection with USA region support and region-specific locking, formatting, and phone rules.
+  - Country support for USA and Canada, expandable later.
+- Chain harmonization
+  - Live integration with Place Name Harmonization data for names, alt-names, categories, and URLs.
+- Services
+  - Common services auto-added per category; existing checked services are preserved.
+- Gas stations
+  - Rename to brand when primary name mismatches brand; preserve existing brand field and move prior name to alt-name.
+  - Add Convenience Store category; keep ATM and Car Wash if present; drop other categories.
+  - Set services to Restrooms, Credit Cards, Air Conditioning, Parking, Wheelchair Accessible.
+  - Special handling for Costco, BJ's, and Sam's Club stations: append "Gasoline" to name, add "Members only" description, restrict services to Credit Cards, Parking, Wheelchair Accessible.
+- Title casing rules
+  - Capitalize leading letters; handle Mc/O' prefixes and ampersands; preserve mixed-case words and known acronyms; optionally enforce strict title case when all-caps or mixed casing is detected.
+- Phone correction
+  - Reformat 10-digit numbers to xxx-xxx-xxxx, removing a leading 1 if present.
+- URL correction
+  - Strip http/https prefixes from website fields.
+- Basic validation before locking
+  - Check area vs. point per wiki guidance (with SE post office deviation); alert when mismatched.
+  - Require name and address (HN and street); flag odd HNs for manual review (e.g., 8133455678, 123A, 31-2).
+- Map highlights
+  - Red: major missing items (name, address). Blue: minor gaps (URL, phone, hours). Green: name, address, phone, URL, and hours present. Red/black border for severe issues. Options allow relaxing checks.
+- Locking
+  - Apply SE locking guidelines when validation passes; never down-lock; cap at editor rank when lower than required.
+- Alerts and reminders
+  - Warnings for questionable categories (e.g., USPS-only Post Office) with autofill for USPS data and services.
+  - Reminders for Stadium and Hospital category rules.
+  - Alerts for similar bank/business names to confirm correct harmonization.
+- Duplicate detection
+  - Search radius for duplicate names with per-place whitelisting applied to both locations.
+- Whitelisting
+  - Per-place exceptions for missing phone, address, URL, or hours to allow a place to be treated as complete.
 
-**Important:** You **MUST** enable "Allow access to file URLs" for Tampermonkey, as explained [here](https://www.tampermonkey.net/faq.php?locale=en#Q204). Without this, Tampermonkey cannot load your local files during development.
+## Development Team
+bmtg, vtpearce, cardyin, fjsawicki, jtsmith2, joyriding, MapOMatic, RavenDT, 73VW
 
----
-
-## Option 1: Using DevContainers (recommended)
-
-If you are using [Visual Studio Code](https://code.visualstudio.com/) and the [DevContainers extension](https://marketplace.visualstudio.com/items?itemName=ms-vscode-remote.remote-containers):
-
-1. Open this folder in VS Code
-2. When prompted, **reopen in Dev Container** (or run: `Dev Containers: Reopen in Container`)
-3. The container will automatically install all dependencies (`npm install`)
-4. You can now run:
-
-```bash
-npm run watch
-```
-
-No need to install Node.js, npm or Rollup globally — everything is handled inside the container.
-
----
-
-## Option 2: Manual local setup
-
-If you prefer to run the project directly on your machine:
-
-### Required once
-
-* Install [npm](https://docs.npmjs.com/cli) and [Node.js](https://nodejs.org)
-* Allow local file access for the Tampermonkey extension, as explained [here](https://www.tampermonkey.net/faq.php?locale=en#Q204)
-* Install [Rollup](https://rollupjs.org) globally:
-
-```bash
-npm install --global rollup
-```
-
-(This tool bundles your script for use in Tampermonkey.)
-
-* (Optional) Install Git to manage file versions
-
----
-
-## Getting started
-
-1. Download this repository (as a zip) or clone it via git:
-
-```bash
-git clone https://github.com/bedo2991/wme-typescript.git
-```
-
-2. Initialize your own git repo if needed:
-
-```bash
-git init
-```
-
-3. Update the details in:
-
-* `header.js` and `header-dev.js` → update author, script name, etc.
-* `main.user.ts` → set your script ID and name
-
-4. Install dependencies:
-
-```bash
-npm install
-```
-
----
-
-## Coding
-
-* Open the project in an IDE (e.g. [VS Code](https://code.visualstudio.com/))
-* You will get type checking and autocomplete thanks to the WME SDK typings.
-* The `.ts` file containing your script (`main.user.ts`) needs to be translated to javascript in order to be used by Tampermonkey.
-* ⚠️ **Warning**: the content of the .out folder is generated, you should never edit anything in here.
-* During development, run:
-
-```bash
-npm run watch
-```
-
-This will continuously compile `.ts` to `.js`.
-
-When ready to release:
-
-```bash
-npm run release
-```
-
----
-
-## Prepare for a release
-
-1. Update the version number in `package.json`
-2. Run:
-
-```bash
-npm run release
-```
-
-A file will be created in the `releases/` folder with the version in its name.
-
----
-
-## Scripts explained
-
-You can see all available scripts in `package.json`:
-
-* `compile`: compiles your script once — usually not needed manually
-* `watch`: continuously compiles when code changes — use this when developing
-* `concat`: combines your `header.js` with compiled `.out/main.user.js`
-* `build`: compile + concat
-* `release`: updates version in `header.js` and builds release file
-
----
-
-## Switching between production and beta typings
-
-1. Uninstall current typings:
-
-```bash
-npm uninstall wme-sdk-typings
-```
-
-2. Install desired version:
-
-**Production:**
-
-```bash
-npm install --save-dev https://web-assets.waze.com/wme_sdk_docs/production/latest/wme-sdk-typings.tgz
-```
-
-**Beta:**
-
-```bash
-npm install --save-dev https://web-assets.waze.com/wme_sdk_docs/beta/latest/wme-sdk-typings.tgz
-```
-
-Full WME SDK typings documentation [here](https://web-assets.waze.com/wme_sdk_docs/production/latest/index.html#md:typescript-type-definitions).
-
----
+## Changelog
+### Unreleased
+#### Changed
+- Rewrote the README for clarity, structure, and current links.
