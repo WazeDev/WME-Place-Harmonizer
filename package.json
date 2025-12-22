@@ -1,23 +1,25 @@
 {
-  "version": "1.0.0",
-  "name": "wme-sdk-example",
-  "devDependencies": {
-    "@rollup/plugin-typescript": "^12.1.0",
-    "tslib": "^2.7.0",
-    "typescript": "^5.6.3"
-  },
-  "scripts": {
-    "compile": "rollup -c",
-    "watch": "rollup -c --watch",
-    "concat": "cross-env concat -o releases\\release-%npm_package_version%.user.js header.js .out/main.user.js",
-    "build": "npm run compile && npm run concat",
-    "release": "cross-env replace-in-files --regex='\\d+\\.\\d+\\.\\d+' --replacement=%npm_package_version% header.js && npm run build"
-  },
-  "dependencies": {
-    "@types/tampermonkey": "^5.0.3",
-    "concat": "^1.0.3",
-    "cross-env": "^7.0.3",
-    "replace-in-files-cli": "^3.0.0",
-    "wme-sdk-typings": "https://web-assets.waze.com/wme_sdk_docs/production/latest/wme-sdk-typings.tgz"
-  }
+    "version": "1.0.0",
+    "name": "wme-sdk-example",
+    "devDependencies": {
+        "@rollup/plugin-typescript": "^12.1.0",
+        "tslib": "^2.7.0",
+        "typescript": "^5.6.3"
+    },
+    "scripts": {
+        "compile": "rollup -c",
+        "watch": "rollup -c --watch",
+        "concat": "cross-env concat -o releases\\release-%npm_package_version%.user.js header.js .out/main.user.js",
+        "build": "npm run compile && npm run concat",
+        "release": "cross-env replace-in-files --regex='\\d+\\.\\d+\\.\\d+' --replacement=%npm_package_version% header.js && npm run build"
+    },
+    "dependencies": {
+        "@types/i18next": "^12.1.0",
+        "@types/tampermonkey": "^5.0.3",
+        "concat": "^1.0.3",
+        "cross-env": "^7.0.3",
+        "i18next": "^25.3.2",
+        "replace-in-files-cli": "^3.0.0",
+        "wme-sdk-typings": "https://web-assets.waze.com/wme_sdk_docs/production/latest/wme-sdk-typings.tgz"
+    }
 }

@@ -1,13 +1,14 @@
 // For format details, see https://aka.ms/devcontainer.json. For config options, see the
 // README at: https://github.com/devcontainers/templates/tree/main/src/typescript-node
 {
-    "name": "Node.js & TypeScript",
+    "name": "WME Place Harmonizer",
     // Or use a Dockerfile or Docker Compose file. More info: https://containers.dev/guide/dockerfile
     "image": "mcr.microsoft.com/devcontainers/typescript-node:1-22-bookworm",
     // "postCreateCommand": "npm install && npm install -g rollup",
     "postCreateCommand": "${containerWorkspaceFolder}/.devcontainer/post-create-command.sh",
     "postStartCommand": "npm run watch",
-    "shutdownAction": "stopContainer"
+    "shutdownAction": "stopContainer",
+    "initializeCommand": "${localWorkspaceFolder}/.devcontainer/init.sh"
     // Features to add to the dev container. More info: https://containers.dev/features.
     // "features": {},
     // Use 'forwardPorts' to make a list of ports inside the container available locally.
