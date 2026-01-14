@@ -1,7 +1,17 @@
 {
-    "version": "1.0.0",
-    "name": "wme-sdk-example",
+    "version": "2025.12.22.000",
+    "name": "wme-place-harmonizer",
+    "description": "Harmonizes, formats, and locks a selected place in Waze Map Editor",
+    "author": "WazeDev",
+    "license": "GNU GPL v3",
+    "repository": {
+        "type": "git",
+        "url": "https://github.com/WazeDev/WME-Place-Harmonizer"
+    },
     "devDependencies": {
+        "@rollup/plugin-json": "^6.1.0",
+        "@rollup/plugin-commonjs": "^25.0.7",
+        "@rollup/plugin-node-resolve": "^15.3.0",
         "@rollup/plugin-typescript": "^12.1.0",
         "tslib": "^2.7.0",
         "typescript": "^5.6.3"
@@ -9,9 +19,11 @@
     "scripts": {
         "compile": "rollup -c",
         "watch": "rollup -c --watch",
-        "concat": "cross-env concat -o releases\\release-%npm_package_version%.user.js header.js .out/main.user.js",
-        "build": "npm run compile && npm run concat",
-        "release": "cross-env replace-in-files --regex='\\d+\\.\\d+\\.\\d+' --replacement=%npm_package_version% header.js && npm run build"
+        "concat": "cross-env concat -o releases/release-$npm_package_version.user.js header.js .out/main.user.js",
+        "check-size": "bash scripts/check-bundle-size.sh",
+        "build": "npm run compile && npm run concat && npm run check-size",
+        "release": "cross-env replace-in-files --regex='\\d+\\.\\d+\\.\\d+\\.\\d+' --replacement=$npm_package_version header.js && npm run build",
+        "lint": "tsc --noEmit"
     },
     "dependencies": {
         "@types/i18next": "^12.1.0",
@@ -19,6 +31,8 @@
         "concat": "^1.0.3",
         "cross-env": "^7.0.3",
         "i18next": "^25.3.2",
+        "lz-string": "^1.5.0",
+        "@turf/turf": "^7.0.0",
         "replace-in-files-cli": "^3.0.0",
         "wme-sdk-typings": "https://web-assets.waze.com/wme_sdk_docs/production/latest/wme-sdk-typings.tgz"
     }

@@ -5,16 +5,22 @@
 // @description Harmonizes, formats, and locks a selected place
 // @author      WMEPH Development Group
 // @include     /^https:\/\/(www|beta)\.waze\.com\/(?!user\/)(.{2,6}\/)?editor\/?.*$/
-// @require     https://greasyfork.org/scripts/24851-wazewrap/code/WazeWrap.js
-// @require     https://greasyfork.org/scripts/37486-wme-utils-hoursparser/code/WME%20Utils%20-%20HoursParser.js
-// @require     https://cdnjs.cloudflare.com/ajax/libs/lz-string/1.4.4/lz-string.min.js
-// @license     GNU GPL v3
-// @grant       GM_addStyle
+// @license      AGPL
+// @grant        unsafeWindow
+// @grant        GM_xmlhttpRequest
+// @connect      sheets.googleapis.com
 
-// @require       file:///C:/Users/[USERNAME]/Documents/MyDir/.out/main.user.js
+// @require		file://wsl.localhost/Debian/home/mael/opensource/WME-Place-Harmonizer/.out/main.user.js
 // ==/UserScript==
 
-// make sure that inside Tampermonkey's extension settings (on the browser, not from TM) and allow "Local file access", as shown here: https://www.tampermonkey.net/faq.php?locale=en#Q204
-// make sure that the snippts inside header.js and header-dev.js are the same, except for the one @require field
-// adjust the require field to the location of the .out/main.user.js file inside this directory
-// copy the above snippet (up to ==/Userscript==) inside Tampermonkey's editor and save it
+// NOTE: @grant unsafeWindow is required because we use GM_xmlhttpRequest.
+// When any @grant other than "none" is used, Tampermonkey runs the script
+// in a sandbox where `window` is isolated from the page. We need unsafeWindow
+// to access WME's SDK_INITIALIZED promise and getWmeSdk() function.
+
+// DEV SETUP:
+// 1. Enable "Local file access" in Tampermonkey's extension settings (browser level, not TM):
+//    https://www.tampermonkey.net/faq.php?locale=en#Q204
+// 2. Adjust the @require path above to point to your local .out/main.user.js
+// 3. Copy this entire header (up to ==/UserScript==) into Tampermonkey's editor
+// 4. Keep header.js and header-dev.js in sync, except for the @require field

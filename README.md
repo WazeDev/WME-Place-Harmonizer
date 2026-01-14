@@ -62,9 +62,48 @@ Place Harmonizer cleans and standardizes a single selected place in WME. It harm
   - Per-place exceptions for missing phone, address, URL, or hours to allow a place to be treated as complete.
 
 ## Development Team
-bmtg, vtpearce, cardyin, fjsawicki, jtsmith2, joyriding, MapOMatic, RavenDT, 73VW
+
+- @bmtg
+- @vtpearce
+- @cardyin
+- @fjsawicki
+- @jtsmith2
+- @joyriding
+- @MapOMatic
+- @RavenDT
+- @73VW
+
+## Copyright Notice
+
+This project is based on the awesome work of Francesco Bedini, who created a template to develop WME userscripts in TypeScript. You can find the original project [here](https://github.com/bedo2991/wme-typescript).
+
+His code is licensed under the MIT License, available [here](./LICENSE.original) as of the time this fork was created.
+
+All code related to the Docker devcontainer, VS Code settings, use of locales, and package bundling ("Tools") is also licensed under the MIT License.
+
+All code in `/src/` (and any file with a copyright mentioning WazeDev or Maël Pedretti) is licensed under the [GNU Affero General Public License v3.0 or later (AGPL)](./LICENSE).
+
+Hours parsing in [src/core/hoursParser.ts](src/core/hoursParser.ts) is derived from [HoursParser.js](https://update.greasyfork.org/scripts/37486/1395212/WME%20Utils%20-%20HoursParser.js) (GPL-3.0) by MapOMatic (originally by bmtg); attribution retained in this port.
+
+**Summary:**
+
+- Use of the original Francesco Bedini template and tools remains under the MIT License.
+- Hours parser derivation is GPL-3.0-licensed; see [source](https://github.com/WazeDev/WME-Scripts/blob/master/HoursParser.js).
+- Use of all other new code and `/src/` is restricted under AGPL as described in `LICENSE`.
+
+This project is thus **dual-licensed**: portions under MIT (original template and tools), portions under AGPL (all other `/src/` code and new work), with GPL-3.0 hours parser derivation noted.
 
 ## Changelog
 ### Unreleased
+#### Added
+- Introduced TypeScript SDK bootstrap, i18n wiring, and build tooling scaffolding for the migration.
+- Sidebar tab, overlay layer checkbox, selection tracking, and `Shift+Alt+A` shortcut stub wired.
+- Harmonization engine with title-case, phone/URL formatting, completeness assessment; UI renderer with change suggestions and apply button; venue updater service via SDK.
+- Compressed storage via `lz-string` for whitelist and user settings; legacy whitelist auto-migrated on first access.
+- Harmonizer now respects whitelist: skips phone/URL/address/hours issues when whitelisted.
 #### Changed
 - Rewrote the README for clarity, structure, and current links.
+- Documented licensing and GPL attribution for the hours parser.
+- Updated package.json metadata (name, description, author, license, repository) and aligned versions across package.json, header.js, and src/core/config.ts to 2025.12.22.000.
+#### Fixed
+- Build scripts now use forward slashes for cross-platform compatibility (Linux/macOS/Windows).

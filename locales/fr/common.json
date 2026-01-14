@@ -1,0 +1,259 @@
+{
+    "tabs": {
+        "harmonize": "Harmoniser",
+        "highlight": "HL / Scan",
+        "whitelist": "Outils WL",
+        "moderators": "Modérateurs"
+    },
+    "titleCase": {
+        "correction": "Correction de casse titre",
+        "brandException": "Capitalisation spécifique à la marque"
+    },
+    "buttons": {
+        "refreshData": "Actualiser les données",
+        "run": "Appliquer les modifications",
+        "runWmeph": "Valider",
+        "webSearch": "Recherche Web",
+        "reportError": "Signaler une erreur du script",
+        "placesWiki": "Wiki Places",
+        "apply": "Appliquer"
+    },
+    "webSearch": {
+        "button": "Recherche Web",
+        "tooltip": "Rechercher ce lieu sur Google",
+        "openUrl": "Ouvrir l'URL",
+        "urlTooltip": "Ouvrir le site du lieu",
+        "noUrl": "Aucune URL à ouvrir",
+        "cannotSearch": "Recherche impossible : le lieu n'a ni nom ni adresse"
+    },
+    "editPanel": {
+        "runTitle": "Lancer WMEPH{{version}} sur le lieu",
+        "website": "Site web",
+        "websiteTitle": "Ouvrir le site du lieu",
+        "google": "Google",
+        "googleTitle": "Rechercher ce lieu sur le web. Ne copiez pas d'infos de tiers !",
+        "plugShare": "PS",
+        "plugShareTitle": "Ouvrir PlugShare",
+        "inlineLabel": "WMEPH",
+        "websiteLink": "Ouvrir le site du lieu"
+    },
+    "banner": {
+        "whitelistLabel": "WL",
+        "addToWhitelist": "Ajouter à la whitelist"
+    },
+    "shortcuts": {
+        "description": "Lancer Place Harmonizer sur le lieu sélectionné"
+    },
+    "settings": {
+        "webSearchNewTab": "Ouvrir l'URL et les résultats de recherche dans un nouvel onglet plutôt qu'une nouvelle fenêtre",
+        "disablePhoneValidation": "Désactiver la validation/formatage automatiques du téléphone",
+        "disableTitleCase": "Désactiver les corrections automatiques de casse titre",
+        "disableDfZoom": "Désactiver le zoom/centrage pour les doublons",
+        "showDuplicates": "Afficher les doublons sur la carte (cercles rouges avec le compte)",
+        "enableIaZoom": "Activer zoom/centrage pour les lieux sans adresse",
+        "enableAddressInference": "Suggérer les adresses manquantes depuis les segments proches",
+        "hidePlacesWiki": "Masquer le bouton \"Places Wiki\" dans la bannière des résultats",
+        "hideReportError": "Masquer le bouton \"Signaler une erreur\" dans la bannière",
+        "hideServicesButtons": "Masquer les boutons \"Recherche Web\" et \"Ouvrir l'URL\" dans les résultats",
+        "hidePurWebSearch": "Masquer le bouton \"Recherche Web\" sur les PUR",
+        "excludePlaDupes": "Exclure les parkings lors de la recherche de doublons",
+        "showPlaExitWhileClosed": "Toujours demander si les voitures peuvent sortir quand le parking est fermé",
+        "addAddresses": "Ajouter les champs d'adresse détectés aux lieux sans adresse",
+        "enableCloneMode": "Activer les outils de clonage de lieu",
+        "autoLockRpps": "Verrouiller les RPP au niveau régional par défaut",
+        "disableRegionOverride": "Désactiver la spécificité régionale (dev)"
+    },
+    "keyboard": {
+        "title": "Raccourci clavier",
+        "shortcutLabel": "Lettre du raccourci (A-Z) :",
+        "inputTitle": "Saisir une lettre (A-Z) pour déclencher le raccourci",
+        "current": "Actuel : Shift+Alt+{{shortcut}}",
+        "format": "Format : Shift+Alt+[Lettre]"
+    },
+    "links": {
+        "placesWiki": "Ouvrir la page WME Places Wiki",
+        "forum": "Envoyer vos retours et suggestions"
+    },
+    "filterHighlight": {
+        "checkbox": "Mettre en évidence les lieux sans le service sélectionné",
+        "title": "Service à filtrer :",
+        "services": {
+            "PARKING_FOR_CUSTOMERS": "Parking clients",
+            "WHEELCHAIR_ACCESSIBLE": "Accessible fauteuil roulant",
+            "WI_FI": "Wi-Fi",
+            "CREDIT_CARDS": "Cartes de crédit",
+            "RESTROOMS": "Toilettes",
+            "OUTSIDE_SEATING": "Terrasse",
+            "DRIVETHROUGH": "Drive",
+            "DELIVERIES": "Livraisons",
+            "TAKE_AWAY": "À emporter",
+            "RESERVATIONS": "Réservations"
+        }
+    },
+    "highlighter": {
+        "title": "Paramètres de surlignage :",
+        "colorHighlighting": "Activer le surlignage des zones où des lieux nécessitent du travail",
+        "disableHours": "Désactiver le surlignage pour horaires manquants",
+        "disableRank": "Désactiver le surlignage pour les lieux verrouillés au-dessus de votre rang",
+        "disableWhitelist": "Désactiver le surlignage Whitelist (affiche tout le manque d'infos)",
+        "plaTypeFill": "Colorier les parkings selon le type (public=bleu, restreint=jaune, privé=rouge)"
+    },
+    "whitelist": {
+        "merge": "Fusionner",
+        "pull": "Exporter",
+        "share": "Partager votre WL",
+        "stats": "Stats",
+        "stateFilter": "Supprimer les données pour 1 État",
+        "mergeSuccess": "Fusionné {{count}} éléments. Whitelist totale : {{total}}",
+        "mergeError": "Erreur lors de la fusion",
+        "pullSuccess": "Whitelist exportée dans la zone de texte. Ctrl+C pour copier.",
+        "shareSuccess": "Whitelist partagée avec succès",
+        "shareError": "Échec du partage de la whitelist",
+        "shareErrorDetailed": "Échec du partage : {{message}}",
+        "shareInProgress": "Partage de la whitelist...",
+        "label": "Chaîne de whitelist :",
+        "placeholder": "Collez ici le JSON de whitelist...",
+        "mergeTitle": "Fusionner la chaîne dans votre Whitelist existante",
+        "pullTitle": "Exporter votre Whitelist pour sauvegarde ou partage",
+        "shareTitle": "Partager votre Whitelist vers une feuille Google publique",
+        "statsTooltip": "Afficher les stats de WL",
+        "stateFilterTooltip": "Supprimer tous les éléments WL d'un État",
+        "statsTitle": "Statistiques de la whitelist :",
+        "stateFilterPrompt": "Entrez l'abréviation d'État à 2 lettres (ex. CA, TX) :",
+        "stateFilterConfirm": "Supprimer toutes les entrées de whitelist pour {{state}} ?",
+        "stateFilterSuccess": "Supprimé {{count}} entrées pour {{state}}",
+        "stateFilterInvalid": "Abréviation d'État invalide.",
+        "errors": {
+            "invalidFormat": "Format invalide : ce n'est pas un tableau"
+        }
+    },
+    "moderators": {
+        "intro": "Les modérateurs examinent les chaînes pour leur région. Pour toute question ou suggestion, contactez un modérateur régional.",
+        "empty": "Liste des modérateurs non disponible. Actualisez les données pour la charger."
+    },
+    "report": {
+        "changes": "Modifications :",
+        "issues": "Problèmes :",
+        "applied": "Appliqué ✓",
+        "noChanges": "Aucune modification à appliquer"
+    },
+    "messages": {
+        "initFailed": "Échec de l'initialisation",
+        "sdkMissing": "WME SDK indisponible sur cette page",
+        "noSelection": "Veuillez d'abord sélectionner un lieu",
+        "notAPlace": "Sélectionnez un Lieu (pas un segment)",
+        "notFound": "Lieu introuvable",
+        "ready": "Place Harmonizer prêt – sélectionnez un lieu puis appuyez sur Shift+Alt+A",
+        "refreshingPnh": "Actualisation des données PNH...",
+        "analyzing": "Analyse en cours...",
+        "applied": "Modifications appliquées ✓",
+        "error": "Erreur : {{message}}"
+    },
+    "errors": {
+        "label": "Erreur :",
+        "unknown": "Erreur inconnue",
+        "operationFailed": "Erreur : {{operation}} a échoué. Voir la console pour plus de détails.",
+        "generic": "Erreur : {{message}}"
+    },
+    "phone": {
+        "formatting": "Formatage du numéro de téléphone",
+        "invalid": "Numéro de téléphone invalide : {{error}}",
+        "invalidAreaCode": "Indicatif invalide : {{areaCode}}",
+        "invalidLength": "Longueur invalide : {{length}} chiffres (attendu 10)",
+        "allSameDigits": "Tous les chiffres sont identiques"
+    },
+    "labels": {
+        "unknown": "Inconnu"
+    },
+    "validation": {
+        "nameEmpty": "Le nom est vide",
+        "nameTitleCase": "Appliquer la casse Titre",
+        "phoneFormat": "Normaliser au format xxx-xxx-xxxx",
+        "phoneMissing": "Numéro de téléphone manquant",
+        "urlRemovePrefix": "Supprimer le préfixe http(s)://",
+        "urlMissing": "URL manquante",
+        "hoursMissing": "Horaires non définis",
+        "streetMissing": "Rue manquante",
+        "houseNumberMissing": "Numéro manquant",
+        "noSelection": "Aucune sélection",
+        "notAPlace": "Sélectionnez un Lieu à harmoniser",
+        "duplicatesFound": "Trouvé {{count}} lieux à proximité (doublons potentiels)",
+        "addressInference": {
+            "inferredStreet": "Inféré à partir du segment voisin {{segmentId}}",
+            "inferredCity": "Inféré à partir du segment voisin {{segmentId}}",
+            "noSegmentsNearby": "Aucun segment routier à proximité pour inférer l'adresse"
+        }
+    },
+    "update": {
+        "invalidLockRankValue": "Valeur de verrouillage invalide",
+        "failedParseHours": "Impossible d'analyser les horaires",
+        "invalidHoursFormat": "Format d'horaires invalide",
+        "updatedNavigationPoints": "Points de navigation mis à jour",
+        "unknownField": "Champ inconnu : {{field}}",
+        "updatedField": "{{field}} mis à jour",
+        "errorUpdatingField": "Erreur lors de la mise à jour de {{field}} : {{message}}",
+        "invalidLockRankForVenue": "Valeur de verrouillage invalide pour le lieu {{venueId}}",
+        "failedParseHoursForVenue": "Impossible d'analyser les horaires pour le lieu {{venueId}}"
+    },
+    "lockRank": {
+        "recommended": "Verrouiller au rang {{rank}} ({{reason}})",
+        "chain": "Chaîne",
+        "nationalChain": "Chaîne nationale",
+        "regionalChain": "Chaîne régionale",
+        "localPlace": "Lieu local",
+        "gasStation": "Station-service",
+        "publicParking": "Parking public/restreint"
+    },
+    "categoryRules": {
+        "parkingLot": {
+            "exitWhileClosed": "Vérifiez si les voitures peuvent sortir quand le parking est fermé"
+        },
+        "gasStation": {
+            "missingBrand": "Station-service sans marque",
+            "unknownBrand": "Marque \"{{brand}}\" introuvable dans la base PNH. Peut nécessiter une vérification.",
+            "pnhDataCorrection": "Correction des données PNH"
+        },
+        "restaurant": {
+            "missingHours": "Restaurant sans horaires (obligatoire sauf 24/7)"
+        },
+        "hotel": {
+            "missingHours": "Hôtel sans horaires",
+            "missingPhone": "Hôtel sans téléphone",
+            "missingUrl": "Hôtel sans site web"
+        },
+        "chargingStation": {
+            "missingNetwork": "Borne de recharge sans réseau",
+            "missingPaymentMethods": "Borne de recharge sans moyens de paiement"
+        },
+        "bank": {
+            "missingHours": "Banque sans horaires (obligatoire, pas 24/7)"
+        },
+        "postOffice": {
+            "zipPrompt": "Un bureau USPS peut nécessiter le code ZIP dans la description",
+            "alias": "Ajoutez \"Post Office\" comme nom alternatif"
+        },
+        "stadium": {
+            "verifyLayout": "Stade/arena : vérifier les entrées et parkings",
+            "urlMissing": "Stade/arena : URL officielle requise"
+        },
+        "hospital": {
+            "verifyEntrance": "Hôpital : vérifier l'entrée des urgences",
+            "phoneRequired": "Hôpital : numéro d'urgence requis"
+        },
+        "warehouseClub": {
+            "gasStationSeparate": "Le poste essence doit être séparé du magasin principal",
+            "pharmacySeparate": "La pharmacie doit être séparée du magasin principal",
+            "missingHours": "Les horaires du magasin doivent être renseignés (horaires membres peuvent différer)"
+        }
+    },
+    "pnh": {
+        "name": "Appliquer le nom standard de la chaîne",
+        "brand": "Appliquer la marque standard de la chaîne",
+        "aliases": "Ajouter les alias de la chaîne",
+        "categories": "Aligner les catégories sur les données chaîne",
+        "services": "Aligner les services sur les données chaîne",
+        "url": "Utiliser l'URL du site de la chaîne",
+        "description": "Appliquer la description standard de la chaîne",
+        "outOfRegion": "Données PNH présentes mais non approuvées pour cette région"
+    }
+}
