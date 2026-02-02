@@ -30,6 +30,7 @@ export function buildSettingsPanel(
     onShortcutActivate: () => void
 ): HTMLElement {
     const container = document.createElement('div');
+    container.classList.add("sidebar-tab-pane-body");
     container.style.cssText = 'font-family:inherit; font-size:13px';
 
     const navTabs = document.createElement('ul');
