@@ -191,6 +191,12 @@ export function injectStyles(): void {
         .sub-tab-content .tab-pane {
             width: 100% !important;
         }
+        .sub-tab-content .tab-pane:not(.active) {
+            display: none !important;
+        }
+        .sub-tab-content .tab-pane.active {
+            display: block !important;
+        }
         .wmeph-setting-checkbox{
             display: flex;
             align-items: flex-start;

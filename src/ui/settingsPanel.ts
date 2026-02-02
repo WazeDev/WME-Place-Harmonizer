@@ -8,16 +8,11 @@ import {
     type UserSettings
 } from '../services/storageService';
 import { getStoredModerators } from '../services/pnhFetcher';
-import { URLS } from '../core/config';
+import { URLS, SCRIPT_VERSION } from '../core/config';
 import i18n from '../../locales/i18n';
 import type { WmeSDK } from 'wme-sdk-typings';
 import { onHighlightingSettingChange, onHighlightingToggle } from '../services/venueHighlighter';
-import {
-    DEFAULT_FILTER_SERVICE_TYPE,
-    FILTER_SERVICE_TYPES,
-    onFilterHighlightToggle,
-    onFilterServiceTypeChange
-} from '../services/filterHighlighter';
+import { onFilterHighlightToggle } from '../services/filterHighlighter';
 import { getShortcutLetter, updateShortcutLetter } from '../services/shortcutsManager';
 
 /**
@@ -82,6 +77,13 @@ export function buildSettingsPanel(
 
     container.appendChild(tabContent);
     wireTabs(navTabs, tabContent);
+
+    // Version display
+    const versionDiv = document.createElement('div');
+    versionDiv.id = 'wmeph-version';
+    versionDiv.style.cssText = 'color:#999;font-size:13px;margin-top:12px;text-align:center';
+    versionDiv.textContent = `WMEPH v${SCRIPT_VERSION}`;
+    container.appendChild(versionDiv);
 
     return container;
 }
@@ -157,6 +159,7 @@ function createHarmonizeTab(sdk: WmeSDK, onRefreshData: () => void, onShortcutAc
         { id: 'HidePURWebSearch', label: i18n.t('settings.hidePurWebSearch') },
         { id: 'ExcludePLADupes', label: i18n.t('settings.excludePlaDupes') },
         { id: 'ShowPLAExitWhileClosed', label: i18n.t('settings.showPlaExitWhileClosed') },
+        { id: 'WMEPH-DisablePLAExtProviderCheck', label: i18n.t('settings.disablePlaExtProviderCheck') },
         // Legacy settings restored
         { id: 'WMEPH-AddAddresses', label: i18n.t('settings.addAddresses') },
         { id: 'WMEPH-EnableCloneMode', label: i18n.t('settings.enableCloneMode') },
@@ -199,6 +202,9 @@ function createHarmonizeTab(sdk: WmeSDK, onRefreshData: () => void, onShortcutAc
     kbFormat.style.cssText = 'font-size:11px;margin-top:4px;color:#999';
     kbFormat.textContent = i18n.t('keyboard.format');
     kbDiv.appendChild(kbFormat);
+
+    const kbModifierLabel = createCheckboxLabel('WMEPH-KBSModifierKey', i18n.t('keyboard.useCtrl'));
+    kbDiv.appendChild(kbModifierLabel);
 
     div.appendChild(kbDiv);
 
@@ -248,45 +254,13 @@ function createHighlighterTab(sdk: WmeSDK): HTMLElement {
         { id: 'DisableRankHL', label: i18n.t('highlighter.disableRank') },
         { id: 'DisableWLHL', label: i18n.t('highlighter.disableWhitelist') },
         { id: 'PLATypeFill', label: i18n.t('highlighter.plaTypeFill') },
-        { id: 'ShowFilterHighlight', label: i18n.t('filterHighlight.checkbox') }
+        { id: 'ShowFilterHighlight', label: i18n.t('highlighter.filterCustomerParking') }
     ];
 
     settings.forEach(setting => {
         const label = createCheckboxLabelWithCallback(setting.id, setting.label, sdk, setting.isToggle ?? false);
         div.appendChild(label);
     });
-
-    const filterDiv = document.createElement('div');
-    filterDiv.style.cssText = 'margin:12px 0;padding:8px;border:1px solid #ccc;background:#f9f9f9';
-
-    const filterTitle = document.createElement('div');
-    filterTitle.style.cssText = 'margin-bottom:6px;font-weight:bold';
-    filterTitle.textContent = i18n.t('filterHighlight.title');
-    filterDiv.appendChild(filterTitle);
-
-    const serviceSelect = document.createElement('select');
-    serviceSelect.id = 'WMEPH-FilterServiceType';
-    serviceSelect.style.cssText = 'width:100%;padding:4px';
-
-    const savedServiceType = localStorage.getItem('FilterServiceType') ?? DEFAULT_FILTER_SERVICE_TYPE;
-
-    FILTER_SERVICE_TYPES.forEach(serviceType => {
-        const option = document.createElement('option');
-        option.value = serviceType;
-        option.textContent = i18n.t(`filterHighlight.services.${serviceType}`);
-        serviceSelect.appendChild(option);
-    });
-
-    serviceSelect.value = FILTER_SERVICE_TYPES.includes(savedServiceType as typeof FILTER_SERVICE_TYPES[number])
-        ? savedServiceType
-        : DEFAULT_FILTER_SERVICE_TYPE;
-
-    serviceSelect.addEventListener('change', () => {
-        onFilterServiceTypeChange(sdk, serviceSelect.value);
-    });
-
-    filterDiv.appendChild(serviceSelect);
-    div.appendChild(filterDiv);
 
     return div;
 }
@@ -325,7 +299,7 @@ function createWhitelistTab(): HTMLElement {
 
     const pullBtn = createWzButton({
         label: i18n.t('whitelist.pull'),
-        color: 'secondary',
+        color: 'primary',
         size: 'sm',
         onClick: () => handlePull()
     });
@@ -333,7 +307,7 @@ function createWhitelistTab(): HTMLElement {
 
     const shareBtn = createWzButton({
         label: i18n.t('whitelist.share'),
-        color: 'secondary',
+        color: 'primary',
         size: 'sm',
         onClick: () => handleShare()
     });
@@ -359,7 +333,7 @@ function createWhitelistTab(): HTMLElement {
 
     const stateFilterBtn = createWzButton({
         label: i18n.t('whitelist.stateFilter'),
-        color: 'secondary',
+        color: 'danger',
         size: 'sm',
         onClick: () => handleStateFilter()
     });
@@ -485,7 +459,11 @@ function createModeratorsTab(): HTMLElement {
             tdRegion.textContent = region;
             tdRegion.style.cssText = 'border:1px solid #bdb;padding:4px;font-weight:bold';
             const tdMods = document.createElement('td');
-            tdMods.textContent = mods[region].join(', ');
+            // Filter out URLs and region numbers, keep only moderator names
+            const modNames = mods[region].filter(item =>
+                !item.startsWith('http') && !/^\d+[a-z]?$/i.test(item)
+            );
+            tdMods.textContent = modNames.join(', ');
             tdMods.style.cssText = 'border:1px solid #bdb;padding:4px';
             tr.appendChild(tdRegion);
             tr.appendChild(tdMods);
@@ -532,8 +510,8 @@ function createCheckboxLabelWithCallback(
     sdk: WmeSDK,
     isToggle: boolean
 ): HTMLElement {
-    const span = document.createElement('span');
-    span.style.cssText = 'display:block;margin:6px 0';
+    const div = document.createElement('div');
+    div.className = 'wmeph-setting-checkbox';
 
     const checkbox = document.createElement('input');
     checkbox.type = 'checkbox';
@@ -561,9 +539,9 @@ function createCheckboxLabelWithCallback(
     label.textContent = labelText;
     label.style.cssText = 'margin-left:6px;font-weight:normal';
 
-    span.appendChild(checkbox);
-    span.appendChild(label);
-    return span;
+    div.appendChild(checkbox);
+    div.appendChild(label);
+    return div;
 }
 
 type WzButtonElement = HTMLElement & { disabled?: boolean };

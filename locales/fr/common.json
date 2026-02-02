@@ -61,14 +61,16 @@
         "addAddresses": "Ajouter les champs d'adresse détectés aux lieux sans adresse",
         "enableCloneMode": "Activer les outils de clonage de lieu",
         "autoLockRpps": "Verrouiller les RPP au niveau régional par défaut",
-        "disableRegionOverride": "Désactiver la spécificité régionale (dev)"
+        "disableRegionOverride": "Désactiver la spécificité régionale (dev)",
+        "disablePlaExtProviderCheck": "Désactiver la vérification du \"lien Google place\" sur les Parkings"
     },
     "keyboard": {
         "title": "Raccourci clavier",
         "shortcutLabel": "Lettre du raccourci (A-Z) :",
         "inputTitle": "Saisir une lettre (A-Z) pour déclencher le raccourci",
         "current": "Actuel : Shift+Alt+{{shortcut}}",
-        "format": "Format : Shift+Alt+[Lettre]"
+        "format": "Format : Shift+Alt+[Lettre]",
+        "useCtrl": "Utiliser Ctrl au lieu de Alt"
     },
     "links": {
         "placesWiki": "Ouvrir la page WME Places Wiki",
@@ -96,7 +98,8 @@
         "disableHours": "Désactiver le surlignage pour horaires manquants",
         "disableRank": "Désactiver le surlignage pour les lieux verrouillés au-dessus de votre rang",
         "disableWhitelist": "Désactiver le surlignage Whitelist (affiche tout le manque d'infos)",
-        "plaTypeFill": "Colorier les parkings selon le type (public=bleu, restreint=jaune, privé=rouge)"
+        "plaTypeFill": "Colorier les parkings selon le type (public=bleu, restreint=jaune, privé=rouge)",
+        "filterCustomerParking": "Mettre en évidence les lieux sans parking client"
     },
     "whitelist": {
         "merge": "Fusionner",

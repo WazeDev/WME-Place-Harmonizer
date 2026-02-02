@@ -61,14 +61,16 @@
         "addAddresses": "Add detected address fields to places with no address",
         "enableCloneMode": "Enable place cloning tools",
         "autoLockRpps": "Lock residential place points to region default",
-        "disableRegionOverride": "Disable Region Specificity (dev)"
+        "disableRegionOverride": "Disable Region Specificity (dev)",
+        "disablePlaExtProviderCheck": "Disable check for \"Google place link\" on Parking Lot Areas"
     },
     "keyboard": {
         "title": "Keyboard Shortcut",
         "shortcutLabel": "Shortcut Letter (A-Z):",
         "inputTitle": "Enter a single letter (A-Z) to trigger the shortcut",
         "current": "Current: Shift+Alt+{{shortcut}}",
-        "format": "Format: Shift+Alt+[Letter]"
+        "format": "Format: Shift+Alt+[Letter]",
+        "useCtrl": "Use Ctrl instead of Alt"
     },
     "links": {
         "placesWiki": "Open the WME Places Wiki page",
@@ -96,7 +98,8 @@
         "disableHours": "Disable highlighting for missing hours",
         "disableRank": "Disable highlighting for places locked above your rank",
         "disableWhitelist": "Disable Whitelist highlighting (shows all missing info regardless of WL)",
-        "plaTypeFill": "Fill parking lots based on type (public=blue, restricted=yellow, private=red)"
+        "plaTypeFill": "Fill parking lots based on type (public=blue, restricted=yellow, private=red)",
+        "filterCustomerParking": "Highlight places without Customer Parking service"
     },
     "whitelist": {
         "merge": "Merge",
