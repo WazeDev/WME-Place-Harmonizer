@@ -1,0 +1,262 @@
+{
+    "tabs": {
+        "harmonize": "Harmonize",
+        "highlight": "HL / Scan",
+        "whitelist": "WL Tools",
+        "moderators": "Moderators"
+    },
+    "titleCase": {
+        "correction": "Title case correction",
+        "brandException": "Brand-specific capitalization"
+    },
+    "buttons": {
+        "refreshData": "Refresh Data",
+        "run": "Apply Changes",
+        "runWmeph": "Validate",
+        "webSearch": "Web Search",
+        "reportError": "Report script error",
+        "placesWiki": "Places Wiki",
+        "apply": "Apply"
+    },
+    "webSearch": {
+        "button": "Web Search",
+        "tooltip": "Search for this venue on Google",
+        "openUrl": "Open URL",
+        "urlTooltip": "Open venue website",
+        "noUrl": "No URL to open",
+        "cannotSearch": "Cannot search: venue has no name or address"
+    },
+    "editPanel": {
+        "runTitle": "Run WMEPH{{version}} on Place",
+        "website": "Website",
+        "websiteTitle": "Open place URL",
+        "google": "Google",
+        "googleTitle": "Search the web for this place. Do not copy info from 3rd party sources!",
+        "plugShare": "PS",
+        "plugShareTitle": "Open PlugShare website",
+        "inlineLabel": "WMEPH",
+        "websiteLink": "Open venue website"
+    },
+    "banner": {
+        "whitelistLabel": "WL",
+        "addToWhitelist": "Add to whitelist"
+    },
+    "shortcuts": {
+        "description": "Run Place Harmonizer on selected venue"
+    },
+    "settings": {
+        "webSearchNewTab": "Open URL & Search Results in new tab instead of new window",
+        "disablePhoneValidation": "Disable automatic phone number validation and formatting",
+        "disableTitleCase": "Disable automatic title case corrections",
+        "disableDfZoom": "Disable zoom & center for duplicates",
+        "showDuplicates": "Show duplicate venues on map (red circles with count)",
+        "enableIaZoom": "Enable zoom & center for places with no address",
+        "enableAddressInference": "Suggest missing addresses from nearby road segments",
+        "hidePlacesWiki": "Hide \"Places Wiki\" button in results banner",
+        "hideReportError": "Hide \"Report script error\" button in results banner",
+        "hideServicesButtons": "Hide \"Web Search\" and \"Open URL\" buttons in results",
+        "hidePurWebSearch": "Hide \"Web Search\" button on PUR popups",
+        "excludePlaDupes": "Exclude parking lots when searching for duplicate places",
+        "showPlaExitWhileClosed": "Always ask if cars can exit parking lots",
+        "addAddresses": "Add detected address fields to places with no address",
+        "enableCloneMode": "Enable place cloning tools",
+        "autoLockRpps": "Lock residential place points to region default",
+        "disableRegionOverride": "Disable Region Specificity (dev)",
+        "disablePlaExtProviderCheck": "Disable check for \"Google place link\" on Parking Lot Areas"
+    },
+    "keyboard": {
+        "title": "Keyboard Shortcut",
+        "shortcutLabel": "Shortcut Letter (A-Z):",
+        "inputTitle": "Enter a single letter (A-Z) to trigger the shortcut",
+        "current": "Current: Shift+Alt+{{shortcut}}",
+        "format": "Format: Shift+Alt+[Letter]",
+        "useCtrl": "Use Ctrl instead of Alt"
+    },
+    "links": {
+        "placesWiki": "Open the WME Places Wiki page",
+        "forum": "Submit script feedback & suggestions"
+    },
+    "filterHighlight": {
+        "checkbox": "Highlight places missing selected service",
+        "title": "Service to filter by:",
+        "services": {
+            "PARKING_FOR_CUSTOMERS": "Customer Parking",
+            "WHEELCHAIR_ACCESSIBLE": "Wheelchair Accessible",
+            "WI_FI": "Wi-Fi",
+            "CREDIT_CARDS": "Credit Cards",
+            "RESTROOMS": "Restrooms",
+            "OUTSIDE_SEATING": "Outside Seating",
+            "DRIVETHROUGH": "Drive-Through",
+            "DELIVERIES": "Deliveries",
+            "TAKE_AWAY": "Take Away",
+            "RESERVATIONS": "Reservations"
+        }
+    },
+    "highlighter": {
+        "title": "Highlighter Settings:",
+        "colorHighlighting": "Enable color highlighting of map to indicate places needing work",
+        "disableHours": "Disable highlighting for missing hours",
+        "disableRank": "Disable highlighting for places locked above your rank",
+        "disableWhitelist": "Disable Whitelist highlighting (shows all missing info regardless of WL)",
+        "plaTypeFill": "Fill parking lots based on type (public=blue, restricted=yellow, private=red)",
+        "filterCustomerParking": "Highlight places without Customer Parking service"
+    },
+    "whitelist": {
+        "merge": "Merge",
+        "pull": "Pull",
+        "share": "Share your WL",
+        "stats": "Stats",
+        "stateFilter": "Remove data for 1 State",
+        "mergeSuccess": "Merged {{count}} items. Total whitelist: {{total}}",
+        "mergeError": "Error merging whitelist",
+        "pullSuccess": "Whitelist exported to text box. Press Ctrl+C to copy.",
+        "shareSuccess": "Whitelist shared successfully",
+        "shareError": "Failed to share whitelist",
+        "shareErrorDetailed": "Failed to share: {{message}}",
+        "shareInProgress": "Sharing whitelist...",
+        "label": "Whitelist string:",
+        "placeholder": "Paste whitelist JSON here...",
+        "mergeTitle": "Merge the string into your existing Whitelist",
+        "pullTitle": "Pull your existing Whitelist for backup or sharing",
+        "shareTitle": "Share your Whitelist to a public Google sheet",
+        "statsTooltip": "Display WL stats",
+        "stateFilterTooltip": "Remove all WL items for a state",
+        "statsTitle": "Whitelist Statistics:",
+        "stateFilterPrompt": "Enter the 2-letter state abbreviation to remove (e.g., CA, TX):",
+        "stateFilterConfirm": "Remove all whitelist entries for {{state}}?",
+        "stateFilterSuccess": "Removed {{count}} entries for {{state}}",
+        "stateFilterInvalid": "Invalid state abbreviation.",
+        "errors": {
+            "invalidFormat": "Invalid format: not an array"
+        }
+    },
+    "moderators": {
+        "intro": "Moderators are responsible for reviewing chain submissions for their region. If you have questions or suggestions regarding a chain, please contact any of your regional moderators.",
+        "empty": "Moderator list not available yet. Refresh data to load the latest list."
+    },
+    "report": {
+        "changes": "Changes:",
+        "issues": "Issues:",
+        "applied": "Applied ✓",
+        "noChanges": "No changes to apply"
+    },
+    "messages": {
+        "initFailed": "Initialization failed",
+        "sdkMissing": "WME SDK unavailable on this page",
+        "noSelection": "Please select a venue first",
+        "notAPlace": "Select a Place (not a segment)",
+        "notFound": "Place not found",
+        "ready": "Place Harmonizer ready – select a place and press Shift+Alt+A",
+        "refreshingPnh": "Refreshing PNH data...",
+        "analyzing": "Analyzing...",
+        "applied": "Changes applied ✓",
+        "error": "Error: {{message}}"
+    },
+    "errors": {
+        "label": "Error:",
+        "unknown": "Unknown error",
+        "operationFailed": "Error: {{operation}} failed. Check console for details.",
+        "generic": "Error: {{message}}"
+    },
+    "phone": {
+        "formatting": "Phone number formatting",
+        "invalid": "Invalid phone number: {{error}}",
+        "invalidAreaCode": "Invalid area code: {{areaCode}}",
+        "invalidLength": "Invalid length: {{length}} digits (expected 10)",
+        "allSameDigits": "All digits are the same"
+    },
+    "labels": {
+        "unknown": "Unknown"
+    },
+    "validation": {
+        "nameEmpty": "Name is empty",
+        "nameTitleCase": "Apply title-case formatting",
+        "phoneFormat": "Normalize to xxx-xxx-xxxx format",
+        "phoneMissing": "Phone is missing",
+        "urlRemovePrefix": "Remove http(s):// prefix",
+        "urlMissing": "URL is missing",
+        "hoursMissing": "Operating hours not set",
+        "streetMissing": "Street is missing",
+        "houseNumberMissing": "House number is missing",
+        "noSelection": "No selection",
+        "notAPlace": "Select a Place to harmonize",
+        "duplicatesFound": "Found {{count}} nearby venues (potential duplicates)",
+        "addressInference": {
+            "inferredStreet": "Inferred from nearby segment {{segmentId}}",
+            "inferredCity": "Inferred from nearby segment {{segmentId}}",
+            "noSegmentsNearby": "No road segments nearby to infer address from"
+        }
+    },
+    "update": {
+        "invalidLockRankValue": "Invalid lock rank value",
+        "failedParseHours": "Failed to parse opening hours",
+        "invalidHoursFormat": "Invalid opening hours format",
+        "updatedNavigationPoints": "Updated navigation points",
+        "unknownField": "Unknown field: {{field}}",
+        "updatedField": "Updated {{field}}",
+        "errorUpdatingField": "Error updating {{field}}: {{message}}",
+        "invalidLockRankForVenue": "Invalid lock rank for venue {{venueId}}",
+        "failedParseHoursForVenue": "Failed to parse opening hours for venue {{venueId}}"
+    },
+    "lockRank": {
+        "recommended": "Lock to rank {{rank}} ({{reason}})",
+        "chain": "Chain place",
+        "nationalChain": "National chain",
+        "regionalChain": "Regional chain",
+        "localPlace": "Local place",
+        "gasStation": "Gas station",
+        "publicParking": "Public/restricted parking"
+    },
+    "categoryRules": {
+        "parkingLot": {
+            "exitWhileClosed": "Verify if cars can exit this parking lot while closed"
+        },
+        "gasStation": {
+            "missingBrand": "Gas station missing brand",
+            "unknownBrand": "Brand \"{{brand}}\" not found in PNH database. May need review.",
+            "pnhDataCorrection": "PNH data correction"
+        },
+        "restaurant": {
+            "missingHours": "Restaurant missing opening hours (required unless 24/7)"
+        },
+        "hotel": {
+            "missingHours": "Hotel missing opening hours",
+            "missingPhone": "Hotel missing phone number",
+            "missingUrl": "Hotel missing website URL"
+        },
+        "chargingStation": {
+            "missingNetwork": "Charging station missing network",
+            "missingPaymentMethods": "Charging station missing payment methods"
+        },
+        "bank": {
+            "missingHours": "Bank missing opening hours (required, banks are not 24/7)"
+        },
+        "postOffice": {
+            "zipPrompt": "USPS location may need ZIP code in description",
+            "alias": "Consider adding \"Post Office\" as alternate name"
+        },
+        "stadium": {
+            "verifyLayout": "Stadium/Arena: Verify entry points and parking areas are correctly mapped",
+            "urlMissing": "Stadium/Arena should have official website URL"
+        },
+        "hospital": {
+            "verifyEntrance": "Hospital: Verify emergency entrance is correctly placed",
+            "phoneRequired": "Hospital should have phone number for emergencies"
+        },
+        "warehouseClub": {
+            "gasStationSeparate": "Warehouse club gas station should be a separate place from main store",
+            "pharmacySeparate": "Warehouse club pharmacy should be a separate place from main store",
+            "missingHours": "Warehouse club should have opening hours (member-only hours may differ)"
+        }
+    },
+    "pnh": {
+        "name": "Apply chain-standard name",
+        "brand": "Apply chain-standard brand",
+        "aliases": "Add chain aliases",
+        "categories": "Align categories to chain data",
+        "services": "Align services to chain data",
+        "url": "Use chain website URL",
+        "description": "Apply chain-standard description",
+        "outOfRegion": "PNH data exists but is not approved for this region"
+    }
+}
