@@ -1,0 +1,20 @@
+{
+    "compilerOptions": {
+        "target": "ES2021",
+        "module": "ESNext",
+        "moduleResolution": "bundler",
+        "outDir": ".out",
+        "allowJs": true,
+        "checkJs": false,
+        "strict": true,
+        "esModuleInterop": true,
+        "skipLibCheck": true,
+        "forceConsistentCasingInFileNames": true,
+        "removeComments": true
+    },
+    "exclude": [
+        "node_modules",
+        "releases",
+        ".out"
+    ]
+}

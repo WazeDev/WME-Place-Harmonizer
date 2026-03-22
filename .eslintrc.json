@@ -1,0 +1,63 @@
+{
+    "env": {
+        "es2022": true,
+        "browser": true,
+        "jquery": true,
+        "greasemonkey": true
+    },
+    "parserOptions": {
+        "ecmaVersion": "latest",
+        "sourceType": "module"
+    },
+    "globals": {
+        "_": "readonly",
+        "W": "readonly",
+        "I18n": "readonly",
+        "WazeWrap": "readonly",
+        "OpenLayers": "readonly",
+        "turf": "readonly",
+        "require": "readonly",
+        "HoursParser": "readonly",
+        "Pnh": "readonly",
+        "google": "readonly",
+        "LZString": "readonly"
+    },
+    "extends": "airbnb-base",
+    "rules": {
+        "linebreak-style": "off",
+        "indent": ["error", 4, { "SwitchCase": 1 }],
+        "comma-dangle": ["error", "never"],
+        "no-underscore-dangle": "off",
+        "arrow-parens": ["error", "as-needed"],
+        "no-prototype-builtins": "off",
+        "max-len": ["error", 160, { "ignoreUrls": true, "ignoreStrings": true }],
+        "no-param-reassign": "off",
+        "no-plusplus": "off",
+        "newline-per-chained-call": "off",
+        "no-new": "off",
+        "no-template-curly-in-string": "off",
+        "no-alert": "off",
+        "no-console": "off",
+        "no-return-assign": ["error", "except-parens"],
+        "no-restricted-globals": "off",
+        "import/no-unresolved": "off",
+        "no-use-before-define": "off",
+        "global-require": "off",
+        "no-cond-assign": ["error", "except-parens"],
+        "wrap-iife": ["error", "any"],
+        "space-before-function-paren": ["error", {
+            "anonymous": "never",
+            "named": "never",
+            "asyncArrow": "never"
+        }],
+        "strict": ["error", "function"],
+        "camelcase": ["error", {"ignoreGlobals": true}],
+        "func-names": ["error", "as-needed"],
+        "lines-between-class-members": ["error", "always", { "exceptAfterSingleLine": true }],
+        "class-methods-use-this": "off",
+        "max-classes-per-file": "off",
+        "import/extensions": "off",
+        "import/prefer-default-export": "off",
+        "import/no-mutable-exports": "off"
+    }
+}
