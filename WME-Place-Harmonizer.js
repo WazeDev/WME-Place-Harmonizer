@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name        WME Place Harmonizer Beta
 // @namespace   WazeUSA
-// @version     2026.04.19.000
+// @version     2026.04.19.001
 // @description Harmonizes, formats, and locks a selected place
 // @author      WMEPH Development Group
 // @include     /^https:\/\/(www|beta)\.waze\.com\/(?!user\/)(.{2,6}\/)?editor\/?.*$/
@@ -10269,7 +10269,6 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
         createObserver();
 
         const xrayMode = localStorage.getItem('WMEPH_xrayMode_enabled') === 'true';
-        debugger;
 
         sdk.LayerSwitcher.addLayerCheckbox({ name: 'WMEPH x-ray mode', isChecked: xrayMode });
         //WazeWrap.Interface.AddLayerCheckbox('Display', 'WMEPH x-ray mode', xrayMode, toggleXrayMode);
