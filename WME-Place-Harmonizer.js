@@ -1,11 +1,12 @@
 // ==UserScript==
 // @name        WME Place Harmonizer Beta
 // @namespace   WazeUSA
-// @version     2025.05.19.000
+// @version     2026.04.19.000
 // @description Harmonizes, formats, and locks a selected place
 // @author      WMEPH Development Group
 // @include     /^https:\/\/(www|beta)\.waze\.com\/(?!user\/)(.{2,6}\/)?editor\/?.*$/
 // @require     https://greasyfork.org/scripts/24851-wazewrap/code/WazeWrap.js
+// @require     https://update.greasyfork.org/scripts/509664/WME%20Utils%20-%20Bootstrap.js
 // @require     https://greasyfork.org/scripts/37486-wme-utils-hoursparser/code/WME%20Utils%20-%20HoursParser.js
 // @require     https://cdnjs.cloudflare.com/ajax/libs/lz-string/1.4.4/lz-string.min.js
 // @require     https://cdn.jsdelivr.net/npm/@turf/turf@7/turf.min.js
@@ -31,9 +32,10 @@
     'use strict';
 
     // Script update info
+    let sdk; //This *should* be a const, but we can't do that with the way WMEPH loads due to it checking if another version is loaded first
 
     // BE SURE TO SET THIS TO NULL OR AN EMPTY STRING WHEN RELEASING A NEW UPDATE.
-    const _SCRIPT_UPDATE_MESSAGE = '';
+    const _SCRIPT_UPDATE_MESSAGE = 'Removing deprecated WazeWrap functionality, implementing minor SDK migration to keep the script working.  Shortcuts are non-functional.  (Some?) highlighting is broken due to it not being implemented in the SDK (requested 2025-05-30).';
     const _CSS = `
     #edit-panel .venue-feature-editor {
         overflow: initial;
@@ -42,7 +44,7 @@
         width: auto;
         padding: 8px !important;
     }
-    #WMEPH_banner .wmeph-btn { 
+    #WMEPH_banner .wmeph-btn {
         background-color: #fbfbfb;
         box-shadow: 0 2px 0 #aaa;
         border: solid 1px #bbb;
@@ -62,7 +64,7 @@
         height: 18px;
         box-shadow: 0 2px 0 #b3b3b3;
     }
-    
+
     #WMEPH_banner .banner-row {
         padding:2px 4px;
         cursor: default;
@@ -141,23 +143,23 @@
         max-height: 300px;
         overflow-y: auto;
         overflow-x: hidden;
-    } 
-    .wmeph-hr {
-        border-color: #ccc;
     }
     .wmeph-hr {
         border-color: #ccc;
     }
-    
+    .wmeph-hr {
+        border-color: #ccc;
+    }
+
     @keyframes highlight {
         0% {
-            background: #ffff99; 
+            background: #ffff99;
         }
         100% {
             background: none;
         }
     }
-    
+
     .highlight {
         animation: highlight 1.5s;
     }
@@ -812,7 +814,7 @@
         /** @type {string} */
         order;
 
-        /** @type {string */
+        /** @type {string} */
         name;
 
         /** @type {string[]} */
@@ -1995,6 +1997,19 @@
         }
     }
 
+    function ConvertTo4326(lon, lat) {
+        return new OpenLayers.LonLat(lon, lat).transform('EPSG:900913', 'EPSG:4326');
+    }
+
+    function calculateDistance (pointArray) {
+            if (pointArray.length < 2)
+                return 0;
+
+            let line = new OpenLayers.Geometry.LineString(pointArray);
+            let length = line.getGeodesicLength(W.map.getProjectionObject());
+            return length; //multiply by 3.28084 to convert to feet
+    }
+
     function isNullOrWhitespace(str) {
         return !str?.trim().length;
     }
@@ -2391,296 +2406,296 @@
         if (!enable) return;
 
         const defaultPointRadius = 6;
-        const ruleGenerator = (value, symbolizer) => new W.Rule({
-            filter: new OpenLayers.Filter.Comparison({
-                type: '==',
-                value,
-                evaluate(feature) {
-                    const attr = feature.attributes.wazeFeature?._wmeObject?.attributes;
-                    return attr?.wmephSeverity === this.value;
-                }
-            }),
-            symbolizer,
-            wmephStyle: 'xray'
-        });
+//         const ruleGenerator = (value, symbolizer) => new W.Rule({
+//             filter: new OpenLayers.Filter.Comparison({
+//                 type: '==',
+//                 value,
+//                 evaluate(feature) {
+//                     const attr = feature.attributes.wazeFeature?._wmeObject?.attributes;
+//                     return attr?.wmephSeverity === this.value;
+//                 }
+//             }),
+//             symbolizer,
+//             wmephStyle: 'xray'
+//         });
 
-        const severity0 = ruleGenerator(0, {
-            Point: {
-                strokeWidth: 1.67,
-                strokeColor: '#888',
-                pointRadius: 5,
-                fillOpacity: 0.25,
-                fillColor: 'white',
-                zIndex: 0
-            },
-            Polygon: {
-                strokeWidth: 1.67,
-                strokeColor: '#888',
-                fillOpacity: 0
-            }
-        });
+//         const severity0 = ruleGenerator(0, {
+//             Point: {
+//                 strokeWidth: 1.67,
+//                 strokeColor: '#888',
+//                 pointRadius: 5,
+//                 fillOpacity: 0.25,
+//                 fillColor: 'white',
+//                 zIndex: 0
+//             },
+//             Polygon: {
+//                 strokeWidth: 1.67,
+//                 strokeColor: '#888',
+//                 fillOpacity: 0
+//             }
+//         });
 
-        const severityLock = ruleGenerator('lock', {
-            Point: {
-                strokeColor: 'white',
-                fillColor: '#080',
-                fillOpacity: 1,
-                strokeLinecap: 1,
-                strokeDashstyle: '4 2',
-                strokeWidth: 2.5,
-                pointRadius: defaultPointRadius
-            },
-            Polygon: {
-                strokeColor: 'white',
-                fillColor: '#0a0',
-                fillOpacity: 0.4,
-                strokeDashstyle: '4 2',
-                strokeWidth: 2.5
-            }
-        });
+//         const severityLock = ruleGenerator('lock', {
+//             Point: {
+//                 strokeColor: 'white',
+//                 fillColor: '#080',
+//                 fillOpacity: 1,
+//                 strokeLinecap: 1,
+//                 strokeDashstyle: '4 2',
+//                 strokeWidth: 2.5,
+//                 pointRadius: defaultPointRadius
+//             },
+//             Polygon: {
+//                 strokeColor: 'white',
+//                 fillColor: '#0a0',
+//                 fillOpacity: 0.4,
+//                 strokeDashstyle: '4 2',
+//                 strokeWidth: 2.5
+//             }
+//         });
 
-        const severity1 = ruleGenerator(1, {
-            strokeColor: 'white',
-            strokeWidth: 2,
-            pointRadius: defaultPointRadius,
-            fillColor: '#0055ff'
-        });
+//         const severity1 = ruleGenerator(1, {
+//             strokeColor: 'white',
+//             strokeWidth: 2,
+//             pointRadius: defaultPointRadius,
+//             fillColor: '#0055ff'
+//         });
 
-        const severityLock1 = ruleGenerator('lock1', {
-            pointRadius: defaultPointRadius,
-            fillColor: '#0055ff',
-            strokeColor: 'white',
-            strokeLinecap: '1',
-            strokeDashstyle: '4 2',
-            strokeWidth: 2.5
-        });
+//         const severityLock1 = ruleGenerator('lock1', {
+//             pointRadius: defaultPointRadius,
+//             fillColor: '#0055ff',
+//             strokeColor: 'white',
+//             strokeLinecap: '1',
+//             strokeDashstyle: '4 2',
+//             strokeWidth: 2.5
+//         });
 
-        const severity2 = ruleGenerator(2, {
-            Point: {
-                fillColor: '#ca0',
-                strokeColor: 'white',
-                strokeWidth: 2,
-                pointRadius: defaultPointRadius
+//         const severity2 = ruleGenerator(2, {
+//             Point: {
+//                 fillColor: '#ca0',
+//                 strokeColor: 'white',
+//                 strokeWidth: 2,
+//                 pointRadius: defaultPointRadius
 
-            },
-            Polygon: {
-                fillColor: '#ff0',
-                strokeColor: 'white',
-                strokeWidth: 2,
-                fillOpacity: 0.4
-            }
-        });
+//             },
+//             Polygon: {
+//                 fillColor: '#ff0',
+//                 strokeColor: 'white',
+//                 strokeWidth: 2,
+//                 fillOpacity: 0.4
+//             }
+//         });
 
-        const severity3 = ruleGenerator(3, {
-            strokeColor: 'white',
-            strokeWidth: 2,
-            pointRadius: defaultPointRadius,
-            fillColor: '#ff0000'
-        });
+//         const severity3 = ruleGenerator(3, {
+//             strokeColor: 'white',
+//             strokeWidth: 2,
+//             pointRadius: defaultPointRadius,
+//             fillColor: '#ff0000'
+//         });
 
-        const severity4 = ruleGenerator(4, {
-            fillColor: '#f42',
-            strokeLinecap: 1,
-            strokeWidth: 2,
-            strokeDashstyle: '4 2'
-        });
+//         const severity4 = ruleGenerator(4, {
+//             fillColor: '#f42',
+//             strokeLinecap: 1,
+//             strokeWidth: 2,
+//             strokeDashstyle: '4 2'
+//         });
 
-        const severityHigh = ruleGenerator(5, {
-            fillColor: 'black',
-            strokeColor: '#f4a',
-            strokeLinecap: 1,
-            strokeWidth: 4,
-            strokeDashstyle: '4 2',
-            pointRadius: defaultPointRadius
-        });
+//         const severityHigh = ruleGenerator(5, {
+//             fillColor: 'black',
+//             strokeColor: '#f4a',
+//             strokeLinecap: 1,
+//             strokeWidth: 4,
+//             strokeDashstyle: '4 2',
+//             pointRadius: defaultPointRadius
+//         });
 
-        const severityAdLock = ruleGenerator('adLock', {
-            pointRadius: 12,
-            fillColor: 'yellow',
-            fillOpacity: 0.4,
-            strokeColor: '#000',
-            strokeLinecap: 1,
-            strokeWidth: 10,
-            strokeDashstyle: '4 2'
-        });
+//         const severityAdLock = ruleGenerator('adLock', {
+//             pointRadius: 12,
+//             fillColor: 'yellow',
+//             fillOpacity: 0.4,
+//             strokeColor: '#000',
+//             strokeLinecap: 1,
+//             strokeWidth: 10,
+//             strokeDashstyle: '4 2'
+//         });
 
-        _layer.styleMap.styles.default.rules.push(...[severity0, severityLock, severity1,
-            severityLock1, severity2, severity3, severity4, severityHigh, severityAdLock]);
+//         _layer.styleMap.styles.default.rules.push(...[severity0, severityLock, severity1,
+//             severityLock1, severity2, severity3, severity4, severityHigh, severityAdLock]);
 
-        _layer.redraw();
+//         _layer.redraw();
     }
 
     function initializeHighlights() {
         OpenLayers.Renderer.symbol.triangle = [0, -10, 10, 10, -10, 10, 0, -10]; // [0, 10, 10, -10, -10, -10, 0, 10];
 
-        const ruleGenerator = (value, symbolizer) => new W.Rule({
-            filter: new OpenLayers.Filter.Comparison({
-                type: '==',
-                value,
-                evaluate(feature) {
-                    const attr = feature.attributes.wazeFeature?._wmeObject?.attributes;
-                    return attr?.wmephSeverity === this.value;
-                }
-            }),
-            symbolizer,
-            wmephStyle: 'default'
-        });
+        // const ruleGenerator = (value, symbolizer) => new W.Rule({
+        //     filter: new OpenLayers.Filter.Comparison({
+        //         type: '==',
+        //         value,
+        //         evaluate(feature) {
+        //             const attr = feature.attributes.wazeFeature?._wmeObject?.attributes;
+        //             return attr?.wmephSeverity === this.value;
+        //         }
+        //     }),
+        //     symbolizer,
+        //     wmephStyle: 'default'
+        // });
 
-        const rppRule = new W.Rule({
-            filter: new OpenLayers.Filter.Comparison({
-                type: '==',
-                value: true,
-                evaluate(feature) {
-                    return feature.attributes.wazeFeature?._wmeObject.isResidential();
-                }
-            }),
-            symbolizer: {
-                graphicName: 'triangle',
-                pointRadius: 7
-            },
-            wmephStyle: 'default'
-        });
+        //const rppRule = new W.Rule({
+        //     filter: new OpenLayers.Filter.Comparison({
+        //         type: '==',
+        //         value: true,
+        //         evaluate(feature) {
+        //             return feature.attributes.wazeFeature?._wmeObject.isResidential();
+        //         }
+        //     }),
+        //     symbolizer: {
+        //         graphicName: 'triangle',
+        //         pointRadius: 7
+        //     },
+        //     wmephStyle: 'default'
+        // });
 
-        const severity0 = ruleGenerator(0, {
-            pointRadius: 5,
-            externalGraphic: '',
-            label: '',
-            strokeWidth: 4,
-            strokeColor: '#24ff14',
-            fillColor: '#ba85bf'
-        });
+//         const severity0 = ruleGenerator(0, {
+//             pointRadius: 5,
+//             externalGraphic: '',
+//             label: '',
+//             strokeWidth: 4,
+//             strokeColor: '#24ff14',
+//             fillColor: '#ba85bf'
+//         });
 
-        const severityLock = ruleGenerator('lock', {
-            pointRadius: 5,
-            externalGraphic: '',
-            label: '',
-            strokeColor: '#24ff14',
-            strokeLinecap: 1,
-            strokeDashstyle: '7 2',
-            strokeWidth: 5,
-            fillColor: '#ba85bf'
-        });
+//         const severityLock = ruleGenerator('lock', {
+//             pointRadius: 5,
+//             externalGraphic: '',
+//             label: '',
+//             strokeColor: '#24ff14',
+//             strokeLinecap: 1,
+//             strokeDashstyle: '7 2',
+//             strokeWidth: 5,
+//             fillColor: '#ba85bf'
+//         });
 
-        const severity1 = ruleGenerator(1, {
-            strokeColor: '#0055ff',
-            strokeWidth: 4,
-            externalGraphic: '',
-            label: '',
-            pointRadius: 7,
-            fillColor: '#ba85bf'
-        });
+//         const severity1 = ruleGenerator(1, {
+//             strokeColor: '#0055ff',
+//             strokeWidth: 4,
+//             externalGraphic: '',
+//             label: '',
+//             pointRadius: 7,
+//             fillColor: '#ba85bf'
+//         });
 
-        const severityLock1 = ruleGenerator('lock1', {
-            pointRadius: 5,
-            strokeColor: '#0055ff',
-            strokeLinecap: 1,
-            strokeDashstyle: '7 2',
-            externalGraphic: '',
-            label: '',
-            strokeWidth: 5,
-            fillColor: '#ba85bf'
-        });
+//         const severityLock1 = ruleGenerator('lock1', {
+//             pointRadius: 5,
+//             strokeColor: '#0055ff',
+//             strokeLinecap: 1,
+//             strokeDashstyle: '7 2',
+//             externalGraphic: '',
+//             label: '',
+//             strokeWidth: 5,
+//             fillColor: '#ba85bf'
+//         });
 
-        const severity2 = ruleGenerator(2, {
-            strokeColor: '#ff0',
-            strokeWidth: 6,
-            externalGraphic: '',
-            label: '',
-            pointRadius: 8,
-            fillColor: '#ba85bf'
-        });
+//         const severity2 = ruleGenerator(2, {
+//             strokeColor: '#ff0',
+//             strokeWidth: 6,
+//             externalGraphic: '',
+//             label: '',
+//             pointRadius: 8,
+//             fillColor: '#ba85bf'
+//         });
 
-        const severity3 = ruleGenerator(3, {
-            strokeColor: '#ff0000',
-            strokeWidth: 4,
-            externalGraphic: '',
-            label: '',
-            pointRadius: 8,
-            fillColor: '#ba85bf'
-        });
+//         const severity3 = ruleGenerator(3, {
+//             strokeColor: '#ff0000',
+//             strokeWidth: 4,
+//             externalGraphic: '',
+//             label: '',
+//             pointRadius: 8,
+//             fillColor: '#ba85bf'
+//         });
 
-        const severity4 = ruleGenerator(4, {
-            fillColor: 'black',
-            fillOpacity: 0.35,
-            strokeColor: '#f42',
-            strokeLinecap: 1,
-            strokeWidth: 13,
-            externalGraphic: '',
-            label: '',
-            strokeDashstyle: '4 2'
-        });
+//         const severity4 = ruleGenerator(4, {
+//             fillColor: 'black',
+//             fillOpacity: 0.35,
+//             strokeColor: '#f42',
+//             strokeLinecap: 1,
+//             strokeWidth: 13,
+//             externalGraphic: '',
+//             label: '',
+//             strokeDashstyle: '4 2'
+//         });
 
-        const severityHigh = ruleGenerator(5, {
-            pointRadius: 12,
-            fillColor: 'black',
-            fillOpacity: 0.4,
-            strokeColor: '#f4a',
-            strokeLinecap: 1,
-            strokeWidth: 10,
-            externalGraphic: '',
-            label: '',
-            strokeDashstyle: '4 2'
-        });
+//         const severityHigh = ruleGenerator(5, {
+//             pointRadius: 12,
+//             fillColor: 'black',
+//             fillOpacity: 0.4,
+//             strokeColor: '#f4a',
+//             strokeLinecap: 1,
+//             strokeWidth: 10,
+//             externalGraphic: '',
+//             label: '',
+//             strokeDashstyle: '4 2'
+//         });
 
-        const severity6 = ruleGenerator(6, {
-            strokeColor: '#f80',
-            strokeWidth: 6,
-            externalGraphic: '',
-            label: '',
-            pointRadius: 10,
-            fillColor: '#ba85bf'
-        });
+//         const severity6 = ruleGenerator(6, {
+//             strokeColor: '#f80',
+//             strokeWidth: 6,
+//             externalGraphic: '',
+//             label: '',
+//             pointRadius: 10,
+//             fillColor: '#ba85bf'
+//         });
 
-        const severityAdLock = ruleGenerator('adLock', {
-            pointRadius: 1,
-            fillColor: 'yellow',
-            fillOpacity: 0.4,
-            strokeColor: '#000',
-            strokeLinecap: 1,
-            strokeWidth: 10,
-            externalGraphic: '',
-            label: '',
-            strokeDashstyle: '4 2'
-        });
+//         const severityAdLock = ruleGenerator('adLock', {
+//             pointRadius: 1,
+//             fillColor: 'yellow',
+//             fillOpacity: 0.4,
+//             strokeColor: '#000',
+//             strokeLinecap: 1,
+//             strokeWidth: 10,
+//             externalGraphic: '',
+//             label: '',
+//             strokeDashstyle: '4 2'
+//         });
 
         function plaTypeRuleGenerator(value, symbolizer) {
-            return new W.Rule({
-                filter: new OpenLayers.Filter.Comparison({
-                    type: '==',
-                    value,
-                    evaluate(feature) {
-                        const attr = feature.attributes.wazeFeature?._wmeObject?.attributes;
+//             return new W.Rule({
+//                 filter: new OpenLayers.Filter.Comparison({
+//                     type: '==',
+//                     value,
+//                     evaluate(feature) {
+//                         const attr = feature.attributes.wazeFeature?._wmeObject?.attributes;
 
-                        if (attr
-                            && $('#WMEPH-PLATypeFill').prop('checked')
-                            && attr.categoryAttributes && attr.categoryAttributes.PARKING_LOT
-                            && attr.categories.includes(CAT.PARKING_LOT)) {
-                            const type = attr.categoryAttributes.PARKING_LOT.parkingType;
-                            return (!type && this.value === 'public') || (type && (type.toLowerCase() === this.value));
-                        }
-                        return undefined;
-                    }
-                }),
-                symbolizer,
-                wmephStyle: 'default'
-            });
+//                         if (attr
+//                             && $('#WMEPH-PLATypeFill').prop('checked')
+//                             && attr.categoryAttributes && attr.categoryAttributes.PARKING_LOT
+//                             && attr.categories.includes(CAT.PARKING_LOT)) {
+//                             const type = attr.categoryAttributes.PARKING_LOT.parkingType;
+//                             return (!type && this.value === 'public') || (type && (type.toLowerCase() === this.value));
+//                         }
+//                         return undefined;
+//                     }
+//                 }),
+//                 symbolizer,
+//                 wmephStyle: 'default'
+//             });
         }
 
-        const publicPLA = plaTypeRuleGenerator('public', {
-            fillColor: '#0000FF',
-            fillOpacity: '0.25'
-        });
-        const restrictedPLA = plaTypeRuleGenerator('restricted', {
-            fillColor: '#FFFF00',
-            fillOpacity: '0.3'
-        });
-        const privatePLA = plaTypeRuleGenerator('private', {
-            fillColor: '#FF0000',
-            fillOpacity: '0.25'
-        });
+//         const publicPLA = plaTypeRuleGenerator('public', {
+//             fillColor: '#0000FF',
+//             fillOpacity: '0.25'
+//         });
+//         const restrictedPLA = plaTypeRuleGenerator('restricted', {
+//             fillColor: '#FFFF00',
+//             fillOpacity: '0.3'
+//         });
+//         const privatePLA = plaTypeRuleGenerator('private', {
+//             fillColor: '#FF0000',
+//             fillOpacity: '0.25'
+//         });
 
-        _layer.styleMap.styles.default.rules.push(...[severity0, severityLock, severity1, severityLock1, severity2,
-            severity3, severity4, severity6, severityHigh, severityAdLock, rppRule, publicPLA, restrictedPLA, privatePLA]);
+//         _layer.styleMap.styles.default.rules.push(...[severity0, severityLock, severity1, severityLock1, severity2,
+//             severity3, severity4, severity6, severityHigh, severityAdLock, rppRule, publicPLA, restrictedPLA, privatePLA]);
     }
 
     /**
@@ -8643,7 +8658,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
     function onPlugshareSearchClick() {
         const venue = getSelectedVenue();
         const olPoint = venue.getOLGeometry().getCentroid();
-        const point = WazeWrap.Geometry.ConvertTo4326(olPoint.x, olPoint.y);
+        const point = ConvertTo4326(olPoint.x, olPoint.y);
         const url = `https://www.plugshare.com/?latitude=${point.lat}&longitude=${point.lon}&spanLat=.005&spanLng=.005`;
         if ($('#WMEPH-WebSearchNewTab').prop('checked')) {
             window.open(url);
@@ -10179,15 +10194,15 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
         logDev('placeHarmonizerInit'); // Be sure to update User info before calling logDev()
 
         // Check for script updates.
-        const downloadUrl = IS_BETA_VERSION ? dec(BETA_DOWNLOAD_URL) : PROD_DOWNLOAD_URL;
-        let updateMonitor;
-        try {
-            updateMonitor = new WazeWrap.Alerts.ScriptUpdateMonitor(SCRIPT_NAME, SCRIPT_VERSION, downloadUrl, GM_xmlhttpRequest);
-            updateMonitor.start();
-        } catch (ex) {
-            // Report, but don't stop if ScriptUpdateMonitor fails.
-            console.error('WMEPH:', ex);
-        }
+        // const downloadUrl = IS_BETA_VERSION ? dec(BETA_DOWNLOAD_URL) : PROD_DOWNLOAD_URL;
+        // let updateMonitor;
+        // try {
+        //     updateMonitor = new WazeWrap.Alerts.ScriptUpdateMonitor(SCRIPT_NAME, SCRIPT_VERSION, downloadUrl, GM_xmlhttpRequest);
+        //     updateMonitor.start();
+        // } catch (ex) {
+        //     // Report, but don't stop if ScriptUpdateMonitor fails.
+        //     console.error('WMEPH:', ex);
+        // }
 
         _layer = W.map.venueLayer;
 
@@ -10254,8 +10269,20 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
         createObserver();
 
         const xrayMode = localStorage.getItem('WMEPH_xrayMode_enabled') === 'true';
-        WazeWrap.Interface.AddLayerCheckbox('Display', 'WMEPH x-ray mode', xrayMode, toggleXrayMode);
+        debugger;
+
+        sdk.LayerSwitcher.addLayerCheckbox({ name: 'WMEPH x-ray mode', isChecked: xrayMode });
+        //WazeWrap.Interface.AddLayerCheckbox('Display', 'WMEPH x-ray mode', xrayMode, toggleXrayMode);
         if (xrayMode) setTimeout(() => toggleXrayMode(true), 2000); // Give other layers time to load before enabling.
+
+        sdk.Events.on({
+            eventName: 'wme-layer-checkbox-toggled',
+            eventHandler: (payload) => {
+                if (payload.name === 'WMEPH x-ray mode') {
+                    toggleXrayMode(payload.checked);
+                }
+            },
+        });
 
         // Whitelist initialization
         if (validateWLS(LZString.decompressFromUTF16(localStorage.getItem(WL_LOCAL_STORE_NAME_COMPRESSED))) === false) { // If no compressed WL string exists
@@ -10289,10 +10316,17 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
             localStorage.setItem(SETTING_IDS.sfUrlWarning, '0');
         }
 
-        WazeWrap.Events.register('mousemove', W.map, e => errorHandler(() => {
-            const wmEvts = (W.map.events) ? W.map.events : W.map.getMapEventsListener();
-            _wmephMousePosition = W.map.getLonLatFromPixel(wmEvts.getMousePosition(e));
-        }));
+        // WazeWrap.Events.register('mousemove', W.map, e => errorHandler(() => {
+        //     const wmEvts = (W.map.events) ? W.map.events : W.map.getMapEventsListener();
+        //     _wmephMousePosition = W.map.getLonLatFromPixel(wmEvts.getMousePosition(e));
+        // }));
+        sdk.Events.on({
+            eventName: 'wme-map-mouse-move',
+            eventHandler: e => errorHandler(() => {
+                const wmEvts = W.map.events ? W.map.events : W.map.getMapEventsListener();
+                _wmephMousePosition = W.map.getLonLatFromPixel(wmEvts.getMousePosition(e));
+            })
+        });
 
         // Add zoom shortcut
         SHORTCUT.add('Control+Alt+Z', zoomPlace);
@@ -10303,26 +10337,26 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
         });
 
         // Add filter highlight shortcut
-        new WazeWrap.Interface.Shortcut(
-            'wmephFilterHighlightToggle',
-            'Toggle "missing Customer Parking service" highlight',
-            'WMEPH',
-            'WMEPH',
-            localStorage.getItem('WMEPH_FilterHighlightShortcut') ?? '',
-            onFilterHighlightToggleShortcutKey,
-            null
-        ).add();
+//         new WazeWrap.Interface.Shortcut(
+//             'wmephFilterHighlightToggle',
+//             'Toggle "missing Customer Parking service" highlight',
+//             'WMEPH',
+//             'WMEPH',
+//             localStorage.getItem('WMEPH_FilterHighlightShortcut') ?? '',
+//             onFilterHighlightToggleShortcutKey,
+//             null
+//         ).add();
 
-        // Add color highlighting shortcut
-        new WazeWrap.Interface.Shortcut(
-            'wmephColorHighlightingToggle',
-            'Toggle place color highlighting',
-            'WMEPH',
-            'WMEPH',
-            localStorage.getItem('WMEPH_ColorHighlighting') ?? '',
-            onShowHighlightColorsToggleShortcutKey,
-            null
-        ).add();
+//         // Add color highlighting shortcut
+//         new WazeWrap.Interface.Shortcut(
+//             'wmephColorHighlightingToggle',
+//             'Toggle place color highlighting',
+//             'WMEPH',
+//             'WMEPH',
+//             localStorage.getItem('WMEPH_ColorHighlighting') ?? '',
+//             onShowHighlightColorsToggleShortcutKey,
+//             null
+//         ).add();
 
         await addWmephTab(); // initialize the settings tab
 
@@ -10387,22 +10421,29 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
         W.model.venues.on('objectsadded', () => errorHandler(processFilterHighlights));
     } // END placeHarmonizer_init function
 
-    function waitForReady() {
-        return new Promise(resolve => {
-            function loop() {
-                if (typeof W === 'object' && W.userscripts?.state.isReady && WazeWrap?.Ready) {
-                    resolve();
-                } else {
-                    setTimeout(loop, 100);
-                }
-            }
-            loop();
-        });
-    }
+    // function waitForReady() {
+    //     return new Promise(resolve => {
+    //         function loop() {
+    //             if (typeof W === 'object' && W.userscripts?.state.isReady && WazeWrap?.Ready) {
+    //                 resolve();
+    //             } else {
+    //                 setTimeout(loop, 100);
+    //             }
+    //         }
+    //         loop();
+    //     });
+    // }
 
     async function placeHarmonizerBootstrap() {
         log('Waiting for WME and WazeWrap...');
-        await waitForReady();
+        sdk = await bootstrap({
+            scriptName: SCRIPT_NAME,
+            scriptUpdateMonitor: {
+                downloadUrl: (IS_BETA_VERSION ? dec(BETA_DOWNLOAD_URL) : PROD_DOWNLOAD_URL),
+                scriptVersion: SCRIPT_VERSION,
+            },
+        });
+        //await waitForReady();
         WazeWrap.Interface.ShowScriptUpdate(SCRIPT_NAME, SCRIPT_VERSION, _SCRIPT_UPDATE_MESSAGE);
         await placeHarmonizerInit();
     }
@@ -10457,7 +10498,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
         }
     }
 
-    async function bootstrap() {
+    async function wmephbootstrap() {
         // Quit if another version of WMEPH is already running.
         if (unsafeWindow.wmephRunning) {
             // Don't use WazeWrap alerts here. It isn't loaded yet.
@@ -10471,5 +10512,5 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
         devTestCode();
     }
 
-    bootstrap();
+    wmephbootstrap();
 })();
