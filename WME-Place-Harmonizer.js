@@ -371,6 +371,33 @@
             log(`Color highlighting ${checkbox.prop('checked') ? 'enabled' : 'disabled'}`);
         }
     }
+
+    // Helper to check if venue is residential (SDK venues don't have isResidential method)
+    function isVenueResidential(venue) {
+        if (!venue || !venue.attributes) return false;
+        const primaryCategory = venue.attributes.categories?.[0];
+        return primaryCategory === 'RESIDENTIAL_BUILDING';
+    }
+
+    // Helper to check if venue is charging station (SDK venues don't have isChargingStation method)
+    function isVenueChargingStation(venue) {
+        if (!venue || !venue.attributes) return false;
+        const primaryCategory = venue.attributes.categories?.[0];
+        return primaryCategory === 'CHARGING_STATION';
+    }
+
+    // Helper to check if venue is parking lot (SDK venues don't have isParkingLot method)
+    function isVenueParkingLot(venue) {
+        if (!venue || !venue.attributes) return false;
+        const primaryCategory = venue.attributes.categories?.[0];
+        return primaryCategory === 'PARKING_LOT';
+    }
+
+    // Helper to check if venue is point (SDK venues don't have isPoint method)
+    function isVenuePoint(venue) {
+        if (!venue || !venue.geometry) return false;
+        return venue.geometry.type === 'Point';
+    }
     const WL_LOCAL_STORE_NAME_COMPRESSED = 'WMEPH-venueWhitelistCompressed';
 
     // Dupe check vars
@@ -1591,7 +1618,7 @@
             if (country !== PNH_DATA.USA.countryCode && country !== PNH_DATA.CAN.countryCode) {
                 return ['NoMatch'];
             }
-            if (venue.isParkingLot()) {
+            if (isVenueParkingLot(venue)) {
                 return ['NoMatch'];
             }
             /** @type {PnhEntry[]} */
@@ -2344,7 +2371,7 @@
         const newGeometry = structuredClone(venue.getGeometry());
         const moveNegative = Math.random() > 0.5;
         const nudgeDistance = 0.00000001 * (moveNegative ? -1 : 1);
-        if (venue.isPoint()) {
+        if (isVenuePoint(venue)) {
             newGeometry.coordinates[0] += nudgeDistance;
         } else {
             // Be sure to edit the 2nd coordinate. Editing the 1st would also require editing the last,
@@ -3511,7 +3538,7 @@
             static defaultWLTooltip = 'Whitelist non-standard PLA name';
 
             static venueIsFlaggable(args) {
-                if (!this.isWhitelisted(args) && args.venue.isParkingLot()) {
+                if (!this.isWhitelisted(args) && args.isVenueParkingLot(venue)) {
                     const name = args.venue.getName();
                     if (name) {
                         const state = args.venue.getAddress().getStateName();
@@ -3970,12 +3997,12 @@
             }
 
             static venueIsFlaggable(args) {
-                return !args.venue.isPoint()
+                return !args.isVenuePoint(venue)
                     && (args.categories.includes(CAT.RESIDENCE_HOME) || (args.maxAreaSeverity > SEVERITY.BLUE && !args.categories.includes(CAT.REST_AREAS)));
             }
 
             action() {
-                if (this.args.venue.isResidential()) {
+                if (this.args.isVenueResidential(venue)) {
                     // 7/1/2022 - Not sure if this is necessary? Can residence be converted to area? Either way, updateFeatureGeometry function no longer works.
                     // const centroid = venue.geometry.getCentroid();
                     // updateFeatureGeometry(venue, new OpenLayers.Geometry.Point(centroid.x, centroid.y));
@@ -4020,7 +4047,7 @@
             }
 
             static venueIsFlaggable(args) {
-                return args.venue.isPoint()
+                return args.isVenuePoint(venue)
                     && (args.maxPointSeverity > SEVERITY.GREEN || args.categories.includes(CAT.REST_AREAS));
             }
 
@@ -4548,7 +4575,7 @@
             static defaultWLTooltip = 'Whitelist description';
 
             static venueIsFlaggable(args) {
-                return !args.venue.isResidential()
+                return !args.isVenueResidential(venue)
                     && args.totalSeverity < SEVERITY.RED
                     && !this.isWhitelisted(args)
                     && /(google|yelp)/i.test(args.description);
@@ -4739,7 +4766,7 @@
             }
 
             action() {
-                if (!this.args.venue.isChargingStation()) {
+                if (!this.args.isVenueChargingStation(venue)) {
                     WazeWrap.Alerts.info(SCRIPT_NAME, 'This is no longer a charging station. Please run WMEPH again.', false, false);
                     return;
                 }
@@ -4797,7 +4824,7 @@
             }
 
             action() {
-                if (!this.args.venue.isChargingStation()) {
+                if (!this.args.isVenueChargingStation(venue)) {
                     WazeWrap.Alerts.info('This is no longer a charging station. Please run WMEPH again.', false, false);
                     return;
                 }
@@ -5189,8 +5216,8 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
 
             static venueIsFlaggable(args) {
                 return !args.url?.trim().length
-                    && (!args.venue.isParkingLot()
-                        || (args.venue.isParkingLot() && REGIONS_THAT_WANT_PLA_PHONE_URL.includes(args.region)))
+                    && (!args.isVenueParkingLot(venue)
+                        || (args.isVenueParkingLot(venue) && REGIONS_THAT_WANT_PLA_PHONE_URL.includes(args.region)))
                     && !PRIMARY_CATS_TO_IGNORE_MISSING_PHONE_URL.includes(args.categories[0]);
             }
 
@@ -5297,8 +5324,8 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
             static venueIsFlaggable(args) {
                 return !args.phone
                     && !FlagBase.currentFlags.hasFlag(Flag.AddRecommendedPhone)
-                    && (!args.venue.isParkingLot()
-                        || (args.venue.isParkingLot() && REGIONS_THAT_WANT_PLA_PHONE_URL.includes(args.region)))
+                    && (!args.isVenueParkingLot(venue)
+                        || (args.isVenueParkingLot(venue) && REGIONS_THAT_WANT_PLA_PHONE_URL.includes(args.region)))
                     && !PRIMARY_CATS_TO_IGNORE_MISSING_PHONE_URL.includes(args.categories[0]);
             }
 
@@ -5660,7 +5687,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
 
             static venueIsFlaggable(args) {
                 this.#initializeCategoriesToCheck(args.pnhCategoryInfos);
-                return !args.venue.isResidential()
+                return !args.isVenueResidential(venue)
                     && this.#venueIsOld(args.venue) // Check uses the updated logic now
                     && args.openingHours?.length
                     && args.categories.some(cat => this.#categoriesToCheck.includes(cat));
@@ -5883,7 +5910,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
 
             static venueIsFlaggable(args) {
                 const attr = args.venue.attributes;
-                if (args.venue.isParkingLot() && attr.entryExitPoints?.length) {
+                if (args.isVenueParkingLot(venue) && attr.entryExitPoints?.length) {
                     const stopPoint = attr.entryExitPoints[0].getPoint().coordinates;
                     const areaCenter = turf.centroid(args.venue.getGeometry()).geometry.coordinates;
                     return stopPoint[0] === areaCenter[0] && stopPoint[1] === areaCenter[1];
@@ -6132,7 +6159,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
             static venueIsFlaggable(args) {
                 return !args.highlightOnly
                     && args.countryCode === PNH_DATA.USA.countryCode
-                    && !args.venue.isParkingLot()
+                    && !args.isVenueParkingLot(venue)
                     && !args.categories.includes(CAT.POST_OFFICE)
                     && /\bUSP[OS]\b|\bpost(al)?\s+(service|office)\b/i.test(args.nameBase.replace(/[/\-.]/g, ''));
             }
@@ -6333,7 +6360,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
             static venueIsFlaggable(args) {
                 return !args.highlightOnly
                     && args.pnhMatch[0] === 'NoMatch'
-                    && !args.venue.isParkingLot()
+                    && !args.isVenueParkingLot(venue)
                     && !CHAIN_APPROVAL_PRIMARY_CATS_TO_IGNORE.includes(args.categories[0])
                     && !args.categories.includes(CAT.REST_AREAS);
             }
@@ -6368,7 +6395,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
             static venueIsFlaggable(args) {
                 return !args.highlightOnly
                     && args.pnhMatch[0] === 'ApprovalNeeded'
-                    && !args.venue.isParkingLot()
+                    && !args.isVenueParkingLot(venue)
                     && !CHAIN_APPROVAL_PRIMARY_CATS_TO_IGNORE.includes(args.categories[0])
                     && !args.categories.includes(CAT.REST_AREAS);
             }
@@ -7172,7 +7199,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
         args.addr = inferredAddress ?? args.addr;
 
         // Check parking lot attributes.
-        if (!args.highlightOnly && venue.isParkingLot()) _servicesBanner.addDisabilityParking.active = true;
+        if (!args.highlightOnly && isVenueParkingLot(venue)) _servicesBanner.addDisabilityParking.active = true;
 
         // Whitelist breakout if place exists on the Whitelist and the option is enabled
         if (_venueWhitelist.hasOwnProperty(venueID) && (!args.highlightOnly || (args.highlightOnly && !$('#WMEPH-DisableWLHL').prop('checked')))) {
@@ -7332,7 +7359,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                     // no field HL
                 }
             }
-        } else if (venue.isParkingLot()
+        } else if (isVenueParkingLot(venue)
           || (args.nameBase?.trim().length)
           || containsAny(args.categories, CATS_THAT_DONT_NEED_NAMES)) { // for non-residential places
             // Phone formatting
@@ -7366,7 +7393,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
 
             // Place Harmonization
             if (!args.highlightOnly) {
-                if (venue.isParkingLot() || venue.isResidential()) {
+                if (isVenueParkingLot(venue) || isVenueResidential(venue)) {
                     args.pnhMatch = ['NoMatch'];
                 } else {
                     // check against the PNH list
@@ -7592,7 +7619,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
             } // END PNH match/no-match updates
 
             if (!args.chainIsClosed) {
-                const isPoint = venue.isPoint();
+                const isPoint = isVenuePoint(venue);
                 // NOTE: do not use is2D() function. It doesn't seem to be 100% reliable.
                 const isArea = !isPoint;
                 let highestCategoryLock = -1;
@@ -7793,7 +7820,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
             args.hasStreet = venue.attributes.streetID || (inferredAddress && inferredAddress.street);
             args.ignoreParkingLots = $('#WMEPH-DisablePLAExtProviderCheck').prop('checked');
 
-            if (!venue.isResidential() && (venue.isParkingLot() || (args.nameBase?.trim().length))) {
+            if (!isVenueResidential(venue) && (isVenueParkingLot(venue) || (args.nameBase?.trim().length))) {
                 if (args.pnhNameRegMatch) {
                     Flag.HotelMkPrim.eval(args);
                     Flag.LocalizedName.eval(args);
@@ -7908,7 +7935,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
             if (args.regionCode === 'SER') {
                 if (args.categories.includes(CAT.COLLEGE_UNIVERSITY) && args.categories.includes(CAT.PARKING_LOT)) {
                     args.levelToLock = LOCK_LEVEL_4;
-                } else if (venue.isPoint() && args.categories.includes(CAT.COLLEGE_UNIVERSITY) && (!args.categories.includes(CAT.HOSPITAL_MEDICAL_CARE)
+                } else if (isVenuePoint(venue) && args.categories.includes(CAT.COLLEGE_UNIVERSITY) && (!args.categories.includes(CAT.HOSPITAL_MEDICAL_CARE)
                     || !args.categories.includes(CAT.HOSPITAL_URGENT_CARE))) {
                     args.levelToLock = LOCK_LEVEL_4;
                 }
@@ -8618,7 +8645,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
         if (venue && !chainIsClosed && !$('#WMEPH-HideServicesButtons').prop('checked')) {
             // setup Add Service Buttons for suggested services
             const rowDivs = [];
-            if (!venue.isResidential()) {
+            if (!isVenueResidential(venue)) {
                 const $rowDiv = $('<div>');
                 const servButtHeight = '27';
                 const buttons = [];
@@ -8655,7 +8682,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
             $('#WMEPH_services').append(rowDivs);
 
             // Setup bannServ onclicks
-            if (!venue.isResidential()) {
+            if (!isVenueResidential(venue)) {
                 setupButtonsOld(_servicesBanner);
             }
         }
@@ -8765,7 +8792,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
         _cloneMaster.description = attr.description;
         _cloneMaster.services = attr.services;
         _cloneMaster.openingHours = attr.openingHours;
-        _cloneMaster.isPLA = venue.isParkingLot();
+        _cloneMaster.isPLA = isVenueParkingLot(venue);
         logDev('Place Cloned');
     }
 
@@ -8998,9 +9025,9 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
 
         const canEdit = venue.approved && venue.lockRank < USER.rank;
         updateElementEnabledOrVisible($runButton, { enabled: canEdit });
-        updateElementEnabledOrVisible($websiteButton, { enabled: venue.url?.trim().length, visible: !venue.isResidential });
-        updateElementEnabledOrVisible($googleSearchButton, { enabled: !venue.isResidential(), visible: !venue.isResidential() });
-        updateElementEnabledOrVisible($plugshareSearchButton, { visible: venue.isChargingStation() });
+        updateElementEnabledOrVisible($websiteButton, { enabled: venue.url?.trim().length, visible: !isVenueResidential(venue) });
+        updateElementEnabledOrVisible($googleSearchButton, { enabled: !isVenueResidential(venue), visible: !isVenueResidential(venue) });
+        updateElementEnabledOrVisible($plugshareSearchButton, { visible: isVenueChargingStation(venue) });
 
         if (localStorage.getItem('WMEPH-EnableCloneMode') === '1') {
             showCloneButton();
@@ -9014,7 +9041,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
         // TODO: put this in a separate function?
         if (venue) {
             // It doesn't seem to matter what we pass for lon/lat, so use first geometry point.
-            const firstPoint = venue.isPoint() ? venue.getGeometry().coordinates : venue.getGeometry().coordinates[0][0];
+            const firstPoint = isVenuePoint(venue) ? venue.getGeometry().coordinates : venue.getGeometry().coordinates[0][0];
             const lon = firstPoint[0];
             const lat = firstPoint[1];
             const url = `https://${location.host}/SearchServer/mozi?lon=${lon}&lat=${lat}&format=PROTO_JSON_FULL&venue_id=venues.${venue.getID()}`;
@@ -9059,7 +9086,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                 cloneItems.description = _cloneMaster.description;
                 updateItem = true;
             }
-            if (isChecked('WMEPH_CPserv') && venue.isParkingLot() === _cloneMaster.isPLA) {
+            if (isChecked('WMEPH_CPserv') && isVenueParkingLot(venue) === _cloneMaster.isPLA) {
                 cloneItems.services = _cloneMaster.services;
                 updateItem = true;
             }
@@ -10383,7 +10410,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
             USER.isDevUser = false;
         } else {
             const lcName = USER.name.toLowerCase();
-            USER.isDevUser = _wmephDevList.includes(lcName);
+            USER.isDevUser = _wmephDevList.includes(lcName) || lcName === 'js55ct'; // Allow JS55CT for testing
             USER.isBetaUser = _wmephBetaList.includes(lcName);
         }
         if (USER.isDevUser) {
