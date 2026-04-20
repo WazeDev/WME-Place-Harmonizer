@@ -2214,7 +2214,7 @@
         }
     }
 
-    async function nudgeVenue(venue) {
+    function nudgeVenue(venue) {
         const newGeometry = structuredClone(venue.getGeometry());
         const moveNegative = Math.random() > 0.5;
         const nudgeDistance = 0.00000001 * (moveNegative ? -1 : 1);
@@ -2226,9 +2226,8 @@
             // to complete it.
             newGeometry.coordinates[0][1][0] += nudgeDistance;
         }
-        // SDK tracks changes automatically; no need to queue actions
+        // SDK tracks changes as unsaved; user commits via WME Save button
         sdk.DataModel.Venues.updateVenue({ venueId: venue.id, geometry: newGeometry });
-        await sdk.Editing.save();
     }
 
     function sortWithIndex(toSort) {
@@ -2990,11 +2989,9 @@
         return number.replace(/[A-Z]/g, letter => conversionMap.findKey(re => re.test(letter)));
     }
 
-    // Execute actions (SDK tracks unsaved changes automatically)
-    async function executeMultiAction(actions) {
-        if (actions.length > 0) {
-            await sdk.Editing.save();
-        }
+    // SDK tracks unsaved changes automatically; no need to execute/save here
+    function executeMultiAction() {
+        // Changes accumulate as unsaved; user commits via WME Save button
     }
 
     // Split localizer (suffix) part of names, like "SUBWAY - inside Walmart".
@@ -3003,19 +3000,15 @@
         return { base: splits[1], suffix: splits[2] };
     }
 
-    async function addUpdateAction(venue, newAttributes, actions, runHarmonizer = false, dontHighlightFields = false) {
+    function addUpdateAction(venue, newAttributes, _actions, runHarmonizer = false, dontHighlightFields = false) {
         if (Object.keys(newAttributes).length) {
             if (!dontHighlightFields) {
                 UPDATED_FIELDS.checkNewAttributes(newAttributes, venue);
             }
 
-            // SDK tracks changes automatically; apply update directly
+            // SDK tracks changes as unsaved; no immediate save needed
             sdk.DataModel.Venues.updateVenue({ venueId: venue.id, ...newAttributes });
-            if (!actions) {
-                // Execute immediately if not batching
-                await sdk.Editing.save();
-            }
-            // If actions array provided, caller will batch and save later
+            // Changes accumulate for user to save via WME Save button
         }
         if (runHarmonizer) setTimeout(() => harmonizePlaceGo(venue, 'harmonize'), 0);
     }
@@ -3912,10 +3905,9 @@
                 return this.#collegeAbbrRegExps.some(re => re.test(name));
             }
 
-            async action() {
+            action() {
                 const { venue } = this.args;
-                // SDK tracks geometry changes automatically; save changes
-                await sdk.Editing.save();
+                // SDK tracks geometry changes as unsaved; user commits via WME Save button
                 harmonizePlaceGo(venue, 'harmonize');
             }
         },
@@ -9495,11 +9487,9 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
     /**
      * Updates the address for a place.
      * @param feature {WME Venue Object} The place to update.
-     * @param address {Object} An object containing the country, state, city, and street
-     * @param actions {Array of actions} Optional. If performing multiple actions at once.
-     * objects.
+     * @param address {Object} An object containing the country, state, city, and street objects.
      */
-    async function updateAddress(feature, address, actions) {
+    function updateAddress(feature, address) {
         let newAttributes;
         if (feature && address) {
             newAttributes = {
@@ -9511,20 +9501,9 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                 emptyStreet: address.street.attributes.isEmpty ? true : null
             };
             // Apply address update via WazeWrap for complex address handling
-            const addressAction = new UpdateFeatureAddress(feature, newAttributes);
+            new UpdateFeatureAddress(feature, newAttributes);
             if (address.hasOwnProperty('houseNumber')) {
-                const hnAction = new UpdateObject(feature, { houseNumber: address.houseNumber });
-                if (actions) {
-                    actions.push(addressAction);
-                    actions.push(hnAction);
-                } else {
-                    // SDK tracks changes; execute immediately
-                    await sdk.Editing.save();
-                }
-            } else {
-                if (!actions) {
-                    await sdk.Editing.save();
-                }
+                new UpdateObject(feature, { houseNumber: address.houseNumber });
             }
             logDev('Address inferred and updated');
         }
