@@ -4294,7 +4294,7 @@
 
             static venueIsFlaggable(args) {
                 return args.addr.city
-                    && (!args.addr.street || args.addr.street.attributes.isEmpty)
+                    && (!args.addr.street || args.addr.street.isEmpty)
                     && ![CAT.BRIDGE, CAT.ISLAND, CAT.FOREST_GROVE, CAT.SEA_LAKE_POOL, CAT.RIVER_STREAM, CAT.CANAL,
                         CAT.DAM, CAT.TUNNEL, CAT.JUNCTION_INTERCHANGE].includes(args.categories[0])
                     && !args.categories.includes(CAT.REST_AREAS);
@@ -4332,7 +4332,7 @@
             }
 
             static venueIsFlaggable(args) {
-                return (!args.addr.city || args.addr.city.attributes.isEmpty)
+                return (!args.addr.city || args.addr.city.isEmpty)
                     && ![CAT.BRIDGE, CAT.ISLAND, CAT.FOREST_GROVE, CAT.SEA_LAKE_POOL, CAT.RIVER_STREAM, CAT.CANAL,
                         CAT.DAM, CAT.TUNNEL, CAT.JUNCTION_INTERCHANGE].includes(args.categories[0])
                     && !args.categories.includes(CAT.REST_AREAS);
