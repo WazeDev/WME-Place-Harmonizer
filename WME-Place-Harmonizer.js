@@ -364,6 +364,18 @@
         }
     }
 
+    // Get venue address using SDK (replaces venue.getAddress())
+    function getVenueAddress(venue) {
+        if (!venue || !venue.id) return null;
+        return sdk.DataModel.Venues.getAddress({ venueId: venue.id });
+    }
+
+    // Get segment address using SDK (replaces segment.getAddress())
+    function getSegmentAddress(segment) {
+        if (!segment || !segment.id) return null;
+        return sdk.DataModel.Segments.getAddress({ segmentId: segment.id });
+    }
+
     function toggleHighlightCheckbox() {
         const checkbox = $('#WMEPH-ColorHighlighting');
         if (checkbox.length) {
@@ -2413,8 +2425,8 @@
     //  Whitelist a flag. Returns true if successful. False if not.
     function whitelistAction(venueID, wlKeyName) {
         const venue = getSelectedVenue();
-        let addressTemp = venue.getAddress();
-        if (addressTemp.hasOwnProperty('attributes')) {
+        let addressTemp = getVenueAddress(venue);
+        if (addressTemp && addressTemp.hasOwnProperty('country')) {
             addressTemp = addressTemp.attributes;
         }
         if (!addressTemp.country) {
@@ -3539,9 +3551,10 @@
 
             static venueIsFlaggable(args) {
                 if (!this.isWhitelisted(args) && args.isVenueParkingLot(venue)) {
-                    const name = args.venue.getName();
+                    const name = args.venue.attributes.name;
                     if (name) {
-                        const state = args.venue.getAddress().getStateName();
+                        const addr = getVenueAddress(args.venue);
+                        const state = addr?.state?.name;
                         const re = state === 'Quebec' ? /\b(parking|stationnement)\b/i : /\b((park[ -](and|&|'?n'?)[ -]ride)|parking|lot|garage|ramp)\b/i;
                         if (!re.test(name)) {
                             return true;
@@ -7059,11 +7072,12 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                 value: 'Report script error',
                 title: 'Report a script error',
                 action() {
+                    const countryName = getVenueAddress(venue)?.country?.name || 'Unknown';
                     reportError({
                         subject: 'WMEPH Bug report: Script Error',
                         message: `Script version: ${SCRIPT_VERSION}${BETA_VERSION_STR}\nPermalink: ${
                             placePL}\nPlace name: ${venue.attributes.name}\nCountry: ${
-                            venue.getAddress().getCountry().name}\n--------\nDescribe the error:  \n `
+                            countryName}\n--------\nDescribe the error:  \n `
                     });
                 }
             }
@@ -7125,8 +7139,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
             this.venue = venue;
 
             this.highlightOnly = highlightOnly;
-            this.addr = venue.getAddress();
-            this.addr = this.addr.attributes ?? this.addr;
+            this.addr = getVenueAddress(venue);
 
             this.actions = actions;
             this.categories = venue.attributes.categories.slice();
@@ -8782,8 +8795,8 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
         const venue = getSelectedVenue();
         const attr = venue.attributes;
         _cloneMaster = {};
-        _cloneMaster.addr = venue.getAddress();
-        if (_cloneMaster.addr.hasOwnProperty('attributes')) {
+        _cloneMaster.addr = getVenueAddress(venue);
+        if (_cloneMaster.addr && _cloneMaster.addr.hasOwnProperty('country')) {
             _cloneMaster.addr = _cloneMaster.addr.attributes;
         }
         _cloneMaster.houseNumber = attr.houseNumber;
@@ -8910,7 +8923,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
 
     function onGoogleSearchClick() {
         const venue = getSelectedVenue();
-        const addr = venue.getAddress();
+        const addr = getVenueAddress(venue);
         if (addr.hasState()) {
             const url = buildGLink(venue.attributes.name, addr, venue.attributes.houseNumber);
             if ($('#WMEPH-WebSearchNewTab').prop('checked')) {
@@ -9104,13 +9117,13 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
             const copyHn = isChecked('WMEPH_CPhn');
 
             if (copyStreet || copyCity || copyHn) {
-                const originalAddress = venue.getAddress();
+                const originalAddress = sdk.DataModel.Venues.getAddress({ venueId: venue.id });
                 const newAddress = {
-                    street: copyStreet ? _cloneMaster.addr.street : originalAddress.attributes.street,
-                    city: copyCity ? _cloneMaster.addr.city : originalAddress.attributes.city,
-                    state: copyCity ? _cloneMaster.addr.state : originalAddress.attributes.state,
-                    country: copyCity ? _cloneMaster.addr.country : originalAddress.attributes.country,
-                    houseNumber: copyHn ? _cloneMaster.addr.houseNumber : originalAddress.attributes.houseNumber
+                    street: copyStreet ? _cloneMaster.addr.street : originalAddress.street,
+                    city: copyCity ? _cloneMaster.addr.city : originalAddress.city,
+                    state: copyCity ? _cloneMaster.addr.state : originalAddress.state,
+                    country: copyCity ? _cloneMaster.addr.country : originalAddress.country,
+                    houseNumber: copyHn ? _cloneMaster.addr.houseNumber : originalAddress.houseNumber
                 };
                 updateAddress(venue, newAddress);
                 logDev('Venue address cloned');
@@ -9241,7 +9254,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
         }
         currNameList = uniq(currNameList); //  remove duplicates
 
-        let selectedVenueAddr = selectedVenue.getAddress();
+        let selectedVenueAddr = getVenueAddress(selectedVenue);
         selectedVenueAddr = selectedVenueAddr.attributes || selectedVenueAddr;
         const selectedVenueHN = selectedVenueAttr.houseNumber;
 
@@ -9276,7 +9289,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                 }
 
                 const testVenueHN = testVenueAttr.houseNumber;
-                let testVenueAddr = testVenue.getAddress();
+                let testVenueAddr = getVenueAddress(testVenue);
                 testVenueAddr = testVenueAddr.attributes || testVenueAddr;
 
                 // get HNs for places on same street
@@ -9516,8 +9529,8 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
 
         const hasStreetName = segment => {
             if (!segment || segment.type !== 'segment') return false;
-            const addr = segment.getAddress();
-            return !(addr.isEmpty() || addr.isEmptyStreet());
+            const addr = getSegmentAddress(segment);
+            return addr && !addr.isEmpty && addr.street?.name;
         };
 
         const findClosestNode = () => {
@@ -9596,7 +9609,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
 
         // Check closest segment for address first.
         if (hasStreetName(orderedSegments[0].segment)) {
-            inferredAddress = orderedSegments[0].segment.getAddress();
+            inferredAddress = getSegmentAddress(orderedSegments[0].segment);
         } else {
             // If address not found on closest segment, try to find address through branching method.
             findConnections(findClosestNode(), 1);
@@ -9626,12 +9639,12 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                     foundAddresses = _.sortBy(foundAddresses, 'distance');
                 }
                 console.debug(foundAddresses[0].streetName, foundAddresses[0].depth);
-                inferredAddress = foundAddresses[0].segment.getAddress();
+                inferredAddress = getSegmentAddress(foundAddresses[0].segment);
             } else {
                 // Default to closest if branching method fails.
                 // Go through sorted segment array until a country, state, and city have been found.
                 const closestElem = orderedSegments.find(element => hasStreetName(element.segment));
-                inferredAddress = closestElem ? closestElem.segment.getAddress() || inferredAddress : inferredAddress;
+                inferredAddress = closestElem ? getSegmentAddress(closestElem.segment) || inferredAddress : inferredAddress;
             }
         }
         return inferredAddress;
