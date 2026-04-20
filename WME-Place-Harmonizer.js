@@ -2015,9 +2015,11 @@
     }
 
     function getSelectedVenue() {
-        const objects = W.selectionManager.getSelectedDataModelObjects();
-        // Be sure to check for features.length === 1, in case multiple venues are currently selected.
-        return objects.length === 1 && objects[0].type === 'venue' ? objects[0] : null;
+        const selection = sdk.Editing.getSelection();
+        if (selection?.objectType === 'venue' && selection?.ids?.length === 1) {
+            return sdk.DataModel.Venues.getById({ venueId: selection.ids[0] });
+        }
+        return null;
     }
 
     function getVenueLonLat(venue) {
@@ -8652,7 +8654,8 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
             );
         }
         const venue = getSelectedVenue();
-        updateElementEnabledOrVisible($('#pasteClone'), venue?.isApproved() && venue.arePropertiesEditable());
+        const canEdit = venue?.approved && venue?.lockRank < USER.rank;
+        updateElementEnabledOrVisible($('#pasteClone'), canEdit);
     }
 
     function onPlugshareSearchClick() {
@@ -8725,7 +8728,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
             return;
         }
 
-        if (!venue.isApproved() || !venue.arePropertiesEditable()) {
+        if (!venue.approved || venue.lockRank >= USER.rank) {
             clearBanner = true;
         }
 
@@ -8800,8 +8803,9 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
             $plugshareSearchButton = $('#wmephPlugShareSearch');
         }
 
-        updateElementEnabledOrVisible($runButton, { enabled: venue.isApproved() && venue.arePropertiesEditable() });
-        updateElementEnabledOrVisible($websiteButton, { enabled: venue.attributes.url?.trim().length, visible: !venue.isResidential() });
+        const canEdit = venue.approved && venue.lockRank < USER.rank;
+        updateElementEnabledOrVisible($runButton, { enabled: canEdit });
+        updateElementEnabledOrVisible($websiteButton, { enabled: venue.url?.trim().length, visible: !venue.isResidential });
         updateElementEnabledOrVisible($googleSearchButton, { enabled: !venue.isResidential(), visible: !venue.isResidential() });
         updateElementEnabledOrVisible($plugshareSearchButton, { visible: venue.isChargingStation() });
 
