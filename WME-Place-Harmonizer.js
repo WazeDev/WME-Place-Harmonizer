@@ -1998,20 +1998,29 @@
     }
 
     function ConvertTo4326(lon, lat) {
-        return new OpenLayers.LonLat(lon, lat).transform('EPSG:900913', 'EPSG:4326');
+        const mercatorPoint = turf.point([lon, lat]);
+        const wgs84Point = turf.toWgs84(mercatorPoint);
+        return { longitude: wgs84Point.geometry.coordinates[0], latitude: wgs84Point.geometry.coordinates[1] };
     }
 
     function calculateDistance (pointArray) {
             if (pointArray.length < 2)
                 return 0;
 
-            let line = new OpenLayers.Geometry.LineString(pointArray);
-            let length = line.getGeodesicLength(W.map.getProjectionObject());
+            const line = turf.lineString(pointArray);
+            const length = turf.length(line, { units: 'meters' });
             return length; //multiply by 3.28084 to convert to feet
     }
 
     function isNullOrWhitespace(str) {
         return !str?.trim().length;
+    }
+
+    function webMercatorToWGS84(x, y) {
+        const R = 6378137; // Earth's radius
+        const lon = (x / R) * (180 / Math.PI);
+        const lat = (2 * Math.atan(Math.exp(y / R)) - Math.PI / 2) * (180 / Math.PI);
+        return { longitude: lon, latitude: lat };
     }
 
     function getSelectedVenue() {
@@ -2023,8 +2032,8 @@
     }
 
     function getVenueLonLat(venue) {
-        const pt = venue.getOLGeometry().getCentroid();
-        return new OpenLayers.LonLat(pt.x, pt.y);
+        const centroid = turf.centroid(venue.geometry);
+        return { longitude: centroid.geometry.coordinates[0], latitude: centroid.geometry.coordinates[1] };
     }
 
     function isAlwaysOpen(venue) {
@@ -2273,8 +2282,8 @@
             WazeWrap.Alerts.error(SCRIPT_NAME, 'Whitelisting requires an address. Enter the place\'s address and try again.');
             return false;
         }
-        const centroid = venue.getOLGeometry().getCentroid();
-        const venueGPS = OpenLayers.Layer.SphericalMercator.inverseMercator(centroid.x, centroid.y);
+        const centroidPt = turf.centroid(venue.geometry);
+        const venueGPS = webMercatorToWGS84(centroidPt.geometry.coordinates[0], centroidPt.geometry.coordinates[1]);
         if (!_venueWhitelist.hasOwnProperty(venueID)) { // If venue is NOT on WL, then add it.
             _venueWhitelist[venueID] = {};
         }
@@ -6255,7 +6264,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                     const searchStatePlus = searchState.replace(/ /g, '+');
                     searchState = searchState.replace(/ /g, '%20');
 
-                    if (!venueGPS) venueGPS = OpenLayers.Layer.SphericalMercator.inverseMercator(location.x, location.y);
+                    if (!venueGPS) venueGPS = webMercatorToWGS84(location.x, location.y);
                     this.#storeFinderUrl = '';
                     for (let tlix = 1; tlix < urlParts.length; tlix++) {
                         let part = '';
@@ -7001,8 +7010,8 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
             if (!args.highlightOnly) {
                 // get GPS lat/long coords from place, call as venueGPS.lat, venueGPS.lon
                 if (!args.venueGPS) {
-                    const centroid = venue.getOLGeometry().getCentroid();
-                    args.venueGPS = OpenLayers.Layer.SphericalMercator.inverseMercator(centroid.x, centroid.y);
+                    const centroidPt = turf.centroid(venue.geometry);
+                    args.venueGPS = webMercatorToWGS84(centroidPt.geometry.coordinates[0], centroidPt.geometry.coordinates[1]);
                 }
                 _venueWhitelist[venueID].city = args.addr.city.getName(); // Store city for the venue
                 _venueWhitelist[venueID].state = args.addr.state.getName(); // Store state for the venue
