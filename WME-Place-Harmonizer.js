@@ -10523,6 +10523,16 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
 
         // Create custom highlights layer instead of using W.map.venueLayer
         _layer = 'wmeph_highlights';
+        try {
+            sdk.Map.addLayer({
+                layerName: _layer,
+                displayInLayerSwitcher: true,
+                zIndexing: true
+            });
+            logDev('Created wmeph_highlights layer');
+        } catch (e) {
+            logDev('wmeph_highlights layer already exists or could not be created:', e);
+        }
 
         // Add CSS stuff here
         const css = [
