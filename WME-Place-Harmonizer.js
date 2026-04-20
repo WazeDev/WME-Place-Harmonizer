@@ -2390,31 +2390,100 @@
     function toggleXrayMode(enable) {
         localStorage.setItem('WMEPH_xrayMode_enabled', $('#layer-switcher-item_wmeph_x-ray_mode').prop('checked'));
 
-        const commentsLayer = W.map.getLayerByUniqueName('mapComments');
-        const gisLayer = W.map.getLayerByUniqueName('__wmeGISLayers');
-        const satLayer = W.map.getLayerByUniqueName('satellite_imagery');
-        const roadLayer = W.map.roadLayers[0];
-        const commentRuleSymb = commentsLayer.styleMap.styles.default.rules[0].symbolizer;
         if (enable) {
-            _layer.styleMap.styles.default.rules = _layer.styleMap.styles.default.rules.filter(rule => rule.wmephDefault !== 'default');
-            roadLayer.opacity = 0.25;
-            satLayer.opacity = 0.25;
-            commentRuleSymb.Polygon.strokeColor = '#888';
-            commentRuleSymb.Polygon.fillOpacity = 0.2;
-            if (gisLayer) gisLayer.setOpacity(0.4);
+            // Make WME layers transparent
+            try {
+                sdk.Map.addStyleRuleToLayer({
+                    layerName: 'roads',
+                    styleRules: [{
+                        style: { strokeOpacity: 0.25, fillOpacity: 0.25 }
+                    }]
+                });
+            } catch (e) {
+                logDev('X-Ray: Could not style roads layer:', e);
+            }
+
+            try {
+                sdk.Map.addStyleRuleToLayer({
+                    layerName: 'satellite',
+                    styleRules: [{
+                        style: { fillOpacity: 0.25, strokeOpacity: 0.25 }
+                    }]
+                });
+            } catch (e) {
+                logDev('X-Ray: Could not style satellite layer:', e);
+            }
+
+            try {
+                sdk.Map.addStyleRuleToLayer({
+                    layerName: 'mapComments',
+                    styleRules: [{
+                        style: { strokeColor: '#888', fillOpacity: 0.2, strokeOpacity: 0.6 }
+                    }]
+                });
+            } catch (e) {
+                logDev('X-Ray: Could not style mapComments layer:', e);
+            }
+
+            try {
+                sdk.Map.addStyleRuleToLayer({
+                    layerName: 'gisLayers',
+                    styleRules: [{
+                        style: { fillOpacity: 0.4, strokeOpacity: 0.4 }
+                    }]
+                });
+            } catch (e) {
+                logDev('X-Ray: Could not style gisLayers layer:', e);
+            }
         } else {
-            _layer.styleMap.styles.default.rules = _layer.styleMap.styles.default.rules.filter(rule => rule.wmephStyle !== 'xray');
-            roadLayer.opacity = 1;
-            satLayer.opacity = 1;
-            commentRuleSymb.Polygon.strokeColor = '#fff';
-            commentRuleSymb.Polygon.fillOpacity = 0.4;
-            if (gisLayer) gisLayer.setOpacity(1);
+            // Restore all layers to normal
+            try {
+                sdk.Map.addStyleRuleToLayer({
+                    layerName: 'roads',
+                    styleRules: [{
+                        style: { strokeOpacity: 1, fillOpacity: 1 }
+                    }]
+                });
+            } catch (e) {
+                logDev('X-Ray: Could not restore roads layer:', e);
+            }
+
+            try {
+                sdk.Map.addStyleRuleToLayer({
+                    layerName: 'satellite',
+                    styleRules: [{
+                        style: { fillOpacity: 1, strokeOpacity: 1 }
+                    }]
+                });
+            } catch (e) {
+                logDev('X-Ray: Could not restore satellite layer:', e);
+            }
+
+            try {
+                sdk.Map.addStyleRuleToLayer({
+                    layerName: 'mapComments',
+                    styleRules: [{
+                        style: { strokeColor: '#fff', fillOpacity: 0.4, strokeOpacity: 1 }
+                    }]
+                });
+            } catch (e) {
+                logDev('X-Ray: Could not restore mapComments layer:', e);
+            }
+
+            try {
+                sdk.Map.addStyleRuleToLayer({
+                    layerName: 'gisLayers',
+                    styleRules: [{
+                        style: { fillOpacity: 1, strokeOpacity: 1 }
+                    }]
+                });
+            } catch (e) {
+                logDev('X-Ray: Could not restore gisLayers layer:', e);
+            }
+
             initializeHighlights();
-            _layer.redraw();
+            redrawLayer(_dupeLayer);
         }
-        commentsLayer.redraw();
-        roadLayer.redraw();
-        satLayer.redraw();
         if (!enable) return;
 
         const defaultPointRadius = 6;
