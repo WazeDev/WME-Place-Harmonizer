@@ -729,7 +729,7 @@
             // });
             // observer.observe(document.getElementById('edit-panel'), { childList: true, subtree: true });
 
-            W.selectionManager.events.register('selectionchanged', null, () => errorHandler(() => this.reset()));
+            sdk.Events.on({ eventName: 'wme-selection-changed', eventHandler: () => errorHandler(() => this.reset()) });
         },
         getTabElement(tabName) {
             let tabText;
@@ -2784,20 +2784,25 @@
     function bootstrapWmephColorHighlights() {
         if (localStorage.getItem('WMEPH-ColorHighlighting') === '1') {
             // Add listeners
-            W.model.venues.on('objectschanged', e => errorHandler(() => {
-                if (!_disableHighlightTest) {
-                    applyHighlightsTest(e, true);
-                    _layer.redraw();
-                }
-            }));
+            sdk.Events.on({
+                eventName: 'wme-data-model-objects-changed',
+                eventHandler: (e) => errorHandler(() => {
+                    if (!_disableHighlightTest) {
+                        applyHighlightsTest(e, true);
+                        if (_layer) redrawLayer(_layer);
+                    }
+                })
+            });
 
             // 2023-03-30 - beforefeaturesadded no longer works because data model objects may be reloaded without re-adding map features.
             // The wmephSeverity property is stored in the venue data model object. One workaround to look into would be to
             // store the wmephSeverity in the feature.
-            // W.map.venueLayer.events.register('beforefeaturesadded', null, e => errorHandler(() => applyHighlightsTest(e.features.map(f => f.model))));
-            W.model.venues.on('objectsadded', venues => {
-                applyHighlightsTest(venues);
-                _layer.redraw();
+            sdk.Events.on({
+                eventName: 'wme-data-model-objects-added',
+                eventHandler: (venues) => {
+                    applyHighlightsTest(venues);
+                    if (_layer) redrawLayer(_layer);
+                }
             });
 
             // Clear the cache (highlight severities may need to be updated).
@@ -10377,13 +10382,25 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
         await addWmephTab(); // initialize the settings tab
 
         // Event listeners
-        W.selectionManager.events.register('selectionchanged', null, () => {
-            logDev('selectionchanged');
-            errorHandler(updateWmephPanel, true);
+        sdk.Events.on({
+            eventName: 'wme-selection-changed',
+            eventHandler: () => {
+                logDev('selectionchanged');
+                errorHandler(updateWmephPanel, true);
+            }
         });
-        W.model.venues.on('objectssynced', () => errorHandler(destroyDupeLabels));
-        W.model.venues.on('objectssynced', e => errorHandler(() => syncWL(e)));
-        W.model.venues.on('objectschanged', venues => errorHandler(onVenuesChanged, venues));
+        sdk.Events.on({
+            eventName: 'wme-data-model-objects-saved',
+            eventHandler: () => errorHandler(destroyDupeLabels)
+        });
+        sdk.Events.on({
+            eventName: 'wme-data-model-objects-saved',
+            eventHandler: (e) => errorHandler(() => syncWL(e))
+        });
+        sdk.Events.on({
+            eventName: 'wme-data-model-objects-changed',
+            eventHandler: (venues) => errorHandler(onVenuesChanged, venues)
+        });
         window.addEventListener('beforeunload', onWindowBeforeUnload, false);
 
         // Remove any temporary ID values (ID < 0) from the WL store at startup.
@@ -10418,12 +10435,15 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
         // Setup highlight colors
         initializeHighlights();
 
-        W.model.venues.on('objectschanged', () => errorHandler(() => {
-            if ($('#WMEPH_banner').length > 0) {
-                updateServicesChecks();
-                assembleServicesBanner();
-            }
-        }));
+        sdk.Events.on({
+            eventName: 'wme-data-model-objects-changed',
+            eventHandler: () => errorHandler(() => {
+                if ($('#WMEPH_banner').length > 0) {
+                    updateServicesChecks();
+                    assembleServicesBanner();
+                }
+            })
+        });
 
         log('Starting Highlighter');
         bootstrapWmephColorHighlights();
@@ -10432,9 +10452,18 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
         if ($('#WMEPH-ShowFilterHighlight').prop('checked')) {
             processFilterHighlights();
         }
-        W.model.venues.on('objectschanged', () => errorHandler(processFilterHighlights));
-        W.model.venues.on('objectsremoved', () => errorHandler(clearFilterHighlights));
-        W.model.venues.on('objectsadded', () => errorHandler(processFilterHighlights));
+        sdk.Events.on({
+            eventName: 'wme-data-model-objects-changed',
+            eventHandler: () => errorHandler(processFilterHighlights)
+        });
+        sdk.Events.on({
+            eventName: 'wme-data-model-objects-removed',
+            eventHandler: () => errorHandler(clearFilterHighlights)
+        });
+        sdk.Events.on({
+            eventName: 'wme-data-model-objects-added',
+            eventHandler: () => errorHandler(processFilterHighlights)
+        });
     } // END placeHarmonizer_init function
 
     // function waitForReady() {
