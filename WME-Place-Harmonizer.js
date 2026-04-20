@@ -10368,9 +10368,13 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
     }
 
     function updateUserInfo() {
-        USER.ref = W.loginManager.user;
-        USER.name = USER.ref.getUsername();
-        USER.rank = USER.ref.getRank() + 1; // get editor's level (actual level)
+        const userInfo = sdk.State.getUserInfo();
+        if (!userInfo) {
+            logDev('updateUserInfo: SDK user info not available yet');
+            return;
+        }
+        USER.name = userInfo.userName;
+        USER.rank = userInfo.rank; // SDK rank is already 1-based (actual level)
         if (!_wmephBetaList || _wmephBetaList.length === 0) {
             if (IS_BETA_VERSION) {
                 WazeWrap.Alerts.warning(SCRIPT_NAME, 'Beta user list access issue.  Please post in the GHO or PM/DM MapOMatic about this message.  Script should still work.');
