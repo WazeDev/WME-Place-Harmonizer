@@ -2209,9 +2209,10 @@
     function zoomPlace() {
         const venue = getSelectedVenue();
         if (venue) {
-            W.map.moveTo(getVenueLonLat(venue), 7);
-        } else {
-            W.map.moveTo(_wmephMousePosition, 5);
+            const coords = getVenueLonLat(venue);
+            sdk.Map.setMapCenter({ lonLat: coords, zoomLevel: 7 });
+        } else if (_wmephMousePosition) {
+            sdk.Map.setMapCenter({ lonLat: _wmephMousePosition, zoomLevel: 5 });
         }
     }
 
@@ -3189,9 +3190,10 @@
                 let result = null;
                 if (!args.highlightOnly) {
                     if (!args.addr.state || !args.addr.country) {
-                        if (W.map.getZoom() < 4) {
+                        if (sdk.Map.getZoomLevel() < 4) {
                             if ($('#WMEPH-EnableIAZoom').prop('checked')) {
-                                W.map.moveTo(getVenueLonLat(args.venue), 5);
+                                const coords = getVenueLonLat(args.venue);
+                                sdk.Map.setMapCenter({ lonLat: coords, zoomLevel: 5 });
                             } else {
                                 WazeWrap.Alerts.error(SCRIPT_NAME, 'No address and the state cannot be determined. Please zoom in and rerun the script. '
                                     + 'You can enable autozoom for this type of case in the options.');
@@ -8310,12 +8312,15 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
     }
 
     function getOLMapExtent() {
-        let extent = W.map.getExtent();
-        if (Array.isArray(extent)) {
-            extent = new OpenLayers.Bounds(extent);
-            extent.transform('EPSG:4326', 'EPSG:3857');
-        }
-        return extent;
+        // SDK getMapExtent returns BBox in WGS84: [left, bottom, right, top]
+        const bbox = sdk.Map.getMapExtent();
+        // Convert to object format for compatibility with existing code
+        return {
+            left: bbox[0],
+            bottom: bbox[1],
+            right: bbox[2],
+            top: bbox[3]
+        };
     }
 
     async function drawGooglePlacePoint(uuid) {
