@@ -335,9 +335,9 @@
         sdkKey += '+' + keyChar;
 
         const normalized = normalizeShortcut(sdkKey);
-        console.log(`WMEPH: loadHarmonizeShortcut: letter=${keyLetter}, useCtrl=${useCtrl}, sdkKey=${sdkKey}, raw=${normalized.raw}, combo=${normalized.combo}`);
+        logDev(`loadHarmonizeShortcut: letter=${keyLetter}, useCtrl=${useCtrl}, sdkKey=${sdkKey}, raw=${normalized.raw}, combo=${normalized.combo}`);
         if (!normalized.combo) {
-            console.warn(`WMEPH: Failed to normalize harmonize shortcut key: ${sdkKey}`);
+            logDev(`Failed to normalize harmonize shortcut key: ${sdkKey}`);
         }
         return normalized.combo || null; // Return null if normalization failed
     }
@@ -10436,7 +10436,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
         );
         // Third shortcut: Harmonize place with user-configurable key (from UI settings)
         const harmonizeKey = loadHarmonizeShortcut();
-        console.log(`WMEPH: Harmonize shortcut key loaded: ${harmonizeKey}`);
+        logDev(`Harmonize shortcut key loaded: ${harmonizeKey}`);
         if (harmonizeKey) {
             try {
                 if (sdk.Shortcuts.isShortcutRegistered({ shortcutId: 'wmeph_harmonize_place' })) {
@@ -10448,12 +10448,12 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                     callback: () => { harmonizePlace(); },
                     shortcutKeys: harmonizeKey
                 });
-                console.log(`WMEPH: Registered harmonize shortcut: wmeph_harmonize_place = ${harmonizeKey}`);
+                logDev(`Registered harmonize shortcut: wmeph_harmonize_place = ${harmonizeKey}`);
             } catch (ex) {
                 console.error(`WMEPH: Failed to register harmonize shortcut: ${ex}`);
             }
         } else {
-            console.warn('WMEPH: loadHarmonizeShortcut returned null or empty - harmonize shortcut not registered');
+            logDev('loadHarmonizeShortcut returned null or empty - harmonize shortcut not registered');
         }
 
         // Check for script updates.
