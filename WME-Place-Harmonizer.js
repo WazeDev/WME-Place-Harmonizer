@@ -9666,26 +9666,36 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
      * @param address {Object} An object containing the country, state, city, and street objects.
      */
     function updateAddress(feature, address) {
-        let newAttributes;
-        if (feature && address) {
-            try {
-                newAttributes = {
-                    countryID: address.country?.id || undefined,
-                    stateID: address.state?.id || undefined,
-                    cityName: address.city?.name || undefined,
-                    emptyCity: !address.city?.name,
-                    streetName: address.street?.name || undefined,
-                    emptyStreet: address.street?.isEmpty ? true : null
-                };
-                // Apply address update via WazeWrap for complex address handling
-                new UpdateFeatureAddress(feature, newAttributes);
-                if (address.houseNumber) {
-                    new UpdateObject(feature, { houseNumber: address.houseNumber });
-                }
-                logDev('Address inferred and updated');
-            } catch (e) {
-                logDev('Error updating address:', e);
+        logDev('updateAddress called with:', { feature: feature?.id, addressType: typeof address });
+        if (!feature || !address) {
+            logDev('updateAddress: missing feature or address');
+            return;
+        }
+
+        try {
+            logDev('updateAddress: building newAttributes');
+            const newAttributes = {
+                countryID: address.country?.id,
+                stateID: address.state?.id,
+                cityName: address.city?.name,
+                emptyCity: !address.city?.name,
+                streetName: address.street?.name,
+                emptyStreet: address.street?.isEmpty ? true : null
+            };
+            logDev('updateAddress: newAttributes built:', newAttributes);
+
+            // Apply address update via WazeWrap for complex address handling
+            logDev('updateAddress: calling UpdateFeatureAddress');
+            new UpdateFeatureAddress(feature, newAttributes);
+
+            if (address.houseNumber) {
+                logDev('updateAddress: updating house number');
+                new UpdateObject(feature, { houseNumber: address.houseNumber });
             }
+            logDev('Address inferred and updated');
+        } catch (e) {
+            logDev('Error updating address:', e);
+            console.error('updateAddress error:', e);
         }
     }
 
