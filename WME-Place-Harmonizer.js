@@ -10778,7 +10778,8 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
     }
 
     function devTestCode() {
-        if (W.loginManager.user.getUsername() === 'MapOMatic') {
+        const userInfo = sdk.State.getUserInfo();
+        if (userInfo && userInfo.userName === 'MapOMatic') {
             // For debugging purposes.  May be removed when no longer needed.
             unsafeWindow.PNH_DATA = PNH_DATA;
             unsafeWindow.WMEPH_FLAG = Flag;
