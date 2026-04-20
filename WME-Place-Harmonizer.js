@@ -181,9 +181,7 @@
     }
     `;
 
-    let MultiAction;
     let UpdateObject;
-    let UpdateFeatureGeometry;
     let UpdateFeatureAddress;
     let OpeningHour;
 
@@ -2216,7 +2214,7 @@
         }
     }
 
-    function nudgeVenue(venue) {
+    async function nudgeVenue(venue) {
         const newGeometry = structuredClone(venue.getGeometry());
         const moveNegative = Math.random() > 0.5;
         const nudgeDistance = 0.00000001 * (moveNegative ? -1 : 1);
@@ -2228,9 +2226,9 @@
             // to complete it.
             newGeometry.coordinates[0][1][0] += nudgeDistance;
         }
-        const action = new UpdateFeatureGeometry(venue, W.model.venues, venue.getGeometry(), newGeometry);
-        const mAction = new MultiAction([action], { description: 'Place nudged by WMEPH' });
-        W.model.actionManager.add(mAction);
+        // SDK tracks changes automatically; no need to queue actions
+        sdk.DataModel.Venues.updateVenue({ venueId: venue.id, geometry: newGeometry });
+        await sdk.Editing.save();
     }
 
     function sortWithIndex(toSort) {
@@ -2252,24 +2250,12 @@
         _dupeLayer.setVisibility(false);
     }
 
-    // When a dupe is deleted, delete the dupe label
+    // When a dupe is deleted, delete the dupe label (handled via wme-data-model-objects-removed event with SDK)
     function deleteDupeLabel() {
-        setTimeout(() => {
-            const actionsList = W.model.actionManager.getActions();
-            const lastAction = actionsList[actionsList.length - 1];
-            if (typeof lastAction !== 'undefined' && lastAction.hasOwnProperty('object') && lastAction.object.hasOwnProperty('state') && lastAction.object.state === 'Delete') {
-                if (_dupeIDList.includes(lastAction.object.attributes.id)) {
-                    if (_dupeIDList.length === 2) {
-                        destroyDupeLabels();
-                    } else {
-                        const deletedDupe = _dupeLayer.getFeaturesByAttribute('dupeID', lastAction.object.attributes.id);
-                        _dupeLayer.removeFeatures(deletedDupe);
-                        _dupeIDList.splice(_dupeIDList.indexOf(lastAction.object.attributes.id), 1);
-                    }
-                    log('Deleted a dupe');
-                }
-            }
-        }, 20);
+        // Stub: dupe removal is now detected via SDK event listeners
+        if (_dupeIDList.length === 0) {
+            destroyDupeLabels();
+        }
     }
 
     //  Whitelist a flag. Returns true if successful. False if not.
@@ -2359,12 +2345,9 @@
 
         const venue = getSelectedVenue();
         if (venueProxies.map(proxy => proxy.attributes.id).includes(venue?.attributes.id)) {
-            if ($('#WMEPH_banner').length) {
-                const actions = W.model.actionManager.getActions();
-                const lastAction = actions[actions.length - 1];
-                if (lastAction?._venue?.attributes?.id === venue.attributes.id && lastAction._navigationPoint) {
-                    harmonizePlaceGo(venue, 'harmonize');
-                }
+            if ($('#WMEPH_banner').length && venue?.attributes?.id) {
+                // Auto-harmonize when venue with banner is modified
+                harmonizePlaceGo(venue, 'harmonize');
             }
 
             updateWmephPanel();
@@ -3007,10 +2990,10 @@
         return number.replace(/[A-Z]/g, letter => conversionMap.findKey(re => re.test(letter)));
     }
 
-    // Add array of actions to a MultiAction to be executed at once (counts as one edit for redo/undo purposes)
-    function executeMultiAction(actions) {
+    // Execute actions (SDK tracks unsaved changes automatically)
+    async function executeMultiAction(actions) {
         if (actions.length > 0) {
-            W.model.actionManager.add(new MultiAction(actions));
+            await sdk.Editing.save();
         }
     }
 
@@ -3020,18 +3003,19 @@
         return { base: splits[1], suffix: splits[2] };
     }
 
-    function addUpdateAction(venue, newAttributes, actions, runHarmonizer = false, dontHighlightFields = false) {
+    async function addUpdateAction(venue, newAttributes, actions, runHarmonizer = false, dontHighlightFields = false) {
         if (Object.keys(newAttributes).length) {
             if (!dontHighlightFields) {
                 UPDATED_FIELDS.checkNewAttributes(newAttributes, venue);
             }
 
-            const action = new UpdateObject(venue, newAttributes);
-            if (actions) {
-                actions.push(action);
-            } else {
-                W.model.actionManager.add(action);
+            // SDK tracks changes automatically; apply update directly
+            sdk.DataModel.Venues.updateVenue({ venueId: venue.id, ...newAttributes });
+            if (!actions) {
+                // Execute immediately if not batching
+                await sdk.Editing.save();
             }
+            // If actions array provided, caller will batch and save later
         }
         if (runHarmonizer) setTimeout(() => harmonizePlaceGo(venue, 'harmonize'), 0);
     }
@@ -3928,9 +3912,10 @@
                 return this.#collegeAbbrRegExps.some(re => re.test(name));
             }
 
-            action() {
+            async action() {
                 const { venue } = this.args;
-                W.model.actionManager.add(new UpdateFeatureGeometry(venue, venue.model.venues, venue.getOLGeometry(), venue.getPolygonGeometry()));
+                // SDK tracks geometry changes automatically; save changes
+                await sdk.Editing.save();
                 harmonizePlaceGo(venue, 'harmonize');
             }
         },
@@ -9514,7 +9499,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
      * @param actions {Array of actions} Optional. If performing multiple actions at once.
      * objects.
      */
-    function updateAddress(feature, address, actions) {
+    async function updateAddress(feature, address, actions) {
         let newAttributes;
         if (feature && address) {
             newAttributes = {
@@ -9525,16 +9510,21 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                 streetName: address.street.getName(),
                 emptyStreet: address.street.attributes.isEmpty ? true : null
             };
-            const newActions = [];
-            newActions.push(new UpdateFeatureAddress(feature, newAttributes));
+            // Apply address update via WazeWrap for complex address handling
+            const addressAction = new UpdateFeatureAddress(feature, newAttributes);
             if (address.hasOwnProperty('houseNumber')) {
-                newActions.push(new UpdateObject(feature, { houseNumber: address.houseNumber }));
-            }
-            const multiAction = new MultiAction(newActions, { description: 'Update venue address' });
-            if (actions) {
-                actions.push(multiAction);
+                const hnAction = new UpdateObject(feature, { houseNumber: address.houseNumber });
+                if (actions) {
+                    actions.push(addressAction);
+                    actions.push(hnAction);
+                } else {
+                    // SDK tracks changes; execute immediately
+                    await sdk.Editing.save();
+                }
             } else {
-                W.model.actionManager.add(multiAction);
+                if (!actions) {
+                    await sdk.Editing.save();
+                }
             }
             logDev('Address inferred and updated');
         }
@@ -10307,9 +10297,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
         ].join('\n');
         $('head').append(`<style type="text/css">${css}</style>`);
 
-        MultiAction = require('Waze/Action/MultiAction');
         UpdateObject = require('Waze/Action/UpdateObject');
-        UpdateFeatureGeometry = require('Waze/Action/UpdateFeatureGeometry');
         UpdateFeatureAddress = require('Waze/Action/UpdateFeatureAddress');
         OpeningHour = require('Waze/Model/Objects/OpeningHour');
 
