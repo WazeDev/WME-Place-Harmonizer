@@ -2809,11 +2809,11 @@
             _resultsCache = {};
 
             // Apply the colors
-            applyHighlightsTest(W.model.venues.getObjectArray());
+            applyHighlightsTest(sdk.DataModel.Venues.getAll());
             _layer.redraw();
         } else {
             // reset the colors to default
-            applyHighlightsTest(W.model.venues.getObjectArray());
+            applyHighlightsTest(sdk.DataModel.Venues.getAll());
             _layer.redraw();
         }
     }
@@ -4296,8 +4296,9 @@
             static venueIsFlaggable(args) {
                 let updatedBy;
                 return !args.categories.includes(CAT.RESIDENCE_HOME)
-                    && (updatedBy = args.venue.attributes.updatedBy)
-                    && /^ign_/i.test(W.model.users.getObjectById(updatedBy)?.userName);
+                    // && (updatedBy = args.venue.attributes.updatedBy)
+                    // && /^ign_/i.test(W.model.users.getObjectById(updatedBy)?.userName);
+                    && false; // SDK user lookup not available
             }
         },
         WazeBot: class extends ActionFlag {
@@ -4314,8 +4315,9 @@
                     const lastUpdatedById = args.venue.attributes.updatedBy ?? args.venue.attributes.createdBy;
                     flaggable = this.#botIds.includes(lastUpdatedById);
                     if (!flaggable) {
-                        const lastUpdatedByName = W.model.users.getObjectById(lastUpdatedById)?.userName;
-                        flaggable = (this.#botNames.some(botName => botName.test(lastUpdatedByName)));
+                        // SDK user lookup not available; skip bot name check
+                        // const lastUpdatedByName = W.model.users.getObjectById(lastUpdatedById)?.userName;
+                        // flaggable = (this.#botNames.some(botName => botName.test(lastUpdatedByName)));
                     }
                 }
                 return flaggable;
@@ -9047,7 +9049,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
         const selectedVenueAddrIsComplete = selectedVenueAddr.street !== null && selectedVenueAddr.street.getName() !== null
             && selectedVenueHN && selectedVenueHN.match(/\d/g) !== null;
 
-        const venues = W.model.venues.getObjectArray();
+        const venues = sdk.DataModel.Venues.getAll();
         const selectedVenueId = selectedVenueAttr.id;
 
         _dupeIDList = [selectedVenueId];
@@ -9893,7 +9895,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
         $('#WMEPH-DisableHoursHL').click(bootstrapWmephColorHighlights);
         $('#WMEPH-DisableRankHL').click(bootstrapWmephColorHighlights);
         $('#WMEPH-DisableWLHL').click(bootstrapWmephColorHighlights);
-        $('#WMEPH-PLATypeFill').click(() => applyHighlightsTest(W.model.venues.getObjectArray()));
+        $('#WMEPH-PLATypeFill').click(() => applyHighlightsTest(sdk.DataModel.Venues.getAll()));
         $('#WMEPH-ShowFilterHighlight').click(() => {
             if ($('#WMEPH-ShowFilterHighlight').prop('checked')) {
                 processFilterHighlights();
