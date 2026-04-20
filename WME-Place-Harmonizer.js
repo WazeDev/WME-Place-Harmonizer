@@ -2368,7 +2368,7 @@
     }
 
     function nudgeVenue(venue) {
-        const newGeometry = structuredClone(venue.getGeometry());
+        const newGeometry = structuredClone(venue.geometry);
         const moveNegative = Math.random() > 0.5;
         const nudgeDistance = 0.00000001 * (moveNegative ? -1 : 1);
         if (isVenuePoint(venue)) {
@@ -5912,7 +5912,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                 const attr = args.venue.attributes;
                 if (args.isVenueParkingLot(venue) && attr.entryExitPoints?.length) {
                     const stopPoint = attr.entryExitPoints[0].getPoint().coordinates;
-                    const areaCenter = turf.centroid(args.venue.getGeometry()).geometry.coordinates;
+                    const areaCenter = turf.centroid(args.venue.geometry).geometry.coordinates;
                     return stopPoint[0] === areaCenter[0] && stopPoint[1] === areaCenter[1];
                 }
                 return false;
@@ -9041,10 +9041,10 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
         // TODO: put this in a separate function?
         if (venue) {
             // It doesn't seem to matter what we pass for lon/lat, so use first geometry point.
-            const firstPoint = isVenuePoint(venue) ? venue.getGeometry().coordinates : venue.getGeometry().coordinates[0][0];
+            const firstPoint = isVenuePoint(venue) ? venue.geometry.coordinates : venue.geometry.coordinates[0][0];
             const lon = firstPoint[0];
             const lat = firstPoint[1];
-            const url = `https://${location.host}/SearchServer/mozi?lon=${lon}&lat=${lat}&format=PROTO_JSON_FULL&venue_id=venues.${venue.getID()}`;
+            const url = `https://${location.host}/SearchServer/mozi?lon=${lon}&lat=${lat}&format=PROTO_JSON_FULL&venue_id=venues.${venue.id}`;
             $.getJSON(url).done(res => {
                 let feedNames = res.venue.external_providers
                     ?.filter(prov => !FEEDS_TO_SKIP.some(skipRegex => skipRegex.test(prov.provider)))
