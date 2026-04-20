@@ -327,7 +327,10 @@
         const parsed = parseKBSShift(keyLetter);
         const fullKey = modifier + parsed;
         const normalized = normalizeShortcut(fullKey);
-        logDev(`loadHarmonizeShortcut: letter=${keyLetter}, useCtrl=${useCtrl}, fullKey=${fullKey}, combo=${normalized.combo}`);
+        console.log(`WMEPH: loadHarmonizeShortcut: letter=${keyLetter}, useCtrl=${useCtrl}, fullKey=${fullKey}, raw=${normalized.raw}, combo=${normalized.combo}`);
+        if (!normalized.combo) {
+            console.warn(`WMEPH: Failed to normalize harmonize shortcut key: ${fullKey}`);
+        }
         return normalized.combo || null; // Return null if normalization failed
     }
 
@@ -10425,6 +10428,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
         );
         // Third shortcut: Harmonize place with user-configurable key (from UI settings)
         const harmonizeKey = loadHarmonizeShortcut();
+        console.log(`WMEPH: Harmonize shortcut key loaded: ${harmonizeKey}`);
         if (harmonizeKey) {
             try {
                 if (sdk.Shortcuts.isShortcutRegistered({ shortcutId: 'wmeph_harmonize_place' })) {
@@ -10436,12 +10440,12 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                     callback: () => { harmonizePlace(); },
                     shortcutKeys: harmonizeKey
                 });
-                logDev(`Registered harmonize shortcut: wmeph_harmonize_place = ${harmonizeKey}`);
+                console.log(`WMEPH: Registered harmonize shortcut: wmeph_harmonize_place = ${harmonizeKey}`);
             } catch (ex) {
                 console.error(`WMEPH: Failed to register harmonize shortcut: ${ex}`);
             }
         } else {
-            logDev('loadHarmonizeShortcut returned null or empty - shortcut not registered');
+            console.warn('WMEPH: loadHarmonizeShortcut returned null or empty - harmonize shortcut not registered');
         }
 
         // Check for script updates.
