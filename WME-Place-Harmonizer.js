@@ -323,13 +323,21 @@
     function loadHarmonizeShortcut() {
         const keyLetter = localStorage.getItem('WMEPH-KeyboardShortcut') || 'A';
         const useCtrl = localStorage.getItem('WMEPH-KBSModifierKey') === '1';
-        const modifier = useCtrl ? 'Ctrl+' : 'Alt+';
-        const parsed = parseKBSShift(keyLetter);
-        const fullKey = modifier + parsed;
-        const normalized = normalizeShortcut(fullKey);
-        console.log(`WMEPH: loadHarmonizeShortcut: letter=${keyLetter}, useCtrl=${useCtrl}, fullKey=${fullKey}, raw=${normalized.raw}, combo=${normalized.combo}`);
+
+        // Build SDK format with single-letter modifiers: C=Ctrl, S=Shift, A=Alt
+        let sdkKey = '';
+        if (useCtrl) sdkKey += 'C';
+        if (/^[A-Z]{1}$/.test(keyLetter)) sdkKey += 'S'; // Add S if uppercase (means Shift)
+        sdkKey += 'A'; // Add Alt modifier
+
+        // Add the key letter (lowercase)
+        const keyChar = keyLetter.toLowerCase();
+        sdkKey += '+' + keyChar;
+
+        const normalized = normalizeShortcut(sdkKey);
+        console.log(`WMEPH: loadHarmonizeShortcut: letter=${keyLetter}, useCtrl=${useCtrl}, sdkKey=${sdkKey}, raw=${normalized.raw}, combo=${normalized.combo}`);
         if (!normalized.combo) {
-            console.warn(`WMEPH: Failed to normalize harmonize shortcut key: ${fullKey}`);
+            console.warn(`WMEPH: Failed to normalize harmonize shortcut key: ${sdkKey}`);
         }
         return normalized.combo || null; // Return null if normalization failed
     }
