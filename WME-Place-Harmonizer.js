@@ -325,7 +325,10 @@
         const useCtrl = localStorage.getItem('WMEPH-KBSModifierKey') === '1';
         const modifier = useCtrl ? 'Ctrl+' : 'Alt+';
         const parsed = parseKBSShift(keyLetter);
-        return normalizeShortcut(modifier + parsed).combo;
+        const fullKey = modifier + parsed;
+        const normalized = normalizeShortcut(fullKey);
+        logDev(`loadHarmonizeShortcut: letter=${keyLetter}, useCtrl=${useCtrl}, fullKey=${fullKey}, combo=${normalized.combo}`);
+        return normalized.combo || null; // Return null if normalization failed
     }
 
     // Register SDK shortcut with normalized combo format
@@ -9772,18 +9775,20 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
 
         // Update SDK shortcut to match
         const newKey = loadHarmonizeShortcut();
-        try {
-            if (sdk.Shortcuts.isShortcutRegistered({ shortcutId: 'wmeph_harmonize_place' })) {
-                sdk.Shortcuts.deleteShortcut({ shortcutId: 'wmeph_harmonize_place' });
+        if (newKey) {
+            try {
+                if (sdk.Shortcuts.isShortcutRegistered({ shortcutId: 'wmeph_harmonize_place' })) {
+                    sdk.Shortcuts.deleteShortcut({ shortcutId: 'wmeph_harmonize_place' });
+                }
+                sdk.Shortcuts.createShortcut({
+                    shortcutId: 'wmeph_harmonize_place',
+                    description: 'WMEPH: Harmonize selected place',
+                    callback: () => { harmonizePlace(); },
+                    shortcutKeys: newKey
+                });
+            } catch (ex) {
+                logDev(`Failed to update harmonize shortcut: ${ex}`);
             }
-            sdk.Shortcuts.createShortcut({
-                shortcutId: 'wmeph_harmonize_place',
-                description: 'WMEPH: Harmonize selected place',
-                callback: () => { harmonizePlace(); },
-                shortcutKeys: newKey
-            });
-        } catch (ex) {
-            logDev(`Failed to update harmonize shortcut: ${ex}`);
         }
     }
 
@@ -9806,18 +9811,20 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
 
             // Update SDK shortcut to match
             const newSdkKey = loadHarmonizeShortcut();
-            try {
-                if (sdk.Shortcuts.isShortcutRegistered({ shortcutId: 'wmeph_harmonize_place' })) {
-                    sdk.Shortcuts.deleteShortcut({ shortcutId: 'wmeph_harmonize_place' });
+            if (newSdkKey) {
+                try {
+                    if (sdk.Shortcuts.isShortcutRegistered({ shortcutId: 'wmeph_harmonize_place' })) {
+                        sdk.Shortcuts.deleteShortcut({ shortcutId: 'wmeph_harmonize_place' });
+                    }
+                    sdk.Shortcuts.createShortcut({
+                        shortcutId: 'wmeph_harmonize_place',
+                        description: 'WMEPH: Harmonize selected place',
+                        callback: () => { harmonizePlace(); },
+                        shortcutKeys: newSdkKey
+                    });
+                } catch (ex) {
+                    logDev(`Failed to update harmonize shortcut: ${ex}`);
                 }
-                sdk.Shortcuts.createShortcut({
-                    shortcutId: 'wmeph_harmonize_place',
-                    description: 'WMEPH: Harmonize selected place',
-                    callback: () => { harmonizePlace(); },
-                    shortcutKeys: newSdkKey
-                });
-            } catch (ex) {
-                logDev(`Failed to update harmonize shortcut: ${ex}`);
             }
         } else { // if not a letter then reset and flag
             $key.val(oldKey);
@@ -10418,19 +10425,23 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
         );
         // Third shortcut: Harmonize place with user-configurable key (from UI settings)
         const harmonizeKey = loadHarmonizeShortcut();
-        try {
-            if (sdk.Shortcuts.isShortcutRegistered({ shortcutId: 'wmeph_harmonize_place' })) {
-                sdk.Shortcuts.deleteShortcut({ shortcutId: 'wmeph_harmonize_place' });
+        if (harmonizeKey) {
+            try {
+                if (sdk.Shortcuts.isShortcutRegistered({ shortcutId: 'wmeph_harmonize_place' })) {
+                    sdk.Shortcuts.deleteShortcut({ shortcutId: 'wmeph_harmonize_place' });
+                }
+                sdk.Shortcuts.createShortcut({
+                    shortcutId: 'wmeph_harmonize_place',
+                    description: 'WMEPH: Harmonize selected place',
+                    callback: () => { harmonizePlace(); },
+                    shortcutKeys: harmonizeKey
+                });
+                logDev(`Registered harmonize shortcut: wmeph_harmonize_place = ${harmonizeKey}`);
+            } catch (ex) {
+                console.error(`WMEPH: Failed to register harmonize shortcut: ${ex}`);
             }
-            sdk.Shortcuts.createShortcut({
-                shortcutId: 'wmeph_harmonize_place',
-                description: 'WMEPH: Harmonize selected place',
-                callback: () => { harmonizePlace(); },
-                shortcutKeys: harmonizeKey
-            });
-            logDev(`Registered harmonize shortcut: wmeph_harmonize_place = ${harmonizeKey}`);
-        } catch (ex) {
-            console.error(`WMEPH: Failed to register harmonize shortcut: ${ex}`);
+        } else {
+            logDev('loadHarmonizeShortcut returned null or empty - shortcut not registered');
         }
 
         // Check for script updates.
