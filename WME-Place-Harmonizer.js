@@ -9668,31 +9668,39 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
     function updateAddress(feature, address) {
         let newAttributes;
         if (feature && address) {
-            newAttributes = {
-                countryID: address.country?.id,
-                stateID: address.state?.id,
-                cityName: address.city?.name,
-                emptyCity: address.city?.name ? null : true,
-                streetName: address.street?.name,
-                emptyStreet: address.street?.isEmpty ? true : null
-            };
-            // Apply address update via WazeWrap for complex address handling
-            new UpdateFeatureAddress(feature, newAttributes);
-            if (address.houseNumber) {
-                new UpdateObject(feature, { houseNumber: address.houseNumber });
+            try {
+                newAttributes = {
+                    countryID: address.country?.id || undefined,
+                    stateID: address.state?.id || undefined,
+                    cityName: address.city?.name || undefined,
+                    emptyCity: !address.city?.name,
+                    streetName: address.street?.name || undefined,
+                    emptyStreet: address.street?.isEmpty ? true : null
+                };
+                // Apply address update via WazeWrap for complex address handling
+                new UpdateFeatureAddress(feature, newAttributes);
+                if (address.houseNumber) {
+                    new UpdateObject(feature, { houseNumber: address.houseNumber });
+                }
+                logDev('Address inferred and updated');
+            } catch (e) {
+                logDev('Error updating address:', e);
             }
-            logDev('Address inferred and updated');
         }
     }
 
     // Build a Google search url based on place name and address
     function buildGLink(searchName, addr, HN) {
+        if (!addr) return null;
         let searchHN = '';
         let searchStreet = '';
         let searchCity = '';
         searchName = searchName.replace(/\//g, ' ');
-        if (!addr.isEmptyStreet()) {
-            searchStreet = `${addr.getStreetName()}, `
+
+        // Handle SDK SegmentAddress objects (property-based) vs legacy address objects (method-based)
+        const hasStreetName = addr.street?.name && !addr.street.isEmpty;
+        if (hasStreetName) {
+            searchStreet = `${addr.street.name}, `
                 .replace(/CR-/g, 'County Rd ')
                 .replace(/SR-/g, 'State Hwy ')
                 .replace(/US-/g, 'US Hwy ')
@@ -9706,13 +9714,15 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                 searchHN = `${HN} `;
             }
         }
-        const city = addr.getCity();
-        if (city && !city.isEmpty()) {
-            searchCity = `${city.getName()}, `;
+
+        const city = addr.city;
+        if (city?.name) {
+            searchCity = `${city.name}, `;
         }
 
+        const stateName = addr.state?.name || '';
         searchName = searchName + (searchName ? ', ' : '') + searchHN + searchStreet
-            + searchCity + addr.getStateName();
+            + searchCity + stateName;
         return `http://www.google.com/search?q=${encodeURIComponent(searchName)}`;
     }
 
