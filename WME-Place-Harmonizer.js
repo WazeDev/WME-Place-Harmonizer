@@ -2738,7 +2738,7 @@
 //         _layer.styleMap.styles.default.rules.push(...[severity0, severityLock, severity1,
 //             severityLock1, severity2, severity3, severity4, severityHigh, severityAdLock]);
 
-//         _layer.redraw();
+//         redrawLayer(_layer);
     }
 
     function initializeHighlights() {
@@ -3014,11 +3014,11 @@
 
             // Apply the colors
             applyHighlightsTest(sdk.DataModel.Venues.getAll());
-            _layer.redraw();
+            redrawLayer(_layer);
         } else {
             // reset the colors to default
             applyHighlightsTest(sdk.DataModel.Venues.getAll());
-            _layer.redraw();
+            redrawLayer(_layer);
         }
     }
 
@@ -10498,7 +10498,8 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
         //     console.error('WMEPH:', ex);
         // }
 
-        _layer = W.map.venueLayer;
+        // Create custom highlights layer instead of using W.map.venueLayer
+        _layer = 'wmeph_highlights';
 
         // Add CSS stuff here
         const css = [
