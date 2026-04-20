@@ -245,6 +245,109 @@
     let _venueWhitelist;
     const WL_BUTTON_TEXT = 'WL';
     const WL_LOCAL_STORE_NAME = 'WMEPH-venueWhitelistNew';
+
+    // Shortcut normalization: keycode → display name (C/A/S modifiers)
+    // prettier-ignore
+    const _KEYCODE_TO_CHAR = {
+        65:'A',66:'B',67:'C',68:'D',69:'E',70:'F',71:'G',72:'H',73:'I',74:'J',75:'K',76:'L',
+        77:'M',78:'N',79:'O',80:'P',81:'Q',82:'R',83:'S',84:'T',85:'U',86:'V',87:'W',88:'X',
+        89:'Y',90:'Z', 48:'0',49:'1',50:'2',51:'3',52:'4',53:'5',54:'6',55:'7',56:'8',57:'9',
+        112:'F1',113:'F2',114:'F3',115:'F4',116:'F5',117:'F6',118:'F7',119:'F8',120:'F9',121:'F10',122:'F11',123:'F12',
+        32:'Space',13:'Enter',9:'Tab',27:'Esc',8:'Backspace',46:'Delete',36:'Home',35:'End',33:'PageUp',34:'PageDown',45:'Insert',
+        37:'←',38:'↑',39:'→',40:'↓', 188:',',190:'.',191:'/',186:';',222:"'",219:'[',221:']',220:'\\',189:'-',187:'=',192:'`',
+    };
+    const _CHAR_TO_KEYCODE = Object.fromEntries(Object.entries(_KEYCODE_TO_CHAR).map(([k, v]) => [v.toUpperCase(), Number(k)]));
+    const _MOD_CHAR_TO_VAL = { C: 1, S: 2, A: 4 };
+
+    // Normalize any shortcut format to {raw: "mod,keycode", combo: "A+R"} for consistent storage
+    function shortcutComboToRaw(str) {
+        if (!str || str === '' || str === '-1' || str === 'None') return null;
+        if (/^\d+,-?\d+$/.test(str)) {
+            const kc = parseInt(str.split(',')[1], 10);
+            return kc < 0 ? null : str;
+        }
+        const s = String(str).toUpperCase();
+        if (/^[A-Z0-9]$/.test(s)) return `0,${s.charCodeAt(0)}`;
+        if (_CHAR_TO_KEYCODE[s] !== undefined) return `0,${_CHAR_TO_KEYCODE[s]}`;
+        const mLetter = s.match(/^([ACS]+)\+([A-Z0-9])$/);
+        if (mLetter) {
+            const mod = mLetter[1].split('').reduce((a, c) => a | (_MOD_CHAR_TO_VAL[c] || 0), 0);
+            return `${mod},${mLetter[2].charCodeAt(0)}`;
+        }
+        const mNumeric = s.match(/^([ACS]+)\+(\d+)$/);
+        if (mNumeric) {
+            const mod = mNumeric[1].split('').reduce((a, c) => a | (_MOD_CHAR_TO_VAL[c] || 0), 0);
+            return `${mod},${mNumeric[2]}`;
+        }
+        const mSpecial = s.match(/^([ACS]+)\+(.+)$/);
+        if (mSpecial && _CHAR_TO_KEYCODE[mSpecial[2]] !== undefined) {
+            const mod = mSpecial[1].split('').reduce((a, c) => a | (_MOD_CHAR_TO_VAL[c] || 0), 0);
+            return `${mod},${_CHAR_TO_KEYCODE[mSpecial[2]]}`;
+        }
+        return null;
+    }
+
+    function shortcutRawToCombo(str) {
+        const raw = shortcutComboToRaw(str);
+        if (!raw) return null;
+        const [modStr, keyStr] = raw.split(',');
+        const mod = parseInt(modStr, 10);
+        const keyCode = parseInt(keyStr, 10);
+        const keyChar = _KEYCODE_TO_CHAR[keyCode] || String(keyCode);
+        let mods = '';
+        if (mod & 1) mods += 'C';
+        if (mod & 2) mods += 'S';
+        if (mod & 4) mods += 'A';
+        return mods ? `${mods}+${keyChar}` : keyChar;
+    }
+
+    function normalizeShortcut(val) {
+        const src = val && typeof val === 'object' ? (val.raw ?? val.combo) : val;
+        const raw = shortcutComboToRaw(src);
+        const combo = shortcutRawToCombo(raw);
+        return { raw, combo };
+    }
+
+    // Shortcut storage/retrieval from localStorage (stores RAW format for stability)
+    function loadShortcut(settingsKey) {
+        const stored = localStorage.getItem(`WMEPH_shortcut_${settingsKey}`);
+        return normalizeShortcut(stored);
+    }
+
+    function saveShortcut(settingsKey, shortcutValue) {
+        const normalized = normalizeShortcut(shortcutValue);
+        localStorage.setItem(`WMEPH_shortcut_${settingsKey}`, normalized.raw || '');
+    }
+
+    // Register SDK shortcut with normalized combo format
+    function registerShortcut(shortcutId, description, defaultKey, callback) {
+        const stored = loadShortcut(shortcutId);
+        const keyToUse = stored.combo || (defaultKey ? normalizeShortcut(defaultKey).combo : null);
+
+        try {
+            if (sdk.Shortcuts.isShortcutRegistered({ shortcutId })) {
+                sdk.Shortcuts.deleteShortcut({ shortcutId });
+            }
+            sdk.Shortcuts.createShortcut({
+                shortcutId,
+                description,
+                callback,
+                shortcutKeys: keyToUse
+            });
+            saveShortcut(shortcutId, keyToUse);
+            logDev(`Registered shortcut: ${shortcutId} = ${keyToUse || 'none'}`);
+        } catch (ex) {
+            console.error(`WMEPH: Failed to register shortcut ${shortcutId}: ${ex}`);
+        }
+    }
+
+    function toggleHighlightCheckbox() {
+        const checkbox = $('#WMEPH-ColorHighlighting');
+        if (checkbox.length) {
+            checkbox.prop('checked', !checkbox.prop('checked')).change();
+            log(`Color highlighting ${checkbox.prop('checked') ? 'enabled' : 'disabled'}`);
+        }
+    }
     const WL_LOCAL_STORE_NAME_COMPRESSED = 'WMEPH-venueWhitelistCompressed';
 
     // Dupe check vars
@@ -10255,6 +10358,20 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
         interceptGoogleGetDetails();
         updateUserInfo();
         logDev('placeHarmonizerInit'); // Be sure to update User info before calling logDev()
+
+        // Register SDK shortcuts with normalized key binding storage
+        registerShortcut(
+            'wmeph_zoom_place',
+            'WMEPH: Zoom to selected place',
+            'A+Z',
+            () => { zoomPlace(); }
+        );
+        registerShortcut(
+            'wmeph_color_highlighting',
+            'WMEPH: Toggle color highlighting',
+            'A+C',
+            () => { toggleHighlightCheckbox(); }
+        );
 
         // Check for script updates.
         // const downloadUrl = IS_BETA_VERSION ? dec(BETA_DOWNLOAD_URL) : PROD_DOWNLOAD_URL;
