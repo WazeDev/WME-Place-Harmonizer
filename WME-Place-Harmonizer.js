@@ -376,6 +376,16 @@
         return sdk.DataModel.Segments.getAddress({ segmentId: segment.id });
     }
 
+    // Redraw a layer to reflect style changes
+    function redrawLayer(layerName) {
+        if (!layerName) return;
+        try {
+            sdk.Map.redrawLayer({ layerName });
+        } catch (e) {
+            logDev(`Failed to redraw layer ${layerName}:`, e);
+        }
+    }
+
     function toggleHighlightCheckbox() {
         const checkbox = $('#WMEPH-ColorHighlighting');
         if (checkbox.length) {
