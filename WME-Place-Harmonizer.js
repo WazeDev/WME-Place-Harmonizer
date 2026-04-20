@@ -9669,16 +9669,16 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
         let newAttributes;
         if (feature && address) {
             newAttributes = {
-                countryID: address.country.attributes.id,
-                stateID: address.state.attributes.id,
-                cityName: address.city.getName(),
-                emptyCity: address.city.hasName() ? null : true,
-                streetName: address.street.getName(),
-                emptyStreet: address.street.attributes.isEmpty ? true : null
+                countryID: address.country?.id,
+                stateID: address.state?.id,
+                cityName: address.city?.name,
+                emptyCity: address.city?.name ? null : true,
+                streetName: address.street?.name,
+                emptyStreet: address.street?.isEmpty ? true : null
             };
             // Apply address update via WazeWrap for complex address handling
             new UpdateFeatureAddress(feature, newAttributes);
-            if (address.hasOwnProperty('houseNumber')) {
+            if (address.houseNumber) {
                 new UpdateObject(feature, { houseNumber: address.houseNumber });
             }
             logDev('Address inferred and updated');
