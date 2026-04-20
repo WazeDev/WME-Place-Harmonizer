@@ -10374,7 +10374,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
             return;
         }
         USER.name = userInfo.userName;
-        USER.rank = userInfo.rank; // SDK rank is already 1-based (actual level)
+        USER.rank = userInfo.rank + 1; // SDK rank is 0-based (0-6), convert to 1-based (1-7)
         if (!_wmephBetaList || _wmephBetaList.length === 0) {
             if (IS_BETA_VERSION) {
                 WazeWrap.Alerts.warning(SCRIPT_NAME, 'Beta user list access issue.  Please post in the GHO or PM/DM MapOMatic about this message.  Script should still work.');
