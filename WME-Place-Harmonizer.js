@@ -2458,7 +2458,7 @@
         _buttonBanner2.clearWL.active = true;
 
         // Remove venue from the results cache so it can be updated again.
-        delete _resultsCache[venue.attributes.id];
+        delete _resultsCache[venue.id];
         return true;
     }
 
@@ -3352,7 +3352,7 @@
 
         WLaction() {
             const venue = getSelectedVenue();
-            if (whitelistAction(venue.attributes.id, this.constructor.WL_KEY)) {
+            if (whitelistAction(venue.id, this.constructor.WL_KEY)) {
                 harmonizePlaceGo(venue, 'harmonize');
             }
         }
@@ -7063,9 +7063,9 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                         SCRIPT_NAME,
                         'Are you sure you want to clear all whitelisted fields for this place?',
                         () => {
-                            delete _venueWhitelist[venue.attributes.id];
+                            delete _venueWhitelist[venue.id];
                             // Remove venue from the results cache so it can be updated again.
-                            delete _resultsCache[venue.attributes.id];
+                            delete _resultsCache[venue.id];
                             saveWhitelistToLS(true);
                             harmonizePlaceGo(venue, 'harmonize');
                         },
@@ -7171,7 +7171,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
     function harmonizePlaceGo(venue, useFlag, actions) {
         if (useFlag === 'harmonize') logDev('harmonizePlaceGo: useFlag="harmonize"');
 
-        const venueID = venue.attributes.id;
+        const venueID = venue.id;
 
         // Used for collecting all actions to be applied to the model.
         actions = actions || [];
@@ -8053,7 +8053,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
     } // END harmonizePlaceGo function
 
     function runDuplicateFinder(venue, name, aliases, addr, placePL) {
-        const venueID = venue.attributes.id;
+        const venueID = venue.id;
         // Run nearby duplicate place finder function
         if (name.replace(/[^A-Za-z0-9]/g, '').length > 0 && !venue.attributes.residential && !isEmergencyRoom(venue) && !isRestArea(venue)) {
             // don't zoom and pan for results outside of FOV
@@ -9056,7 +9056,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
             showCloneButton();
         }
         // If the user selects a place in the dupe list, don't clear the labels yet
-        if (_dupeIDList.includes(venue.attributes.id)) {
+        if (_dupeIDList.includes(venue.id)) {
             destroyDupeLabels();
         }
 
