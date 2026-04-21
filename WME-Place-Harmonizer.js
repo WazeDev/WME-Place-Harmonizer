@@ -3119,10 +3119,10 @@
                     }
                 });
                 logDev(`Added ${parkingLotsToAdd.length} parking lot features to highlights layer`);
-                // Also apply filter highlights if they're enabled
+                // Also apply filter highlights if they're enabled (without clearing parking lots)
                 if ($('#WMEPH-ShowFilterHighlight').prop('checked')) {
                     logDev('Also applying filter highlights alongside parking lot fill');
-                    processFilterHighlights();
+                    processFilterHighlights(true);
                 }
             } catch (err) {
                 logDev('Error updating parking lot features:', err);
@@ -3140,6 +3140,11 @@
             } catch (e) {
                 logDev('Error clearing layer:', e);
             }
+        }
+
+        // Re-apply filter highlights if parking lot fill was disabled but filter highlights are still enabled
+        if (!$('#WMEPH-PLATypeFill').prop('checked') && $('#WMEPH-ShowFilterHighlight').prop('checked')) {
+            processFilterHighlights(true);
         }
 
         const venue = getSelectedVenue();
@@ -11104,12 +11109,14 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
         }
     }
 
-    function processFilterHighlights() {
+    function processFilterHighlights(skipClear = false) {
         if (!$('#WMEPH-ShowFilterHighlight').prop('checked')) {
             return;
         }
-        // clear existing highlights
-        clearFilterHighlights();
+        // clear existing highlights (unless we're adding to parking lots)
+        if (!skipClear) {
+            clearFilterHighlights();
+        }
 
         try {
             const venues = sdk.DataModel.Venues.getAll();
