@@ -10484,6 +10484,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
     }
 
     function getShortcutKeys(shortcutAction) {
+        if (!shortcutAction) return '';
         let keys = '';
         const { shortcut } = shortcutAction;
         if (shortcut) {
