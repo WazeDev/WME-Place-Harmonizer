@@ -3576,7 +3576,6 @@
                             result = { exit: true }; // Don't bother returning a Flag. This will exit the rest of the harmonizePlaceGo function.
                         } else {
                             let inferredAddress = inferAddress(args.venue, 7); // Pull address info from nearby segments
-                            inferredAddress = inferredAddress.attributes ?? inferredAddress;
 
                             if (inferredAddress?.state && inferredAddress.country) {
                                 if ($('#WMEPH-AddAddresses').prop('checked')) { // update the venue's address if option is enabled
@@ -5048,7 +5047,7 @@
 
             static #getPostOfficeRegEx(state2L, addr) {
                 return state2L === 'KY'
-                    || (state2L === 'NY' && ['Queens', 'Bronx', 'Manhattan', 'Brooklyn', 'Staten Island'].includes(addr.city?.attributes.name))
+                    || (state2L === 'NY' && ['Queens', 'Bronx', 'Manhattan', 'Brooklyn', 'Staten Island'].includes(addr.city?.name))
                     ? /^post office \d{5}( [-–](?: cpu| vpo)?(?: [a-z0-9]+){1,})?$/i
                     : /^post office [-–](?: cpu| vpo)?(?: [a-z0-9]+){1,}$/i;
             }
@@ -6094,9 +6093,8 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
             static defaultMessage = 'Entry/exit point has not been moved.';
 
             static venueIsFlaggable(args) {
-                const attr = args.venue.attributes;
-                if (isVenueParkingLot(args.venue) && attr.entryExitPoints?.length) {
-                    const stopPoint = attr.entryExitPoints[0].getPoint().coordinates;
+                if (isVenueParkingLot(args.venue) && args.venue.entryExitPoints?.length) {
+                    const stopPoint = args.venue.entryExitPoints[0].coordinates;
                     const areaCenter = turf.centroid(args.venue.geometry).geometry.coordinates;
                     return stopPoint[0] === areaCenter[0] && stopPoint[1] === areaCenter[1];
                 }
@@ -6209,15 +6207,15 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
             }
 
             action() {
-                const attr = this.args.venue.attributes;
+                const venue = this.args.venue;
                 const alias = this.args.pnhMatch.optionalAlias;
-                let aliases = insertAtIndex(attr.aliases.slice(), alias, 0);
-                if (this.args.pnhMatch.altName2Desc && !attr.description.toUpperCase().includes(alias.toUpperCase())) {
-                    const description = `${alias}\n${attr.description}`;
-                    addUpdateAction(this.args.venue, { description }, null, false);
+                let aliases = insertAtIndex(venue.aliases?.slice() || [], alias, 0);
+                if (this.args.pnhMatch.altName2Desc && !venue.description?.toUpperCase().includes(alias.toUpperCase())) {
+                    const description = `${alias}\n${venue.description}`;
+                    addUpdateAction(venue, { description }, null, false);
                 }
                 aliases = removeUnnecessaryAliases(name, aliases);
-                addUpdateAction(this.args.venue, { aliases }, null, true);
+                addUpdateAction(venue, { aliases }, null, true);
             }
         },
         AddCat2: class extends ActionFlag {
