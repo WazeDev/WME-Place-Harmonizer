@@ -2486,11 +2486,8 @@
     //  Whitelist a flag. Returns true if successful. False if not.
     function whitelistAction(venueID, wlKeyName) {
         const venue = getSelectedVenue();
-        let addressTemp = getVenueAddress(venue);
-        if (addressTemp && addressTemp.hasOwnProperty('country')) {
-            addressTemp = addressTemp.attributes;
-        }
-        if (!addressTemp.country) {
+        const addressTemp = getVenueAddress(venue);
+        if (!addressTemp?.country) {
             WazeWrap.Alerts.error(SCRIPT_NAME, 'Whitelisting requires an address. Enter the place\'s address and try again.');
             return false;
         }
@@ -3030,18 +3027,6 @@
                         }
                         venue.wmephSeverity = severity;
 
-                        // Parking lot type fill (public=blue, restricted=yellow, private=red)
-                        if ($('#WMEPH-PLATypeFill').prop('checked') && venue.categories.includes(CAT.PARKING_LOT)) {
-                            try {
-                                const parkingType = sdk.DataModel.ParkingLot.getParkingLotType({ venueId: venue.id });
-                                venue.wmephParkingType = parkingType || 'PUBLIC'; // Default to PUBLIC if null
-                            } catch (e) {
-                                logDev('Error getting parking lot type:', e);
-                                venue.wmephParkingType = 'PUBLIC';
-                            }
-                        } else {
-                            venue.wmephParkingType = null;
-                        }
                     } catch (err) {
                         console.error('WMEPH highlight error: ', err);
                     }
@@ -3074,32 +3059,22 @@
                     logDev(`Sample venue: name=${venues[0].name}, type=${venues[0].type}, hasGeo=${!!venues[0].geometry}`);
                 }
 
-                // Check each venue to see if it's a parking lot by checking if getParkingLotType returns a value
+                // Find and add parking lots by checking getParkingLotType
                 const parkingLotsToAdd = [];
-                let testCount = 0;
-                venues.forEach(v => {
-                    if (!v || !v.geometry || !v.id) return;
+                venues.forEach(venue => {
+                    if (!venue || !venue.geometry || !venue.id) return;
                     try {
-                        const parkingType = sdk.DataModel.Venues.getParkingLotType({ venueId: v.id });
-                        testCount++;
-                        if (testCount <= 3) {
-                            logDev(`Testing ${v.name}: parkingType=${parkingType}`);
-                        }
+                        const parkingType = sdk.DataModel.ParkingLot.getParkingLotType({ venueId: venue.id });
                         if (parkingType) {
-                            parkingLotsToAdd.push(v);
-                            logDev(`Found parking lot: ${v.name}, type: ${parkingType}`);
+                            parkingLotsToAdd.push({ venue, parkingType });
                         }
                     } catch (e) {
-                        logDev(`Error checking ${v.name}:`, e.message);
+                        // Silently skip venues that error
                     }
                 });
-                logDev(`Tested ${testCount} venues, found ${parkingLotsToAdd.length} parking lots`);
 
-                parkingLotsToAdd.forEach(venue => {
+                parkingLotsToAdd.forEach(({ venue, parkingType }) => {
                     try {
-                        const parkingType = sdk.DataModel.Venues.getParkingLotType({ venueId: venue.id });
-                        logDev(`Parking lot ${venue.id}: ${venue.name}, type: ${parkingType} (raw type: ${typeof parkingType})`);
-
                         const feature = {
                             type: 'Feature',
                             id: `parking_${venue.id}`,
@@ -3109,8 +3084,6 @@
                                 parkingType: parkingType
                             }
                         };
-                        logDev(`Created feature for ${venue.name} with type: ${parkingType}`);
-
                         sdk.Map.addFeatureToLayer({
                             layerName: _layer,
                             feature: feature
@@ -10362,20 +10335,15 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
         $('#WMEPH-DisableWLHL').click(bootstrapWmephColorHighlights);
         $('#WMEPH-PLATypeFill').click(() => applyHighlightsTest(sdk.DataModel.Venues.getAll()));
         $('#WMEPH-ShowFilterHighlight').click(() => {
-            if ($('#WMEPH-ShowFilterHighlight').prop('checked')) {
-                // If parking lot fill is enabled, trigger it to combine both highlights
-                if ($('#WMEPH-PLATypeFill').prop('checked')) {
-                    applyHighlightsTest(sdk.DataModel.Venues.getAll());
-                } else {
-                    processFilterHighlights();
-                }
+            const filterEnabled = $('#WMEPH-ShowFilterHighlight').prop('checked');
+            const parkingEnabled = $('#WMEPH-PLATypeFill').prop('checked');
+
+            if (filterEnabled || parkingEnabled) {
+                // If either is enabled, use applyHighlightsTest to combine both
+                applyHighlightsTest(sdk.DataModel.Venues.getAll());
             } else {
-                // If parking lot fill is enabled, trigger it to keep parking lots visible
-                if ($('#WMEPH-PLATypeFill').prop('checked')) {
-                    applyHighlightsTest(sdk.DataModel.Venues.getAll());
-                } else {
-                    clearFilterHighlights();
-                }
+                // Both disabled, clear everything
+                clearFilterHighlights();
             }
         });
 
