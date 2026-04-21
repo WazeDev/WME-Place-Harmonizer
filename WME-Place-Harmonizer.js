@@ -3649,7 +3649,7 @@
             static defaultWLTooltip = 'Whitelist non-standard PLA name';
 
             static venueIsFlaggable(args) {
-                if (!this.isWhitelisted(args) && args.isVenueParkingLot(args.venue)) {
+                if (!this.isWhitelisted(args) && isVenueParkingLot(args.venue)) {
                     const name = args.venue.name;
                     if (name) {
                         const addr = getVenueAddress(args.venue);
@@ -4114,7 +4114,7 @@
             }
 
             action() {
-                if (this.args.isVenueResidential(args.venue)) {
+                if (this.isVenueResidential(args.venue)) {
                     // 7/1/2022 - Not sure if this is necessary? Can residence be converted to area? Either way, updateFeatureGeometry function no longer works.
                     // const centroid = venue.geometry.getCentroid();
                     // updateFeatureGeometry(venue, new OpenLayers.Geometry.Point(centroid.x, centroid.y));
@@ -4688,7 +4688,7 @@
             static defaultWLTooltip = 'Whitelist description';
 
             static venueIsFlaggable(args) {
-                return !args.isVenueResidential(args.venue)
+                return !isVenueResidential(args.venue)
                     && args.totalSeverity < SEVERITY.RED
                     && !this.isWhitelisted(args)
                     && /(google|yelp)/i.test(args.description);
@@ -5329,8 +5329,8 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
 
             static venueIsFlaggable(args) {
                 return !args.url?.trim().length
-                    && (!args.isVenueParkingLot(args.venue)
-                        || (args.isVenueParkingLot(args.venue) && REGIONS_THAT_WANT_PLA_PHONE_URL.includes(args.region)))
+                    && (!isVenueParkingLot(args.venue)
+                        || (isVenueParkingLot(args.venue) && REGIONS_THAT_WANT_PLA_PHONE_URL.includes(args.region)))
                     && !PRIMARY_CATS_TO_IGNORE_MISSING_PHONE_URL.includes(args.categories[0]);
             }
 
@@ -5437,8 +5437,8 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
             static venueIsFlaggable(args) {
                 return !args.phone
                     && !FlagBase.currentFlags.hasFlag(Flag.AddRecommendedPhone)
-                    && (!args.isVenueParkingLot(args.venue)
-                        || (args.isVenueParkingLot(args.venue) && REGIONS_THAT_WANT_PLA_PHONE_URL.includes(args.region)))
+                    && (!isVenueParkingLot(args.venue)
+                        || (isVenueParkingLot(args.venue) && REGIONS_THAT_WANT_PLA_PHONE_URL.includes(args.region)))
                     && !PRIMARY_CATS_TO_IGNORE_MISSING_PHONE_URL.includes(args.categories[0]);
             }
 
@@ -6026,7 +6026,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
 
             static venueIsFlaggable(args) {
                 const attr = args.venue.attributes;
-                if (args.isVenueParkingLot(args.venue) && attr.entryExitPoints?.length) {
+                if (isVenueParkingLot(args.venue) && attr.entryExitPoints?.length) {
                     const stopPoint = attr.entryExitPoints[0].getPoint().coordinates;
                     const areaCenter = turf.centroid(args.venue.geometry).geometry.coordinates;
                     return stopPoint[0] === areaCenter[0] && stopPoint[1] === areaCenter[1];
@@ -6275,7 +6275,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
             static venueIsFlaggable(args) {
                 return !args.highlightOnly
                     && args.countryCode === PNH_DATA.USA.countryCode
-                    && !args.isVenueParkingLot(args.venue)
+                    && !isVenueParkingLot(args.venue)
                     && !args.categories.includes(CAT.POST_OFFICE)
                     && /\bUSP[OS]\b|\bpost(al)?\s+(service|office)\b/i.test(args.nameBase.replace(/[/\-.]/g, ''));
             }
@@ -6476,7 +6476,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
             static venueIsFlaggable(args) {
                 return !args.highlightOnly
                     && args.pnhMatch[0] === 'NoMatch'
-                    && !args.isVenueParkingLot(args.venue)
+                    && !isVenueParkingLot(args.venue)
                     && !CHAIN_APPROVAL_PRIMARY_CATS_TO_IGNORE.includes(args.categories[0])
                     && !args.categories.includes(CAT.REST_AREAS);
             }
@@ -6511,7 +6511,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
             static venueIsFlaggable(args) {
                 return !args.highlightOnly
                     && args.pnhMatch[0] === 'ApprovalNeeded'
-                    && !args.isVenueParkingLot(args.venue)
+                    && !isVenueParkingLot(args.venue)
                     && !CHAIN_APPROVAL_PRIMARY_CATS_TO_IGNORE.includes(args.categories[0])
                     && !args.categories.includes(CAT.REST_AREAS);
             }
