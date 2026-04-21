@@ -3023,13 +3023,13 @@
                     logDev(`Sample venue: name=${venues[0].name}, type=${venues[0].type}, hasGeo=${!!venues[0].geometry}`);
                 }
 
-                // Check each venue to see if it's a parking lot by checking if ParkingLot.getParkingLotType returns a value
+                // Check each venue to see if it's a parking lot by checking if getParkingLotType returns a value
                 const parkingLotsToAdd = [];
                 let testCount = 0;
                 venues.forEach(v => {
                     if (!v || !v.geometry || !v.id) return;
                     try {
-                        const parkingType = sdk.DataModel.ParkingLot.getParkingLotType({ venueId: v.id });
+                        const parkingType = sdk.DataModel.Venues.getParkingLotType({ venueId: v.id });
                         testCount++;
                         if (testCount <= 3) {
                             logDev(`Testing ${v.name}: parkingType=${parkingType}`);
@@ -3046,32 +3046,19 @@
 
                 parkingLotsToAdd.forEach(venue => {
                     try {
-                        const parkingType = sdk.DataModel.ParkingLot.getParkingLotType({ venueId: venue.id });
-                        logDev(`Parking lot ${venue.id}: ${venue.attributes.name}, type: ${parkingType}`);
-
-                        const colorMap = {
-                            PUBLIC: '#0000FF',      // blue
-                            RESTRICTED: '#FFFF00', // yellow
-                            PRIVATE: '#FF0000'     // red
-                        };
-                        const fillColor = colorMap[parkingType] || '#CCCCCC';
+                        const parkingType = sdk.DataModel.Venues.getParkingLotType({ venueId: venue.id });
+                        logDev(`Parking lot ${venue.id}: ${venue.name}, type: ${parkingType} (raw type: ${typeof parkingType})`);
 
                         const feature = {
                             type: 'Feature',
                             id: `parking_${venue.id}`,
                             geometry: venue.geometry,
                             properties: {
-                                name: venue.attributes.name,
+                                name: venue.name,
                                 parkingType: parkingType
-                            },
-                            style: {
-                                fillColor: fillColor,
-                                fillOpacity: 0.3,
-                                strokeColor: fillColor,
-                                strokeWidth: 2,
-                                strokeOpacity: 0.6
                             }
                         };
+                        logDev(`Created feature for ${venue.name} with type: ${parkingType}`);
 
                         sdk.Map.addFeatureToLayer({
                             layerName: _layer,
@@ -10647,7 +10634,29 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
             sdk.Map.addLayer({
                 layerName: _layer,
                 displayInLayerSwitcher: true,
-                zIndexing: true
+                zIndexing: true,
+                styleContext: {
+                    getColor: ({ feature }) => {
+                        const parkingType = feature?.properties?.parkingType;
+                        const colorMap = {
+                            PUBLIC: '#0000FF',      // blue
+                            RESTRICTED: '#FFFF00', // yellow
+                            PRIVATE: '#FF0000'     // red
+                        };
+                        return colorMap[parkingType] || '#CCCCCC';
+                    }
+                },
+                styleRules: [
+                    {
+                        style: {
+                            fillColor: '${getColor}',
+                            fillOpacity: 0.3,
+                            strokeColor: '${getColor}',
+                            strokeWidth: 2,
+                            strokeOpacity: 0.6
+                        }
+                    }
+                ]
             });
             logDev('Created wmeph_highlights layer');
         } catch (e) {
