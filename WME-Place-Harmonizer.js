@@ -396,9 +396,9 @@
 
     // Helper to check if venue is residential (SDK venues don't have isResidential method)
     function isVenueResidential(venue) {
-        if (!venue || !venue.attributes) return false;
-        const primaryCategory = venue.categories?.[0];
-        return primaryCategory === 'RESIDENTIAL_BUILDING';
+        if (!venue) return false;
+        // SDK has venue.residential property and RESIDENTIAL category ID
+        return venue.residential === true || venue.categories?.includes('RESIDENTIAL');
     }
 
     // Helper to check if venue is charging station (SDK venues don't have isChargingStation method)
