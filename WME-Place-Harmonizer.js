@@ -9980,7 +9980,10 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
 
     function initSettingsCheckbox(settingID) {
         // Associate click event of new checkbox to call saveSettingToLocalStorage with proper ID
-        $(`#${settingID}`).click(() => { saveSettingToLocalStorage(settingID); });
+        // Skip for checkboxes that have custom handlers (they'll save and update themselves)
+        if (settingID !== 'WMEPH-PLATypeFill' && settingID !== 'WMEPH-ShowFilterHighlight') {
+            $(`#${settingID}`).click(() => { saveSettingToLocalStorage(settingID); });
+        }
         // Load Setting for Local Storage, if it doesn't exist set it to NOT checked.
         // If previously set to 1, then trigger "click" event.
         if (!localStorage.getItem(settingID)) {
@@ -10331,6 +10334,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
         $('#WMEPH-DisableRankHL').click(bootstrapWmephColorHighlights);
         $('#WMEPH-DisableWLHL').click(bootstrapWmephColorHighlights);
         $('#WMEPH-PLATypeFill').click(() => {
+            saveSettingToLocalStorage('WMEPH-PLATypeFill');
             const parkingEnabled = $('#WMEPH-PLATypeFill').prop('checked');
             const filterEnabled = $('#WMEPH-ShowFilterHighlight').prop('checked');
 
@@ -10341,6 +10345,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
             }
         });
         $('#WMEPH-ShowFilterHighlight').click(() => {
+            saveSettingToLocalStorage('WMEPH-ShowFilterHighlight');
             const filterEnabled = $('#WMEPH-ShowFilterHighlight').prop('checked');
             const parkingEnabled = $('#WMEPH-PLATypeFill').prop('checked');
 
