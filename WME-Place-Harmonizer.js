@@ -3136,6 +3136,10 @@
                         applyHighlightsTest(e, true);
                         if (_layer) redrawLayer(_layer);
                     }
+                    // Also refresh parking lot and filter highlights if they're enabled
+                    if ($('#WMEPH-PLATypeFill').prop('checked') || $('#WMEPH-ShowFilterHighlight').prop('checked')) {
+                        applyHighlightsTest(sdk.DataModel.Venues.getAll());
+                    }
                 })
             });
 
@@ -3147,6 +3151,10 @@
                 eventHandler: (venues) => {
                     applyHighlightsTest(venues);
                     if (_layer) redrawLayer(_layer);
+                    // Also refresh parking lot and filter highlights if they're enabled
+                    if ($('#WMEPH-PLATypeFill').prop('checked') || $('#WMEPH-ShowFilterHighlight').prop('checked')) {
+                        applyHighlightsTest(sdk.DataModel.Venues.getAll());
+                    }
                 }
             });
 
