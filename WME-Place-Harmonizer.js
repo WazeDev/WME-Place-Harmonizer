@@ -3792,7 +3792,7 @@
             }
 
             action() {
-                const categories = this.args.venue.getCategories().slice(); // create a copy
+                const categories = this.args.venue.categories.slice(); // create a copy
                 const index = categories.indexOf(CAT.TRANSPORTATION);
                 if (index > -1) {
                     categories.splice(index, 1); // remove the category
@@ -3824,7 +3824,7 @@
             }
 
             action() {
-                const categories = this.args.venue.getCategories().slice(); // create a copy
+                const categories = this.args.venue.categories.slice(); // create a copy
                 const index = categories.indexOf(CAT.SCENIC_LOOKOUT_VIEWPOINT);
                 if (index > -1) {
                     categories.splice(index, 1); // remove the category
@@ -3847,7 +3847,7 @@
             }
 
             action() {
-                const categories = insertAtIndex(this.args.venue.getCategories(), CAT.REST_AREAS, 0);
+                const categories = insertAtIndex(this.args.venue.categories, CAT.REST_AREAS, 0);
                 // make it 24/7
                 const openingHours = [new OpeningHour({ days: [1, 2, 3, 4, 5, 6, 0], fromHour: '00:00', toHour: '00:00' })];
                 addUpdateAction(this.args.venue, { categories, openingHours }, null, true);
@@ -3985,7 +3985,7 @@
 
             action() {
                 // Move Gas category to the first position
-                const categories = insertAtIndex(this.args.venue.getCategories(), CAT.GAS_STATION, 0);
+                const categories = insertAtIndex(this.args.venue.categories, CAT.GAS_STATION, 0);
                 addUpdateAction(this.args.venue, { categories }, null, true);
             }
         },
@@ -4490,7 +4490,7 @@
             action() {
                 const newAttributes = {};
 
-                const originalCategories = this.args.venue.getCategories();
+                const originalCategories = this.args.venue.categories;
                 const newCategories = insertAtIndex(originalCategories, [CAT.BANK_FINANCIAL, CAT.ATM], 0); // Change to bank and atm cats
                 if (!arraysAreEqual(originalCategories, newCategories)) {
                     newAttributes.categories = newCategories;
@@ -4543,7 +4543,7 @@
                 }
 
                 const atmCategory = [CAT.ATM];
-                if (!arraysAreEqual(this.args.venue.getCategories(), atmCategory)) {
+                if (!arraysAreEqual(this.args.venue.categories, atmCategory)) {
                     newAttributes.categories = atmCategory; // Change to ATM only
                 }
 
@@ -4571,7 +4571,7 @@
                 const newAttributes = {};
 
                 const officesCategory = [CAT.OFFICES];
-                if (!arraysAreEqual(this.args.venue.getCategories(), officesCategory)) {
+                if (!arraysAreEqual(this.args.venue.categories, officesCategory)) {
                     newAttributes.categories = officesCategory;
                 }
 
@@ -5242,7 +5242,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                 const { venue } = this.args;
                 if (this.args.isLocked) {
                     let lastUpdated;
-                    if (venue.isNew()) {
+                    if (venue.isNew) {
                         lastUpdated = Date.now();
                     } else if (venue.updatedOn) {
                         lastUpdated = venue.updatedOn;
@@ -5258,7 +5258,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
             }
 
             static venueIsFlaggable(args) {
-                if (USER.rank >= 2 && args.venue.areExternalProvidersEditable() && !(args.categories.includes(CAT.PARKING_LOT) && args.ignoreParkingLots)) {
+                if (USER.rank >= 2 && args.venue.externalProviderIDs && !(args.categories.includes(CAT.PARKING_LOT) && args.ignoreParkingLots)) {
                     if (!args.categories.some(cat => this.#categoriesToIgnore.includes(cat))) {
                         const provIDs = args.venue.externalProviderIDs;
                         if (!(provIDs && provIDs.length)) {
@@ -6168,7 +6168,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
             }
 
             action() {
-                const categories = insertAtIndex(this.venue.getCategories(), this.altCategory, 1);
+                const categories = insertAtIndex(this.venue.categories, this.altCategory, 1);
                 addUpdateAction(this.venue, { categories }, null, true);
             }
         },
@@ -6182,7 +6182,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
             }
 
             action() {
-                const categories = insertAtIndex(this.args.venue.getCategories(), CAT.PHARMACY, 1);
+                const categories = insertAtIndex(this.args.venue.categories, CAT.PHARMACY, 1);
                 addUpdateAction(this.args.venue, { categories }, null, true);
             }
         },
@@ -6196,7 +6196,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
             }
 
             action() {
-                const categories = insertAtIndex(this.args.venue.getCategories(), CAT.SUPERMARKET_GROCERY, 1);
+                const categories = insertAtIndex(this.args.venue.categories, CAT.SUPERMARKET_GROCERY, 1);
                 addUpdateAction(this.args.venue, { categories }, null, true);
             }
         },
@@ -6213,7 +6213,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
             }
 
             action() {
-                const categories = insertAtIndex(this.args.venue.getCategories(), CAT.CONVENIENCE_STORE, 1);
+                const categories = insertAtIndex(this.args.venue.categories, CAT.CONVENIENCE_STORE, 1);
                 addUpdateAction(this.args.venue, { name: 'ARCO ampm', url: 'ampm.com', categories }, null, true);
             }
         },
@@ -6241,7 +6241,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
             }
 
             action() {
-                const categories = insertAtIndex(this.args.venue.getCategories(), CAT.ATM, 1); // Insert ATM category in the second position
+                const categories = insertAtIndex(this.args.venue.categories, CAT.ATM, 1); // Insert ATM category in the second position
                 addUpdateAction(this.args.venue, { categories }, null, true);
             }
         },
@@ -6259,7 +6259,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
 
             action() {
                 // Insert C.S. category in the second position
-                const categories = insertAtIndex(this.args.venue.getCategories(), CAT.CONVENIENCE_STORE, 1);
+                const categories = insertAtIndex(this.args.venue.categories, CAT.CONVENIENCE_STORE, 1);
                 addUpdateAction(this.args.venue, { categories }, null, true);
             }
         },
@@ -6277,7 +6277,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
             }
 
             action() {
-                const categories = insertAtIndex(this.args.venue.getCategories(), CAT.POST_OFFICE, 0);
+                const categories = insertAtIndex(this.args.venue.categories, CAT.POST_OFFICE, 0);
                 addUpdateAction(this.args.venue, { categories }, null, true);
             }
         },
@@ -6291,7 +6291,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
             }
 
             action() {
-                let categories = this.args.venue.getCategories();
+                let categories = this.args.venue.categories;
                 if (!categories.includes(CAT.HOSPITAL_MEDICAL_CARE)) {
                     const indexToReplace = categories.indexOf(CAT.DOCTOR_CLINIC);
                     if (indexToReplace > -1) {
@@ -6321,7 +6321,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
             }
 
             action() {
-                let categories = this.args.venue.getCategories().slice();
+                let categories = this.args.venue.categories.slice();
                 let updateIt = false;
                 if (categories.length) {
                     const idx = categories.indexOf(CAT.HOSPITAL_URGENT_CARE);
@@ -6356,7 +6356,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
             }
 
             action() {
-                let categories = this.args.venue.getCategories().slice();
+                let categories = this.args.venue.categories.slice();
                 let updateIt = false;
                 if (categories.length) {
                     [CAT.OFFICES, CAT.PERSONAL_CARE].forEach(cat => {
@@ -9012,7 +9012,11 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
 
     function onOpenWebsiteClick() {
         const venue = getSelectedVenue();
-        let { url } = venue.attributes;
+        let url = venue.url;
+        if (!url) {
+            WazeWrap.Alerts.error(SCRIPT_NAME, 'No website set for this place.');
+            return;
+        }
         if (url.match(/^http/i) === null) {
             url = `http://${url}`;
         }
@@ -9031,7 +9035,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
     function onGoogleSearchClick() {
         const venue = getSelectedVenue();
         const addr = getVenueAddress(venue);
-        if (addr.hasState()) {
+        if (addr?.state && addr?.country) {
             const url = buildGLink(venue.name, addr, venue.houseNumber);
             if ($('#WMEPH-WebSearchNewTab').prop('checked')) {
                 window.open(url);
@@ -9410,7 +9414,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                 // Check for duplicates
                 // don't do res, the point itself, new points or no name
                 if (!whitelistedDupes.includes(testVenueId) && _dupeIDList.length < 6 && pt2ptDistance < 800
-                    && !testVenue.isResidential() && testVenueId !== selectedVenueId && !testVenue.isNew()
+                    && !testVenue.isResidential() && testVenueId !== selectedVenueId && !testVenue.isNew
                     && testVenueAttr.name !== null && testVenueAttr.name.length > 1) {
                     // If venue has a complete address and test venue does, and they are different, then no dupe
                     let suppressMatch = false;
