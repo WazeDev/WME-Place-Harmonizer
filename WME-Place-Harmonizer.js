@@ -4621,7 +4621,8 @@
             static #botNames = [/^waze-maint/i, /^waze3rdparty$/i, /^WazeParking1$/i, /^admin$/i, /^avsus$/i];
 
             static venueIsFlaggable(args) {
-                let flaggable = args.venue.isUnchanged() && !args.categories.includes(CAT.RESIDENCE_HOME);
+                const isUnchanged = !args.venue.isNew && !args.venue.updatedBy;
+                let flaggable = isUnchanged && !args.categories.includes(CAT.RESIDENCE_HOME);
                 if (flaggable) {
                     const lastUpdatedById = args.venue.updatedBy ?? args.venue.createdBy;
                     flaggable = this.#botIds.includes(lastUpdatedById);
@@ -5785,21 +5786,24 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
 
             get message() {
                 let msg = 'Last updated over 3 years ago. Verify hours are correct.';
-                if (this.args.venue.isUnchanged()) msg += ' If everything is current, nudge this place and save.';
+                const isUnchanged = !this.args.venue.isNew && !this.args.venue.updatedBy;
+                if (isUnchanged) msg += ' If everything is current, nudge this place and save.';
                 return msg;
             }
 
             get buttonText() {
-                return this.args.venue.isUnchanged() ? 'Nudge' : null;
+                const isUnchanged = !this.args.venue.isNew && !this.args.venue.updatedBy;
+                return isUnchanged ? 'Nudge' : null;
             }
 
             get severity() {
-                return this.args.venue.isUnchanged() ? super.severity : SEVERITY.GREEN;
+                const isUnchanged = !this.args.venue.isNew && !this.args.venue.updatedBy;
+                return isUnchanged ? super.severity : SEVERITY.GREEN;
             }
 
             static venueIsFlaggable(args) {
                 this.#initializeCategoriesToCheck(args.pnhCategoryInfos);
-                return !args.isVenueResidential(venue)
+                return !isVenueResidential(args.venue)
                     && this.#venueIsOld(args.venue) // Check uses the updated logic now
                     && args.openingHours?.length
                     && args.categories.some(cat => this.#categoriesToCheck.includes(cat));
