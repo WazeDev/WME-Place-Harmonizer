@@ -397,21 +397,21 @@
     // Helper to check if venue is residential (SDK venues don't have isResidential method)
     function isVenueResidential(venue) {
         if (!venue || !venue.attributes) return false;
-        const primaryCategory = venue.attributes.categories?.[0];
+        const primaryCategory = venue.categories?.[0];
         return primaryCategory === 'RESIDENTIAL_BUILDING';
     }
 
     // Helper to check if venue is charging station (SDK venues don't have isChargingStation method)
     function isVenueChargingStation(venue) {
         if (!venue || !venue.attributes) return false;
-        const primaryCategory = venue.attributes.categories?.[0];
+        const primaryCategory = venue.categories?.[0];
         return primaryCategory === 'CHARGING_STATION';
     }
 
     // Helper to check if venue is parking lot (SDK venues don't have isParkingLot method)
     function isVenueParkingLot(venue) {
         if (!venue || !venue.attributes) return false;
-        const primaryCategory = venue.attributes.categories?.[0];
+        const primaryCategory = venue.categories?.[0];
         return primaryCategory === 'PARKING_LOT';
     }
 
@@ -1500,7 +1500,7 @@
 
             // Name Matching
             if (this.regexNameMatch) {
-                nameMatch = this.regexNameMatch.test(venue.attributes.name);
+                nameMatch = this.regexNameMatch.test(venue.name);
             } else if (this.strMatchAny || this.primaryCategory === CAT.HOTEL) {
                 // Match any part of WME name with either the PNH name or any spaced names
                 matchInfo.allowMultiMatch = true; // TODO: This can probably be removed
@@ -2210,7 +2210,7 @@
     }
 
     function isAlwaysOpen(venue) {
-        return is247Hours(venue.attributes.openingHours);
+        return is247Hours(venue.openingHours);
     }
 
     function is247Hours(openingHours) {
@@ -2218,11 +2218,11 @@
     }
 
     function isEmergencyRoom(venue) {
-        return /(?:emergency\s+(?:room|department|dept))|\b(?:er|ed)\b/i.test(venue.attributes.name);
+        return /(?:emergency\s+(?:room|department|dept))|\b(?:er|ed)\b/i.test(venue.name);
     }
 
     function isRestArea(venue) {
-        return venue.attributes.categories.includes(CAT.REST_AREAS) && /rest\s*area/i.test(venue.attributes.name);
+        return venue.categories.includes(CAT.REST_AREAS) && /rest\s*area/i.test(venue.name);
     }
 
     function getPvaSeverity(pvaValue, venue) {
@@ -2965,7 +2965,7 @@
                 // Highlighting logic would go here
                 // Severity can be: 0, 'lock', 1, 2, 3, 4, or 'high'. Set to
                 // anything else to use default WME style.
-                if (doHighlight && !(disableRankHL && venue.attributes.lockRank > USER.rank - 1)) {
+                if (doHighlight && !(disableRankHL && venue.lockRank > USER.rank - 1)) {
                     try {
                         const { id } = venue.attributes;
                         let severity;
@@ -2977,26 +2977,26 @@
                         } else {
                             severity = cachedResult.s;
                         }
-                        venue.attributes.wmephSeverity = severity;
+                        venue.wmephSeverity = severity;
 
                         // Parking lot type fill (public=blue, restricted=yellow, private=red)
-                        if ($('#WMEPH-PLATypeFill').prop('checked') && venue.attributes.categories.includes(CAT.PARKING_LOT)) {
+                        if ($('#WMEPH-PLATypeFill').prop('checked') && venue.categories.includes(CAT.PARKING_LOT)) {
                             try {
                                 const parkingType = sdk.DataModel.ParkingLot.getParkingLotType({ venueId: venue.id });
-                                venue.attributes.wmephParkingType = parkingType || 'PUBLIC'; // Default to PUBLIC if null
+                                venue.wmephParkingType = parkingType || 'PUBLIC'; // Default to PUBLIC if null
                             } catch (e) {
                                 logDev('Error getting parking lot type:', e);
-                                venue.attributes.wmephParkingType = 'PUBLIC';
+                                venue.wmephParkingType = 'PUBLIC';
                             }
                         } else {
-                            venue.attributes.wmephParkingType = null;
+                            venue.wmephParkingType = null;
                         }
                     } catch (err) {
                         console.error('WMEPH highlight error: ', err);
                     }
                 } else {
-                    venue.attributes.wmephSeverity = 'default';
-                    venue.attributes.wmephParkingType = null;
+                    venue.wmephSeverity = 'default';
+                    venue.wmephParkingType = null;
                 }
             }
         });
@@ -3084,7 +3084,7 @@
 
         const venue = getSelectedVenue();
         if (venue) {
-            venue.attributes.wmephSeverity = harmonizePlaceGo(venue, 'highlight');
+            venue.wmephSeverity = harmonizePlaceGo(venue, 'highlight');
             _servicesBanner = storedBannServ;
             _buttonBanner2 = storedBannButt2;
         }
@@ -3257,6 +3257,7 @@
 
     // Split localizer (suffix) part of names, like "SUBWAY - inside Walmart".
     function getNameParts(name) {
+        if (!name) return { base: '', suffix: '' };
         const splits = name.match(/(.*?)(\s+[-(–].*)*$/);
         return { base: splits[1], suffix: splits[2] };
     }
@@ -3297,7 +3298,7 @@
                 }
             }
             if (!services) {
-                services = venue.attributes.services.slice();
+                services = venue.services.slice();
             } else {
                 noAdd = services.includes(servID);
             }
@@ -3531,10 +3532,10 @@
                     }
                 } else if (!args.addr.state || !args.addr.country) { // only highlighting
                     result = { exit: true };
-                    if (args.venue.attributes.adLocked) {
+                    if (args.venue.adLocked) {
                         result.severity = 'adLock';
                     } else {
-                        const cat = args.venue.attributes.categories;
+                        const cat = args.venue.categories;
                         if (containsAny(cat, [CAT.HOSPITAL_MEDICAL_CARE, CAT.HOSPITAL_URGENT_CARE, CAT.GAS_STATION])) {
                             logDev('Unaddressed HUC/GS');
                             result.severity = SEVERITY.PINK;
@@ -3615,13 +3616,13 @@
 
             static venueIsFlaggable(args) {
                 return args.categories.includes(CAT.PARKING_LOT)
-                    && args.venue.attributes.categoryAttributes?.PARKING_LOT?.parkingType === 'PUBLIC';
+                    && args.venue.categoryAttributes?.PARKING_LOT?.parkingType === 'PUBLIC';
             }
 
             postProcess() {
                 $('.wmeph-pla-lot-type-btn').click(evt => {
                     const lotType = $(evt.currentTarget).data('lot-type');
-                    const categoryAttrClone = JSON.parse(JSON.stringify(this.args.venue.attributes.categoryAttributes));
+                    const categoryAttrClone = JSON.parse(JSON.stringify(this.args.venue.categoryAttributes));
                     categoryAttrClone.PARKING_LOT.parkingType = lotType;
                     UPDATED_FIELDS.lotType.updated = true;
                     addUpdateAction(this.args.venue, { categoryAttributes: categoryAttrClone }, null, true);
@@ -3636,7 +3637,7 @@
             static venueIsFlaggable(args) {
                 return args.categories.includes(CAT.PARKING_LOT)
                     && (!args.nameBase?.replace(/[^A-Za-z0-9]/g, '').length)
-                    && args.venue.attributes.lockRank < 2;
+                    && args.venue.lockRank < 2;
             }
         },
         PlaNameNonStandard: class extends WLFlag {
@@ -3647,7 +3648,7 @@
 
             static venueIsFlaggable(args) {
                 if (!this.isWhitelisted(args) && args.isVenueParkingLot(venue)) {
-                    const name = args.venue.attributes.name;
+                    const name = args.venue.name;
                     if (name) {
                         const addr = getVenueAddress(args.venue);
                         const state = addr?.state?.name;
@@ -3865,7 +3866,7 @@
             static defaultButtonTooltip = 'Add EVCS alternate name';
 
             static venueIsFlaggable(args) {
-                const evcsAttr = args.venue.attributes.categoryAttributes?.CHARGING_STATION;
+                const evcsAttr = args.venue.categoryAttributes?.CHARGING_STATION;
                 return evcsAttr && args.categories.includes(CAT.CHARGING_STATION)
                     && !args.aliases.some(alias => alias.toLowerCase() === 'ev charging station')
                     && evcsAttr.accessType !== 'PRIVATE'
@@ -3873,7 +3874,7 @@
             }
 
             action() {
-                let aliases = this.args.venue.attributes.aliases.slice();
+                let aliases = this.args.venue.aliases.slice();
                 aliases = insertAtIndex(aliases, 'EV Charging Station', 0);
                 addUpdateAction(this.args.venue, { aliases }, null);
             }
@@ -3908,7 +3909,7 @@
             }
 
             static venueIsFlaggable(args) {
-                const evcsAttr = args.venue.attributes.categoryAttributes?.CHARGING_STATION;
+                const evcsAttr = args.venue.categoryAttributes?.CHARGING_STATION;
                 return args.categories.includes(CAT.CHARGING_STATION)
                     && (!evcsAttr?.costType || evcsAttr.costType === 'COST_TYPE_UNSPECIFIED');
             }
@@ -3917,8 +3918,8 @@
                 $('.wmeph-evcs-cost-type-btn').click(evt => {
                     const selectedValue = $(evt.currentTarget).attr('id').replace('wmeph_', '');
                     let attrClone;
-                    if (this.args.venue.attributes.categoryAttributes) {
-                        attrClone = JSON.parse(JSON.stringify(this.args.venue.attributes.categoryAttributes));
+                    if (this.args.venue.categoryAttributes) {
+                        attrClone = JSON.parse(JSON.stringify(this.args.venue.categoryAttributes));
                     } else {
                         attrClone = {};
                     }
@@ -4015,7 +4016,7 @@
 
             action() {
                 // Insert/move Hotel category in the first position
-                const categories = insertAtIndex(this.args.venue.attributes.categories.slice(), CAT.HOTEL, 0);
+                const categories = insertAtIndex(this.args.venue.categories.slice(), CAT.HOTEL, 0);
                 addUpdateAction(this.args.venue, { categories }, null, true);
             }
         },
@@ -4041,7 +4042,7 @@
 
             action() {
                 let updated = false;
-                let categories = uniq(this.args.venue.attributes.categories.slice());
+                let categories = uniq(this.args.venue.categories.slice());
                 categories.forEach((cat, idx) => {
                     if (cat === CAT.HOSPITAL_URGENT_CARE || cat === CAT.DOCTOR_CLINIC) {
                         categories[idx] = CAT.PET_STORE_VETERINARIAN_SERVICES;
@@ -4091,7 +4092,7 @@
                 let showWL = true;
 
                 const makeGreen = Flag.PointNotArea.isWhitelisted(args)
-                    || args.venue.attributes.lockRank >= args.defaultLockLevel;
+                    || args.venue.lockRank >= args.defaultLockLevel;
 
                 if (makeGreen) {
                     showWL = false;
@@ -4140,7 +4141,7 @@
                 let showWL = true;
 
                 const makeGreen = Flag.AreaNotPoint.isWhitelisted(args)
-                    || args.venue.attributes.lockRank >= args.defaultLockLevel
+                    || args.venue.lockRank >= args.defaultLockLevel
                     || (args.maxPointSeverity === SEVERITY.BLUE && Flag.AreaNotPoint.#hasCollegeInName(args.nameBase));
 
                 if (makeGreen) {
@@ -4188,7 +4189,7 @@
                 let msg = `No HN: <input type="text" id="${Flag.HnMissing.#TEXTBOX_ID}" autocomplete="off" `
                 + 'style="font-size:0.85em;width:100px;padding-left:2px;color:#000;" > ';
 
-                if (this.args.categories.includes(CAT.PARKING_LOT) && this.args.venue.attributes.lockRank < 2) {
+                if (this.args.categories.includes(CAT.PARKING_LOT) && this.args.venue.lockRank < 2) {
                     if (USER.rank < 3) {
                         msg += 'Request an R3+ lock to confirm no HN.';
                     } else {
@@ -4207,7 +4208,7 @@
                     showWL = false;
                 } else if (args.categories.includes(CAT.PARKING_LOT)) {
                     showWL = false;
-                    if (args.venue.attributes.lockRank < 2) {
+                    if (args.venue.lockRank < 2) {
                         noLock = true;
                         severity = SEVERITY.BLUE;
                     } else {
@@ -4320,7 +4321,7 @@
         //             actions.push(new UpdateObject(venue, { houseNumber: hnTemp }));
         //             _UPDATED_FIELDS.address.updated = true;
         //         } else if (highlightOnly) {
-        //             if (venue.attributes.residential) {
+        //             if (venue.residential) {
         //                 _buttonBanner.hnDashRemoved.severity = SEVERITY.RED;
         //             } else {
         //                 _buttonBanner.hnDashRemoved.severity = SEVERITY.BLUE;
@@ -4604,7 +4605,7 @@
             static venueIsFlaggable(args) {
                 let updatedBy;
                 return !args.categories.includes(CAT.RESIDENCE_HOME)
-                    // && (updatedBy = args.venue.attributes.updatedBy)
+                    // && (updatedBy = args.venue.updatedBy)
                     // && /^ign_/i.test(W.model.users.getObjectById(updatedBy)?.userName);
                     && false; // SDK user lookup not available
             }
@@ -4620,7 +4621,7 @@
             static venueIsFlaggable(args) {
                 let flaggable = args.venue.isUnchanged() && !args.categories.includes(CAT.RESIDENCE_HOME);
                 if (flaggable) {
-                    const lastUpdatedById = args.venue.attributes.updatedBy ?? args.venue.attributes.createdBy;
+                    const lastUpdatedById = args.venue.updatedBy ?? args.venue.createdBy;
                     flaggable = this.#botIds.includes(lastUpdatedById);
                     if (!flaggable) {
                         // SDK user lookup not available; skip bot name check
@@ -4829,7 +4830,7 @@
                 // If gas station is missing brand, don't flag if place is locked as high as user can lock it.
                 return args.categories.includes(CAT.GAS_STATION)
                     && !args.brand
-                    && args.venue.attributes.lockRank < args.levelToLock;
+                    && args.venue.lockRank < args.levelToLock;
             }
         },
         SubFuel: class extends WLFlag {
@@ -4841,8 +4842,8 @@
             static venueIsFlaggable(args) {
                 return !this.isWhitelisted(args)
                     && args.pnhMatch.subFuel
-                    && !/\bgas(oline)?\b/i.test(args.venue.attributes.name)
-                    && !/\bfuel\b/i.test(args.venue.attributes.name);
+                    && !/\bgas(oline)?\b/i.test(args.venue.name)
+                    && !/\bfuel\b/i.test(args.venue.name);
             }
         },
         AddCommonEVPaymentMethods: class extends WLActionFlag {
@@ -4853,7 +4854,7 @@
             static defaultWLTooltip = 'Whitelist common EV payment types';
 
             get message() {
-                const stationAttr = this.args.venue.attributes.categoryAttributes.CHARGING_STATION;
+                const stationAttr = this.args.venue.categoryAttributes.CHARGING_STATION;
                 const { network } = stationAttr;
                 let msg = `These common payment methods for the ${network} network are missing. Verify if they are needed here:`;
                 this.originalNetwork = stationAttr.network;
@@ -4867,7 +4868,7 @@
 
             static venueIsFlaggable(args) {
                 if (args.categories.includes(CAT.CHARGING_STATION) && !this.isWhitelisted(args)) {
-                    const stationAttr = args.venue.attributes.categoryAttributes.CHARGING_STATION;
+                    const stationAttr = args.venue.categoryAttributes.CHARGING_STATION;
                     const network = stationAttr?.network;
                     return !!(COMMON_EV_PAYMENT_METHODS[network]?.some(method => !stationAttr.paymentMethods?.includes(method)));
                 }
@@ -4880,7 +4881,7 @@
                     return;
                 }
 
-                const stationAttr = this.args.venue.attributes.categoryAttributes.CHARGING_STATION;
+                const stationAttr = this.args.venue.categoryAttributes.CHARGING_STATION;
                 const network = stationAttr?.network;
                 if (network !== this.originalNetwork) {
                     WazeWrap.Alerts.info(SCRIPT_NAME, 'EV charging station network has changed. Please run WMEPH again.', false, false);
@@ -4909,7 +4910,7 @@
             static defaultWLTooltip = 'Whitelist uncommon EV payment types';
 
             get message() {
-                const stationAttr = this.args.venue.attributes.categoryAttributes.CHARGING_STATION;
+                const stationAttr = this.args.venue.categoryAttributes.CHARGING_STATION;
                 const { network } = stationAttr;
                 let msg = `These payment methods are uncommon for the ${stationAttr.network} network. Verify if they are needed here:`;
                 // Store a copy of the network to check if it has changed in the action() function
@@ -4924,7 +4925,7 @@
 
             static venueIsFlaggable(args) {
                 if (args.categories.includes(CAT.CHARGING_STATION) && !this.isWhitelisted(args)) {
-                    const stationAttr = args.venue.attributes.categoryAttributes.CHARGING_STATION;
+                    const stationAttr = args.venue.categoryAttributes.CHARGING_STATION;
                     const network = stationAttr?.network;
                     return COMMON_EV_PAYMENT_METHODS.hasOwnProperty(network)
                         && !!(stationAttr?.paymentMethods?.some(method => !COMMON_EV_PAYMENT_METHODS[network]?.includes(method)));
@@ -4938,7 +4939,7 @@
                     return;
                 }
 
-                const stationAttr = this.args.venue.attributes.categoryAttributes.CHARGING_STATION;
+                const stationAttr = this.args.venue.categoryAttributes.CHARGING_STATION;
                 const network = stationAttr?.network;
                 if (network !== this.originalNetwork) {
                     WazeWrap.Alerts.info(SCRIPT_NAME, 'EV charging station network has changed. Please run WMEPH again.', false, false);
@@ -4998,7 +4999,7 @@
             }
 
             action() {
-                const aliases = this.args.venue.attributes.aliases.slice();
+                const aliases = this.args.venue.aliases.slice();
                 if (!aliases.some(alias => alias === 'USPS')) {
                     aliases.push('USPS');
                     addUpdateAction(this.args.venue, { aliases }, null, true);
@@ -5028,7 +5029,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                 const zip = $input.val().trim();
                 if (zip) {
                     if (/^\d{5}/.test(zip)) {
-                        const aliases = [].concat(this.args.venue.attributes.aliases);
+                        const aliases = [].concat(this.args.venue.aliases);
                         // Make sure zip hasn't already been added.
                         if (!aliases.includes(zip)) {
                             aliases.push(zip);
@@ -5168,10 +5169,10 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                 let showFlag = false;
                 if (args.showDispNote && !isNullOrWhitespace(message)) {
                     if (args.pnhMatch.pharmhours) {
-                        showFlag = !/\bpharmacy\b\s*\bh(ou)?rs\b/i.test(args.venue.attributes.description);
+                        showFlag = !/\bpharmacy\b\s*\bh(ou)?rs\b/i.test(args.venue.description);
                         // TODO: figure out what drivethruhours was supposed to be in PNH speccase column
                     } else if (args.pnhMatch.drivethruhours) {
-                        showFlag = !/\bdrive[\s-]?(thru|through)\b\s*\bh(ou)?rs\b/i.test(args.venue.attributes.description);
+                        showFlag = !/\bdrive[\s-]?(thru|through)\b\s*\bh(ou)?rs\b/i.test(args.venue.description);
                     } else {
                         showFlag = true;
                     }
@@ -5200,7 +5201,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
 
             action() {
                 if (this.actionType === 'changeToDoctorClinic') {
-                    const categories = uniq(this.venue.attributes.categories.slice());
+                    const categories = uniq(this.venue.categories.slice());
                     const indexOfHospital = categories.indexOf(CAT.HOSPITAL_URGENT_CARE);
                     if (indexOfHospital > -1) {
                         categories[indexOfHospital] = CAT.DOCTOR_CLINIC;
@@ -5241,10 +5242,10 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                     let lastUpdated;
                     if (venue.isNew()) {
                         lastUpdated = Date.now();
-                    } else if (venue.attributes.updatedOn) {
-                        lastUpdated = venue.attributes.updatedOn;
+                    } else if (venue.updatedOn) {
+                        lastUpdated = venue.updatedOn;
                     } else {
-                        lastUpdated = venue.attributes.createdOn;
+                        lastUpdated = venue.createdOn;
                     }
                     const weeksSinceLastUpdate = (Date.now() - lastUpdated) / 604800000;
                     if (weeksSinceLastUpdate >= 26 && !venue.isUpdated() && (!this.args.actions || this.args.actions.length === 0)) {
@@ -5257,7 +5258,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
             static venueIsFlaggable(args) {
                 if (USER.rank >= 2 && args.venue.areExternalProvidersEditable() && !(args.categories.includes(CAT.PARKING_LOT) && args.ignoreParkingLots)) {
                     if (!args.categories.some(cat => this.#categoriesToIgnore.includes(cat))) {
-                        const provIDs = args.venue.attributes.externalProviderIDs;
+                        const provIDs = args.venue.externalProviderIDs;
                         if (!(provIDs && provIDs.length)) {
                             return true;
                         }
@@ -5273,7 +5274,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
 
             action2() {
                 clickGeneralTab();
-                const venueName = this.args.venue.attributes.name;
+                const venueName = this.args.venue.name;
                 $('wz-button.external-provider-add-new').click();
                 setTimeout(() => {
                     clickGeneralTab();
@@ -5814,7 +5815,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
 
             static #venueIsOld(venue) {
                 // Get the timestamp, prioritizing updatedOn, falling back to createdOn
-                const lastUpdatedTimestamp = venue.attributes.updatedOn ?? venue.attributes.createdOn;
+                const lastUpdatedTimestamp = venue.updatedOn ?? venue.createdOn;
 
                 // If neither timestamp exists, we can't determine age, so return false
                 if (!lastUpdatedTimestamp) {
@@ -5849,7 +5850,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
 
             static venueIsFlaggable(args) {
                 if (args.categories.includes(CAT.PARKING_LOT)) {
-                    const catAttr = args.venue.attributes.categoryAttributes;
+                    const catAttr = args.venue.categoryAttributes;
                     const parkAttr = catAttr ? catAttr.PARKING_LOT : undefined;
                     if (!parkAttr || !parkAttr.parkingType) {
                         return true;
@@ -5861,7 +5862,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
             postProcess() {
                 $('.wmeph-pla-lot-type-btn').click(evt => {
                     const lotType = $(evt.currentTarget).data('lot-type');
-                    const categoryAttrClone = JSON.parse(JSON.stringify(this.args.venue.attributes.categoryAttributes));
+                    const categoryAttrClone = JSON.parse(JSON.stringify(this.args.venue.categoryAttributes));
                     categoryAttrClone.PARKING_LOT = categoryAttrClone.PARKING_LOT ?? {};
                     categoryAttrClone.PARKING_LOT.parkingType = lotType;
                     UPDATED_FIELDS.lotType.updated = true;
@@ -5889,7 +5890,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
             }
 
             static venueIsFlaggable(args) {
-                const parkingAttr = args.venue.attributes.categoryAttributes?.PARKING_LOT;
+                const parkingAttr = args.venue.categoryAttributes?.PARKING_LOT;
                 return args.categories.includes(CAT.PARKING_LOT)
                     && (!parkingAttr?.costType || parkingAttr.costType === 'UNKNOWN');
             }
@@ -5898,8 +5899,8 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                 $('.wmeph-pla-cost-type-btn').click(evt => {
                     const selectedValue = $(evt.currentTarget).attr('id').replace('wmeph_', '');
                     let attrClone;
-                    if (this.args.venue.attributes.categoryAttributes) {
-                        attrClone = JSON.parse(JSON.stringify(this.args.venue.attributes.categoryAttributes));
+                    if (this.args.venue.categoryAttributes) {
+                        attrClone = JSON.parse(JSON.stringify(this.args.venue.categoryAttributes));
                     } else {
                         attrClone = {};
                     }
@@ -5917,7 +5918,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
 
             static venueIsFlaggable(args) {
                 if (args.categories.includes(CAT.PARKING_LOT)) {
-                    const catAttr = args.venue.attributes.categoryAttributes;
+                    const catAttr = args.venue.categoryAttributes;
                     const parkAttr = catAttr ? catAttr.PARKING_LOT : undefined;
                     if (parkAttr && parkAttr.costType && parkAttr.costType !== 'FREE' && parkAttr.costType !== 'UNKNOWN' && (!parkAttr.paymentType || !parkAttr.paymentType.length)) {
                         return true;
@@ -5942,7 +5943,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
 
             static venueIsFlaggable(args) {
                 if (args.categories.includes(CAT.PARKING_LOT)) {
-                    const catAttr = args.venue.attributes.categoryAttributes;
+                    const catAttr = args.venue.categoryAttributes;
                     const parkAttr = catAttr ? catAttr.PARKING_LOT : undefined;
                     if (!parkAttr || !parkAttr.lotType || parkAttr.lotType.length === 0) {
                         return true;
@@ -5952,7 +5953,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
             }
 
             action() {
-                const attrClone = JSON.parse(JSON.stringify(this.args.venue.attributes.categoryAttributes));
+                const attrClone = JSON.parse(JSON.stringify(this.args.venue.categoryAttributes));
                 attrClone.PARKING_LOT = attrClone.PARKING_LOT ?? {};
                 attrClone.PARKING_LOT.lotType = ['STREET_LEVEL'];
                 addUpdateAction(this.args.venue, { categoryAttributes: attrClone }, null, true);
@@ -5988,7 +5989,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
 
             static venueIsFlaggable(args) {
                 if (!args.highlightOnly && args.categories.includes(CAT.PARKING_LOT)) {
-                    const catAttr = args.venue.attributes.categoryAttributes;
+                    const catAttr = args.venue.categoryAttributes;
                     const parkAttr = catAttr ? catAttr.PARKING_LOT : undefined;
                     if (!parkAttr || !parkAttr.estimatedNumberOfSpots || parkAttr.estimatedNumberOfSpots === 'R_1_TO_10') {
                         return true;
@@ -6005,7 +6006,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
 
             static venueIsFlaggable(args) {
                 return args.categories.includes(CAT.PARKING_LOT)
-                    && !args.venue.attributes.entryExitPoints?.length;
+                    && !args.venue.entryExitPoints?.length;
             }
 
             action() {
@@ -6034,12 +6035,12 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
             static venueIsFlaggable(args) {
                 return !args.highlightOnly
                     && args.categories.includes(CAT.PARKING_LOT)
-                    && !args.venue.attributes.categoryAttributes?.PARKING_LOT?.canExitWhileClosed
+                    && !args.venue.categoryAttributes?.PARKING_LOT?.canExitWhileClosed
                     && ($('#WMEPH-ShowPLAExitWhileClosed').prop('checked') || !(args.openingHours.length === 0 || is247Hours(args.openingHours)));
             }
 
             action() {
-                const attrClone = JSON.parse(JSON.stringify(this.args.venue.attributes.categoryAttributes));
+                const attrClone = JSON.parse(JSON.stringify(this.args.venue.categoryAttributes));
                 attrClone.PARKING_LOT = attrClone.PARKING_LOT ?? {};
                 attrClone.PARKING_LOT.canExitWhileClosed = true;
                 addUpdateAction(this.args.venue, { categoryAttributes: attrClone }, null, true);
@@ -6052,11 +6053,11 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
             static venueIsFlaggable(args) {
                 return !args.highlightOnly
                     && args.categories.includes(CAT.PARKING_LOT)
-                    && !(args.venue.attributes.services?.includes('DISABILITY_PARKING'));
+                    && !(args.venue.services?.includes('DISABILITY_PARKING'));
             }
 
             action() {
-                const services = this.args.venue.attributes.services?.slice() ?? [];
+                const services = this.args.venue.services?.slice() ?? [];
                 services.push('DISABILITY_PARKING');
                 addUpdateAction(this.args.venue, { services }, null, true);
                 UPDATED_FIELDS.services_DISABILITY_PARKING.updated = true;
@@ -6100,7 +6101,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                     }
                 }
                 msg += '</select>';
-                msg = `Current lock: ${parseInt(this.args.venue.attributes.lockRank, 10) + 1}. ${msg} ?`;
+                msg = `Current lock: ${parseInt(this.args.venue.lockRank, 10) + 1}. ${msg} ?`;
                 return msg;
             }
 
@@ -6116,7 +6117,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                 logDev(`RPPlevelToLock: ${levelToLock}`);
 
                 levelToLock -= 1;
-                if (this.args.venue.attributes.lockRank !== levelToLock) {
+                if (this.args.venue.lockRank !== levelToLock) {
                     addUpdateAction(this.args.venue, { lockRank: levelToLock }, null, true);
                 }
             }
@@ -6348,7 +6349,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                 // The date criteria was added because Doctor/Clinic category was added around then, and it's assumed if the
                 // place has been edited since then, people would have already updated the category.
                 return !args.highlightOnly
-                    && args.venue.attributes.updatedOn < new Date('3/28/2017').getTime()
+                    && args.venue.updatedOn < new Date('3/28/2017').getTime()
                     && ((args.categories.includes(CAT.PERSONAL_CARE) && !args.pnhNameRegMatch) || args.categories.includes(CAT.OFFICES));
             }
 
@@ -6428,7 +6429,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
             constructor(args) {
                 super();
 
-                if (args.venue.attributes.lockRank < args.levelToLock) {
+                if (args.venue.lockRank < args.levelToLock) {
                     if (!args.highlightOnly) {
                         logDev('Venue locked!');
                         args.actions.push(new UpdateObject(args.venue, { lockRank: args.levelToLock }));
@@ -7172,7 +7173,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                     reportError({
                         subject: 'WMEPH Bug report: Script Error',
                         message: `Script version: ${SCRIPT_VERSION}${BETA_VERSION_STR}\nPermalink: ${
-                            placePL}\nPlace name: ${venue.attributes.name}\nCountry: ${
+                            placePL}\nPlace name: ${venue.name}\nCountry: ${
                             countryName}\n--------\nDescribe the error:  \n `
                     });
                 }
@@ -7238,18 +7239,18 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
             this.addr = getVenueAddress(venue);
 
             this.actions = actions;
-            this.categories = venue.attributes?.categories?.slice() || [];
-            const nameParts = getNameParts(venue.attributes?.name);
+            this.categories = venue.categories?.slice() || [];
+            const nameParts = getNameParts(venue.name);
             this.nameSuffix = nameParts?.suffix;
             this.nameBase = nameParts?.base;
-            this.aliases = venue.attributes?.aliases?.slice() || [];
-            this.description = venue.attributes?.description;
-            this.url = venue.attributes?.url;
-            this.phone = venue.attributes?.phone;
-            this.openingHours = venue.attributes?.openingHours;
+            this.aliases = venue.aliases?.slice() || [];
+            this.description = venue.description;
+            this.url = venue.url;
+            this.phone = venue.phone;
+            this.openingHours = venue.openingHours;
             // Set up a variable (newBrand) to contain the brand. When harmonizing, it may be forced to a new value.
             // Other brand flags should use it since it won't be updated on the actual venue until later.
-            this.brand = venue.attributes?.brand;
+            this.brand = venue.brand;
         }
     }
 
@@ -7436,33 +7437,33 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
         }
 
         // Clear attributes from residential places
-        if (venue.attributes.residential) {
+        if (venue.residential) {
             if (!args.highlightOnly) {
                 if (!$('#WMEPH-AutoLockRPPs').prop('checked')) {
                     args.lockOK = false;
                 }
-                if (venue.attributes.name !== '') { // Set the residential place name to the address (to clear any personal info)
+                if (venue.name !== '') { // Set the residential place name to the address (to clear any personal info)
                     logDev('Residential Name reset');
                     actions.push(new UpdateObject(venue, { name: '' }));
                     // no field HL
                 }
                 args.categories = ['RESIDENCE_HOME'];
-                if (venue.attributes.description !== null && venue.attributes.description !== '') { // remove any description
+                if (venue.description !== null && venue.description !== '') { // remove any description
                     logDev('Residential description cleared');
                     actions.push(new UpdateObject(venue, { description: null }));
                     // no field HL
                 }
-                if (venue.attributes.phone !== null && venue.attributes.phone !== '') { // remove any phone info
+                if (venue.phone !== null && venue.phone !== '') { // remove any phone info
                     logDev('Residential Phone cleared');
                     actions.push(new UpdateObject(venue, { phone: null }));
                     // no field HL
                 }
-                if (venue.attributes.url !== null && venue.attributes.url !== '') { // remove any url
+                if (venue.url !== null && venue.url !== '') { // remove any url
                     logDev('Residential URL cleared');
                     actions.push(new UpdateObject(venue, { url: null }));
                     // no field HL
                 }
-                if (venue.attributes.services.length > 0) {
+                if (venue.services.length > 0) {
                     logDev('Residential services cleared');
                     actions.push(new UpdateObject(venue, { services: [] }));
                     // no field HL
@@ -7472,9 +7473,9 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
           || (args.nameBase?.trim().length)
           || containsAny(args.categories, CATS_THAT_DONT_NEED_NAMES)) { // for non-residential places
             // Phone formatting
-            if (containsAny(['CA', 'CO'], [args.regionCode, args.state2L]) && (/^\d{3}-\d{3}-\d{4}$/.test(venue.attributes.phone))) {
+            if (containsAny(['CA', 'CO'], [args.regionCode, args.state2L]) && (/^\d{3}-\d{3}-\d{4}$/.test(venue.phone))) {
                 args.outputPhoneFormat = '{0}-{1}-{2}';
-            } else if (args.regionCode === 'SER' && !(/^\(\d{3}\) \d{3}-\d{4}$/.test(venue.attributes.phone))) {
+            } else if (args.regionCode === 'SER' && !(/^\(\d{3}\) \d{3}-\d{4}$/.test(venue.phone))) {
                 args.outputPhoneFormat = '{0}-{1}-{2}';
             } else if (args.regionCode === 'GLR') {
                 args.outputPhoneFormat = '{0}-{1}-{2}';
@@ -7591,7 +7592,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                         [, args.brand] = args.pnhMatch.forceBrand;
                     }
                     if (args.pnhMatch.forceBrand && args.priPNHPlaceCat === CAT.GAS_STATION
-                        && venue.attributes.brand !== args.pnhMatch.forceBrand) {
+                        && venue.brand !== args.pnhMatch.forceBrand) {
                         actions.push(new UpdateObject(venue, { brand: args.pnhMatch.forceBrand }));
                         UPDATED_FIELDS.brand.updated = true;
                         logDev('Gas brand updated from PNH');
@@ -7695,7 +7696,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                     args.categories = args.categories.filter(cat => !parentCats.includes(cat));
 
                     // update categories if different and no Cat2 option
-                    if (!matchSets(uniq(venue.attributes.categories), uniq(args.categories))) {
+                    if (!matchSets(uniq(venue.categories), uniq(args.categories))) {
                         if (!args.pnhMatch.optionCat2 && !args.pnhMatch.flagsToAdd?.addCat2) {
                             logDev(`Categories updated with ${args.categories}`);
                             addUpdateAction(venue, { categories: args.categories }, actions);
@@ -7710,12 +7711,12 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
 
                     // Description update
                     args.description = args.pnhMatch.description;
-                    if (!isNullOrWhitespace(args.description) && !venue.attributes.description.toUpperCase().includes(args.description.toUpperCase())) {
-                        if (!isNullOrWhitespace(venue.attributes.description)) {
+                    if (!isNullOrWhitespace(args.description) && !venue.description.toUpperCase().includes(args.description.toUpperCase())) {
+                        if (!isNullOrWhitespace(venue.description)) {
                             args.descriptionInserted = true;
                         }
                         logDev('Description updated');
-                        args.description = `${args.description}\n${venue.attributes.description}`;
+                        args.description = `${args.description}\n${venue.description}`;
                         actions.push(new UpdateObject(venue, { description: args.description }));
                         UPDATED_FIELDS.description.updated = true;
                     }
@@ -7752,7 +7753,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                     }
 
                     // If Post Office and VPO or CPU is in the name, always a point.
-                    if (args.categories.includes(CAT.POST_OFFICE) && /\b(?:cpu|vpo)\b/i.test(venue.attributes.name)) {
+                    if (args.categories.includes(CAT.POST_OFFICE) && /\b(?:cpu|vpo)\b/i.test(venue.name)) {
                         pvaPoint = '1';
                         pvaArea = '';
                     }
@@ -7785,7 +7786,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
 
                 if (!args.highlightOnly) {
                     // Update name:
-                    if ((args.nameBase + (args.nameSuffix || '')) !== venue.attributes.name) {
+                    if ((args.nameBase + (args.nameSuffix || '')) !== venue.name) {
                         logDev('Name updated');
                         addUpdateAction(venue, { name: args.nameBase + (args.nameSuffix || '') }, actions);
                     }
@@ -7871,7 +7872,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                         }
                         const normalizedPhone = normalizePhone(args.phone, args.outputPhoneFormat);
                         if (normalizedPhone !== BAD_PHONE) args.phone = normalizedPhone;
-                        if (args.phone !== venue.attributes.phone) {
+                        if (args.phone !== venue.phone) {
                             logDev('Phone updated');
                             addUpdateAction(venue, { phone: args.phone }, actions);
                         }
@@ -7881,7 +7882,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                         const cleanNameParts = Flag.FormatUSPS.getCleanNameParts(args.nameBase, args.nameSuffix);
                         const nameToCheck = cleanNameParts.join('');
                         if (Flag.FormatUSPS.isNameOk(nameToCheck, args.state2L, args.addr)) {
-                            if (nameToCheck !== venue.attributes.name) {
+                            if (nameToCheck !== venue.name) {
                                 [args.nameBase, args.nameSuffix] = cleanNameParts;
                                 actions.push(new UpdateObject(venue, { name: nameToCheck }));
                             }
@@ -7893,9 +7894,9 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
 
         if (!args.chainIsClosed) {
             if (!args.highlightOnly && args.categories.includes(CAT.REST_AREAS)) {
-                if (venue.attributes.name.match(/^Rest Area.* - /) !== null && args.countryCode === PNH_DATA.USA.countryCode) {
+                if (venue.name.match(/^Rest Area.* - /) !== null && args.countryCode === PNH_DATA.USA.countryCode) {
                     const newSuffix = args.nameSuffix.replace(/\bMile\b/i, 'mile');
-                    if (args.nameBase + newSuffix !== venue.attributes.name) {
+                    if (args.nameBase + newSuffix !== venue.name) {
                         addUpdateAction(venue, { name: args.nameBase + newSuffix }, actions);
                         logDev('Lower case "mile"');
                     }
@@ -7920,13 +7921,13 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                 _buttonBanner2.placesWiki.active = false;
             }
 
-            args.isLocked = venue.attributes.lockRank >= (pnhLockLevel > -1 ? pnhLockLevel : args.defaultLockLevel);
-            args.currentHN = venue.attributes.houseNumber;
+            args.isLocked = venue.lockRank >= (pnhLockLevel > -1 ? pnhLockLevel : args.defaultLockLevel);
+            args.currentHN = venue.houseNumber;
             // Check to see if there's an action that is currently updating the house number.
             const updateHnAction = actions && actions.find(action => action.newAttributes && action.newAttributes.houseNumber);
             if (updateHnAction) args.currentHN = updateHnAction.newAttributes.houseNumber;
             // Use the inferred address street if currently no street.
-            args.hasStreet = venue.attributes.streetID || (inferredAddress && inferredAddress.street);
+            args.hasStreet = venue.streetID || (inferredAddress && inferredAddress.street);
             args.ignoreParkingLots = $('#WMEPH-DisablePLAExtProviderCheck').prop('checked');
 
             if (!isVenueResidential(venue) && (isVenueParkingLot(venue) || (args.nameBase?.trim().length))) {
@@ -8100,8 +8101,8 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
             });
 
             // Special case flags
-            if (venue.attributes.lockRank === 0
-                && venue.attributes.categories.some(cat => [CAT.HOSPITAL_MEDICAL_CARE, CAT.HOSPITAL_URGENT_CARE, CAT.GAS_STATION].includes(cat))) {
+            if (venue.lockRank === 0
+                && venue.categories.some(cat => [CAT.HOSPITAL_MEDICAL_CARE, CAT.HOSPITAL_URGENT_CARE, CAT.GAS_STATION].includes(cat))) {
                 args.totalSeverity = SEVERITY.PINK;
             }
 
@@ -8111,7 +8112,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
             if (args.totalSeverity === SEVERITY.BLUE && placeLockedFlag?.hlLockFlag) {
                 args.totalSeverity = 'lock1';
             }
-            if (venue.attributes.adLocked) {
+            if (venue.adLocked) {
                 args.totalSeverity = 'adLock';
             }
 
@@ -8141,7 +8142,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
     function runDuplicateFinder(venue, name, aliases, addr, placePL) {
         const venueID = venue.id;
         // Run nearby duplicate place finder function
-        if (name.replace(/[^A-Za-z0-9]/g, '').length > 0 && !venue.attributes.residential && !isEmergencyRoom(venue) && !isRestArea(venue)) {
+        if (name.replace(/[^A-Za-z0-9]/g, '').length > 0 && !venue.residential && !isEmergencyRoom(venue) && !isRestArea(venue)) {
             // don't zoom and pan for results outside of FOV
             let duplicateName = findNearbyDuplicate(name, aliases, venue, !$('#WMEPH-DisableDFZoom').prop('checked'));
             if (duplicateName[1]) {
@@ -8159,7 +8160,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                             reportError({
                                 subject: 'WMEPH Bug report DupeID',
                                 message: `Script version: ${SCRIPT_VERSION}${BETA_VERSION_STR}\nPermalink: ${placePL}\nPlace name: ${
-                                    venue.attributes.name}\nCountry: ${addr.country.name}\n--------\nDescribe the error:\nDupeID mismatch with dupeName list`
+                                    venue.name}\nCountry: ${addr.country.name}\n--------\nDescribe the error:\nDupeID mismatch with dupeName list`
                             });
                         },
                         () => { }
@@ -8317,7 +8318,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
         });
 
         if ($('#WMEPH-ColorHighlighting').prop('checked')) {
-            venue.attributes.wmephSeverity = totalSeverity;
+            venue.wmephSeverity = totalSeverity;
         }
 
         if ($('#WMEPH_banner').length === 0) {
@@ -8391,7 +8392,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
         $('.wmeph-pla-spaces-btn').click(evt => {
             const selectedVenue = getSelectedVenue();
             const selectedValue = $(evt.currentTarget).attr('id').replace('wmeph_', '');
-            const existingAttr = selectedVenue.attributes.categoryAttributes.PARKING_LOT;
+            const existingAttr = selectedVenue.categoryAttributes?.PARKING_LOT;
             const newAttr = {};
             if (existingAttr) {
                 Object.keys(existingAttr).forEach(prop => {
@@ -8421,7 +8422,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
     } // END assemble Banner function
 
     async function processGoogleLinks(venue) {
-        const promises = venue.attributes.externalProviderIDs.map(link => _googlePlaces.getPlace(link.attributes.uuid));
+        const promises = venue.externalProviderIDs.map(link => _googlePlaces.getPlace(link.attributes.uuid));
         const googleResults = await Promise.all(promises);
         $('#wmeph-google-link-info').remove();
         // Compare to venue to make sure a different place hasn't been selected since the results were requested.
@@ -8448,7 +8449,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                     })
                 )
             );
-            venue.attributes.externalProviderIDs.forEach(link => {
+            venue.externalProviderIDs.forEach(link => {
                 const result = googleResults.find(r => r.placeId === link.attributes.uuid);
                 if (result) {
                     const linkStyle = 'margin-left: 5px;text-decoration: none;color: cadetblue;';
@@ -9021,7 +9022,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
         const venue = getSelectedVenue();
         const addr = getVenueAddress(venue);
         if (addr.hasState()) {
-            const url = buildGLink(venue.attributes.name, addr, venue.attributes.houseNumber);
+            const url = buildGLink(venue.name, addr, venue.houseNumber);
             if ($('#WMEPH-WebSearchNewTab').prop('checked')) {
                 window.open(url);
             } else {
@@ -9237,7 +9238,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
     }
     // Pull natural text from opening hours
     function getOpeningHours(venue) {
-        return venue && venue.attributes.openingHours && venue.attributes.openingHours.map(formatOpeningHour);
+        return venue && venue.openingHours && venue.openingHours.map(formatOpeningHour);
     }
 
     function venueHasOverlappingHours(openingHours) {
@@ -10450,8 +10451,9 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
     // Get services checkbox status
     function getServicesChecks(venue) {
         const servArrayCheck = [];
+        const services = venue.services || [];
         for (let wsix = 0; wsix < WME_SERVICES_ARRAY.length; wsix++) {
-            if (venue.attributes.services.includes(WME_SERVICES_ARRAY[wsix])) {
+            if (services.includes(WME_SERVICES_ARRAY[wsix])) {
                 servArrayCheck[wsix] = true;
             } else {
                 servArrayCheck[wsix] = false;
@@ -10895,6 +10897,24 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
         sdk.Events.on({
             eventName: 'wme-data-model-objects-added',
             eventHandler: () => errorHandler(processFilterHighlights)
+        });
+
+        // Update parking lot highlights when venues change
+        sdk.Events.on({
+            eventName: 'wme-data-model-objects-changed',
+            eventHandler: () => {
+                if ($('#WMEPH-PLATypeFill').prop('checked')) {
+                    errorHandler(() => applyHighlightsTest(sdk.DataModel.Venues.getAll()));
+                }
+            }
+        });
+        sdk.Events.on({
+            eventName: 'wme-data-model-objects-added',
+            eventHandler: () => {
+                if ($('#WMEPH-PLATypeFill').prop('checked')) {
+                    errorHandler(() => applyHighlightsTest(sdk.DataModel.Venues.getAll()));
+                }
+            }
         });
     } // END placeHarmonizer_init function
 
