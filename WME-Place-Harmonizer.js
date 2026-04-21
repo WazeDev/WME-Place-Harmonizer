@@ -2214,7 +2214,9 @@
     }
 
     function is247Hours(openingHours) {
-        return openingHours.length === 1 && openingHours[0].days.length === 7 && openingHours[0].isAllDay();
+        if (!openingHours || openingHours.length !== 1) return false;
+        const hours = openingHours[0];
+        return hours.days?.length === 7 && hours.allDay === true;
     }
 
     function isEmergencyRoom(venue) {
@@ -2449,9 +2451,9 @@
             _venueWhitelist[venueID] = {};
         }
         _venueWhitelist[venueID][wlKeyName] = { active: true }; // WL the flag for the venue
-        _venueWhitelist[venueID].city = addressTemp.city.getName(); // Store city for the venue
-        _venueWhitelist[venueID].state = addressTemp.state.getName(); // Store state for the venue
-        _venueWhitelist[venueID].country = addressTemp.country.getName(); // Store country for the venue
+        _venueWhitelist[venueID].city = addressTemp.city?.name; // Store city for the venue
+        _venueWhitelist[venueID].state = addressTemp.state?.name; // Store state for the venue
+        _venueWhitelist[venueID].country = addressTemp.country?.name; // Store country for the venue
         _venueWhitelist[venueID].gps = venueGPS; // Store GPS coords for the venue
         saveWhitelistToLS(true); // Save the WL to local storage
         wmephWhitelistCounter();
@@ -5627,7 +5629,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
             }
 
             static #getHoursString(hoursObject) {
-                if (hoursObject.isAllDay()) return 'All day';
+                if (hoursObject.allDay === true) return 'All day';
                 const fromHour = this.#formatAmPm(hoursObject.fromHour);
                 const toHour = this.#formatAmPm(hoursObject.toHour);
                 return `${fromHour}–${toHour}`;
@@ -6559,8 +6561,8 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
 
             #processUrl(venue, addr, state2L, venueGPS) {
                 if (this.#isCustom) {
-                    const location = venue.getOLGeometry().getCentroid();
-                    const { houseNumber } = venue.attributes;
+                    const location = venueGPS;  // venueGPS is already the centroid
+                    const houseNumber = venue.houseNumber;
 
                     const urlParts = this.#storeFinderUrl.replace(/ /g, '').split('<>');
                     let searchStreet = '';
@@ -7331,9 +7333,9 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                     const centroidPt = turf.centroid(venue.geometry);
                     args.venueGPS = webMercatorToWGS84(centroidPt.geometry.coordinates[0], centroidPt.geometry.coordinates[1]);
                 }
-                _venueWhitelist[venueID].city = args.addr.city.getName(); // Store city for the venue
-                _venueWhitelist[venueID].state = args.addr.state.getName(); // Store state for the venue
-                _venueWhitelist[venueID].country = args.addr.country.getName(); // Store country for the venue
+                _venueWhitelist[venueID].city = args.addr.city?.name; // Store city for the venue
+                _venueWhitelist[venueID].state = args.addr.state?.name; // Store state for the venue
+                _venueWhitelist[venueID].country = args.addr.country?.name; // Store country for the venue
                 _venueWhitelist[venueID].gps = args.venueGPS; // Store GPS coords for the venue
             }
         }
@@ -7344,8 +7346,8 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
             return undefined;
         }
 
-        const countryName = args.addr.country.getName();
-        const stateName = args.addr.state.getName();
+        const countryName = args.addr.country?.name;
+        const stateName = args.addr.state?.name;
         if (['United States', 'American Samoa', 'Guam', 'Northern Mariana Islands', 'Puerto Rico', 'Virgin Islands (U.S.)'].includes(countryName)) {
             args.countryCode = PNH_DATA.USA.countryCode;
         } else if (countryName === PNH_DATA.CAN.countryName) {
@@ -9680,7 +9682,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
         const { entryExitPoints } = venue.attributes;
         if (entryExitPoints.length) {
             // Get the primary stop point, if one exists.  If none, get the first point.
-            stopPoint = entryExitPoints.find(pt => pt.isPrimary()) || entryExitPoints[0];
+            stopPoint = entryExitPoints.find(pt => pt.primary === true) || entryExitPoints[0];
         } else {
             // If no stop points, just use the venue's centroid.
             stopPoint = venue.getOLGeometry().getCentroid();
