@@ -3673,7 +3673,7 @@
             static venueIsFlaggable(args) {
                 return !args.highlightOnly && !this.isWhitelisted(args)
                     && !args.categories.includes(CAT.RESIDENCE_HOME)
-                    && args.addr?.state.getName() === 'Indiana'
+                    && args.addr?.state.name === 'Indiana'
                     && /\b(beers?|wines?|liquors?|spirits)\b/i.test(args.nameBase)
                     && !args.openingHours.some(entry => entry.days.includes(0));
             }
@@ -3872,7 +3872,7 @@
                 return evcsAttr && args.categories.includes(CAT.CHARGING_STATION)
                     && !args.aliases.some(alias => alias.toLowerCase() === 'ev charging station')
                     && evcsAttr.accessType !== 'PRIVATE'
-                    && !args.venue.getName().toLowerCase().includes('(private)');
+                    && !args.venue.name.toLowerCase().includes('(private)');
             }
 
             action() {
@@ -4497,7 +4497,7 @@
                 }
 
                 // strip ATM from name if present
-                const originalName = this.args.venue.getName();
+                const originalName = this.args.venue.name;
                 const newName = originalName.replace(/[- (]*ATM[- )]*/ig, ' ').replace(/^ /g, '').replace(/ $/g, '');
                 if (originalName !== newName) {
                     newAttributes.name = newName;
@@ -4537,7 +4537,7 @@
             action() {
                 const newAttributes = {};
 
-                const originalName = this.args.venue.getName();
+                const originalName = this.args.venue.name;
                 if (!/\bATM\b/i.test(originalName)) {
                     newAttributes.name = `${originalName} ATM`;
                 }
@@ -4576,7 +4576,7 @@
                 }
 
                 // strip ATM from name if present
-                const originalName = this.args.venue.getName();
+                const originalName = this.args.venue.name;
                 let newName = originalName
                     .replace(/[- (]*atm[- )]*/ig, ' ')
                     .replace(/^ /g, '')
@@ -6398,7 +6398,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
             }
 
             action() {
-                let name = this.args.venue.getName();
+                let name = this.args.venue.name;
                 if (name === this.#originalName || this.#confirmChange) {
                     const parts = getNameParts(this.#originalName);
                     name = titleCase(parts.base);
@@ -6568,18 +6568,18 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                     let searchStreet = '';
                     let searchCity = '';
                     let searchState = '';
-                    if (typeof addr.street.getName() === 'string') {
-                        searchStreet = addr.street.getName();
+                    if (typeof addr.street?.name === 'string') {
+                        searchStreet = addr.street.name;
                     }
                     const searchStreetPlus = searchStreet.replace(/ /g, '+');
                     searchStreet = searchStreet.replace(/ /g, '%20');
-                    if (typeof addr.city.getName() === 'string') {
-                        searchCity = addr.city.getName();
+                    if (typeof addr.city?.name === 'string') {
+                        searchCity = addr.city.name;
                     }
                     const searchCityPlus = searchCity.replace(/ /g, '+');
                     searchCity = searchCity.replace(/ /g, '%20');
-                    if (typeof addr.state.getName() === 'string') {
-                        searchState = addr.state.getName();
+                    if (typeof addr.state?.name === 'string') {
+                        searchState = addr.state.name;
                     }
                     const searchStatePlus = searchState.replace(/ /g, '+');
                     searchState = searchState.replace(/ /g, '%20');
@@ -9357,7 +9357,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
         selectedVenueAddr = selectedVenueAddr.attributes || selectedVenueAddr;
         const selectedVenueHN = selectedVenueAttr.houseNumber;
 
-        const selectedVenueAddrIsComplete = selectedVenueAddr.street !== null && selectedVenueAddr.street.getName() !== null
+        const selectedVenueAddrIsComplete = selectedVenueAddr.street !== null && selectedVenueAddr.street.name !== null
             && selectedVenueHN && selectedVenueHN.match(/\d/g) !== null;
 
         const venues = sdk.DataModel.Venues.getAll();
@@ -9392,9 +9392,9 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                 testVenueAddr = testVenueAddr.attributes || testVenueAddr;
 
                 // get HNs for places on same street
-                if (selectedVenueAddrIsComplete && testVenueAddr.street !== null && testVenueAddr.street.getName() !== null
+                if (selectedVenueAddrIsComplete && testVenueAddr.street !== null && testVenueAddr.street.name !== null
                     && testVenueHN && testVenueHN !== '' && testVenueId !== selectedVenueId
-                    && selectedVenueAddr.street.getName() === testVenueAddr.street.getName() && testVenueHN < 1000000) {
+                    && selectedVenueAddr.street.name === testVenueAddr.street.name && testVenueHN < 1000000) {
                     _dupeHNRangeList.push(parseInt(testVenueHN, 10));
                     _dupeHNRangeDistList.push(pt2ptDistance);
                 }
@@ -9406,15 +9406,15 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                     && testVenueAttr.name !== null && testVenueAttr.name.length > 1) {
                     // If venue has a complete address and test venue does, and they are different, then no dupe
                     let suppressMatch = false;
-                    if (selectedVenueAddrIsComplete && testVenueAddr.street !== null && testVenueAddr.street.getName() !== null
+                    if (selectedVenueAddrIsComplete && testVenueAddr.street !== null && testVenueAddr.street.name !== null
                         && testVenueHN && testVenueHN.match(/\d/g) !== null) {
                         if (selectedVenueAttr.lockRank > 0 && testVenueAttr.lockRank > 0) {
                             if (selectedVenueAttr.houseNumber !== testVenueHN
-                                || selectedVenueAddr.street.getName() !== testVenueAddr.street.getName()) {
+                                || selectedVenueAddr.street.name !== testVenueAddr.street.name) {
                                 suppressMatch = true;
                             }
                         } else if (selectedVenueHN !== testVenueHN
-                            && selectedVenueAddr.street.getName() !== testVenueAddr.street.getName()) {
+                            && selectedVenueAddr.street.name !== testVenueAddr.street.name) {
                             suppressMatch = true;
                         }
                     }
