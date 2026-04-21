@@ -3634,6 +3634,7 @@
 
             static venueIsFlaggable(args) {
                 return !args.categories.includes(CAT.RESIDENCE_HOME)
+                    && !args.categories.includes('RESIDENTIAL') // SDK residential category
                     && (!args.nameBase?.replace(/[^A-Za-z0-9]/g, ''))
                     && ![CAT.ISLAND, CAT.FOREST_GROVE, CAT.SEA_LAKE_POOL, CAT.RIVER_STREAM, CAT.CANAL, CAT.PARKING_LOT].includes(args.categories[0])
                     && !(args.categories.includes(CAT.GAS_STATION) && args.brand);
@@ -6199,7 +6200,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
             static venueIsFlaggable(args) {
                 // Allow residential point locking by R3+
                 return !args.highlightOnly
-                    && args.categories.includes(CAT.RESIDENCE_HOME)
+                    && (args.categories.includes(CAT.RESIDENCE_HOME) || args.categories.includes('RESIDENTIAL'))
                     && (USER.isDevUser || USER.isBetaUser || USER.rank >= 3);
             }
 
