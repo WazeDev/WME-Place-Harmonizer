@@ -3832,6 +3832,7 @@
             static #getRareCategoryInfos(args) {
                 return args.categories
                     .map(cat => args.pnhCategoryInfos.getById(cat))
+                    .filter(pnhCategoryInfo => pnhCategoryInfo) // Filter out undefined category infos
                     .filter(pnhCategoryInfo => {
                         const rareLocalities = pnhCategoryInfo.rare;
                         if (rareLocalities.includes(args.state2L) || rareLocalities.includes(args.region) || rareLocalities.includes(args.countryCode)) {
