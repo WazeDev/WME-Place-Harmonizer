@@ -4109,7 +4109,7 @@
             }
 
             static venueIsFlaggable(args) {
-                return !args.isVenuePoint(venue)
+                return !isVenuePoint(args.venue)
                     && (args.categories.includes(CAT.RESIDENCE_HOME) || (args.maxAreaSeverity > SEVERITY.BLUE && !args.categories.includes(CAT.REST_AREAS)));
             }
 
@@ -4159,7 +4159,7 @@
             }
 
             static venueIsFlaggable(args) {
-                return args.isVenuePoint(venue)
+                return isVenuePoint(venue)
                     && (args.maxPointSeverity > SEVERITY.GREEN || args.categories.includes(CAT.REST_AREAS));
             }
 
