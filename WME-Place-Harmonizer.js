@@ -3119,14 +3119,24 @@
                     }
                 });
                 logDev(`Added ${parkingLotsToAdd.length} parking lot features to highlights layer`);
+                // Also apply filter highlights if they're enabled
+                if ($('#WMEPH-ShowFilterHighlight').prop('checked')) {
+                    logDev('Also applying filter highlights alongside parking lot fill');
+                    processFilterHighlights();
+                }
             } catch (err) {
                 logDev('Error updating parking lot features:', err);
             }
         } else {
-            // Clear the layer if parking lot fill is disabled
+            // If parking lot fill is disabled, clear parking lots and reapply filter highlights if enabled
             try {
-                logDev('PLATypeFill disabled, clearing layer');
+                logDev('PLATypeFill disabled, clearing parking lot features');
                 sdk.Map.removeAllFeaturesFromLayer({ layerName: _layer });
+                // Reapply filter highlights if they're enabled
+                if ($('#WMEPH-ShowFilterHighlight').prop('checked')) {
+                    logDev('Reapplying filter highlights after disabling parking lot fill');
+                    processFilterHighlights();
+                }
             } catch (e) {
                 logDev('Error clearing layer:', e);
             }
@@ -10356,9 +10366,19 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
         $('#WMEPH-PLATypeFill').click(() => applyHighlightsTest(sdk.DataModel.Venues.getAll()));
         $('#WMEPH-ShowFilterHighlight').click(() => {
             if ($('#WMEPH-ShowFilterHighlight').prop('checked')) {
-                processFilterHighlights();
+                // If parking lot fill is enabled, trigger it to combine both highlights
+                if ($('#WMEPH-PLATypeFill').prop('checked')) {
+                    applyHighlightsTest(sdk.DataModel.Venues.getAll());
+                } else {
+                    processFilterHighlights();
+                }
             } else {
-                clearFilterHighlights();
+                // If parking lot fill is enabled, trigger it to keep parking lots visible
+                if ($('#WMEPH-PLATypeFill').prop('checked')) {
+                    applyHighlightsTest(sdk.DataModel.Venues.getAll());
+                } else {
+                    clearFilterHighlights();
+                }
             }
         });
 
