@@ -3023,14 +3023,18 @@
                     logDev(`Sample venue: name=${venues[0].name}, type=${venues[0].type}, hasGeo=${!!venues[0].geometry}`);
                 }
 
-                // Check each venue to see if it's a parking lot by trying to get its parking type
-                const parkingLotsToAdd = venues.filter(v => {
-                    if (!v || !v.geometry) return false;
+                // Check each venue to see if it's a parking lot by checking if ParkingLot.getParkingLotType returns a value
+                const parkingLotsToAdd = [];
+                venues.forEach(v => {
+                    if (!v || !v.geometry || !v.id) return;
                     try {
                         const parkingType = sdk.DataModel.ParkingLot.getParkingLotType({ venueId: v.id });
-                        return parkingType !== null;
+                        if (parkingType) {
+                            parkingLotsToAdd.push(v);
+                            logDev(`Found parking lot: ${v.name}, type: ${parkingType}`);
+                        }
                     } catch (e) {
-                        return false;
+                        // Not a parking lot or error getting type
                     }
                 });
                 logDev(`Found ${parkingLotsToAdd.length} parking lots from ${venues.length} venues`);
