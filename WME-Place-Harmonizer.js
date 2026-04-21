@@ -4159,7 +4159,7 @@
             }
 
             static venueIsFlaggable(args) {
-                return isVenuePoint(venue)
+                return isVenuePoint(args.venue)
                     && (args.maxPointSeverity > SEVERITY.GREEN || args.categories.includes(CAT.REST_AREAS));
             }
 
@@ -4879,7 +4879,7 @@
             }
 
             action() {
-                if (!this.args.isVenueChargingStation(venue)) {
+                if (!this.args.isVenueChargingStation(this.args.venue)) {
                     WazeWrap.Alerts.info(SCRIPT_NAME, 'This is no longer a charging station. Please run WMEPH again.', false, false);
                     return;
                 }
@@ -4937,7 +4937,7 @@
             }
 
             action() {
-                if (!this.args.isVenueChargingStation(venue)) {
+                if (!this.args.isVenueChargingStation(this.args.venue)) {
                     WazeWrap.Alerts.info('This is no longer a charging station. Please run WMEPH again.', false, false);
                     return;
                 }
