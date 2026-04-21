@@ -3027,6 +3027,18 @@
                         }
                         venue.wmephSeverity = severity;
 
+                        // Parking lot type fill (public=blue, restricted=yellow, private=red)
+                        if ($('#WMEPH-PLATypeFill').prop('checked') && venue.categories.includes(CAT.PARKING_LOT)) {
+                            try {
+                                const parkingType = sdk.DataModel.ParkingLot.getParkingLotType({ venueId: venue.id });
+                                venue.wmephParkingType = parkingType || 'PUBLIC'; // Default to PUBLIC if null
+                            } catch (e) {
+                                logDev('Error getting parking lot type:', e);
+                                venue.wmephParkingType = 'PUBLIC';
+                            }
+                        } else {
+                            venue.wmephParkingType = null;
+                        }
                     } catch (err) {
                         console.error('WMEPH highlight error: ', err);
                     }
@@ -3059,21 +3071,10 @@
                     logDev(`Sample venue: name=${venues[0].name}, type=${venues[0].type}, hasGeo=${!!venues[0].geometry}`);
                 }
 
-                // Find and add parking lots by checking getParkingLotType
-                const parkingLotsToAdd = [];
+                // Add parking lots that have wmephParkingType set (calculated in first loop)
                 venues.forEach(venue => {
-                    if (!venue || !venue.geometry || !venue.id) return;
-                    try {
-                        const parkingType = sdk.DataModel.ParkingLot.getParkingLotType({ venueId: venue.id });
-                        if (parkingType) {
-                            parkingLotsToAdd.push({ venue, parkingType });
-                        }
-                    } catch (e) {
-                        // Silently skip venues that error
-                    }
-                });
-
-                parkingLotsToAdd.forEach(({ venue, parkingType }) => {
+                    if (!venue || !venue.geometry || !venue.wmephParkingType) return;
+                    const parkingType = venue.wmephParkingType;
                     try {
                         const feature = {
                             type: 'Feature',
@@ -3092,7 +3093,6 @@
                         logDev(`Error adding parking lot ${venue.id}:`, err);
                     }
                 });
-                logDev(`Added ${parkingLotsToAdd.length} parking lot features to highlights layer`);
                 // Also apply filter highlights if they're enabled (without clearing parking lots)
                 if ($('#WMEPH-ShowFilterHighlight').prop('checked')) {
                     logDev('Also applying filter highlights alongside parking lot fill');
