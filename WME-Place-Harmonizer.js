@@ -3025,19 +3025,24 @@
 
                 // Check each venue to see if it's a parking lot by checking if ParkingLot.getParkingLotType returns a value
                 const parkingLotsToAdd = [];
+                let testCount = 0;
                 venues.forEach(v => {
                     if (!v || !v.geometry || !v.id) return;
                     try {
                         const parkingType = sdk.DataModel.ParkingLot.getParkingLotType({ venueId: v.id });
+                        testCount++;
+                        if (testCount <= 3) {
+                            logDev(`Testing ${v.name}: parkingType=${parkingType}`);
+                        }
                         if (parkingType) {
                             parkingLotsToAdd.push(v);
                             logDev(`Found parking lot: ${v.name}, type: ${parkingType}`);
                         }
                     } catch (e) {
-                        // Not a parking lot or error getting type
+                        logDev(`Error checking ${v.name}:`, e.message);
                     }
                 });
-                logDev(`Found ${parkingLotsToAdd.length} parking lots from ${venues.length} venues`);
+                logDev(`Tested ${testCount} venues, found ${parkingLotsToAdd.length} parking lots`);
 
                 parkingLotsToAdd.forEach(venue => {
                     try {
