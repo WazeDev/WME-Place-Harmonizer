@@ -3018,6 +3018,11 @@
                 logDev('Clearing parking lot layer');
                 sdk.Map.removeAllFeaturesFromLayer({ layerName: _layer });
 
+                // Log first venue's categories for debugging
+                if (venues.length > 0 && venues[0].attributes) {
+                    logDev(`Sample venue categories: ${venues[0].attributes.categories?.join(', ') || 'none'}, CAT.PARKING_LOT=${CAT.PARKING_LOT}`);
+                }
+
                 const parkingLotsToAdd = venues.filter(v => {
                     const isParkingLot = v && v.attributes && v.attributes.categories && v.attributes.categories.includes(CAT.PARKING_LOT);
                     if (isParkingLot) {
