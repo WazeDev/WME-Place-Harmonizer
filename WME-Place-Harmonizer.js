@@ -7943,13 +7943,21 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                     Flag.LocalURL.eval(args);
                     Flag.UrlMismatch.eval(args);
                     Flag.CheckDescription.eval(args);
-                    Flag.LocationFinder.eval(args);
+                    try {
+                        Flag.LocationFinder.eval(args);
+                    } catch (e) {
+                        logDev('LocationFinder error (needs SDK migration):', e.message);
+                    }
                     Flag.AddPharm.eval(args);
                     Flag.AddSuper.eval(args);
                     Flag.AppendAMPM.eval(args);
                     Flag.PlaceMatched.eval(args);
                 } else if (!args.highlightOnly && args.categories.includes(CAT.POST_OFFICE)) {
-                    Flag.LocationFinder.eval(args);
+                    try {
+                        Flag.LocationFinder.eval(args);
+                    } catch (e) {
+                        logDev('LocationFinder error (needs SDK migration):', e.message);
+                    }
                 }
                 Flag.InvalidUrl.eval(args);
                 Flag.SFAliases.eval(args);
