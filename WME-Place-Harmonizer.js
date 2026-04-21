@@ -10330,7 +10330,16 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
         $('#WMEPH-DisableHoursHL').click(bootstrapWmephColorHighlights);
         $('#WMEPH-DisableRankHL').click(bootstrapWmephColorHighlights);
         $('#WMEPH-DisableWLHL').click(bootstrapWmephColorHighlights);
-        $('#WMEPH-PLATypeFill').click(() => applyHighlightsTest(sdk.DataModel.Venues.getAll()));
+        $('#WMEPH-PLATypeFill').click(() => {
+            const parkingEnabled = $('#WMEPH-PLATypeFill').prop('checked');
+            const filterEnabled = $('#WMEPH-ShowFilterHighlight').prop('checked');
+
+            if (parkingEnabled || filterEnabled) {
+                applyHighlightsTest(sdk.DataModel.Venues.getAll());
+            } else {
+                clearFilterHighlights();
+            }
+        });
         $('#WMEPH-ShowFilterHighlight').click(() => {
             const filterEnabled = $('#WMEPH-ShowFilterHighlight').prop('checked');
             const parkingEnabled = $('#WMEPH-PLATypeFill').prop('checked');
