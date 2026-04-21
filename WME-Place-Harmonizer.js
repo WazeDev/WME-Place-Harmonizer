@@ -3831,6 +3831,7 @@
 
             static #getRareCategoryInfos(args) {
                 return args.categories
+                    .filter(cat => cat !== 'RESIDENTIAL') // SDK has RESIDENTIAL as separate type, not a subcategory
                     .map(cat => args.pnhCategoryInfos.getById(cat))
                     .filter(pnhCategoryInfo => pnhCategoryInfo) // Filter out undefined category infos
                     .filter(pnhCategoryInfo => {
