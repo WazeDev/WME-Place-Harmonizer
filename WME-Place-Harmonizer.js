@@ -2978,11 +2978,20 @@
                             severity = cachedResult.s;
                         }
                         venue.attributes.wmephSeverity = severity;
+
+                        // Parking lot type fill (public=blue, restricted=yellow, private=red)
+                        if ($('#WMEPH-PLATypeFill').prop('checked') && venue.attributes.categories.includes(CAT.PARKING_LOT)) {
+                            const parkingType = venue.attributes.categoryAttributes?.PARKING_LOT?.parkingType;
+                            venue.attributes.wmephParkingType = parkingType || 'public'; // Default to public if no type set
+                        } else {
+                            venue.attributes.wmephParkingType = null;
+                        }
                     } catch (err) {
                         console.error('WMEPH highlight error: ', err);
                     }
                 } else {
                     venue.attributes.wmephSeverity = 'default';
+                    venue.attributes.wmephParkingType = null;
                 }
             }
         });
@@ -10550,6 +10559,40 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                 zIndexing: true
             });
             logDev('Created wmeph_highlights layer');
+
+            // Add parking lot type fill styling to venues layer
+            try {
+                sdk.Map.addStyleRuleToLayer({
+                    layerName: 'venues',
+                    styleRules: [
+                        {
+                            // Style parking lots by type (public=blue, restricted=yellow, private=red)
+                            predicate: (props, zoomLevel) => {
+                                const parkingType = props?.wmephParkingType;
+                                return parkingType && ['public', 'restricted', 'private'].includes(parkingType);
+                            },
+                            style: (props) => {
+                                const parkingType = props?.wmephParkingType;
+                                const colorMap = {
+                                    public: '#0000FF',      // blue
+                                    restricted: '#FFFF00', // yellow
+                                    private: '#FF0000'     // red
+                                };
+                                return {
+                                    fillColor: colorMap[parkingType] || '#CCCCCC',
+                                    fillOpacity: 0.3,
+                                    strokeColor: colorMap[parkingType] || '#CCCCCC',
+                                    strokeWidth: 2,
+                                    strokeOpacity: 0.6
+                                };
+                            }
+                        }
+                    ]
+                });
+                logDev('Added parking lot type fill styling to venues layer');
+            } catch (e) {
+                logDev('Could not add parking lot styling:', e);
+            }
         } catch (e) {
             logDev('wmeph_highlights layer already exists or could not be created:', e);
         }
