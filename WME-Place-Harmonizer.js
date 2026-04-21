@@ -3127,41 +3127,48 @@
 
     // Set up CH loop
     function bootstrapWmephColorHighlights() {
-        if (localStorage.getItem('WMEPH-ColorHighlighting') === '1') {
-            // Add listeners
-            sdk.Events.on({
-                eventName: 'wme-data-model-objects-changed',
-                eventHandler: (e) => errorHandler(() => {
-                    if (!_disableHighlightTest) {
-                        applyHighlightsTest(e, true);
-                        if (_layer) redrawLayer(_layer);
-                    }
-                    // Also refresh parking lot and filter highlights if they're enabled
-                    if ($('#WMEPH-PLATypeFill').prop('checked') || $('#WMEPH-ShowFilterHighlight').prop('checked')) {
-                        applyHighlightsTest(sdk.DataModel.Venues.getAll());
-                    }
-                })
-            });
+        // Always set up listeners for data changes (needed for all highlight types)
+        sdk.Events.on({
+            eventName: 'wme-data-model-objects-changed',
+            eventHandler: (e) => errorHandler(() => {
+                // Update color highlights if enabled
+                if (!_disableHighlightTest && localStorage.getItem('WMEPH-ColorHighlighting') === '1') {
+                    applyHighlightsTest(e, true);
+                    if (_layer) redrawLayer(_layer);
+                }
+                // Update parking lot and filter highlights if enabled
+                if ($('#WMEPH-PLATypeFill').prop('checked') || $('#WMEPH-ShowFilterHighlight').prop('checked')) {
+                    applyHighlightsTest(sdk.DataModel.Venues.getAll());
+                    if (_layer) redrawLayer(_layer);
+                }
+            })
+        });
 
-            // 2023-03-30 - beforefeaturesadded no longer works because data model objects may be reloaded without re-adding map features.
-            // The wmephSeverity property is stored in the venue data model object. One workaround to look into would be to
-            // store the wmephSeverity in the feature.
-            sdk.Events.on({
-                eventName: 'wme-data-model-objects-added',
-                eventHandler: (venues) => {
+        sdk.Events.on({
+            eventName: 'wme-data-model-objects-added',
+            eventHandler: (venues) => {
+                // Update color highlights if enabled
+                if (localStorage.getItem('WMEPH-ColorHighlighting') === '1') {
                     applyHighlightsTest(venues);
                     if (_layer) redrawLayer(_layer);
-                    // Also refresh parking lot and filter highlights if they're enabled
-                    if ($('#WMEPH-PLATypeFill').prop('checked') || $('#WMEPH-ShowFilterHighlight').prop('checked')) {
-                        applyHighlightsTest(sdk.DataModel.Venues.getAll());
-                    }
                 }
-            });
+                // Update parking lot and filter highlights if enabled
+                if ($('#WMEPH-PLATypeFill').prop('checked') || $('#WMEPH-ShowFilterHighlight').prop('checked')) {
+                    applyHighlightsTest(sdk.DataModel.Venues.getAll());
+                    if (_layer) redrawLayer(_layer);
+                }
+            }
+        });
 
-            // Clear the cache (highlight severities may need to be updated).
-            _resultsCache = {};
+        // Clear the cache (highlight severities may need to be updated).
+        _resultsCache = {};
 
-            // Apply the colors
+        // Apply all highlights based on current settings
+        if (localStorage.getItem('WMEPH-ColorHighlighting') === '1') {
+            applyHighlightsTest(sdk.DataModel.Venues.getAll());
+            redrawLayer(_layer);
+        } else if ($('#WMEPH-PLATypeFill').prop('checked') || $('#WMEPH-ShowFilterHighlight').prop('checked')) {
+            // Even if color highlighting is off, refresh parking lot and filter highlights
             applyHighlightsTest(sdk.DataModel.Venues.getAll());
             redrawLayer(_layer);
         } else {
