@@ -7161,18 +7161,18 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
             this.addr = getVenueAddress(venue);
 
             this.actions = actions;
-            this.categories = venue.attributes.categories.slice();
-            const nameParts = getNameParts(venue.attributes.name);
-            this.nameSuffix = nameParts.suffix;
-            this.nameBase = nameParts.base;
-            this.aliases = venue.attributes.aliases.slice();
-            this.description = venue.attributes.description;
-            this.url = venue.attributes.url;
-            this.phone = venue.attributes.phone;
-            this.openingHours = venue.attributes.openingHours;
+            this.categories = venue.attributes?.categories?.slice() || [];
+            const nameParts = getNameParts(venue.attributes?.name);
+            this.nameSuffix = nameParts?.suffix;
+            this.nameBase = nameParts?.base;
+            this.aliases = venue.attributes?.aliases?.slice() || [];
+            this.description = venue.attributes?.description;
+            this.url = venue.attributes?.url;
+            this.phone = venue.attributes?.phone;
+            this.openingHours = venue.attributes?.openingHours;
             // Set up a variable (newBrand) to contain the brand. When harmonizing, it may be forced to a new value.
             // Other brand flags should use it since it won't be updated on the actual venue until later.
-            this.brand = venue.attributes.brand;
+            this.brand = venue.attributes?.brand;
         }
     }
 
