@@ -403,14 +403,14 @@
 
     // Helper to check if venue is charging station (SDK venues don't have isChargingStation method)
     function isVenueChargingStation(venue) {
-        if (!venue || !venue.attributes) return false;
+        if (!venue) return false;
         const primaryCategory = venue.categories?.[0];
         return primaryCategory === 'CHARGING_STATION';
     }
 
     // Helper to check if venue is parking lot (SDK venues don't have isParkingLot method)
     function isVenueParkingLot(venue) {
-        if (!venue || !venue.attributes) return false;
+        if (!venue) return false;
         const primaryCategory = venue.categories?.[0];
         return primaryCategory === 'PARKING_LOT';
     }
@@ -3012,13 +3012,13 @@
         const disableRankHL = $('#WMEPH-DisableRankHL').prop('checked');
 
         venues.forEach(venue => {
-            if (venue && venue.type === 'venue' && venue.attributes) {
+            if (venue && venue.type === 'venue') {
                 // Highlighting logic would go here
                 // Severity can be: 0, 'lock', 1, 2, 3, 4, or 'high'. Set to
                 // anything else to use default WME style.
                 if (doHighlight && !(disableRankHL && venue.lockRank > USER.rank - 1)) {
                     try {
-                        const { id } = venue.attributes;
+                        const id = venue.id;
                         let severity;
                         let cachedResult;
                         // eslint-disable-next-line no-cond-assign
@@ -3141,11 +3141,6 @@
             } catch (e) {
                 logDev('Error clearing layer:', e);
             }
-        }
-
-        // Re-apply filter highlights if parking lot fill was disabled but filter highlights are still enabled
-        if (!$('#WMEPH-PLATypeFill').prop('checked') && $('#WMEPH-ShowFilterHighlight').prop('checked')) {
-            processFilterHighlights(true);
         }
 
         const venue = getSelectedVenue();
@@ -9053,18 +9048,14 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
 
     function onCopyClicked() {
         const venue = getSelectedVenue();
-        const attr = venue.attributes;
         _cloneMaster = {};
         _cloneMaster.addr = getVenueAddress(venue);
-        if (_cloneMaster.addr && _cloneMaster.addr.hasOwnProperty('country')) {
-            _cloneMaster.addr = _cloneMaster.addr.attributes;
-        }
-        _cloneMaster.houseNumber = attr.houseNumber;
-        _cloneMaster.url = attr.url;
-        _cloneMaster.phone = attr.phone;
-        _cloneMaster.description = attr.description;
-        _cloneMaster.services = attr.services;
-        _cloneMaster.openingHours = attr.openingHours;
+        _cloneMaster.houseNumber = venue.houseNumber;
+        _cloneMaster.url = venue.url;
+        _cloneMaster.phone = venue.phone;
+        _cloneMaster.description = venue.description;
+        _cloneMaster.services = venue.services;
+        _cloneMaster.openingHours = venue.openingHours;
         _cloneMaster.isPLA = isVenueParkingLot(venue);
         logDev('Place Cloned');
     }
@@ -11126,7 +11117,6 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
             venues.forEach(v => {
                 // Filter: exclude venues with PARKING_FOR_CUSTOMERS service or certain categories
                 if (v.services?.includes('PARKING_FOR_CUSTOMERS')
-                    || CATS_TO_IGNORE_CUSTOMER_PARKING_HIGHLIGHT.includes(v.categories?.[0])
                     || v.categories?.some(cat => CATS_TO_IGNORE_CUSTOMER_PARKING_HIGHLIGHT.includes(cat))) {
                     return;
                 }
