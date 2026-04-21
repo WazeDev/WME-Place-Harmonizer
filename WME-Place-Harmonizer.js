@@ -3018,19 +3018,22 @@
                 logDev('Clearing parking lot layer');
                 sdk.Map.removeAllFeaturesFromLayer({ layerName: _layer });
 
-                // Log first venue's categories for debugging
-                if (venues.length > 0 && venues[0].attributes) {
-                    logDev(`Sample venue categories: ${venues[0].attributes.categories?.join(', ') || 'none'}, CAT.PARKING_LOT=${CAT.PARKING_LOT}`);
+                // Log first venue for debugging
+                if (venues.length > 0) {
+                    logDev(`Sample venue: name=${venues[0].name}, type=${venues[0].type}, hasGeo=${!!venues[0].geometry}`);
                 }
 
+                // Check each venue to see if it's a parking lot by trying to get its parking type
                 const parkingLotsToAdd = venues.filter(v => {
-                    const isParkingLot = v && v.attributes && v.attributes.categories && v.attributes.categories.includes(CAT.PARKING_LOT);
-                    if (isParkingLot) {
-                        logDev(`Found parking lot: ${v.attributes.name}, has geometry: ${!!v.geometry}`);
+                    if (!v || !v.geometry) return false;
+                    try {
+                        const parkingType = sdk.DataModel.ParkingLot.getParkingLotType({ venueId: v.id });
+                        return parkingType !== null;
+                    } catch (e) {
+                        return false;
                     }
-                    return isParkingLot && v.geometry;
                 });
-                logDev(`Filtered to ${parkingLotsToAdd.length} parking lots with geometry`);
+                logDev(`Found ${parkingLotsToAdd.length} parking lots from ${venues.length} venues`);
 
                 parkingLotsToAdd.forEach(venue => {
                     try {
