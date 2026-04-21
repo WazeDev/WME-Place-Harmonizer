@@ -505,7 +505,7 @@
     const URLS = {
         forum: 'https://www.waze.com/discuss/t/178574',
         usaPnh: 'https://docs.google.com/spreadsheets/d/1-f-JTWY5UnBx-rFTa4qhyGMYdHBZWNirUTOgn222zMY/edit#gid=0',
-        placesWiki: 'https://wazeopedia.waze.com/wiki/USA/Places',
+        placesWiki: 'https://www.waze.com/discuss/t/places/377947',
         restAreaWiki: 'https://wazeopedia.waze.com/wiki/USA/Rest_areas#Adding_a_Place',
         uspsWiki: 'https://wazeopedia.waze.com/wiki/USA/Places/Post_office'
     };
