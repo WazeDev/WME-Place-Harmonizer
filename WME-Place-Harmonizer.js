@@ -3012,15 +3012,20 @@
 
         // Update parking lot features on the highlights layer
         logDev('PLATypeFill checked:', $('#WMEPH-PLATypeFill').prop('checked'), 'layer:', _layer);
+        logDev('Total venues in array:', venues.length);
         if ($('#WMEPH-PLATypeFill').prop('checked')) {
             try {
                 logDev('Clearing parking lot layer');
                 sdk.Map.removeAllFeaturesFromLayer({ layerName: _layer });
 
-                const parkingLotsToAdd = venues.filter(v =>
-                    v && v.attributes && v.attributes.categories.includes(CAT.PARKING_LOT) && v.geometry
-                );
-                logDev(`Found ${parkingLotsToAdd.length} parking lots to add`);
+                const parkingLotsToAdd = venues.filter(v => {
+                    const isParkingLot = v && v.attributes && v.attributes.categories && v.attributes.categories.includes(CAT.PARKING_LOT);
+                    if (isParkingLot) {
+                        logDev(`Found parking lot: ${v.attributes.name}, has geometry: ${!!v.geometry}`);
+                    }
+                    return isParkingLot && v.geometry;
+                });
+                logDev(`Filtered to ${parkingLotsToAdd.length} parking lots with geometry`);
 
                 parkingLotsToAdd.forEach(venue => {
                     try {
