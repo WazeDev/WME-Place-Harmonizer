@@ -796,7 +796,8 @@
         CAT.RIVER_STREAM,
         CAT.SEA_LAKE_POOL,
         CAT.SWAMP_MARSH,
-        CAT.TUNNEL
+        CAT.TUNNEL,
+        'RESIDENTIAL' // SDK residential category
     ];
     const dec = s => atob(atob(s));
 
@@ -11125,7 +11126,8 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
             venues.forEach(v => {
                 // Filter: exclude venues with PARKING_FOR_CUSTOMERS service or certain categories
                 if (v.services?.includes('PARKING_FOR_CUSTOMERS')
-                    || CATS_TO_IGNORE_CUSTOMER_PARKING_HIGHLIGHT.includes(v.categories?.[0])) {
+                    || CATS_TO_IGNORE_CUSTOMER_PARKING_HIGHLIGHT.includes(v.categories?.[0])
+                    || v.categories?.some(cat => CATS_TO_IGNORE_CUSTOMER_PARKING_HIGHLIGHT.includes(cat))) {
                     return;
                 }
 
