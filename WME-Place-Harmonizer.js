@@ -2981,8 +2981,13 @@
 
                         // Parking lot type fill (public=blue, restricted=yellow, private=red)
                         if ($('#WMEPH-PLATypeFill').prop('checked') && venue.attributes.categories.includes(CAT.PARKING_LOT)) {
-                            const parkingType = venue.attributes.categoryAttributes?.PARKING_LOT?.parkingType;
-                            venue.attributes.wmephParkingType = parkingType || 'public'; // Default to public if no type set
+                            try {
+                                const parkingType = sdk.DataModel.ParkingLot.getParkingLotType({ venueId: venue.id });
+                                venue.attributes.wmephParkingType = parkingType || 'PUBLIC'; // Default to PUBLIC if null
+                            } catch (e) {
+                                logDev('Error getting parking lot type:', e);
+                                venue.attributes.wmephParkingType = 'PUBLIC';
+                            }
                         } else {
                             venue.attributes.wmephParkingType = null;
                         }
@@ -10567,17 +10572,17 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                     layerName: 'venues',
                     styleRules: [
                         {
-                            // Style parking lots by type (public=blue, restricted=yellow, private=red)
+                            // Style parking lots by type (PUBLIC=blue, RESTRICTED=yellow, PRIVATE=red)
                             predicate: (props, zoomLevel) => {
                                 const parkingType = props?.wmephParkingType;
-                                return parkingType && ['public', 'restricted', 'private'].includes(parkingType);
+                                return parkingType && ['PUBLIC', 'RESTRICTED', 'PRIVATE'].includes(parkingType);
                             },
                             style: (props) => {
                                 const parkingType = props?.wmephParkingType;
                                 const colorMap = {
-                                    public: '#0000FF',      // blue
-                                    restricted: '#FFFF00', // yellow
-                                    private: '#FF0000'     // red
+                                    PUBLIC: '#0000FF',      // blue
+                                    RESTRICTED: '#FFFF00', // yellow
+                                    PRIVATE: '#FF0000'     // red
                                 };
                                 return {
                                     fillColor: colorMap[parkingType] || '#CCCCCC',
