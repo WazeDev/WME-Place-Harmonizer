@@ -490,6 +490,7 @@
     let _dupeBanner;
 
     let _disableHighlightTest = false; // Set to true to temporarily disable highlight checks immediately when venues change.
+    let _isHarmonizing = false; // Prevent recursive harmonization when venue data changes during harmonization
 
     const USER = {
         ref: null,
@@ -2471,8 +2472,11 @@
     }
 
     function destroyDupeLabels() {
-        _dupeLayer.destroyFeatures();
-        _dupeLayer.setVisibility(false);
+        try {
+            sdk.Map.removeAllFeaturesFromLayer({ layerName: _dupeLayer });
+        } catch (e) {
+            logDev('Error clearing dupe labels layer:', e);
+        }
     }
 
     // When a dupe is deleted, delete the dupe label (handled via wme-data-model-objects-removed event with SDK)
@@ -2567,8 +2571,8 @@
 
         const venue = getSelectedVenue();
         if (venueProxies.map(proxy => proxy.id).includes(venue?.id)) {
-            if ($('#WMEPH_banner').length && venue?.id) {
-                // Auto-harmonize when venue with banner is modified
+            if ($('#WMEPH_banner').length && venue?.id && !_isHarmonizing) {
+                // Auto-harmonize when venue with banner is modified (but not if already harmonizing)
                 harmonizePlaceGo(venue, 'harmonize');
             }
 
@@ -3127,35 +3131,69 @@
 
     // Set up CH loop
     function bootstrapWmephColorHighlights() {
-        // Always set up listeners for data changes (needed for all highlight types)
+        console.log('[WMEPH] bootstrapWmephColorHighlights() called, setting up event listeners');
+
+        // Listen for venue data changes (when existing venues are modified)
         sdk.Events.on({
             eventName: 'wme-data-model-objects-changed',
-            eventHandler: (e) => errorHandler(() => {
-                // Update color highlights if enabled
-                if (!_disableHighlightTest && localStorage.getItem('WMEPH-ColorHighlighting') === '1') {
-                    applyHighlightsTest(e, true);
-                    if (_layer) redrawLayer(_layer);
-                }
-                // Update parking lot and filter highlights if enabled
-                if ($('#WMEPH-PLATypeFill').prop('checked') || $('#WMEPH-ShowFilterHighlight').prop('checked')) {
-                    applyHighlightsTest(sdk.DataModel.Venues.getAll());
-                    if (_layer) redrawLayer(_layer);
-                }
-            })
+            eventHandler: (e) => {
+                console.log('[WMEPH] wme-data-model-objects-changed fired', e);
+                errorHandler(() => {
+                    logDev('Venue data changed, updating highlights');
+                    // Update color highlights if enabled
+                    if (!_disableHighlightTest && localStorage.getItem('WMEPH-ColorHighlighting') === '1') {
+                        applyHighlightsTest(e, true);
+                        if (_layer) redrawLayer(_layer);
+                    }
+                    // Update parking lot and filter highlights if enabled
+                    if ($('#WMEPH-PLATypeFill').prop('checked')) {
+                        console.log('[WMEPH] PLATypeFill checked, updating parking lots');
+                        updateParkingLotHighlights();
+                        if (_layer) redrawLayer(_layer);
+                    }
+                    if ($('#WMEPH-ShowFilterHighlight').prop('checked')) {
+                        console.log('[WMEPH] ShowFilterHighlight checked, updating filter highlights');
+                        updateFilterHighlights();
+                        if (_layer) redrawLayer(_layer);
+                    }
+                });
+            }
         });
 
+        // Listen for new venues being added
         sdk.Events.on({
             eventName: 'wme-data-model-objects-added',
             eventHandler: (venues) => {
+                logDev('New venues added, updating highlights');
                 // Update color highlights if enabled
                 if (localStorage.getItem('WMEPH-ColorHighlighting') === '1') {
                     applyHighlightsTest(venues);
                     if (_layer) redrawLayer(_layer);
                 }
                 // Update parking lot and filter highlights if enabled
-                if ($('#WMEPH-PLATypeFill').prop('checked') || $('#WMEPH-ShowFilterHighlight').prop('checked')) {
-                    applyHighlightsTest(sdk.DataModel.Venues.getAll());
+                if ($('#WMEPH-PLATypeFill').prop('checked')) {
+                    updateParkingLotHighlights();
                     if (_layer) redrawLayer(_layer);
+                }
+                if ($('#WMEPH-ShowFilterHighlight').prop('checked')) {
+                    updateFilterHighlights();
+                    if (_layer) redrawLayer(_layer);
+                }
+            }
+        });
+
+        // Listen for venues being removed
+        sdk.Events.on({
+            eventName: 'wme-data-model-objects-removed',
+            eventHandler: () => {
+                logDev('Venues removed, refreshing highlights');
+                // Refresh parking lot highlights if enabled
+                if ($('#WMEPH-PLATypeFill').prop('checked')) {
+                    updateParkingLotHighlights();
+                }
+                // Refresh filter highlights if enabled
+                if ($('#WMEPH-ShowFilterHighlight').prop('checked')) {
+                    updateFilterHighlights();
                 }
             }
         });
@@ -3167,13 +3205,14 @@
         if (localStorage.getItem('WMEPH-ColorHighlighting') === '1') {
             applyHighlightsTest(sdk.DataModel.Venues.getAll());
             redrawLayer(_layer);
-        } else if ($('#WMEPH-PLATypeFill').prop('checked') || $('#WMEPH-ShowFilterHighlight').prop('checked')) {
-            // Even if color highlighting is off, refresh parking lot and filter highlights
-            applyHighlightsTest(sdk.DataModel.Venues.getAll());
-            redrawLayer(_layer);
-        } else {
-            // reset the colors to default
-            applyHighlightsTest(sdk.DataModel.Venues.getAll());
+        }
+        if ($('#WMEPH-PLATypeFill').prop('checked')) {
+            updateParkingLotHighlights();
+        }
+        if ($('#WMEPH-ShowFilterHighlight').prop('checked')) {
+            updateFilterHighlights();
+        }
+        if (_layer) {
             redrawLayer(_layer);
         }
     }
@@ -3318,31 +3357,12 @@
 
             // SDK tracks changes as unsaved; no immediate save needed
             try {
-                let lockId = null;
-
-                // Check if editing is allowed; if not, acquire a lock
-                if (!sdk.Editing.isEditingAllowed()) {
-                    logDev('Acquiring editing lock...');
-                    lockId = sdk.Editing.lockEditing();
-                }
-
-                // Filter out lockRank since SDK doesn't support it through updateVenue
-                // Venue locking must be done through the UI or a separate API
+                // SDK updateVenue supports all attributes including lockRank
                 const updateableAttributes = { ...newAttributes };
-                if (updateableAttributes.lockRank !== undefined) {
-                    console.warn(`Note: lockRank updates must be done through the WME UI (target level: ${updateableAttributes.lockRank})`);
-                    delete updateableAttributes.lockRank;
-                }
 
                 if (Object.keys(updateableAttributes).length > 0) {
                     sdk.DataModel.Venues.updateVenue({ venueId: venue.id, ...updateableAttributes });
                     logDev(`Updated venue ${venue.id} with:`, updateableAttributes);
-                }
-
-                // Release the lock if we acquired one
-                if (lockId) {
-                    sdk.Editing.releaseEditingLock({ lockId });
-                    logDev('Released editing lock');
                 }
                 // Changes accumulate for user to save via WME Save button
             } catch (e) {
@@ -7355,8 +7375,13 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
         // Used for collecting all actions to be applied to the model.
         actions = actions || [];
 
-        FlagBase.currentFlags = new FlagContainer();
-        const args = new HarmonizationArgs(venue, actions, !useFlag.includes('harmonize'));
+        // Prevent recursive harmonization when venue data changes during harmonization
+        const wasHarmonizing = _isHarmonizing;
+        _isHarmonizing = true;
+
+        try {
+            FlagBase.currentFlags = new FlagContainer();
+            const args = new HarmonizationArgs(venue, actions, !useFlag.includes('harmonize'));
 
         let pnhLockLevel;
         if (!args.highlightOnly) {
@@ -8237,12 +8262,16 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
             executeMultiAction(actions);
         }
 
-        // showOpenPlaceWebsiteButton();
-        // showSearchButton();
+            // showOpenPlaceWebsiteButton();
+            // showSearchButton();
 
-        // Highlighting will return a value, but no need to return a value here (for end of harmonization).
-        // Adding this line to satisfy eslint.
-        return undefined;
+            // Highlighting will return a value, but no need to return a value here (for end of harmonization).
+            // Adding this line to satisfy eslint.
+            return undefined;
+        } finally {
+            // Restore harmonization flag
+            _isHarmonizing = wasHarmonizing;
+        }
     } // END harmonizePlaceGo function
 
     function runDuplicateFinder(venue, name, aliases, addr, placePL) {
@@ -10861,6 +10890,17 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
         _dupeLayer = 'wmeph_dupe_labels';
         logDev('Using wmeph_dupe_labels layer for duplicate detection');
 
+        // Create the dupe labels layer if it doesn't exist
+        try {
+            sdk.Map.addLayer({
+                layerName: _dupeLayer,
+                displayInLayerSwitcher: true,
+                zIndexing: true
+            });
+        } catch (e) {
+            logDev('Note: wmeph_dupe_labels layer creation error (may already exist):', e.message);
+        }
+
         if (localStorage.getItem('WMEPH-featuresExamined') === null) {
             localStorage.setItem('WMEPH-featuresExamined', '0'); // Storage for whether the User has pressed the button to look at updates
         }
@@ -10971,11 +11011,23 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
         });
         sdk.Events.on({
             eventName: 'wme-data-model-objects-saved',
-            eventHandler: (e) => errorHandler(() => syncWL(e))
+            eventHandler: (event) => errorHandler(() => {
+                // SDK passes {dataModelName, objectIds}, convert to venue objects
+                if (event?.objectIds && Array.isArray(event.objectIds)) {
+                    const savedVenues = event.objectIds.map(id => sdk.DataModel.Venues.getById({ venueId: id })).filter(v => v);
+                    syncWL(savedVenues);
+                }
+            })
         });
         sdk.Events.on({
             eventName: 'wme-data-model-objects-changed',
-            eventHandler: (venues) => errorHandler(onVenuesChanged, venues)
+            eventHandler: (event) => errorHandler(() => {
+                // SDK passes {dataModelName, objectIds}, convert to venue objects
+                if (event?.objectIds && Array.isArray(event.objectIds)) {
+                    const changedVenues = event.objectIds.map(id => sdk.DataModel.Venues.getById({ venueId: id })).filter(v => v);
+                    onVenuesChanged(changedVenues);
+                }
+            })
         });
         window.addEventListener('beforeunload', onWindowBeforeUnload, false);
 
@@ -11013,51 +11065,30 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
 
         sdk.Events.on({
             eventName: 'wme-data-model-objects-changed',
-            eventHandler: () => errorHandler(() => {
-                if ($('#WMEPH_banner').length > 0) {
-                    updateServicesChecks();
-                    assembleServicesBanner();
-                }
-            })
+            eventHandler: () => {
+                console.log('[WMEPH] Banner listener: data model changed');
+                errorHandler(() => {
+                    if ($('#WMEPH_banner').length > 0) {
+                        updateServicesChecks();
+                        assembleServicesBanner();
+                    }
+                })
+            }
         });
 
         log('Starting Highlighter');
+        console.log('[WMEPH] About to call bootstrapWmephColorHighlights()');
+
+        // CRITICAL: Activate data model event tracking before setting up listeners
+        console.log('[WMEPH] Activating venue data model event tracking');
+        sdk.Events.trackDataModelEvents({ dataModelName: 'venues' });
+
         bootstrapWmephColorHighlights();
 
-        // Set up filter highlights
+        // Apply initial filter highlights
         if ($('#WMEPH-ShowFilterHighlight').prop('checked')) {
             processFilterHighlights();
         }
-        sdk.Events.on({
-            eventName: 'wme-data-model-objects-changed',
-            eventHandler: () => errorHandler(processFilterHighlights)
-        });
-        sdk.Events.on({
-            eventName: 'wme-data-model-objects-removed',
-            eventHandler: () => errorHandler(clearFilterHighlights)
-        });
-        sdk.Events.on({
-            eventName: 'wme-data-model-objects-added',
-            eventHandler: () => errorHandler(processFilterHighlights)
-        });
-
-        // Update parking lot highlights when venues change
-        sdk.Events.on({
-            eventName: 'wme-data-model-objects-changed',
-            eventHandler: () => {
-                if ($('#WMEPH-PLATypeFill').prop('checked')) {
-                    errorHandler(() => applyHighlightsTest(sdk.DataModel.Venues.getAll()));
-                }
-            }
-        });
-        sdk.Events.on({
-            eventName: 'wme-data-model-objects-added',
-            eventHandler: () => {
-                if ($('#WMEPH-PLATypeFill').prop('checked')) {
-                    errorHandler(() => applyHighlightsTest(sdk.DataModel.Venues.getAll()));
-                }
-            }
-        });
     } // END placeHarmonizer_init function
 
     // function waitForReady() {
@@ -11095,13 +11126,71 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
         }
     }
 
-    function processFilterHighlights(skipClear = false) {
-        if (!$('#WMEPH-ShowFilterHighlight').prop('checked')) {
+    function updateParkingLotHighlights() {
+        if (!$('#WMEPH-PLATypeFill').prop('checked')) {
             return;
         }
-        // clear existing highlights (unless we're adding to parking lots)
-        if (!skipClear) {
-            clearFilterHighlights();
+
+        try {
+            const venues = sdk.DataModel.Venues.getAll();
+            const parkingLotsToAdd = [];
+
+            venues.forEach(v => {
+                if (!v || !v.geometry || !v.id) return;
+                try {
+                    const parkingType = sdk.DataModel.Venues.getParkingLotType({ venueId: v.id });
+                    if (parkingType) {
+                        parkingLotsToAdd.push({ venue: v, parkingType });
+                    }
+                } catch (e) {
+                    logDev(`Error checking ${v.name}:`, e.message);
+                }
+            });
+
+            // Remove old parking lot features before adding new ones
+            try {
+                // We need to identify and remove parking lot features
+                // For now, we'll clear and rebuild both parking + filter
+                sdk.Map.removeAllFeaturesFromLayer({ layerName: 'wmeph_highlights' });
+            } catch (e) {
+                logDev('Error clearing highlights layer:', e);
+            }
+
+            parkingLotsToAdd.forEach(({ venue, parkingType }) => {
+                try {
+                    const feature = {
+                        type: 'Feature',
+                        id: `parking_${venue.id}`,
+                        geometry: venue.geometry,
+                        properties: {
+                            name: venue.name,
+                            parkingType: parkingType,
+                            highlightType: 'parking'
+                        }
+                    };
+                    sdk.Map.addFeatureToLayer({
+                        layerName: 'wmeph_highlights',
+                        feature: feature
+                    });
+                } catch (err) {
+                    logDev(`Error adding parking lot ${venue.id}:`, err);
+                }
+            });
+
+            logDev(`Updated ${parkingLotsToAdd.length} parking lot features`);
+
+            // Reapply filter highlights on top if enabled
+            if ($('#WMEPH-ShowFilterHighlight').prop('checked')) {
+                processFilterHighlights(true);
+            }
+        } catch (err) {
+            logDev('Error updating parking lot highlights:', err);
+        }
+    }
+
+    function updateFilterHighlights() {
+        if (!$('#WMEPH-ShowFilterHighlight').prop('checked')) {
+            return;
         }
 
         try {
@@ -11123,13 +11212,14 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                     properties: {
                         wmephHighlight: '1',
                         venueId: v.id,
-                        isPoint: v.geometry?.type === 'Point'
+                        isPoint: v.geometry?.type === 'Point',
+                        highlightType: 'filter'
                     }
                 };
                 featuresToAdd.push(feature);
             });
 
-            // Add all features to highlights layer
+            // Add all filter features to highlights layer
             featuresToAdd.forEach(feature => {
                 sdk.Map.addFeatureToLayer({
                     layerName: 'wmeph_highlights',
@@ -11137,9 +11227,51 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                 });
             });
 
-            logDev(`Added ${featuresToAdd.length} filter highlights`);
+            logDev(`Updated ${featuresToAdd.length} filter highlights`);
         } catch (e) {
-            console.error('processFilterHighlights: Error', e);
+            console.error('updateFilterHighlights: Error', e);
+        }
+    }
+
+    function processFilterHighlights(skipClear = false) {
+        // For backward compatibility, call the update function
+        if (!skipClear) {
+            updateFilterHighlights();
+        } else {
+            // If skipClear is true, we're adding to parking lots
+            // Just add the filter highlights without clearing
+            if (!$('#WMEPH-ShowFilterHighlight').prop('checked')) {
+                return;
+            }
+
+            try {
+                const venues = sdk.DataModel.Venues.getAll();
+                venues.forEach(v => {
+                    if (v.services?.includes('PARKING_FOR_CUSTOMERS')
+                        || v.categories?.some(cat => CATS_TO_IGNORE_CUSTOMER_PARKING_HIGHLIGHT.includes(cat))) {
+                        return;
+                    }
+
+                    const feature = {
+                        type: 'Feature',
+                        id: `filter_highlight_${v.id}`,
+                        geometry: v.geometry,
+                        properties: {
+                            wmephHighlight: '1',
+                            venueId: v.id,
+                            isPoint: v.geometry?.type === 'Point',
+                            highlightType: 'filter'
+                        }
+                    };
+                    sdk.Map.addFeatureToLayer({
+                        layerName: 'wmeph_highlights',
+                        feature: feature
+                    });
+                });
+                logDev(`Added filter highlights on top of parking lots`);
+            } catch (e) {
+                console.error('processFilterHighlights (skipClear): Error', e);
+            }
         }
     }
 
