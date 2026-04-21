@@ -3012,6 +3012,7 @@
         const doHighlight = $('#WMEPH-ColorHighlighting').prop('checked');
         const disableRankHL = $('#WMEPH-DisableRankHL').prop('checked');
 
+        const colorFeaturesToAdd = [];
         venues.forEach(venue => {
             if (venue && venue.type === 'venue') {
                 // Highlighting logic would go here
@@ -3030,6 +3031,20 @@
                             severity = cachedResult.s;
                         }
                         venue.wmephSeverity = severity;
+
+                        // Add color feature to layer for visualization
+                        if (venue.geometry && severity !== 'default') {
+                            colorFeaturesToAdd.push({
+                                type: 'Feature',
+                                id: `color_${venue.id}`,
+                                geometry: venue.geometry,
+                                properties: {
+                                    wmephSeverity: severity,
+                                    venueId: venue.id,
+                                    name: venue.name
+                                }
+                            });
+                        }
                     } catch (err) {
                         console.error('WMEPH highlight error: ', err);
                     }
@@ -3039,6 +3054,21 @@
                 }
             }
         });
+
+        // Add color highlight features to layer
+        if (colorFeaturesToAdd.length > 0) {
+            try {
+                colorFeaturesToAdd.forEach(feature => {
+                    sdk.Map.addFeatureToLayer({
+                        layerName: _layer,
+                        feature: feature
+                    });
+                });
+                logDev(`Added ${colorFeaturesToAdd.length} color highlight features`);
+            } catch (e) {
+                logDev('Error adding color highlights:', e);
+            }
+        }
 
         // Trim the cache if it's over the max size limit.
         const keys = Object.keys(_resultsCache);
@@ -3201,11 +3231,21 @@
         // Clear the cache (highlight severities may need to be updated).
         _resultsCache = {};
 
-        // Apply all highlights based on current settings
+        // Handle color highlighting toggle
         if (localStorage.getItem('WMEPH-ColorHighlighting') === '1') {
+            logDev('Color highlighting enabled, applying color highlights');
             applyHighlightsTest(sdk.DataModel.Venues.getAll());
             redrawLayer(_layer);
+        } else {
+            logDev('Color highlighting disabled, clearing color features');
+            // Clear color features by clearing and rebuilding parking/filter highlights
+            try {
+                sdk.Map.removeAllFeaturesFromLayer({ layerName: _layer });
+            } catch (e) {
+                logDev('Error clearing color features:', e);
+            }
         }
+
         if ($('#WMEPH-PLATypeFill').prop('checked')) {
             updateParkingLotHighlights();
         }
@@ -10784,6 +10824,19 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                         if (feature?.properties?.wmephHighlight === '1') {
                             return '#FF00FF';
                         }
+                        // Color severity mapping
+                        const severity = feature?.properties?.wmephSeverity;
+                        const severityColorMap = {
+                            '0': '#00CC00',  // GREEN - complete
+                            '1': '#0000FF',  // BLUE - minor issues
+                            '2': '#FFFF00',  // YELLOW - moderate issues
+                            '3': '#FF0000',  // RED - major issues
+                            '5': '#FF1493',  // PINK - extreme issues
+                            '6': '#FFA500'   // ORANGE - other issues
+                        };
+                        if (severity !== undefined && severity !== 'default') {
+                            return severityColorMap[severity] || '#CCCCCC';
+                        }
                         // Parking lots use parkingType mapping
                         const parkingType = feature?.properties?.parkingType;
                         const colorMap = {
@@ -10803,6 +10856,16 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                             strokeColor: '#F0F',
                             strokeOpacity: 0.7,
                             fillOpacity: 0
+                        }
+                    },
+                    {
+                        predicate: (props) => props.wmephSeverity !== undefined && props.wmephSeverity !== 'default',
+                        style: {
+                            fillColor: '${getColor}',
+                            fillOpacity: 0.4,
+                            strokeColor: '${getColor}',
+                            strokeWidth: 3,
+                            strokeOpacity: 0.8
                         }
                     },
                     {
