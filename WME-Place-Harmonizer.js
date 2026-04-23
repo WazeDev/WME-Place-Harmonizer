@@ -2239,12 +2239,6 @@
         return !str?.trim().length;
     }
 
-    function webMercatorToWGS84(x, y) {
-        const R = 6378137; // Earth's radius
-        const lon = (x / R) * (180 / Math.PI);
-        const lat = (2 * Math.atan(Math.exp(y / R)) - Math.PI / 2) * (180 / Math.PI);
-        return { longitude: lon, latitude: lat };
-    }
 
     function getSelectedVenue() {
         const selection = sdk.Editing.getSelection();
@@ -2496,7 +2490,7 @@
             return false;
         }
         const centroidPt = turf.centroid(venue.geometry);
-        const venueGPS = webMercatorToWGS84(centroidPt.geometry.coordinates[0], centroidPt.geometry.coordinates[1]);
+        const venueGPS = { longitude: centroidPt.geometry.coordinates[0], latitude: centroidPt.geometry.coordinates[1] };
         if (!_venueWhitelist.hasOwnProperty(venueID)) { // If venue is NOT on WL, then add it.
             _venueWhitelist[venueID] = {};
         }
@@ -2566,7 +2560,6 @@
     }
 
     function onVenuesChanged(venueProxies) {
-        logDev('onVenuesChanged');
         deleteDupeLabel();
 
         const venue = getSelectedVenue();
@@ -2690,303 +2683,12 @@
                 logDev('X-Ray: Could not restore gisLayers layer:', e);
             }
 
-            initializeHighlights();
             redrawLayer(_dupeLayer);
         }
         if (!enable) return;
 
-        const defaultPointRadius = 6;
-//         const ruleGenerator = (value, symbolizer) => new W.Rule({
-//             filter: new OpenLayers.Filter.Comparison({
-//                 type: '==',
-//                 value,
-//                 evaluate(feature) {
-//                     const attr = feature.attributes.wazeFeature?._wmeObject?.attributes;
-//                     return attr?.wmephSeverity === this.value;
-//                 }
-//             }),
-//             symbolizer,
-//             wmephStyle: 'xray'
-//         });
-
-//         const severity0 = ruleGenerator(0, {
-//             Point: {
-//                 strokeWidth: 1.67,
-//                 strokeColor: '#888',
-//                 pointRadius: 5,
-//                 fillOpacity: 0.25,
-//                 fillColor: 'white',
-//                 zIndex: 0
-//             },
-//             Polygon: {
-//                 strokeWidth: 1.67,
-//                 strokeColor: '#888',
-//                 fillOpacity: 0
-//             }
-//         });
-
-//         const severityLock = ruleGenerator('lock', {
-//             Point: {
-//                 strokeColor: 'white',
-//                 fillColor: '#080',
-//                 fillOpacity: 1,
-//                 strokeLinecap: 1,
-//                 strokeDashstyle: '4 2',
-//                 strokeWidth: 2.5,
-//                 pointRadius: defaultPointRadius
-//             },
-//             Polygon: {
-//                 strokeColor: 'white',
-//                 fillColor: '#0a0',
-//                 fillOpacity: 0.4,
-//                 strokeDashstyle: '4 2',
-//                 strokeWidth: 2.5
-//             }
-//         });
-
-//         const severity1 = ruleGenerator(1, {
-//             strokeColor: 'white',
-//             strokeWidth: 2,
-//             pointRadius: defaultPointRadius,
-//             fillColor: '#0055ff'
-//         });
-
-//         const severityLock1 = ruleGenerator('lock1', {
-//             pointRadius: defaultPointRadius,
-//             fillColor: '#0055ff',
-//             strokeColor: 'white',
-//             strokeLinecap: '1',
-//             strokeDashstyle: '4 2',
-//             strokeWidth: 2.5
-//         });
-
-//         const severity2 = ruleGenerator(2, {
-//             Point: {
-//                 fillColor: '#ca0',
-//                 strokeColor: 'white',
-//                 strokeWidth: 2,
-//                 pointRadius: defaultPointRadius
-
-//             },
-//             Polygon: {
-//                 fillColor: '#ff0',
-//                 strokeColor: 'white',
-//                 strokeWidth: 2,
-//                 fillOpacity: 0.4
-//             }
-//         });
-
-//         const severity3 = ruleGenerator(3, {
-//             strokeColor: 'white',
-//             strokeWidth: 2,
-//             pointRadius: defaultPointRadius,
-//             fillColor: '#ff0000'
-//         });
-
-//         const severity4 = ruleGenerator(4, {
-//             fillColor: '#f42',
-//             strokeLinecap: 1,
-//             strokeWidth: 2,
-//             strokeDashstyle: '4 2'
-//         });
-
-//         const severityHigh = ruleGenerator(5, {
-//             fillColor: 'black',
-//             strokeColor: '#f4a',
-//             strokeLinecap: 1,
-//             strokeWidth: 4,
-//             strokeDashstyle: '4 2',
-//             pointRadius: defaultPointRadius
-//         });
-
-//         const severityAdLock = ruleGenerator('adLock', {
-//             pointRadius: 12,
-//             fillColor: 'yellow',
-//             fillOpacity: 0.4,
-//             strokeColor: '#000',
-//             strokeLinecap: 1,
-//             strokeWidth: 10,
-//             strokeDashstyle: '4 2'
-//         });
-
-//         _layer.styleMap.styles.default.rules.push(...[severity0, severityLock, severity1,
-//             severityLock1, severity2, severity3, severity4, severityHigh, severityAdLock]);
-
-//         redrawLayer(_layer);
     }
 
-    function initializeHighlights() {
-        OpenLayers.Renderer.symbol.triangle = [0, -10, 10, 10, -10, 10, 0, -10]; // [0, 10, 10, -10, -10, -10, 0, 10];
-
-        // const ruleGenerator = (value, symbolizer) => new W.Rule({
-        //     filter: new OpenLayers.Filter.Comparison({
-        //         type: '==',
-        //         value,
-        //         evaluate(feature) {
-        //             const attr = feature.attributes.wazeFeature?._wmeObject?.attributes;
-        //             return attr?.wmephSeverity === this.value;
-        //         }
-        //     }),
-        //     symbolizer,
-        //     wmephStyle: 'default'
-        // });
-
-        //const rppRule = new W.Rule({
-        //     filter: new OpenLayers.Filter.Comparison({
-        //         type: '==',
-        //         value: true,
-        //         evaluate(feature) {
-        //             return feature.attributes.wazeFeature?._wmeObject.isResidential();
-        //         }
-        //     }),
-        //     symbolizer: {
-        //         graphicName: 'triangle',
-        //         pointRadius: 7
-        //     },
-        //     wmephStyle: 'default'
-        // });
-
-//         const severity0 = ruleGenerator(0, {
-//             pointRadius: 5,
-//             externalGraphic: '',
-//             label: '',
-//             strokeWidth: 4,
-//             strokeColor: '#24ff14',
-//             fillColor: '#ba85bf'
-//         });
-
-//         const severityLock = ruleGenerator('lock', {
-//             pointRadius: 5,
-//             externalGraphic: '',
-//             label: '',
-//             strokeColor: '#24ff14',
-//             strokeLinecap: 1,
-//             strokeDashstyle: '7 2',
-//             strokeWidth: 5,
-//             fillColor: '#ba85bf'
-//         });
-
-//         const severity1 = ruleGenerator(1, {
-//             strokeColor: '#0055ff',
-//             strokeWidth: 4,
-//             externalGraphic: '',
-//             label: '',
-//             pointRadius: 7,
-//             fillColor: '#ba85bf'
-//         });
-
-//         const severityLock1 = ruleGenerator('lock1', {
-//             pointRadius: 5,
-//             strokeColor: '#0055ff',
-//             strokeLinecap: 1,
-//             strokeDashstyle: '7 2',
-//             externalGraphic: '',
-//             label: '',
-//             strokeWidth: 5,
-//             fillColor: '#ba85bf'
-//         });
-
-//         const severity2 = ruleGenerator(2, {
-//             strokeColor: '#ff0',
-//             strokeWidth: 6,
-//             externalGraphic: '',
-//             label: '',
-//             pointRadius: 8,
-//             fillColor: '#ba85bf'
-//         });
-
-//         const severity3 = ruleGenerator(3, {
-//             strokeColor: '#ff0000',
-//             strokeWidth: 4,
-//             externalGraphic: '',
-//             label: '',
-//             pointRadius: 8,
-//             fillColor: '#ba85bf'
-//         });
-
-//         const severity4 = ruleGenerator(4, {
-//             fillColor: 'black',
-//             fillOpacity: 0.35,
-//             strokeColor: '#f42',
-//             strokeLinecap: 1,
-//             strokeWidth: 13,
-//             externalGraphic: '',
-//             label: '',
-//             strokeDashstyle: '4 2'
-//         });
-
-//         const severityHigh = ruleGenerator(5, {
-//             pointRadius: 12,
-//             fillColor: 'black',
-//             fillOpacity: 0.4,
-//             strokeColor: '#f4a',
-//             strokeLinecap: 1,
-//             strokeWidth: 10,
-//             externalGraphic: '',
-//             label: '',
-//             strokeDashstyle: '4 2'
-//         });
-
-//         const severity6 = ruleGenerator(6, {
-//             strokeColor: '#f80',
-//             strokeWidth: 6,
-//             externalGraphic: '',
-//             label: '',
-//             pointRadius: 10,
-//             fillColor: '#ba85bf'
-//         });
-
-//         const severityAdLock = ruleGenerator('adLock', {
-//             pointRadius: 1,
-//             fillColor: 'yellow',
-//             fillOpacity: 0.4,
-//             strokeColor: '#000',
-//             strokeLinecap: 1,
-//             strokeWidth: 10,
-//             externalGraphic: '',
-//             label: '',
-//             strokeDashstyle: '4 2'
-//         });
-
-        function plaTypeRuleGenerator(value, symbolizer) {
-//             return new W.Rule({
-//                 filter: new OpenLayers.Filter.Comparison({
-//                     type: '==',
-//                     value,
-//                     evaluate(feature) {
-//                         const attr = feature.attributes.wazeFeature?._wmeObject?.attributes;
-
-//                         if (attr
-//                             && $('#WMEPH-PLATypeFill').prop('checked')
-//                             && attr.categoryAttributes && attr.categoryAttributes.PARKING_LOT
-//                             && attr.categories.includes(CAT.PARKING_LOT)) {
-//                             const type = attr.categoryAttributes.PARKING_LOT.parkingType;
-//                             return (!type && this.value === 'public') || (type && (type.toLowerCase() === this.value));
-//                         }
-//                         return undefined;
-//                     }
-//                 }),
-//                 symbolizer,
-//                 wmephStyle: 'default'
-//             });
-        }
-
-//         const publicPLA = plaTypeRuleGenerator('public', {
-//             fillColor: '#0000FF',
-//             fillOpacity: '0.25'
-//         });
-//         const restrictedPLA = plaTypeRuleGenerator('restricted', {
-//             fillColor: '#FFFF00',
-//             fillOpacity: '0.3'
-//         });
-//         const privatePLA = plaTypeRuleGenerator('private', {
-//             fillColor: '#FF0000',
-//             fillOpacity: '0.25'
-//         });
-
-//         _layer.styleMap.styles.default.rules.push(...[severity0, severityLock, severity1, severityLock1, severity2,
-//             severity3, severity4, severity6, severityHigh, severityAdLock, rppRule, publicPLA, restrictedPLA, privatePLA]);
-    }
 
     /**
     * To highlight a place, set the wmephSeverity attribute to the desired highlight level.
@@ -2994,7 +2696,6 @@
     * @param force {boolean} Force recalculation of highlights, rather than using cached results.
     */
     function applyHighlightsTest(venues, force) {
-        logDev('applyHighlightsTest');
         if (!_layer) return;
 
         // Make sure venues is an array, or convert it to one if not.
@@ -3012,9 +2713,19 @@
         const doHighlight = $('#WMEPH-ColorHighlighting').prop('checked');
         const disableRankHL = $('#WMEPH-DisableRankHL').prop('checked');
 
+        // Clear layer once at the beginning if needed
+        const shouldRefreshLayer = doHighlight || $('#WMEPH-PLATypeFill').prop('checked') || $('#WMEPH-ShowFilterHighlight').prop('checked');
+        if (shouldRefreshLayer) {
+            try {
+                sdk.Map.removeAllFeaturesFromLayer({ layerName: _layer });
+            } catch (e) {
+                logDev('Error clearing highlights layer:', e);
+            }
+        }
+
         const colorFeaturesToAdd = [];
         venues.forEach(venue => {
-            if (venue && venue.type === 'venue') {
+            if (venue && venue.id) {
                 // Highlighting logic would go here
                 // Severity can be: 0, 'lock', 1, 2, 3, 4, or 'high'. Set to
                 // anything else to use default WME style.
@@ -3064,7 +2775,6 @@
                         feature: feature
                     });
                 });
-                logDev(`Added ${colorFeaturesToAdd.length} color highlight features`);
             } catch (e) {
                 logDev('Error adding color highlights:', e);
             }
@@ -3079,112 +2789,23 @@
             }
         }
 
-        // Update parking lot features on the highlights layer
-        logDev('PLATypeFill checked:', $('#WMEPH-PLATypeFill').prop('checked'), 'layer:', _layer);
-        logDev('Total venues in array:', venues.length);
-        if ($('#WMEPH-PLATypeFill').prop('checked')) {
-            try {
-                logDev('Clearing parking lot layer');
-                sdk.Map.removeAllFeaturesFromLayer({ layerName: _layer });
-
-                // Log first venue for debugging
-                if (venues.length > 0) {
-                    logDev(`Sample venue: name=${venues[0].name}, type=${venues[0].type}, hasGeo=${!!venues[0].geometry}`);
-                }
-
-                // Check each venue to see if it's a parking lot by checking getParkingLotType
-                const parkingLotsToAdd = [];
-                venues.forEach(v => {
-                    if (!v || !v.geometry || !v.id) return;
-                    try {
-                        const parkingType = sdk.DataModel.Venues.getParkingLotType({ venueId: v.id });
-                        if (parkingType) {
-                            parkingLotsToAdd.push({ venue: v, parkingType });
-                        }
-                    } catch (e) {
-                        logDev(`Error checking ${v.name}:`, e.message);
-                    }
-                });
-
-                parkingLotsToAdd.forEach(({ venue, parkingType }) => {
-                    try {
-                        const feature = {
-                            type: 'Feature',
-                            id: `parking_${venue.id}`,
-                            geometry: venue.geometry,
-                            properties: {
-                                name: venue.name,
-                                parkingType: parkingType
-                            }
-                        };
-                        sdk.Map.addFeatureToLayer({
-                            layerName: _layer,
-                            feature: feature
-                        });
-                    } catch (err) {
-                        logDev(`Error adding parking lot ${venue.id}:`, err);
-                    }
-                });
-                logDev(`Added ${parkingLotsToAdd.length} parking lot features to highlights layer`);
-                // Also apply filter highlights if they're enabled (without clearing parking lots)
-                if ($('#WMEPH-ShowFilterHighlight').prop('checked')) {
-                    logDev('Also applying filter highlights alongside parking lot fill');
-                    processFilterHighlights(true);
-                }
-            } catch (err) {
-                logDev('Error updating parking lot features:', err);
-            }
-        } else {
-            // If parking lot fill is disabled, clear parking lots and reapply filter highlights if enabled
-            try {
-                logDev('PLATypeFill disabled, clearing parking lot features');
-                sdk.Map.removeAllFeaturesFromLayer({ layerName: _layer });
-                // Reapply filter highlights if they're enabled
-                if ($('#WMEPH-ShowFilterHighlight').prop('checked')) {
-                    logDev('Reapplying filter highlights after disabling parking lot fill');
-                    processFilterHighlights();
-                }
-            } catch (e) {
-                logDev('Error clearing layer:', e);
-            }
-        }
-
         const venue = getSelectedVenue();
         if (venue) {
             venue.wmephSeverity = harmonizePlaceGo(venue, 'highlight');
             _servicesBanner = storedBannServ;
             _buttonBanner2 = storedBannButt2;
         }
-        logDev(`Ran highlighter in ${Math.round((performance.now() - t0) * 10) / 10} milliseconds.`);
-        logDev(`WMEPH cache size: ${Object.keys(_resultsCache).length}`);
     }
 
     // Set up CH loop
     function bootstrapWmephColorHighlights() {
-        console.log('[WMEPH] bootstrapWmephColorHighlights() called, setting up event listeners');
-
         // Listen for venue data changes (when existing venues are modified)
         sdk.Events.on({
             eventName: 'wme-data-model-objects-changed',
-            eventHandler: (e) => {
-                console.log('[WMEPH] wme-data-model-objects-changed fired', e);
+            eventHandler: () => {
                 errorHandler(() => {
-                    logDev('Venue data changed, updating highlights');
-                    // Update color highlights if enabled
-                    if (!_disableHighlightTest && localStorage.getItem('WMEPH-ColorHighlighting') === '1') {
-                        applyHighlightsTest(e, true);
-                        if (_layer) redrawLayer(_layer);
-                    }
-                    // Update parking lot and filter highlights if enabled
-                    if ($('#WMEPH-PLATypeFill').prop('checked')) {
-                        console.log('[WMEPH] PLATypeFill checked, updating parking lots');
-                        updateParkingLotHighlights();
-                        if (_layer) redrawLayer(_layer);
-                    }
-                    if ($('#WMEPH-ShowFilterHighlight').prop('checked')) {
-                        console.log('[WMEPH] ShowFilterHighlight checked, updating filter highlights');
-                        updateFilterHighlights();
-                        if (_layer) redrawLayer(_layer);
+                    if (!_disableHighlightTest) {
+                        refreshAllHighlights();
                     }
                 });
             }
@@ -3193,22 +2814,8 @@
         // Listen for new venues being added
         sdk.Events.on({
             eventName: 'wme-data-model-objects-added',
-            eventHandler: (venues) => {
-                logDev('New venues added, updating highlights');
-                // Update color highlights if enabled
-                if (localStorage.getItem('WMEPH-ColorHighlighting') === '1') {
-                    applyHighlightsTest(venues);
-                    if (_layer) redrawLayer(_layer);
-                }
-                // Update parking lot and filter highlights if enabled
-                if ($('#WMEPH-PLATypeFill').prop('checked')) {
-                    updateParkingLotHighlights();
-                    if (_layer) redrawLayer(_layer);
-                }
-                if ($('#WMEPH-ShowFilterHighlight').prop('checked')) {
-                    updateFilterHighlights();
-                    if (_layer) redrawLayer(_layer);
-                }
+            eventHandler: () => {
+                refreshAllHighlights();
             }
         });
 
@@ -3216,45 +2823,31 @@
         sdk.Events.on({
             eventName: 'wme-data-model-objects-removed',
             eventHandler: () => {
-                logDev('Venues removed, refreshing highlights');
-                // Refresh parking lot highlights if enabled
-                if ($('#WMEPH-PLATypeFill').prop('checked')) {
-                    updateParkingLotHighlights();
-                }
-                // Refresh filter highlights if enabled
-                if ($('#WMEPH-ShowFilterHighlight').prop('checked')) {
-                    updateFilterHighlights();
-                }
+                refreshAllHighlights();
+            }
+        });
+
+        // Listen for map zoom changes to refresh highlights for newly visible venues
+        sdk.Events.on({
+            eventName: 'wme-map-zoom-changed',
+            eventHandler: () => {
+                refreshAllHighlights();
+            }
+        });
+
+        // Listen for map movement to refresh highlights for newly visible venues
+        sdk.Events.on({
+            eventName: 'wme-map-move-end',
+            eventHandler: () => {
+                refreshAllHighlights();
             }
         });
 
         // Clear the cache (highlight severities may need to be updated).
         _resultsCache = {};
 
-        // Handle color highlighting toggle
-        if (localStorage.getItem('WMEPH-ColorHighlighting') === '1') {
-            logDev('Color highlighting enabled, applying color highlights');
-            applyHighlightsTest(sdk.DataModel.Venues.getAll());
-            redrawLayer(_layer);
-        } else {
-            logDev('Color highlighting disabled, clearing color features');
-            // Clear color features by clearing and rebuilding parking/filter highlights
-            try {
-                sdk.Map.removeAllFeaturesFromLayer({ layerName: _layer });
-            } catch (e) {
-                logDev('Error clearing color features:', e);
-            }
-        }
-
-        if ($('#WMEPH-PLATypeFill').prop('checked')) {
-            updateParkingLotHighlights();
-        }
-        if ($('#WMEPH-ShowFilterHighlight').prop('checked')) {
-            updateFilterHighlights();
-        }
-        if (_layer) {
-            redrawLayer(_layer);
-        }
+        // Rebuild all highlights based on current checkbox states
+        refreshAllHighlights();
     }
 
     // Change place.name to title case
@@ -4994,13 +4587,13 @@
             static defaultWLTooltip = 'Whitelist common EV payment types';
 
             get message() {
-                const stationAttr = this.args.venue.categoryAttributes.CHARGING_STATION;
-                const { network } = stationAttr;
+                const network = sdk.DataModel.ChargingStations.getNetwork({ venueId: this.args.venue.id });
                 let msg = `These common payment methods for the ${network} network are missing. Verify if they are needed here:`;
-                this.originalNetwork = stationAttr.network;
+                this.originalNetwork = network;
                 const translations = I18n.translations[I18n.locale].edit.venue.category_attributes.payment_methods;
+                const paymentMethods = sdk.DataModel.ChargingStations.getPaymentMethods({ venueId: this.args.venue.id });
                 const list = COMMON_EV_PAYMENT_METHODS[network]
-                    .filter(method => !stationAttr.paymentMethods?.includes(method))
+                    .filter(method => !paymentMethods?.includes(method))
                     .map(method => `- ${translations[method]}`).join('<br>');
                 msg += `<br>${list}<br>`;
                 return msg;
@@ -5008,9 +4601,15 @@
 
             static venueIsFlaggable(args) {
                 if (args.categories.includes(CAT.CHARGING_STATION) && !this.isWhitelisted(args)) {
-                    const stationAttr = args.venue.categoryAttributes.CHARGING_STATION;
-                    const network = stationAttr?.network;
-                    return !!(COMMON_EV_PAYMENT_METHODS[network]?.some(method => !stationAttr.paymentMethods?.includes(method)));
+                    try {
+                        const network = sdk.DataModel.ChargingStations.getNetwork({ venueId: args.venue.id });
+                        if (!network || !COMMON_EV_PAYMENT_METHODS[network]) return false;
+                        const paymentMethods = sdk.DataModel.ChargingStations.getPaymentMethods({ venueId: args.venue.id });
+                        return !!(COMMON_EV_PAYMENT_METHODS[network]?.some(method => !paymentMethods?.includes(method)));
+                    } catch (e) {
+                        logDev(`AddCommonEVPaymentMethods.venueIsFlaggable error: ${e.message}`);
+                        return false;
+                    }
                 }
                 return false;
             }
@@ -5021,25 +4620,30 @@
                     return;
                 }
 
-                const stationAttr = this.args.venue.categoryAttributes.CHARGING_STATION;
-                const network = stationAttr?.network;
-                if (network !== this.originalNetwork) {
-                    WazeWrap.Alerts.info(SCRIPT_NAME, 'EV charging station network has changed. Please run WMEPH again.', false, false);
-                    return;
+                try {
+                    const network = sdk.DataModel.ChargingStations.getNetwork({ venueId: this.args.venue.id });
+                    if (network !== this.originalNetwork) {
+                        WazeWrap.Alerts.info(SCRIPT_NAME, 'EV charging station network has changed. Please run WMEPH again.', false, false);
+                        return;
+                    }
+
+                    const currentPaymentMethods = sdk.DataModel.ChargingStations.getPaymentMethods({ venueId: this.args.venue.id }) ?? [];
+                    const newPaymentMethods = currentPaymentMethods.slice();
+                    const commonPaymentMethods = COMMON_EV_PAYMENT_METHODS[network];
+                    commonPaymentMethods.forEach(method => {
+                        if (!newPaymentMethods.includes(method)) newPaymentMethods.push(method);
+                    });
+
+                    const categoryAttrClone = JSON.parse(JSON.stringify(this.args.venue.getCategoryAttributes()));
+                    categoryAttrClone.CHARGING_STATION ??= {};
+                    categoryAttrClone.CHARGING_STATION.paymentMethods = newPaymentMethods;
+
+                    UPDATED_FIELDS.evPaymentMethods.updated = true;
+                    addUpdateAction(this.args.venue, { categoryAttributes: categoryAttrClone }, null, true);
+                } catch (e) {
+                    logDev(`AddCommonEVPaymentMethods.action error: ${e.message}`);
+                    WazeWrap.Alerts.error(SCRIPT_NAME, 'Error updating payment methods', false, false);
                 }
-
-                const newPaymentMethods = stationAttr.paymentMethods?.slice() ?? [];
-                const commonPaymentMethods = COMMON_EV_PAYMENT_METHODS[network];
-                commonPaymentMethods.forEach(method => {
-                    if (!newPaymentMethods.includes(method)) newPaymentMethods.push(method);
-                });
-
-                const categoryAttrClone = JSON.parse(JSON.stringify(this.args.venue.getCategoryAttributes()));
-                categoryAttrClone.CHARGING_STATION ??= {};
-                categoryAttrClone.CHARGING_STATION.paymentMethods = newPaymentMethods;
-
-                UPDATED_FIELDS.evPaymentMethods.updated = true;
-                addUpdateAction(this.args.venue, { categoryAttributes: categoryAttrClone }, null, true);
             }
         },
         RemoveUncommonEVPaymentMethods: class extends WLActionFlag {
@@ -5050,52 +4654,66 @@
             static defaultWLTooltip = 'Whitelist uncommon EV payment types';
 
             get message() {
-                const stationAttr = this.args.venue.categoryAttributes.CHARGING_STATION;
-                const { network } = stationAttr;
-                let msg = `These payment methods are uncommon for the ${stationAttr.network} network. Verify if they are needed here:`;
-                // Store a copy of the network to check if it has changed in the action() function
-                this.originalNetwork = stationAttr.network;
-                const translations = I18n.translations[I18n.locale].edit.venue.category_attributes.payment_methods;
-                const list = stationAttr.paymentMethods
-                    ?.filter(method => !COMMON_EV_PAYMENT_METHODS[network]?.includes(method))
-                    .map(method => `- ${translations[method]}`).join('<br>');
-                msg += `<br>${list}<br>`;
-                return msg;
+                try {
+                    const network = sdk.DataModel.ChargingStations.getNetwork({ venueId: this.args.venue.id });
+                    this.originalNetwork = network;
+                    let msg = `These payment methods are uncommon for the ${network} network. Verify if they are needed here:`;
+                    const currentPaymentMethods = sdk.DataModel.ChargingStations.getPaymentMethods({ venueId: this.args.venue.id }) ?? [];
+                    const translations = I18n.translations[I18n.locale].edit.venue.category_attributes.payment_methods;
+                    const list = currentPaymentMethods
+                        ?.filter(method => !COMMON_EV_PAYMENT_METHODS[network]?.includes(method))
+                        .map(method => `- ${translations[method]}`).join('<br>');
+                    msg += `<br>${list}<br>`;
+                    return msg;
+                } catch (e) {
+                    logDev(`RemoveUncommonEVPaymentMethods.message error: ${e.message}`);
+                    return 'Error retrieving payment method information';
+                }
             }
 
             static venueIsFlaggable(args) {
                 if (args.categories.includes(CAT.CHARGING_STATION) && !this.isWhitelisted(args)) {
-                    const stationAttr = args.venue.categoryAttributes.CHARGING_STATION;
-                    const network = stationAttr?.network;
-                    return COMMON_EV_PAYMENT_METHODS.hasOwnProperty(network)
-                        && !!(stationAttr?.paymentMethods?.some(method => !COMMON_EV_PAYMENT_METHODS[network]?.includes(method)));
+                    try {
+                        const network = sdk.DataModel.ChargingStations.getNetwork({ venueId: args.venue.id });
+                        if (!network || !COMMON_EV_PAYMENT_METHODS.hasOwnProperty(network)) return false;
+                        const paymentMethods = sdk.DataModel.ChargingStations.getPaymentMethods({ venueId: args.venue.id });
+                        return !!(paymentMethods?.some(method => !COMMON_EV_PAYMENT_METHODS[network]?.includes(method)));
+                    } catch (e) {
+                        logDev(`RemoveUncommonEVPaymentMethods.venueIsFlaggable error: ${e.message}`);
+                        return false;
+                    }
                 }
                 return false;
             }
 
             action() {
                 if (!this.args.isVenueChargingStation(this.args.venue)) {
-                    WazeWrap.Alerts.info('This is no longer a charging station. Please run WMEPH again.', false, false);
+                    WazeWrap.Alerts.info(SCRIPT_NAME, 'This is no longer a charging station. Please run WMEPH again.', false, false);
                     return;
                 }
 
-                const stationAttr = this.args.venue.categoryAttributes.CHARGING_STATION;
-                const network = stationAttr?.network;
-                if (network !== this.originalNetwork) {
-                    WazeWrap.Alerts.info(SCRIPT_NAME, 'EV charging station network has changed. Please run WMEPH again.', false, false);
-                    return;
+                try {
+                    const network = sdk.DataModel.ChargingStations.getNetwork({ venueId: this.args.venue.id });
+                    if (network !== this.originalNetwork) {
+                        WazeWrap.Alerts.info(SCRIPT_NAME, 'EV charging station network has changed. Please run WMEPH again.', false, false);
+                        return;
+                    }
+
+                    const commonPaymentMethods = COMMON_EV_PAYMENT_METHODS[network];
+                    const currentPaymentMethods = sdk.DataModel.ChargingStations.getPaymentMethods({ venueId: this.args.venue.id }) ?? [];
+                    const newPaymentMethods = currentPaymentMethods.slice()
+                        .filter(method => commonPaymentMethods?.includes(method));
+
+                    const categoryAttrClone = JSON.parse(JSON.stringify(this.args.venue.getCategoryAttributes()));
+                    categoryAttrClone.CHARGING_STATION ??= {};
+                    categoryAttrClone.CHARGING_STATION.paymentMethods = newPaymentMethods;
+
+                    UPDATED_FIELDS.evPaymentMethods.updated = true;
+                    addUpdateAction(this.args.venue, { categoryAttributes: categoryAttrClone }, null, true);
+                } catch (e) {
+                    logDev(`RemoveUncommonEVPaymentMethods.action error: ${e.message}`);
+                    WazeWrap.Alerts.error(SCRIPT_NAME, 'Error updating payment methods', false, false);
                 }
-
-                const commonPaymentMethods = COMMON_EV_PAYMENT_METHODS[network];
-                const newPaymentMethods = (stationAttr.paymentMethods?.slice() ?? [])
-                    .filter(method => commonPaymentMethods?.includes(method));
-
-                const categoryAttrClone = JSON.parse(JSON.stringify(this.args.venue.getCategoryAttributes()));
-                categoryAttrClone.CHARGING_STATION ??= {};
-                categoryAttrClone.CHARGING_STATION.paymentMethods = newPaymentMethods;
-
-                UPDATED_FIELDS.evPaymentMethods.updated = true;
-                addUpdateAction(this.args.venue, { categoryAttributes: categoryAttrClone }, null, true);
             }
         },
         FormatUSPS: class extends FlagBase {
@@ -6285,11 +5903,11 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                 const venue = this.args.venue;
                 const alias = this.args.pnhMatch.optionalAlias;
                 let aliases = insertAtIndex(venue.aliases?.slice() || [], alias, 0);
-                if (this.args.pnhMatch.altName2Desc && !venue.description?.toUpperCase().includes(alias.toUpperCase())) {
+                if (this.args.pnhMatch.altName2Desc && !(venue.description?.toUpperCase?.().includes(alias.toUpperCase()))) {
                     const description = `${alias}\n${venue.description}`;
                     addUpdateAction(venue, { description }, null, false);
                 }
-                aliases = removeUnnecessaryAliases(name, aliases);
+                aliases = removeUnnecessaryAliases(this.args.nameBase, aliases);
                 addUpdateAction(venue, { aliases }, null, true);
             }
         },
@@ -6711,7 +6329,6 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
 
             #processUrl(venue, addr, state2L, venueGPS) {
                 if (this.#isCustom) {
-                    const location = venueGPS;  // venueGPS is already the centroid
                     const houseNumber = venue.houseNumber;
 
                     const urlParts = this.#storeFinderUrl.replace(/ /g, '').split('<>');
@@ -6734,7 +6351,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                     const searchStatePlus = searchState.replace(/ /g, '+');
                     searchState = searchState.replace(/ /g, '%20');
 
-                    if (!venueGPS) venueGPS = webMercatorToWGS84(location.x, location.y);
+                    // venueGPS is already in WGS84; location object already contains correct coordinates
                     this.#storeFinderUrl = '';
                     for (let tlix = 1; tlix < urlParts.length; tlix++) {
                         let part = '';
@@ -7486,7 +7103,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                 // get GPS lat/long coords from place, call as venueGPS.lat, venueGPS.lon
                 if (!args.venueGPS) {
                     const centroidPt = turf.centroid(venue.geometry);
-                    args.venueGPS = webMercatorToWGS84(centroidPt.geometry.coordinates[0], centroidPt.geometry.coordinates[1]);
+                    args.venueGPS = { longitude: centroidPt.geometry.coordinates[0], latitude: centroidPt.geometry.coordinates[1] };
                 }
                 _venueWhitelist[venueID].city = args.addr.city?.name; // Store city for the venue
                 _venueWhitelist[venueID].state = args.addr.state?.name; // Store state for the venue
@@ -7868,7 +7485,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
 
                     // Description update
                     args.description = args.pnhMatch.description;
-                    if (!isNullOrWhitespace(args.description) && !venue.description.toUpperCase().includes(args.description.toUpperCase())) {
+                    if (!isNullOrWhitespace(args.description) && !(venue.description?.toUpperCase?.().includes(args.description.toUpperCase()))) {
                         if (!isNullOrWhitespace(venue.description)) {
                             args.descriptionInserted = true;
                         }
@@ -10043,12 +9660,13 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
     }
 
     function removeUnnecessaryAliases(venueName, aliases) {
+        if (!venueName || !aliases?.length) return aliases || [];
         const newAliases = [];
         let aliasesRemoved = false;
-        venueName = venueName.replace(/['=\\/]/i, '');
+        venueName = String(venueName).replace(/['=\\/]/i, '');
         venueName = venueName.toUpperCase().replace(/'/g, '').replace(/(-|\/ | \/| {2,})/g, ' ');
         for (let naix = 0; naix < aliases.length; naix++) {
-            if (!venueName.startsWith(aliases[naix].toUpperCase().replace(/'/g, '').replace(/(-|\/ | \/| {2,})/g, ' '))) {
+            if (!venueName.startsWith(String(aliases[naix]).toUpperCase().replace(/'/g, '').replace(/(-|\/ | \/| {2,})/g, ' '))) {
                 newAliases.push(aliases[naix]);
             } else {
                 aliasesRemoved = true;
@@ -10419,27 +10037,11 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
         $('#WMEPH-DisableWLHL').click(bootstrapWmephColorHighlights);
         $('#WMEPH-PLATypeFill').click(() => {
             saveSettingToLocalStorage('WMEPH-PLATypeFill');
-            const parkingEnabled = $('#WMEPH-PLATypeFill').prop('checked');
-            const filterEnabled = $('#WMEPH-ShowFilterHighlight').prop('checked');
-
-            if (parkingEnabled || filterEnabled) {
-                applyHighlightsTest(sdk.DataModel.Venues.getAll());
-            } else {
-                clearFilterHighlights();
-            }
+            refreshAllHighlights();
         });
         $('#WMEPH-ShowFilterHighlight').click(() => {
             saveSettingToLocalStorage('WMEPH-ShowFilterHighlight');
-            const filterEnabled = $('#WMEPH-ShowFilterHighlight').prop('checked');
-            const parkingEnabled = $('#WMEPH-PLATypeFill').prop('checked');
-
-            if (filterEnabled || parkingEnabled) {
-                // If either is enabled, use applyHighlightsTest to combine both
-                applyHighlightsTest(sdk.DataModel.Venues.getAll());
-            } else {
-                // Both disabled, clear everything
-                clearFilterHighlights();
-            }
+            refreshAllHighlights();
         });
 
         _initAlreadyRun = true;
@@ -10816,7 +10418,6 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
         try {
             sdk.Map.addLayer({
                 layerName: _layer,
-                displayInLayerSwitcher: true,
                 zIndexing: true,
                 styleContext: {
                     getColor: ({ feature }) => {
@@ -10827,12 +10428,15 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                         // Color severity mapping
                         const severity = feature?.properties?.wmephSeverity;
                         const severityColorMap = {
-                            '0': '#00CC00',  // GREEN - complete
-                            '1': '#0000FF',  // BLUE - minor issues
-                            '2': '#FFFF00',  // YELLOW - moderate issues
-                            '3': '#FF0000',  // RED - major issues
-                            '5': '#FF1493',  // PINK - extreme issues
-                            '6': '#FFA500'   // ORANGE - other issues
+                            0: '#00CC00',      // GREEN - complete
+                            1: '#0000FF',      // BLUE - minor issues
+                            2: '#FFFF00',      // YELLOW - moderate issues
+                            3: '#FF0000',      // RED - major issues
+                            5: '#FF1493',      // PINK - extreme issues
+                            6: '#FFA500',      // ORANGE - other issues
+                            'lock': '#8B008B', // DARK MAGENTA - locked (GREEN + hlLockFlag)
+                            'lock1': '#FF69B4', // HOT PINK - lock issue (BLUE + hlLockFlag)
+                            'adLock': '#FFD700' // GOLD - ad-locked
                         };
                         if (severity !== undefined && severity !== 'default') {
                             return severityColorMap[severity] || '#CCCCCC';
@@ -10845,50 +10449,66 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                             PRIVATE: '#FF0000'     // red
                         };
                         return colorMap[parkingType] || '#CCCCCC';
+                    },
+                    getPointRadius: ({ zoomLevel }) => {
+                        return zoomLevel > 17 ? 15 : 10;
                     }
                 },
                 styleRules: [
                     {
-                        predicate: (props) => props.wmephHighlight === '1',
+                        predicate: (props, zoomLevel) => props.wmephHighlight === '1',
                         style: {
-                            pointRadius: 10,
-                            strokeWidth: 10,
+                            pointRadius: '${getPointRadius}',
+                            fillOpacity: 0,
+                            strokeWidth: 5,
                             strokeColor: '#F0F',
-                            strokeOpacity: 0.7,
-                            fillOpacity: 0
+                            strokeOpacity: 0.6
                         }
                     },
                     {
-                        predicate: (props) => props.wmephSeverity !== undefined && props.wmephSeverity !== 'default',
+                        predicate: (props, zoomLevel) => props.wmephHighlight !== '1' && (props.wmephSeverity === 'lock' || props.wmephSeverity === 'lock1' || props.wmephSeverity === 'adLock'),
                         style: {
+                            pointRadius: '${getPointRadius}',
                             fillColor: '${getColor}',
-                            fillOpacity: 0.4,
+                            fillOpacity: 0.5,
                             strokeColor: '${getColor}',
-                            strokeWidth: 3,
-                            strokeOpacity: 0.8
+                            strokeWidth: 5,
+                            strokeOpacity: 0.6,
+                            strokeDashstyle: 'dash'
                         }
                     },
                     {
+                        predicate: (props, zoomLevel) => props.wmephHighlight !== '1' && props.wmephSeverity !== undefined && props.wmephSeverity > 0,
                         style: {
+                            pointRadius: '${getPointRadius}',
                             fillColor: '${getColor}',
-                            fillOpacity: 0.3,
+                            fillOpacity: 0.5,
                             strokeColor: '${getColor}',
-                            strokeWidth: 2,
+                            strokeWidth: 5,
+                            strokeOpacity: 0.6
+                        }
+                    },
+                    {
+                        predicate: (props, zoomLevel) => props.wmephHighlight !== '1' && props.parkingType !== undefined,
+                        style: {
+                            pointRadius: '${getPointRadius}',
+                            fillColor: '${getColor}',
+                            fillOpacity: 0.5,
+                            strokeColor: '${getColor}',
+                            strokeWidth: 5,
                             strokeOpacity: 0.6
                         }
                     }
                 ]
             });
-            logDev('Created wmeph_highlights layer');
         } catch (e) {
-            logDev('wmeph_highlights layer already exists or could not be created:', e);
+            logDev('wmeph_highlights layer error:', e);
         }
 
         // Create layer for Google place links visualization
         try {
             sdk.Map.addLayer({
                 layerName: 'wmeph_google_link',
-                displayInLayerSwitcher: true,
                 styleRules: [
                     {
                         predicate: (props) => props.poiCoord === true,
@@ -10915,9 +10535,8 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                     }
                 ]
             });
-            logDev('Created wmeph_google_link layer');
         } catch (e) {
-            logDev('wmeph_google_link layer already exists or could not be created:', e);
+            logDev('wmeph_google_link layer error:', e);
         }
 
         // Add CSS stuff here
@@ -10951,7 +10570,6 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
 
         // Use SDK layer for duplicate place names (created during initialization)
         _dupeLayer = 'wmeph_dupe_labels';
-        logDev('Using wmeph_dupe_labels layer for duplicate detection');
 
         // Create the dupe labels layer if it doesn't exist
         try {
@@ -10961,7 +10579,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                 zIndexing: true
             });
         } catch (e) {
-            logDev('Note: wmeph_dupe_labels layer creation error (may already exist):', e.message);
+            logDev('wmeph_dupe_labels layer error:', e.message);
         }
 
         if (localStorage.getItem('WMEPH-featuresExamined') === null) {
@@ -11123,13 +10741,9 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
         // Set up Run WMEPH button once place is selected
         updateWmephPanel();
 
-        // Setup highlight colors
-        initializeHighlights();
-
         sdk.Events.on({
             eventName: 'wme-data-model-objects-changed',
             eventHandler: () => {
-                console.log('[WMEPH] Banner listener: data model changed');
                 errorHandler(() => {
                     if ($('#WMEPH_banner').length > 0) {
                         updateServicesChecks();
@@ -11140,17 +10754,15 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
         });
 
         log('Starting Highlighter');
-        console.log('[WMEPH] About to call bootstrapWmephColorHighlights()');
 
         // CRITICAL: Activate data model event tracking before setting up listeners
-        console.log('[WMEPH] Activating venue data model event tracking');
         sdk.Events.trackDataModelEvents({ dataModelName: 'venues' });
 
         bootstrapWmephColorHighlights();
 
         // Apply initial filter highlights
         if ($('#WMEPH-ShowFilterHighlight').prop('checked')) {
-            processFilterHighlights();
+            updateFilterHighlights();
         }
     } // END placeHarmonizer_init function
 
@@ -11181,15 +10793,36 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
         await placeHarmonizerInit();
     }
 
-    function clearFilterHighlights() {
+    function refreshAllHighlights() {
+        // Clear layer once
         try {
-            sdk.Map.removeAllFeaturesFromLayer({ layerName: 'wmeph_highlights' });
+            sdk.Map.removeAllFeaturesFromLayer({ layerName: _layer });
         } catch (e) {
-            logDev('clearFilterHighlights: Error clearing layer', e);
+            logDev('Error clearing highlights layer:', e);
+        }
+
+        // Rebuild all enabled highlight types
+        const colorHighlightingEnabled = localStorage.getItem('WMEPH-ColorHighlighting') === '1';
+        const parkingLotHighlightingEnabled = $('#WMEPH-PLATypeFill').prop('checked');
+        const filterHighlightingEnabled = $('#WMEPH-ShowFilterHighlight').prop('checked');
+
+        if (colorHighlightingEnabled) {
+            applyHighlightsTest(sdk.DataModel.Venues.getAll());
+        }
+        if (parkingLotHighlightingEnabled) {
+            updateParkingLotHighlights(true); // Pass true to skip internal clear
+        }
+        if (filterHighlightingEnabled) {
+            updateFilterHighlights(true); // Pass true to skip internal clear
+        }
+
+        // Redraw once after all updates
+        if (_layer) {
+            redrawLayer(_layer);
         }
     }
 
-    function updateParkingLotHighlights() {
+    function updateParkingLotHighlights(skipClear = false) {
         if (!$('#WMEPH-PLATypeFill').prop('checked')) {
             return;
         }
@@ -11210,13 +10843,15 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                 }
             });
 
-            // Remove old parking lot features before adding new ones
-            try {
-                // We need to identify and remove parking lot features
-                // For now, we'll clear and rebuild both parking + filter
-                sdk.Map.removeAllFeaturesFromLayer({ layerName: 'wmeph_highlights' });
-            } catch (e) {
-                logDev('Error clearing highlights layer:', e);
+            // Remove old parking lot features before adding new ones (unless skipClear from refreshAllHighlights)
+            if (!skipClear) {
+                try {
+                    // We need to identify and remove parking lot features
+                    // For now, we'll clear and rebuild both parking + filter
+                    sdk.Map.removeAllFeaturesFromLayer({ layerName: 'wmeph_highlights' });
+                } catch (e) {
+                    logDev('Error clearing highlights layer:', e);
+                }
             }
 
             parkingLotsToAdd.forEach(({ venue, parkingType }) => {
@@ -11240,18 +10875,16 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                 }
             });
 
-            logDev(`Updated ${parkingLotsToAdd.length} parking lot features`);
-
             // Reapply filter highlights on top if enabled
             if ($('#WMEPH-ShowFilterHighlight').prop('checked')) {
-                processFilterHighlights(true);
+                updateFilterHighlights(true);
             }
         } catch (err) {
             logDev('Error updating parking lot highlights:', err);
         }
     }
 
-    function updateFilterHighlights() {
+    function updateFilterHighlights(skipClear = false) {
         if (!$('#WMEPH-ShowFilterHighlight').prop('checked')) {
             return;
         }
@@ -11289,52 +10922,8 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                     feature: feature
                 });
             });
-
-            logDev(`Updated ${featuresToAdd.length} filter highlights`);
         } catch (e) {
-            console.error('updateFilterHighlights: Error', e);
-        }
-    }
-
-    function processFilterHighlights(skipClear = false) {
-        // For backward compatibility, call the update function
-        if (!skipClear) {
-            updateFilterHighlights();
-        } else {
-            // If skipClear is true, we're adding to parking lots
-            // Just add the filter highlights without clearing
-            if (!$('#WMEPH-ShowFilterHighlight').prop('checked')) {
-                return;
-            }
-
-            try {
-                const venues = sdk.DataModel.Venues.getAll();
-                venues.forEach(v => {
-                    if (v.services?.includes('PARKING_FOR_CUSTOMERS')
-                        || v.categories?.some(cat => CATS_TO_IGNORE_CUSTOMER_PARKING_HIGHLIGHT.includes(cat))) {
-                        return;
-                    }
-
-                    const feature = {
-                        type: 'Feature',
-                        id: `filter_highlight_${v.id}`,
-                        geometry: v.geometry,
-                        properties: {
-                            wmephHighlight: '1',
-                            venueId: v.id,
-                            isPoint: v.geometry?.type === 'Point',
-                            highlightType: 'filter'
-                        }
-                    };
-                    sdk.Map.addFeatureToLayer({
-                        layerName: 'wmeph_highlights',
-                        feature: feature
-                    });
-                });
-                logDev(`Added filter highlights on top of parking lots`);
-            } catch (e) {
-                console.error('processFilterHighlights (skipClear): Error', e);
-            }
+            logDev('Error updating filter highlights:', e);
         }
     }
 
