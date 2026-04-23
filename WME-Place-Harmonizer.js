@@ -3606,11 +3606,15 @@
             static defaultButtonTooltip = 'Add EVCS alternate name';
 
             static venueIsFlaggable(args) {
-                const evcsAttr = args.venue.categoryAttributes?.CHARGING_STATION;
-                return evcsAttr && args.categories.includes(CAT.CHARGING_STATION)
-                    && !args.aliases.some(alias => alias.toLowerCase() === 'ev charging station')
-                    && evcsAttr.accessType !== 'PRIVATE'
-                    && !args.venue.name.toLowerCase().includes('(private)');
+                if (!args.categories.includes(CAT.CHARGING_STATION)) return false;
+                if (args.aliases.some(alias => alias.toLowerCase() === 'ev charging station')) return false;
+                if (args.venue.name.toLowerCase().includes('(private)')) return false;
+                try {
+                    const accessType = sdk.DataModel.Venues.ChargingStation.getChargersAccessType({ venueId: args.venue.id });
+                    return accessType !== 'PRIVATE';
+                } catch {
+                    return false;
+                }
             }
 
             action() {
@@ -3649,9 +3653,13 @@
             }
 
             static venueIsFlaggable(args) {
-                const evcsAttr = args.venue.categoryAttributes?.CHARGING_STATION;
-                return args.categories.includes(CAT.CHARGING_STATION)
-                    && (!evcsAttr?.costType || evcsAttr.costType === 'COST_TYPE_UNSPECIFIED');
+                if (!args.categories.includes(CAT.CHARGING_STATION)) return false;
+                try {
+                    const costType = sdk.DataModel.Venues.ChargingStation.getCostType({ venueId: args.venue.id });
+                    return !costType || costType === 'COST_TYPE_UNSPECIFIED';
+                } catch {
+                    return false;
+                }
             }
 
             postProcess() {
