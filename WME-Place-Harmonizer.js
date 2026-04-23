@@ -9190,6 +9190,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
         _dupeIDList = [selectedVenueId];
         _dupeHNRangeList = [];
         _dupeHNRangeDistList = [];
+        const centroidFeatures = []; // Collect centroids for turf.bbox()
 
         const selectedVenueWL = _venueWhitelist[selectedVenueId];
         const whitelistedDupes = selectedVenueWL && selectedVenueWL.dupeWL ? selectedVenueWL.dupeWL : [];
@@ -9306,10 +9307,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                                 outOfExtent = true;
                             }
 
-                            minLat = Math.min(minLat, testCentroid[1]);
-                            minLon = Math.min(minLon, testCentroid[0]);
-                            maxLat = Math.max(maxLat, testCentroid[1]);
-                            maxLon = Math.max(maxLon, testCentroid[0]);
+                            centroidFeatures.push(turf.point(testCentroid));
 
                             dupeNames.push(labelText);
 
@@ -9344,10 +9342,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                 || selectedCentroid[1] < paddedBottom || selectedCentroid[1] > paddedTop) {
                 outOfExtent = true;
             }
-            minLat = Math.min(minLat, selectedCentroid[1]);
-            minLon = Math.min(minLon, selectedCentroid[0]);
-            maxLat = Math.max(maxLat, selectedCentroid[1]);
-            maxLon = Math.max(maxLon, selectedCentroid[0]);
+            centroidFeatures.push(turf.point(selectedCentroid));
 
             // Add Point feature for the selected venue (primary place)
             try {
@@ -9371,17 +9366,19 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
             }
         }
 
-        if (recenterOption && dupeNames.length > 0 && outOfExtent) {
+        if (recenterOption && dupeNames.length > 0 && outOfExtent && centroidFeatures.length > 0) {
+            const bbox = turf.bbox(turf.featureCollection(centroidFeatures));
+            const [minLon, minLat, maxLon, maxLat] = bbox;
             const padMult = 1.0;
-            const newBbox = {
+            const paddedBbox = {
                 west: minLon - (padFrac * padMult) * (maxLon - minLon),
                 east: maxLon + (padFrac * padMult) * (maxLon - minLon),
                 south: minLat - (padFrac * padMult) * (maxLat - minLat),
                 north: maxLat + (padFrac * padMult) * (maxLat - minLat)
             };
-            const centerLon = (newBbox.west + newBbox.east) / 2;
-            const centerLat = (newBbox.south + newBbox.north) / 2;
-            const diagonalKm = turf.distance([newBbox.west, newBbox.south], [newBbox.east, newBbox.north]);
+            const centerLon = (paddedBbox.west + paddedBbox.east) / 2;
+            const centerLat = (paddedBbox.south + paddedBbox.north) / 2;
+            const diagonalKm = turf.distance([paddedBbox.west, paddedBbox.south], [paddedBbox.east, paddedBbox.north]);
             const zoomLevel = Math.max(3, Math.min(20, Math.floor(23 - Math.log2(diagonalKm))));
 
             sdk.Map.setMapCenter({
