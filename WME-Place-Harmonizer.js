@@ -7936,7 +7936,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
         // Run nearby duplicate place finder function
         if (name.replace(/[^A-Za-z0-9]/g, '').length > 0 && !venue.residential && !isEmergencyRoom(venue) && !isRestArea(venue)) {
             // don't zoom and pan for results outside of FOV
-            let duplicateName = findNearbyDuplicate(name, aliases, venue, !$('#WMEPH-DisableDFZoom').prop('checked'));
+            let duplicateName = findNearbyDuplicate(name, aliases, venue);
             if (duplicateName[1]) {
                 new Flag.Overlapping();
             }
@@ -9115,25 +9115,11 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
         'BUILDING', 'LOT', ...COLLEGE_ABBREVIATIONS];
 
     // Duplicate place finder  ###bmtg
-    function findNearbyDuplicate(selectedVenueName, selectedVenueAliases, selectedVenue, recenterOption) {
+    function findNearbyDuplicate(selectedVenueName, selectedVenueAliases, selectedVenue) {
         const formatName = name => name.toUpperCase().replace(/ AND /g, '').replace(/^THE /g, '').replace(/[^A-Z0-9]/g, '');
 
-        const bbox = getMapBoundingBox();
-        if (!bbox) {
-            logDev('findNearbyDuplicate: Unable to get map extent');
-            return [[], false];
-        }
-
-        const padFrac = 0.15;
         const allowedTwoLetters = ['BP', 'DQ', 'BK', 'BW', 'LQ', 'QT', 'DB', 'PO'];
 
-        const [origLeft, origBottom, origRight, origTop] = bbox;
-        const paddedLeft = origLeft + padFrac * (origRight - origLeft);
-        const paddedRight = origRight - padFrac * (origRight - origLeft);
-        const paddedBottom = origBottom + padFrac * (origTop - origBottom);
-        const paddedTop = origTop - padFrac * (origTop - origBottom);
-
-        let outOfExtent = false;
         let overlappingFlag = false;
 
         const selectedCentroid = getVenueCentroid(selectedVenue);
@@ -9190,7 +9176,6 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
         _dupeIDList = [selectedVenueId];
         _dupeHNRangeList = [];
         _dupeHNRangeDistList = [];
-        const centroidFeatures = []; // Collect centroids for turf.bbox()
 
         const selectedVenueWL = _venueWhitelist[selectedVenueId];
         const whitelistedDupes = selectedVenueWL && selectedVenueWL.dupeWL ? selectedVenueWL.dupeWL : [];
@@ -9302,13 +9287,6 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                             const labelText = nameMatch ? testVenue.name : `${testVenue.aliases[altNameMatch]} (Alt)`;
                             logDev(`Possible duplicate found. WME place: ${selectedVenueName} / Nearby place: ${labelText}`);
 
-                            if (testCentroid[0] < paddedLeft || testCentroid[0] > paddedRight
-                                || testCentroid[1] < paddedBottom || testCentroid[1] > paddedTop) {
-                                outOfExtent = true;
-                            }
-
-                            centroidFeatures.push(turf.point(testCentroid));
-
                             dupeNames.push(labelText);
 
                             // Add Point feature to dupe labels layer
@@ -9338,12 +9316,6 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
         });
 
         if (_dupeIDList.length > 1) {
-            if (selectedCentroid[0] < paddedLeft || selectedCentroid[0] > paddedRight
-                || selectedCentroid[1] < paddedBottom || selectedCentroid[1] > paddedTop) {
-                outOfExtent = true;
-            }
-            centroidFeatures.push(turf.point(selectedCentroid));
-
             // Add Point feature for the selected venue (primary place)
             try {
                 const selectedFeature = {
@@ -9364,27 +9336,6 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
             } catch (e) {
                 logDev('Error adding selected venue feature to layer:', e);
             }
-        }
-
-        if (recenterOption && dupeNames.length > 0 && outOfExtent && centroidFeatures.length > 0) {
-            const bbox = turf.bbox(turf.featureCollection(centroidFeatures));
-            const [minLon, minLat, maxLon, maxLat] = bbox;
-            const padMult = 1.0;
-            const paddedBbox = {
-                west: minLon - (padFrac * padMult) * (maxLon - minLon),
-                east: maxLon + (padFrac * padMult) * (maxLon - minLon),
-                south: minLat - (padFrac * padMult) * (maxLat - minLat),
-                north: maxLat + (padFrac * padMult) * (maxLat - minLat)
-            };
-            const centerLon = (paddedBbox.west + paddedBbox.east) / 2;
-            const centerLat = (paddedBbox.south + paddedBbox.north) / 2;
-            const diagonalKm = turf.distance([paddedBbox.west, paddedBbox.south], [paddedBbox.east, paddedBbox.north]);
-            const zoomLevel = Math.max(3, Math.min(20, Math.floor(23 - Math.log2(diagonalKm))));
-
-            sdk.Map.setMapCenter({
-                lonLat: { longitude: centerLon, latitude: centerLat },
-                zoomLevel: zoomLevel
-            });
         }
 
         return [dupeNames, overlappingFlag];
@@ -10012,7 +9963,6 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
         // Initialize settings checkboxes
         multicall(initSettingsCheckbox, [
             'WMEPH-WebSearchNewTab',
-            'WMEPH-DisableDFZoom',
             'WMEPH-EnableIAZoom',
             'WMEPH-HidePlacesWiki',
             'WMEPH-HideReportError',
@@ -10112,7 +10062,6 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
 
         // Harmonizer settings
         createSettingsCheckbox($harmonizerTab, 'WMEPH-WebSearchNewTab', 'Open URL & Search Results in new tab instead of new window');
-        createSettingsCheckbox($harmonizerTab, 'WMEPH-DisableDFZoom', 'Disable zoom & center for duplicates');
         createSettingsCheckbox($harmonizerTab, 'WMEPH-EnableIAZoom', 'Enable zoom & center for places with no address');
         createSettingsCheckbox($harmonizerTab, 'WMEPH-HidePlacesWiki', 'Hide "Places Wiki" button in results banner');
         createSettingsCheckbox($harmonizerTab, 'WMEPH-HideReportError', 'Hide "Report script error" button in results banner');
