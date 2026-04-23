@@ -3345,14 +3345,22 @@
             }
 
             static venueIsFlaggable(args) {
-                return args.categories.includes(CAT.PARKING_LOT)
-                    && args.venue.categoryAttributes?.PARKING_LOT?.parkingType === 'PUBLIC';
+                if (!args.categories.includes(CAT.PARKING_LOT)) return false;
+                try {
+                    const parkingType = sdk.DataModel.Venues.ParkingLot.getParkingLotType({ venueId: args.venue.id });
+                    return parkingType === 'PUBLIC';
+                } catch {
+                    return false;
+                }
             }
 
             postProcess() {
                 $('.wmeph-pla-lot-type-btn').click(evt => {
                     const lotType = $(evt.currentTarget).data('lot-type');
-                    const categoryAttrClone = JSON.parse(JSON.stringify(this.args.venue.categoryAttributes));
+                    const categoryAttrClone = this.args.venue.categoryAttributes
+                        ? JSON.parse(JSON.stringify(this.args.venue.categoryAttributes))
+                        : {};
+                    categoryAttrClone.PARKING_LOT = categoryAttrClone.PARKING_LOT ?? {};
                     categoryAttrClone.PARKING_LOT.parkingType = lotType;
                     UPDATED_FIELDS.lotType.updated = true;
                     addUpdateAction(this.args.venue, { categoryAttributes: categoryAttrClone }, null, true);
@@ -5616,20 +5624,21 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
             }
 
             static venueIsFlaggable(args) {
-                if (args.categories.includes(CAT.PARKING_LOT)) {
-                    const catAttr = args.venue.categoryAttributes;
-                    const parkAttr = catAttr ? catAttr.PARKING_LOT : undefined;
-                    if (!parkAttr || !parkAttr.parkingType) {
-                        return true;
-                    }
+                if (!args.categories.includes(CAT.PARKING_LOT)) return false;
+                try {
+                    const parkingType = sdk.DataModel.Venues.ParkingLot.getParkingLotType({ venueId: args.venue.id });
+                    return !parkingType;
+                } catch {
+                    return true;
                 }
-                return false;
             }
 
             postProcess() {
                 $('.wmeph-pla-lot-type-btn').click(evt => {
                     const lotType = $(evt.currentTarget).data('lot-type');
-                    const categoryAttrClone = JSON.parse(JSON.stringify(this.args.venue.categoryAttributes));
+                    const categoryAttrClone = this.args.venue.categoryAttributes
+                        ? JSON.parse(JSON.stringify(this.args.venue.categoryAttributes))
+                        : {};
                     categoryAttrClone.PARKING_LOT = categoryAttrClone.PARKING_LOT ?? {};
                     categoryAttrClone.PARKING_LOT.parkingType = lotType;
                     UPDATED_FIELDS.lotType.updated = true;
@@ -5657,9 +5666,13 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
             }
 
             static venueIsFlaggable(args) {
-                const parkingAttr = args.venue.categoryAttributes?.PARKING_LOT;
-                return args.categories.includes(CAT.PARKING_LOT)
-                    && (!parkingAttr?.costType || parkingAttr.costType === 'UNKNOWN');
+                if (!args.categories.includes(CAT.PARKING_LOT)) return false;
+                try {
+                    const costType = sdk.DataModel.Venues.ParkingLot.getCostType({ venueId: args.venue.id });
+                    return !costType || costType === 'UNKNOWN';
+                } catch {
+                    return false;
+                }
             }
 
             postProcess() {
@@ -5709,18 +5722,19 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
             noLock = true;
 
             static venueIsFlaggable(args) {
-                if (args.categories.includes(CAT.PARKING_LOT)) {
-                    const catAttr = args.venue.categoryAttributes;
-                    const parkAttr = catAttr ? catAttr.PARKING_LOT : undefined;
-                    if (!parkAttr || !parkAttr.lotType || parkAttr.lotType.length === 0) {
-                        return true;
-                    }
+                if (!args.categories.includes(CAT.PARKING_LOT)) return false;
+                try {
+                    const lotTypes = sdk.DataModel.Venues.ParkingLot.getLotTypes({ venueId: args.venue.id });
+                    return !lotTypes || lotTypes.length === 0;
+                } catch {
+                    return false;
                 }
-                return false;
             }
 
             action() {
-                const attrClone = JSON.parse(JSON.stringify(this.args.venue.categoryAttributes));
+                const attrClone = this.args.venue.categoryAttributes
+                    ? JSON.parse(JSON.stringify(this.args.venue.categoryAttributes))
+                    : {};
                 attrClone.PARKING_LOT = attrClone.PARKING_LOT ?? {};
                 attrClone.PARKING_LOT.lotType = ['STREET_LEVEL'];
                 addUpdateAction(this.args.venue, { categoryAttributes: attrClone }, null, true);
@@ -5755,14 +5769,13 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
             }
 
             static venueIsFlaggable(args) {
-                if (!args.highlightOnly && args.categories.includes(CAT.PARKING_LOT)) {
-                    const catAttr = args.venue.categoryAttributes;
-                    const parkAttr = catAttr ? catAttr.PARKING_LOT : undefined;
-                    if (!parkAttr || !parkAttr.estimatedNumberOfSpots || parkAttr.estimatedNumberOfSpots === 'R_1_TO_10') {
-                        return true;
-                    }
+                if (args.highlightOnly || !args.categories.includes(CAT.PARKING_LOT)) return false;
+                try {
+                    const spotEstimate = sdk.DataModel.Venues.ParkingLot.getEstimatedNumberOfSpots({ venueId: args.venue.id });
+                    return !spotEstimate || spotEstimate === 'R_1_TO_10';
+                } catch {
+                    return false;
                 }
-                return false;
             }
         },
         NoPlaStopPoint: class extends ActionFlag {
@@ -5772,8 +5785,13 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
             static defaultButtonTooltip = 'Add an entry/exit point';
 
             static venueIsFlaggable(args) {
-                return args.categories.includes(CAT.PARKING_LOT)
-                    && !args.venue.entryExitPoints?.length;
+                if (!args.categories.includes(CAT.PARKING_LOT)) return false;
+                try {
+                    const fullVenue = sdk.DataModel.Venues.getById({ venueId: args.venue.id });
+                    return !fullVenue?.navigationPoints?.length;
+                } catch {
+                    return false;
+                }
             }
 
             action() {
@@ -5786,12 +5804,16 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
             static defaultMessage = 'Entry/exit point has not been moved.';
 
             static venueIsFlaggable(args) {
-                if (isVenueParkingLot(args.venue) && args.venue.entryExitPoints?.length) {
-                    const stopPoint = args.venue.entryExitPoints[0].coordinates;
+                if (!isVenueParkingLot(args.venue)) return false;
+                try {
+                    const fullVenue = sdk.DataModel.Venues.getById({ venueId: args.venue.id });
+                    if (!fullVenue?.navigationPoints?.length) return false;
+                    const stopPoint = fullVenue.navigationPoints[0].point.coordinates;
                     const areaCenter = turf.centroid(args.venue.geometry).geometry.coordinates;
                     return stopPoint[0] === areaCenter[0] && stopPoint[1] === areaCenter[1];
+                } catch {
+                    return false;
                 }
-                return false;
             }
         },
         PlaCanExitWhileClosed: class extends ActionFlag {
@@ -5799,14 +5821,20 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
             static defaultButtonText = 'Yes';
 
             static venueIsFlaggable(args) {
-                return !args.highlightOnly
-                    && args.categories.includes(CAT.PARKING_LOT)
-                    && !args.venue.categoryAttributes?.PARKING_LOT?.canExitWhileClosed
-                    && ($('#WMEPH-ShowPLAExitWhileClosed').prop('checked') || !(args.openingHours.length === 0 || is247Hours(args.openingHours)));
+                if (args.highlightOnly || !args.categories.includes(CAT.PARKING_LOT)) return false;
+                if (!($('#WMEPH-ShowPLAExitWhileClosed').prop('checked') || !(args.openingHours.length === 0 || is247Hours(args.openingHours)))) return false;
+                try {
+                    const canExit = sdk.DataModel.Venues.ParkingLot.canExitWhileClosed({ venueId: args.venue.id });
+                    return !canExit;
+                } catch {
+                    return false;
+                }
             }
 
             action() {
-                const attrClone = JSON.parse(JSON.stringify(this.args.venue.categoryAttributes));
+                const attrClone = this.args.venue.categoryAttributes
+                    ? JSON.parse(JSON.stringify(this.args.venue.categoryAttributes))
+                    : {};
                 attrClone.PARKING_LOT = attrClone.PARKING_LOT ?? {};
                 attrClone.PARKING_LOT.canExitWhileClosed = true;
                 addUpdateAction(this.args.venue, { categoryAttributes: attrClone }, null, true);
@@ -5817,9 +5845,13 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
             static defaultButtonText = 'Yes';
 
             static venueIsFlaggable(args) {
-                return !args.highlightOnly
-                    && args.categories.includes(CAT.PARKING_LOT)
-                    && !(args.venue.services?.includes('DISABILITY_PARKING'));
+                if (args.highlightOnly || !args.categories.includes(CAT.PARKING_LOT)) return false;
+                try {
+                    const fullVenue = sdk.DataModel.Venues.getById({ venueId: args.venue.id });
+                    return !(fullVenue?.services?.includes('DISABILITY_PARKING'));
+                } catch {
+                    return !(args.venue.services?.includes('DISABILITY_PARKING'));
+                }
             }
 
             action() {
@@ -7567,7 +7599,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
 
                     // Update aliases
                     const tempAliases = removeUnnecessaryAliases(args.nameBase, args.aliases);
-                    if (tempAliases) {
+                    if (tempAliases !== null) {
                         args.aliasesRemoved = true;
                         args.aliases = tempAliases;
                         logDev('Alt Names updated');
@@ -8184,18 +8216,16 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
         $('.wmeph-pla-spaces-btn').click(evt => {
             const selectedVenue = getSelectedVenue();
             const selectedValue = $(evt.currentTarget).attr('id').replace('wmeph_', '');
-            const existingAttr = selectedVenue.categoryAttributes?.PARKING_LOT;
-            const newAttr = {};
-            if (existingAttr) {
-                Object.keys(existingAttr).forEach(prop => {
-                    let value = existingAttr[prop];
-                    if (Array.isArray(value)) value = [].concat(value);
-                    newAttr[prop] = value;
+            try {
+                sdk.DataModel.Venues.ParkingLot.setEstimatedNumberOfSpots({
+                    venueId: selectedVenue.id,
+                    estimatedNumberOfSpots: selectedValue
                 });
+                UPDATED_FIELDS.parkingSpots.updated = true;
+                addUpdateAction(selectedVenue, {}, null, true);
+            } catch (err) {
+                console.error('Failed to set parking lot spots:', err);
             }
-            newAttr.estimatedNumberOfSpots = selectedValue;
-            UPDATED_FIELDS.parkingSpots.updated = true;
-            addUpdateAction(selectedVenue, { categoryAttributes: { PARKING_LOT: newAttr } }, null, true);
         });
 
         // Format "no hours" section and hook up button events.
@@ -9653,7 +9683,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
     }
 
     function removeUnnecessaryAliases(venueName, aliases) {
-        if (!venueName || !aliases?.length) return aliases || [];
+        if (!venueName || !aliases?.length) return null;
         const newAliases = [];
         let aliasesRemoved = false;
         venueName = String(venueName).replace(/['=\\/]/i, '');
@@ -10842,7 +10872,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
             venues.forEach(v => {
                 if (!v || !v.geometry || !v.id) return;
                 try {
-                    const parkingType = sdk.DataModel.Venues.getParkingLotType({ venueId: v.id });
+                    const parkingType = sdk.DataModel.Venues.ParkingLot.getParkingLotType({ venueId: v.id });
                     if (parkingType) {
                         parkingLotsToAdd.push({ venue: v, parkingType });
                     }
