@@ -8888,6 +8888,8 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
         if (!venue) {
             $('#wmeph-panel').remove();
             $('#wmeph-pre-panel').remove();
+            destroyDupeLabels(); // Clear dupe labels when no place is selected
+            _dupeIDList = []; // Reset dupe list
             return;
         }
 
@@ -8900,6 +8902,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
             $('#WMEPH_services').remove();
             $('#WMEPH_tools').remove();
             $('#wmeph-pre-panel').remove();
+            destroyDupeLabels(); // Clear dupe labels when banner is cleared
         }
 
         let $wmephPanel;
@@ -9309,6 +9312,27 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                             maxLon = Math.max(maxLon, testCentroid[0]);
 
                             dupeNames.push(labelText);
+
+                            // Add Point feature to dupe labels layer
+                            try {
+                                const dupeFeature = {
+                                    id: `dupe_${testVenue.id}`,
+                                    type: 'Feature',
+                                    geometry: { type: 'Point', coordinates: testCentroid },
+                                    properties: {
+                                        label: labelText || 'Unknown',
+                                        venueId: testVenue.id,
+                                        dupeType: nameMatch ? 'name' : 'alias'
+                                    }
+                                };
+                                logDev(`Adding dupe feature: ${labelText} at [${testCentroid}]`);
+                                sdk.Map.addFeatureToLayer({
+                                    layerName: _dupeLayer,
+                                    feature: dupeFeature
+                                });
+                            } catch (e) {
+                                logDev('Error adding dupe feature to layer:', e);
+                            }
                         }
                     }
                 }
@@ -9324,6 +9348,27 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
             minLon = Math.min(minLon, selectedCentroid[0]);
             maxLat = Math.max(maxLat, selectedCentroid[1]);
             maxLon = Math.max(maxLon, selectedCentroid[0]);
+
+            // Add Point feature for the selected venue (primary place)
+            try {
+                const selectedFeature = {
+                    id: `dupe_primary_${selectedVenueId}`,
+                    type: 'Feature',
+                    geometry: { type: 'Point', coordinates: selectedCentroid },
+                    properties: {
+                        label: selectedVenueName || 'Primary',
+                        venueId: selectedVenueId,
+                        dupeType: 'primary'
+                    }
+                };
+                logDev(`Adding primary feature: ${selectedVenueName} at [${selectedCentroid}]`);
+                sdk.Map.addFeatureToLayer({
+                    layerName: _dupeLayer,
+                    feature: selectedFeature
+                });
+            } catch (e) {
+                logDev('Error adding selected venue feature to layer:', e);
+            }
         }
 
         if (recenterOption && dupeNames.length > 0 && outOfExtent) {
@@ -10575,12 +10620,45 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
         try {
             sdk.Map.addLayer({
                 layerName: _dupeLayer,
-                displayInLayerSwitcher: true,
-                zIndexing: true
+                zIndexing: true,
+                styleContext: {
+                    getColor: ({ feature }) => {
+                        if (feature?.properties?.dupeType === 'primary') {
+                            return '#00FF00'; // GREEN for primary
+                        }
+                        return '#ffff00'; // YELLOW for duplicates
+                    },
+                    getPointRadius: ({ zoomLevel }) => {
+                        return zoomLevel > 17 ? 12 : 8;
+                    },
+                    getLabel: ({ feature }) => {
+                        return feature?.properties?.label || 'Unknown';
+                    }
+                },
+                styleRules: [
+                    {
+                        style: {
+                            pointRadius: 20,
+                            fillColor: '${getColor}',
+                            fillOpacity: 0.8,
+                            strokeColor: '${getColor}',
+                            strokeWidth: 2,
+                            strokeOpacity: 1,
+                            label: '${getLabel}',
+                            labelYOffset: -15,
+                            fontColor: '#000000',
+                            fontSize: '11px',
+                            fontWeight: 'bold'
+                        }
+                    }
+                ]
             });
         } catch (e) {
             logDev('wmeph_dupe_labels layer error:', e.message);
         }
+
+        // Don't Add checkbox for dupe labels layer using LayerSwitcher
+        // sdk.LayerSwitcher.addLayerCheckbox({ name: 'WMEPH Dupe Labels', isChecked: true });
 
         if (localStorage.getItem('WMEPH-featuresExamined') === null) {
             localStorage.setItem('WMEPH-featuresExamined', '0'); // Storage for whether the User has pressed the button to look at updates
@@ -10599,6 +10677,12 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
             eventHandler: (payload) => {
                 if (payload.name === 'WMEPH x-ray mode') {
                     toggleXrayMode(payload.checked);
+                } else if (payload.name === 'WMEPH Dupe Labels') {
+                    if (payload.checked) {
+                        redrawLayer(_dupeLayer);
+                    } else {
+                        sdk.Map.removeAllFeaturesFromLayer({ layerName: _dupeLayer });
+                    }
                 }
             },
         });
@@ -10653,28 +10737,6 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
         SHORTCUT.add('Control+Alt+h', () => {
             $('#WMEPH-ColorHighlighting').trigger('click');
         });
-
-        // Add filter highlight shortcut
-//         new WazeWrap.Interface.Shortcut(
-//             'wmephFilterHighlightToggle',
-//             'Toggle "missing Customer Parking service" highlight',
-//             'WMEPH',
-//             'WMEPH',
-//             localStorage.getItem('WMEPH_FilterHighlightShortcut') ?? '',
-//             onFilterHighlightToggleShortcutKey,
-//             null
-//         ).add();
-
-//         // Add color highlighting shortcut
-//         new WazeWrap.Interface.Shortcut(
-//             'wmephColorHighlightingToggle',
-//             'Toggle place color highlighting',
-//             'WMEPH',
-//             'WMEPH',
-//             localStorage.getItem('WMEPH_ColorHighlighting') ?? '',
-//             onShowHighlightColorsToggleShortcutKey,
-//             null
-//         ).add();
 
         await addWmephTab(); // initialize the settings tab
 
