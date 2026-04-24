@@ -4602,11 +4602,11 @@
             static defaultWLTooltip = 'Whitelist common EV payment types';
 
             get message() {
-                const network = sdk.DataModel.ChargingStations.getNetwork({ venueId: this.args.venue.id });
+                const network = sdk.DataModel.Venues.ChargingStation.getNetwork({ venueId: this.args.venue.id });
                 let msg = `These common payment methods for the ${network} network are missing. Verify if they are needed here:`;
                 this.originalNetwork = network;
                 const translations = I18n.translations[I18n.locale].edit.venue.category_attributes.payment_methods;
-                const paymentMethods = sdk.DataModel.ChargingStations.getPaymentMethods({ venueId: this.args.venue.id });
+                const paymentMethods = sdk.DataModel.Venues.ChargingStation.getPaymentMethods({ venueId: this.args.venue.id });
                 const list = COMMON_EV_PAYMENT_METHODS[network]
                     .filter(method => !paymentMethods?.includes(method))
                     .map(method => `- ${translations[method]}`).join('<br>');
@@ -4617,9 +4617,9 @@
             static venueIsFlaggable(args) {
                 if (args.categories.includes(CAT.CHARGING_STATION) && !this.isWhitelisted(args)) {
                     try {
-                        const network = sdk.DataModel.ChargingStations.getNetwork({ venueId: args.venue.id });
+                        const network = sdk.DataModel.Venues.ChargingStation.getNetwork({ venueId: args.venue.id });
                         if (!network || !COMMON_EV_PAYMENT_METHODS[network]) return false;
-                        const paymentMethods = sdk.DataModel.ChargingStations.getPaymentMethods({ venueId: args.venue.id });
+                        const paymentMethods = sdk.DataModel.Venues.ChargingStation.getPaymentMethods({ venueId: args.venue.id });
                         return !!(COMMON_EV_PAYMENT_METHODS[network]?.some(method => !paymentMethods?.includes(method)));
                     } catch (e) {
                         logDev(`AddCommonEVPaymentMethods.venueIsFlaggable error: ${e.message}`);
@@ -4636,13 +4636,13 @@
                 }
 
                 try {
-                    const network = sdk.DataModel.ChargingStations.getNetwork({ venueId: this.args.venue.id });
+                    const network = sdk.DataModel.Venues.ChargingStation.getNetwork({ venueId: this.args.venue.id });
                     if (network !== this.originalNetwork) {
                         WazeWrap.Alerts.info(SCRIPT_NAME, 'EV charging station network has changed. Please run WMEPH again.', false, false);
                         return;
                     }
 
-                    const currentPaymentMethods = sdk.DataModel.ChargingStations.getPaymentMethods({ venueId: this.args.venue.id }) ?? [];
+                    const currentPaymentMethods = sdk.DataModel.Venues.ChargingStation.getPaymentMethods({ venueId: this.args.venue.id }) ?? [];
                     const newPaymentMethods = currentPaymentMethods.slice();
                     const commonPaymentMethods = COMMON_EV_PAYMENT_METHODS[network];
                     commonPaymentMethods.forEach(method => {
@@ -4670,10 +4670,10 @@
 
             get message() {
                 try {
-                    const network = sdk.DataModel.ChargingStations.getNetwork({ venueId: this.args.venue.id });
+                    const network = sdk.DataModel.Venues.ChargingStation.getNetwork({ venueId: this.args.venue.id });
                     this.originalNetwork = network;
                     let msg = `These payment methods are uncommon for the ${network} network. Verify if they are needed here:`;
-                    const currentPaymentMethods = sdk.DataModel.ChargingStations.getPaymentMethods({ venueId: this.args.venue.id }) ?? [];
+                    const currentPaymentMethods = sdk.DataModel.Venues.ChargingStation.getPaymentMethods({ venueId: this.args.venue.id }) ?? [];
                     const translations = I18n.translations[I18n.locale].edit.venue.category_attributes.payment_methods;
                     const list = currentPaymentMethods
                         ?.filter(method => !COMMON_EV_PAYMENT_METHODS[network]?.includes(method))
@@ -4689,9 +4689,9 @@
             static venueIsFlaggable(args) {
                 if (args.categories.includes(CAT.CHARGING_STATION) && !this.isWhitelisted(args)) {
                     try {
-                        const network = sdk.DataModel.ChargingStations.getNetwork({ venueId: args.venue.id });
+                        const network = sdk.DataModel.Venues.ChargingStation.getNetwork({ venueId: args.venue.id });
                         if (!network || !COMMON_EV_PAYMENT_METHODS.hasOwnProperty(network)) return false;
-                        const paymentMethods = sdk.DataModel.ChargingStations.getPaymentMethods({ venueId: args.venue.id });
+                        const paymentMethods = sdk.DataModel.Venues.ChargingStation.getPaymentMethods({ venueId: args.venue.id });
                         return !!(paymentMethods?.some(method => !COMMON_EV_PAYMENT_METHODS[network]?.includes(method)));
                     } catch (e) {
                         logDev(`RemoveUncommonEVPaymentMethods.venueIsFlaggable error: ${e.message}`);
@@ -4708,14 +4708,14 @@
                 }
 
                 try {
-                    const network = sdk.DataModel.ChargingStations.getNetwork({ venueId: this.args.venue.id });
+                    const network = sdk.DataModel.Venues.ChargingStation.getNetwork({ venueId: this.args.venue.id });
                     if (network !== this.originalNetwork) {
                         WazeWrap.Alerts.info(SCRIPT_NAME, 'EV charging station network has changed. Please run WMEPH again.', false, false);
                         return;
                     }
 
                     const commonPaymentMethods = COMMON_EV_PAYMENT_METHODS[network];
-                    const currentPaymentMethods = sdk.DataModel.ChargingStations.getPaymentMethods({ venueId: this.args.venue.id }) ?? [];
+                    const currentPaymentMethods = sdk.DataModel.Venues.ChargingStation.getPaymentMethods({ venueId: this.args.venue.id }) ?? [];
                     const newPaymentMethods = currentPaymentMethods.slice()
                         .filter(method => commonPaymentMethods?.includes(method));
 
@@ -10433,7 +10433,8 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
         //     console.error('WMEPH:', ex);
         // }
 
-        // Create custom highlights layer instead of using W.map.venueLayer
+        // Layer displays venues based on severity flags and parking lot types
+        // Priority: wmephHighlight > lock types > (parking + severity) > severity alone > parking alone
         _layer = 'wmeph_highlights';
         try {
             sdk.Map.addLayer({
@@ -10441,11 +10442,17 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                 zIndexing: true,
                 styleContext: {
                     getColor: ({ feature }) => {
-                        // Filter highlights use magenta
-                        if (feature?.properties?.wmephHighlight === '1') {
-                            return '#FF00FF';
-                        }
-                        // Color severity mapping
+                        // Parking lots use parkingType mapping (for fill color)
+                        const parkingType = feature?.properties?.parkingType;
+                        const colorMap = {
+                            PUBLIC: '#0000FF',      // blue
+                            RESTRICTED: '#FFFF00', // yellow
+                            PRIVATE: '#FF0000'     // red
+                        };
+                        return colorMap[parkingType] || '#CCCCCC';
+                    },
+                    getSeverityColor: ({ feature }) => {
+                        // Color severity mapping (for stroke color)
                         const severity = feature?.properties?.wmephSeverity;
                         const severityColorMap = {
                             0: '#00CC00',      // GREEN - complete
@@ -10461,20 +10468,14 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                         if (severity !== undefined && severity !== 'default') {
                             return severityColorMap[severity] || '#CCCCCC';
                         }
-                        // Parking lots use parkingType mapping
-                        const parkingType = feature?.properties?.parkingType;
-                        const colorMap = {
-                            PUBLIC: '#0000FF',      // blue
-                            RESTRICTED: '#FFFF00', // yellow
-                            PRIVATE: '#FF0000'     // red
-                        };
-                        return colorMap[parkingType] || '#CCCCCC';
+                        return '#CCCCCC';
                     },
                     getPointRadius: ({ zoomLevel }) => {
                         return zoomLevel > 17 ? 15 : 10;
                     }
                 },
                 styleRules: [
+                    // Rule 1: Filter highlight (wmephHighlight = '1') - magenta stroke only, highest priority
                     {
                         predicate: (props, zoomLevel) => props.wmephHighlight === '1',
                         style: {
@@ -10485,38 +10486,49 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                             strokeOpacity: 0.8
                         }
                     },
+                    // Rule 2: Lock severity types (lock, lock1, adLock) - stroke only with dashed style
                     {
                         predicate: (props, zoomLevel) => props.wmephHighlight !== '1' && (props.wmephSeverity === 'lock' || props.wmephSeverity === 'lock1' || props.wmephSeverity === 'adLock'),
                         style: {
                             pointRadius: '${getPointRadius}',
-                            fillColor: '${getColor}',
-                            fillOpacity: 0.5,
-                            strokeColor: '${getColor}',
+                            fillOpacity: 0,
+                            strokeColor: '${getSeverityColor}',
                             strokeWidth: 5,
                             strokeOpacity: 0.8,
                             strokeDashstyle: 'dash'
                         }
                     },
+                    // Rule 3: Parking lot with severity - both fill (parking type) and stroke (severity severity)
                     {
-                        predicate: (props, zoomLevel) => props.wmephHighlight !== '1' && props.wmephSeverity !== undefined && props.wmephSeverity > 0,
+                        predicate: (props, zoomLevel) => props.wmephHighlight !== '1' && props.parkingType !== undefined && props.wmephSeverity !== undefined && props.wmephSeverity > 0,
                         style: {
                             pointRadius: '${getPointRadius}',
                             fillColor: '${getColor}',
                             fillOpacity: 0.5,
-                            strokeColor: '${getColor}',
+                            strokeColor: '${getSeverityColor}',
                             strokeWidth: 5,
                             strokeOpacity: 0.8
                         }
                     },
+                    // Rule 4: Severity only (no parking type) - stroke only
+                    {
+                        predicate: (props, zoomLevel) => props.wmephHighlight !== '1' && props.wmephSeverity !== undefined && props.wmephSeverity > 0,
+                        style: {
+                            pointRadius: '${getPointRadius}',
+                            fillOpacity: 0,
+                            strokeColor: '${getSeverityColor}',
+                            strokeWidth: 5,
+                            strokeOpacity: 0.8
+                        }
+                    },
+                    // Rule 5: Parking lot only (no severity) - fill only
                     {
                         predicate: (props, zoomLevel) => props.wmephHighlight !== '1' && props.parkingType !== undefined,
                         style: {
                             pointRadius: '${getPointRadius}',
                             fillColor: '${getColor}',
                             fillOpacity: 0.5,
-                            strokeColor: '${getColor}',
-                            strokeWidth: 5,
-                            strokeOpacity: 0.8
+                            strokeOpacity: 0
                         }
                     }
                 ]
