@@ -5025,9 +5025,9 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
             }
 
             static venueIsFlaggable(args) {
-                if (USER.rank >= 2 && args.venue.externalProviderIDs && !(args.categories.includes(CAT.PARKING_LOT) && args.ignoreParkingLots)) {
+                if (USER.rank >= 2 && args.venue.externalProviderIds && !(args.categories.includes(CAT.PARKING_LOT) && args.ignoreParkingLots)) {
                     if (!args.categories.some(cat => this.#categoriesToIgnore.includes(cat))) {
-                        const provIDs = args.venue.externalProviderIDs;
+                        const provIDs = args.venue.externalProviderIds;
                         if (!(provIDs && provIDs.length)) {
                             return true;
                         }
@@ -7947,7 +7947,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
             // Add green highlighting to edit panel fields that have been updated by WMEPH
             UPDATED_FIELDS.updateEditPanelHighlights();
 
-            assembleBanner(args.chainIsClosed);
+            assembleBanner(args.chainIsClosed); // Run async without awaiting - Google links process in background
 
             executeMultiAction(actions);
         }
@@ -8040,7 +8040,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
     }
 
     // Set up banner messages
-    function assembleBanner(chainIsClosed) {
+    async function assembleBanner(chainIsClosed) {
         const flags = FlagBase.currentFlags.getOrderedFlags();
         const venue = getSelectedVenue();
         if (!venue) return;
@@ -8241,19 +8241,21 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
             flag.postProcess?.();
         });
 
-        processGoogleLinks(venue);
+        processGoogleLinks(venue); // Start Google links async without waiting
     } // END assemble Banner function
 
     async function processGoogleLinks(venue) {
-        if (!venue?.externalProviderIDs || !venue.externalProviderIDs.length) {
-            return; // No external provider IDs to process
-        }
+        try {
+            if (!venue?.externalProviderIds || !venue.externalProviderIds.length) {
+                return; // No external provider IDs to process
+            }
 
-        const promises = venue.externalProviderIDs.map(link => _googlePlaces.getPlace(link.uuid));
+            const promises = venue.externalProviderIds.map(placeId => _googlePlaces.getPlace(placeId));
         const googleResults = await Promise.all(promises);
+        const selectedVenue = getSelectedVenue();
         $('#wmeph-google-link-info').remove();
         // Compare to venue to make sure a different place hasn't been selected since the results were requested.
-        if (googleResults.length && venue === getSelectedVenue()) {
+        if (googleResults.length && venue?.id === selectedVenue?.id) {
             const $bannerDiv = $('<div>', { id: 'wmeph-google-link-info' });
             const googleLogoLetter = (letter, colorClass) => $('<span>', { class: 'google-logo' }).addClass(colorClass).text(letter);
             $bannerDiv.append(
@@ -8276,8 +8278,8 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                     })
                 )
             );
-            venue.externalProviderIDs.forEach(link => {
-                const result = googleResults.find(r => r.placeId === link.uuid);
+            venue.externalProviderIds.forEach(placeId => {
+                const result = googleResults.find(r => r.placeId === placeId);
                 if (result) {
                     const linkStyle = 'margin-left: 5px;text-decoration: none;color: cadetblue;';
                     let $nameSpan;
@@ -8367,6 +8369,9 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                 }, 0);
             });
         }
+        } catch (err) {
+            console.error('processGoogleLinks error:', err);
+        }
     }
 
     class GooglePlaceContainer {
@@ -8444,7 +8449,6 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                 googleResult.placeId = placeId;
                 googleResult.requestStatus = status;
                 _googlePlaces.addPlace(placeId, googleResult);
-                console.debug('Intercepted getDetails response:', googleResult, status);
                 callback(result, status); // Pass the result to the original callback
             };
 
@@ -8452,18 +8456,6 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
         };
 
         console.debug('Google Maps PlacesService.getDetails intercepted successfully.');
-    }
-
-    function getOLMapExtent() {
-        // SDK getMapExtent returns BBox in WGS84: [left, bottom, right, top]
-        const bbox = sdk.Map.getMapExtent();
-        // Convert to object format for compatibility with existing code
-        return {
-            left: bbox[0],
-            bottom: bbox[1],
-            right: bbox[2],
-            top: bbox[3]
-        };
     }
 
     async function drawGooglePlacePoint(uuid) {
