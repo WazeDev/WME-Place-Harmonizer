@@ -2565,6 +2565,8 @@
             if ($('#WMEPH_banner').length && venue?.id && !_isHarmonizing) {
                 // Auto-harmonize when venue with banner is modified (but not if already harmonizing)
                 harmonizePlaceGo(venue, 'harmonize');
+                // Refresh all highlights to sync layer features with updated venue properties
+                refreshAllHighlights();
             }
 
             updateWmephPanel();
@@ -4143,11 +4145,9 @@
                         $('.empty-street').click();
                     }
                     setTimeout(() => {
-                        const elem = document
-                            .querySelector('#venue-edit-general > div:nth-child(1) > div > div > wz-card > form > div:nth-child(2) > div > wz-autocomplete')
-                            .shadowRoot.querySelector('#text-input')
-                            .shadowRoot.querySelector('#id');
-                        elem.focus();
+                        const streetAutocomplete = document.querySelector('#venue-edit-general > div:nth-child(1) > div > div > wz-card > form > div:nth-child(2) > div > wz-autocomplete');
+                        const input = streetAutocomplete?.shadowRoot?.querySelector('wz-text-input')?.shadowRoot?.querySelector('input');
+                        input?.focus();
                     }, 100);
                 }, 100);
             }
@@ -4181,15 +4181,11 @@
                         $('.empty-city').click();
                     }
                     setTimeout(() => {
-                        const elem = document
-                            .querySelector('#venue-edit-general > div:nth-child(1) > div > div > wz-card > form > div:nth-child(4) > wz-autocomplete')
-                            .shadowRoot.querySelector('#text-input')
-                            .shadowRoot.querySelector('#id');
-                        elem.focus();
+                        const cityAutocomplete = document.querySelector('#venue-edit-general > div:nth-child(1) > div > div > wz-card > form > div:nth-child(4) > wz-autocomplete');
+                        const input = cityAutocomplete?.shadowRoot?.querySelector('wz-text-input')?.shadowRoot?.querySelector('input');
+                        input?.focus();
                     }, 100);
                 }, 100);
-
-                $('.city-name').focus();
             }
         },
         BankType1: class extends FlagBase {
@@ -5052,10 +5048,13 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                 setTimeout(() => {
                     clickGeneralTab();
                     setTimeout(() => {
-                        const elem = document.querySelector('div.external-provider-edit-form wz-autocomplete').shadowRoot.querySelector('wz-text-input').shadowRoot.querySelector('input');
-                        elem.focus();
-                        elem.value = venueName;
-                        elem.dispatchEvent(new Event('input', { bubbles: true })); // NOTE: jquery trigger('input') and other event calls did not work.
+                        const autocomplete = document.querySelector('div.external-provider-edit-form wz-autocomplete');
+                        const input = autocomplete?.shadowRoot?.querySelector('wz-text-input')?.shadowRoot?.querySelector('input');
+                        if (input) {
+                            input.focus();
+                            input.value = venueName;
+                            input.dispatchEvent(new Event('input', { bubbles: true })); // NOTE: jquery trigger('input') and other event calls did not work.
+                        }
                     }, 100);
                 }, 100);
             }
@@ -5467,7 +5466,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                 // If pasting or dropping into hours entry box
                 function resetHoursEntryHeight() {
                     const $sel = $('#WMEPH-HoursPaste');
-                    $sel.focus();
+                    if ($sel.length) $sel.focus();
                     const oldText = $sel.val();
                     if (oldText === DEFAULT_HOURS_TEXT) {
                         $sel.val('');
@@ -10857,7 +10856,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
         const filterHighlightingEnabled = $('#WMEPH-ShowFilterHighlight').prop('checked');
 
         if (colorHighlightingEnabled) {
-            applyHighlightsTest(sdk.DataModel.Venues.getAll());
+            applyHighlightsTest(sdk.DataModel.Venues.getAll(), true); // force=true to bypass cache and recalculate all severities
         }
         if (parkingLotHighlightingEnabled) {
             updateParkingLotHighlights(true); // Pass true to skip internal clear
