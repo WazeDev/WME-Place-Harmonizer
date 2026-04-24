@@ -181,8 +181,6 @@
     }
     `;
 
-    let UpdateObject;
-    let UpdateFeatureAddress;
     let OpeningHour;
 
     const SCRIPT_VERSION = GM_info.script.version.toString(); // pull version from header
@@ -3096,7 +3094,7 @@
             _disableHighlightTest = true;
             harmonizePlaceGo(venue, 'harmonize');
             _disableHighlightTest = false;
-            applyHighlightsTest(venue);
+            refreshAllHighlights();
         } else { // Remove duplicate labels
             destroyDupeLabels();
         }
@@ -3992,9 +3990,11 @@
                 const hnTemp = newHN.replace(/[^\d]/g, '');
                 const hnTempDash = newHN.replace(/[^\d-]/g, '');
                 if (hnTemp > 0 && hnTemp < 1000000) {
-                    const action = new UpdateObject(this.args.venue, { houseNumber: hnTempDash });
-                    action.wmephDescription = `Changed house # to: ${hnTempDash}`;
-                    harmonizePlaceGo(this.args.venue, 'harmonize', [action]); // Rerun the script to update fields and lock
+                    sdk.DataModel.Venues.updateAddress({
+                        venueId: this.args.venue.id,
+                        houseNumber: hnTempDash
+                    });
+                    harmonizePlaceGo(this.args.venue, 'harmonize', []); // Rerun the script to update fields and lock
                     UPDATED_FIELDS.address.updated = true;
                 } else {
                     Flag.HnMissing.#getTextbox().css({ backgroundColor: '#FDD' }).attr('title', 'Must be a number between 0 and 1000000');
@@ -4066,7 +4066,6 @@
         //     if (updateHNflag) {
         //         _buttonBanner.hnDashRemoved = new Flag.HnDashRemoved();
         //         if (!highlightOnly) {
-        //             actions.push(new UpdateObject(venue, { houseNumber: hnTemp }));
         //             _UPDATED_FIELDS.address.updated = true;
         //         } else if (highlightOnly) {
         //             if (venue.residential) {
@@ -7258,29 +7257,24 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                 }
                 if (venue.name !== '') { // Set the residential place name to the address (to clear any personal info)
                     logDev('Residential Name reset');
-                    actions.push(new UpdateObject(venue, { name: '' }));
-                    // no field HL
+                    actions.push(sdk.DataModel.Venues.updateVenue({ venueId: venue.id, name: '' }));
                 }
                 args.categories = ['RESIDENCE_HOME'];
                 if (venue.description !== null && venue.description !== '') { // remove any description
                     logDev('Residential description cleared');
-                    actions.push(new UpdateObject(venue, { description: null }));
-                    // no field HL
+                    actions.push(sdk.DataModel.Venues.updateVenue({ venueId: venue.id, description: null }));
                 }
                 if (venue.phone !== null && venue.phone !== '') { // remove any phone info
                     logDev('Residential Phone cleared');
-                    actions.push(new UpdateObject(venue, { phone: null }));
-                    // no field HL
+                    actions.push(sdk.DataModel.Venues.updateVenue({ venueId: venue.id, phone: null }));
                 }
                 if (venue.url !== null && venue.url !== '') { // remove any url
                     logDev('Residential URL cleared');
-                    actions.push(new UpdateObject(venue, { url: null }));
-                    // no field HL
+                    actions.push(sdk.DataModel.Venues.updateVenue({ venueId: venue.id, url: null }));
                 }
                 if (venue.services.length > 0) {
                     logDev('Residential services cleared');
-                    actions.push(new UpdateObject(venue, { services: [] }));
-                    // no field HL
+                    actions.push(sdk.DataModel.Venues.updateVenue({ venueId: venue.id, services: [] }));
                 }
             }
         } else if (isVenueParkingLot(venue)
@@ -7407,7 +7401,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                     }
                     if (args.pnhMatch.forceBrand && args.priPNHPlaceCat === CAT.GAS_STATION
                         && venue.brand !== args.pnhMatch.forceBrand) {
-                        actions.push(new UpdateObject(venue, { brand: args.pnhMatch.forceBrand }));
+                        actions.push(sdk.DataModel.Venues.updateVenue({ venueId: venue.id, brand: args.pnhMatch.forceBrand }));
                         UPDATED_FIELDS.brand.updated = true;
                         logDev('Gas brand updated from PNH');
                     }
@@ -7531,7 +7525,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                         }
                         logDev('Description updated');
                         args.description = `${args.description}\n${venue.description}`;
-                        actions.push(new UpdateObject(venue, { description: args.description }));
+                        actions.push(sdk.DataModel.Venues.updateVenue({ venueId: venue.id, description: args.description }));
                         UPDATED_FIELDS.description.updated = true;
                     }
 
@@ -7698,7 +7692,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                         if (Flag.FormatUSPS.isNameOk(nameToCheck, args.state2L, args.addr)) {
                             if (nameToCheck !== venue.name) {
                                 [args.nameBase, args.nameSuffix] = cleanNameParts;
-                                actions.push(new UpdateObject(venue, { name: nameToCheck }));
+                                actions.push(sdk.DataModel.Venues.updateVenue({ venueId: venue.id, name: nameToCheck }));
                             }
                         }
                     }
@@ -9570,24 +9564,21 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
         }
 
         try {
-            logDev('updateAddress: building newAttributes');
-            const newAttributes = {
-                countryID: address.country?.id,
-                stateID: address.state?.id,
+            logDev('updateAddress: calling SDK updateAddress');
+            sdk.DataModel.Venues.updateAddress({
+                venueId: feature.id,
+                countryId: address.country?.id,
+                stateId: address.state?.id,
                 cityName: address.city?.name,
-                emptyCity: !address.city?.name,
-                streetName: address.street?.name,
-                emptyStreet: address.street?.isEmpty ? true : null
-            };
-            logDev('updateAddress: newAttributes built:', newAttributes);
-
-            // Apply address update via WazeWrap for complex address handling
-            logDev('updateAddress: calling UpdateFeatureAddress');
-            new UpdateFeatureAddress(feature, newAttributes);
+                streetName: address.street?.name
+            });
 
             if (address.houseNumber) {
                 logDev('updateAddress: updating house number');
-                new UpdateObject(feature, { houseNumber: address.houseNumber });
+                sdk.DataModel.Venues.updateAddress({
+                    venueId: feature.id,
+                    houseNumber: address.houseNumber
+                });
             }
             logDev('Address inferred and updated');
         } catch (e) {
@@ -10491,7 +10482,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                             fillOpacity: 0,
                             strokeWidth: 5,
                             strokeColor: '#F0F',
-                            strokeOpacity: 0.6
+                            strokeOpacity: 0.8
                         }
                     },
                     {
@@ -10502,7 +10493,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                             fillOpacity: 0.5,
                             strokeColor: '${getColor}',
                             strokeWidth: 5,
-                            strokeOpacity: 0.6,
+                            strokeOpacity: 0.8,
                             strokeDashstyle: 'dash'
                         }
                     },
@@ -10514,7 +10505,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                             fillOpacity: 0.5,
                             strokeColor: '${getColor}',
                             strokeWidth: 5,
-                            strokeOpacity: 0.6
+                            strokeOpacity: 0.8
                         }
                     },
                     {
@@ -10525,7 +10516,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                             fillOpacity: 0.5,
                             strokeColor: '${getColor}',
                             strokeWidth: 5,
-                            strokeOpacity: 0.6
+                            strokeOpacity: 0.8
                         }
                     }
                 ]
@@ -10575,8 +10566,6 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
         ].join('\n');
         $('head').append(`<style type="text/css">${css}</style>`);
 
-        UpdateObject = require('Waze/Action/UpdateObject');
-        UpdateFeatureAddress = require('Waze/Action/UpdateFeatureAddress');
         OpeningHour = require('Waze/Model/Objects/OpeningHour');
 
         // Append a form div for submitting to the forum, if it doesn't exist yet:
@@ -10652,6 +10641,8 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
 
         const xrayMode = localStorage.getItem('WMEPH_xrayMode_enabled') === 'true';
 
+        // NEED TO COMEBACK TO THIS: I belive the only layers that can be effected with the SDK are Venues, Segments, and Nodes as these are the only exposed in WMe verable WME_LAYER_NAMES
+        /*
         sdk.LayerSwitcher.addLayerCheckbox({ name: 'WMEPH x-ray mode', isChecked: xrayMode });
         //WazeWrap.Interface.AddLayerCheckbox('Display', 'WMEPH x-ray mode', xrayMode, toggleXrayMode);
         if (xrayMode) setTimeout(() => toggleXrayMode(true), 2000); // Give other layers time to load before enabling.
@@ -10670,6 +10661,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                 }
             },
         });
+        */
 
         // Whitelist initialization
         if (validateWLS(LZString.decompressFromUTF16(localStorage.getItem(WL_LOCAL_STORE_NAME_COMPRESSED))) === false) { // If no compressed WL string exists
