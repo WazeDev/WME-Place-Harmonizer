@@ -358,7 +358,7 @@
             saveShortcut(shortcutId, keyToUse);
             logDev(`Registered shortcut: ${shortcutId} = ${keyToUse || 'none'}`);
         } catch (ex) {
-            console.error(`WMEPH: Failed to register shortcut ${shortcutId}: ${ex}`);
+            logDev(`Failed to register shortcut ${shortcutId}: ${ex}`);
         }
     }
 
@@ -430,7 +430,7 @@
             const point = turf.centroid(venue.geometry);
             return point.geometry.coordinates; // [lon, lat]
         } catch (e) {
-            console.error('getVenueCentroid error:', e, venue);
+            logDev('getVenueCentroid error:', e, venue);
             return null;
         }
     }
@@ -450,7 +450,7 @@
                 { units: 'meters' }
             );
         } catch (e) {
-            console.error('calculatePointDistance error:', e, pt1, pt2);
+            logDev('calculatePointDistance error:', e, pt1, pt2);
             return Infinity;
         }
     }
@@ -462,7 +462,7 @@
             // bbox is [left, bottom, right, top] = [minLon, minLat, maxLon, maxLat] in WGS84
             return bbox;
         } catch (e) {
-            console.error('getMapBoundingBox error:', e);
+            logDev('getMapBoundingBox error:', e);
             return null;
         }
     }
@@ -556,20 +556,20 @@
 
     function initializeCategories() {
         try {
-            console.log('DEBUG: initializeCategories called, sdk=', typeof sdk);
-            console.log('DEBUG: sdk.DataModel=', typeof sdk?.DataModel);
-            console.log('DEBUG: sdk.DataModel.Venues=', typeof sdk?.DataModel?.Venues);
+            logDev('initializeCategories called, sdk=', typeof sdk);
+            logDev('sdk.DataModel=', typeof sdk?.DataModel);
+            logDev('sdk.DataModel.Venues=', typeof sdk?.DataModel?.Venues);
             const subCategories = sdk.DataModel.Venues.getVenueSubCategories();
-            console.log('DEBUG: Retrieved', subCategories.length, 'subcategories');
+            logDev('Retrieved', subCategories.length, 'subcategories');
             subCategories.forEach(subCat => {
                 CAT[subCat.subCategoryId] = subCat.subCategoryId;
                 SUBCATEGORIES_BY_ID[subCat.subCategoryId] = subCat;
             });
-            console.log(`✓ Loaded ${Object.keys(CAT).length} venue categories from SDK`);
-            console.log('DEBUG: Sample CAT values - HOTEL:', CAT.HOTEL, 'RESTAURANT:', CAT.RESTAURANT);
+            log(`✓ Loaded ${Object.keys(CAT).length} venue categories from SDK`);
+            logDev('Sample CAT values - HOTEL:', CAT.HOTEL, 'RESTAURANT:', CAT.RESTAURANT);
         } catch (e) {
-            console.error('Failed to initialize categories from SDK:', e);
-            console.error('DEBUG: CAT after error:', Object.keys(CAT).length, 'keys');
+            logDev('Failed to initialize categories from SDK:', e);
+            logDev('CAT after error:', Object.keys(CAT).length, 'keys');
             throw e;
         }
     }
@@ -1352,7 +1352,7 @@
             }
 
             if (result.warningMessages.length) {
-                console.warn(`WMEPH ${country.countryName}:`, `PNH Order # ${this.order} parsing issues:\n- ${result.warningMessages.join('\n- ')}`);
+                logDev(`${country.countryName}: PNH Order # ${this.order} parsing issues:\n- ${result.warningMessages.join('\n- ')}`);
             }
             return result;
         }
@@ -1650,14 +1650,14 @@
                 // temp_field currently exists on the USA sheet but may not be needed
                 if (header.length && header !== 'temp_field' && !expectedHeaders.includes(header)
                     && !Pnh.COLUMNS_TO_IGNORE.includes(header)) {
-                    console.warn(`WMEPH: Unexpected column header found in PNH spreadsheet: ${header}`);
+                    logDev(`Unexpected column header found in PNH spreadsheet: ${header}`);
                 }
             });
 
             // Return invalid if expected headers are not found in spreadsheet.
             expectedHeaders.forEach(header => {
                 if (!headers.includes(header)) {
-                    console.error(`WMEPH: Column header missing from PNH spreadsheet data: ${header}`);
+                    logDev(`Column header missing from PNH spreadsheet data: ${header}`);
                     valid = false;
                 }
             });
@@ -1773,7 +1773,7 @@
                     resolve();
                 }).fail(res => {
                     const message = res.responseJSON && res.responseJSON.error ? res.responseJSON.error : 'See response error message above.';
-                    console.error('WMEPH failed to load spreadsheet:', message);
+                    logDev('Failed to load spreadsheet:', message);
                     reject();
                 });
             });
@@ -1804,7 +1804,7 @@
                     resolve();
                 }).fail(res => {
                     const message = res.responseJSON && res.responseJSON.error ? res.responseJSON.error : 'See response error message above.';
-                    console.error('WMEPH failed to load moderator list:', message);
+                    logDev('Failed to load moderator list:', message);
                     Pnh.MODERATORS['?'] = ['Error downloading moderators!'];
                     resolve();
                 });
@@ -2115,7 +2115,7 @@
         try {
             callback(...args);
         } catch (ex) {
-            console.error(`${SCRIPT_NAME}:`, ex);
+            logDev(ex);
         }
     }
 
@@ -2317,6 +2317,10 @@
         if (USER.isDevUser) {
             console.debug(`WMEPH${IS_BETA_VERSION ? '-β' : ''} (dev):`, ...args);
         }
+    }
+
+    function log(...args) {
+        console.log(`WMEPH${IS_BETA_VERSION ? '-β' : ''}:`, ...args);
     }
 
     function zoomPlace() {
@@ -2653,7 +2657,7 @@
                             });
                         }
                     } catch (err) {
-                        console.error('WMEPH highlight error: ', err);
+                        logDev('highlight error:', err);
                     }
                 } else {
                     venue.wmephSeverity = 'default';
@@ -2895,7 +2899,7 @@
                 }
                 // Changes accumulate for user to save via WME Save button
             } catch (e) {
-                console.error('addUpdateAction: Failed to update venue', venue.id, newAttributes, e);
+                logDev('addUpdateAction: Failed to update venue', venue.id, newAttributes, e);
             }
         }
         if (runHarmonizer) setTimeout(() => harmonizePlaceGo(venue, 'harmonize'), 0);
@@ -5394,7 +5398,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                     navigator.clipboard.readText().then(cliptext => {
                         $('#WMEPH-HoursPaste').val(cliptext);
                         resetHoursEntryHeight();
-                    }, err => console.error(err));
+                    }, err => logDev(err));
                 });
 
                 // $('#wmeph-clear-hours-btn').click(() => {
@@ -6136,7 +6140,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                         try {
                             addUpdateAction(args.venue, { lockRank: args.levelToLock }, args.actions);
                         } catch (e) {
-                            console.warn('Could not lock venue - you may not have permission', e);
+                            logDev('Could not lock venue - you may not have permission', e);
                         }
                     } else {
                         this.hlLockFlag = true;
@@ -8121,7 +8125,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                 UPDATED_FIELDS.parkingSpots.updated = true;
                 addUpdateAction(selectedVenue, {}, null, true);
             } catch (err) {
-                console.error('Failed to set parking lot spots:', err);
+                logDev('Failed to set parking lot spots:', err);
             }
         });
 
@@ -8266,7 +8270,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
             });
         }
         } catch (err) {
-            console.error('processGoogleLinks error:', err);
+            logDev('processGoogleLinks error:', err);
         }
     }
 
@@ -8331,14 +8335,14 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
 
     function interceptGoogleGetDetails() {
         if (typeof google === 'undefined' || !google.maps || !google.maps.places || !google.maps.places.PlacesService) {
-            console.debug('Google Maps PlacesService not loaded yet.');
+            logDev('Google Maps PlacesService not loaded yet.');
             setTimeout(interceptGoogleGetDetails, 500); // Retry until it loads
             return;
         }
 
         const originalGetDetails = google.maps.places.PlacesService.prototype.getDetails;
         google.maps.places.PlacesService.prototype.getDetails = function interceptedGetDetails(request, callback) {
-            console.debug('Intercepted getDetails call:', request);
+            logDev('Intercepted getDetails call:', request);
             const { placeId } = request;
             const customCallback = function(result, status) {
                 const googleResult = { ...result };
@@ -8351,7 +8355,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
             return originalGetDetails.call(this, request, customCallback);
         };
 
-        console.debug('Google Maps PlacesService.getDetails intercepted successfully.');
+        logDev('Google Maps PlacesService.getDetails intercepted successfully.');
     }
 
     async function drawGooglePlacePoint(uuid) {
@@ -8453,7 +8457,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                     feature: _googlePlaceLineFeature
                 });
             } catch (e) {
-                console.error('drawGooglePlacePoint: Failed to add features', e);
+                logDev('drawGooglePlacePoint: Failed to add features', e);
             }
 
             timeoutDestroyGooglePlacePoint();
@@ -8767,7 +8771,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                 window.open(url, SEARCH_RESULTS_WINDOW_NAME, _searchResultsWindowSpecs);
             }
         } catch (ex) {
-            console.error(ex);
+            logDev(ex);
             WazeWrap.Alerts.error(SCRIPT_NAME, 'Possible invalid URL. Check the place\'s Website field.');
         }
     }
@@ -9428,7 +9432,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                 if (foundAddresses.length > 1) {
                     foundAddresses = _.sortBy(foundAddresses, 'distance');
                 }
-                console.debug(foundAddresses[0].streetName, foundAddresses[0].depth);
+                logDev(foundAddresses[0].streetName, foundAddresses[0].depth);
                 inferredAddress = getSegmentAddress(foundAddresses[0].segment);
             } else {
                 // Default to closest if branching method fails.
@@ -9471,8 +9475,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
             }
             logDev('Address inferred and updated');
         } catch (e) {
-            logDev('Error updating address:', e);
-            console.error('updateAddress error:', e);
+            logDev('updateAddress error:', e);
         }
     }
 
@@ -10305,7 +10308,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                 });
                 logDev(`Registered harmonize shortcut: wmeph_harmonize_place = ${harmonizeKey}`);
             } catch (ex) {
-                console.error(`WMEPH: Failed to register harmonize shortcut: ${ex}`);
+                logDev(`Failed to register harmonize shortcut: ${ex}`);
             }
         } else {
             logDev('loadHarmonizeShortcut returned null or empty - harmonize shortcut not registered');
@@ -10854,7 +10857,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
         try {
             initializeCategories();
         } catch (e) {
-            console.error('Failed to initialize categories:', e);
+            logDev('Failed to initialize categories:', e);
         }
 
         // Start downloading the PNH spreadsheet data in the background.  Starts the script once data is ready.
