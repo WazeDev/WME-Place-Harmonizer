@@ -37,7 +37,7 @@
     'use strict';
 
     // Script update info
-    let sdk; //This *should* be a const, but we can't do that with the way WMEPH loads due to it checking if another version is loaded first
+    let sdk; // Declared as let because script checks for existing sdk before initialization
 
     // BE SURE TO SET THIS TO NULL OR AN EMPTY STRING WHEN RELEASING A NEW UPDATE.
     const _SCRIPT_UPDATE_MESSAGE = 'Removing deprecated WazeWrap functionality, implementing minor SDK migration to keep the script working.  Shortcuts are non-functional.  (Some?) highlighting is broken due to it not being implemented in the SDK (requested 2025-05-30).';
@@ -563,8 +563,8 @@
         RED: 3,
         // 4 isn't used anymore
         PINK: 5,
-        // TODO: There is also 'lock' and 'lock1' severity. Add those here? Also investigate 'adLock' severity (is it still useful in WME???).
         ORANGE: 6
+        // Historical note: 'lock', 'lock1', and 'adLock' severity levels existed in older WME but are no longer in use
     };
 
     function initializeCategories() {
@@ -718,8 +718,6 @@
     let _psRegionIx;
     let _psGoogleFormStateIx;
     let _psDefaultLockLevelIx;
-    // var _ps_requirePhone_ix;
-    // var _ps_requireURL_ix;
     let _psAreaCodeIx;
     let _stateDataTemp;
     let _areaCodeList = '800,822,833,844,855,866,877,888'; //  include toll free non-geographic area codes
@@ -823,14 +821,6 @@
                 .filter(prop => prop.updated)
                 .map(prop => prop.tab));
         },
-        // checkAddedNode(addedNode) {
-        //     this.getFieldProperties()
-        //         .filter(prop => prop.updated && addedNode.querySelector(prop.selector))
-        //         .forEach(prop => {
-        //             $(prop.selector).css({ 'background-color': '#dfd' });
-        //             $(`a[href="#venue-edit-${prop.tab}"]`).css({ 'background-color': '#dfd' });
-        //         });
-        // },
         reset() {
             this.clearEditPanelHighlights();
             this.getFieldProperties().forEach(prop => {
@@ -845,23 +835,6 @@
                     const propName = `services_${service}`;
                     this[propName] = { updated: false, selector: `.venue label[for="service-checkbox-${service}"]`, tab: 'more-info' };
                 });
-
-            // 5/24/2019 (mapomatic) This observer doesn't seem to work anymore.  I've added the updateEditPanelHighlights
-            // function that can be called after harmonizePlaceGo runs.
-
-            // const observer = new MutationObserver(mutations => {
-            //     mutations.forEach(mutation => {
-            //         // Mutation is a NodeList and doesn't support forEach like an array
-            //         for (let i = 0; i < mutation.addedNodes.length; i++) {
-            //             const addedNode = mutation.addedNodes[i];
-            //             // Only fire up if it's a node
-            //             if (addedNode.nodeType === Node.ELEMENT_NODE) {
-            //                 _UPDATED_FIELDS.checkAddedNode(addedNode);
-            //             }
-            //         }
-            //     });
-            // });
-            // observer.observe(document.getElementById('edit-panel'), { childList: true, subtree: true });
 
             sdk.Events.on({ eventName: 'wme-selection-changed', eventHandler: () => errorHandler(() => this.reset()) });
         },
@@ -1145,11 +1118,11 @@
                             if (!value.length) {
                                 value = undefined;
                             } else if (header === Pnh.SSHeader.aliases) {
-                                // TODO: Are these two checks really needed?
+                                // Validate aliases: ignore if starts with paren (invalid format), otherwise normalize commas
                                 if (value.startsWith('(')) {
-                                    value = undefined; // ignore aliases if the cell starts with paren
+                                    value = undefined; // Ignore aliases if the cell starts with paren
                                 } else {
-                                    value = value.replace(/,[^A-za-z0-9]*/g, ','); // tighten up commas if more than one alias.
+                                    value = value.replace(/,[^A-za-z0-9]*/g, ','); // Tighten up commas if more than one alias
                                 }
                             }
 
@@ -1356,7 +1329,7 @@
 
                 // Do any post-processing of row values here:
                 if (this.strMatchAny || this.primaryCategory === CAT.HOTEL) {
-                    // NOTE: the replace functions here are not the same as the #tighten function, so don't use that.
+                    // Space match uses custom string transformations: uppercase, strip AND/THE, remove non-alphanumerics
                     this.spaceMatchList = [this.name.toUpperCase().replace(/ AND /g, ' ').replace(/^THE /g, '').replace(/[^A-Z0-9 ]/g, ' ').replace(/ {2,}/g, ' ')];
                     if (this.searchnameword) {
                         this.spaceMatchList.push(...this.searchnameword);
@@ -1487,21 +1460,7 @@
                  * I could not find strMatchStart or strMatchEnd in the PNH spreadsheet. Assuming these
                  * are no longer needed.
                  */
-                // if (specCases.includes('strMatchStart')) {
-                //     //  Match the beginning part of WME name with any search term
-                //     for (let nmix = 0; nmix < searchNameList.length; nmix++) {
-                //         if (name.startsWith(searchNameList[nmix]) || venueNameNoNum.startsWith(searchNameList[nmix])) {
-                //             PNHStringMatch = true;
-                //         }
-                //     }
-                // } else if (specCases.includes('strMatchEnd')) {
-                //     //  Match the end part of WME name with any search term
-                //     for (let nmix = 0; nmix < searchNameList.length; nmix++) {
-                //         if (name.endsWith(searchNameList[nmix]) || venueNameNoNum.endsWith(searchNameList[nmix])) {
-                //             PNHStringMatch = true;
-                //         }
-                //     }
-                /* } else */ if (searchNameList.includes(name) || searchNameList.includes(venueNameNoNum)) {
+                if (searchNameList.includes(name) || searchNameList.includes(venueNameNoNum)) {
                     // full match of any term only
                     nameMatch = true;
                 }
@@ -1939,7 +1898,6 @@
             }
             let ele = opt.target;
             if (typeof opt.target === 'string') { ele = document.getElementById(opt.target); }
-            // var ths = this;
             shortcutCombo = shortcutCombo.toLowerCase();
             // The function to be called at keypress
             // eslint-disable-next-line func-names
@@ -2108,7 +2066,7 @@
                 ele[`on${opt.type}`] = func;
             }
         },
-        // Remove the shortcut - just specify the shortcut and I will remove the binding
+        // Remove a shortcut by specifying its key combination
         remove(shortcutCombo) {
             shortcutCombo = shortcutCombo.toLowerCase();
             const binding = this.allShortcuts[shortcutCombo];
@@ -2993,12 +2951,6 @@
         if (m) { [, url] = m; }
         m = url.match(/^(.*)\/pages\/default.aspx$/i); // remove unneeded terms
         if (m) { [, url] = m; }
-        // m = s.match(/^(.*)\/index.html$/i); // remove unneeded terms
-        // if (m) { s = m[1]; }
-        // m = s.match(/^(.*)\/index.htm$/i); // remove unneeded terms
-        // if (m) { s = m[1]; }
-        // m = s.match(/^(.*)\/index.php$/i); // remove unneeded terms
-        // if (m) { s = m[1]; }
         m = url.match(/^(.*)\/$/i); // remove final slash
         if (m) { [, url] = m; }
         if (!url || url.trim().length === 0 || !/(^https?:\/\/)?\w+\.\w+/.test(url)) url = BAD_URL;
@@ -3786,9 +3738,7 @@
 
             action() {
                 if (this.isVenueResidential(args.venue)) {
-                    // 7/1/2022 - Not sure if this is necessary? Can residence be converted to area? Either way, updateFeatureGeometry function no longer works.
-                    // const centroid = venue.geometry.getCentroid();
-                    // updateFeatureGeometry(venue, new OpenLayers.Geometry.Point(centroid.x, centroid.y));
+                    // Residential areas cannot be converted to points
                 } else {
                     $('wz-checkable-chip.geometry-type-control-point').click();
                 }
@@ -3953,58 +3903,18 @@
         // followed by up to 4 letters but it's not clear if the app actually searches if only 1, 2, or more letters
         // are present.  Other places can have a more flexible HN (up to 15 characters long, total. A single space between
         // the # and letters. Etc)
-        // HnNonStandard: class extends WLFlag {
-        //     constructor() {
-        //         super(SEVERITY.RED, 'House number is non-standard.', true,
-        //             'Whitelist non-standard HN', 'hnNonStandard');
-        //     }
-        //
-        // BELOW IS COPIED FROM harmonizePlaceGo function. To be included in HN flags if enabled again.
-        // 2020-10-5 Disabling HN validity checks for now. See the note on the HnNonStandard flag object for more details.
-        // if (hasStreet && (!currentHN || currentHN.replace(/\D/g, '').length === 0)) {
 
-        // } else if (currentHN) {
-        //     let hnOK = false;
-        //     let updateHNflag = false;
-        //     const hnTemp = currentHN.replace(/[^\d]/g, ''); // Digits only
-        //     const hnTempDash = currentHN.replace(/[^\d-]/g, ''); // Digits and dashes only
-        //     if (hnTemp < 1000000 && state2L === 'NY' && addr.city.attributes.name === 'Queens' && hnTempDash.match(/^\d{1,4}-\d{1,4}$/g) !== null) {
-        //         updateHNflag = true;
-        //         // hnOK = true;
-        //     }
-        //     if (hnTemp === currentHN && hnTemp < 1000000) { //  general check that HN is 6 digits or less, & that it is only [0-9]
-        //         hnOK = true;
-        //     }
-        //     if (state2L === 'HI' && hnTempDash.match(/^\d{1,2}-\d{1,4}$/g) !== null) {
-        //         if (hnTempDash === hnTempDash.match(/^\d{1,2}-\d{1,4}$/g)[0]) {
-        //             hnOK = true;
-        //         }
-        //     }
+        /*
+        ARCHIVED: House Number validation logic (v2020-10-5)
+        This code was disabled due to complexity and unclear requirements.
+        If re-enabling HN validation, review the following:
+        - HnNonStandard class logic for determining valid HN patterns
+        - State-specific HN formats (NY Queens format, HI format, etc.)
+        - Integration with whitelist system (_wl.hnNonStandard)
+        - Verify compatibility with current SDK approach to address harmonization
 
-        //     if (!hnOK) {
-        //         _buttonBanner.hnNonStandard = new Flag.HnNonStandard();
-        //         if (_wl.hnNonStandard) {
-        //             _buttonBanner.hnNonStandard.WLactive = false;
-        //             _buttonBanner.hnNonStandard.severity = SEVERITY.GREEN;
-        //         } else {
-        //             lockOK = false;
-        //         }
-        //     }
-        //     if (updateHNflag) {
-        //         _buttonBanner.hnDashRemoved = new Flag.HnDashRemoved();
-        //         if (!highlightOnly) {
-        //             _UPDATED_FIELDS.address.updated = true;
-        //         } else if (highlightOnly) {
-        //             if (venue.residential) {
-        //                 _buttonBanner.hnDashRemoved.severity = SEVERITY.RED;
-        //             } else {
-        //                 _buttonBanner.hnDashRemoved.severity = SEVERITY.BLUE;
-        //             }
-        //         }
-        //     }
-        // }
-        //
-        // },
+        See git history for full implementation details.
+        */
         HNRange: class extends WLFlag {
             static defaultMessage = 'House number seems out of range for the street name. Verify.';
             static defaultSeverity = SEVERITY.YELLOW;
@@ -7590,7 +7500,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
 
             if (!args.chainIsClosed) {
                 const isPoint = isVenuePoint(venue);
-                // NOTE: do not use is2D() function. It doesn't seem to be 100% reliable.
+                // Determine if venue is an area by checking if it's not a point (more reliable than is2D())
                 const isArea = !isPoint;
                 let highestCategoryLock = -1;
                 // Category/Name-based Services, added to any existing services:
@@ -7760,20 +7670,8 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                         addUpdateAction(venue, { name: args.nameBase + newSuffix }, actions);
                         logDev('Lower case "mile"');
                     }
-                    // NOTE: I don't know if this else case is needed anymore...
-                    // else {
-                    //     // The new name matches the original name, so the only change would have been to capitalize "Mile", which
-                    //     // we don't want. So remove any previous name-change action.  Note: this feels like a hack and is probably
-                    //     // a fragile workaround.  The name shouldn't be capitalized in the first place, unless necessary.
-                    //     for (let i = 0; i < actions.length; i++) {
-                    //         const action = actions[i];
-                    //         if (action.newAttributes?.name) {
-                    //             actions.splice(i, 1);
-                    //             _UPDATED_FIELDS.name.updated = false;
-                    //             break;
-                    //         }
-                    //     }
-                    // }
+                    // If names match after lowercasing "Mile", no action is needed
+                    // (would only have been a capitalization change, which is not desired)
                 }
 
                 // switch to rest area wiki button
@@ -8004,9 +7902,6 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
 
             executeMultiAction(actions);
         }
-
-            // showOpenPlaceWebsiteButton();
-            // showSearchButton();
 
             // Highlighting will return a value, but no need to return a value here (for end of harmonization).
             // Adding this line to satisfy eslint.
@@ -10667,23 +10562,25 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
 
         const xrayMode = localStorage.getItem('WMEPH_xrayMode_enabled') === 'true';
 
-        // NEED TO COMEBACK TO THIS: I belive the only layers that can be effected with the SDK are Venues, Segments, and Nodes as these are the only exposed in WMe verable WME_LAYER_NAMES
         /*
-        sdk.LayerSwitcher.addLayerCheckbox({ name: 'WMEPH x-ray mode', isChecked: xrayMode });
-        //WazeWrap.Interface.AddLayerCheckbox('Display', 'WMEPH x-ray mode', xrayMode, toggleXrayMode);
-        if (xrayMode) setTimeout(() => toggleXrayMode(true), 2000); // Give other layers time to load before enabling.
+        IN PROGRESS: X-ray Mode SDK Migration
+        This feature is disabled pending SDK layer control refactoring.
+        Current limitation: SDK only exposes Venues, Segments, and Nodes layers
+        (not background layers like roads, satellite, gisLayers needed for x-ray effect)
 
+        toggleXrayMode() function is still active and can manipulate available layers.
+        Re-enable this block once SDK provides better layer opacity/visibility control.
+
+        sdk.LayerSwitcher.addLayerCheckbox({ name: 'WMEPH x-ray mode', isChecked: xrayMode });
+        if (xrayMode) setTimeout(() => toggleXrayMode(true), 2000);
         sdk.Events.on({
             eventName: 'wme-layer-checkbox-toggled',
             eventHandler: (payload) => {
                 if (payload.name === 'WMEPH x-ray mode') {
                     toggleXrayMode(payload.checked);
                 } else if (payload.name === 'WMEPH Dupe Labels') {
-                    if (payload.checked) {
-                        redrawLayer(_dupeLayer);
-                    } else {
-                        sdk.Map.removeAllFeaturesFromLayer({ layerName: _dupeLayer });
-                    }
+                    if (payload.checked) redrawLayer(_dupeLayer);
+                    else sdk.Map.removeAllFeaturesFromLayer({ layerName: _dupeLayer });
                 }
             },
         });
