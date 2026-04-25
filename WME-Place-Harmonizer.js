@@ -10311,17 +10311,6 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
             logDev('loadHarmonizeShortcut returned null or empty - harmonize shortcut not registered');
         }
 
-        // Check for script updates.
-        // const downloadUrl = IS_BETA_VERSION ? dec(BETA_DOWNLOAD_URL) : PROD_DOWNLOAD_URL;
-        // let updateMonitor;
-        // try {
-        //     updateMonitor = new WazeWrap.Alerts.ScriptUpdateMonitor(SCRIPT_NAME, SCRIPT_VERSION, downloadUrl, GM_xmlhttpRequest);
-        //     updateMonitor.start();
-        // } catch (ex) {
-        //     // Report, but don't stop if ScriptUpdateMonitor fails.
-        //     console.error('WMEPH:', ex);
-        // }
-
         // Layer displays venues based on severity flags and parking lot types
         // Priority: wmephHighlight > lock types > (parking + severity) > severity alone > parking alone
         _layer = 'wmeph_highlights';
@@ -10423,7 +10412,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                 ]
             });
         } catch (e) {
-            logDev('wmeph_highlights layer error:', e);
+            logDev(`${_layer} layer error:`, e);
         }
 
         // Create layer for Google place links visualization
@@ -10482,12 +10471,6 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
         $('body').append(tempDiv);
 
         _userLanguage = I18n.locale;
-
-        // Array prototype extensions (for Firefox fix)
-        // 5/22/2019 (mapomatic) I'm guessing these aren't necessary anymore.  If no one reports any errors after a while, these lines may be deleted.
-        // Array.prototype.toSet = function () { return this.reduce(function (e, t) { return e[t] = !0, e; }, {}); };
-        // Array.prototype.first = function () { return this[0]; };
-        // Array.prototype.isEmpty = function () { return 0 === this.length; };
 
         appendServiceButtonIconCss();
         UPDATED_FIELDS.init();
@@ -10602,10 +10585,6 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
             localStorage.setItem(SETTING_IDS.sfUrlWarning, '0');
         }
 
-        // WazeWrap.Events.register('mousemove', W.map, e => errorHandler(() => {
-        //     const wmEvts = (W.map.events) ? W.map.events : W.map.getMapEventsListener();
-        //     _wmephMousePosition = W.map.getLonLatFromPixel(wmEvts.getMousePosition(e));
-        // }));
         sdk.Events.on({
             eventName: 'wme-map-mouse-move',
             eventHandler: e => errorHandler(() => {
@@ -10711,25 +10690,6 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
         }
     } // END placeHarmonizer_init function
 
-    // function waitForReady() {
-    //     return new Promise(resolve => {
-    //         function loop() {
-    //             if (typeof W === 'object' && W.userscripts?.state.isReady && WazeWrap?.Ready) {
-    //                 resolve();
-    //             } else {
-    //                 setTimeout(loop, 100);
-    //             }
-    //         }
-    //         loop();
-    //     });
-    // }
-
-    async function placeHarmonizerBootstrap() {
-        log('placeHarmonizerBootstrap: SDK and categories already initialized');
-        WazeWrap.Interface.ShowScriptUpdate(SCRIPT_NAME, SCRIPT_VERSION, _SCRIPT_UPDATE_MESSAGE);
-        await placeHarmonizerInit();
-    }
-
     function refreshAllHighlights() {
         // Clear layer once
         try {
@@ -10785,7 +10745,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                 try {
                     // We need to identify and remove parking lot features
                     // For now, we'll clear and rebuild both parking + filter
-                    sdk.Map.removeAllFeaturesFromLayer({ layerName: 'wmeph_highlights' });
+                    sdk.Map.removeAllFeaturesFromLayer({ layerName: _layer });
                 } catch (e) {
                     logDev('Error clearing highlights layer:', e);
                 }
@@ -10804,7 +10764,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                         }
                     };
                     sdk.Map.addFeatureToLayer({
-                        layerName: 'wmeph_highlights',
+                        layerName: _layer,
                         feature: feature
                     });
                 } catch (err) {
@@ -10855,7 +10815,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
             // Add all filter features to highlights layer
             featuresToAdd.forEach(feature => {
                 sdk.Map.addFeatureToLayer({
-                    layerName: 'wmeph_highlights',
+                    layerName: _layer,
                     feature: feature
                 });
             });
@@ -10891,21 +10851,18 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                 scriptVersion: SCRIPT_VERSION,
             },
         });
-        await new Promise(resolve => {
-            setTimeout(() => {
-                try {
-                    initializeCategories();
-                    resolve();
-                } catch (e) {
-                    console.error('Failed to initialize categories:', e);
-                    resolve();
-                }
-            }, 100);
-        });
+        try {
+            initializeCategories();
+        } catch (e) {
+            console.error('Failed to initialize categories:', e);
+        }
 
         // Start downloading the PNH spreadsheet data in the background.  Starts the script once data is ready.
         await Pnh.downloadAllData();
-        await placeHarmonizerBootstrap();
+
+        log('Starting Place Harmonizer initialization');
+        WazeWrap.Interface.ShowScriptUpdate(SCRIPT_NAME, SCRIPT_VERSION, _SCRIPT_UPDATE_MESSAGE);
+        await placeHarmonizerInit();
         devTestCode();
     }
 
