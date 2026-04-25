@@ -7187,11 +7187,6 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
 
         let pnhLockLevel;
         if (!args.highlightOnly) {
-            // Uncomment this to test all field highlights.
-            // _UPDATED_FIELDS.getFieldProperties().forEach(prop => {
-            //     prop.updated = true;
-            // });
-
             // Get permalink for form submissions (Canada/Quebec only)
             args.placePL = sdk.Map.getPermalink({ includeLayers: false });
 
