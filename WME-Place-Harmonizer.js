@@ -4445,11 +4445,9 @@
                 if (!isNullOrWhitespace(this.args.pnhUrl)) {
                     addUpdateAction(this.args.venue, { url: this.args.pnhUrl }, null, true);
                 } else {
-                    WazeWrap.Alerts.confirm(
+                    WazeWrap.Alerts.error(
                         SCRIPT_NAME,
-                        'URL Matching Error!<br>Click OK to report this error',
-                        () => { reportError(); },
-                        () => { }
+                        'URL Matching Error!'
                     );
                 }
             }
@@ -7091,13 +7089,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                 value: 'Report script error',
                 title: 'Report a script error',
                 action() {
-                    const countryName = getVenueAddress(venue)?.country?.name || 'Unknown';
-                    reportError({
-                        subject: 'WMEPH Bug report: Script Error',
-                        message: `Script version: ${SCRIPT_VERSION}${BETA_VERSION_STR}\nPermalink: ${
-                            placePL}\nPlace name: ${venue.name}\nCountry: ${
-                            countryName}\n--------\nDescribe the error:  \n `
-                    });
+                    window.open(URLS.forum, '_blank');
                 }
             }
         };
@@ -7200,15 +7192,8 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
             //     prop.updated = true;
             // });
 
-            // The placePL should only be needed when harmonizing, not when highlighting.
-            args.placePL = getCurrentPL() //  set up external post div and pull place PL
-                .replace(/&layers=[^&]+(&?)/g, '$1') // remove Permalink Layers
-                .replace(/&s=[^&]+(&?)/g, '$1') // remove Permalink Layers
-                .replace(/&update_requestsFilter=[^&]+(&?)/g, '$1') // remove Permalink Layers
-                .replace(/&problemsFilter=[^&]+(&?)/g, '$1') // remove Permalink Layers
-                .replace(/&mapProblemFilter=[^&]+(&?)/g, '$1') // remove Permalink Layers
-                .replace(/&mapUpdateRequestFilter=[^&]+(&?)/g, '$1') // remove Permalink Layers
-                .replace(/&venueFilter=[^&]+(&?)/g, '$1'); // remove Permalink Layers
+            // Get permalink for form submissions (Canada/Quebec only)
+            args.placePL = sdk.Map.getPermalink({ includeLayers: false });
 
             _buttonBanner2 = getButtonBanner2(venue, args.placePL);
             _servicesBanner = getServicesBanner();
@@ -7318,35 +7303,9 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
         }
         if (args.state2L === 'Unknown' || args.regionCode === 'Unknown') { // if nothing found:
             if (!args.highlightOnly) {
-                /* if (confirm('WMEPH: Localization Error!\nClick OK to report this error')) {
-                    // if the category doesn't translate, then pop an alert that will make a forum post to the thread
-                    const data = {
-                        subject: 'WMEPH Localization Error report',
-                        message: `Error report: Localization match failed for "${stateName}".`
-                    };
-                    if (_PNH_DATA.states.length === 0) {
-                        data.message += ' _PNH_DATA.states array is empty.';
-                    } else {
-                        data.message += ` state2L = ${_stateDataTemp[_psState2LetterIx]}. region = ${_stateDataTemp[_psRegionIx]}`;
-                    }
-                    reportError(data);
-                } */
-                WazeWrap.Alerts.confirm(
+                WazeWrap.Alerts.error(
                     SCRIPT_NAME,
-                    'WMEPH: Localization Error!<br>Click OK to report this error',
-                    () => {
-                        const data = {
-                            subject: 'WMEPH Localization Error report',
-                            message: `Error report: Localization match failed for "${stateName}".`
-                        };
-                        if (PNH_DATA.states.length === 0) {
-                            data.message += ' _PNH_DATA.states array is empty.';
-                        } else {
-                            data.message += ` state2L = ${_stateDataTemp[_psState2LetterIx]}. region = ${_stateDataTemp[_psRegionIx]}`;
-                        }
-                        reportError(data);
-                    },
-                    () => { }
+                    'WMEPH: Localization Error!'
                 );
             }
             return SEVERITY.RED;
@@ -7465,24 +7424,11 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
 
                 args.priPNHPlaceCat = args.pnhMatch.primaryCategory;
 
-                // if the location has multiple matches, then pop an alert that will make a forum post to the thread
+                // if the location has multiple matches, then pop an alert
                 if (nsMultiMatch && !args.highlightOnly) {
-                    /* if (confirm('WMEPH: Multiple matches found!\nDouble check the script changes.\nClick OK to report this situation.')) {
-                        reportError({
-                            subject: `Order Nos. "${orderList.join(', ')}" WMEPH Multiple match report`,
-                            message: `Error report: PNH Order Nos. "${orderList.join(', ')}" are ambiguous multiple matches.\n \nExample Permalink: ${placePL}`
-                        });
-                    } */
-                    WazeWrap.Alerts.confirm(
+                    WazeWrap.Alerts.error(
                         SCRIPT_NAME,
-                        'WMEPH: Multiple matches found!<br>Double check the script changes.<br>Click OK to report this situation.',
-                        () => {
-                            reportError({
-                                subject: `Order Nos. "${orderList.join(', ')}" WMEPH Multiple match report`,
-                                message: `Error report: PNH Order Nos. "${orderList.join(', ')}" are ambiguous multiple matches.\n \nExample Permalink: ${args.placePL}`
-                            });
-                        },
-                        () => { }
+                        'WMEPH: Multiple matches found!<br>Double check the script changes.'
                     );
                 }
 
@@ -8089,18 +8035,9 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
             if (duplicateName.length) {
                 if (duplicateName.length + 1 !== _dupeIDList.length && USER.isDevUser) {
                     // If there's an issue with the data return, allow an error report
-                    WazeWrap.Alerts.confirm(
+                    WazeWrap.Alerts.error(
                         SCRIPT_NAME,
-                        'WMEPH: Dupefinder Error!<br>Click OK to report this',
-                        () => {
-                            // if the category doesn't translate, then pop an alert that will make a forum post to the thread
-                            reportError({
-                                subject: 'WMEPH Bug report DupeID',
-                                message: `Script version: ${SCRIPT_VERSION}${BETA_VERSION_STR}\nPermalink: ${placePL}\nPlace name: ${
-                                    venue.name}\nCountry: ${addr.country.name}\n--------\nDescribe the error:\nDupeID mismatch with dupeName list`
-                            });
-                        },
-                        () => { }
+                        'WMEPH: Dupefinder Error!'
                     );
                 } else {
                     const wlAction = dID => {
@@ -10410,40 +10347,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
         document.body.removeChild(tmp);
     }
 
-    // Pulls the venue PL
-    function getCurrentPL() {
-        // Return the current PL
-
-        // 5/22/2019 (mapomatic)
-        // I'm not sure what this was supposed to do.  Maybe an attempt to wait until the PL
-        // was available when loading WME from PL with a place pre-selected and auto-run WMEPH
-        // is turned on?  Whatever the purpose was, it won't work properly because it'll return
-        // undefined, and the calling code is expecting a value.
-
-        // if ($('.WazeControlPermalink').length === 0) {
-        //     log('Waiting for PL div');
-        //     setTimeout(getCurrentPL, 500);
-        //     return;
-        // }
-
-        let pl = '';
-        let elem = $('.WazeControlPermalink .permalink');
-        if (elem.length && elem.attr('href').length) {
-            pl = $('.WazeControlPermalink .permalink').attr('href');
-        } else {
-            elem = $('.WazeControlPermalink');
-            if (elem.length && elem.children('.fa-link').length) {
-                pl = elem.children('.fa-link')[0].href;
-            }
-        }
-        return pl;
-    }
-
     // Sets up error reporting
-    function reportError() {
-        window.open(URLS.forum, '_blank');
-    }
-
     function updateUserInfo() {
         const userInfo = sdk.State.getUserInfo();
         if (!userInfo) {
