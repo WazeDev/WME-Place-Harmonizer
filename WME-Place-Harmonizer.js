@@ -458,9 +458,9 @@
     // Get map extent as bounding box [minLon, minLat, maxLon, maxLat]
     function getMapBoundingBox() {
         try {
-            const extent = sdk.Map.getMapExtent();
-            // extent has {north, south, east, west} properties
-            return [extent.west, extent.south, extent.east, extent.north];
+            const bbox = sdk.Map.getMapExtent();
+            // bbox is [left, bottom, right, top] = [minLon, minLat, maxLon, maxLat] in WGS84
+            return bbox;
         } catch (e) {
             console.error('getMapBoundingBox error:', e);
             return null;
@@ -505,8 +505,8 @@
         forum: 'https://www.waze.com/discuss/t/script-wme-place-harmonizer/178574',
         usaPnh: 'https://docs.google.com/spreadsheets/d/1-f-JTWY5UnBx-rFTa4qhyGMYdHBZWNirUTOgn222zMY/edit#gid=0',
         placesWiki: 'https://www.waze.com/discuss/t/places/377947',
-        restAreaWiki: 'https://wazeopedia.waze.com/wiki/USA/Rest_areas#Adding_a_Place',
-        uspsWiki: 'https://wazeopedia.waze.com/wiki/USA/Places/Post_office'
+        restAreaWiki: 'https://www.waze.com/discuss/t/rest-areas/378691',
+        uspsWiki: 'https://www.waze.com/discuss/t/post-office-places/378648'
     };
     class Region {
         static #defaultNewChainRequestEntryIds = ['entry.925969794', 'entry.1970139752', 'entry.1749047694'];
@@ -554,137 +554,32 @@
         ORANGE: 6
     };
 
-    const CAT = {
-        AIRPORT: 'AIRPORT',
-        // ART_GALLERY: 'ART_GALLERY',
-        // ARTS_AND_CRAFTS: 'ARTS_AND_CRAFTS',
-        ATM: 'ATM',
-        // BAKERY: 'BAKERY',
-        BANK_FINANCIAL: 'BANK_FINANCIAL',
-        BAR: 'BAR',
-        // BEACH: 'BEACH',
-        // BED_AND_BREAKFAST: 'BED_AND_BREAKFAST',
-        // BOOKSTORE: 'BOOKSTORE',
-        BRIDGE: 'BRIDGE',
-        // BUS_STATION: 'BUS_STATION',
-        // CAFE: 'CAFE',
-        CAMPING_TRAILER_PARK: 'CAMPING_TRAILER_PARK',
-        CANAL: 'CANAL',
-        // CAR_DEALERSHIP: 'CAR_DEALERSHIP',
-        CAR_RENTAL: 'CAR_RENTAL',
-        // CAR_SERVICES: 'CAR_SERVICES',
-        // CAR_WASH: 'CAR_WASH',
-        // CASINO: 'CASINO',
-        CHARGING_STATION: 'CHARGING_STATION',
-        CEMETERY: 'CEMETERY',
-        // CITY_HALL: 'CITY_HALL',
-        // CLUB: 'CLUB',
-        COLLEGE_UNIVERSITY: 'COLLEGE_UNIVERSITY',
-        CONSTRUCTION_SITE: 'CONSTRUCTION_SITE',
-        CONVENIENCE_STORE: 'CONVENIENCE_STORE',
-        CONVENTIONS_EVENT_CENTER: 'CONVENTIONS_EVENT_CENTER',
-        COTTAGE_CABIN: 'COTTAGE_CABIN',
-        // COURTHOUSE: 'COURTHOUSE',
-        CULTURE_AND_ENTERTAINEMENT: 'CULTURE_AND_ENTERTAINEMENT',
-        // CURRENCY_EXCHANGE: 'CURRENCY_EXCHANGE',
-        DAM: 'DAM',
-        // DEPARTMENT_STORE: 'DEPARTMENT_STORE',
-        DESSERT: 'DESSERT',
-        DOCTOR_CLINIC: 'DOCTOR_CLINIC',
-        // ELECTRONICS: 'ELECTRONICS',
-        // EMBASSY_CONSULATE: 'EMBASSY_CONSULATE',
-        // EMERGENCY_SHELTER: 'EMERGENCY_SHELTER',
-        // FACTORY_INDUSTRIAL: 'FACTORY_INDUSTRIAL',
-        FARM: 'FARM',
-        // FASHION_AND_CLOTHING: 'FASHION_AND_CLOTHING',
-        // FAST_FOOD: 'FAST_FOOD',
-        FERRY_PIER: 'FERRY_PIER',
-        FIRE_DEPARTMENT: 'FIRE_DEPARTMENT',
-        // FLOWERS: 'FLOWERS',
-        FOOD_AND_DRINK: 'FOOD_AND_DRINK',
-        // FOOD_COURT: 'FOOD_COURT',
-        FOREST_GROVE: 'FOREST_GROVE',
-        // FURNITURE_HOME_STORE: 'FURNITURE_HOME_STORE',
-        // GAME_CLUB: 'GAME_CLUB',
-        // GARAGE_AUTOMOTIVE_SHOP: 'GARAGE_AUTOMOTIVE_SHOP',
-        GAS_STATION: 'GAS_STATION',
-        // GIFTS: 'GIFTS',
-        GOLF_COURSE: 'GOLF_COURSE',
-        // GOVERNMENT: 'GOVERNMENT',
-        GYM_FITNESS: 'GYM_FITNESS',
-        // HARDWARE_STORE: 'HARDWARE_STORE',
-        HOSPITAL_MEDICAL_CARE: 'HOSPITAL_MEDICAL_CARE',
-        HOSPITAL_URGENT_CARE: 'HOSPITAL_URGENT_CARE',
-        // HOSTEL: 'HOSTEL',
-        HOTEL: 'HOTEL',
-        // ICE_CREAM: 'ICE_CREAM',
-        // INFORMATION_POINT: 'INFORMATION_POINT',
-        ISLAND: 'ISLAND',
-        // JEWELRY: 'JEWELRY',
-        JUNCTION_INTERCHANGE: 'JUNCTION_INTERCHANGE',
-        // KINDERGARDEN: 'KINDERGARDEN',
-        // LAUNDRY_DRY_CLEAN: 'LAUNDRY_DRY_CLEAN',
-        // LIBRARY: 'LIBRARY',
-        LODGING: 'LODGING',
-        // MARKET: 'MARKET',
-        // MILITARY: 'MILITARY',
-        MOVIE_THEATER: 'MOVIE_THEATER',
-        // MUSEUM: 'MUSEUM',
-        // MUSIC_STORE: 'MUSIC_STORE',
-        // MUSIC_VENUE: 'MUSIC_VENUE',
-        NATURAL_FEATURES: 'NATURAL_FEATURES',
-        OFFICES: 'OFFICES',
-        // ORGANIZATION_OR_ASSOCIATION: 'ORGANIZATION_OR_ASSOCIATION',
-        OTHER: 'OTHER',
-        // OUTDOORS: 'OUTDOORS',
-        PARK: 'PARK',
-        PARKING_LOT: 'PARKING_LOT',
-        PERSONAL_CARE: 'PERSONAL_CARE',
-        PET_STORE_VETERINARIAN_SERVICES: 'PET_STORE_VETERINARIAN_SERVICES',
-        // PERFORMING_ARTS_VENUE: 'PERFORMING_ARTS_VENUE',
-        PHARMACY: 'PHARMACY',
-        // PHOTOGRAPHY: 'PHOTOGRAPHY',
-        PLAYGROUND: 'PLAYGROUND',
-        // PLAZA: 'PLAZA',
-        POLICE_STATION: 'POLICE_STATION',
-        // POOL: 'POOL',
-        POST_OFFICE: 'POST_OFFICE',
-        // PRISON_CORRECTIONAL_FACILITY: 'PRISON_CORRECTIONAL_FACILITY',
-        // PROFESSIONAL_AND_PUBLIC: 'PROFESSIONAL_AND_PUBLIC',
-        // PROMENADE: 'PROMENADE',
-        // RACING_TRACK: 'RACING_TRACK',
-        RELIGIOUS_CENTER: 'RELIGIOUS_CENTER',
-        RESIDENCE_HOME: 'RESIDENCE_HOME',
-        REST_AREAS: 'REST_AREAS',
-        RESTAURANT: 'RESTAURANT',
-        RIVER_STREAM: 'RIVER_STREAM',
-        SCENIC_LOOKOUT_VIEWPOINT: 'SCENIC_LOOKOUT_VIEWPOINT',
-        SCHOOL: 'SCHOOL',
-        SEA_LAKE_POOL: 'SEA_LAKE_POOL',
-        SEAPORT_MARINA_HARBOR: 'SEAPORT_MARINA_HARBOR',
-        SHOPPING_AND_SERVICES: 'SHOPPING_AND_SERVICES',
-        SHOPPING_CENTER: 'SHOPPING_CENTER',
-        // SKI_AREA: 'SKI_AREA',
-        // SPORTING_GOODS: 'SPORTING_GOODS',
-        SPORTS_COURT: 'SPORTS_COURT',
-        STADIUM_ARENA: 'STADIUM_ARENA',
-        SUBWAY_STATION: 'SUBWAY_STATION',
-        SUPERMARKET_GROCERY: 'SUPERMARKET_GROCERY',
-        SWAMP_MARSH: 'SWAMP_MARSH',
-        // SWIMMING_POOL: 'SWIMMING_POOL',
-        // TAXI_STATION: 'TAXI_STATION',
-        // THEATER: 'THEATER',
-        // THEME_PARK: 'THEME_PARK',
-        // TELECOM: 'TELECOM',
-        // TOURIST_ATTRACTION_HISTORIC_SITE: 'TOURIST_ATTRACTION_HISTORIC_SITE',
-        // TOY_STORE: 'TOY_STORE',
-        // TRAIN_STATION: 'TRAIN_STATION',
-        TRANSPORTATION: 'TRANSPORTATION',
-        // TRASH_AND_RECYCLING_FACILITIES: 'TRASH_AND_RECYCLING_FACILITIES',
-        // TRAVEL_AGENCY: 'TRAVEL_AGENCY',
-        TUNNEL: 'TUNNEL'
-        // ZOO_AQUARIUM: 'ZOO_AQUARIUM',
-    };
+    function initializeCategories() {
+        try {
+            console.log('DEBUG: initializeCategories called, sdk=', typeof sdk);
+            console.log('DEBUG: sdk.DataModel=', typeof sdk?.DataModel);
+            console.log('DEBUG: sdk.DataModel.Venues=', typeof sdk?.DataModel?.Venues);
+            const subCategories = sdk.DataModel.Venues.getVenueSubCategories();
+            console.log('DEBUG: Retrieved', subCategories.length, 'subcategories');
+            subCategories.forEach(subCat => {
+                CAT[subCat.subCategoryId] = subCat.subCategoryId;
+                SUBCATEGORIES_BY_ID[subCat.subCategoryId] = subCat;
+            });
+            console.log(`✓ Loaded ${Object.keys(CAT).length} venue categories from SDK`);
+            console.log('DEBUG: Sample CAT values - HOTEL:', CAT.HOTEL, 'RESTAURANT:', CAT.RESTAURANT);
+        } catch (e) {
+            console.error('Failed to initialize categories from SDK:', e);
+            console.error('DEBUG: CAT after error:', Object.keys(CAT).length, 'keys');
+            throw e;
+        }
+    }
+
+    function getCategoryLocalizedName(categoryId) {
+        return SUBCATEGORIES_BY_ID[categoryId]?.localizedName ?? categoryId;
+    }
+
+    let CAT = {};
+    let SUBCATEGORIES_BY_ID = {};
 
     let _catTransWaze2Lang; // pulls the category translations
     const EV_PAYMENT_METHOD = {
@@ -743,7 +638,8 @@
         capWords: '3M|AAA|AMC|AOL|AT&T|ATM|BBC|BLT|BMV|BMW|BP|CBS|CCS|CGI|CISCO|CJ|CNG|CNN|CVS|DHL|DKNY|DMV|DSW|EMS|ER|ESPN|FCU|FCUK|FDNY|GNC|H&M|HP|HSBC|IBM|IHOP|IKEA|IRS|JBL|JCPenney|KFC|LLC|MBNA|MCA|MCI|NBC|NYPD|PDQ|PNC|TCBY|TNT|TV|UPS|USA|USPS|VW|XYZ|ZZZ'.split('|'),
         specWords: 'd\'Bronx|iFix|ExtraMile|ChargePoint|EVgo|SemaConnect'.split('|')
     };
-    const PRIMARY_CATS_TO_IGNORE_MISSING_PHONE_URL = [
+    // These arrays are populated lazily after CAT is initialized
+    const getPrimaryCatsToIgnoreMissingPhoneUrl = () => [
         CAT.ISLAND,
         CAT.SEA_LAKE_POOL,
         CAT.RIVER_STREAM,
@@ -751,16 +647,16 @@
         CAT.JUNCTION_INTERCHANGE,
         CAT.SCENIC_LOOKOUT_VIEWPOINT
     ];
-    const PRIMARY_CATS_TO_FLAG_GREEN_MISSING_PHONE_URL = [
+    const getPrimaryCatsToFlagGreenMissingPhoneUrl = () => [
         CAT.BRIDGE,
         CAT.FOREST_GROVE,
         CAT.DAM,
         CAT.TUNNEL,
         CAT.CEMETERY
     ];
-    const ANY_CATS_TO_FLAG_GREEN_MISSING_PHONE_URL = [CAT.REST_AREAS];
+    const getAnyCatsToFlagGreenMissingPhoneUrl = () => [CAT.REST_AREAS];
     const REGIONS_THAT_WANT_PLA_PHONE_URL = ['SER'];
-    const CHAIN_APPROVAL_PRIMARY_CATS_TO_IGNORE = [
+    const getChainApprovalPrimaryCatsToIgnore = () => [
         CAT.POST_OFFICE,
         CAT.BRIDGE,
         CAT.FOREST_GROVE,
@@ -774,7 +670,7 @@
         CAT.JUNCTION_INTERCHANGE,
         CAT.SCENIC_LOOKOUT_VIEWPOINT
     ];
-    const CATS_THAT_DONT_NEED_NAMES = [
+    const getCatsThatDontNeedNames = () => [
         CAT.SEA_LAKE_POOL
     ];
     const BAD_URL = 'badURL';
@@ -5092,15 +4988,15 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
 
             static isWhitelisted(args) {
                 return super.isWhitelisted(args)
-                    || PRIMARY_CATS_TO_FLAG_GREEN_MISSING_PHONE_URL.includes(args.categories[0])
-                    || ANY_CATS_TO_FLAG_GREEN_MISSING_PHONE_URL.some(category => args.categories.includes(category));
+                    || getPrimaryCatsToFlagGreenMissingPhoneUrl().includes(args.categories[0])
+                    || getAnyCatsToFlagGreenMissingPhoneUrl().some(category => args.categories.includes(category));
             }
 
             static venueIsFlaggable(args) {
                 return !args.url?.trim().length
                     && (!isVenueParkingLot(args.venue)
                         || (isVenueParkingLot(args.venue) && REGIONS_THAT_WANT_PLA_PHONE_URL.includes(args.region)))
-                    && !PRIMARY_CATS_TO_IGNORE_MISSING_PHONE_URL.includes(args.categories[0]);
+                    && !getPrimaryCatsToIgnoreMissingPhoneUrl().includes(args.categories[0]);
             }
 
             static #getTextbox() {
@@ -5199,8 +5095,8 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
 
             static isWhitelisted(args) {
                 return super.isWhitelisted(args)
-                    || PRIMARY_CATS_TO_FLAG_GREEN_MISSING_PHONE_URL.includes(args.categories[0])
-                    || ANY_CATS_TO_FLAG_GREEN_MISSING_PHONE_URL.some(category => args.categories.includes(category));
+                    || getPrimaryCatsToFlagGreenMissingPhoneUrl().includes(args.categories[0])
+                    || getAnyCatsToFlagGreenMissingPhoneUrl().some(category => args.categories.includes(category));
             }
 
             static venueIsFlaggable(args) {
@@ -5208,7 +5104,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                     && !FlagBase.currentFlags.hasFlag(Flag.AddRecommendedPhone)
                     && (!isVenueParkingLot(args.venue)
                         || (isVenueParkingLot(args.venue) && REGIONS_THAT_WANT_PLA_PHONE_URL.includes(args.region)))
-                    && !PRIMARY_CATS_TO_IGNORE_MISSING_PHONE_URL.includes(args.categories[0]);
+                    && !getPrimaryCatsToIgnoreMissingPhoneUrl().includes(args.categories[0]);
             }
 
             action() {
@@ -6279,7 +6175,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                 return !args.highlightOnly
                     && args.pnhMatch[0] === 'NoMatch'
                     && !isVenueParkingLot(args.venue)
-                    && !CHAIN_APPROVAL_PRIMARY_CATS_TO_IGNORE.includes(args.categories[0])
+                    && !getChainApprovalPrimaryCatsToIgnore().includes(args.categories[0])
                     && !args.categories.includes(CAT.REST_AREAS);
             }
 
@@ -6314,7 +6210,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                 return !args.highlightOnly
                     && args.pnhMatch[0] === 'ApprovalNeeded'
                     && !isVenueParkingLot(args.venue)
-                    && !CHAIN_APPROVAL_PRIMARY_CATS_TO_IGNORE.includes(args.categories[0])
+                    && !getChainApprovalPrimaryCatsToIgnore().includes(args.categories[0])
                     && !args.categories.includes(CAT.REST_AREAS);
             }
 
@@ -7278,7 +7174,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
             }
         } else if (isVenueParkingLot(venue)
           || (args.nameBase?.trim().length)
-          || containsAny(args.categories, CATS_THAT_DONT_NEED_NAMES)) { // for non-residential places
+          || containsAny(args.categories, getCatsThatDontNeedNames())) { // for non-residential places
             // Phone formatting
             if (containsAny(['CA', 'CO'], [args.regionCode, args.state2L]) && (/^\d{3}-\d{3}-\d{4}$/.test(venue.phone))) {
                 args.outputPhoneFormat = '{0}-{1}-{2}';
@@ -8502,7 +8398,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
             let unit2;
 
             // Check if using imperial units
-            const isImperial = sdk.State?.getMapSettings?.()?.isImperial ?? false;
+            const isImperial = sdk.Settings?.getUserSettings?.()?.isImperial ?? false;
             let distance = distanceMeters;
 
             if (isImperial) {
@@ -8523,6 +8419,8 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
             } else {
                 label = Math.round(distance) + unit1;
             }
+
+            logDev('drawGooglePlacePoint: distance=', distanceMeters, 'label=', label);
 
             destroyGooglePlacePoint(); // Just in case it still exists.
 
@@ -10532,28 +10430,34 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
         try {
             sdk.Map.addLayer({
                 layerName: 'wmeph_google_link',
+                styleContext: {
+                    getLabel: (context) => context.feature?.properties?.label ?? ''
+                },
                 styleRules: [
                     {
                         predicate: (props) => props.poiCoord === true,
                         style: {
                             pointRadius: 6,
-                            fillColor: '#FF0',
-                            fillOpacity: 0.5,
+                            strokeWidth: 30,
                             strokeColor: '#FF0',
-                            strokeWidth: 2,
-                            strokeOpacity: 0.5
+                            fillColor: '#FF0',
+                            strokeOpacity: 0.5,
                         }
                     },
                     {
+                        predicate: (props) => !props.poiCoord,
                         style: {
                             strokeColor: '#FF0',
-                            strokeWidth: 3,
-                            strokeOpacity: 0.7,
-                            strokeDashstyle: 'dash',
-                            label: '${label}',
-                            labelYOffset: -10,
+                            strokeWidth: 0,
+                            strokeOpacity: 1.0,
+                            strokeDashstyle: '12 8',
+                            label: '${getLabel}',
+                            labelOutlineWidth: 4,
+                            labelOutlineColor: '#000',
+                            labelYOffset: +45,
                             fontColor: '#FF0',
-                            fontSize: '12px'
+                            fontSize: '18px',
+                            fontWeight: 'bold',
                         }
                     }
                 ]
@@ -10821,15 +10725,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
     // }
 
     async function placeHarmonizerBootstrap() {
-        log('Waiting for WME and WazeWrap...');
-        sdk = await bootstrap({
-            scriptName: SCRIPT_NAME,
-            scriptUpdateMonitor: {
-                downloadUrl: (IS_BETA_VERSION ? dec(BETA_DOWNLOAD_URL) : PROD_DOWNLOAD_URL),
-                scriptVersion: SCRIPT_VERSION,
-            },
-        });
-        //await waitForReady();
+        log('placeHarmonizerBootstrap: SDK and categories already initialized');
         WazeWrap.Interface.ShowScriptUpdate(SCRIPT_NAME, SCRIPT_VERSION, _SCRIPT_UPDATE_MESSAGE);
         await placeHarmonizerInit();
     }
@@ -10985,6 +10881,28 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
             return;
         }
         unsafeWindow.wmephRunning = 1;
+
+        // Initialize SDK early and populate CAT before PNH data is downloaded
+        log('Initializing SDK and categories...');
+        sdk = await bootstrap({
+            scriptName: SCRIPT_NAME,
+            scriptUpdateMonitor: {
+                downloadUrl: (IS_BETA_VERSION ? dec(BETA_DOWNLOAD_URL) : PROD_DOWNLOAD_URL),
+                scriptVersion: SCRIPT_VERSION,
+            },
+        });
+        await new Promise(resolve => {
+            setTimeout(() => {
+                try {
+                    initializeCategories();
+                    resolve();
+                } catch (e) {
+                    console.error('Failed to initialize categories:', e);
+                    resolve();
+                }
+            }, 100);
+        });
+
         // Start downloading the PNH spreadsheet data in the background.  Starts the script once data is ready.
         await Pnh.downloadAllData();
         await placeHarmonizerBootstrap();
