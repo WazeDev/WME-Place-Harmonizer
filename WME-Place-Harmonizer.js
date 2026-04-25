@@ -262,7 +262,12 @@
     const _CHAR_TO_KEYCODE = Object.fromEntries(Object.entries(_KEYCODE_TO_CHAR).map(([k, v]) => [v.toUpperCase(), Number(k)]));
     const _MOD_CHAR_TO_VAL = { C: 1, S: 2, A: 4 };
 
-    // Normalize any shortcut format to {raw: "mod,keycode", combo: "A+R"} for consistent storage
+    /**
+     * Converts shortcut from combo format (e.g., "A+R", "C+shift+A") to raw format ("mod,keycode").
+     * Handles single characters, key codes, and modifier combinations (Control, Shift, Alt).
+     * @param {string} str - Shortcut string in combo format or null-like values ("None", "-1", "")
+     * @returns {string|null} Raw format "mod,keycode" string, or null if invalid or null-like value
+     */
     function shortcutComboToRaw(str) {
         if (!str || str === '' || str === '-1' || str === 'None') return null;
         if (/^\d+,-?\d+$/.test(str)) {
@@ -290,6 +295,11 @@
         return null;
     }
 
+    /**
+     * Converts shortcut from raw format ("mod,keycode") to human-readable combo format ("A+R").
+     * @param {string} str - Shortcut string in raw format or any format that shortcutComboToRaw accepts
+     * @returns {string|null} Combo format "A+R" or just "R" if no modifiers, or null if invalid
+     */
     function shortcutRawToCombo(str) {
         const raw = shortcutComboToRaw(str);
         if (!raw) return null;
@@ -304,6 +314,12 @@
         return mods ? `${mods}+${keyChar}` : keyChar;
     }
 
+    /**
+     * Normalizes shortcuts into both raw and combo formats for consistent handling.
+     * Accepts mixed input formats (raw, combo, or object with either) and returns both representations.
+     * @param {string|object} val - Shortcut string (raw or combo format) or object with {raw} or {combo} property
+     * @returns {object} {raw: "mod,keycode", combo: "A+R"} or {raw: null, combo: null} if invalid
+     */
     function normalizeShortcut(val) {
         const src = val && typeof val === 'object' ? (val.raw ?? val.combo) : val;
         const raw = shortcutComboToRaw(src);
@@ -367,7 +383,12 @@
         }
     }
 
-    // Get venue address using SDK (replaces venue.getAddress())
+    /**
+     * Retrieves address details for a venue using the WME SDK.
+     * Returns house number, street, city, state, and postal code information.
+     * @param {object} venue - Venue object with id property
+     * @returns {object|null} Address object with {houseNumber, street, city, state, postalCode}, or null if invalid venue
+     */
     function getVenueAddress(venue) {
         if (!venue || !venue.id) return null;
         return sdk.DataModel.Venues.getAddress({ venueId: venue.id });
@@ -436,7 +457,12 @@
     // Duplicate Finder Geometry & Distance Helpers (using Turf.js + SDK)
     // ============================================================================
 
-    // Get venue centroid as GeoJSON point coordinates [lon, lat]
+    /**
+     * Calculates the centroid (center point) of a venue's geometry using Turf.js.
+     * For points, returns the point itself; for areas, calculates the geometric center.
+     * @param {object} venue - Venue object with geometry property (GeoJSON format)
+     * @returns {number[]|null} Coordinates as [longitude, latitude], or null if geometry invalid or missing
+     */
     function getVenueCentroid(venue) {
         if (!venue?.geometry) return null;
         try {
@@ -448,8 +474,13 @@
         }
     }
 
-    // Calculate distance between two points in meters
-    // pt1, pt2 can be [lon, lat] arrays or {longitude, latitude} objects
+    /**
+     * Calculates the distance between two geographic points using Turf.js.
+     * Uses the haversine formula for great-circle distance (accounts for Earth's curvature).
+     * @param {number[]|object} pt1 - First point as [longitude, latitude] array or {longitude, latitude} object
+     * @param {number[]|object} pt2 - Second point as [longitude, latitude] array or {longitude, latitude} object
+     * @returns {number} Distance in meters, or Infinity if either point is invalid
+     */
     function calculatePointDistance(pt1, pt2) {
         if (!pt1 || !pt2) return Infinity;
         try {
@@ -2085,6 +2116,13 @@
         }
     }; // END Shortcut function
 
+    /**
+     * Wraps a function call in try-catch to prevent unhandled errors from breaking script execution.
+     * Logs errors to console for debugging purposes.
+     * @param {function} callback - Function to execute safely
+     * @param {...*} args - Arguments to pass to the callback function
+     * @returns {void} Silently catches and logs any errors
+     */
     function errorHandler(callback, ...args) {
         try {
             callback(...args);
@@ -2094,7 +2132,13 @@
     }
 
 
-    function calculateDistance (pointArray) {
+    /**
+     * Calculates total distance along a path of points (polyline length).
+     * Sums the distances between consecutive points in the array.
+     * @param {number[][]|object[]} pointArray - Array of points as [lon, lat] arrays or {longitude, latitude} objects
+     * @returns {number} Total distance in meters along the polyline
+     */
+    function calculateDistance(pointArray) {
             if (pointArray.length < 2)
                 return 0;
 
@@ -2103,6 +2147,11 @@
             return length; //multiply by 3.28084 to convert to feet
     }
 
+    /**
+     * Checks if a value is null, undefined, or contains only whitespace.
+     * @param {string} str - String value to check
+     * @returns {boolean} True if null, undefined, or whitespace-only; false otherwise
+     */
     function isNullOrWhitespace(str) {
         return !str?.trim().length;
     }
@@ -2139,6 +2188,14 @@
         return venue.categories.includes(CAT.REST_AREAS) && /rest\s*area/i.test(venue.name);
     }
 
+    /**
+     * Determines flag severity based on PVA (Place Verification Attribute) value.
+     * Maps PVA codes to highlight colors: RED (missing/invalid), BLUE (confirmed), YELLOW (secondary), GREEN (ok).
+     * Special handling for emergency rooms (coded as 'hosp' category).
+     * @param {string} pvaValue - PVA code ("0", "2", "3", "hosp", "", etc.)
+     * @param {object} venue - Venue object (used to check if hospital is emergency room)
+     * @returns {number} Severity constant (SEVERITY.RED/BLUE/YELLOW/GREEN) for use in highlighting
+     */
     function getPvaSeverity(pvaValue, venue) {
         const isER = pvaValue === 'hosp' && isEmergencyRoom(venue);
         let severity;
@@ -2239,6 +2296,12 @@
         }
     }
 
+    /**
+     * Returns array with duplicate values removed (unique elements only).
+     * Uses Set to efficiently deduplicate while preserving first-occurrence order.
+     * @param {array} arrayIn - Input array containing potential duplicates
+     * @returns {array} New array containing unique elements from input array
+     */
     function uniq(arrayIn) {
         return [...new Set(arrayIn)];
     }
@@ -2733,7 +2796,12 @@
         refreshAllHighlights();
     }
 
-    // Change place.name to title case
+    /**
+     * Converts string to title case (first letter uppercase, rest lowercase).
+     * Special handling for single-letter abbreviations and common short words.
+     * @param {string} str - String to convert to title case
+     * @returns {string} Title-cased string, or original value if null/empty
+     */
     function titleCase(str) {
         if (!str) {
             return str;
@@ -2813,7 +2881,13 @@
         return str;
     }
 
-    // normalize phone
+    /**
+     * Normalizes and validates phone numbers (USA/CAN specific).
+     * Removes formatting, validates area/exchange codes, strips leading 1, and handles extensions.
+     * @param {string} s - Phone number string to normalize
+     * @param {string} [outputFormat] - Optional output format preference
+     * @returns {string} Normalized phone number, or original input if null/empty, or BAD_PHONE if invalid
+     */
     function normalizePhone(s, outputFormat) {
         if (isNullOrWhitespace(s)) return s;
         s = s.replace(/(\d{3}.*[0-9A-Z]{4})\W+(?:extension|ext|xt|x).*/i, '$1');
@@ -2931,7 +3005,13 @@
         if (!toggle) servBtn.active = checked;
     }
 
-    // Normalize url
+    /**
+     * Normalizes URLs by removing formatting, protocols, and redundant paths.
+     * Removes parenthetical content, spaces, http:// prefix, and common default pages.
+     * @param {string} url - URL string to normalize
+     * @param {boolean} [makeLowerCase=true] - If true, lowercase entire domain; if false, only lowercase www and .com
+     * @returns {string} Normalized URL, or BAD_URL constant if validation fails
+     */
     function normalizeURL(url, makeLowerCase = true) {
         if (!url?.trim().length) {
             return url;
@@ -2957,7 +3037,12 @@
         return url;
     }
 
-    // Only run the harmonization if a venue is selected
+    /**
+     * Main entry point for place harmonization.
+     * Runs Place Name Harmonization checks and actions on the currently selected venue.
+     * Validates beta version access, checks for disabled categories, and processes all harmonization rules.
+     * @returns {void} Updates are applied directly to the venue via harmonizePlaceGo()
+     */
     function harmonizePlace() {
         logDev('harmonizePlace');
         // Beta version for approved users only
