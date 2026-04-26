@@ -10553,7 +10553,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                         predicate: (props) => !props.poiCoord,
                         style: {
                             strokeColor: '#FF0',
-                            strokeWidth: 0,
+                            strokeWidth: 3,
                             strokeOpacity: 1.0,
                             strokeDashstyle: '12 8',
                             label: '${getLabel}',
