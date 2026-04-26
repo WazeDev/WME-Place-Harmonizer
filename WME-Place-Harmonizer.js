@@ -76,23 +76,23 @@
     }
     #WMEPH_banner .banner-row.red {
         color:#b51212;
-        background-color:#f0dcdc;
+        background-color: #f0dcdc;
     }
     #WMEPH_banner .banner-row.blue {
         color:#3232e6;
-        background-color:#dcdcf0;
+        background-color: #dcdcf0;
     }
     #WMEPH_banner .banner-row.yellow {
         color:#584a04;
-        background-color:#f0f0c2;
+        background-color: #f0f0c2;
     }
     #WMEPH_banner .banner-row.gray {
         color:#3a3a3a;
-        background-color:#eeeeee;
+        background-color: #eeeeee;
     }
     #WMEPH_banner .banner-row.orange {
         color:#754900;
-        background-color:#ffd389
+        background-color: #ffd389
     }
     #WMEPH_banner .banner-row.lightgray {
         color:#3a3a3a;
@@ -123,16 +123,132 @@
         padding-bottom: 3px !important;
     }
     #wmeph-run-panel {
-        padding-bottom: 6px;
-        padding-top: 3px;
-        width: 290;
+        display: flex;
+        flex-wrap: wrap;
+        gap: 4px;
+        align-items: center;
+        padding: 4px;
         color: black;
-        font-size: 15px;
-        margin-right: auto;
-        margin-left: 4px;
+        font-size: 14px;
     }
-    #WMEPH_tools div {
-        padding-bottom: 2px !important;
+    #wmeph-run-panel .wmeph-run-btn {
+        flex: 1 0 83px;
+        min-width: 83px;
+        height: 28px;
+        padding: 4px 8px !important;
+        font-size: 12px !important;
+        border-radius: 14px;
+        border: 1px solid;
+        background-color: transparent !important;
+        box-shadow: none !important;
+    }
+    #wmeph-run-panel .wmeph-btn {
+        flex: 0 1 auto;
+        height: 28px;
+    }
+    #wmeph-run-panel .wmeph-clone-row {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 4px;
+        align-items: center;
+        margin-top: 4px;
+    }
+    #wmeph-run-panel .wmeph-clone-btn {
+        height: 18px !important;
+        padding: 2px 6px !important;
+        font-size: 11px !important;
+        border-radius: 9px;
+        border: 1px solid;
+        background-color: transparent !important;
+        box-shadow: none !important;
+        transition: all 0.2s ease;
+    }
+    #wmeph-run-panel .wmeph-clone-btn.btn-warning {
+        border-color: #e37400 !important;
+        color: #e37400 !important;
+    }
+    #wmeph-run-panel .wmeph-clone-btn.btn-warning:hover {
+        background-color: rgba(227, 116, 0, 0.1) !important;
+        border-color: #ffc400 !important;
+    }
+    #wmeph-run-panel .wmeph-clone-btn.btn-info {
+        border-color: #0099ff !important;
+        color: #0099ff !important;
+    }
+    #wmeph-run-panel .wmeph-clone-btn.btn-info:hover {
+        background-color: rgba(0, 153, 255, 0.1) !important;
+        border-color: #33ccff !important;
+    }
+    #wmeph-run-panel .wmeph-clone-row span {
+        margin-right: 4px;
+        font-size: 16px;
+    }
+    #wmeph-run-panel .wmeph-clone-row label i {
+        color: #202124;
+    }
+    [wz-theme="dark"] #wmeph-run-panel .wmeph-clone-row label i {
+        color: #e8eaed;
+    }
+    #wmeph-run-panel .wmeph-clone-row input[type="checkbox"] {
+        margin-right: 2px;
+    }
+    /* Waze color palette - Chip/outline style */
+    #runWMEPH {
+        border-color: #0075e3 !important;
+        color: #0075e3 !important;
+        transition: all 0.2s ease;
+    }
+    #runWMEPH:hover {
+        background-color: rgba(0, 153, 255, 0.1) !important;
+        border-color: #0099ff !important;
+    }
+    #WMEPHurl {
+        border-color: #118742 !important;
+        color: #118742 !important;
+        transition: all 0.2s ease;
+    }
+    #WMEPHurl:hover {
+        background-color: rgba(27, 171, 80, 0.1) !important;
+        border-color: #1bab50 !important;
+    }
+    #wmephSearch {
+        border-color: #0099ff !important;
+        color: #0099ff !important;
+        transition: all 0.2s ease;
+    }
+    #wmephSearch:hover {
+        background-color: rgba(51, 204, 255, 0.1) !important;
+        border-color: #33ccff !important;
+    }
+    #wmephPlugShareSearch {
+        border-color: #118742 !important;
+        color: #118742 !important;
+        transition: all 0.2s ease;
+    }
+    #wmephPlugShareSearch:hover {
+        background-color: rgba(30, 171, 146, 0.1) !important;
+        border-color: #1ee592 !important;
+    }
+    #WMEPH_tools {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 4px;
+        align-items: center;
+        padding: 4px 6px !important;
+    }
+    #WMEPH_tools > div {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 4px;
+        align-items: center;
+    }
+    #WMEPH_tools .wmeph-btn {
+        padding: 2px 6px !important;
+        margin-bottom: 0 !important;
+        margin-right: 0 !important;
+        font-size: 12px;
+        height: 18px;
+        flex-shrink: 0;
     }
     .wmeph-fat-btn {
         padding-left:8px;
@@ -184,7 +300,43 @@
     .google-logo.green {
         color: #34a853
     }
+
+    /* WMEPH Section Wrapper - Phase 1 Incremental */
+    .wmeph-section {
+        background-color: #fff;
+        border: solid 1px #8d8c8c;
+        border-radius: 6px;
+        margin: 2px 4px 4px 4px;
+    }
+    [wz-theme="dark"] .wmeph-section {
+        background-color: #2c2c2c;
+        border-color: #5f6368;
+    }
+
+    .wmeph-section-header {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        background: linear-gradient(to right, #f5f5f5 0%, #ffffff 100%);
+        border-bottom: 1px solid #dadce0;
+        padding: 8px 12px;
+        font-weight: 600;
+        font-size: 14px;
+        color: #202124;
+        cursor: default;
+        user-select: none;
+    }
+    [wz-theme="dark"] .wmeph-section-header {
+        background: linear-gradient(to right, #3a3a3a 0%, #2c2c2c 100%);
+        border-bottom-color: #5f6368;
+        color: #e8eaed;
+    }
+
+    .wmeph-section-body {
+        padding: 4px 0;
+    }
     `;
+
 
     let OpeningHour;
 
@@ -418,6 +570,25 @@
             bootstrapWmephColorHighlights();
             log(`Color highlighting ${checkbox.prop('checked') ? 'enabled' : 'disabled'}`);
         }
+    }
+
+    // Helper to create wz-button elements with event listeners
+    function createWzButton(attrs = {}, clickHandler = null) {
+        const btn = document.createElement('wz-button');
+        const propertyKeys = ['color', 'size', 'disabled', 'textContent'];
+        Object.keys(attrs).forEach(key => {
+            if (attrs[key] !== undefined && attrs[key] !== null) {
+                if (propertyKeys.includes(key)) {
+                    btn[key] = attrs[key];
+                } else {
+                    btn.setAttribute(key, attrs[key]);
+                }
+            }
+        });
+        if (clickHandler) {
+            btn.addEventListener('click', clickHandler);
+        }
+        return btn;
     }
 
     // Helper to check if venue is residential (SDK venues don't have isResidential method)
@@ -7731,6 +7902,10 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                 // switch to rest area wiki button
                 _buttonBanner2.restAreaWiki.active = true;
                 _buttonBanner2.placesWiki.active = false;
+            } else {
+                // For non-rest-area venues, ensure rest area button is hidden and places wiki is shown
+                _buttonBanner2.restAreaWiki.active = false;
+                _buttonBanner2.placesWiki.active = !$('#WMEPH-HidePlacesWiki').prop('checked');
             }
 
             args.isLocked = venue.lockRank >= (pnhLockLevel > -1 ? pnhLockLevel : args.defaultLockLevel);
@@ -8167,29 +8342,24 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
 
         //  Build general banners (below the Services)
         rowDivs = [];
+        const $buttonContainer = $('<div>');
         Object.keys(_buttonBanner2).forEach(tempKey => {
             const banner2RowData = _buttonBanner2[tempKey];
             if (banner2RowData.active) { //  If the particular message is active
-                $rowDiv = $('<div>');
-                $rowDiv.append(banner2RowData.message);
                 if (banner2RowData.action) {
-                    $rowDiv.append(` <input class="btn btn-info btn-xs wmeph-btn" id="WMEPH_${tempKey}" title="${
-                        banner2RowData.title}" style="" type="button" value="${banner2RowData.value}">`);
+                    $buttonContainer.append(` <input class="btn btn-info btn-xs wmeph-btn" id="WMEPH_${tempKey}" title="${
+                        banner2RowData.title}" type="button" value="${banner2RowData.value}">`);
                 }
-                rowDivs.push($rowDiv);
                 totalSeverity = Math.max(_buttonBanner2[tempKey].severity, totalSeverity);
             }
         });
 
+        if ($buttonContainer.children().length > 0) {
+            rowDivs.push($buttonContainer);
+        }
+
         if ($('#WMEPH_tools').length === 0) {
-            $('#WMEPH_services').after($('<div id="WMEPH_tools">').css({
-                // 'background-color': '#eee',
-                color: 'black',
-                'font-size': '15px',
-                // padding: '0px 4px 4px 4px',
-                'margin-left': '6px',
-                'margin-right': 'auto'
-            }));
+            $('#WMEPH_services').after($('<div id="WMEPH_tools">'));
         } else {
             $('#WMEPH_tools').empty();
         }
@@ -8780,10 +8950,11 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
     // WMEPH Clone Tool
     function showCloneButton() {
         if (!$('#clonePlace').length) {
-            $('#wmeph-run-panel').append(
-                $('<div>', { style: 'margin-bottom: 5px' }),
+            // Row 2: Copy, Paste, All, Addr, None buttons
+            const $row2 = $('<div>', { class: 'wmeph-clone-row' });
+            $row2.append(
                 $('<input>', {
-                    class: 'btn btn-warning btn-xs wmeph-btn',
+                    class: 'btn btn-warning btn-xs wmeph-clone-btn',
                     id: 'clonePlace',
                     title: 'Copy place info',
                     type: 'button',
@@ -8791,33 +8962,23 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                     style: 'font-weight: normal'
                 }).click(onCopyClicked),
                 $('<input>', {
-                    class: 'btn btn-warning btn-xs wmeph-btn',
+                    class: 'btn btn-warning btn-xs wmeph-clone-btn',
                     id: 'pasteClone',
                     title: 'Apply the Place info. (Ctrl-Alt-O)',
                     type: 'button',
-                    value: 'Paste (for checked boxes):',
+                    value: 'Paste (for ✓ boxes):',
                     style: 'font-weight: normal; margin-left: 3px;'
                 }).click(onPasteClicked),
-                '<br>',
-                createCloneCheckbox('wmeph-run-panel', 'WMEPH_CPhn', 'HN'),
-                createCloneCheckbox('wmeph-run-panel', 'WMEPH_CPstr', 'Str'),
-                createCloneCheckbox('wmeph-run-panel', 'WMEPH_CPcity', 'City'),
-                createCloneCheckbox('wmeph-run-panel', 'WMEPH_CPurl', 'URL'),
-                createCloneCheckbox('wmeph-run-panel', 'WMEPH_CPph', 'Ph'),
-                '<br>',
-                createCloneCheckbox('wmeph-run-panel', 'WMEPH_CPdesc', 'Desc'),
-                createCloneCheckbox('wmeph-run-panel', 'WMEPH_CPserv', 'Serv'),
-                createCloneCheckbox('wmeph-run-panel', 'WMEPH_CPhrs', 'Hrs'),
                 $('<input>', {
-                    class: 'btn btn-info btn-xs wmeph-btn',
+                    class: 'btn btn-info btn-xs wmeph-clone-btn',
                     id: 'checkAllClone',
                     title: 'Check all',
                     type: 'button',
                     value: 'All',
-                    style: 'font-weight: normal'
+                    style: 'font-weight: normal; margin-left: 3px;'
                 }).click(onCheckAllCloneClicked),
                 $('<input>', {
-                    class: 'btn btn-info btn-xs wmeph-btn',
+                    class: 'btn btn-info btn-xs wmeph-clone-btn',
                     id: 'checkAddrClone',
                     title: 'Check address',
                     type: 'button',
@@ -8825,15 +8986,29 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                     style: 'font-weight: normal; margin-left: 3px;'
                 }).click(onCheckAddrCloneClicked),
                 $('<input>', {
-                    class: 'btn btn-info btn-xs wmeph-btn',
+                    class: 'btn btn-info btn-xs wmeph-clone-btn',
                     id: 'checkNoneClone',
                     title: 'Check none',
                     type: 'button',
                     value: 'None',
                     style: 'font-weight: normal; margin-left: 3px;'
-                }).click(onCheckNoneCloneClicked),
-                '<br>'
+                }).click(onCheckNoneCloneClicked)
             );
+
+            // Row 3: All checkboxes (HN, Str, City, URL, Ph, Desc, Serv, Hrs)
+            const $row3 = $('<div>', { class: 'wmeph-clone-row' });
+            $row3.append(
+                createCloneCheckbox('wmeph-clone-row', 'WMEPH_CPhn', 'HN'),
+                createCloneCheckbox('wmeph-clone-row', 'WMEPH_CPstr', 'Str'),
+                createCloneCheckbox('wmeph-clone-row', 'WMEPH_CPcity', 'City'),
+                createCloneCheckbox('wmeph-clone-row', 'WMEPH_CPurl', 'URL'),
+                createCloneCheckbox('wmeph-clone-row', 'WMEPH_CPph', 'Ph'),
+                createCloneCheckbox('wmeph-clone-row', 'WMEPH_CPdesc', 'Desc'),
+                createCloneCheckbox('wmeph-clone-row', 'WMEPH_CPserv', 'Serv'),
+                createCloneCheckbox('wmeph-clone-row', 'WMEPH_CPhrs', 'Hrs')
+            );
+
+            $('#wmeph-run-panel').append($row2, $row3);
         }
         const venue = getSelectedVenue();
         const canEdit = venue?.approved && venue?.lockRank < USER.rank;
@@ -8913,8 +9088,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
         const venue = getSelectedVenue();
 
         if (!venue) {
-            $('#wmeph-panel').remove();
-            $('#wmeph-pre-panel').remove();
+            $('#wmeph-section').remove();
             destroyDupeLabels(); // Clear dupe labels when no place is selected
             _dupeIDList = []; // Reset dupe list
             return;
@@ -8925,10 +9099,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
         }
 
         if (clearBanner) {
-            $('#WMEPH_banner').remove();
-            $('#WMEPH_services').remove();
-            $('#WMEPH_tools').remove();
-            $('#wmeph-pre-panel').remove();
+            $('#wmeph-section').remove();
             destroyDupeLabels(); // Clear dupe labels when banner is cleared
         }
 
@@ -8940,54 +9111,71 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
         let $googleSearchButton;
         let $plugshareSearchButton;
 
-        if (!$('#wmeph-panel').length) {
+        if (!$('#wmeph-section').length) {
             const devVersSuffix = IS_BETA_VERSION ? '-β' : '';
+
+            // Create section wrapper and header
+            const $wmephSection = $('<div>', { id: 'wmeph-section', class: 'wmeph-section' });
+            const $sectionHeader = $('<div>', { class: 'wmeph-section-header' })
+                .html('<span>⚙️ WMEPH</span>');
+            const $sectionBody = $('<div>', { class: 'wmeph-section-body' });
+
+            // Create panels
             $wmephPrePanel = $('<div>', { id: 'wmeph-pre-panel' });
             $wmephPanel = $('<div>', { id: 'wmeph-panel' });
             $wmephRunPanel = $('<div>', { id: 'wmeph-run-panel' });
+
+            // Create Bootstrap buttons
             $runButton = $('<input>', {
-                class: 'btn btn-primary wmeph-fat-btn',
+                class: 'btn btn-primary btn-sm wmeph-run-btn',
                 id: 'runWMEPH',
                 title: `Run WMEPH${devVersSuffix} on Place`,
                 type: 'button',
                 value: `Run WMEPH${devVersSuffix}`
             }).click(() => { harmonizePlace(); });
+
             $websiteButton = $('<input>', {
-                class: 'btn btn-success btn-xs wmeph-fat-btn',
+                class: 'btn btn-success btn-sm wmeph-run-btn',
                 id: 'WMEPHurl',
                 title: 'Open place URL',
                 type: 'button',
                 value: 'Website'
             }).click(onOpenWebsiteClick);
+
             $googleSearchButton = $('<input>', {
-                class: 'btn btn-danger btn-xs wmeph-fat-btn',
+                class: 'btn btn-danger btn-sm wmeph-run-btn',
                 id: 'wmephSearch',
                 title: 'Search the web for this place.  Do not copy info from 3rd party sources!',
                 type: 'button',
                 value: 'Google'
             }).click(onGoogleSearchClick);
+
             $plugshareSearchButton = $('<input>', {
-                class: 'btn btn-xs btn-danger wmeph-fat-btn',
+                class: 'btn btn-danger btn-sm wmeph-run-btn',
                 id: 'wmephPlugShareSearch',
                 title: 'Open PlugShare website',
                 type: 'button',
-                value: 'PS',
-                style: 'background-color: #003ca6; box-shadow:0 2px 0 #5075b9;'
+                value: 'PS'
             }).click(onPlugshareSearchClick);
 
-            $('#edit-panel > .contents').prepend(
-                $wmephPrePanel,
-                $wmephPanel.append(
-                    $wmephRunPanel.append(
-                        $runButton,
-                        $websiteButton,
-                        $googleSearchButton,
-                        $plugshareSearchButton
-                    )
-                )
+            // Build panel hierarchy - buttons first in run panel
+            $wmephRunPanel.append(
+                $runButton,
+                $websiteButton,
+                $googleSearchButton,
+                $plugshareSearchButton
             );
+
+            // Add panels to section body - run panel first (always at top), then the banner/services panel
+            $sectionBody.append($wmephRunPanel, $wmephPrePanel, $wmephPanel);
+
+            // Build section
+            $wmephSection.append($sectionHeader, $sectionBody);
+
+            // Insert section into edit panel
+            $('#edit-panel > .contents').prepend($wmephSection);
         } else {
-            $wmephPrePanel = $('wmeph-pre-panel');
+            $wmephPrePanel = $('#wmeph-pre-panel');
             $wmephPanel = $('#wmeph-panel');
             $wmephRunPanel = $('#wmeph-run-panel');
             $runButton = $('#runWMEPH');
@@ -10181,15 +10369,37 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
     }
 
     function createCloneCheckbox(divID, settingID, textDescription) {
+        const iconMap = {
+            'WMEPH_CPhn': 'fa-home',      // House Number
+            'WMEPH_CPstr': 'fa-road',     // Street
+            'WMEPH_CPcity': 'fa-map-marker', // City
+            'WMEPH_CPurl': 'fa-link',     // URL
+            'WMEPH_CPph': 'fa-phone',     // Phone
+            'WMEPH_CPdesc': 'fa-file-text', // Description
+            'WMEPH_CPserv': 'fa-cog',     // Services
+            'WMEPH_CPhrs': 'fa-clock-o'   // Hours
+        };
+
         const $checkbox = $('<input>', {
             type: 'checkbox',
             id: settingID
         }).click(() => saveSettingToLocalStorage(settingID))
             .prop('checked', localStorage.getItem(settingID) === '1');
 
-        const $label = $('<label>', { for: settingID, style: 'margin-left: 2px; font-weight: normal' }).text(textDescription);
+        const icon = iconMap[settingID];
+        const $label = $('<label>', {
+            for: settingID,
+            style: 'margin-left: 2px; font-weight: normal; cursor: pointer; display: inline-block; vertical-align: text-bottom;',
+            title: textDescription
+        });
 
-        return $('<span>', { style: 'margin-right: 6px;' }).append($checkbox, $label);
+        if (icon) {
+            $label.html(`<i class="fa ${icon}"></i>`);
+        } else {
+            $label.text(textDescription);
+        }
+
+        return $('<span>', { style: 'margin-right: 2px; display: inline-flex; align-items: flex-start; gap: 0px;' }).append($checkbox, $label);
     }
 
     // Function to add Shift+ to upper case KBS
