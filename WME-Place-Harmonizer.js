@@ -413,7 +413,9 @@
     function toggleHighlightCheckbox() {
         const checkbox = $('#WMEPH-ColorHighlighting');
         if (checkbox.length) {
-            checkbox.prop('checked', !checkbox.prop('checked')).change();
+            checkbox.prop('checked', !checkbox.prop('checked'));
+            // Call the handler directly to update the map highlighting
+            bootstrapWmephColorHighlights();
             log(`Color highlighting ${checkbox.prop('checked') ? 'enabled' : 'disabled'}`);
         }
     }
@@ -2363,10 +2365,10 @@
     function zoomPlace() {
         const venue = getSelectedVenue();
         if (venue) {
-            const coords = getVenueLonLat(venue);
-            sdk.Map.setMapCenter({ lonLat: coords, zoomLevel: 7 });
+            const { longitude, latitude } = getVenueLonLat(venue);
+            sdk.Map.setMapCenter({ lonLat: { lon: longitude, lat: latitude }, zoomLevel: 18 });
         } else if (_wmephMousePosition) {
-            sdk.Map.setMapCenter({ lonLat: _wmephMousePosition, zoomLevel: 5 });
+            sdk.Map.setMapCenter({ lonLat: _wmephMousePosition, zoomLevel: 16 });
         }
     }
 
@@ -2538,79 +2540,41 @@
     function toggleXrayMode(enable) {
         localStorage.setItem('WMEPH_xrayMode_enabled', enable);
 
+        const layersToControl = [
+            { name: 'Roads', setter: 'setRoadsLayerCheckboxChecked' },
+            { name: 'Paths', setter: 'setPathsLayerCheckboxChecked' },
+            { name: 'JunctionBoxes', setter: 'setJunctionBoxesLayerCheckboxChecked' },
+            { name: 'Hazards', setter: 'setHazardsLayerCheckboxChecked' },
+            { name: 'Closures', setter: 'setClosuresLayerCheckboxChecked' }
+        ];
+
         if (enable) {
-            // X-ray mode: Hide background layers (roads, paths, junction boxes) to see details underneath
+            // X-ray mode: Hide background layers to see details underneath
             logDev('X-Ray: Enabling - hiding background layers');
 
-            // Hide roads layer
-            try {
-                sdk.LayerSwitcher.setRoadsLayerCheckboxChecked({ isChecked: false });
-            } catch (e) {
-                logDev('X-Ray: Could not hide roads layer:', e);
-            }
-
-            // Hide paths layer
-            try {
-                sdk.LayerSwitcher.setPathsLayerCheckboxChecked({ isChecked: false });
-            } catch (e) {
-                logDev('X-Ray: Could not hide paths layer:', e);
-            }
-
-            // Hide junction boxes layer
-            try {
-                sdk.LayerSwitcher.setJunctionBoxesLayerCheckboxChecked({ isChecked: false });
-            } catch (e) {
-                logDev('X-Ray: Could not hide junction boxes layer:', e);
-            }
-
-            // Fade editable data layers to reveal what's underneath
-            try {
-                sdk.Map.addStyleRuleToLayer({
-                    layerName: 'segments',
-                    styleRules: [{
-                        style: { strokeOpacity: 0.5, fillOpacity: 0.25 }
-                    }]
-                });
-            } catch (e) {
-                logDev('X-Ray: Could not style segments layer:', e);
-            }
-
-            try {
-                sdk.Map.addStyleRuleToLayer({
-                    layerName: 'venues',
-                    styleRules: [{
-                        style: { fillOpacity: 0.25, strokeOpacity: 0.35 }
-                    }]
-                });
-            } catch (e) {
-                logDev('X-Ray: Could not style venues layer:', e);
-            }
+            layersToControl.forEach(layer => {
+                try {
+                    sdk.LayerSwitcher[layer.setter]({ isChecked: false });
+                    logDev(`X-Ray: Hid ${layer.name} layer`);
+                } catch (e) {
+                    logDev(`X-Ray: Could not hide ${layer.name} layer:`, e);
+                }
+            });
         } else {
-            // Disable X-ray mode: Restore all layers
-            logDev('X-Ray: Disabling - restoring background layers');
+            // Disable X-ray mode: Restore all background layers
+            logDev('X-Ray: Disabling - restoring all background layers');
 
-            // Restore roads layer
-            try {
-                sdk.LayerSwitcher.setRoadsLayerCheckboxChecked({ isChecked: true });
-            } catch (e) {
-                logDev('X-Ray: Could not restore roads layer:', e);
-            }
-
-            // Restore paths layer
-            try {
-                sdk.LayerSwitcher.setPathsLayerCheckboxChecked({ isChecked: true });
-            } catch (e) {
-                logDev('X-Ray: Could not restore paths layer:', e);
-            }
-
-            // Restore junction boxes layer
-            try {
-                sdk.LayerSwitcher.setJunctionBoxesLayerCheckboxChecked({ isChecked: true });
-            } catch (e) {
-                logDev('X-Ray: Could not restore junction boxes layer:', e);
-            }
+            layersToControl.forEach(layer => {
+                try {
+                    sdk.LayerSwitcher[layer.setter]({ isChecked: true });
+                    logDev(`X-Ray: Restored ${layer.name} layer`);
+                } catch (e) {
+                    logDev(`X-Ray: Could not restore ${layer.name} layer:`, e);
+                }
+            });
 
             // Restore editable data layers to normal opacity
+            /*
             try {
                 sdk.Map.addStyleRuleToLayer({
                     layerName: 'segments',
@@ -2626,12 +2590,13 @@
                 sdk.Map.addStyleRuleToLayer({
                     layerName: 'venues',
                     styleRules: [{
-                        style: { fillOpacity: .2, strokeOpacity: 1 }
+                        style: { fillOpacity: 1, strokeOpacity: 1 }
                     }]
                 });
             } catch (e) {
                 logDev('X-Ray: Could not restore venues layer:', e);
             }
+            */
 
             redrawLayer(_dupeLayer);
         }
