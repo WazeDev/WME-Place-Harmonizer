@@ -2536,97 +2536,101 @@
     }
 
     function toggleXrayMode(enable) {
-        localStorage.setItem('WMEPH_xrayMode_enabled', $('#layer-switcher-item_wmeph_x-ray_mode').prop('checked'));
+        localStorage.setItem('WMEPH_xrayMode_enabled', enable);
 
         if (enable) {
-            // Make WME layers transparent
+            // X-ray mode: Hide background layers (roads, paths, junction boxes) to see details underneath
+            logDev('X-Ray: Enabling - hiding background layers');
+
+            // Hide roads layer
+            try {
+                sdk.LayerSwitcher.setRoadsLayerCheckboxChecked({ isChecked: false });
+            } catch (e) {
+                logDev('X-Ray: Could not hide roads layer:', e);
+            }
+
+            // Hide paths layer
+            try {
+                sdk.LayerSwitcher.setPathsLayerCheckboxChecked({ isChecked: false });
+            } catch (e) {
+                logDev('X-Ray: Could not hide paths layer:', e);
+            }
+
+            // Hide junction boxes layer
+            try {
+                sdk.LayerSwitcher.setJunctionBoxesLayerCheckboxChecked({ isChecked: false });
+            } catch (e) {
+                logDev('X-Ray: Could not hide junction boxes layer:', e);
+            }
+
+            // Fade editable data layers to reveal what's underneath
             try {
                 sdk.Map.addStyleRuleToLayer({
-                    layerName: 'roads',
+                    layerName: 'segments',
                     styleRules: [{
-                        style: { strokeOpacity: 0.25, fillOpacity: 0.25 }
+                        style: { strokeOpacity: 0.5, fillOpacity: 0.25 }
                     }]
                 });
             } catch (e) {
-                logDev('X-Ray: Could not style roads layer:', e);
+                logDev('X-Ray: Could not style segments layer:', e);
             }
 
             try {
                 sdk.Map.addStyleRuleToLayer({
-                    layerName: 'satellite',
+                    layerName: 'venues',
                     styleRules: [{
-                        style: { fillOpacity: 0.25, strokeOpacity: 0.25 }
+                        style: { fillOpacity: 0.25, strokeOpacity: 0.35 }
                     }]
                 });
             } catch (e) {
-                logDev('X-Ray: Could not style satellite layer:', e);
-            }
-
-            try {
-                sdk.Map.addStyleRuleToLayer({
-                    layerName: 'mapComments',
-                    styleRules: [{
-                        style: { strokeColor: '#888', fillOpacity: 0.2, strokeOpacity: 0.6 }
-                    }]
-                });
-            } catch (e) {
-                logDev('X-Ray: Could not style mapComments layer:', e);
-            }
-
-            try {
-                sdk.Map.addStyleRuleToLayer({
-                    layerName: 'gisLayers',
-                    styleRules: [{
-                        style: { fillOpacity: 0.4, strokeOpacity: 0.4 }
-                    }]
-                });
-            } catch (e) {
-                logDev('X-Ray: Could not style gisLayers layer:', e);
+                logDev('X-Ray: Could not style venues layer:', e);
             }
         } else {
-            // Restore all layers to normal
+            // Disable X-ray mode: Restore all layers
+            logDev('X-Ray: Disabling - restoring background layers');
+
+            // Restore roads layer
             try {
-                sdk.Map.addStyleRuleToLayer({
-                    layerName: 'roads',
-                    styleRules: [{
-                        style: { strokeOpacity: 1, fillOpacity: 1 }
-                    }]
-                });
+                sdk.LayerSwitcher.setRoadsLayerCheckboxChecked({ isChecked: true });
             } catch (e) {
                 logDev('X-Ray: Could not restore roads layer:', e);
             }
 
+            // Restore paths layer
+            try {
+                sdk.LayerSwitcher.setPathsLayerCheckboxChecked({ isChecked: true });
+            } catch (e) {
+                logDev('X-Ray: Could not restore paths layer:', e);
+            }
+
+            // Restore junction boxes layer
+            try {
+                sdk.LayerSwitcher.setJunctionBoxesLayerCheckboxChecked({ isChecked: true });
+            } catch (e) {
+                logDev('X-Ray: Could not restore junction boxes layer:', e);
+            }
+
+            // Restore editable data layers to normal opacity
             try {
                 sdk.Map.addStyleRuleToLayer({
-                    layerName: 'satellite',
+                    layerName: 'segments',
                     styleRules: [{
-                        style: { fillOpacity: 1, strokeOpacity: 1 }
+                        style: { strokeOpacity: 0, fillOpacity: 0 }
                     }]
                 });
             } catch (e) {
-                logDev('X-Ray: Could not restore satellite layer:', e);
+                logDev('X-Ray: Could not restore segments layer:', e);
             }
 
             try {
                 sdk.Map.addStyleRuleToLayer({
-                    layerName: 'mapComments',
+                    layerName: 'venues',
                     styleRules: [{
-                        style: { strokeColor: '#fff', fillOpacity: 0.4, strokeOpacity: 1 }
+                        style: { fillOpacity: .2, strokeOpacity: 1 }
                     }]
                 });
             } catch (e) {
-                logDev('X-Ray: Could not restore mapComments layer:', e);
-            }
-
-            try {
-                sdk.Map.addStyleRuleToLayer({
-                    layerName: 'gisLayers',
-                    styleRules: [{
-                        style: { fillOpacity: 1, strokeOpacity: 1 }
-                    }]
-                });
-            } catch (e) {
-                logDev('X-Ray: Could not restore gisLayers layer:', e);
+                logDev('X-Ray: Could not restore venues layer:', e);
             }
 
             redrawLayer(_dupeLayer);
@@ -10647,15 +10651,8 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
 
         const xrayMode = localStorage.getItem('WMEPH_xrayMode_enabled') === 'true';
 
-        /*
-        IN PROGRESS: X-ray Mode SDK Migration
-        This feature is disabled pending SDK layer control refactoring.
-        Current limitation: SDK only exposes Venues, Segments, and Nodes layers
-        (not background layers like roads, satellite, gisLayers needed for x-ray effect)
-
-        toggleXrayMode() function is still active and can manipulate available layers.
-        Re-enable this block once SDK provides better layer opacity/visibility control.
-
+        // X-ray Mode: Fade roads/satellite/mapComments to see map details underneath
+        // Uses sdk.Map.addStyleRuleToLayer() to reduce opacity of background layers
         sdk.LayerSwitcher.addLayerCheckbox({ name: 'WMEPH x-ray mode', isChecked: xrayMode });
         if (xrayMode) setTimeout(() => toggleXrayMode(true), 2000);
         sdk.Events.on({
@@ -10669,7 +10666,6 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                 }
             },
         });
-        */
 
         // Whitelist initialization
         if (validateWLS(LZString.decompressFromUTF16(localStorage.getItem(WL_LOCAL_STORE_NAME_COMPRESSED))) === false) { // If no compressed WL string exists
