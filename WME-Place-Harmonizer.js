@@ -38,9 +38,23 @@
 
     // Script update info
     let sdk; // Declared as let because script checks for existing sdk before initialization
+    let wmephSettings = {}; // Script-wide settings cache from WMEPH-Settings localStorage
 
-    // BE SURE TO SET THIS TO NULL OR AN EMPTY STRING WHEN RELEASING A NEW UPDATE.
-    const _SCRIPT_UPDATE_MESSAGE = 'Removing deprecated WazeWrap functionality, implementing minor SDK migration to keep the script working.  Shortcuts are non-functional.  (Some?) highlighting is broken due to it not being implemented in the SDK (requested 2025-05-30).';
+    // **************************************************************************************************************
+    // IMPORTANT: Update this when releasing a new version of script
+    // **************************************************************************************************************
+    const SHOW_UPDATE_MESSAGE = true;
+    const SCRIPT_UPDATE_MESSAGE = [
+      'Removing deprecated WazeWrap functionality',
+      'Shortcuts are non-functional',
+      '(Some?) highlighting is broken due to it not being implemented in the SDK',
+    ];
+
+    const SCRIPT_VERSION = GM_info.script.version.toString(); // pull version from header
+    const SCRIPT_NAME = GM_info.script.name;
+    const IS_BETA_VERSION = /Beta/i.test(SCRIPT_NAME); //  enables dev messages and unique DOM options if the script is called "... Beta"
+    const BETA_VERSION_STR = IS_BETA_VERSION ? 'Beta' : ''; // strings to differentiate DOM elements between regular and beta script
+
     const _CSS = `
     #edit-panel .venue-feature-editor {
         overflow: initial;
@@ -148,20 +162,24 @@
     }
     #wmeph-run-panel .wmeph-clone-row {
         display: flex;
-        flex-wrap: wrap;
+        // flex-wrap: wrap;
         gap: 4px;
         align-items: center;
-        margin-top: 4px;
+        // justify-content: space-around;
+        // margin-top: 4px;
     }
     #wmeph-run-panel .wmeph-clone-btn {
         height: 18px !important;
-        padding: 2px 6px !important;
-        font-size: 11px !important;
+        padding: 0px 10px !important;
+        font-size: 9px !important;
         border-radius: 9px;
         border: 1px solid;
         background-color: transparent !important;
         box-shadow: none !important;
         transition: all 0.2s ease;
+        display: flex !important;
+        align-items: center !important;
+        justify-content: center !important;
     }
     #wmeph-run-panel .wmeph-clone-btn.btn-warning {
         border-color: #e37400 !important;
@@ -179,18 +197,18 @@
         background-color: rgba(0, 153, 255, 0.1) !important;
         border-color: #33ccff !important;
     }
-    #wmeph-run-panel .wmeph-clone-row span {
-        margin-right: 4px;
-        font-size: 16px;
+    #wmeph-run-panel .wmeph-clone-row .wmeph-icon-toggle {
+        font-size: 18px !important;
+        color: #0075e3;
     }
-    #wmeph-run-panel .wmeph-clone-row label i {
-        color: #202124;
+    #wmeph-run-panel .wmeph-clone-row .wmeph-icon-toggle i {
+        font-size: 18px !important;
     }
-    [wz-theme="dark"] #wmeph-run-panel .wmeph-clone-row label i {
-        color: #e8eaed;
+    #wmeph-run-panel .wmeph-clone-row .wmeph-icon-toggle:hover {
+        transform: scale(1.1);
     }
-    #wmeph-run-panel .wmeph-clone-row input[type="checkbox"] {
-        margin-right: 2px;
+    [wz-theme="dark"] #wmeph-run-panel .wmeph-clone-row .wmeph-icon-toggle {
+        color: #33ccff;
     }
     /* Waze color palette - Chip/outline style */
     #runWMEPH {
@@ -316,10 +334,9 @@
     .wmeph-section-header {
         display: flex;
         align-items: center;
-        gap: 8px;
         background: linear-gradient(to right, #f5f5f5 0%, #ffffff 100%);
         border-bottom: 1px solid #dadce0;
-        padding: 8px 12px;
+        padding: 2px 2px;
         font-weight: 600;
         font-size: 14px;
         color: #202124;
@@ -339,11 +356,6 @@
 
 
     let OpeningHour;
-
-    const SCRIPT_VERSION = GM_info.script.version.toString(); // pull version from header
-    const SCRIPT_NAME = GM_info.script.name;
-    const IS_BETA_VERSION = /Beta/i.test(SCRIPT_NAME); //  enables dev messages and unique DOM options if the script is called "... Beta"
-    const BETA_VERSION_STR = IS_BETA_VERSION ? 'Beta' : ''; // strings to differentiate DOM elements between regular and beta script
 
     class Country {
         countryCode;
@@ -415,12 +427,15 @@
     const _MOD_CHAR_TO_VAL = { C: 1, S: 2, A: 4 };
 
     /**
-     * Converts shortcut from combo format (e.g., "A+R", "C+shift+A") to raw format ("mod,keycode").
-     * Handles single characters, key codes, and modifier combinations (Control, Shift, Alt).
-     * @param {string} str - Shortcut string in combo format or null-like values ("None", "-1", "")
-     * @returns {string|null} Raw format "mod,keycode" string, or null if invalid or null-like value
+     * Converts any shortcut string to raw "modifier,keycode" format (e.g. "4,82").
+     * Handles: raw "4,82", combo "A+R", hybrid "A+82", bare key "R", WazeWrap "0,-1"/"-1".
+     * Returns null for empty / no-key values.
+     *
+     * WHY: The WME SDK is inconsistent — initial load returns combo format, after the user
+     * edits a shortcut it returns raw format, on next reload it's combo again. Normalizing
+     * everything to raw on save means we always have a stable, round-trippable value.
      */
-    function shortcutComboToRaw(str) {
+    function _comboToRaw(str) {
         if (!str || str === '' || str === '-1' || str === 'None') return null;
         if (/^\d+,-?\d+$/.test(str)) {
             const kc = parseInt(str.split(',')[1], 10);
@@ -447,13 +462,9 @@
         return null;
     }
 
-    /**
-     * Converts shortcut from raw format ("mod,keycode") to human-readable combo format ("A+R").
-     * @param {string} str - Shortcut string in raw format or any format that shortcutComboToRaw accepts
-     * @returns {string|null} Combo format "A+R" or just "R" if no modifiers, or null if invalid
-     */
-    function shortcutRawToCombo(str) {
-        const raw = shortcutComboToRaw(str);
+    /** Converts any shortcut string to human-readable combo format (e.g. "A+R"). Returns null if no key. */
+    function _rawToCombo(str) {
+        const raw = _comboToRaw(str);
         if (!raw) return null;
         const [modStr, keyStr] = raw.split(',');
         const mod = parseInt(modStr, 10);
@@ -467,33 +478,34 @@
     }
 
     /**
-     * Normalizes shortcuts into both raw and combo formats for consistent handling.
-     * Accepts mixed input formats (raw, combo, or object with either) and returns both representations.
-     * @param {string|object} val - Shortcut string (raw or combo format) or object with {raw} or {combo} property
-     * @returns {object} {raw: "mod,keycode", combo: "A+R"} or {raw: null, combo: null} if invalid
+     * Normalizes any shortcut value to a {raw, combo} pair for consistent storage.
+     * Accepts: flat string (any format), existing {raw,combo} object, or null.
      */
-    function normalizeShortcut(val) {
+    function _normalizeShortcut(val) {
         const src = val && typeof val === 'object' ? (val.raw ?? val.combo) : val;
-        const raw = shortcutComboToRaw(src);
-        const combo = shortcutRawToCombo(raw);
+        const raw = _comboToRaw(src);
+        const combo = _rawToCombo(raw);
         return { raw, combo };
     }
 
-    // Shortcut storage/retrieval from localStorage (stores RAW format for stability)
+    // Shortcut storage/retrieval from settings (stores both RAW and COMBO for consistency)
+    // RAW format (keycodes) handles SDK format inconsistencies, COMBO format aids debugging
     function loadShortcut(settingsKey) {
-        const stored = localStorage.getItem(`WMEPH_shortcut_${settingsKey}`);
-        return normalizeShortcut(stored);
+        const raw = getWMEPHSetting(`WMEPH_shortcut_${settingsKey}_raw`);
+        const combo = getWMEPHSetting(`WMEPH_shortcut_${settingsKey}_combo`);
+        return { raw: raw || null, combo: combo || null };
     }
 
     function saveShortcut(settingsKey, shortcutValue) {
-        const normalized = normalizeShortcut(shortcutValue);
-        localStorage.setItem(`WMEPH_shortcut_${settingsKey}`, normalized.raw || '');
+        const normalized = _normalizeShortcut(shortcutValue);
+        setWMEPHSetting(`WMEPH_shortcut_${settingsKey}_raw`, normalized.raw || '');
+        setWMEPHSetting(`WMEPH_shortcut_${settingsKey}_combo`, normalized.combo || '');
     }
 
     // Load harmonize shortcut from the UI-managed localStorage key
     function loadHarmonizeShortcut() {
-        const keyLetter = localStorage.getItem('WMEPH-KeyboardShortcut') || 'A';
-        const useCtrl = localStorage.getItem('WMEPH-KBSModifierKey') === '1';
+        const keyLetter = getWMEPHSetting('WMEPH-KeyboardShortcut') || 'A';
+        const useCtrl = getWMEPHSetting('WMEPH-KBSModifierKey') === '1';
 
         // Build SDK format with single-letter modifiers: C=Ctrl, S=Shift, A=Alt
         let sdkKey = '';
@@ -505,7 +517,7 @@
         const keyChar = keyLetter.toLowerCase();
         sdkKey += '+' + keyChar;
 
-        const normalized = normalizeShortcut(sdkKey);
+        const normalized = _normalizeShortcut(sdkKey);
         logDev(`loadHarmonizeShortcut: letter=${keyLetter}, useCtrl=${useCtrl}, sdkKey=${sdkKey}, raw=${normalized.raw}, combo=${normalized.combo}`);
         if (!normalized.combo) {
             logDev(`Failed to normalize harmonize shortcut key: ${sdkKey}`);
@@ -513,25 +525,54 @@
         return normalized.combo || null; // Return null if normalization failed
     }
 
-    // Register SDK shortcut with normalized combo format
+    // Register SDK shortcut with normalized combo format.
+    // Only sends combo format to SDK; stores both formats for consistency.
+    // Handles key-already-in-use conflicts by registering without keys.
     function registerShortcut(shortcutId, description, defaultKey, callback) {
         const stored = loadShortcut(shortcutId);
-        const keyToUse = stored.combo || (defaultKey ? normalizeShortcut(defaultKey).combo : null);
+        const keyToUse = stored.combo || (defaultKey ? _normalizeShortcut(defaultKey).combo : null);
 
         try {
             if (sdk.Shortcuts.isShortcutRegistered({ shortcutId })) {
                 sdk.Shortcuts.deleteShortcut({ shortcutId });
             }
+            // SDK only accepts combo format: "A+R", "shift+a", or null
             sdk.Shortcuts.createShortcut({
                 shortcutId,
                 description,
                 callback,
                 shortcutKeys: keyToUse
             });
-            saveShortcut(shortcutId, keyToUse);
-            logDev(`Registered shortcut: ${shortcutId} = ${keyToUse || 'none'}`);
+
+            // Re-fetch from SDK to capture what it stored, then normalize both formats
+            const allShortcuts = sdk.Shortcuts.getAllShortcuts();
+            const registered = allShortcuts.find(s => s.shortcutId === shortcutId);
+            if (registered?.shortcutKeys) {
+                saveShortcut(shortcutId, registered.shortcutKeys);
+                const normalized = _normalizeShortcut(registered.shortcutKeys);
+                logDev(`Registered shortcut: ${shortcutId} = ${normalized.combo || 'none'}`);
+            } else if (keyToUse) {
+                saveShortcut(shortcutId, keyToUse);
+                logDev(`Registered shortcut: ${shortcutId} = ${keyToUse}`);
+            }
         } catch (ex) {
-            logDev(`Failed to register shortcut ${shortcutId}: ${ex}`);
+            if (String(ex).includes('already in use')) {
+                // Shortcut keys conflict with another shortcut; register without keys
+                logDev(`Shortcut "${shortcutId}" keys already in use, registering without keys`);
+                try {
+                    sdk.Shortcuts.createShortcut({
+                        shortcutId,
+                        description,
+                        callback,
+                        shortcutKeys: null
+                    });
+                    saveShortcut(shortcutId, null);
+                } catch (ex2) {
+                    logDev(`Failed to register shortcut ${shortcutId} without keys: ${ex2}`);
+                }
+            } else {
+                logDev(`Failed to register shortcut ${shortcutId}: ${ex}`);
+            }
         }
     }
 
@@ -2537,9 +2578,9 @@
         const venue = getSelectedVenue();
         if (venue) {
             const { longitude, latitude } = getVenueLonLat(venue);
-            sdk.Map.setMapCenter({ lonLat: { lon: longitude, lat: latitude }, zoomLevel: 18 });
+            sdk.Map.setMapCenter({ lonLat: { lon: longitude, lat: latitude }, zoomLevel: 19 });
         } else if (_wmephMousePosition) {
-            sdk.Map.setMapCenter({ lonLat: _wmephMousePosition, zoomLevel: 16 });
+            sdk.Map.setMapCenter({ lonLat: _wmephMousePosition, zoomLevel: 18 });
         }
     }
 
@@ -2709,7 +2750,7 @@
     }
 
     function toggleXrayMode(enable) {
-        localStorage.setItem('WMEPH_xrayMode_enabled', enable);
+        setWMEPHSetting('WMEPH_xrayMode_enabled', enable);
 
         const layersToControl = [
             { name: 'Roads', setter: 'setRoadsLayerCheckboxChecked' },
@@ -7899,13 +7940,17 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                     // (would only have been a capitalization change, which is not desired)
                 }
 
-                // switch to rest area wiki button
-                _buttonBanner2.restAreaWiki.active = true;
-                _buttonBanner2.placesWiki.active = false;
+                // switch to rest area wiki button (only when not in highlight-only mode)
+                if (!args.highlightOnly) {
+                    _buttonBanner2.restAreaWiki.active = true;
+                    _buttonBanner2.placesWiki.active = false;
+                }
             } else {
-                // For non-rest-area venues, ensure rest area button is hidden and places wiki is shown
-                _buttonBanner2.restAreaWiki.active = false;
-                _buttonBanner2.placesWiki.active = !$('#WMEPH-HidePlacesWiki').prop('checked');
+                // For non-rest-area venues, ensure rest area button is hidden and places wiki is shown (only when not in highlight-only mode)
+                if (!args.highlightOnly) {
+                    _buttonBanner2.restAreaWiki.active = false;
+                    _buttonBanner2.placesWiki.active = !$('#WMEPH-HidePlacesWiki').prop('checked');
+                }
             }
 
             args.isLocked = venue.lockRank >= (pnhLockLevel > -1 ? pnhLockLevel : args.defaultLockLevel);
@@ -8902,11 +8947,18 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
 
     // Helper functions for getting/setting checkbox checked state.
     function isChecked(id) {
-        // We could use jquery here, but I assume native is faster.
-        return document.getElementById(id).checked;
+        return getWMEPHSetting(id) === '1';
     }
     function setCheckbox(id, checkedState) {
-        if (isChecked(id) !== checkedState) { $(`#${id}`).click(); }
+        const currentState = isChecked(id);
+        if (currentState !== checkedState) {
+            setWMEPHSetting(id, checkedState ? '1' : '0');
+            const $button = $(`#${id}`);
+            $button.css({
+                color: checkedState ? '#0075e3' : '#999',
+                opacity: checkedState ? '1' : '0.5'
+            });
+        }
     }
     function setCheckboxes(ids, checkedState) {
         ids.forEach(id => {
@@ -9190,7 +9242,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
         updateElementEnabledOrVisible($googleSearchButton, { enabled: !isVenueResidential(venue), visible: !isVenueResidential(venue) });
         updateElementEnabledOrVisible($plugshareSearchButton, { visible: isVenueChargingStation(venue) });
 
-        if (localStorage.getItem('WMEPH-EnableCloneMode') === '1') {
+        if (getWMEPHSetting('WMEPH-EnableCloneMode') === '1') {
             showCloneButton();
         }
         // If the user selects a place in the dupe list, don't clear the labels yet
@@ -9885,17 +9937,17 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
     }
 
     function initSettingsCheckbox(settingID) {
-        // Associate click event of new checkbox to call saveSettingToLocalStorage with proper ID
+        const $checkbox = $(`#${settingID}`);
+
+        // Load Setting from WMEPH settings first (before attaching click handler to avoid triggering save)
+        if (getWMEPHSetting(settingID) === '1') {
+            $checkbox.prop('checked', true);
+        }
+
+        // Attach click handler AFTER loading state so initial prop() doesn't trigger a save
         // Skip for checkboxes that have custom handlers (they'll save and update themselves)
         if (settingID !== 'WMEPH-PLATypeFill' && settingID !== 'WMEPH-ShowFilterHighlight') {
-            $(`#${settingID}`).click(() => { saveSettingToLocalStorage(settingID); });
-        }
-        // Load Setting for Local Storage, if it doesn't exist set it to NOT checked.
-        // If previously set to 1, then trigger "click" event.
-        if (!localStorage.getItem(settingID)) {
-            // logDev(settingID + ' not found.');
-        } else if (localStorage.getItem(settingID) === '1') {
-            $(`#${settingID}`).prop('checked', true);
+            $checkbox.click(() => { saveSettingToLocalStorage(settingID); });
         }
     }
 
@@ -9931,19 +9983,12 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
         // Update SDK shortcut to match
         const newKey = loadHarmonizeShortcut();
         if (newKey) {
-            try {
-                if (sdk.Shortcuts.isShortcutRegistered({ shortcutId: 'wmeph_harmonize_place' })) {
-                    sdk.Shortcuts.deleteShortcut({ shortcutId: 'wmeph_harmonize_place' });
-                }
-                sdk.Shortcuts.createShortcut({
-                    shortcutId: 'wmeph_harmonize_place',
-                    description: 'WMEPH: Harmonize selected place',
-                    callback: () => { harmonizePlace(); },
-                    shortcutKeys: newKey
-                });
-            } catch (ex) {
-                logDev(`Failed to update harmonize shortcut: ${ex}`);
-            }
+            registerShortcut(
+                'wmeph_harmonize_place',
+                'WMEPH: Harmonize selected place',
+                newKey,
+                () => { harmonizePlace(); }
+            );
         }
     }
 
@@ -9951,7 +9996,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
         const keyId = 'WMEPH-KeyboardShortcut';
         const $warn = $('#PlaceHarmonizerKBWarn');
         const $key = $(`#${keyId}`);
-        const oldKey = localStorage.getItem(keyId);
+        const oldKey = getWMEPHSetting(keyId);
         const newKey = $key.val();
 
         $warn.empty(); // remove old warning
@@ -9961,25 +10006,18 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
             SHORTCUT.remove(_modifKey + _shortcutParse);
             _shortcutParse = shortcutParseNew;
             SHORTCUT.add(_modifKey + _shortcutParse, harmonizePlace);
-            $(localStorage.setItem(keyId, newKey));
+            setWMEPHSetting(keyId, newKey);
             $('#PlaceHarmonizerKBCurrent').empty().append(`<span style="font-weight:bold">Current shortcut: ${_modifKey}${_shortcutParse}</span>`);
 
             // Update SDK shortcut to match
             const newSdkKey = loadHarmonizeShortcut();
             if (newSdkKey) {
-                try {
-                    if (sdk.Shortcuts.isShortcutRegistered({ shortcutId: 'wmeph_harmonize_place' })) {
-                        sdk.Shortcuts.deleteShortcut({ shortcutId: 'wmeph_harmonize_place' });
-                    }
-                    sdk.Shortcuts.createShortcut({
-                        shortcutId: 'wmeph_harmonize_place',
-                        description: 'WMEPH: Harmonize selected place',
-                        callback: () => { harmonizePlace(); },
-                        shortcutKeys: newSdkKey
-                    });
-                } catch (ex) {
-                    logDev(`Failed to update harmonize shortcut: ${ex}`);
-                }
+                registerShortcut(
+                    'wmeph_harmonize_place',
+                    'WMEPH: Harmonize selected place',
+                    newSdkKey,
+                    () => { harmonizePlace(); }
+                );
             }
         } else { // if not a letter then reset and flag
             $key.val(oldKey);
@@ -9988,8 +10026,8 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
     }
 
     function setCheckedByDefault(id) {
-        if (localStorage.getItem(id) === null) {
-            localStorage.setItem(id, '1');
+        if (getWMEPHSetting(id) === null) {
+            setWMEPHSetting(id, '1');
         }
     }
 
@@ -9998,17 +10036,17 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
         const $current = $('#PlaceHarmonizerKBCurrent');
         const defaultShortcutKey = IS_BETA_VERSION ? 'S' : 'A';
         const shortcutID = 'WMEPH-KeyboardShortcut';
-        let shortcutKey = localStorage.getItem(shortcutID);
+        let shortcutKey = getWMEPHSetting(shortcutID);
         const $shortcutInput = $(`#${shortcutID}`);
 
-        // Set local storage to default if none
+        // Set settings to default if none
         if (shortcutKey === null || !/^[a-z]{1}$/i.test(shortcutKey)) {
-            localStorage.setItem(shortcutID, defaultShortcutKey);
+            setWMEPHSetting(shortcutID, defaultShortcutKey);
             shortcutKey = defaultShortcutKey;
         }
         $shortcutInput.val(shortcutKey);
 
-        if (localStorage.getItem('WMEPH-KBSModifierKey') === '1') { // Change modifier key code if checked
+        if (getWMEPHSetting('WMEPH-KBSModifierKey') === '1') { // Change modifier key code if checked
             _modifKey = 'Ctrl+';
         }
         _shortcutParse = parseKBSShift(shortcutKey);
@@ -10073,7 +10111,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
         $('#PlaceHarmonizerWLToolsMsg').empty().append(
             '<p style="color:green">To backup the data, copy & paste the text in the box to a safe location.<p>'
         );
-        localStorage.setItem('WMEPH_WLAddCount', 1);
+        setWMEPHSetting('WMEPH_WLAddCount', 1);
     }
 
     function onWLStatsClick() {
@@ -10205,18 +10243,18 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
 
         // Turn this setting on one time.
         if (!_initAlreadyRun) {
-            const runOnceDefaultIgnorePlaGoogleLinkChecks = localStorage.getItem('WMEPH-runOnce-defaultToOff-plaGoogleLinkChecks');
+            const runOnceDefaultIgnorePlaGoogleLinkChecks = getWMEPHSetting('WMEPH-runOnce-defaultToOff-plaGoogleLinkChecks');
             if (!runOnceDefaultIgnorePlaGoogleLinkChecks) {
                 const $chk = $('#WMEPH-DisablePLAExtProviderCheck');
                 if (!$chk.prop('checked')) { $chk.trigger('click'); }
             }
-            localStorage.setItem('WMEPH-runOnce-defaultToOff-plaGoogleLinkChecks', true);
+            setWMEPHSetting('WMEPH-runOnce-defaultToOff-plaGoogleLinkChecks', true);
         }
 
         initShortcutKey();
 
-        if (localStorage.getItem('WMEPH_WLAddCount') === null) {
-            localStorage.setItem('WMEPH_WLAddCount', 2); // Counter to remind of WL backups
+        if (getWMEPHSetting('WMEPH_WLAddCount') === null) {
+            setWMEPHSetting('WMEPH_WLAddCount', 2); // Counter to remind of WL backups
         }
 
         // Reload Data button click event
@@ -10380,26 +10418,36 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
             'WMEPH_CPhrs': 'fa-clock-o'   // Hours
         };
 
-        const $checkbox = $('<input>', {
-            type: 'checkbox',
-            id: settingID
-        }).click(() => saveSettingToLocalStorage(settingID))
-            .prop('checked', localStorage.getItem(settingID) === '1');
-
         const icon = iconMap[settingID];
-        const $label = $('<label>', {
-            for: settingID,
-            style: 'margin-left: 2px; font-weight: normal; cursor: pointer; display: inline-block; vertical-align: text-bottom;',
-            title: textDescription
-        });
+        const isChecked = getWMEPHSetting(settingID) === '1';
 
-        if (icon) {
-            $label.html(`<i class="fa ${icon}"></i>`);
-        } else {
-            $label.text(textDescription);
-        }
+        const $button = $('<button>', {
+            id: settingID,
+            type: 'button',
+            class: 'wmeph-icon-toggle',
+            title: textDescription,
+            style: `
+                background: none;
+                border: none;
+                padding: 4px 6px;
+                cursor: pointer;
+                font-size: 16px;
+                color: ${isChecked ? '#0075e3' : '#999'};
+                transition: all 0.2s ease;
+                opacity: ${isChecked ? '1' : '0.5'};
+            `
+        }).html(icon ? `<i class="fa ${icon}"></i>` : textDescription)
+            .click(function() {
+                const checked = getWMEPHSetting(settingID) === '1';
+                const newState = checked ? '0' : '1';
+                setWMEPHSetting(settingID, newState);
+                $(this).css({
+                    color: newState === '1' ? '#0075e3' : '#999',
+                    opacity: newState === '1' ? '1' : '0.5'
+                });
+            });
 
-        return $('<span>', { style: 'margin-right: 2px; display: inline-flex; align-items: flex-start; gap: 0px;' }).append($checkbox, $label);
+        return $button;
     }
 
     // Function to add Shift+ to upper case KBS
@@ -10409,7 +10457,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
 
     // Save settings prefs
     function saveSettingToLocalStorage(settingID) {
-        localStorage.setItem(settingID, $(`#${settingID}`).prop('checked') ? '1' : '0');
+        setWMEPHSetting(settingID, $(`#${settingID}`).prop('checked') ? '1' : '0');
     }
 
     // This function validates that the inputted text is a JSON
@@ -10535,8 +10583,8 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
     }
 
     function onWindowBeforeUnload() {
-        localStorage.setItem('WMEPH_FilterHighlightShortcut', getShortcutKeys(W.accelerators.Actions.wmephFilterHighlightToggle));
-        localStorage.setItem('WMEPH_ColorHighlighting', getShortcutKeys(W.accelerators.Actions.wmephColorHighlightingToggle));
+        setWMEPHSetting('WMEPH_FilterHighlightShortcut', getShortcutKeys(W.accelerators.Actions.wmephFilterHighlightToggle));
+        setWMEPHSetting('WMEPH_ColorHighlighting', getShortcutKeys(W.accelerators.Actions.wmephColorHighlightingToggle));
     }
 
     function getShortcutKeys(shortcutAction) {
@@ -10553,20 +10601,158 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
         return keys;
     }
 
-    function showScriptInfoAlert() {
-        const lastVersion = localStorage.getItem('WMEPH_lastVersion');
-        if (_SCRIPT_UPDATE_MESSAGE && SCRIPT_VERSION !== lastVersion) {
-            if (typeof WazeWrap !== 'undefined' && WazeWrap.Interface) {
-                WazeWrap.Interface.ShowScriptUpdate(SCRIPT_NAME, SCRIPT_VERSION, _SCRIPT_UPDATE_MESSAGE);
-            }
-            localStorage.setItem('WMEPH_lastVersion', SCRIPT_VERSION);
+    /**
+   * Displays an informational alert dialog (via WME UI) with script and context information.
+   *
+   * @function showScriptInfoAlert
+   * @returns {void}
+   */
+  function showScriptInfoAlert() {
+
+    const lastVersion = getWMEPHSetting('WMEPH_lastVersion');
+
+    /* Check version and alert on update */
+    if (SCRIPT_UPDATE_MESSAGE && SCRIPT_VERSION !== lastVersion) {
+
+      let releaseNotes = '';
+      releaseNotes += "<p>What's New:</p>";
+      if (SCRIPT_VERSION_CHANGES.length > 0) {
+        releaseNotes += '<ul>';
+        for (let idx = 0; idx < SCRIPT_VERSION_CHANGES.length; idx++) releaseNotes += `<li>${SCRIPT_VERSION_CHANGES[idx]}`;
+        releaseNotes += '</ul>';
+      } else {
+        releaseNotes += '<ul><li>Nothing major.</ul>';
+      }
+      WazeWrap.Interface.ShowScriptUpdate(GM_info.script.name, scriptVersion, releaseNotes, GF_URL);
+    }
+    setWMEPHSetting('WMEPH_lastVersion', SCRIPT_VERSION);
+  }
+
+
+    function migrateSettingsToObject() {
+        const MIGRATION_VERSION = 1;
+        wmephSettings = JSON.parse(localStorage.getItem('WMEPH-Settings') || '{}');
+        const currentVersion = wmephSettings._migrationVersion || 0;
+        logDev(`migrateSettingsToObject: current version=${currentVersion}, target version=${MIGRATION_VERSION}`);
+
+        // If already migrated, skip
+        if (currentVersion === MIGRATION_VERSION) {
+            logDev('Migration already complete, skipping');
+            return;
         }
+
+        const oldKeys = [
+            'WMEPH-KeyboardShortcut',
+            'WMEPH-KBSModifierKey',
+            'WMEPH-WebSearchNewTab',
+            'WMEPH-EnableCloneMode',
+            'WMEPH-EnableIAZoom',
+            'WMEPH-HidePlacesWiki',
+            'WMEPH-HideReportError',
+            'WMEPH-HideServicesButtons',
+            'WMEPH-HidePURWebSearch',
+            'WMEPH-ExcludePLADupes',
+            'WMEPH-ShowPLAExitWhileClosed',
+            'WMEPH-DisablePLAExtProviderCheck',
+            'WMEPH-AddAddresses',
+            'WMEPH-AutoLockRPPs',
+            'WMEPH-ColorHighlighting',
+            'WMEPH-DisableHoursHL',
+            'WMEPH-DisableRankHL',
+            'WMEPH-DisableWLHL',
+            'WMEPH-PLATypeFill',
+            'WMEPH-ShowFilterHighlight',
+            'WMEPH-RegionOverride',
+            'WMEPH-featuresExamined',
+            'WMEPH-runOnce-defaultToOff-plaGoogleLinkChecks',
+            'WMEPH-OneTimeWLBU',
+            'WMEPH_xrayMode_enabled',
+            'WMEPH_WLAddCount',
+            'WMEPH_lastVersion',
+            'WMEPH_ColorHighlighting',
+            'WMEPH_FilterHighlightShortcut',
+            'WMEPH_CPcity',
+            'WMEPH_CPdesc',
+            'WMEPH_CPhn',
+            'WMEPH_CPhrs',
+            'WMEPH_CPph',
+            'WMEPH_CPserv',
+            'WMEPH_CPstr',
+            'WMEPH_CPurl',
+            'WMEPH_shortcut_wmeph_color_highlighting',
+            'WMEPH_shortcut_wmeph_harmonize_place',
+            'WMEPH_shortcut_wmeph_zoom_place'
+            // Note: WMEPH-venueWhitelistCompressed and WMEPH-venueWhitelistNew are kept separate
+            // as independent localStorage keys since they're large data, not user settings
+        ];
+
+        // Collect all existing WMEPH settings
+        oldKeys.forEach(key => {
+            const value = localStorage.getItem(key);
+            if (value !== null) {
+                wmephSettings[key] = value;
+            }
+        });
+
+        // Mark migration as complete
+        wmephSettings._migrationVersion = MIGRATION_VERSION;
+        localStorage.setItem('WMEPH-Settings', JSON.stringify(wmephSettings));
+        logDev(`Migrated settings to WMEPH-Settings object`);
+
+        // Clean up old keys
+        const removedKeys = [];
+        oldKeys.forEach(key => {
+            if (localStorage.getItem(key) !== null) {
+                removedKeys.push(key);
+                localStorage.removeItem(key);
+            }
+        });
+        logDev(`Removed ${removedKeys.length} old keys: ${removedKeys.join(', ')}`);
+
+        // Additional cleanup: remove any remaining top-level WMEPH keys (catch-all for missed keys)
+        const strayKeys = [];
+        for (let i = 0; i < localStorage.length; i++) {
+            const key = localStorage.key(i);
+            if (key && (key.startsWith('WMEPH-') || key.startsWith('WMEPH_')) && key !== 'WMEPH-Settings') {
+                strayKeys.push(key);
+                localStorage.removeItem(key);
+                i--; // Adjust index since we removed an item
+            }
+        }
+        if (strayKeys.length > 0) {
+            logDev(`Removed ${strayKeys.length} stray keys: ${strayKeys.join(', ')}`);
+        }
+    }
+
+    function loadWMEPHSettings() {
+        wmephSettings = JSON.parse(localStorage.getItem('WMEPH-Settings') || '{}');
+        // Ensure whitelist data is never stored in settings object (kept as separate localStorage keys to avoid bloating)
+        // These are removed here as a safeguard in case they are mistakenly added.
+        delete wmephSettings['WMEPH-venueWhitelistCompressed'];
+        delete wmephSettings['WMEPH-venueWhitelistNew'];
+    }
+
+    function getWMEPHSetting(key, defaultValue = null) {
+        return wmephSettings[key] !== undefined ? wmephSettings[key] : defaultValue;
+    }
+
+    function setWMEPHSetting(key, value) {
+        wmephSettings[key] = value;
+        // Don't include internal metadata (_migrationVersion) when saving to localStorage
+        const settingsToSave = Object.fromEntries(
+            Object.entries(wmephSettings).filter(([k]) => !k.startsWith('_'))
+        );
+        localStorage.setItem('WMEPH-Settings', JSON.stringify(settingsToSave));
     }
 
     async function placeHarmonizerInit() {
         interceptGoogleGetDetails();
         updateUserInfo();
         logDev('placeHarmonizerInit'); // Be sure to update User info before calling logDev()
+
+        // Migrate legacy localStorage keys to centralized settings object
+        migrateSettingsToObject();
+        loadWMEPHSettings(); // Ensure settings are loaded into cache
 
         // Initialize custom keyboard shortcut (used by harmonize shortcut below)
         initShortcutKey();
@@ -10588,20 +10774,12 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
         const harmonizeKey = loadHarmonizeShortcut();
         logDev(`Harmonize shortcut key loaded: ${harmonizeKey}`);
         if (harmonizeKey) {
-            try {
-                if (sdk.Shortcuts.isShortcutRegistered({ shortcutId: 'wmeph_harmonize_place' })) {
-                    sdk.Shortcuts.deleteShortcut({ shortcutId: 'wmeph_harmonize_place' });
-                }
-                sdk.Shortcuts.createShortcut({
-                    shortcutId: 'wmeph_harmonize_place',
-                    description: 'WMEPH: Harmonize selected place',
-                    callback: () => { harmonizePlace(); },
-                    shortcutKeys: harmonizeKey
-                });
-                logDev(`Registered harmonize shortcut: wmeph_harmonize_place = ${harmonizeKey}`);
-            } catch (ex) {
-                logDev(`Failed to register harmonize shortcut: ${ex}`);
-            }
+            registerShortcut(
+                'wmeph_harmonize_place',
+                'WMEPH: Harmonize selected place',
+                harmonizeKey,
+                () => { harmonizePlace(); }
+            );
         } else {
             logDev('loadHarmonizeShortcut returned null or empty - harmonize shortcut not registered');
         }
@@ -10818,13 +10996,13 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
         // Don't Add checkbox for dupe labels layer using LayerSwitcher
         // sdk.LayerSwitcher.addLayerCheckbox({ name: 'WMEPH Dupe Labels', isChecked: true });
 
-        if (localStorage.getItem('WMEPH-featuresExamined') === null) {
-            localStorage.setItem('WMEPH-featuresExamined', '0'); // Storage for whether the User has pressed the button to look at updates
+        if (getWMEPHSetting('WMEPH-featuresExamined') === null) {
+            setWMEPHSetting('WMEPH-featuresExamined', '0'); // Storage for whether the User has pressed the button to look at updates
         }
 
         createObserver();
 
-        const xrayMode = localStorage.getItem('WMEPH_xrayMode_enabled') === 'true';
+        const xrayMode = getWMEPHSetting('WMEPH_xrayMode_enabled') === 'true';
 
         // X-ray Mode: Fade roads/satellite/mapComments to see map details underneath
         // Uses sdk.Map.addStyleRuleToLayer() to reduce opacity of background layers
@@ -10849,7 +11027,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                 saveWhitelistToLS(false);
                 saveWhitelistToLS(true);
             } else { // if regular WL string exists, then transfer to compressed version
-                localStorage.setItem('WMEPH-OneTimeWLBU', localStorage.getItem(WL_LOCAL_STORE_NAME));
+                setWMEPHSetting('WMEPH-OneTimeWLBU', localStorage.getItem(WL_LOCAL_STORE_NAME));
                 loadWhitelistFromLS(false);
                 saveWhitelistToLS(true);
                 WazeWrap.Alerts.info(SCRIPT_NAME, 'Whitelists are being converted to a compressed format.  If you have trouble with your WL, please submit an error report.');
@@ -10988,7 +11166,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
         }
 
         // Rebuild all enabled highlight types
-        const colorHighlightingEnabled = localStorage.getItem('WMEPH-ColorHighlighting') === '1';
+        const colorHighlightingEnabled = getWMEPHSetting('WMEPH-ColorHighlighting') === '1';
         const parkingLotHighlightingEnabled = $('#WMEPH-PLATypeFill').prop('checked');
         const filterHighlightingEnabled = $('#WMEPH-ShowFilterHighlight').prop('checked');
 
