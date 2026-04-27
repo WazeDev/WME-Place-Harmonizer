@@ -19,6 +19,7 @@
 // @connect     greasyfork.org
 // @grant       GM_addStyle
 // @grant       GM_xmlhttpRequest
+// @grant       GM_setClipboard
 // ==/UserScript==
 
 /* global W */
@@ -8968,15 +8969,24 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
 
     function onCopyClicked() {
         const venue = getSelectedVenue();
-        _cloneMaster = {};
-        _cloneMaster.addr = getVenueAddress(venue);
-        _cloneMaster.houseNumber = venue.houseNumber;
-        _cloneMaster.url = venue.url;
-        _cloneMaster.phone = venue.phone;
-        _cloneMaster.description = venue.description;
-        _cloneMaster.services = venue.services;
-        _cloneMaster.openingHours = venue.openingHours;
-        _cloneMaster.isPLA = isVenueParkingLot(venue);
+        const addr = getVenueAddress(venue);
+
+        _cloneMaster = {
+            addr: {
+                houseNumber: venue.houseNumber,
+                street: { name: addr?.street?.name || '' },
+                city: { name: addr?.city?.name || '' },
+                state: { name: addr?.state?.name || '' }
+            },
+            url: venue.url || '',
+            phone: venue.phone || '',
+            description: venue.description || '',
+            services: venue.services || [],
+            openingHours: venue.openingHours || [],
+            isPLA: isVenueParkingLot(venue)
+        };
+
+        GM_setClipboard(JSON.stringify(_cloneMaster, null, 2));
         logDev('Place Cloned');
     }
 
