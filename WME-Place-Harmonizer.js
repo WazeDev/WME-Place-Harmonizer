@@ -10911,7 +10911,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                             strokeColor: '${getSeverityColor}',
                             strokeWidth: 5,
                             strokeOpacity: 0.8,
-                            strokeDashstyle: 'dash'
+                            //strokeDashstyle: 'dash'
                         }
                     },
                     // Rule 3: Parking lot with severity - both fill (parking type) and stroke (severity severity)
