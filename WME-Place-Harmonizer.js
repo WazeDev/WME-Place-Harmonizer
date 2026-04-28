@@ -372,13 +372,76 @@
     }
     `;
 
+  // **************************************************************************************************************
+  // GLOBAL VARIABLES AND CONSTANTS
+  // **************************************************************************************************************
+
   let OpeningHour;
 
+  // Storage and cache variables
+  const WL_LOCAL_STORE_NAME_COMPRESSED = 'WMEPH-venueWhitelistCompressed';
+
+  // Dupe check variables
+  let _dupeLayer;
+  let _dupeIDList = [];
+  let _dupeHNRangeList;
+  let _dupeHNRangeDistList;
+
+  // Web search window specifications
+  let _searchResultsWindowSpecs = `"resizable=yes, top=${Math.round(window.screen.height * 0.1)}, left=${Math.round(
+    window.screen.width * 0.3,
+  )}, width=${Math.round(window.screen.width * 0.7)}, height=${Math.round(window.screen.height * 0.8)}"`;
+  const SEARCH_RESULTS_WINDOW_NAME = '"WMEPH Search Results"';
+  let _wmephMousePosition;
+  let _cloneMaster = null;
+
+  // Banner UI elements
+  let _buttonBanner2;
+  let _servicesBanner;
+  let _dupeBanner;
+
+  // State flags
+  let _disableHighlightTest = false; // Set to true to temporarily disable highlight checks immediately when venues change.
+  let _isHarmonizing = false; // Prevent recursive harmonization when venue data changes during harmonization
+
+  // User information object
+  const USER = {
+    ref: null,
+    rank: null,
+    name: null,
+    isBetaUser: false,
+    isDevUser: false,
+  };
+
+  // Setting identifiers
+  const SETTING_IDS = {
+    sfUrlWarning: 'SFURLWarning', // Warning message for first time using localized storefinder URL.
+    gLinkWarning: 'GLinkWarning', // Warning message for first time using Google search to not to use the Google info itself.
+  };
+
+  // Reference URLs
+  const URLS = {
+    forum: 'https://www.waze.com/discuss/t/script-wme-place-harmonizer/178574',
+    usaPnh: 'https://docs.google.com/spreadsheets/d/1-f-JTWY5UnBx-rFTa4qhyGMYdHBZWNirUTOgn222zMY/edit#gid=0',
+    placesWiki: 'https://www.waze.com/discuss/t/places/377947',
+    restAreaWiki: 'https://www.waze.com/discuss/t/rest-areas/378691',
+    uspsWiki: 'https://www.waze.com/discuss/t/post-office-places/378648',
+  };
+
+  // **************************************************************************************************************
+  // CLASSES
+  // **************************************************************************************************************
+
   class Country {
+    /** @type {string} */
     countryCode;
+    /** @type {string} */
     countryName;
+    /** @type {PnhCategoryInfos} */
     categoryInfos;
+    /** @type {PnhEntry[]} */
     pnh;
+    /** @type {Object<string, Region>} */
     regions;
     /** @type {PnhEntry[]} */
     closedChains;
@@ -387,9 +450,10 @@
      * Creates an instance of Country.
      * @param {string} code Country code, e.g. USA, CAN
      * @param {string} name Country name, for display purposes
-     * @param {PnhCategoryInfos} categoryInfos
-     * @param {PnhEntry[]} pnh
-     * @memberof Country
+     * @param {string[][]} allSpreadsheetData Raw data from Google Sheets API (2D array of rows)
+     * @param {number} categoryColumnIndex Column index for category information
+     * @param {number} pnhColumnIndex Column index for PNH data
+     * @param {Object<string, Region>} regions Object mapping region codes to Region instances
      */
     constructor(code, name, allSpreadsheetData, categoryColumnIndex, pnhColumnIndex, regions) {
       this.countryCode = code;
@@ -431,7 +495,11 @@
   const WL_BUTTON_TEXT = 'WL';
   const WL_LOCAL_STORE_NAME = 'WMEPH-venueWhitelistNew';
 
-  // Shortcut normalization: keycode → display name (C/A/S modifiers)
+  /**
+   * Maps keycodes to their corresponding display names.
+   * Used for shortcut normalization with C (Control), A (Alt), S (Shift) modifiers.
+   * @const {Object<number, string>}
+   */
   // prettier-ignore
   const _KEYCODE_TO_CHAR = {
         65:'A',66:'B',67:'C',68:'D',69:'E',70:'F',71:'G',72:'H',73:'I',74:'J',75:'K',76:'L',
@@ -441,7 +509,11 @@
         32:'Space',13:'Enter',9:'Tab',27:'Esc',8:'Backspace',46:'Delete',36:'Home',35:'End',33:'PageUp',34:'PageDown',45:'Insert',
         37:'←',38:'↑',39:'→',40:'↓', 188:',',190:'.',191:'/',186:';',222:"'",219:'[',221:']',220:'\\',189:'-',187:'=',192:'`',
     };
+  
+    /** Reverse mapping: display name to keycode. @const {Object<string, number>} */
   const _CHAR_TO_KEYCODE = Object.fromEntries(Object.entries(_KEYCODE_TO_CHAR).map(([k, v]) => [v.toUpperCase(), Number(k)]));
+  
+  /** Bitwise values for modifier keys: C=Control(1), S=Shift(2), A=Alt(4). @const {Object<string, number>} */
   const _MOD_CHAR_TO_VAL = { C: 1, S: 2, A: 4 };
 
   /**
@@ -480,7 +552,11 @@
     return null;
   }
 
-  /** Converts any shortcut string to human-readable combo format (e.g. "A+R"). Returns null if no key. */
+  /**
+   * Converts raw "modifier,keycode" format to human-readable combo format (e.g. "A+R").
+   * @param {string|null} str Raw format string or any shortcut value
+   * @returns {string|null} Combo format string or null if no key
+   */
   function _rawToCombo(str) {
     const raw = _comboToRaw(str);
     if (!raw) return null;
@@ -497,7 +573,8 @@
 
   /**
    * Normalizes any shortcut value to a {raw, combo} pair for consistent storage.
-   * Accepts: flat string (any format), existing {raw,combo} object, or null.
+   * @param {string|Object|null} val Shortcut value: string (any format), {raw,combo} object, or null
+   * @returns {Object} Object with raw (keycode format) and combo (display format) properties
    */
   function _normalizeShortcut(val) {
     const src = val && typeof val === 'object' ? (val.raw ?? val.combo) : val;
@@ -506,21 +583,33 @@
     return { raw, combo };
   }
 
-  // Shortcut storage/retrieval from settings (stores both RAW and COMBO for consistency)
-  // RAW format (keycodes) handles SDK format inconsistencies, COMBO format aids debugging
+  /**
+   * Loads shortcut from settings in both raw and combo formats.
+   * @param {string} settingsKey The settings key identifier
+   * @returns {Object} Object with raw and combo properties
+   */
   function loadShortcut(settingsKey) {
     const raw = getWMEPHSetting(`WMEPH_shortcut_${settingsKey}_raw`);
     const combo = getWMEPHSetting(`WMEPH_shortcut_${settingsKey}_combo`);
     return { raw: raw || null, combo: combo || null };
   }
 
+  /**
+   * Saves shortcut to settings in both raw and combo formats for consistency.
+   * RAW format (keycodes) handles SDK inconsistencies, COMBO format aids debugging.
+   * @param {string} settingsKey The settings key identifier
+   * @param {string|Object|null} shortcutValue Shortcut value in any format
+   */
   function saveShortcut(settingsKey, shortcutValue) {
     const normalized = _normalizeShortcut(shortcutValue);
     setWMEPHSetting(`WMEPH_shortcut_${settingsKey}_raw`, normalized.raw || '');
     setWMEPHSetting(`WMEPH_shortcut_${settingsKey}_combo`, normalized.combo || '');
   }
 
-  // Load harmonize shortcut from the UI-managed localStorage key
+  /**
+   * Loads the harmonize shortcut from UI-managed localStorage keys.
+   * @returns {string|null} Shortcut in SDK combo format (e.g. "C+A+H")
+   */
   function loadHarmonizeShortcut() {
     const keyLetter = getWMEPHSetting('WMEPH-KeyboardShortcut') || 'A';
     const useCtrl = getWMEPHSetting('WMEPH-KBSModifierKey') === '1';
@@ -543,18 +632,23 @@
     return normalized.combo || null; // Return null if normalization failed
   }
 
-  // Register SDK shortcut with normalized combo format.
-  // Only sends combo format to SDK; stores both formats for consistency.
-  // Handles key-already-in-use conflicts by registering without keys.
+  /**
+   * Registers an SDK shortcut with normalized combo format.
+   * Stores both raw and combo formats for consistency, handles key conflicts.
+   * @param {string} shortcutId Unique identifier for the shortcut
+   * @param {string} description Human-readable description for the shortcut
+   * @param {string|null} defaultKey Default shortcut key if none stored (combo or raw format)
+   * @param {Function} callback Function to execute when shortcut is triggered
+   */
   function registerShortcut(shortcutId, description, defaultKey, callback) {
     const stored = loadShortcut(shortcutId);
     const keyToUse = stored.combo || (defaultKey ? _normalizeShortcut(defaultKey).combo : null);
 
     try {
-      if (sdk.Shortcuts.isShortcutRegistered({ shortcutId })) {
-        sdk.Shortcuts.deleteShortcut({ shortcutId });
-      }
-      // SDK only accepts combo format: "A+R", "shift+a", or null
+      // SDK only accepts combo format:
+      //  "A" - press 'a' to trigger the shortcut
+      //  "C+3" - press Ctrl-3 to trigger the shortcut
+      //  "AS+32" - press Alt-Shift-Space to trigger the shortcut
       sdk.Shortcuts.createShortcut({
         shortcutId,
         description,
@@ -605,13 +699,20 @@
     return sdk.DataModel.Venues.getAddress({ venueId: venue.id });
   }
 
-  // Get segment address using SDK (replaces segment.getAddress())
+  /**
+   * Retrieves address details for a segment using the WME SDK.
+   * @param {object} segment Segment object with id property
+   * @returns {object|null} Address object, or null if invalid segment
+   */
   function getSegmentAddress(segment) {
     if (!segment || !segment.id) return null;
     return sdk.DataModel.Segments.getAddress({ segmentId: segment.id });
   }
 
-  // Redraw a layer to reflect style changes
+  /**
+   * Redraws a layer to reflect style changes.
+   * @param {string} layerName Name of the layer to redraw
+   */
   function redrawLayer(layerName) {
     if (!layerName) return;
     try {
@@ -621,6 +722,9 @@
     }
   }
 
+  /**
+   * Toggles the color highlighting checkbox and updates map display.
+   */
   function toggleHighlightCheckbox() {
     const checkbox = $('#WMEPH-ColorHighlighting');
     if (checkbox.length) {
@@ -631,7 +735,12 @@
     }
   }
 
-  // Helper to create wz-button elements with event listeners
+  /**
+   * Creates a wz-button element with attributes and optional click handler.
+   * @param {object} attrs Button attributes (color, size, disabled, textContent, etc.)
+   * @param {Function|null} clickHandler Optional click event handler
+   * @returns {HTMLElement} The created wz-button element
+   */
   function createWzButton(attrs = {}, clickHandler = null) {
     const btn = document.createElement('wz-button');
     const propertyKeys = ['color', 'size', 'disabled', 'textContent'];
@@ -650,34 +759,54 @@
     return btn;
   }
 
-  // Helper to check if venue is residential (SDK venues don't have isResidential method)
+  /**
+   * Checks if a venue is residential.
+   * @param {object|null} venue Venue object with residential property or categories array
+   * @returns {boolean} True if venue is residential
+   */
   function isVenueResidential(venue) {
     if (!venue) return false;
     // SDK has venue.residential property and RESIDENTIAL category ID
     return venue.residential === true || venue.categories?.includes('RESIDENTIAL');
   }
 
-  // Helper to check if venue is charging station (SDK venues don't have isChargingStation method)
+  /**
+   * Checks if a venue is a charging station.
+   * @param {object|null} venue Venue object with categories array
+   * @returns {boolean} True if venue's primary category is CHARGING_STATION
+   */
   function isVenueChargingStation(venue) {
     if (!venue) return false;
     const primaryCategory = venue.categories?.[0];
     return primaryCategory === 'CHARGING_STATION';
   }
 
-  // Helper to check if venue is parking lot (SDK venues don't have isParkingLot method)
+  /**
+   * Checks if a venue is a parking lot.
+   * @param {object|null} venue Venue object with categories array
+   * @returns {boolean} True if venue's primary category is PARKING_LOT
+   */
   function isVenueParkingLot(venue) {
     if (!venue) return false;
     const primaryCategory = venue.categories?.[0];
     return primaryCategory === 'PARKING_LOT';
   }
 
-  // Helper to check if venue is point (SDK venues don't have isPoint method)
+  /**
+   * Checks if a venue is a point geometry (not polygon or line).
+   * @param {object|null} venue Venue object with geometry property
+   * @returns {boolean} True if venue geometry type is Point
+   */
   function isVenuePoint(venue) {
     if (!venue || !venue.geometry) return false;
     return venue.geometry.type === 'Point';
   }
 
-  // Helper to get applicable services based on venue type
+  /**
+   * Gets applicable services based on venue type.
+   * @param {object} venue Venue object to check
+   * @returns {object} Service configuration (PARKING_LOT_SERVICES or GENERAL_SERVICES)
+   */
   function getApplicableServices(venue) {
     if (isVenueParkingLot(venue)) {
       return PARKING_LOT_SERVICES;
@@ -727,11 +856,13 @@
     }
   }
 
-  // Get map extent as bounding box [minLon, minLat, maxLon, maxLat]
+  /**
+   * Gets the current map extent as a bounding box in WGS84 coordinates.
+   * @returns {number[]|null} Bounding box [minLon, minLat, maxLon, maxLat], or null on error
+   */
   function getMapBoundingBox() {
     try {
       const bbox = sdk.Map.getMapExtent();
-      // bbox is [left, bottom, right, top] = [minLon, minLat, maxLon, maxLat] in WGS84
       return bbox;
     } catch (e) {
       logDev('getMapBoundingBox error:', e);
@@ -739,48 +870,6 @@
     }
   }
 
-  const WL_LOCAL_STORE_NAME_COMPRESSED = 'WMEPH-venueWhitelistCompressed';
-
-  // Dupe check vars
-  let _dupeLayer;
-  let _dupeIDList = [];
-  let _dupeHNRangeList;
-  let _dupeHNRangeDistList;
-
-  // Web search Window forming:
-  let _searchResultsWindowSpecs = `"resizable=yes, top=${Math.round(window.screen.height * 0.1)}, left=${Math.round(
-    window.screen.width * 0.3,
-  )}, width=${Math.round(window.screen.width * 0.7)}, height=${Math.round(window.screen.height * 0.8)}"`;
-  const SEARCH_RESULTS_WINDOW_NAME = '"WMEPH Search Results"';
-  let _wmephMousePosition;
-  let _cloneMaster = null;
-
-  // Banner Buttons objects
-  let _buttonBanner2;
-  let _servicesBanner;
-  let _dupeBanner;
-
-  let _disableHighlightTest = false; // Set to true to temporarily disable highlight checks immediately when venues change.
-  let _isHarmonizing = false; // Prevent recursive harmonization when venue data changes during harmonization
-
-  const USER = {
-    ref: null,
-    rank: null,
-    name: null,
-    isBetaUser: false,
-    isDevUser: false,
-  };
-  const SETTING_IDS = {
-    sfUrlWarning: 'SFURLWarning', // Warning message for first time using localized storefinder URL.
-    gLinkWarning: 'GLinkWarning', // Warning message for first time using Google search to not to use the Google info itself.
-  };
-  const URLS = {
-    forum: 'https://www.waze.com/discuss/t/script-wme-place-harmonizer/178574',
-    usaPnh: 'https://docs.google.com/spreadsheets/d/1-f-JTWY5UnBx-rFTa4qhyGMYdHBZWNirUTOgn222zMY/edit#gid=0',
-    placesWiki: 'https://www.waze.com/discuss/t/places/377947',
-    restAreaWiki: 'https://www.waze.com/discuss/t/rest-areas/378691',
-    uspsWiki: 'https://www.waze.com/discuss/t/post-office-places/378648',
-  };
   class Region {
     static #defaultNewChainRequestEntryIds = ['entry.925969794', 'entry.1970139752', 'entry.1749047694'];
     static #defaultApproveChainRequestEntryIds = ['entry.925969794', 'entry.50214576', 'entry.1749047694'];
