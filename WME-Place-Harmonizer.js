@@ -10872,13 +10872,12 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
       ),
     );
 
-    const { tabLabel, tabPane } = W.userscripts.registerSidebarTab('WMEPH');
+    const { tabLabel, tabPane } = await sdk.Sidebar.registerScriptTab();
     tabLabel.innerHTML = `<span title="WME Place Harmonizer">WMEPH${IS_BETA_VERSION ? '-β' : ''}</span>`;
     tabPane.innerHTML = $container.html();
-    await W.userscripts.waitForElementConnected(tabPane);
+    tabPane.classList.add('wmeph-pane');
     // Fix tab content div spacing.
     $(tabPane).parent().css({ width: 'auto', padding: '8px !important' });
-    $('.wmeph-pane').css({ width: 'auto', padding: '8px !important' });
     initWmephTab();
   }
 
