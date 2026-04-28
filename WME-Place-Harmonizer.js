@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name        WME Place Harmonizer
 // @namespace   WazeUSA
-// @version     2026.04.27.000
+// @version     2026.04.28.000
 // @description Harmonizes, formats, and locks a selected place
 // @author      WMEPH Development Group
 // @include      https://www.waze.com/editor*
@@ -37,20 +37,78 @@
 (function main() {
   'use strict';
 
-  // Script update info
-  let sdk; // Declared as let because script checks for existing sdk before initialization
-  let wmephSettings = {}; // Script-wide settings cache from WMEPH-Settings localStorage
-
   // **************************************************************************************************************
   // IMPORTANT: Update this when releasing a new version of script
   // **************************************************************************************************************
   const SHOW_UPDATE_MESSAGE = true;
-  const SCRIPT_UPDATE_MESSAGE = ['Removing deprecated WazeWrap functionality', 'Shortcuts are non-functional', '(Some?) highlighting is broken due to it not being implemented in the SDK'];
+  const SCRIPT_UPDATE_MESSAGE = [
+    'Removing deprecated WazeWrap functionality',
+    'Shortcuts are non-functional',
+    '(Some?) highlighting is broken due to it not being implemented in the SDK'
+  ];
 
+  // **************************************************************************************************************
+  // GLOBAL VARIABLES AND CONSTANTS
+  // **************************************************************************************************************
+  let sdk; // Declared as let because script checks for existing sdk before initialization
+  let wmephSettings = {}; // Script-wide settings cache from WMEPH-Settings localStorage
+  
   const SCRIPT_VERSION = GM_info.script.version.toString(); // pull version from header
   const SCRIPT_NAME = GM_info.script.name;
   const IS_BETA_VERSION = /Beta/i.test(SCRIPT_NAME); //  enables dev messages and unique DOM options if the script is called "... Beta"
   const BETA_VERSION_STR = IS_BETA_VERSION ? 'Beta' : ''; // strings to differentiate DOM elements between regular and beta script
+
+  // Storage and cache variables
+  const WL_LOCAL_STORE_NAME_COMPRESSED = 'WMEPH-venueWhitelistCompressed';
+
+  // Dupe check variables
+  let _dupeLayer;
+  let _dupeIDList = [];
+  let _dupeHNRangeList;
+  let _dupeHNRangeDistList;
+
+  // Web search window specifications
+  let _searchResultsWindowSpecs = `"resizable=yes, top=${Math.round(window.screen.height * 0.1)}, left=${Math.round(
+    window.screen.width * 0.3,
+  )}, width=${Math.round(window.screen.width * 0.7)}, height=${Math.round(window.screen.height * 0.8)}"`;
+  const SEARCH_RESULTS_WINDOW_NAME = '"WMEPH Search Results"';
+  let _wmephMousePosition;
+  let _cloneMaster = null;
+
+  // Banner UI elements
+  let _buttonBanner2;
+  let _servicesBanner;
+  let _dupeBanner;
+
+  // State flags
+  let _disableHighlightTest = false; // Set to true to temporarily disable highlight checks immediately when venues change.
+  let _isHarmonizing = false; // Prevent recursive harmonization when venue data changes during harmonization
+
+  // User information object
+  const USER = {
+    ref: null,
+    rank: null,
+    name: null,
+    isBetaUser: false,
+    isDevUser: false,
+  };
+
+  // Setting identifiers
+  const SETTING_IDS = {
+    sfUrlWarning: 'SFURLWarning', // Warning message for first time using localized storefinder URL.
+    gLinkWarning: 'GLinkWarning', // Warning message for first time using Google search to not to use the Google info itself.
+  };
+
+  // Reference URLs
+  const URLS = {
+    forum: 'https://www.waze.com/discuss/t/script-wme-place-harmonizer/178574',
+    usaPnh: 'https://docs.google.com/spreadsheets/d/1-f-JTWY5UnBx-rFTa4qhyGMYdHBZWNirUTOgn222zMY/edit#gid=0',
+    placesWiki: 'https://www.waze.com/discuss/t/places/377947',
+    restAreaWiki: 'https://www.waze.com/discuss/t/rest-areas/378691',
+    uspsWiki: 'https://www.waze.com/discuss/t/post-office-places/378648',
+  };
+
+  let OpeningHour;
 
   const _CSS = `
     #edit-panel .venue-feature-editor {
@@ -372,159 +430,131 @@
     }
     `;
 
-  // **************************************************************************************************************
-  // GLOBAL VARIABLES AND CONSTANTS
-  // **************************************************************************************************************
-
-  let OpeningHour;
-
-  // Storage and cache variables
-  const WL_LOCAL_STORE_NAME_COMPRESSED = 'WMEPH-venueWhitelistCompressed';
-
-  // Dupe check variables
-  let _dupeLayer;
-  let _dupeIDList = [];
-  let _dupeHNRangeList;
-  let _dupeHNRangeDistList;
-
-  // Web search window specifications
-  let _searchResultsWindowSpecs = `"resizable=yes, top=${Math.round(window.screen.height * 0.1)}, left=${Math.round(
-    window.screen.width * 0.3,
-  )}, width=${Math.round(window.screen.width * 0.7)}, height=${Math.round(window.screen.height * 0.8)}"`;
-  const SEARCH_RESULTS_WINDOW_NAME = '"WMEPH Search Results"';
-  let _wmephMousePosition;
-  let _cloneMaster = null;
-
-  // Banner UI elements
-  let _buttonBanner2;
-  let _servicesBanner;
-  let _dupeBanner;
-
-  // State flags
-  let _disableHighlightTest = false; // Set to true to temporarily disable highlight checks immediately when venues change.
-  let _isHarmonizing = false; // Prevent recursive harmonization when venue data changes during harmonization
-
-  // User information object
-  const USER = {
-    ref: null,
-    rank: null,
-    name: null,
-    isBetaUser: false,
-    isDevUser: false,
-  };
-
-  // Setting identifiers
-  const SETTING_IDS = {
-    sfUrlWarning: 'SFURLWarning', // Warning message for first time using localized storefinder URL.
-    gLinkWarning: 'GLinkWarning', // Warning message for first time using Google search to not to use the Google info itself.
-  };
-
-  // Reference URLs
-  const URLS = {
-    forum: 'https://www.waze.com/discuss/t/script-wme-place-harmonizer/178574',
-    usaPnh: 'https://docs.google.com/spreadsheets/d/1-f-JTWY5UnBx-rFTa4qhyGMYdHBZWNirUTOgn222zMY/edit#gid=0',
-    placesWiki: 'https://www.waze.com/discuss/t/places/377947',
-    restAreaWiki: 'https://www.waze.com/discuss/t/rest-areas/378691',
-    uspsWiki: 'https://www.waze.com/discuss/t/post-office-places/378648',
-  };
+  
 
   // **************************************************************************************************************
-  // CLASSES
+  // UTILITY/HELPER FUNCTIONS
   // **************************************************************************************************************
 
-  class Country {
-    /** @type {string} */
-    countryCode;
-    /** @type {string} */
-    countryName;
-    /** @type {PnhCategoryInfos} */
-    categoryInfos;
-    /** @type {PnhEntry[]} */
-    pnh;
-    /** @type {Object<string, Region>} */
-    regions;
-    /** @type {PnhEntry[]} */
-    closedChains;
+  /**
+   * Checks if a value is null, undefined, or contains only whitespace.
+   * @param {string} str - String value to check
+   * @returns {boolean} True if null, undefined, or whitespace-only; false otherwise
+   */
+  function isNullOrWhitespace(str) {
+    return !str?.trim().length;
+  }
 
-    /**
-     * Creates an instance of Country.
-     * @param {string} code Country code, e.g. USA, CAN
-     * @param {string} name Country name, for display purposes
-     * @param {string[][]} allSpreadsheetData Raw data from Google Sheets API (2D array of rows)
-     * @param {number} categoryColumnIndex Column index for category information
-     * @param {number} pnhColumnIndex Column index for PNH data
-     * @param {Object<string, Region>} regions Object mapping region codes to Region instances
-     */
-    constructor(code, name, allSpreadsheetData, categoryColumnIndex, pnhColumnIndex, regions) {
-      this.countryCode = code;
-      this.countryName = name;
-      this.categoryInfos = new PnhCategoryInfos();
-      Pnh.processCategories(Pnh.processImportedDataColumn(allSpreadsheetData, categoryColumnIndex), this.categoryInfos);
-      this.pnh = Pnh.processPnhSSRows(allSpreadsheetData, pnhColumnIndex, this);
-      this.closedChains = this.pnh.filter((entry) => entry.chainIsClosed);
-      this.regions = regions;
+  /**
+   * Calculates total distance along a path of points (polyline length).
+   * Sums the distances between consecutive points in the array.
+   * @param {number[][]|object[]} pointArray - Array of points as [lon, lat] arrays or {longitude, latitude} objects
+   * @returns {number} Total distance in meters along the polyline
+   */
+  function calculateDistance(pointArray) {
+    if (pointArray.length < 2) return 0;
+
+    const line = turf.lineString(pointArray);
+    const length = turf.length(line, { units: 'meters' });
+    return length; //multiply by 3.28084 to convert to feet
+  }
+
+  /**
+   * Returns array with duplicate values removed (unique elements only).
+   * Uses Set to efficiently deduplicate while preserving first-occurrence order.
+   * @param {array} arrayIn - Input array containing potential duplicates
+   * @returns {array} New array containing unique elements from input array
+   */
+  function uniq(arrayIn) {
+    return [...new Set(arrayIn)];
+  }
+
+  function sortWithIndex(toSort) {
+    for (let i = 0; i < toSort.length; i++) {
+      toSort[i] = [toSort[i], i];
+    }
+    toSort.sort((left, right) => (left[0] < right[0] ? -1 : 1));
+    toSort.sortIndices = [];
+    for (let j = 0; j < toSort.length; j++) {
+      toSort.sortIndices.push(toSort[j][1]);
+      // eslint-disable-next-line prefer-destructuring
+      toSort[j] = toSort[j][0];
+    }
+    return toSort;
+  }
+
+  function log(...args) {
+    console.log(`WMEPH${IS_BETA_VERSION ? '-β' : ''}:`, ...args);
+  }
+
+  function logDev(...args) {
+    if (USER.isDevUser) {
+      console.debug(`WMEPH${IS_BETA_VERSION ? '-β' : ''} (dev):`, ...args);
     }
   }
 
-  const PNH_DATA = {
-    /** @type {Country} */
-    USA: null,
-    /** @type {Country} */
-    CAN: null,
-  };
+  function errorHandler(callback, ...args) {
+    try {
+      callback(...args);
+    } catch (ex) {
+      logDev(ex);
+    }
+  }
 
-  const DEFAULT_HOURS_TEXT = 'Paste hours here';
-  const MAX_CACHE_SIZE = 25000;
-  const PROD_DOWNLOAD_URL = 'https://greasyfork.org/scripts/28690-wme-place-harmonizer/code/WME%20Place%20Harmonizer.user.js';
-  const BETA_DOWNLOAD_URL =
-    'YUhSMGNITTZMeTluY21WaGMzbG1iM0pyTG05eVp5OXpZM0pwY0hSekx6STROamc1TFhkdFpTMXdiR0ZqWlMxb1lYSnRiMjVwZW1WeUxXSmxkR0V2WTI5a1pTOVhUVVVsTWpCUWJHRmpaU1V5TUVoaGNtMXZibWw2WlhJbE1qQkNaWFJoTG5WelpYSXVhbk09';
+  // **************************************************************************************************************
+  // SETTINGS/STORAGE FUNCTIONS
+  // **************************************************************************************************************
 
-  let _resultsCache = {};
-  let _initAlreadyRun = false; // This is used to skip a couple things if already run once.  This could probably be handled better...
-  let _textEntryValues = null; // Store the values entered in text boxes so they can be re-added when the banner is reassembled.
+  function getWMEPHSetting(key, defaultValue = null) {
+    return wmephSettings[key] !== undefined ? wmephSettings[key] : defaultValue;
+  }
 
-  // Userlists
-  let _wmephDevList;
-  let _wmephBetaList;
+  function setWMEPHSetting(key, value) {
+    wmephSettings[key] = value;
+    // Don't include internal metadata (_migrationVersion) when saving to localStorage
+    const settingsToSave = Object.fromEntries(Object.entries(wmephSettings).filter(([k]) => !k.startsWith('_')));
+    localStorage.setItem('WMEPH-Settings', JSON.stringify(settingsToSave));
+  }
 
-  let _shortcutParse;
-  let _modifKey = 'Alt+';
+  function saveWhitelistToLS(compress) {
+    let wlString = JSON.stringify(_venueWhitelist);
+    if (compress) {
+      if (wlString.length < 4800000) {
+        // Also save to regular storage as a back up
+        localStorage.setItem(WL_LOCAL_STORE_NAME, wlString);
+      }
+      wlString = LZString.compressToUTF16(wlString);
+      localStorage.setItem(WL_LOCAL_STORE_NAME_COMPRESSED, wlString);
+    } else {
+      localStorage.setItem(WL_LOCAL_STORE_NAME, wlString);
+    }
+  }
 
-  // Whitelisting vars
-  let _venueWhitelist;
-  const WL_BUTTON_TEXT = 'WL';
-  const WL_LOCAL_STORE_NAME = 'WMEPH-venueWhitelistNew';
+  function loadWhitelistFromLS(decompress) {
+    let wlString;
+    if (decompress) {
+      wlString = localStorage.getItem(WL_LOCAL_STORE_NAME_COMPRESSED);
+      wlString = LZString.decompressFromUTF16(wlString);
+    } else {
+      wlString = localStorage.getItem(WL_LOCAL_STORE_NAME);
+    }
+    _venueWhitelist = JSON.parse(wlString);
+  }
 
-  /**
-   * Maps keycodes to their corresponding display names.
-   * Used for shortcut normalization with C (Control), A (Alt), S (Shift) modifiers.
-   * @const {Object<number, string>}
-   */
-  // prettier-ignore
-  const _KEYCODE_TO_CHAR = {
-        65:'A',66:'B',67:'C',68:'D',69:'E',70:'F',71:'G',72:'H',73:'I',74:'J',75:'K',76:'L',
-        77:'M',78:'N',79:'O',80:'P',81:'Q',82:'R',83:'S',84:'T',85:'U',86:'V',87:'W',88:'X',
-        89:'Y',90:'Z', 48:'0',49:'1',50:'2',51:'3',52:'4',53:'5',54:'6',55:'7',56:'8',57:'9',
-        112:'F1',113:'F2',114:'F3',115:'F4',116:'F5',117:'F6',118:'F7',119:'F8',120:'F9',121:'F10',122:'F11',123:'F12',
-        32:'Space',13:'Enter',9:'Tab',27:'Esc',8:'Backspace',46:'Delete',36:'Home',35:'End',33:'PageUp',34:'PageDown',45:'Insert',
-        37:'←',38:'↑',39:'→',40:'↓', 188:',',190:'.',191:'/',186:';',222:"'",219:'[',221:']',220:'\\',189:'-',187:'=',192:'`',
-    };
-  
-    /** Reverse mapping: display name to keycode. @const {Object<string, number>} */
-  const _CHAR_TO_KEYCODE = Object.fromEntries(Object.entries(_KEYCODE_TO_CHAR).map(([k, v]) => [v.toUpperCase(), Number(k)]));
-  
-  /** Bitwise values for modifier keys: C=Control(1), S=Shift(2), A=Alt(4). @const {Object<string, number>} */
-  const _MOD_CHAR_TO_VAL = { C: 1, S: 2, A: 4 };
+  function backupWhitelistToLS(compress) {
+    let wlString = JSON.stringify(_venueWhitelist);
+    if (compress) {
+      wlString = LZString.compressToUTF16(wlString);
+      localStorage.setItem(WL_LOCAL_STORE_NAME_COMPRESSED + Math.floor(Date.now() / 1000), wlString);
+    } else {
+      localStorage.setItem(WL_LOCAL_STORE_NAME + Math.floor(Date.now() / 1000), wlString);
+    }
+  }
 
-  /**
-   * Converts any shortcut string to raw "modifier,keycode" format (e.g. "4,82").
-   * Handles: raw "4,82", combo "A+R", hybrid "A+82", bare key "R", WazeWrap "0,-1"/"-1".
-   * Returns null for empty / no-key values.
-   *
-   * WHY: The WME SDK is inconsistent — initial load returns combo format, after the user
-   * edits a shortcut it returns raw format, on next reload it's combo again. Normalizing
-   * everything to raw on save means we always have a stable, round-trippable value.
-   */
+  // **************************************************************************************************************
+  // SHORTCUT/KEYBOARD FUNCTIONS
+  // **************************************************************************************************************
+
   function _comboToRaw(str) {
     if (!str || str === '' || str === '-1' || str === 'None') return null;
     if (/^\d+,-?\d+$/.test(str)) {
@@ -688,6 +718,79 @@
     }
   }
 
+  // **************************************************************************************************************
+  // MAP/LAYER/GEOMETRY FUNCTIONS
+  // **************************************************************************************************************
+
+  /**
+   * Redraws a layer to reflect style changes.
+   * @param {string} layerName Name of the layer to redraw
+   */
+  function redrawLayer(layerName) {
+    if (!layerName) return;
+    try {
+      sdk.Map.redrawLayer({ layerName });
+    } catch (e) {
+      logDev(`Failed to redraw layer ${layerName}:`, e);
+    }
+  }
+
+  /**
+   * Calculates the centroid (center point) of a venue's geometry using Turf.js.
+   * For points, returns the point itself; for areas, calculates the geometric center.
+   * @param {object} venue - Venue object with geometry property (GeoJSON format)
+   * @returns {number[]|null} Coordinates as [longitude, latitude], or null if geometry invalid or missing
+   */
+  function getVenueCentroid(venue) {
+    if (!venue?.geometry) return null;
+    try {
+      const point = turf.centroid(venue.geometry);
+      return point.geometry.coordinates; // [lon, lat]
+    } catch (e) {
+      logDev('getVenueCentroid error:', e, venue);
+      return null;
+    }
+  }
+
+  /**
+   * Calculates the distance between two geographic points using Turf.js.
+   * Uses the haversine formula for great-circle distance (accounts for Earth's curvature).
+   * @param {number[]|object} pt1 - First point as [longitude, latitude] array or {longitude, latitude} object
+   * @param {number[]|object} pt2 - Second point as [longitude, latitude] array or {longitude, latitude} object
+   * @returns {number} Distance in meters, or Infinity if either point is invalid
+   */
+  function calculatePointDistance(pt1, pt2) {
+    if (!pt1 || !pt2) return Infinity;
+    try {
+      const coords1 = Array.isArray(pt1) ? pt1 : [pt1.longitude, pt1.latitude];
+      const coords2 = Array.isArray(pt2) ? pt2 : [pt2.longitude, pt2.latitude];
+      if (!coords1[0] || !coords2[0]) return Infinity; // Invalid coords
+
+      return turf.distance(turf.point(coords1), turf.point(coords2), { units: 'meters' });
+    } catch (e) {
+      logDev('calculatePointDistance error:', e, pt1, pt2);
+      return Infinity;
+    }
+  }
+
+  /**
+   * Gets the current map extent as a bounding box in WGS84 coordinates.
+   * @returns {number[]|null} Bounding box [minLon, minLat, maxLon, maxLat], or null on error
+   */
+  function getMapBoundingBox() {
+    try {
+      const bbox = sdk.Map.getMapExtent();
+      return bbox;
+    } catch (e) {
+      logDev('getMapBoundingBox error:', e);
+      return null;
+    }
+  }
+
+  // **************************************************************************************************************
+  // VENUE/SEGMENT FUNCTIONS
+  // **************************************************************************************************************
+
   /**
    * Retrieves address details for a venue using the WME SDK.
    * Returns house number, street, city, state, and postal code information.
@@ -709,54 +812,58 @@
     return sdk.DataModel.Segments.getAddress({ segmentId: segment.id });
   }
 
-  /**
-   * Redraws a layer to reflect style changes.
-   * @param {string} layerName Name of the layer to redraw
-   */
-  function redrawLayer(layerName) {
-    if (!layerName) return;
-    try {
-      sdk.Map.redrawLayer({ layerName });
-    } catch (e) {
-      logDev(`Failed to redraw layer ${layerName}:`, e);
+  function getSelectedVenue() {
+    const selection = sdk.Editing.getSelection();
+    if (selection?.objectType === 'venue' && selection?.ids?.length === 1) {
+      return sdk.DataModel.Venues.getById({ venueId: selection.ids[0] });
     }
+    return null;
+  }
+
+  function getVenueLonLat(venue) {
+    const centroid = turf.centroid(venue.geometry);
+    return { longitude: centroid.geometry.coordinates[0], latitude: centroid.geometry.coordinates[1] };
+  }
+
+  function isAlwaysOpen(venue) {
+    return is247Hours(venue.openingHours);
+  }
+
+  function is247Hours(openingHours) {
+    if (!openingHours || openingHours.length !== 1) return false;
+    const hours = openingHours[0];
+    return hours.days?.length === 7 && (hours.allDay === true || (hours.fromHour === '00:00' && hours.toHour === '00:00'));
+  }
+
+  function isEmergencyRoom(venue) {
+    return /(?:emergency\s+(?:room|department|dept))|\b(?:er|ed)\b/i.test(venue.name);
+  }
+
+  function isRestArea(venue) {
+    return venue.categories.includes(CAT.REST_AREAS) && /rest\s*area/i.test(venue.name);
   }
 
   /**
-   * Toggles the color highlighting checkbox and updates map display.
+   * Determines flag severity based on PVA (Place Verification Attribute) value.
+   * Maps PVA codes to highlight colors: RED (missing/invalid), BLUE (confirmed), YELLOW (secondary), GREEN (ok).
+   * Special handling for emergency rooms (coded as 'hosp' category).
+   * @param {string} pvaValue - PVA code ("0", "2", "3", "hosp", "", etc.)
+   * @param {object} venue - Venue object (used to check if hospital is emergency room)
+   * @returns {number} Severity constant (SEVERITY.RED/BLUE/YELLOW/GREEN) for use in highlighting
    */
-  function toggleHighlightCheckbox() {
-    const checkbox = $('#WMEPH-ColorHighlighting');
-    if (checkbox.length) {
-      checkbox.prop('checked', !checkbox.prop('checked'));
-      // Call the handler directly to update the map highlighting
-      bootstrapWmephColorHighlights();
-      log(`Color highlighting ${checkbox.prop('checked') ? 'enabled' : 'disabled'}`);
+  function getPvaSeverity(pvaValue, venue) {
+    const isER = pvaValue === 'hosp' && isEmergencyRoom(venue);
+    let severity;
+    if (pvaValue === '' || pvaValue === '0' || (pvaValue === 'hosp' && !isER)) {
+      severity = SEVERITY.RED;
+    } else if (pvaValue === '2') {
+      severity = SEVERITY.BLUE;
+    } else if (pvaValue === '3') {
+      severity = SEVERITY.YELLOW;
+    } else {
+      severity = SEVERITY.GREEN;
     }
-  }
-
-  /**
-   * Creates a wz-button element with attributes and optional click handler.
-   * @param {object} attrs Button attributes (color, size, disabled, textContent, etc.)
-   * @param {Function|null} clickHandler Optional click event handler
-   * @returns {HTMLElement} The created wz-button element
-   */
-  function createWzButton(attrs = {}, clickHandler = null) {
-    const btn = document.createElement('wz-button');
-    const propertyKeys = ['color', 'size', 'disabled', 'textContent'];
-    Object.keys(attrs).forEach((key) => {
-      if (attrs[key] !== undefined && attrs[key] !== null) {
-        if (propertyKeys.includes(key)) {
-          btn[key] = attrs[key];
-        } else {
-          btn.setAttribute(key, attrs[key]);
-        }
-      }
-    });
-    if (clickHandler) {
-      btn.addEventListener('click', clickHandler);
-    }
-    return btn;
+    return severity;
   }
 
   /**
@@ -814,60 +921,129 @@
     return GENERAL_SERVICES;
   }
 
-  // ============================================================================
-  // Duplicate Finder Geometry & Distance Helpers (using Turf.js + SDK)
-  // ============================================================================
+  // **************************************************************************************************************
+  // CLASSES
+  // **************************************************************************************************************
+
+  class Country {
+    /** @type {string} */
+    countryCode;
+    /** @type {string} */
+    countryName;
+    /** @type {PnhCategoryInfos} */
+    categoryInfos;
+    /** @type {PnhEntry[]} */
+    pnh;
+    /** @type {Object<string, Region>} */
+    regions;
+    /** @type {PnhEntry[]} */
+    closedChains;
+
+    /**
+     * Creates an instance of Country.
+     * @param {string} code Country code, e.g. USA, CAN
+     * @param {string} name Country name, for display purposes
+     * @param {string[][]} allSpreadsheetData Raw data from Google Sheets API (2D array of rows)
+     * @param {number} categoryColumnIndex Column index for category information
+     * @param {number} pnhColumnIndex Column index for PNH data
+     * @param {Object<string, Region>} regions Object mapping region codes to Region instances
+     */
+    constructor(code, name, allSpreadsheetData, categoryColumnIndex, pnhColumnIndex, regions) {
+      this.countryCode = code;
+      this.countryName = name;
+      this.categoryInfos = new PnhCategoryInfos();
+      Pnh.processCategories(Pnh.processImportedDataColumn(allSpreadsheetData, categoryColumnIndex), this.categoryInfos);
+      this.pnh = Pnh.processPnhSSRows(allSpreadsheetData, pnhColumnIndex, this);
+      this.closedChains = this.pnh.filter((entry) => entry.chainIsClosed);
+      this.regions = regions;
+    }
+  }
+
+  const PNH_DATA = {
+    /** @type {Country} */
+    USA: null,
+    /** @type {Country} */
+    CAN: null,
+  };
+
+  const DEFAULT_HOURS_TEXT = 'Paste hours here';
+  const MAX_CACHE_SIZE = 25000;
+  const PROD_DOWNLOAD_URL = 'https://greasyfork.org/scripts/28690-wme-place-harmonizer/code/WME%20Place%20Harmonizer.user.js';
+  const BETA_DOWNLOAD_URL =
+    'YUhSMGNITTZMeTluY21WaGMzbG1iM0pyTG05eVp5OXpZM0pwY0hSekx6STROamc1TFhkdFpTMXdiR0ZqWlMxb1lYSnRiMjVwZW1WeUxXSmxkR0V2WTI5a1pTOVhUVVVsTWpCUWJHRmpaU1V5TUVoaGNtMXZibWw2WlhJbE1qQkNaWFJoTG5WelpYSXVhbk09';
+
+  let _resultsCache = {};
+  let _initAlreadyRun = false; // This is used to skip a couple things if already run once.  This could probably be handled better...
+  let _textEntryValues = null; // Store the values entered in text boxes so they can be re-added when the banner is reassembled.
+
+  // Userlists
+  let _wmephDevList;
+  let _wmephBetaList;
+
+  let _shortcutParse;
+  let _modifKey = 'Alt+';
+
+  // Whitelisting vars
+  let _venueWhitelist;
+  const WL_BUTTON_TEXT = 'WL';
+  const WL_LOCAL_STORE_NAME = 'WMEPH-venueWhitelistNew';
 
   /**
-   * Calculates the centroid (center point) of a venue's geometry using Turf.js.
-   * For points, returns the point itself; for areas, calculates the geometric center.
-   * @param {object} venue - Venue object with geometry property (GeoJSON format)
-   * @returns {number[]|null} Coordinates as [longitude, latitude], or null if geometry invalid or missing
+   * Maps keycodes to their corresponding display names.
+   * Used for shortcut normalization with C (Control), A (Alt), S (Shift) modifiers.
+   * @const {Object<number, string>}
    */
-  function getVenueCentroid(venue) {
-    if (!venue?.geometry) return null;
-    try {
-      const point = turf.centroid(venue.geometry);
-      return point.geometry.coordinates; // [lon, lat]
-    } catch (e) {
-      logDev('getVenueCentroid error:', e, venue);
-      return null;
+  // prettier-ignore
+  const _KEYCODE_TO_CHAR = {
+        65:'A',66:'B',67:'C',68:'D',69:'E',70:'F',71:'G',72:'H',73:'I',74:'J',75:'K',76:'L',
+        77:'M',78:'N',79:'O',80:'P',81:'Q',82:'R',83:'S',84:'T',85:'U',86:'V',87:'W',88:'X',
+        89:'Y',90:'Z', 48:'0',49:'1',50:'2',51:'3',52:'4',53:'5',54:'6',55:'7',56:'8',57:'9',
+        112:'F1',113:'F2',114:'F3',115:'F4',116:'F5',117:'F6',118:'F7',119:'F8',120:'F9',121:'F10',122:'F11',123:'F12',
+        32:'Space',13:'Enter',9:'Tab',27:'Esc',8:'Backspace',46:'Delete',36:'Home',35:'End',33:'PageUp',34:'PageDown',45:'Insert',
+        37:'←',38:'↑',39:'→',40:'↓', 188:',',190:'.',191:'/',186:';',222:"'",219:'[',221:']',220:'\\',189:'-',187:'=',192:'`',
+    };
+  
+    /** Reverse mapping: display name to keycode. @const {Object<string, number>} */
+  const _CHAR_TO_KEYCODE = Object.fromEntries(Object.entries(_KEYCODE_TO_CHAR).map(([k, v]) => [v.toUpperCase(), Number(k)]));
+  
+  /** Bitwise values for modifier keys: C=Control(1), S=Shift(2), A=Alt(4). @const {Object<string, number>} */
+  const _MOD_CHAR_TO_VAL = { C: 1, S: 2, A: 4 };
+
+  /**
+   * Toggles the color highlighting checkbox and updates map display.
+   */
+  function toggleHighlightCheckbox() {
+    const checkbox = $('#WMEPH-ColorHighlighting');
+    if (checkbox.length) {
+      checkbox.prop('checked', !checkbox.prop('checked'));
+      // Call the handler directly to update the map highlighting
+      bootstrapWmephColorHighlights();
+      log(`Color highlighting ${checkbox.prop('checked') ? 'enabled' : 'disabled'}`);
     }
   }
 
   /**
-   * Calculates the distance between two geographic points using Turf.js.
-   * Uses the haversine formula for great-circle distance (accounts for Earth's curvature).
-   * @param {number[]|object} pt1 - First point as [longitude, latitude] array or {longitude, latitude} object
-   * @param {number[]|object} pt2 - Second point as [longitude, latitude] array or {longitude, latitude} object
-   * @returns {number} Distance in meters, or Infinity if either point is invalid
+   * Creates a wz-button element with attributes and optional click handler.
+   * @param {object} attrs Button attributes (color, size, disabled, textContent, etc.)
+   * @param {Function|null} clickHandler Optional click event handler
+   * @returns {HTMLElement} The created wz-button element
    */
-  function calculatePointDistance(pt1, pt2) {
-    if (!pt1 || !pt2) return Infinity;
-    try {
-      const coords1 = Array.isArray(pt1) ? pt1 : [pt1.longitude, pt1.latitude];
-      const coords2 = Array.isArray(pt2) ? pt2 : [pt2.longitude, pt2.latitude];
-      if (!coords1[0] || !coords2[0]) return Infinity; // Invalid coords
-
-      return turf.distance(turf.point(coords1), turf.point(coords2), { units: 'meters' });
-    } catch (e) {
-      logDev('calculatePointDistance error:', e, pt1, pt2);
-      return Infinity;
+  function createWzButton(attrs = {}, clickHandler = null) {
+    const btn = document.createElement('wz-button');
+    const propertyKeys = ['color', 'size', 'disabled', 'textContent'];
+    Object.keys(attrs).forEach((key) => {
+      if (attrs[key] !== undefined && attrs[key] !== null) {
+        if (propertyKeys.includes(key)) {
+          btn[key] = attrs[key];
+        } else {
+          btn.setAttribute(key, attrs[key]);
+        }
+      }
+    });
+    if (clickHandler) {
+      btn.addEventListener('click', clickHandler);
     }
-  }
-
-  /**
-   * Gets the current map extent as a bounding box in WGS84 coordinates.
-   * @returns {number[]|null} Bounding box [minLon, minLat, maxLon, maxLat], or null on error
-   */
-  function getMapBoundingBox() {
-    try {
-      const bbox = sdk.Map.getMapExtent();
-      return bbox;
-    } catch (e) {
-      logDev('getMapBoundingBox error:', e);
-      return null;
-    }
+    return btn;
   }
 
   class Region {
@@ -2568,91 +2744,6 @@
    * @param {...*} args - Arguments to pass to the callback function
    * @returns {void} Silently catches and logs any errors
    */
-  function errorHandler(callback, ...args) {
-    try {
-      callback(...args);
-    } catch (ex) {
-      logDev(ex);
-    }
-  }
-
-  /**
-   * Calculates total distance along a path of points (polyline length).
-   * Sums the distances between consecutive points in the array.
-   * @param {number[][]|object[]} pointArray - Array of points as [lon, lat] arrays or {longitude, latitude} objects
-   * @returns {number} Total distance in meters along the polyline
-   */
-  function calculateDistance(pointArray) {
-    if (pointArray.length < 2) return 0;
-
-    const line = turf.lineString(pointArray);
-    const length = turf.length(line, { units: 'meters' });
-    return length; //multiply by 3.28084 to convert to feet
-  }
-
-  /**
-   * Checks if a value is null, undefined, or contains only whitespace.
-   * @param {string} str - String value to check
-   * @returns {boolean} True if null, undefined, or whitespace-only; false otherwise
-   */
-  function isNullOrWhitespace(str) {
-    return !str?.trim().length;
-  }
-
-  function getSelectedVenue() {
-    const selection = sdk.Editing.getSelection();
-    if (selection?.objectType === 'venue' && selection?.ids?.length === 1) {
-      return sdk.DataModel.Venues.getById({ venueId: selection.ids[0] });
-    }
-    return null;
-  }
-
-  function getVenueLonLat(venue) {
-    const centroid = turf.centroid(venue.geometry);
-    return { longitude: centroid.geometry.coordinates[0], latitude: centroid.geometry.coordinates[1] };
-  }
-
-  function isAlwaysOpen(venue) {
-    return is247Hours(venue.openingHours);
-  }
-
-  function is247Hours(openingHours) {
-    if (!openingHours || openingHours.length !== 1) return false;
-    const hours = openingHours[0];
-    return hours.days?.length === 7 && (hours.allDay === true || (hours.fromHour === '00:00' && hours.toHour === '00:00'));
-  }
-
-  function isEmergencyRoom(venue) {
-    return /(?:emergency\s+(?:room|department|dept))|\b(?:er|ed)\b/i.test(venue.name);
-  }
-
-  function isRestArea(venue) {
-    return venue.categories.includes(CAT.REST_AREAS) && /rest\s*area/i.test(venue.name);
-  }
-
-  /**
-   * Determines flag severity based on PVA (Place Verification Attribute) value.
-   * Maps PVA codes to highlight colors: RED (missing/invalid), BLUE (confirmed), YELLOW (secondary), GREEN (ok).
-   * Special handling for emergency rooms (coded as 'hosp' category).
-   * @param {string} pvaValue - PVA code ("0", "2", "3", "hosp", "", etc.)
-   * @param {object} venue - Venue object (used to check if hospital is emergency room)
-   * @returns {number} Severity constant (SEVERITY.RED/BLUE/YELLOW/GREEN) for use in highlighting
-   */
-  function getPvaSeverity(pvaValue, venue) {
-    const isER = pvaValue === 'hosp' && isEmergencyRoom(venue);
-    let severity;
-    if (pvaValue === '' || pvaValue === '0' || (pvaValue === 'hosp' && !isER)) {
-      severity = SEVERITY.RED;
-    } else if (pvaValue === '2') {
-      severity = SEVERITY.BLUE;
-    } else if (pvaValue === '3') {
-      severity = SEVERITY.YELLOW;
-    } else {
-      severity = SEVERITY.GREEN;
-    }
-    return severity;
-  }
-
   function addPURWebSearchButton() {
     const purLayerObserver = new MutationObserver(panelContainerChanged);
     purLayerObserver.observe($('#map #panel-container')[0], { childList: true, subtree: true });
@@ -2742,69 +2833,12 @@
     }
   }
 
-  /**
-   * Returns array with duplicate values removed (unique elements only).
-   * Uses Set to efficiently deduplicate while preserving first-occurrence order.
-   * @param {array} arrayIn - Input array containing potential duplicates
-   * @returns {array} New array containing unique elements from input array
-   */
-  function uniq(arrayIn) {
-    return [...new Set(arrayIn)];
-  }
-
   function clickGeneralTab() {
     // Make sure the General tab is selected before clicking on the external provider element.
     // These selector strings are very specific.  Could probably make them more generalized for robustness.
     const containerSelector = '#edit-panel > div > div.venue-feature-editor > div > div.venue-edit-section > wz-tabs';
     const shadowSelector = 'div > div > div > div > div:nth-child(1)';
     document.querySelector(containerSelector).shadowRoot.querySelector(shadowSelector).click();
-  }
-
-  // Whitelist stringifying and parsing
-  function saveWhitelistToLS(compress) {
-    let wlString = JSON.stringify(_venueWhitelist);
-    if (compress) {
-      if (wlString.length < 4800000) {
-        // Also save to regular storage as a back up
-        localStorage.setItem(WL_LOCAL_STORE_NAME, wlString);
-      }
-      wlString = LZString.compressToUTF16(wlString);
-      localStorage.setItem(WL_LOCAL_STORE_NAME_COMPRESSED, wlString);
-    } else {
-      localStorage.setItem(WL_LOCAL_STORE_NAME, wlString);
-    }
-  }
-  function loadWhitelistFromLS(decompress) {
-    let wlString;
-    if (decompress) {
-      wlString = localStorage.getItem(WL_LOCAL_STORE_NAME_COMPRESSED);
-      wlString = LZString.decompressFromUTF16(wlString);
-    } else {
-      wlString = localStorage.getItem(WL_LOCAL_STORE_NAME);
-    }
-    _venueWhitelist = JSON.parse(wlString);
-  }
-  function backupWhitelistToLS(compress) {
-    let wlString = JSON.stringify(_venueWhitelist);
-    if (compress) {
-      wlString = LZString.compressToUTF16(wlString);
-      localStorage.setItem(WL_LOCAL_STORE_NAME_COMPRESSED + Math.floor(Date.now() / 1000), wlString);
-    } else {
-      localStorage.setItem(WL_LOCAL_STORE_NAME + Math.floor(Date.now() / 1000), wlString);
-    }
-  }
-
-  function log(...args) {
-    console.log(`WMEPH${IS_BETA_VERSION ? '-β' : ''}:`, ...args);
-  }
-  function logDev(...args) {
-    if (USER.isDevUser) {
-      console.debug(`WMEPH${IS_BETA_VERSION ? '-β' : ''} (dev):`, ...args);
-    }
-  }
-
-  function log(...args) {
-    console.log(`WMEPH${IS_BETA_VERSION ? '-β' : ''}:`, ...args);
   }
 
   function zoomPlace() {
@@ -2831,20 +2865,6 @@
     }
     // SDK tracks changes as unsaved; user commits via WME Save button
     sdk.DataModel.Venues.updateVenue({ venueId: venue.id, geometry: newGeometry });
-  }
-
-  function sortWithIndex(toSort) {
-    for (let i = 0; i < toSort.length; i++) {
-      toSort[i] = [toSort[i], i];
-    }
-    toSort.sort((left, right) => (left[0] < right[0] ? -1 : 1));
-    toSort.sortIndices = [];
-    for (let j = 0; j < toSort.length; j++) {
-      toSort.sortIndices.push(toSort[j][1]);
-      // eslint-disable-next-line prefer-destructuring
-      toSort[j] = toSort[j][0];
-    }
-    return toSort;
   }
 
   function destroyDupeLabels() {
@@ -11194,17 +11214,6 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
     // These are removed here as a safeguard in case they are mistakenly added.
     delete wmephSettings['WMEPH-venueWhitelistCompressed'];
     delete wmephSettings['WMEPH-venueWhitelistNew'];
-  }
-
-  function getWMEPHSetting(key, defaultValue = null) {
-    return wmephSettings[key] !== undefined ? wmephSettings[key] : defaultValue;
-  }
-
-  function setWMEPHSetting(key, value) {
-    wmephSettings[key] = value;
-    // Don't include internal metadata (_migrationVersion) when saving to localStorage
-    const settingsToSave = Object.fromEntries(Object.entries(wmephSettings).filter(([k]) => !k.startsWith('_')));
-    localStorage.setItem('WMEPH-Settings', JSON.stringify(settingsToSave));
   }
 
   async function placeHarmonizerInit() {
