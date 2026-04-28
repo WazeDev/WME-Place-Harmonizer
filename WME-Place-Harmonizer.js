@@ -971,6 +971,7 @@
   const PROD_DOWNLOAD_URL = 'https://greasyfork.org/scripts/28690-wme-place-harmonizer/code/WME%20Place%20Harmonizer.user.js';
   const BETA_DOWNLOAD_URL =
     'YUhSMGNITTZMeTluY21WaGMzbG1iM0pyTG05eVp5OXpZM0pwY0hSekx6STROamc1TFhkdFpTMXdiR0ZqWlMxb1lYSnRiMjVwZW1WeUxXSmxkR0V2WTI5a1pTOVhUVVVsTWpCUWJHRmpaU1V5TUVoaGNtMXZibWw2WlhJbE1qQkNaWFJoTG5WelpYSXVhbk09';
+  const GF_URL = 'https://greasyfork.org/scripts/28690-wme-place-harmonizer';
 
   let _resultsCache = {};
   let _initAlreadyRun = false; // This is used to skip a couple things if already run once.  This could probably be handled better...
@@ -11092,9 +11093,9 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
     if (SCRIPT_UPDATE_MESSAGE && SCRIPT_VERSION !== lastVersion) {
       let releaseNotes = '';
       releaseNotes += "<p>What's New:</p>";
-      if (SCRIPT_VERSION_CHANGES.length > 0) {
+      if (SCRIPT_UPDATE_MESSAGE.length > 0) {
         releaseNotes += '<ul>';
-        for (let idx = 0; idx < SCRIPT_VERSION_CHANGES.length; idx++) releaseNotes += `<li>${SCRIPT_VERSION_CHANGES[idx]}`;
+        for (let idx = 0; idx < SCRIPT_UPDATE_MESSAGE.length; idx++) releaseNotes += `<li>${SCRIPT_UPDATE_MESSAGE[idx]}`;
         releaseNotes += '</ul>';
       } else {
         releaseNotes += '<ul><li>Nothing major.</ul>';
@@ -11752,10 +11753,10 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
       scriptName: SCRIPT_NAME,
       // scriptUpdateMonitor disabled — WazeWrap currently unavailable
       // Uncomment when WazeWrap is back online
-      // scriptUpdateMonitor: {
-      //     downloadUrl: (IS_BETA_VERSION ? dec(BETA_DOWNLOAD_URL) : PROD_DOWNLOAD_URL),
-      //     scriptVersion: SCRIPT_VERSION,
-      // },
+       scriptUpdateMonitor: {
+           downloadUrl: (IS_BETA_VERSION ? dec(BETA_DOWNLOAD_URL) : PROD_DOWNLOAD_URL),
+           scriptVersion: SCRIPT_VERSION,
+       },
     });
     try {
       initializeCategories();
