@@ -4762,15 +4762,13 @@
     IgnEdited: class extends FlagBase {
       static defaultSeverity = SEVERITY.YELLOW;
       static defaultMessage = 'Last edited by an IGN editor';
-
+    
       static venueIsFlaggable(args) {
-        let updatedBy;
         return (
           !args.categories.includes(CAT.RESIDENCE_HOME) &&
-          // && (updatedBy = args.venue.updatedBy)
-          // && /^ign_/i.test(W.model.users.getObjectById(updatedBy)?.userName);
-          false
-        ); // SDK user lookup not available
+          args.venue.modificationData.updatedBy &&
+          /^ign_/i.test(args.venue.modificationData.updatedBy)
+        );
       }
     },
     WazeBot: class extends ActionFlag {
@@ -4778,20 +4776,14 @@
       static defaultMessage = 'Edited last by an automated process. Please verify information is correct.';
       static defaultButtonText = 'Nudge';
       static defaultButtonTooltip = 'If no other properties need to be updated, click to nudge the place (force an edit).';
-      static #botIds = [105774162, 361008095, 338475699, -1, 107668852];
       static #botNames = [/^waze-maint/i, /^waze3rdparty$/i, /^WazeParking1$/i, /^admin$/i, /^avsus$/i];
 
       static venueIsFlaggable(args) {
-        const isUnchanged = !args.venue.isNew && !args.venue.updatedBy;
+        const isUnchanged = !args.venue.isNew && !args.venue.modificationData.updatedBy;
         let flaggable = isUnchanged && !args.categories.includes(CAT.RESIDENCE_HOME);
         if (flaggable) {
-          const lastUpdatedById = args.venue.updatedBy ?? args.venue.createdBy;
-          flaggable = this.#botIds.includes(lastUpdatedById);
-          if (!flaggable) {
-            // SDK user lookup not available; skip bot name check
-            // const lastUpdatedByName = W.model.users.getObjectById(lastUpdatedById)?.userName;
-            // flaggable = (this.#botNames.some(botName => botName.test(lastUpdatedByName)));
-          }
+          const lastUpdatedByName = args.venue.modificationData.updatedBy ?? args.venue.modificationData.createdBy;
+          flaggable = this.#botNames.some(botName => botName.test(lastUpdatedByName));
         }
         return flaggable;
       }
