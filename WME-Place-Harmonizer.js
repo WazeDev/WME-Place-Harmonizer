@@ -11100,7 +11100,11 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
       } else {
         releaseNotes += '<ul><li>Nothing major.</ul>';
       }
-      WazeWrap.Interface.ShowScriptUpdate(GM_info.script.name, scriptVersion, releaseNotes, GF_URL);
+      if (WazeWrap?.Interface?.ShowScriptUpdate) {
+        WazeWrap.Interface.ShowScriptUpdate(SCRIPT_NAME, SCRIPT_VERSION, releaseNotes, GF_URL);
+      } else {
+        logDev('WazeWrap.Interface.ShowScriptUpdate not available');
+      }
     }
     setWMEPHSetting('WMEPH_lastVersion', SCRIPT_VERSION);
   }
@@ -11753,10 +11757,10 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
       scriptName: SCRIPT_NAME,
       // scriptUpdateMonitor disabled — WazeWrap currently unavailable
       // Uncomment when WazeWrap is back online
-       scriptUpdateMonitor: {
-           downloadUrl: (IS_BETA_VERSION ? dec(BETA_DOWNLOAD_URL) : PROD_DOWNLOAD_URL),
-           scriptVersion: SCRIPT_VERSION,
-       },
+      // scriptUpdateMonitor: {
+      //     downloadUrl: (IS_BETA_VERSION ? dec(BETA_DOWNLOAD_URL) : PROD_DOWNLOAD_URL),
+      //     scriptVersion: SCRIPT_VERSION,
+      // },
     });
     try {
       initializeCategories();
@@ -11769,8 +11773,8 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
 
     log('Starting Place Harmonizer initialization');
     await placeHarmonizerInit();
-    showScriptInfoAlert();
     devTestCode();
+    showScriptInfoAlert();
   }
 
   wmephbootstrap();
