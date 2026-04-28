@@ -11061,8 +11061,8 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
   }
 
   function onWindowBeforeUnload() {
-    setWMEPHSetting('WMEPH_FilterHighlightShortcut', getShortcutKeys(W.accelerators.Actions.wmephFilterHighlightToggle));
-    setWMEPHSetting('WMEPH_ColorHighlighting', getShortcutKeys(W.accelerators.Actions.wmephColorHighlightingToggle));
+    // SDK shortcuts are saved automatically via saveShortcut() in registerShortcut()
+    // No manual save needed on unload
   }
 
   function getShortcutKeys(shortcutAction) {
