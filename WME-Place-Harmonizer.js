@@ -11459,10 +11459,9 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
   }
 
   /**
-   * Displays an informational alert dialog (via WME UI) with script and context information.
-   *
-   * @function showScriptInfoAlert
-   * @returns {void}
+   * Shows a script update notification with release notes when script version changes.
+   * Uses WazeWrap.Interface.ShowScriptUpdate if available, falls back to debug log.
+   * Updates the stored version number and displays formatted "What's New" list.
    */
   function showScriptInfoAlert() {
     const lastVersion = getWMEPHSetting('WMEPH_lastVersion');
@@ -11487,6 +11486,12 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
     setWMEPHSetting('WMEPH_lastVersion', SCRIPT_VERSION);
   }
 
+  /**
+   * Migrates legacy individual localStorage keys into a centralized WMEPH-Settings JSON object.
+   * One-time migration that consolidates scattered settings for cleaner storage and easier management.
+   * Removes migrated keys from localStorage and cleans up any stray WMEPH keys left behind.
+   * Tracks migration version to avoid re-running on subsequent scripts loads.
+   */
   function migrateSettingsToObject() {
     const MIGRATION_VERSION = 1;
     wmephSettings = JSON.parse(localStorage.getItem('WMEPH-Settings') || '{}');
@@ -11582,6 +11587,11 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
     }
   }
 
+  /**
+   * Loads centralized WMEPH settings from localStorage into wmephSettings cache.
+   * Ensures large whitelist data is never included in settings (kept as separate keys).
+   * Removes whitelist entries if found as safeguard against bloated settings object.
+   */
   function loadWMEPHSettings() {
     wmephSettings = JSON.parse(localStorage.getItem('WMEPH-Settings') || '{}');
     // Ensure whitelist data is never stored in settings object (kept as separate localStorage keys to avoid bloating)
@@ -11590,6 +11600,14 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
     delete wmephSettings['WMEPH-venueWhitelistNew'];
   }
 
+  /**
+   * Main initialization function called when script first runs.
+   * Sets up UI, keyboard shortcuts, event listeners, data layers, and PNH data loading.
+   * Creates map layers for venue highlighting, duplicate labels, and Google Places links.
+   * Registers SDK event handlers for selection changes and data model updates.
+   * Initializes settings tab, whitelist system, and color highlighting layer.
+   * @async
+   */
   async function placeHarmonizerInit() {
     interceptGoogleGetDetails();
     updateUserInfo();
@@ -11978,6 +11996,12 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
     }
   } // END placeHarmonizer_init function
 
+    /**
+   * Clears all highlights from the map layer and rebuilds based on enabled settings.
+   * Calls individual highlight update functions (color severity, parking lot type, filter) if enabled.
+   * Performs single layer redraw at the end for efficiency.
+   * Called when user toggles highlight settings or when data changes significantly.
+   */
   function refreshAllHighlights() {
     // Clear layer once
     try {
@@ -12007,6 +12031,13 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
     }
   }
 
+  /**
+   * Updates map highlighting for parking lots based on their type (public, restricted, private).
+   * Queries all venues, identifies parking lot types via SDK, and adds colored features to map layer.
+   * Optionally skips clearing layer for efficiency when called from refreshAllHighlights.
+   * Reapplies filter highlights on top if they are also enabled.
+   * @param {boolean} skipClear If true, skips clearing the layer (assume caller will handle it).
+   */
   function updateParkingLotHighlights(skipClear = false) {
     if (!$('#WMEPH-PLATypeFill').prop('checked')) {
       return;
@@ -12069,6 +12100,13 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
     }
   }
 
+  /**
+   * Updates map highlighting for venues that don't have PARKING_FOR_CUSTOMERS service.
+   * Identifies places missing customer parking and highlights them on the map layer.
+   * Excludes certain venue categories that shouldn't require parking service.
+   * Optionally skips clearing layer for efficiency when called from refreshAllHighlights.
+   * @param {boolean} skipClear If true, skips clearing the layer (assume caller will handle it).
+   */
   function updateFilterHighlights(skipClear = false) {
     if (!$('#WMEPH-ShowFilterHighlight').prop('checked')) {
       return;
