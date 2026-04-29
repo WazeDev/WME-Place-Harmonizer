@@ -145,6 +145,9 @@
   const WL_LOCAL_STORE_NAME = 'WMEPH-venueWhitelistNew';
   const WL_LOCAL_STORE_NAME_COMPRESSED = 'WMEPH-venueWhitelistCompressed';
 
+  // Pending feed request tracker (prevents duplicate banners from async race conditions)
+  let _pendingFeedRequest;
+
   // Dupe check variables
   let _dupeLayer;
   let _dupeIDList = [];
@@ -4185,7 +4188,7 @@
       }
 
       action() {
-        if (!this.args.isVenueChargingStation(this.args.venue)) {
+        if (!isVenueChargingStation(this.args.venue)) {
           WazeWrap.Alerts.info(SCRIPT_NAME, 'This is no longer a charging station. Please run WMEPH again.', false, false);
           return;
         }
@@ -4204,7 +4207,8 @@
             if (!newPaymentMethods.includes(method)) newPaymentMethods.push(method);
           });
 
-          const categoryAttrClone = JSON.parse(JSON.stringify(this.args.venue.getCategoryAttributes()));
+          const categoryAttributes = this.args.venue.categoryAttributes || {};
+          const categoryAttrClone = JSON.parse(JSON.stringify(categoryAttributes));
           categoryAttrClone.CHARGING_STATION ??= {};
           categoryAttrClone.CHARGING_STATION.paymentMethods = newPaymentMethods;
 
@@ -4258,7 +4262,7 @@
       }
 
       action() {
-        if (!this.args.isVenueChargingStation(this.args.venue)) {
+        if (!isVenueChargingStation(this.args.venue)) {
           WazeWrap.Alerts.info(SCRIPT_NAME, 'This is no longer a charging station. Please run WMEPH again.', false, false);
           return;
         }
@@ -4274,7 +4278,8 @@
           const currentPaymentMethods = sdk.DataModel.Venues.ChargingStation.getPaymentMethods({ venueId: this.args.venue.id }) ?? [];
           const newPaymentMethods = currentPaymentMethods.slice().filter((method) => commonPaymentMethods?.includes(method));
 
-          const categoryAttrClone = JSON.parse(JSON.stringify(this.args.venue.getCategoryAttributes()));
+          const categoryAttributes = this.args.venue.categoryAttributes || {};
+          const categoryAttrClone = JSON.parse(JSON.stringify(categoryAttributes));
           categoryAttrClone.CHARGING_STATION ??= {};
           categoryAttrClone.CHARGING_STATION.paymentMethods = newPaymentMethods;
 
@@ -4423,7 +4428,14 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
       }
 
       static venueIsFlaggable(args) {
-        return args.pnhMatch.localizationRegEx && !args.pnhMatch.localizationRegEx.test(args.nameBase + (args.nameSuffix || ''));
+        if (args.pnhMatch.localizationRegEx) {
+          const testName = args.nameBase + (args.nameSuffix || '');
+          // Reset lastIndex for regex with global flag (known JS bug: .test() with /g alternates results)
+          args.pnhMatch.localizationRegEx.lastIndex = 0;
+          const matches = args.pnhMatch.localizationRegEx.test(testName);
+          return !matches;
+        }
+        return false;
       }
     },
     SpecCaseMessage: class extends FlagBase {
@@ -6048,22 +6060,22 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
                 // customStoreFinderLocalURL = customStoreFinderLocalURL + venueGPS[1];
                 break;
               case 'ph_latitudePM':
-                part = venueGPS.lat;
+                part = venueGPS ? (venueGPS.latitude ?? venueGPS.lat ?? '').toString() : '';
                 break;
               case 'ph_longitudePM':
-                part = venueGPS.lon;
+                part = venueGPS ? (venueGPS.longitude ?? venueGPS.lon ?? '').toString() : '';
                 break;
               case 'ph_latitudePMBuffMin':
-                part = (venueGPS.lat - 0.025).toString();
+                part = venueGPS ? ((venueGPS.latitude ?? venueGPS.lat ?? 0) - 0.025).toString() : '';
                 break;
               case 'ph_longitudePMBuffMin':
-                part = (venueGPS.lon - 0.025).toString();
+                part = venueGPS ? ((venueGPS.longitude ?? venueGPS.lon ?? 0) - 0.025).toString() : '';
                 break;
               case 'ph_latitudePMBuffMax':
-                part = (venueGPS.lat + 0.025).toString();
+                part = venueGPS ? ((venueGPS.latitude ?? venueGPS.lat ?? 0) + 0.025).toString() : '';
                 break;
               case 'ph_longitudePMBuffMax':
-                part = (venueGPS.lon + 0.025).toString();
+                part = venueGPS ? ((venueGPS.longitude ?? venueGPS.lon ?? 0) + 0.025).toString() : '';
                 break;
               case 'ph_houseNumber':
                 part = houseNumber ?? '';
@@ -7129,7 +7141,16 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
         logDev('addUpdateAction: Failed to update venue', venue.id, newAttributes, e);
       }
     }
-    if (runHarmonizer) setTimeout(() => harmonizePlaceGo(venue, 'harmonize'), 0);
+    if (runHarmonizer) {
+      setTimeout(() => {
+        // Get fresh venue object to ensure updated attributes are reflected
+        const freshVenue = sdk.DataModel.Venues.getById({ venueId: venue.id });
+        if (freshVenue) {
+          harmonizePlaceGo(freshVenue, 'harmonize');
+        }
+        updateWmephPanel(); // Refresh banner to reflect changes
+      }, 0);
+    }
   }
 
   function setServiceChecked(servBtn, checked, actions) {
@@ -7879,6 +7900,12 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
 
         // reset PNH lock level
         pnhLockLevel = -1;
+
+        // Calculate GPS coordinates early so all downstream code has access
+        if (!args.venueGPS) {
+          const centroidPt = turf.centroid(venue.geometry);
+          args.venueGPS = { longitude: centroidPt.geometry.coordinates[0], latitude: centroidPt.geometry.coordinates[1] };
+        }
       }
 
       // Some user submitted places have no data in the country, state and address fields.
@@ -7901,17 +7928,12 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
           if (!args.highlightOnly) _buttonBanner2.clearWL.active = true;
           args.wl.dupeWL = _venueWhitelist[venueID].dupeWL;
         }
-        // Update address and GPS info for the place
+        // Update address info for the place
         if (!args.highlightOnly) {
-          // get GPS lat/long coords from place, call as venueGPS.lat, venueGPS.lon
-          if (!args.venueGPS) {
-            const centroidPt = turf.centroid(venue.geometry);
-            args.venueGPS = { longitude: centroidPt.geometry.coordinates[0], latitude: centroidPt.geometry.coordinates[1] };
-          }
           _venueWhitelist[venueID].city = args.addr.city?.name; // Store city for the venue
           _venueWhitelist[venueID].state = args.addr.state?.name; // Store state for the venue
           _venueWhitelist[venueID].country = args.addr.country?.name; // Store country for the venue
-          _venueWhitelist[venueID].gps = args.venueGPS; // Store GPS coords for the venue
+          _venueWhitelist[venueID].gps = args.venueGPS; // Store GPS coords for the venue (calculated earlier)
         }
       }
 
@@ -7994,27 +8016,57 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
           if (venue.name !== '') {
             // Set the residential place name to the address (to clear any personal info)
             logDev('Residential Name reset');
-            actions.push(sdk.DataModel.Venues.updateVenue({ venueId: venue.id, name: '' }));
+            try {
+              actions.push(sdk.DataModel.Venues.updateVenue({ venueId: venue.id, name: '' }));
+            } catch (e) {
+              if (e.name === 'InvalidStateError') {
+                logDev('InvalidStateError updating name - skipping');
+              } else throw e;
+            }
           }
           args.categories = ['RESIDENCE_HOME'];
           if (venue.description !== null && venue.description !== '') {
             // remove any description
             logDev('Residential description cleared');
-            actions.push(sdk.DataModel.Venues.updateVenue({ venueId: venue.id, description: null }));
+            try {
+              actions.push(sdk.DataModel.Venues.updateVenue({ venueId: venue.id, description: null }));
+            } catch (e) {
+              if (e.name === 'InvalidStateError') {
+                logDev('InvalidStateError updating description - skipping');
+              } else throw e;
+            }
           }
           if (venue.phone !== null && venue.phone !== '') {
             // remove any phone info
             logDev('Residential Phone cleared');
-            actions.push(sdk.DataModel.Venues.updateVenue({ venueId: venue.id, phone: null }));
+            try {
+              actions.push(sdk.DataModel.Venues.updateVenue({ venueId: venue.id, phone: null }));
+            } catch (e) {
+              if (e.name === 'InvalidStateError') {
+                logDev('InvalidStateError updating phone - skipping');
+              } else throw e;
+            }
           }
           if (venue.url !== null && venue.url !== '') {
             // remove any url
             logDev('Residential URL cleared');
-            actions.push(sdk.DataModel.Venues.updateVenue({ venueId: venue.id, url: null }));
+            try {
+              actions.push(sdk.DataModel.Venues.updateVenue({ venueId: venue.id, url: null }));
+            } catch (e) {
+              if (e.name === 'InvalidStateError') {
+                logDev('InvalidStateError updating url - skipping');
+              } else throw e;
+            }
           }
           if (venue.services.length > 0) {
             logDev('Residential services cleared');
-            actions.push(sdk.DataModel.Venues.updateVenue({ venueId: venue.id, services: [] }));
+            try {
+              actions.push(sdk.DataModel.Venues.updateVenue({ venueId: venue.id, services: [] }));
+            } catch (e) {
+              if (e.name === 'InvalidStateError') {
+                logDev('InvalidStateError updating services - skipping');
+              } else throw e;
+            }
           }
         }
       } else if (isVenueParkingLot(venue) || args.nameBase?.trim().length || containsAny(args.categories, getCatsThatDontNeedNames())) {
@@ -8127,7 +8179,13 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
               [, args.brand] = args.pnhMatch.forceBrand;
             }
             if (args.pnhMatch.forceBrand && args.priPNHPlaceCat === CAT.GAS_STATION && venue.brand !== args.pnhMatch.forceBrand) {
-              actions.push(sdk.DataModel.Venues.updateVenue({ venueId: venue.id, brand: args.pnhMatch.forceBrand }));
+              try {
+                actions.push(sdk.DataModel.Venues.updateVenue({ venueId: venue.id, brand: args.pnhMatch.forceBrand }));
+              } catch (e) {
+                if (e.name === 'InvalidStateError') {
+                  logDev('InvalidStateError updating brand - skipping');
+                } else throw e;
+              }
               UPDATED_FIELDS.brand.updated = true;
               logDev('Gas brand updated from PNH');
             }
@@ -8257,10 +8315,16 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
               if (!isNullOrWhitespace(venue.description)) {
                 args.descriptionInserted = true;
               }
-              logDev('Description updated');
               args.description = `${args.description}\n${venue.description}`;
-              actions.push(sdk.DataModel.Venues.updateVenue({ venueId: venue.id, description: args.description }));
-              UPDATED_FIELDS.description.updated = true;
+              try {
+                actions.push(sdk.DataModel.Venues.updateVenue({ venueId: venue.id, description: args.description }));
+                logDev('Description updated');
+                UPDATED_FIELDS.description.updated = true;
+              } catch (e) {
+                if (e.name === 'InvalidStateError') {
+                  logDev('InvalidStateError updating description - skipping (feed-controlled field)');
+                } else throw e;
+              }
             }
 
             // Special Lock by PNH
@@ -8458,7 +8522,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
         args.isLocked = venue.lockRank >= (pnhLockLevel > -1 ? pnhLockLevel : args.defaultLockLevel);
         args.currentHN = venue.houseNumber;
         // Check to see if there's an action that is currently updating the house number.
-        const updateHnAction = actions && actions.find((action) => action.newAttributes && action.newAttributes.houseNumber);
+        const updateHnAction = actions && actions.find((action) => action && action.newAttributes && action.newAttributes.houseNumber);
         if (updateHnAction) args.currentHN = updateHnAction.newAttributes.houseNumber;
         // Use the inferred address street if currently no street.
         args.hasStreet = venue.streetID || (inferredAddress && inferredAddress.street);
@@ -9938,12 +10002,22 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
     // Check if there's a backend feed
     // TODO: put this in a separate function?
     if (venue) {
+      const venueID = venue.id; // Capture venue ID to verify response is for current venue
+      $wmephPrePanel.empty(); // Clear old feed banners before fetching new ones
+
+      // Abort previous request if still pending (prevents duplicate banners from race conditions)
+      if (_pendingFeedRequest) _pendingFeedRequest.abort();
+
       // It doesn't seem to matter what we pass for lon/lat, so use first geometry point.
       const firstPoint = isVenuePoint(venue) ? venue.geometry.coordinates : venue.geometry.coordinates[0][0];
       const lon = firstPoint[0];
       const lat = firstPoint[1];
       const url = `https://${location.host}/SearchServer/mozi?lon=${lon}&lat=${lat}&format=PROTO_JSON_FULL&venue_id=venues.${venue.id}`;
-      $.getJSON(url).done((res) => {
+      _pendingFeedRequest = $.getJSON(url).done((res) => {
+        // Only append if still on same venue (prevents stale responses from accumulating)
+        const currentVenue = getSelectedVenue();
+        if (!currentVenue || currentVenue.id !== venueID) return;
+
         let feedNames = res.venue.external_providers?.filter((prov) => !FEEDS_TO_SKIP.some((skipRegex) => skipRegex.test(prov.provider))).map((prov) => prov.provider);
         if (feedNames) feedNames = [...new Set(feedNames)]; // Remove duplicates
         if (feedNames?.length) {
@@ -9959,7 +10033,8 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
           // Potential code to hide the delete key if needed.
           // setTimeout(() => $('#delete-button').setAttribute('disabled', true), 200);
         }
-      });
+        _pendingFeedRequest = null; // Clear request tracker when done
+      }).fail(() => { _pendingFeedRequest = null; }); // Clear on error too
     }
   }
 
