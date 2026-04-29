@@ -3615,7 +3615,7 @@
       }
 
       static venueIsFlaggable(args) {
-        return args.hasStreet && !args.currentHN?.replace(/\D/g, '') && !this.#CATEGORIES_TO_IGNORE.includes(args.categories[0]) && !args.categories.includes(CAT.REST_AREAS);
+        return args.hasStreet && args.hasCity && !args.currentHN?.replace(/\D/g, '') && !this.#CATEGORIES_TO_IGNORE.includes(args.categories[0]) && !args.categories.includes(CAT.REST_AREAS);
       }
 
       static #getTextbox() {
@@ -8520,12 +8520,13 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
         }
 
         args.isLocked = venue.lockRank >= (pnhLockLevel > -1 ? pnhLockLevel : args.defaultLockLevel);
-        args.currentHN = venue.houseNumber;
+        args.currentHN = args.addr?.houseNumber;
         // Check to see if there's an action that is currently updating the house number.
         const updateHnAction = actions && actions.find((action) => action && action.newAttributes && action.newAttributes.houseNumber);
         if (updateHnAction) args.currentHN = updateHnAction.newAttributes.houseNumber;
-        // Use the inferred address street if currently no street.
-        args.hasStreet = venue.streetID || (inferredAddress && inferredAddress.street);
+        // Check if venue has a street and city (use actual address objects, not outdated venue properties)
+        args.hasStreet = (args.addr?.street && !args.addr.street.isEmpty);
+        args.hasCity = (args.addr?.city && !args.addr.city.isEmpty);
         args.ignoreParkingLots = $('#WMEPH-DisablePLAExtProviderCheck').prop('checked');
 
         if (!isVenueResidential(venue) && (isVenueParkingLot(venue) || args.nameBase?.trim().length)) {
