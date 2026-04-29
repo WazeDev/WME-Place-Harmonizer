@@ -543,7 +543,7 @@
   let OpeningHour;
   const DEFAULT_HOURS_TEXT = 'Paste hours here';
 
-// GOOGLE LINK STUFF
+  // GOOGLE LINK STUFF
   let _googlePlacePtFeature;
   let _googlePlaceLineFeature;
   let _destroyGooglePlacePointTimeoutId;
@@ -3537,7 +3537,26 @@
 
       action() {
         const { venue } = this.args;
-        // SDK tracks geometry changes as unsaved; user commits via WME Save button
+        if (!isVenuePoint(venue)) return; // Already an area
+
+        // Convert point to small square polygon (like WME does)
+        const [lon, lat] = venue.geometry.coordinates;
+        const offset = 0.0001; // ~10 meters
+        const square = {
+          type: 'Polygon',
+          coordinates: [
+            [
+              [lon - offset, lat - offset],
+              [lon + offset, lat - offset],
+              [lon + offset, lat + offset],
+              [lon - offset, lat + offset],
+              [lon - offset, lat - offset], // Close polygon
+            ],
+          ],
+        };
+
+        // Update venue geometry (SDK tracks as unsaved; user commits via WME Save button)
+        sdk.DataModel.Venues.updateVenue({ venueId: venue.id, geometry: square });
         harmonizePlaceGo(venue, 'harmonize');
       }
     },
@@ -6357,11 +6376,10 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
   }
   const _googlePlaces = new GooglePlaceContainer();
 
-
   // **************************************************************************************************************
   // UI / UX Functions
   // **************************************************************************************************************
-  
+
   /**
    * Toggles the color highlighting checkbox and updates map display.
    */
@@ -6824,11 +6842,12 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
             let severity;
             let cachedResult;
             // eslint-disable-next-line no-cond-assign
-            if (force || !isNaN(id) || (cachedResult = _resultsCache[id]) === undefined || venue.updatedOn > cachedResult.u) {
-              severity = harmonizePlaceGo(venue, 'highlight');
-              if (isNaN(id)) _resultsCache[id] = { s: severity, u: venue.updatedOn || -1 };
+            if (force || (cachedResult = _resultsCache[id]) === undefined || venue.updatedOn > cachedResult.u) {
+              severity = harmonizePlaceGo(venue, 'highlight', undefined, false); // false = cache miss
+              _resultsCache[id] = { s: severity, u: venue.updatedOn || -1 };
             } else {
               severity = cachedResult.s;
+              wmephStats.cacheHits++; // Direct cache hit (no harmonizePlaceGo call)
             }
             venue.wmephSeverity = severity;
 
@@ -6893,7 +6912,9 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
       eventName: 'wme-data-model-objects-changed',
       eventHandler: () => {
         errorHandler(() => {
-          if (!_disableHighlightTest) {
+          // Only refresh highlights if not currently harmonizing (avoid clearing cache during harmonization)
+          // harmonizePlaceGo will handle cache clearing and refresh for its own venue
+          if (!_isHarmonizing && !_disableHighlightTest) {
             refreshAllHighlights();
           }
         });
@@ -6931,9 +6952,6 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
         refreshAllHighlights();
       },
     });
-
-    // Clear the cache (highlight severities may need to be updated).
-    _resultsCache = {};
 
     // Rebuild all highlights based on current checkbox states
     refreshAllHighlights();
@@ -7822,7 +7840,6 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
     };
   } // END getButtonBanner2()
 
-
   // Main script
   function harmonizePlaceGo_impl(venue, useFlag, actions) {
     if (useFlag === 'harmonize') logDev('harmonizePlaceGo: useFlag="harmonize"');
@@ -8666,24 +8683,36 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
         executeMultiAction(actions);
       }
 
+      // After full harmonization, invalidate this venue's cache and refresh highlights to show updated color
+      if (!args.highlightOnly) {
+        delete _resultsCache[venueID];
+      }
+
       // Highlighting will return a value, but no need to return a value here (for end of harmonization).
       // Adding this line to satisfy eslint.
       return undefined;
     } finally {
       // Restore harmonization flag
       _isHarmonizing = wasHarmonizing;
+
+      // After harmonization flag is restored, refresh highlights only if this was a full harmonization (not highlight-only)
+      if (!wasHarmonizing && useFlag === 'harmonize') {
+        refreshAllHighlights();
+      }
     }
   } // END harmonizePlaceGo_impl function
 
   /**
    * Wrapper around harmonizePlaceGo_impl that adds performance tracking and statistics collection.
-   * Measures execution time and updates wmephStats with harmonization metrics.
+   * Measures execution time and updates wmephStats with harmonization metrics. Separately tracks
+   * cache hits vs misses for performance analysis (highlight-only calls from cache system).
    * @param {Object} venue The WME venue object to harmonize.
    * @param {string} useFlag Flag type controlling harmonization behavior ('harmonize', 'flag', etc.).
    * @param {Array<Object>} actions Optional array of venue update actions to apply.
+   * @param {boolean} isCacheHit Optional flag indicating if this is a highlight from cache lookup.
    * @returns {*} Result from harmonizePlaceGo_impl implementation.
    */
-  function harmonizePlaceGo(venue, useFlag, actions) {
+  function harmonizePlaceGo(venue, useFlag, actions, isCacheHit) {
     const startTime = performance.now();
     try {
       return harmonizePlaceGo_impl(venue, useFlag, actions);
@@ -8694,6 +8723,21 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
       wmephStats.totalHarmonizeTime += duration;
       wmephStats.lastHarmonizeTime = duration;
       wmephStats.maxHarmonizeTime = Math.max(wmephStats.maxHarmonizeTime, duration);
+
+      // Track cache performance separately for highlight-only calls
+      if (useFlag === 'highlight' && isCacheHit !== undefined) {
+        if (isCacheHit) {
+          wmephStats.cacheHits++;
+          wmephStats.totalCacheHitTime += duration;
+          wmephStats.lastCacheHitTime = duration;
+          wmephStats.maxCacheHitTime = Math.max(wmephStats.maxCacheHitTime, duration);
+        } else {
+          wmephStats.cacheMisses++;
+          wmephStats.totalCacheMissTime += duration;
+          wmephStats.lastCacheMissTime = duration;
+          wmephStats.maxCacheMissTime = Math.max(wmephStats.maxCacheMissTime, duration);
+        }
+      }
     }
   }
 
@@ -11051,6 +11095,14 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
         totalHarmonizeTime: 0,
         lastHarmonizeTime: 0,
         maxHarmonizeTime: 0,
+        cacheHits: 0,
+        cacheMisses: 0,
+        totalCacheHitTime: 0,
+        totalCacheMissTime: 0,
+        lastCacheHitTime: 0,
+        lastCacheMissTime: 0,
+        maxCacheHitTime: 0,
+        maxCacheMissTime: 0,
       };
       await Pnh.downloadPnhData();
       redrawLayer(_layer);
@@ -11996,7 +12048,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
     }
   } // END placeHarmonizer_init function
 
-    /**
+  /**
    * Clears all highlights from the map layer and rebuilds based on enabled settings.
    * Calls individual highlight update functions (color severity, parking lot type, filter) if enabled.
    * Performs single layer redraw at the end for efficiency.
@@ -12016,7 +12068,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
     const filterHighlightingEnabled = $('#WMEPH-ShowFilterHighlight').prop('checked');
 
     if (colorHighlightingEnabled) {
-      applyHighlightsTest(sdk.DataModel.Venues.getAll(), true); // force=true to bypass cache and recalculate all severities
+      applyHighlightsTest(sdk.DataModel.Venues.getAll(), false); // Use cache to avoid unnecessary recalculation on pan events
     }
     if (parkingLotHighlightingEnabled) {
       updateParkingLotHighlights(true); // Pass true to skip internal clear
@@ -12149,12 +12201,22 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
     }
   }
 
-  // Performance monitoring for debug users
+  /*******************************************
+   *   Performance monitoring FUNCTION
+   ******************************************/
   let wmephStats = {
     harmonizeCount: 0,
     totalHarmonizeTime: 0,
     lastHarmonizeTime: 0,
     maxHarmonizeTime: 0,
+    cacheHits: 0,
+    cacheMisses: 0,
+    totalCacheHitTime: 0,
+    totalCacheMissTime: 0,
+    lastCacheHitTime: 0,
+    lastCacheMissTime: 0,
+    maxCacheHitTime: 0,
+    maxCacheMissTime: 0,
   };
 
   function estimateObjectSize(obj) {
@@ -12171,7 +12233,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
     const panel = document.createElement('div');
     panel.id = 'wmeph-debug-panel';
     panel.style.cssText = `
-      position: fixed; bottom: 20px; right: 20px;
+      position: fixed; bottom: 20px; left: 20px;
       background: rgba(0, 0, 0, 0.9);
       color: #0f0;
       font-family: monospace;
@@ -12180,7 +12242,34 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
       border: 1px solid #0f0;
       z-index: 10000;
       max-width: 250px;
+      cursor: move;
+      user-select: none;
     `;
+
+    // Make panel draggable
+    let isDragging = false;
+    let dragOffsetX = 0;
+    let dragOffsetY = 0;
+
+    panel.addEventListener('mousedown', (e) => {
+      isDragging = true;
+      dragOffsetX = e.clientX - panel.getBoundingClientRect().left;
+      dragOffsetY = e.clientY - panel.getBoundingClientRect().top;
+    });
+
+    document.addEventListener('mousemove', (e) => {
+      if (isDragging) {
+        panel.style.left = `${e.clientX - dragOffsetX}px`;
+        panel.style.top = `${e.clientY - dragOffsetY}px`;
+        panel.style.bottom = 'auto';
+        panel.style.right = 'auto';
+      }
+    });
+
+    document.addEventListener('mouseup', () => {
+      isDragging = false;
+    });
+
     document.body.appendChild(panel);
 
     setInterval(() => {
@@ -12189,12 +12278,23 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
       const cacheMem = estimateObjectSize(_resultsCache);
       const wlMem = estimateObjectSize(_venueWhitelist);
       const scriptMem = (parseFloat(pnhMem || 0) + parseFloat(cacheMem || 0) + parseFloat(wlMem || 0)).toFixed(1);
+      const totalCacheOps = wmephStats.cacheHits + wmephStats.cacheMisses;
+      const cacheHitRate = totalCacheOps > 0 ? ((wmephStats.cacheHits / totalCacheOps) * 100).toFixed(1) : 'N/A';
+      const avgCacheHitTime = wmephStats.cacheHits > 0 ? (wmephStats.totalCacheHitTime / wmephStats.cacheHits).toFixed(0) : 0;
+      const avgCacheMissTime = wmephStats.cacheMisses > 0 ? (wmephStats.totalCacheMissTime / wmephStats.cacheMisses).toFixed(0) : 0;
+
       panel.innerHTML = `
         <div>🔧 WMEPH Debug</div>
         <div>Harmonize count: ${wmephStats.harmonizeCount}</div>
         <div>Last time: ${wmephStats.lastHarmonizeTime.toFixed(0)}ms</div>
         <div>Max time: ${wmephStats.maxHarmonizeTime.toFixed(0)}ms</div>
         <div>Avg time: ${wmephStats.harmonizeCount > 0 ? (wmephStats.totalHarmonizeTime / wmephStats.harmonizeCount).toFixed(0) : 0}ms</div>
+        <div style="border-top: 1px solid #0f0; margin-top: 5px; padding-top: 5px;">
+          <div><strong>Cache Performance</strong></div>
+          <div>Hits: ${wmephStats.cacheHits} | Misses: ${wmephStats.cacheMisses} (${cacheHitRate}%)</div>
+          <div>Hit avg: ${avgCacheHitTime}ms | Miss avg: ${avgCacheMissTime}ms</div>
+          <div>Hit max: ${wmephStats.maxCacheHitTime.toFixed(0)}ms | Miss max: ${wmephStats.maxCacheMissTime.toFixed(0)}ms</div>
+        </div>
         <div style="border-top: 1px solid #0f0; margin-top: 5px; padding-top: 5px;">
           <div>Total heap: ${totalMem}MB</div>
           <div>Script memory: ${scriptMem}MB</div>
@@ -12213,6 +12313,10 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
       initPerformancePanel();
     }
   }
+
+  /*******************************************
+   *   MAIN BOOTSTRAP FUNCTION
+   ******************************************/
 
   async function wmephbootstrap() {
     // Quit if another version of WMEPH is already running.
