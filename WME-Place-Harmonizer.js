@@ -39,7 +39,13 @@
   // IMPORTANT: Update this when releasing a new version of script
   // **************************************************************************************************************
   const SHOW_UPDATE_MESSAGE = true;
-  const SCRIPT_UPDATE_MESSAGE = ['Removing deprecated WazeWrap functionality', 'Shortcuts are non-functional', '(Some?) highlighting is broken due to it not being implemented in the SDK'];
+  const SCRIPT_UPDATE_MESSAGE = [
+    'Full WME SDK Support',
+    'Slight UI update to make WMEPH panel more compact',
+    'Shortcuts are Back (Please test!)',
+    'Highlighting is back!  Have fun!',
+    'X-RAY Mode is limited (does not effect Satelite layers)',
+  ];
 
   // **************************************************************************************************************
   // GLOBAL VARIABLES AND CONSTANTS
