@@ -34,15 +34,15 @@ Select a place in WME, and press the RUN WMEPH Button, or use the shortcut key (
 ----------------------------------
 * Automatic correction of a McDonald's:
 
-<img src="http://img.prntscr.com/img?url=http://i.imgur.com/YazP0ci.png" alt="Mcd's autocorrection" width="800" />
+<img src="https://imgur.com/YazP0ci.png" alt="Mcd's autocorrection" width="800" />
 
 * Automatic correction of a 7-Eleven:
 
-<img src="http://img.prntscr.com/img?url=http://i.imgur.com/fi5hBPe.png" alt="711 autocorrection" width="800" />
+<img src="https://imgur.com/fi5hBPe.png" alt="711 autocorrection" width="800" />
 
 * A place with no harmonization data (standalone restaurant):
 
-<img src="http://img.prntscr.com/img?url=http://i.imgur.com/1MLCQZB.png" alt="No Harm" width="800">
+<img src="https://imgur.com/1MLCQZB.png" alt="No Harm" width="800">
 
 **Current features:
 
@@ -92,9 +92,14 @@ Script will check for area vs. point according to wiki guidance (including SE de
 
     > Note: the name and address checks look to see that the info is there, but they don't say if it's correct (i.e., a wrong HN can't be detected by a script like this).  The Harmonization part of the script can autocorrect some misspellings for chains but the editor needs to make sure that the name and address are the correct ones for the place.
 
-* Map Highlights: All places will show with a highlight on the map. Red colored places indicate major items missing, such as names, and addresses. Blue indicates minor issues such as missing url's, phone numbers, and hours. Green indicates a place with a Name, Address, Phone Number, URL and hours. There are highlighting options to allow certain checks to not be made and allow a place to appear Green on the map. A red and black alternating border will appear for places with extreme issues.
+* Map Highlights: All places will show with a highlight on the map. Red colored places indicate major items missing, such as names, and addresses. Blue indicates minor issues such as missing url's, phone numbers, and hours. Green indicates a place with a Name, Address, Phone Number, URL and hours. Pink indicates extreme issues, such as unlocked critical facilities (hospitals, urgent care, gas stations) or critical facilities with missing address data. There are highlighting options to allow certain checks to not be made and allow a place to appear Green on the map.
 
 * Applying a lock: If a place satisfies the 3 checks above, then the script will lock the place at the correct level.  The level is determined from the SE locking guidelines.  For example, hospitals are locked at 5, restaurants at 3.  Places in the College Campus Project are locked according to those standards as much as possible.  Notes: If your editor rank is lower than the lock required, then the script locks it to your rank.  Also, the script will never down-lock a place.  Please recognize that not all cases can be scripted.  For example, park-and-ride lots are not easy to distinguish from regular parking lots in a script, so they are locked to 3 in this case.  So use your judgement.  This is just an (imperfect but hopefully useful) tool!
+
+* Extreme Issues (Pink severity): The script flags critical security concerns that require immediate attention. These occur when:
+  * A hospital, urgent care facility, or gas station is NOT locked (security risk)
+  * A critical facility (hospital, urgent care, gas station) is missing complete address data
+  These places will display with a pink highlight on the map and pink banner background, indicating they need immediate verification and correction before saving.
 
 * Alerts about potentially incorrect information appear above the Place information.
 
