@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name        WME Place Harmonizer (Beta)
 // @namespace   WazeUSA
-// @version     2026.04.30.000
+// @version     2026.04.30.001
 // @description Harmonizes, formats, and locks a selected place
 // @author      WMEPH Development Group
 // @include      https://www.waze.com/editor*
@@ -22,8 +22,6 @@
 // @grant       GM_setClipboard
 // ==/UserScript==
 
-/* global W */
-/* global OpenLayers */
 /* global _ */
 /* global WazeWrap */
 /* global LZString */
@@ -9440,7 +9438,6 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
     } else {
       $('#WMEPH_services').empty();
     }
-  }
 
     const venue = getSelectedVenue();
     if (venue && !chainIsClosed && !$('#WMEPH-HideServicesButtons').prop('checked')) {
@@ -9900,19 +9897,10 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
       _dupeIDList = []; // Reset dupe list
       return;
     }
-    $shortcutInput.val(shortcutKey);
 
     if (!venue.approved || venue.lockRank >= USER.rank) {
       clearBanner = true;
     }
-    _shortcutParse = parseKBSShift(shortcutKey);
-    if (!_initAlreadyRun)
-      SHORTCUT.add(_modifKey + _shortcutParse, harmonizePlace);
-    $current
-      .empty()
-      .append(
-        `<span style="font-weight:bold">Current shortcut: ${_modifKey}${_shortcutParse}</span>`
-      );
 
     if (clearBanner) {
       $('#wmeph-section').remove();
