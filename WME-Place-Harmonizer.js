@@ -9440,6 +9440,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
     } else {
       $('#WMEPH_services').empty();
     }
+  }
 
     const venue = getSelectedVenue();
     if (venue && !chainIsClosed && !$('#WMEPH-HideServicesButtons').prop('checked')) {
@@ -9899,10 +9900,19 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
       _dupeIDList = []; // Reset dupe list
       return;
     }
+    $shortcutInput.val(shortcutKey);
 
     if (!venue.approved || venue.lockRank >= USER.rank) {
       clearBanner = true;
     }
+    _shortcutParse = parseKBSShift(shortcutKey);
+    if (!_initAlreadyRun)
+      SHORTCUT.add(_modifKey + _shortcutParse, harmonizePlace);
+    $current
+      .empty()
+      .append(
+        `<span style="font-weight:bold">Current shortcut: ${_modifKey}${_shortcutParse}</span>`
+      );
 
     if (clearBanner) {
       $('#wmeph-section').remove();
