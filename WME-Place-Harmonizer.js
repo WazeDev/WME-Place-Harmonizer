@@ -1,7 +1,7 @@
 // ==UserScript==
-// @name        WME Place Harmonizer
+// @name        WME Place Harmonizer (Beta)
 // @namespace   WazeUSA
-// @version     2026.04.29.000
+// @version     2026.04.30.000
 // @description Harmonizes, formats, and locks a selected place
 // @author      WMEPH Development Group
 // @include      https://www.waze.com/editor*
