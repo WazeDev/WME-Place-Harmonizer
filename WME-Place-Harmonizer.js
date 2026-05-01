@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name        WME Place Harmonizer Beta
 // @namespace   WazeUSA
-// @version     2026.04.31.000
+// @version     2026.04.31.001
 // @description Harmonizes, formats, and locks a selected place
 // @author      WMEPH Development Group
 // @include      https://www.waze.com/editor*
@@ -40,7 +40,8 @@
   // **************************************************************************************************************
   const SHOW_UPDATE_MESSAGE = true;
   const SCRIPT_UPDATE_MESSAGE = [
-    'Green = Complete Highlights are back.',
+    'v 2026.04.31.000 : Green = Complete Highlights are back.',
+    'v 2026.04.31.001 : Fixed Bug where venue spacific PNH defult services would cresh the script!',
   ];
 
   // **************************************************************************************************************
@@ -198,6 +199,44 @@
     placesWiki: 'https://www.waze.com/discuss/t/places/377947',
     restAreaWiki: 'https://www.waze.com/discuss/t/rest-areas/378691',
     uspsWiki: 'https://www.waze.com/discuss/t/post-office-places/378648',
+  };
+
+  // Master Service Key Mapping Reference
+  // Maps PNH service keys (from Google Sheet ps_* columns) to code banner keys and WME Service IDs
+  // Format: Sheet (ps_*) → Code (add*) → WME Service ID
+  // Currently used (12): ps_valet, ps_drivethru, ps_wifi, ps_restrooms, ps_cc, ps_reservations, ps_outside, ps_ac, ps_parking, ps_deliveries, ps_takeaway, ps_wheelchair
+  // Available for expansion (14): ps_curbside, ps_disability_parking, ps_airport_shuttle, ps_carwash, ps_carpool_parking, ps_covered, ps_ev_charging_station, ps_on_site_attendant, ps_park_and_ride, ps_security, ps_reservations_pl, ps_valet_pl, ps_vallet_service_pl, ps_247
+  // Sheet owners can add new services by adding them to the Categories section (ps_* columns) in the PNH Google Sheet.
+  const PNH_TO_BANNER_SERVICE_KEY_MAP = {
+    // General Services (GENERAL_SERVICE_TYPE)
+    ps_valet: 'addValet', // VALLET_SERVICE
+    ps_drivethru: 'addDriveThru', // DRIVETHROUGH
+    ps_wifi: 'addWiFi', // WI_FI
+    ps_restrooms: 'addRestrooms', // RESTROOMS
+    ps_cc: 'addCreditCards', // CREDIT_CARDS
+    ps_reservations: 'addReservations', // RESERVATIONS
+    ps_outside: 'addOutside', // OUTSIDE_SEATING
+    ps_ac: 'addAC', // AIR_CONDITIONING
+    ps_parking: 'addParking', // PARKING_FOR_CUSTOMERS
+    ps_deliveries: 'addDeliveries', // DELIVERIES
+    ps_takeaway: 'addTakeAway', // TAKE_AWAY
+    ps_wheelchair: 'addWheelchair', // WHEELCHAIR_ACCESSIBLE
+    ps_curbside: 'addCurbside', // CURBSIDE_PICKUP
+    // Parking Lot Services (PARKING_LOT_SERVICE_TYPE)
+    ps_disability_parking: 'addDisabilityParking', // DISABILITY_PARKING
+    ps_airport_shuttle: 'addAirportShuttle', // AIRPORT_SHUTTLE
+    ps_carwash: 'addCarWash', // CAR_WASH
+    ps_carpool_parking: 'addCarpoolParking', // CARPOOL_PARKING
+    ps_covered: 'addCovered', // COVERED
+    ps_ev_charging_station: 'addEVChargingStation', // EV_CHARGING_STATION
+    ps_on_site_attendant: 'addOnSiteAttendant', // ON_SITE_ATTENDANT
+    ps_park_and_ride: 'addParkAndRide', // PARK_AND_RIDE
+    ps_security: 'addSecurity', // SECURITY
+    ps_reservations_pl: 'addReservationsPL', // RESERVATIONS
+    ps_valet_pl: 'addValetPL', // VALET
+    ps_vallet_service_pl: 'addValletServicePL', // VALLET_SERVICE
+    // Special
+    ps_247: 'add247', // (hours only, not a service ID)
   };
 
   // CAT and SUB CAT Stuff
@@ -2612,7 +2651,7 @@
         if (iRow === 0) {
           headers = row;
         } else if (iRow === 1) {
-          pnhServiceKeys = row;
+          pnhServiceKeys = row.map((key) => PNH_TO_BANNER_SERVICE_KEY_MAP[key] || key);
         } else if (iRow === 2) {
           wmeServiceIds = row;
         } else {
@@ -6453,42 +6492,31 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
     return SUBCATEGORIES_BY_ID[categoryId]?.localizedName ?? categoryId;
   }
 
-  /**
-   * Wraps a function call in try-catch to prevent unhandled errors from breaking script execution.
-   * Logs errors to console for debugging purposes.
-   * @param {function} callback - Function to execute safely
-   * @param {...*} args - Arguments to pass to the callback function
-   * @returns {void} Silently catches and logs any errors
-   */
+
   function addPURWebSearchButton() {
     const purLayerObserver = new MutationObserver(panelContainerChanged);
-    purLayerObserver.observe($('#map #panel-container')[0], { childList: true, subtree: true });
+    purLayerObserver.observe($('#waze-map-container')[0], { childList: true, subtree: true });
 
     function panelContainerChanged() {
       if (!$('#WMEPH-HidePURWebSearch').prop('checked')) {
-        const $panelNav = $('.place-update-edit .place-update > div > span');
-        if ($('#PHPURWebSearchButton').length === 0 && $panelNav.length) {
-          const $btn = $('<div>')
+        // Target the panel-header-actions div where the icon buttons are
+        const $headerActions = $('.place-update-edit .panel-header-actions');
+        if ($('#PHPURWebSearchButton').length === 0 && $headerActions.length) {
+          const $btn = $('<wz-button>', {
+            id: 'PHPURWebSearchButton',
+            color: 'primary',
+            size: 'sm',
+            type: 'button',
+            title: 'Search Google for this place. Do not copy info from 3rd party sources!',
+          })
             .css({
-              paddingLeft: '15px',
-              paddingBottom: '8px',
+              marginLeft: '8px',
             })
-            .append(
-              $('<button>', {
-                class: 'btn btn-danger',
-                id: 'PHPURWebSearchButton',
-                title: 'Search Google for this place. Do not copy info from 3rd party sources!',
-              }) // NOTE: Don't use btn-block class. Causes conflict with URO+ "Done" button.
-                .css({
-                  marginTop: '-10px',
-                  fontSize: '14px',
-                })
-                .text('Google')
-                .click(() => {
-                  openWebSearch();
-                }),
-            );
-          $panelNav.after($btn);
+            .text('Google')
+            .click(() => {
+              openWebSearch();
+            });
+          $headerActions.append($btn);
         }
       }
     }
@@ -6514,15 +6542,14 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
     }
 
     function openWebSearch() {
-      const nameElem = $('.place-update-edit.panel .name');
       let name = null;
       let addr = null;
-      if (nameElem.length) {
-        name = $('.place-update-edit.panel .name').first().text();
-        addr = $('.place-update-edit.panel .address').first().text();
-      } else {
-        name = $('.place-update-edit.panel .changes div div')[0].textContent;
-        addr = $('.place-update-edit.panel .changes div div')[1].textContent;
+      // New PUR structure: name is in .name--HYytJ, address is in the next div
+      const $nameElem = $('.place-update-edit .name--HYytJ');
+      if ($nameElem.length) {
+        name = $nameElem.first().text().trim();
+        // Address is the next div sibling
+        addr = $nameElem.next().text().trim();
       }
       if (!name) return;
       if ($('#WMEPH-WebSearchNewTab').prop('checked')) {
