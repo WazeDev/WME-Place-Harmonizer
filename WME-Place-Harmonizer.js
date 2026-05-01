@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name        WME Place Harmonizer Beta
 // @namespace   WazeUSA
-// @version     2026.04.31.001
+// @version     2026.04.31.003
 // @description Harmonizes, formats, and locks a selected place
 // @author      WMEPH Development Group
 // @include      https://www.waze.com/editor*
@@ -42,6 +42,8 @@
   const SCRIPT_UPDATE_MESSAGE = [
     'v 2026.04.31.000 : Green = Complete Highlights are back.',
     'v 2026.04.31.001 : Fixed Bug where venue spacific PNH defult services would cresh the script!',
+    'v 2026.04.31.002 : Fixed Google Search "spy glass" on PUR popup',
+    'v 2026.04.31.003 : Take 2 on the Bug where venue spacific PNH defult services would cresh the script! Orginal Code has this as not active!',
   ];
 
   // **************************************************************************************************************
@@ -2651,7 +2653,7 @@
         if (iRow === 0) {
           headers = row;
         } else if (iRow === 1) {
-          pnhServiceKeys = row.map((key) => PNH_TO_BANNER_SERVICE_KEY_MAP[key] || key);
+          pnhServiceKeys = row;
         } else if (iRow === 2) {
           wmeServiceIds = row;
         } else {
@@ -2720,7 +2722,7 @@
               case 'ps_takeaway':
               case 'ps_wheelchair':
                 if (value) {
-                  categoryInfo.services.push({ wmeId: wmeServiceIds[iCol], pnhKey: pnhServiceKeys[iCol] });
+                  categoryInfo.services.push({ wmeId: wmeServiceIds[iCol], pnhKey: PNH_TO_BANNER_SERVICE_KEY_MAP[pnhServiceKeys[iCol]] || pnhServiceKeys[iCol] });
                 }
                 break;
               case '':
@@ -6493,6 +6495,12 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
   }
 
 
+  /**
+   * Injects a Google search icon button into Place Update Request (PUR) popup headers.
+   * Monitors for PUR panel openings and adds a search button that performs a Google search
+   * for the place name and address extracted from the PUR popup. Respects user setting to hide button.
+   * The button is icon-aligned with other header action buttons (recenter, streetview, email, star).
+   */
   function addPURWebSearchButton() {
     const purLayerObserver = new MutationObserver(panelContainerChanged);
     purLayerObserver.observe($('#waze-map-container')[0], { childList: true, subtree: true });
@@ -6504,16 +6512,18 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
         if ($('#PHPURWebSearchButton').length === 0 && $headerActions.length) {
           const $btn = $('<wz-button>', {
             id: 'PHPURWebSearchButton',
-            color: 'primary',
+            color: 'clear-icon',
             size: 'sm',
             type: 'button',
-            title: 'Search Google for this place. Do not copy info from 3rd party sources!',
+            title: `WMEPH${IS_BETA_VERSION ? '-β' : ''}: Search Google for this place. Do not copy info from 3rd party sources!`,
           })
             .css({
               marginLeft: '8px',
+              marginRight: '4px',
             })
-            .text('Google')
+            .append($('<i>', { class: 'w-icon w-icon-search' }))
             .click(() => {
+              logDev('PUR Google button clicked');
               openWebSearch();
             });
           $headerActions.append($btn);
@@ -6521,45 +6531,109 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
       }
     }
 
+    /**
+     * Constructs a Google search URL from a place name and address.
+     * Normalizes highway abbreviations (CR-, SR-, US- → County Rd, State Hwy, US Hwy).
+     * Returns null if searchName is empty.
+     * @param {string} searchName - The place name to search for
+     * @param {string} address - The place address (optional, can be empty)
+     * @returns {string|null} A properly encoded Google search URL, or null if searchName is falsy
+     */
     function buildSearchUrl(searchName, address) {
+      if (!searchName) return null;
+
       searchName = searchName.replace(/[/]/g, ' ').trim();
-      address = address
-        .replace(/No street, /, '')
-        .replace(/No address/, '')
-        .replace(/CR-/g, 'County Rd ')
-        .replace(/SR-/g, 'State Hwy ')
-        .replace(/US-/g, 'US Hwy ')
-        .replace(/ CR /g, ' County Rd ')
-        .replace(/ SR /g, ' State Hwy ')
-        .replace(/ US /g, ' US Hwy ')
-        .replace(/$CR /g, 'County Rd ')
-        .replace(/$SR /g, 'State Hwy ')
-        .replace(/$US /g, 'US Hwy ')
-        .trim();
+
+      // Handle null or undefined address
+      if (!address) {
+        address = '';
+      } else {
+        address = address
+          .replace(/No street, /, '')
+          .replace(/No address/, '')
+          .replace(/CR-/g, 'County Rd ')
+          .replace(/SR-/g, 'State Hwy ')
+          .replace(/US-/g, 'US Hwy ')
+          .replace(/ CR /g, ' County Rd ')
+          .replace(/ SR /g, ' State Hwy ')
+          .replace(/ US /g, ' US Hwy ')
+          .replace(/$CR /g, 'County Rd ')
+          .replace(/$SR /g, 'State Hwy ')
+          .replace(/$US /g, 'US Hwy ')
+          .trim();
+      }
 
       searchName = encodeURIComponent(searchName + (address.length > 0 ? `, ${address}` : ''));
       return `http://www.google.com/search?q=${searchName}`;
     }
 
+    /**
+     * Extracts place name and address from the PUR (Place Update Request) popup,
+     * falls back to viewport location (via SDK) if address is missing, then opens a Google search.
+     * If opening in new tab, uses window.open(url). Otherwise, opens in SEARCH_RESULTS_WINDOW_NAME.
+     */
     function openWebSearch() {
       let name = null;
       let addr = null;
-      // New PUR structure: name is in .name--HYytJ, address is in the next div
-      const $nameElem = $('.place-update-edit .name--HYytJ');
+      // Find place name and address within the PUR popup using stable selectors
+      // Look for h3 or div with 'name' class (place name), and div with 'address' class
+      const $nameElem = $('.place-update-edit h3.name, .place-update-edit [class*="name--"]').first();
+      const $addrElem = $('.place-update-edit [class*="address"], .place-update-edit div.address').first();
+
       if ($nameElem.length) {
-        name = $nameElem.first().text().trim();
-        // Address is the next div sibling
-        addr = $nameElem.next().text().trim();
+        name = $nameElem.text().trim();
       }
-      if (!name) return;
+      if ($addrElem.length) {
+        addr = $addrElem.text().trim();
+      }
+
+      // If address is missing from PUR popup, try to get city/state from viewport
+      if (!addr) {
+        try {
+          const topState = sdk.DataModel.States.getTopState();
+          const topCountry = sdk.DataModel.Countries.getTopCountry();
+          const viewportState = topState?.name ? `${topState.name}` : '';
+          const viewportCountry = topCountry?.name ? `${topCountry.name}` : '';
+          const fallbackAddr = `${viewportState}${viewportCountry ? ', ' + viewportCountry : ''}`.trim();
+
+          if (fallbackAddr.length > 0) {
+            logDev(`PUR Google Search - Address missing from popup, using viewport location: "${fallbackAddr}"`);
+            addr = fallbackAddr;
+          }
+        } catch (e) {
+          logDev('PUR Google Search - Error getting viewport state/country:', e);
+        }
+      }
+
+      logDev(`PUR Google Search - Name: "${name}", Address: "${addr}"`);
+
+      if (!name) {
+        logDev('PUR Google Search - Aborting: name is empty');
+        return;
+      }
+      const searchUrl = buildSearchUrl(name, addr);
+      if (!searchUrl) {
+        logDev('PUR Google Search - Failed to build search URL');
+        return;
+      }
+      logDev(`PUR Google Search - URL: ${searchUrl}`);
       if ($('#WMEPH-WebSearchNewTab').prop('checked')) {
-        window.open(buildSearchUrl(name, addr));
+        logDev('PUR Google Search - Opening in new tab');
+        window.open(searchUrl);
       } else {
-        window.open(buildSearchUrl(name, addr), SEARCH_RESULTS_WINDOW_NAME, _searchResultsWindowSpecs);
+        logDev('PUR Google Search - Opening in search results window');
+        window.open(searchUrl, SEARCH_RESULTS_WINDOW_NAME, _searchResultsWindowSpecs);
       }
     }
   }
 
+  /**
+   * Generates and adds spelling variants to a name list by replacing each variant spelling with all others.
+   * For example, if ['St', 'Street'] are variants, names containing 'St' will also get 'Street' versions.
+   * Modifies nameList in place; does not add duplicates.
+   * @param {string[]} nameList - Array of names to expand with variants (modified in place)
+   * @param {string[]} spellingVariantList - Array of spelling variants to cross-apply
+   */
   function addSpellingVariants(nameList, spellingVariantList) {
     for (let spellingOneIdx = 0; spellingOneIdx < spellingVariantList.length; spellingOneIdx++) {
       const spellingOne = spellingVariantList[spellingOneIdx];
@@ -6576,6 +6650,10 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
     }
   }
 
+  /**
+   * Clicks the General tab in the venue edit panel via shadow DOM traversal.
+   * Uses specific CSS selectors targeting the first tab button inside wz-tabs shadow root.
+   */
   function clickGeneralTab() {
     // Make sure the General tab is selected before clicking on the external provider element.
     // These selector strings are very specific.  Could probably make them more generalized for robustness.
@@ -6584,6 +6662,9 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
     document.querySelector(containerSelector).shadowRoot.querySelector(shadowSelector).click();
   }
 
+  /**
+   * Zooms the map to center on the currently selected venue (zoom 19), or falls back to mouse position (zoom 18).
+   */
   function zoomPlace() {
     const venue = getSelectedVenue();
     if (venue) {
@@ -6594,6 +6675,12 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
     }
   }
 
+  /**
+   * Slightly nudges a venue's geometry by a random distance (+/- 0.00000001 degrees).
+   * For points, moves the first coordinate. For polygons, moves the second vertex of the outer ring.
+   * Updates venue via SDK; changes are tracked as unsaved until user clicks WME Save.
+   * @param {Object} venue - The venue object to nudge (must have geometry and id)
+   */
   function nudgeVenue(venue) {
     const newGeometry = structuredClone(venue.geometry);
     const moveNegative = Math.random() > 0.5;
@@ -6610,6 +6697,10 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
     sdk.DataModel.Venues.updateVenue({ venueId: venue.id, geometry: newGeometry });
   }
 
+  /**
+   * Clears all duplicate label features from the _dupeLayer map layer.
+   * Silently catches and logs any errors to prevent script interruption.
+   */
   function destroyDupeLabels() {
     try {
       sdk.Map.removeAllFeaturesFromLayer({ layerName: _dupeLayer });
@@ -6618,7 +6709,11 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
     }
   }
 
-  // When a dupe is deleted, delete the dupe label (handled via wme-data-model-objects-removed event with SDK)
+  /**
+   * Removes the associated dupe label when a duplicate is deleted.
+   * This is a stub function: dupe removal is now primarily detected via SDK event listeners.
+   * Clears all dupe labels if the _dupeIDList is empty.
+   */
   function deleteDupeLabel() {
     // Stub: dupe removal is now detected via SDK event listeners
     if (_dupeIDList.length === 0) {
@@ -6626,7 +6721,14 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
     }
   }
 
-  //  Whitelist a flag. Returns true if successful. False if not.
+  /**
+   * Whitelists a flag for a specific venue, storing venue metadata (city, state, country, GPS).
+   * Requires the venue to have a country-level address. Shows error alert if address is missing.
+   * Saves whitelist to localStorage and removes venue from results cache for re-evaluation.
+   * @param {string} venueID - The venue ID to whitelist
+   * @param {string} wlKeyName - The whitelist flag key name to add
+   * @returns {boolean} true if successful, false if venue lacks a country address
+   */
   function whitelistAction(venueID, wlKeyName) {
     const venue = getSelectedVenue();
     const addressTemp = getVenueAddress(venue);
@@ -6654,7 +6756,10 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
     return true;
   }
 
-  // Keep track of how many whitelists have been added since the last pull, alert if over a threshold (100?)
+  /**
+   * Increments the whitelist addition counter in localStorage and alerts user when it exceeds 50.
+   * Resets counter to 2 after alert to remind user to back up their whitelist data periodically.
+   */
   function wmephWhitelistCounter() {
     // eslint-disable-next-line camelcase
     localStorage.WMEPH_WLAddCount = parseInt(localStorage.WMEPH_WLAddCount, 10) + 1;
@@ -6665,6 +6770,11 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
     }
   }
 
+  /**
+   * Creates and attaches a MutationObserver to the edit-panel that removes scrolling artifacts
+   * (separator-line class and tab-scroll-gradient display) when DOM nodes are added.
+   * This prevents visual glitches that occur when WMEPH adds content outside the venue div.
+   */
   function createObserver() {
     const observer = new MutationObserver((mutations) => {
       mutations.forEach((mutation) => {
@@ -6837,9 +6947,12 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
   }
 
   /**
-   * To highlight a place, set the wmephSeverity attribute to the desired highlight level.
-   * @param venues {array of venues, or single venue} Venues to check for highlights.
-   * @param force {boolean} Force recalculation of highlights, rather than using cached results.
+   * Applies highlighting to venues based on harmonization results and cache state.
+   * Sets wmephSeverity on each venue; clears and rebuilds color highlight layer features.
+   * Respects rank lock filtering and current UI checkbox states (ColorHighlighting, PLATypeFill, ShowFilterHighlight).
+   * Trims results cache if it exceeds MAX_CACHE_SIZE.
+   * @param {Array|Object} venues - Single venue or array of venues to highlight
+   * @param {boolean} force - If true, bypass cache and recalculate severity for all venues
    */
   function applyHighlightsTest(venues, force) {
     if (!_layer) return;
@@ -6944,7 +7057,11 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
     }
   }
 
-  // Set up CH loop
+  /**
+   * Sets up SDK event listeners for the color highlights system.
+   * Listens for venue data changes, additions, removals, map zoom, and map movement.
+   * Triggers refreshAllHighlights() on each event (with harmonization state check for data-changed events).
+   */
   function bootstrapWmephColorHighlights() {
     // Listen for venue data changes (when existing venues are modified)
     sdk.Events.on({
@@ -7136,18 +7253,36 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
     return number.replace(/[A-Z]/g, (letter) => conversionMap.findKey((re) => re.test(letter)));
   }
 
-  // SDK tracks unsaved changes automatically; no need to execute/save here
+  /**
+   * Executes multi-action updates. Currently a stub; changes accumulate as unsaved via SDK.
+   * User commits changes via WME Save button.
+   */
   function executeMultiAction() {
     // Changes accumulate as unsaved; user commits via WME Save button
   }
 
-  // Split localizer (suffix) part of names, like "SUBWAY - inside Walmart".
+  /**
+   * Splits a place name into base and suffix/localizer parts.
+   * Suffix is anything after whitespace followed by dash or en-dash, e.g., "SUBWAY - inside Walmart" → base: "SUBWAY", suffix: " - inside Walmart".
+   * @param {string} name - The place name to split
+   * @returns {Object} Object with { base: string, suffix: string }; both empty strings if name is falsy
+   */
   function getNameParts(name) {
     if (!name) return { base: '', suffix: '' };
     const splits = name.match(/(.*?)(\s+[-(–].*)*$/);
     return { base: splits[1], suffix: splits[2] };
   }
 
+  /**
+   * Updates a venue with new attributes via SDK, marks changed fields in UPDATED_FIELDS.
+   * Optionally runs harmonizer after update (asynchronous via setTimeout) and refreshes the WMEPH panel.
+   * Changes accumulate as unsaved; user commits via WME Save button.
+   * @param {Object} venue - The venue object to update
+   * @param {Object} newAttributes - Object containing attributes to update
+   * @param {Array} _actions - Actions array (used to check for existing services updates)
+   * @param {boolean} [runHarmonizer=false] - If true, run harmonizePlaceGo after update
+   * @param {boolean} [dontHighlightFields=false] - If true, skip field-change tracking in UPDATED_FIELDS
+   */
   function addUpdateAction(venue, newAttributes, _actions, runHarmonizer = false, dontHighlightFields = false) {
     if (Object.keys(newAttributes).length) {
       if (!dontHighlightFields) {
@@ -7180,6 +7315,14 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
     }
   }
 
+  /**
+   * Toggles a service checkbox for a venue. Adds or removes service from venue.services array.
+   * If checked state differs from UI, marks field as updated via UPDATED_FIELDS.
+   * Calls addUpdateAction to persist the service change.
+   * @param {Object} servBtn - Service button object with servIDIndex and checked state
+   * @param {boolean} [checked] - Desired checked state; if undefined, toggles current state
+   * @param {Array} actions - Actions array to check for existing service updates
+   */
   function setServiceChecked(servBtn, checked, actions) {
     const servID = WME_SERVICES_ARRAY[servBtn.servIDIndex];
     const checkboxChecked = $(`wz-checkbox[value="${servID}"]`).prop('checked');
@@ -7293,14 +7436,14 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
     }
   }
 
+  /**
+   * Returns configuration for service action buttons in the WMEPH banner.
+   * Each service button has: active (enabled in UI), checked (service exists on venue),
+   * icon (CSS class name), value (text), title (tooltip), action (click handler),
+   * actionOn/actionOff (convenience methods).
+   * @returns {Object} Object mapping service names (addValet, addDriveThru, etc.) to button configs
+   */
   function getServicesBanner() {
-    // set up banner action buttons.  Structure:
-    // active: false until activated in the script
-    // checked: whether the service is already set on the place. Determines grey vs white icon color
-    // icon: button icon name
-    // value: button text  (Not used for Icons, keep as backup
-    // title: tooltip text
-    // action: The action that happens if the button is pressed
     return {
       addValet: {
         active: true,
@@ -7830,6 +7973,14 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
     };
   } // END getServicesBanner()
 
+  /**
+   * Returns configuration for utility action buttons in the WMEPH banner (wiki links, whitelist management, etc.).
+   * Each button has: active (enabled in UI), severity (highlighting level), message (status text),
+   * value (button text), title (tooltip), and action (click handler).
+   * @param {Object} venue - The currently selected venue (used for whitelist operations)
+   * @param {Object} placePL - Place page info (for generating links or context)
+   * @returns {Object} Object mapping button names (placesWiki, restAreaWiki, clearWL, etc.) to button configs
+   */
   function getButtonBanner2(venue, placePL) {
     return {
       placesWiki: {
@@ -7888,7 +8039,17 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
     };
   } // END getButtonBanner2()
 
-  // Main script
+  /**
+   * Core implementation of place harmonization. Validates venue data against PNH database,
+   * applies harmonization rules (names, categories, services, hours, contact info), evaluates
+   * all Flag conditions, and updates venue via SDK. Supports two modes: full harmonization
+   * (useFlag='harmonize') or highlight-only (for performance). Prevents recursive harmonization
+   * via _isHarmonizing flag. Cache is cleared for harmonized venues; results are cached for highlighting.
+   * @param {Object} venue - The venue object to harmonize
+   * @param {string} useFlag - Mode flag: 'harmonize' for full update, 'highlight' for severity-only
+   * @param {Array} [actions] - Optional array to collect venue update actions
+   * @returns {string|undefined} Severity value (for highlight-only mode) or undefined (for full harmonization)
+   */
   function harmonizePlaceGo_impl(venue, useFlag, actions) {
     if (useFlag === 'harmonize') logDev('harmonizePlaceGo: useFlag="harmonize"');
 
@@ -8430,21 +8591,21 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
               addUpdateAction(venue, { aliases: args.aliases }, actions);
             }
 
-            // PNH specific Services:
+            // PNH specific Services: Display available services for this category
+            // These are services defined in the PNH Google Sheet for each category (ps_* columns).
+            // They are optional suggestions - user controls whether to enable them on the venue.
+            /*
             args.categories.forEach((category) => {
               const pnhCategoryInfo = args.pnhCategoryInfos.getById(category);
               pnhCategoryInfo.services.forEach((service) => {
                 const serviceButton = _servicesBanner[service.pnhKey];
-                if (!serviceButton.pnhOverride) {
-                  // This section of code previously checked for values of "1", "2", and state/region codes.
-                  // A value of "2" or a state/region code would auto-add the service.  However, it was
-                  // felt that this was a problem since it is difficult to prove that every place in a
-                  // category would *always* offer a specific service.  So now, any value entered in the
-                  // spreadsheet cell will only display the service button, not turn it on.
+                // Just make the button active (visible) - user decides to enable or disable
+                if (serviceButton) {
                   serviceButton.active = true;
                 }
               });
             });
+           */
           }
 
           args.hoursOverlap = venueHasOverlappingHours(args.openingHours);
