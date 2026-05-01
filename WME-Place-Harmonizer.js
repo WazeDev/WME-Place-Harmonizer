@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name        WME Place Harmonizer Beta
 // @namespace   WazeUSA
-// @version     2026.04.30.002
+// @version     2026.04.31.000
 // @description Harmonizes, formats, and locks a selected place
 // @author      WMEPH Development Group
 // @include      https://www.waze.com/editor*
@@ -40,11 +40,7 @@
   // **************************************************************************************************************
   const SHOW_UPDATE_MESSAGE = true;
   const SCRIPT_UPDATE_MESSAGE = [
-    'Full WME SDK Support',
-    'Slight UI update to make WMEPH panel more compact',
-    'Shortcuts are Back (Please test!)',
-    'Highlighting is back!  Have fun!',
-    'X-RAY Mode is limited (does not effect Satelite layers)',
+    'Green = Complete Highlights are back.',
   ];
 
   // **************************************************************************************************************
@@ -89,7 +85,7 @@
 
   // Severity level colors (used for both map layer and banner background)
   const SEVERITY_COLORS = {
-    [SEVERITY.GREEN]: '#00CC00', // complete
+    [SEVERITY.GREEN]: '#08d608', // complete
     [SEVERITY.BLUE]: '#0000FF', // minor issues
     [SEVERITY.YELLOW]: '#FFFF00', // moderate issues
     [SEVERITY.RED]: '#FF0000', // major issues
@@ -6868,7 +6864,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
             venue.wmephSeverity = severity;
 
             // Add color feature to layer for visualization
-            if (venue.geometry && severity !== 'default') {
+            if (venue.geometry && severity !== undefined) {
               colorFeaturesToAdd.push({
                 type: 'Feature',
                 id: `color_${venue.id}`,
@@ -11780,14 +11776,11 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
         styleContext: {
           getColor: ({ feature }) => {
             const parkingType = feature?.properties?.parkingType;
-            return PARKING_TYPE_COLORS[parkingType] || UI_COLORS.fallback;
+            return PARKING_TYPE_COLORS[parkingType];
           },
           getSeverityColor: ({ feature }) => {
             const severity = feature?.properties?.wmephSeverity;
-            if (severity !== undefined && severity !== 'default') {
-              return SEVERITY_COLORS[severity] || UI_COLORS.fallback;
-            }
-            return UI_COLORS.fallback;
+            return SEVERITY_COLORS[severity];
           },
           getPointRadius: ({ zoomLevel }) => {
             return zoomLevel > 17 ? 15 : 10;
@@ -11819,25 +11812,25 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
           },
           // Rule 3: Parking lot with severity - both fill (parking type) and stroke (severity severity)
           {
-            predicate: (props, zoomLevel) => props.wmephHighlight !== '1' && props.parkingType !== undefined && props.wmephSeverity !== undefined && props.wmephSeverity > 0,
+            predicate: (props, zoomLevel) => props.wmephHighlight !== '1' && props.parkingType !== undefined && props.wmephSeverity !== undefined,
             style: {
               pointRadius: '${getPointRadius}',
               fillColor: '${getColor}',
               fillOpacity: 0.5,
               strokeColor: '${getSeverityColor}',
               strokeWidth: 5,
-              strokeOpacity: 0.8,
+              strokeOpacity: 1,
             },
           },
           // Rule 4: Severity only (no parking type) - stroke only
           {
-            predicate: (props, zoomLevel) => props.wmephHighlight !== '1' && props.wmephSeverity !== undefined && props.wmephSeverity > 0,
+            predicate: (props, zoomLevel) => props.wmephHighlight !== '1' && props.wmephSeverity !== undefined,
             style: {
               pointRadius: '${getPointRadius}',
               fillOpacity: 0,
               strokeColor: '${getSeverityColor}',
               strokeWidth: 5,
-              strokeOpacity: 0.8,
+              strokeOpacity: 1,
             },
           },
           // Rule 5: Parking lot only (no severity) - fill only
