@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name        WME Place Harmonizer Beta
 // @namespace   WazeUSA
-// @version     2026.04.31.003
+// @version     2026.05.02.00
 // @description Harmonizes, formats, and locks a selected place
 // @author      WMEPH Development Group
 // @include      https://www.waze.com/editor*
@@ -2075,12 +2075,20 @@
                         //    _buttonBanner[scFlag].active = false;
                       } else if ((match = specialCase.match(/^psOn_(.+)/i))) {
                         const [, scFlag] = match;
-                        // TODO: Add check for valid services.
-                        this.servicesToAdd.push(scFlag);
+                        // Map ps_* keys to banner keys (e.g., ps_valet → addValet)
+                        const mappedKey = PNH_TO_BANNER_SERVICE_KEY_MAP[scFlag] || scFlag;
+                        // Only add if the service exists in the banner
+                        if (mappedKey && mappedKey.length > 0) {
+                          this.servicesToAdd.push(mappedKey);
+                        }
                       } else if ((match = specialCase.match(/^psOff_(.+)/i))) {
                         const [, scFlag] = match;
-                        // TODO: Add check for valid services.
-                        this.servicesToRemove.push(scFlag);
+                        // Map ps_* keys to banner keys (e.g., ps_valet → addValet)
+                        const mappedKey = PNH_TO_BANNER_SERVICE_KEY_MAP[scFlag] || scFlag;
+                        // Only add if the service exists in the banner
+                        if (mappedKey && mappedKey.length > 0) {
+                          this.servicesToRemove.push(mappedKey);
+                        }
                       } else if ((match = specialCase.match(/forceBrand<>([^,<]+)/i))) {
                         // If brand is going to be forced, use that.  Otherwise, use existing brand.
                         [, this.forceBrand] = match;
@@ -2577,7 +2585,7 @@
                 ['entry_839085807', 'entry_1125435193', 'entry_318793106', 'entry_1149649663'],
               ),
             });
-            PNH_DATA.states = Pnh.processImportedDataColumn(values, 1);
+            PNH_DATA.states = Pnh.processImportedDataColumn(values, 1).filter((row) => row && row.trim());
 
             const WMEPHuserList = Pnh.processImportedDataColumn(values, 4)[1].split('|');
             const betaix = WMEPHuserList.indexOf('BETAUSERS');
@@ -8355,12 +8363,16 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
             //    [, scFlag] = match;
             //    _buttonBanner[scFlag].active = false;
             args.pnhMatch.servicesToAdd.forEach((scFlag) => {
-              _servicesBanner[scFlag].actionOn(actions);
-              _servicesBanner[scFlag].pnhOverride = true;
+              if (_servicesBanner[scFlag]) {
+                _servicesBanner[scFlag].actionOn(actions);
+                _servicesBanner[scFlag].pnhOverride = true;
+              }
             });
             args.pnhMatch.servicesToRemove.forEach((scFlag) => {
-              _servicesBanner[scFlag].actionOff(actions);
-              _servicesBanner[scFlag].pnhOverride = true;
+              if (_servicesBanner[scFlag]) {
+                _servicesBanner[scFlag].actionOff(actions);
+                _servicesBanner[scFlag].pnhOverride = true;
+              }
             });
             if (args.pnhMatch.forceBrand) {
               // If brand is going to be forced, use that.  Otherwise, use existing brand.
@@ -12572,6 +12584,9 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
       unsafeWindow.PNH_DATA = PNH_DATA;
       unsafeWindow.WMEPH_FLAG = Flag;
       initPerformancePanel();
+
+      // Log full PNH data structure
+      console.log('PNH_DATA:', PNH_DATA);
     }
   }
 
