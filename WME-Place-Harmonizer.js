@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name        WME Place Harmonizer Beta
 // @namespace   WazeUSA
-// @version     2026.05.15.00
+// @version     2026.05.19.00
 // @description Harmonizes, formats, and locks a selected place
 // @author      WMEPH Development Group
 // @include      https://www.waze.com/editor*
@@ -40,8 +40,7 @@
   // **************************************************************************************************************
   const SHOW_UPDATE_MESSAGE = true;
   const SCRIPT_UPDATE_MESSAGE = [
-    'v 2026.05.14.00 : Fixed: Global category string conversion & address inference improvements',
-    'v 2026.05.15.00 : Perf: Add array, regex, and cache optimizations for improved memory/CPU usage',
+    'v 2026.05.19.00 : FULL SDK Migration version',
   ];
 
   // **************************************************************************************************************
