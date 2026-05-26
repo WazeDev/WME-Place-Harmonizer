@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name        WME Place Harmonizer Beta
 // @namespace   WazeUSA
-// @version     2026.05.19.00
+// @version     2026.05.23.00
 // @description Harmonizes, formats, and locks a selected place
 // @author      WMEPH Development Group
 // @include      https://www.waze.com/editor*
@@ -40,7 +40,7 @@
   // **************************************************************************************************************
   const SHOW_UPDATE_MESSAGE = true;
   const SCRIPT_UPDATE_MESSAGE = [
-    'v 2026.05.19.00 : FULL SDK Migration version',
+    'v 2026.05.23.00 : fix HN use in search and checks',
   ];
 
   // **************************************************************************************************************
@@ -6233,7 +6233,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
 
       #processUrl(venue, addr, state2L, venueGPS) {
         if (this.#isCustom) {
-          const houseNumber = venue.houseNumber;
+          const houseNumber = addr.houseNumber;
 
           const urlParts = this.#storeFinderUrl.replace(/ /g, '').split('<>');
           let searchStreet = '';
@@ -10089,7 +10089,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
 
     _cloneMaster = {
       addr: {
-        houseNumber: venue.houseNumber,
+        houseNumber: addr.houseNumber,
         street: { name: addr?.street?.name || '' },
         city: { name: addr?.city?.name || '' },
         state: { name: addr?.state?.name || '' },
@@ -10268,7 +10268,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
     const venue = getSelectedVenue();
     const addr = getVenueAddress(venue);
     if (addr?.state && addr?.country) {
-      const url = buildGLink(venue.name, addr, venue.houseNumber);
+      const url = buildGLink(venue.name, addr, addr.houseNumber);
       if ($('#WMEPH-WebSearchNewTab').prop('checked')) {
         window.open(url);
       } else {
@@ -10643,7 +10643,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
     currNameList = uniq(currNameList);
 
     let selectedVenueAddr = getVenueAddress(selectedVenue);
-    const selectedVenueHN = selectedVenue.houseNumber;
+    const selectedVenueHN = selectedVenueAddr.houseNumber;
 
     const selectedVenueAddrIsComplete = selectedVenueAddr?.street && selectedVenueAddr.street.name && selectedVenueHN && selectedVenueHN.match(/\d/g) !== null;
 
@@ -10672,8 +10672,8 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
           overlappingFlag = true;
         }
 
-        const testVenueHN = testVenue.houseNumber;
         let testVenueAddr = getVenueAddress(testVenue);
+        const testVenueHN = testVenueAddr.houseNumber;
 
         if (
           selectedVenueAddrIsComplete &&
@@ -10702,7 +10702,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
           let suppressMatch = false;
           if (selectedVenueAddrIsComplete && testVenueAddr?.street && testVenueAddr.street.name && testVenueHN && testVenueHN.match(/\d/g) !== null) {
             if (selectedVenue.lockRank > 0 && testVenue.lockRank > 0) {
-              if (selectedVenue.houseNumber !== testVenueHN || selectedVenueAddr.street.name !== testVenueAddr.street.name) {
+              if (selectedVenueAddr.houseNumber !== testVenueHN || selectedVenueAddr.street.name !== testVenueAddr.street.name) {
                 suppressMatch = true;
               }
             } else if (selectedVenueHN !== testVenueHN && selectedVenueAddr.street.name !== testVenueAddr.street.name) {
