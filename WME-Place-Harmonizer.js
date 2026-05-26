@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name        WME Place Harmonizer Beta
 // @namespace   WazeUSA
-// @version     2026.05.23.00
+// @version     2026.05.26.00
 // @description Harmonizes, formats, and locks a selected place
 // @author      WMEPH Development Group
 // @include      https://www.waze.com/editor*
@@ -41,6 +41,7 @@
   const SHOW_UPDATE_MESSAGE = true;
   const SCRIPT_UPDATE_MESSAGE = [
     'v 2026.05.23.00 : fix HN use in search and checks',
+    'v 2026.05.26.00 : Small change to highlights to play a little better with PIE',
   ];
 
   // **************************************************************************************************************
@@ -12181,7 +12182,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
             return SEVERITY_COLORS[severity];
           },
           getPointRadius: ({ zoomLevel }) => {
-            return zoomLevel > 17 ? 13 : 8;
+            return zoomLevel > 17 ? 12 : 8;
           },
           getGraphicName: ({ feature }) => {
             return feature?.properties?.isResidential ? 'triangle' : 'circle';
