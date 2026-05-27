@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name        WME Place Harmonizer Beta
 // @namespace   WazeUSA
-// @version     2026.05.27.02
+// @version     2026.05.27.03
 // @description Harmonizes, formats, and locks a selected place
 // @author      WMEPH Development Group
 // @include      https://www.waze.com/editor*
@@ -42,7 +42,8 @@
   const SCRIPT_UPDATE_MESSAGE = [
     'v 2026.05.27.00 : Fixed opening hours display of Midnight-Midnight to All Day',
     'v 2026.05.27.01 : Refactor: X-ray mode with proper layer state tracking and restoration for Native WME layers',
-    'v 2026.05.27.01 : Feat: Implement explicit z-index layering for custom map layers',
+    'v 2026.05.27.02 : Feat: Implement explicit z-index layering for custom map layers',
+    'v 2026.05.27.03 : Fix: Add green place filter and fix filter checkbox caching',
   ];
 
   // **************************************************************************************************************
@@ -11679,17 +11680,34 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
     $('#WMEPH-WLStateFilter').click(onWLStateFilterClick);
     $('#WMEPH-WLShare').click(onWLShareClick);
 
-    // Color highlighting
+    // Color highlighting - these affect severity calculations, so clear cache when toggled
     $('#WMEPH-ColorHighlighting').click(bootstrapWmephColorHighlights);
-    $('#WMEPH-DisableHoursHL').click(bootstrapWmephColorHighlights);
-    $('#WMEPH-DisableRankHL').click(bootstrapWmephColorHighlights);
-    $('#WMEPH-DisableWLHL').click(bootstrapWmephColorHighlights);
+    $('#WMEPH-DisableHoursHL').click(() => {
+      saveSettingToLocalStorage('WMEPH-DisableHoursHL');
+      _resultsCache = {};  // Clear cache to recalculate all severities
+      bootstrapWmephColorHighlights();
+    });
+    $('#WMEPH-DisableRankHL').click(() => {
+      saveSettingToLocalStorage('WMEPH-DisableRankHL');
+      _resultsCache = {};  // Clear cache to recalculate all severities
+      bootstrapWmephColorHighlights();
+    });
+    $('#WMEPH-DisableWLHL').click(() => {
+      saveSettingToLocalStorage('WMEPH-DisableWLHL');
+      _resultsCache = {};  // Clear cache to recalculate all severities
+      bootstrapWmephColorHighlights();
+    });
     $('#WMEPH-PLATypeFill').click(() => {
       saveSettingToLocalStorage('WMEPH-PLATypeFill');
       refreshAllHighlights();
     });
     $('#WMEPH-ShowFilterHighlight').click(() => {
       saveSettingToLocalStorage('WMEPH-ShowFilterHighlight');
+      refreshAllHighlights();
+    });
+
+    $('#WMEPH-HideGreenPlaces').click(() => {
+      saveSettingToLocalStorage('WMEPH-HideGreenPlaces');
       refreshAllHighlights();
     });
 
@@ -11768,6 +11786,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
     // Highlighter settings
     $highlighterTab.append('<p>Highlighter Settings:</p>');
     createSettingsCheckbox($highlighterTab, 'WMEPH-ColorHighlighting', 'Enable color highlighting of map to indicate places needing work');
+    createSettingsCheckbox($highlighterTab, 'WMEPH-HideGreenPlaces', 'Disable highlighting for places NOT needing work (green places)');
     createSettingsCheckbox($highlighterTab, 'WMEPH-DisableHoursHL', 'Disable highlighting for missing hours');
     createSettingsCheckbox($highlighterTab, 'WMEPH-DisableRankHL', 'Disable highlighting for places locked above your rank');
     createSettingsCheckbox($highlighterTab, 'WMEPH-DisableWLHL', 'Disable Whitelist highlighting (shows all missing info regardless of WL)');
@@ -12322,7 +12341,12 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
           },
           // Rule 3: Parking lot with severity - both fill (parking type) and stroke (severity severity), excluding lock severities
           {
-            predicate: (props, zoomLevel) => props.wmephHighlight !== '1' && props.parkingType !== undefined && props.wmephSeverity !== undefined && props.wmephSeverity !== 'lock' && props.wmephSeverity !== 'lock1' && props.wmephSeverity !== 'adLock',
+            predicate: (props, zoomLevel) => {
+              const hideGreen = getWMEPHSetting('WMEPH-HideGreenPlaces') === '1';
+              const isGreen = props.wmephSeverity === 0;
+              if (hideGreen && isGreen) return false;
+              return props.wmephHighlight !== '1' && props.parkingType !== undefined && props.wmephSeverity !== undefined && props.wmephSeverity !== 'lock' && props.wmephSeverity !== 'lock1' && props.wmephSeverity !== 'adLock';
+            },
             style: {
               pointRadius: '${getPointRadius}',
               graphicName: '${getGraphicName}',
@@ -12335,7 +12359,12 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
           },
           // Rule 4: Severity only (no parking type) - stroke only, excluding lock severities
           {
-            predicate: (props, zoomLevel) => props.wmephHighlight !== '1' && props.wmephSeverity !== undefined && props.wmephSeverity !== 'lock' && props.wmephSeverity !== 'lock1' && props.wmephSeverity !== 'adLock',
+            predicate: (props, zoomLevel) => {
+              const hideGreen = getWMEPHSetting('WMEPH-HideGreenPlaces') === '1';
+              const isGreen = props.wmephSeverity === 0;
+              if (hideGreen && isGreen) return false;
+              return props.wmephHighlight !== '1' && props.wmephSeverity !== undefined && props.wmephSeverity !== 'lock' && props.wmephSeverity !== 'lock1' && props.wmephSeverity !== 'adLock';
+            },
             style: {
               pointRadius: '${getPointRadius}',
               graphicName: '${getGraphicName}',
@@ -12347,7 +12376,12 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
           },
           // Rule 5: Parking lot only (no severity) - fill only
           {
-            predicate: (props, zoomLevel) => props.wmephHighlight !== '1' && props.parkingType !== undefined,
+            predicate: (props, zoomLevel) => {
+              const hideGreen = getWMEPHSetting('WMEPH-HideGreenPlaces') === '1';
+              const isGreen = props.wmephSeverity === 0;
+              if (hideGreen && isGreen) return false;
+              return props.wmephHighlight !== '1' && props.parkingType !== undefined;
+            },
             style: {
               pointRadius: '${getPointRadius}',
               graphicName: '${getGraphicName}',
