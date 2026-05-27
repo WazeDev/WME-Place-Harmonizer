@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name        WME Place Harmonizer Beta
 // @namespace   WazeUSA
-// @version     2026.05.27.00
+// @version     2026.05.27.01
 // @description Harmonizes, formats, and locks a selected place
 // @author      WMEPH Development Group
 // @include      https://www.waze.com/editor*
@@ -43,12 +43,23 @@
     'v 2026.05.23.00 : fix HN use in search and checks',
     'v 2026.05.26.00 : Small change to highlights to play a little better with PIE',
     'v 2026.05.27.00 : Fixed opening hours display of Midnight-Midnight to All Day',
+    'v 2026.05.27.01 : Refactor: X-ray mode with proper layer state tracking and restoration for Native WME layers',
   ];
 
   // **************************************************************************************************************
   // TODO: SDK Limitations & Workarounds
   // **************************************************************************************************************
-  // 1. Venue.description: Not exposed in WME SDK Venue interface for READING
+  // 1. House Numbers Layer: No SDK setter function exists (setHouseNumbersLayerCheckboxChecked)
+  //    Current Status: Roads, Paths, JunctionBoxes, Hazards, Closures have SDK setters
+  //    Current Solution: Toggle House Numbers via DOM manipulation (toggleLayerCheckboxViaDOM) in X-ray mode
+  //    AFFECTED CODE: toggleXrayMode() function, lines 7159-7162 (enable) and 7189-7192 (restore)
+  //
+  //    WHEN SDK ADDS setHouseNumbersLayerCheckboxChecked:
+  //      1. Replace toggleLayerCheckboxViaDOM() call with: sdk.LayerSwitcher.setHouseNumbersLayerCheckboxChecked({ isChecked: false })
+  //      2. Remove the special-case check for 'HouseNumbers' layer in both enable and restore sections
+  //      3. DELETE toggleLayerCheckboxViaDOM() function (lines 7128-7138)
+  //
+  // 2. Venue.description: Not exposed in WME SDK Venue interface for READING
   //    Current Status: updateVenue() DOES support writing, but Venue object doesn't expose reading
   //    Current Solution: Read from DOM textarea via UPDATED_FIELDS.description selector during WMEPH mode
   //
@@ -7111,70 +7122,133 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
     saveWhitelistToLS(true);
   }
 
-  function toggleXrayMode(enable) {
-    setWMEPHSetting('WMEPH_xrayMode_enabled', enable);
+  // Mutable state for X-ray mode (used by predicate in venues layer styling)
+  // Stores original layer states before X-ray modifications
+  const xrayState = {
+    enabled: false,
+    savedLayerStates: new Map()  // Stores original visibility/opacity of each layer
+  };
 
+  // Map layer names to their DOM IDs for state querying
+  const layerDomIdMap = {
+    'Roads': 'layer-switcher-item_road',
+    'Paths': 'layer-switcher-item_paths',
+    'JunctionBoxes': 'layer-switcher-item_junction_boxes',
+    'Hazards': 'layer-switcher-item_hazards',
+    'Closures': 'layer-switcher-item_closures',
+    'HouseNumbers': 'layer-switcher-item_house_numbers'
+  };
+
+  function getLayerCheckboxState(layerName) {
+    const domId = layerDomIdMap[layerName];
+    if (!domId) return true;  // Default to visible if not found
+    const checkbox = document.getElementById(domId);
+    return checkbox?.hasAttribute('checked') ?? true;
+  }
+
+  // NOTE: House Numbers layer does not have an SDK setter (setHouseNumbersLayerCheckboxChecked doesn't exist)
+  // So we toggle it via DOM manipulation instead. If SDK adds support later, replace this with the setter.
+  function toggleLayerCheckboxViaDOM(layerName, isChecked) {
+    const domId = layerDomIdMap[layerName];
+    if (!domId) return false;
+    const checkbox = document.getElementById(domId);
+    if (!checkbox) return false;
+
+    const shouldBeChecked = isChecked;
+    const isCurrentlyChecked = checkbox.hasAttribute('checked');
+
+    if (shouldBeChecked !== isCurrentlyChecked) {
+      checkbox.click();  // Toggle by clicking
+    }
+    return true;
+  }
+
+  function toggleXrayMode(enable) {
     const layersToControl = [
       { name: 'Roads', setter: 'setRoadsLayerCheckboxChecked' },
       { name: 'Paths', setter: 'setPathsLayerCheckboxChecked' },
       { name: 'JunctionBoxes', setter: 'setJunctionBoxesLayerCheckboxChecked' },
       { name: 'Hazards', setter: 'setHazardsLayerCheckboxChecked' },
       { name: 'Closures', setter: 'setClosuresLayerCheckboxChecked' },
+      { name: 'HouseNumbers', setter: 'setHouseNumbersLayerCheckboxChecked' },
     ];
 
-    if (enable) {
-      // X-ray mode: Hide background layers to see details underneath
-      logDev('X-Ray: Enabling - hiding background layers');
+    const xrayEnabled = enable;
+    xrayState.enabled = enable;  // Update mutable state for predicate
+
+    if (xrayEnabled) {
+      // ENABLE X-RAY: Save current states, then hide layers
+      logDev('X-Ray: Saving layer states and enabling X-ray mode');
 
       layersToControl.forEach((layer) => {
         try {
-          sdk.LayerSwitcher[layer.setter]({ isChecked: false });
-          logDev(`X-Ray: Hid ${layer.name} layer`);
+          // Query actual DOM state before hiding
+          const isChecked = getLayerCheckboxState(layer.name);
+          xrayState.savedLayerStates.set(layer.name, isChecked);
+          logDev(`X-Ray: Saved ${layer.name} state: ${isChecked}`);
+
+          // House Numbers doesn't have an SDK setter, use DOM toggle instead
+          if (layer.name === 'HouseNumbers') {
+            toggleLayerCheckboxViaDOM(layer.name, false);
+            logDev(`X-Ray: Hid ${layer.name} layer (via DOM)`);
+          } else {
+            sdk.LayerSwitcher[layer.setter]({ isChecked: false });
+            logDev(`X-Ray: Hid ${layer.name} layer`);
+          }
         } catch (e) {
           logDev(`X-Ray: Could not hide ${layer.name} layer:`, e);
         }
       });
+
+      // Save and reduce venues layer opacity
+      try {
+        const currentOpacity = sdk.Map.getLayerOpacity({ layerName: 'venues' });
+        xrayState.savedLayerStates.set('venues', currentOpacity);
+        logDev(`X-Ray: Saved venues opacity: ${currentOpacity}`);
+
+        sdk.Map.addStyleRuleToLayer({
+          layerName: 'venues',
+          styleRules: [{
+            predicate: () => xrayState.enabled,  // Only apply when X-ray is enabled
+            style: { fillOpacity: 0.1, strokeOpacity: 0.1 }
+          }]
+        });
+        sdk.Map.redrawLayer({ layerName: 'venues' });
+        logDev('X-Ray: Reduced venues layer opacity');
+      } catch (e) {
+        logDev('X-Ray: Could not update venues layer:', e);
+      }
+
+      redrawLayer(_dupeLayer);
     } else {
-      // Disable X-ray mode: Restore all background layers
-      logDev('X-Ray: Disabling - restoring all background layers');
+      // DISABLE X-RAY: Restore saved states
+      logDev('X-Ray: Restoring saved layer states');
 
       layersToControl.forEach((layer) => {
         try {
-          sdk.LayerSwitcher[layer.setter]({ isChecked: true });
-          logDev(`X-Ray: Restored ${layer.name} layer`);
+          const savedVisibility = xrayState.savedLayerStates.get(layer.name) ?? true;
+
+          // House Numbers doesn't have an SDK setter, use DOM toggle instead
+          if (layer.name === 'HouseNumbers') {
+            toggleLayerCheckboxViaDOM(layer.name, savedVisibility);
+            logDev(`X-Ray: Restored ${layer.name} to ${savedVisibility} (via DOM)`);
+          } else {
+            sdk.LayerSwitcher[layer.setter]({ isChecked: savedVisibility });
+            logDev(`X-Ray: Restored ${layer.name} to ${savedVisibility}`);
+          }
         } catch (e) {
           logDev(`X-Ray: Could not restore ${layer.name} layer:`, e);
         }
       });
 
-      // Restore editable data layers to normal opacity
-      /*
-            try {
-                sdk.Map.addStyleRuleToLayer({
-                    layerName: 'segments',
-                    styleRules: [{
-                        style: { strokeOpacity: 0, fillOpacity: 0 }
-                    }]
-                });
-            } catch (e) {
-                logDev('X-Ray: Could not restore segments layer:', e);
-            }
-
-            try {
-                sdk.Map.addStyleRuleToLayer({
-                    layerName: 'venues',
-                    styleRules: [{
-                        style: { fillOpacity: 1, strokeOpacity: 1 }
-                    }]
-                });
-            } catch (e) {
-                logDev('X-Ray: Could not restore venues layer:', e);
-            }
-            */
-
-      redrawLayer(_dupeLayer);
+      // Restore venues layer (predicate will handle it since xrayState.enabled is now false)
+      try {
+        sdk.Map.redrawLayer({ layerName: 'venues' });
+        logDev('X-Ray: Restored venues layer');
+      } catch (e) {
+        logDev('X-Ray: Could not restore venues layer:', e);
+      }
     }
-    if (!enable) return;
   }
 
   /**
@@ -11999,6 +12073,11 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
   function onWindowBeforeUnload() {
     // SDK shortcuts are saved automatically via saveShortcut() in registerShortcut()
     // No manual save needed on unload
+
+    // Ensure X-ray mode is off on page unload to restore layer states
+    if (xrayState.enabled) {
+      toggleXrayMode(false);
+    }
   }
 
   /**
@@ -12071,7 +12150,6 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
       'WMEPH-featuresExamined',
       'WMEPH-runOnce-defaultToOff-plaGoogleLinkChecks',
       'WMEPH-OneTimeWLBU',
-      'WMEPH_xrayMode_enabled',
       'WMEPH_WLAddCount',
       'WMEPH_lastVersion',
       'WMEPH_ColorHighlighting',
@@ -12396,12 +12474,20 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
 
     createObserver();
 
-    const xrayMode = getWMEPHSetting('WMEPH_xrayMode_enabled') === 'true';
-
     // X-ray Mode: Fade roads/satellite/mapComments to see map details underneath
     // Uses sdk.Map.addStyleRuleToLayer() to reduce opacity of background layers
-    sdk.LayerSwitcher.addLayerCheckbox({ name: 'WMEPH x-ray mode', isChecked: xrayMode });
-    if (xrayMode) setTimeout(() => toggleXrayMode(true), 2000);
+    // Always starts unchecked to avoid confusion if user forgets it's enabled
+    sdk.LayerSwitcher.addLayerCheckbox({ name: 'WMEPH x-ray mode', isChecked: false });
+
+    // If the SDK remembered X-ray mode as checked from a previous session, apply it immediately
+    try {
+      if (sdk.LayerSwitcher.isLayerCheckboxChecked({ name: 'WMEPH x-ray mode' })) {
+        setTimeout(() => toggleXrayMode(true), 500);
+      }
+    } catch (e) {
+      logDev('X-Ray: Could not check initial state:', e);
+    }
+
     sdk.Events.on({
       eventName: 'wme-layer-checkbox-toggled',
       eventHandler: (payload) => {
