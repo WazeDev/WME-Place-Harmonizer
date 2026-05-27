@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name        WME Place Harmonizer Beta
 // @namespace   WazeUSA
-// @version     2026.05.26.00
+// @version     2026.05.27.00
 // @description Harmonizes, formats, and locks a selected place
 // @author      WMEPH Development Group
 // @include      https://www.waze.com/editor*
@@ -42,6 +42,7 @@
   const SCRIPT_UPDATE_MESSAGE = [
     'v 2026.05.23.00 : fix HN use in search and checks',
     'v 2026.05.26.00 : Small change to highlights to play a little better with PIE',
+    'v 2026.05.27.00 : Fixed opening hours display of Midnight-Midnight to All Day',
   ];
 
   // **************************************************************************************************************
@@ -1615,7 +1616,7 @@
   function is247Hours(openingHours) {
     if (!openingHours || openingHours.length !== 1) return false;
     const hours = openingHours[0];
-    return hours.days?.length === 7 && (hours.allDay === true || (hours.fromHour === '00:00' && hours.toHour === '00:00'));
+    return hours.days?.length === 7 && hours.fromHour === '00:00' && hours.toHour === '00:00';
   }
 
   function isEmergencyRoom(venue) {
@@ -5207,7 +5208,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
       }
 
       static #getHoursString(hoursObject) {
-        if (hoursObject.allDay === true) return 'All day';
+        if (hoursObject.fromHour === '00:00' && hoursObject.toHour === '00:00') return 'All Day';
         const fromHour = this.#formatAmPm(hoursObject.fromHour);
         const toHour = this.#formatAmPm(hoursObject.toHour);
         return `${fromHour}–${toHour}`;
@@ -5226,19 +5227,33 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
       }
 
       static #getHoursStringArray(hoursObjects) {
-        const daysWithHours = [];
-        const outputArray = hoursObjects.map((hoursObject) => {
-          const days = this.#getOrderedDaysArray(hoursObject);
-          daysWithHours.push(...days);
+        // Group days by their time range (consolidate days with same hours)
+        const timeRangeMap = new Map(); // key: "fromHour-toHour", value: array of days
+        const daysWithHours = new Set();
 
-          // Concatenate the group strings and append hours range
-          const daysString = this.#getDaysString(days);
-          const hoursString = this.#getHoursString(hoursObject);
-          return `${daysString}:&nbsp&nbsp${hoursString}`;
+        hoursObjects.forEach((hoursObject) => {
+          const timeKey = `${hoursObject.fromHour}-${hoursObject.toHour}`;
+          const days = this.#getOrderedDaysArray(hoursObject);
+
+          if (!timeRangeMap.has(timeKey)) {
+            timeRangeMap.set(timeKey, []);
+          }
+          timeRangeMap.get(timeKey).push(...days);
+          days.forEach((day) => daysWithHours.add(day));
         });
 
-        // Find closed days
-        const closedDays = [1, 2, 3, 4, 5, 6, 7].filter((day) => !daysWithHours.includes(day));
+        // Build output array from consolidated time ranges
+        const outputArray = [];
+        timeRangeMap.forEach((days, timeKey) => {
+          const [fromHour, toHour] = timeKey.split('-');
+          const hoursObject = { fromHour, toHour, days: [] }; // temp object for formatting
+          const hoursString = this.#getHoursString(hoursObject);
+          const daysString = this.#getDaysString(days.sort((a, b) => a - b));
+          outputArray.push(`${daysString}:&nbsp&nbsp${hoursString}`);
+        });
+
+        // Find and add closed days
+        const closedDays = [1, 2, 3, 4, 5, 6, 7].filter((day) => !daysWithHours.has(day));
         if (closedDays.length) {
           outputArray.push(`${this.#getDaysString(closedDays)}:&nbsp&nbspCLOSED`);
         }
@@ -8185,7 +8200,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
           checked = toggle ? !_servicesBanner.add247.checked : checked;
 
           if (checked) {
-            addUpdateAction(venue, { openingHours: [new OpeningHour({ days: [1, 2, 3, 4, 5, 6, 0], fromHour: '00:00', toHour: '00:00', allDay: true })] }, actions);
+            addUpdateAction(venue, { openingHours: [new OpeningHour({ days: [1, 2, 3, 4, 5, 6, 0], fromHour: '00:00', toHour: '00:00' })] }, actions);
           } else {
             addUpdateAction(venue, { openingHours: [] }, actions);
           }
