@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name        WME Place Harmonizer Beta
 // @namespace   WazeUSA
-// @version     2026.05.27.01
+// @version     2026.05.27.02
 // @description Harmonizes, formats, and locks a selected place
 // @author      WMEPH Development Group
 // @include      https://www.waze.com/editor*
@@ -40,10 +40,9 @@
   // **************************************************************************************************************
   const SHOW_UPDATE_MESSAGE = true;
   const SCRIPT_UPDATE_MESSAGE = [
-    'v 2026.05.23.00 : fix HN use in search and checks',
-    'v 2026.05.26.00 : Small change to highlights to play a little better with PIE',
     'v 2026.05.27.00 : Fixed opening hours display of Midnight-Midnight to All Day',
     'v 2026.05.27.01 : Refactor: X-ray mode with proper layer state tracking and restoration for Native WME layers',
+    'v 2026.05.27.01 : Feat: Implement explicit z-index layering for custom map layers',
   ];
 
   // **************************************************************************************************************
@@ -7213,7 +7212,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
             style: { fillOpacity: 0.1, strokeOpacity: 0.1 }
           }]
         });
-        sdk.Map.redrawLayer({ layerName: 'venues' });
+        redrawLayer('venues');
         logDev('X-Ray: Reduced venues layer opacity');
       } catch (e) {
         logDev('X-Ray: Could not update venues layer:', e);
@@ -7243,7 +7242,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
 
       // Restore venues layer (predicate will handle it since xrayState.enabled is now false)
       try {
-        sdk.Map.redrawLayer({ layerName: 'venues' });
+        redrawLayer('venues');
         logDev('X-Ray: Restored venues layer');
       } catch (e) {
         logDev('X-Ray: Could not restore venues layer:', e);
@@ -12367,6 +12366,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
     try {
       sdk.Map.addLayer({
         layerName: 'wmeph_google_link',
+        zIndexing: true,
         styleContext: {
           getLabel: (context) => context.feature?.properties?.label ?? '',
         },
@@ -12467,6 +12467,18 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
 
     // Don't Add checkbox for dupe labels layer using LayerSwitcher
     // sdk.LayerSwitcher.addLayerCheckbox({ name: 'WMEPH Dupe Labels', isChecked: true });
+
+    // Initialize layer z-indexes: venues as baseline, then stack custom layers on top
+    // Order (bottom to top): venues < wmeph_google_link < wmeph_dupe_labels < wmeph_highlights
+    try {
+      const venuesZIndex = sdk.Map.getLayerZIndex({ layerName: 'venues' });
+      sdk.Map.setLayerZIndex({ layerName: 'wmeph_google_link', zIndex: venuesZIndex + 1 });
+      sdk.Map.setLayerZIndex({ layerName: _dupeLayer, zIndex: venuesZIndex + 2 });
+      sdk.Map.setLayerZIndex({ layerName: _layer, zIndex: venuesZIndex + 3 });
+      logDev(`Layer z-indexes initialized: venues=${venuesZIndex}, google_link=${venuesZIndex + 1}, dupe_labels=${venuesZIndex + 2}, highlights=${venuesZIndex + 3}`);
+    } catch (e) {
+      logDev('Error initializing layer z-indexes:', e);
+    }
 
     if (getWMEPHSetting('WMEPH-featuresExamined') === null) {
       setWMEPHSetting('WMEPH-featuresExamined', '0'); // Storage for whether the User has pressed the button to look at updates
