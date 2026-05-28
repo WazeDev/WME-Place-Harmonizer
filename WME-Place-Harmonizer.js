@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name        WME Place Harmonizer Beta
 // @namespace   WazeUSA
-// @version     2026.05.27.03
+// @version     2026.05.28.00
 // @description Harmonizes, formats, and locks a selected place
 // @author      WMEPH Development Group
 // @include      https://www.waze.com/editor*
@@ -44,6 +44,7 @@
     'v 2026.05.27.01 : Refactor: X-ray mode with proper layer state tracking and restoration for Native WME layers',
     'v 2026.05.27.02 : Feat: Implement explicit z-index layering for custom map layers',
     'v 2026.05.27.03 : Fix: Add green place filter and fix filter checkbox caching',
+    'v 2026.05.28.00 : Fix: Make Gas Station primany category bug fixed.',
   ];
 
   // **************************************************************************************************************
@@ -3523,7 +3524,7 @@
 
       action() {
         // Move Gas category to the first position
-        const categories = insertAtIndex(this.args.venue.categories, GAS_STATION, 0);
+        const categories = insertAtIndex(this.args.venue.categories, 'GAS_STATION', 0);
         addUpdateAction(this.args.venue, { categories }, null, true);
       }
     },
