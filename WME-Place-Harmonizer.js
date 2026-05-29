@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name        WME Place Harmonizer Beta
 // @namespace   WazeUSA
-// @version     2026.05.28.00
+// @version     2026.05.29.00
 // @description Harmonizes, formats, and locks a selected place
 // @author      WMEPH Development Group
 // @include      https://www.waze.com/editor*
@@ -40,11 +40,8 @@
   // **************************************************************************************************************
   const SHOW_UPDATE_MESSAGE = true;
   const SCRIPT_UPDATE_MESSAGE = [
-    'v 2026.05.27.00 : Fixed opening hours display of Midnight-Midnight to All Day',
-    'v 2026.05.27.01 : Refactor: X-ray mode with proper layer state tracking and restoration for Native WME layers',
-    'v 2026.05.27.02 : Feat: Implement explicit z-index layering for custom map layers',
-    'v 2026.05.27.03 : Fix: Add green place filter and fix filter checkbox caching',
     'v 2026.05.28.00 : Fix: Make Gas Station primany category bug fixed.',
+    'v 2026.05.29.00 : Fix: Prevent Nudge button from reappearing after initial click',
   ];
 
   // **************************************************************************************************************
@@ -4142,7 +4139,7 @@
 
       static venueIsFlaggable(args) {
         const isUnchanged = !args.venue.isNew && !args.venue.modificationData.updatedBy;
-        let flaggable = isUnchanged && !args.categories.includes('RESIDENCE_HOME');
+        let flaggable = isUnchanged && !args.categories.includes('RESIDENCE_HOME') && !args.venue._hasBeenNudged;
         if (flaggable) {
           const lastUpdatedByName = args.venue.modificationData.updatedBy ?? args.venue.modificationData.createdBy;
           flaggable = this.#botNames.some((botName) => botName.test(lastUpdatedByName));
@@ -4793,7 +4790,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
       }
 
       static venueIsFlaggable(args) {
-        if (USER.rank >= 2 && args.venue.externalProviderIds && !(args.categories.includes('PARKING_LOT') && args.ignoreParkingLots)) {
+        if (USER.rank >= 2 && args.venue.externalProviderIds && !(args.categories.includes('PARKING_LOT') && args.ignoreParkingLots) && !args.venue._hasBeenNudged) {
           if (!args.categories.some((cat) => this.#categoriesToIgnore.includes(cat))) {
             const provIDs = args.venue.externalProviderIds;
             if (!(provIDs && provIDs.length)) {
@@ -5416,7 +5413,8 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
           !isVenueResidential(args.venue) &&
           this.#venueIsOld(args.venue) && // Check uses the updated logic now
           args.openingHours?.length &&
-          args.categories.some((cat) => this.#categoriesToCheck.includes(cat))
+          args.categories.some((cat) => this.#categoriesToCheck.includes(cat)) &&
+          !args.venue._hasBeenNudged
         );
       }
 
@@ -6917,6 +6915,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
     }
     // SDK tracks changes as unsaved; user commits via WME Save button
     sdk.DataModel.Venues.updateVenue({ venueId: venue.id, geometry: newGeometry });
+    venue._hasBeenNudged = true;
   }
 
   /**
