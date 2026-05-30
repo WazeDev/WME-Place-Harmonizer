@@ -707,6 +707,9 @@
 
       /* Transitions */
       --transition-fast: all 0.2s ease;
+
+      /* Gradients */
+      --wmeph-gradient-header: linear-gradient(135deg, #0066cc, #0052a3);
     }
 
     [wz-theme="dark"] {
@@ -1110,7 +1113,7 @@
        Scoped Component Classes
        ==================================================================== */
     .wmeph-header {
-      background: linear-gradient(135deg, #0066cc, #0052a3);
+      background: var(--wmeph-gradient-header);
       padding: var(--spacing-md);
       border-radius: var(--radius-lg);
       margin-bottom: var(--spacing-md);
