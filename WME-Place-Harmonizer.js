@@ -12816,6 +12816,43 @@
   }
 
   /**
+   * Creates a collapsible section with header and body, matching GIS-Layers pattern.
+   * Header is clickable to toggle collapsed state; icon rotates on collapse.
+   * @param {string} title - Section header text (e.g., "General Settings")
+   * @param {string} iconClass - Font Awesome icon class (e.g., "fa-cogs", "fa-tools")
+   * @param {boolean} isExpanded - True for expanded (default), false for collapsed
+   * @returns {Object} Object with { section, header, body } DOM elements
+   */
+  function createCollapsibleSection(title, iconClass, isExpanded = true) {
+    const section = $('<div>', {
+      class: `settings-section ${isExpanded ? '' : 'collapsed'}`
+    });
+
+    const header = $('<div>', { class: 'settings-section-header' }).append(
+      $('<div>', { class: 'settings-section-title' }).append(
+        $('<i>', { class: `fa ${iconClass}` }),
+        $('<span>').text(title)
+      ),
+      $('<i>', { class: 'fa fa-chevron-down section-toggle-icon' })
+    );
+
+    const body = $('<div>', { class: 'settings-section-body' });
+
+    section.append(header, body);
+
+    // Toggle collapse on header click
+    header.on('click', function() {
+      section.toggleClass('collapsed');
+    });
+
+    return {
+      section: section[0],
+      header: header[0],
+      body: body[0]
+    };
+  }
+
+  /**
    * Initializes all settings checkboxes and button handlers in the WMEPH settings tab.
    * Sets default values, attaches click handlers, and configures feature-specific behavior.
    * Handles role-based settings visibility (dev/beta users see additional options).
