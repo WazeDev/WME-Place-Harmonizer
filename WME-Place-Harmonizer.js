@@ -699,13 +699,12 @@
       --wmeph-radius-pill: 14px;
       --wmeph-radius-round: 9px;
 
-      /* Typography */
-      --font-default: "Boing", sans-serif;
-      --font-text: "Open Sans", Alef, helvetica, sans-serif;
-      --font-size-xs: 9px;
-      --font-size-sm: 12px;
-      --font-size-base: 14px;
-      --font-size-lg: 16px;
+      /* Typography - aligned with WME */
+      --wmeph-font-family: "Rubik", "Waze Boing", "Waze Boing HB light", sans-serif;
+      --wmeph-font-size-xs: 9px;
+      --wmeph-font-size-sm: 12px;
+      --wmeph-font-size-base: 14px;
+      --wmeph-font-size-lg: 16px;
 
       /* Transitions */
       --transition-fast: all 0.2s ease;
@@ -747,7 +746,7 @@
     #WMEPH_banner {
       background-color: var(--wmeph-bg-primary);
       color: var(--wmeph-text-default);
-      font-size: var(--font-size-base);
+      font-size: var(--wmeph-font-size-base);
       padding: var(--wmeph-spacing-sm);
       margin: var(--wmeph-spacing-xs) var(--wmeph-spacing-xs) var(--wmeph-spacing-xs) var(--wmeph-spacing-xs);
       line-height: 18px;
@@ -756,9 +755,9 @@
     }
 
     #WMEPH_banner input[type=text] {
-      font-size: var(--font-size-sm) !important;
+      font-size: var(--wmeph-font-size-sm) !important;
       height: 22px !important;
-      font-family: var(--font-text) !important;
+      font-family: var(--wmeph-font-family) !important;
     }
 
     #WMEPH_banner div:last-child {
@@ -832,7 +831,7 @@
       align-items: center;
       padding: var(--wmeph-spacing-xs);
       color: var(--wmeph-text-default);
-      font-size: var(--font-size-base);
+      font-size: var(--wmeph-font-size-base);
     }
 
     #wmeph-run-panel .wmeph-run-btn {
@@ -840,7 +839,7 @@
       min-width: 83px;
       height: 28px;
       padding: var(--wmeph-spacing-xs) var(--wmeph-spacing-sm) !important;
-      font-size: var(--font-size-sm) !important;
+      font-size: var(--wmeph-font-size-sm) !important;
       border-radius: var(--wmeph-radius-pill);
       border: 1px solid;
       background-color: transparent !important;
@@ -896,7 +895,7 @@
     #wmeph-run-panel .wmeph-clone-btn {
       height: 18px !important;
       padding: 0 10px !important;
-      font-size: var(--font-size-xs) !important;
+      font-size: var(--wmeph-font-size-xs) !important;
       border-radius: var(--wmeph-radius-round);
       border: 1px solid;
       background-color: transparent !important;
@@ -1018,7 +1017,7 @@
       padding: 2px 6px !important;
       margin-bottom: 0 !important;
       margin-right: 0 !important;
-      font-size: var(--font-size-sm);
+      font-size: var(--wmeph-font-size-sm);
       height: 18px;
       flex-shrink: 0;
     }
@@ -1026,7 +1025,7 @@
     #WMEPH_tools .wmeph-clone-btn {
       height: 18px !important;
       padding: 0 10px !important;
-      font-size: var(--font-size-xs) !important;
+      font-size: var(--wmeph-font-size-xs) !important;
       border-radius: var(--wmeph-radius-round);
       border: 1px solid;
       background-color: transparent !important;
@@ -1056,7 +1055,7 @@
       display: inline-block;
       font-weight: normal;
       height: 24px;
-      font-family: var(--font-default);
+      font-family: var(--wmeph-font-family);
       transition: var(--transition-fast);
     }
 
@@ -1126,7 +1125,7 @@
       border-bottom: 1px solid var(--wmeph-border-light);
       padding: 2px;
       font-weight: 600;
-      font-size: var(--font-size-base);
+      font-size: var(--wmeph-font-size-base);
       color: var(--wmeph-text-secondary);
       cursor: default;
       user-select: none;
