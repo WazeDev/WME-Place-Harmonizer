@@ -13025,7 +13025,7 @@
     tabPane.appendChild(container);
 
     // Action button card
-    const actionCard = makeCard('Refresh Data', 'fa-sync-alt');
+    const actionCard = createCollapsibleSection('Refresh Data', 'fa-sync-alt', true);
     const reloadBtn = createElem('button', {
       id: 'WMEPH-ReloadDataBtn',
       class: 'wmeph-btn',
@@ -13033,7 +13033,7 @@
       title: 'Refresh Data',
     });
     actionCard.body.appendChild(makeRow('', reloadBtn));
-    container.appendChild(actionCard.card);
+    container.appendChild(actionCard.section);
 
     // Bootstrap Nav Tabs
     const navTabs = $('<ul>', { class: 'nav nav-tabs wmeph-internal-tabs', role: 'tablist' }).append(
@@ -13126,29 +13126,29 @@
       moderators: moderationPanel[0]
     };
 
-    // Harmonizer tab content
-    const harmonizerCard1 = makeCard('General Settings', 'fa-cogs');
-    createSettingsCheckbox(harmonizerCard1.body, 'WMEPH-WebSearchNewTab', 'Open URL & Search Results in new tab instead of new window');
-    createSettingsCheckbox(harmonizerCard1.body, 'WMEPH-EnableIAZoom', 'Enable zoom & center for places with no address');
-    createSettingsCheckbox(harmonizerCard1.body, 'WMEPH-HidePlacesWiki', 'Hide "Places Wiki" button in results banner');
-    createSettingsCheckbox(harmonizerCard1.body, 'WMEPH-HideServicesButtons', 'Hide services buttons in results banner');
-    createSettingsCheckbox(harmonizerCard1.body, 'WMEPH-HidePURWebSearch', 'Hide "Web Search" button on PUR popups');
-    createSettingsCheckbox(harmonizerCard1.body, 'WMEPH-ExcludePLADupes', 'Exclude parking lots when searching for duplicate places');
-    createSettingsCheckbox(harmonizerCard1.body, 'WMEPH-ShowPLAExitWhileClosed', 'Always ask if cars can exit parking lots');
-    tabPanels.harmonizer.appendChild(harmonizerCard1.card);
+    // Harmonizer tab content - General Settings
+    const generalSettings = createCollapsibleSection('General Settings', 'fa-cogs', true);
+    createSettingsCheckbox(generalSettings.body, 'WMEPH-WebSearchNewTab', 'Open URL & Search Results in new tab instead of new window');
+    createSettingsCheckbox(generalSettings.body, 'WMEPH-EnableIAZoom', 'Enable zoom & center for places with no address');
+    createSettingsCheckbox(generalSettings.body, 'WMEPH-HidePlacesWiki', 'Hide "Places Wiki" button in results banner');
+    createSettingsCheckbox(generalSettings.body, 'WMEPH-HideServicesButtons', 'Hide services buttons in results banner');
+    createSettingsCheckbox(generalSettings.body, 'WMEPH-HidePURWebSearch', 'Hide "Web Search" button on PUR popups');
+    createSettingsCheckbox(generalSettings.body, 'WMEPH-ExcludePLADupes', 'Exclude parking lots when searching for duplicate places');
+    createSettingsCheckbox(generalSettings.body, 'WMEPH-ShowPLAExitWhileClosed', 'Always ask if cars can exit parking lots');
+    tabPanels.harmonizer.appendChild(generalSettings.section);
 
     // Advanced settings (dev/beta only)
     if (USER.isDevUser || USER.isBetaUser || USER.rank >= 2) {
-      const harmonizerCard2 = makeCard('Advanced Settings', 'fa-tools');
-      createSettingsCheckbox(harmonizerCard2.body, 'WMEPH-DisablePLAExtProviderCheck', 'Disable check for "Google place link" on Parking Lot Areas');
-      createSettingsCheckbox(harmonizerCard2.body, 'WMEPH-AddAddresses', 'Add detected address fields to places with no address');
-      createSettingsCheckbox(harmonizerCard2.body, 'WMEPH-EnableCloneMode', 'Enable place cloning tools');
-      createSettingsCheckbox(harmonizerCard2.body, 'WMEPH-AutoLockRPPs', 'Lock residential place points to region default');
-      tabPanels.harmonizer.appendChild(harmonizerCard2.card);
+      const advancedSettings = createCollapsibleSection('Advanced Settings', 'fa-tools', false);
+      createSettingsCheckbox(advancedSettings.body, 'WMEPH-DisablePLAExtProviderCheck', 'Disable check for "Google place link" on Parking Lot Areas');
+      createSettingsCheckbox(advancedSettings.body, 'WMEPH-AddAddresses', 'Add detected address fields to places with no address');
+      createSettingsCheckbox(advancedSettings.body, 'WMEPH-EnableCloneMode', 'Enable place cloning tools');
+      createSettingsCheckbox(advancedSettings.body, 'WMEPH-AutoLockRPPs', 'Lock residential place points to region default');
+      tabPanels.harmonizer.appendChild(advancedSettings.section);
     }
 
-    // Keyboard shortcut card
-    const kbCard = makeCard('Keyboard Shortcut', 'fa-keyboard');
+    // Keyboard shortcut section
+    const kbSettings = createCollapsibleSection('Keyboard Shortcut', 'fa-keyboard', true);
     const kbWarnDiv = createElem('div', { id: 'PlaceHarmonizerKBWarn' });
     const kbInput = createElem('input', {
       type: 'text',
@@ -13158,40 +13158,40 @@
       style: 'width: 60px;',
     });
     const kbCurrentDiv = createElem('div', { id: 'PlaceHarmonizerKBCurrent' });
-    kbCard.body.appendChild(kbWarnDiv);
-    kbCard.body.appendChild(makeRow('Shortcut Letter (a-Z):', kbInput));
-    createSettingsCheckbox(kbCard.body, 'WMEPH-KBSModifierKey', 'Use Ctrl instead of Alt');
-    kbCard.body.appendChild(kbCurrentDiv);
-    tabPanels.harmonizer.appendChild(kbCard.card);
+    kbSettings.body.appendChild(kbWarnDiv);
+    kbSettings.body.appendChild(makeRow('Shortcut Letter (a-Z):', kbInput));
+    createSettingsCheckbox(kbSettings.body, 'WMEPH-KBSModifierKey', 'Use Ctrl instead of Alt');
+    kbSettings.body.appendChild(kbCurrentDiv);
+    tabPanels.harmonizer.appendChild(kbSettings.section);
 
     // Dev settings (dev only)
     if (USER.isDevUser) {
-      const devCard = makeCard('Dev Settings', 'fa-flask');
-      createSettingsCheckbox(devCard.body, 'WMEPH-RegionOverride', 'Disable Region Specificity');
-      tabPanels.harmonizer.appendChild(devCard.card);
+      const devSettings = createCollapsibleSection('Dev Settings', 'fa-flask', false);
+      createSettingsCheckbox(devSettings.body, 'WMEPH-RegionOverride', 'Disable Region Specificity');
+      tabPanels.harmonizer.appendChild(devSettings.section);
     }
 
-    // Links card
-    const linksCard = makeCard('Resources', 'fa-link');
+    // Resources section
+    const resourcesSection = createCollapsibleSection('Resources', 'fa-link', true);
     const wikiLink = createElem('a', { href: URLS.placesWiki, target: '_blank', textContent: 'Open the WME Places Wiki page' });
     const forumLink = createElem('a', { href: URLS.forum, target: '_blank', textContent: 'Submit script feedback & suggestions' });
-    linksCard.body.appendChild(makeRow('', wikiLink));
-    linksCard.body.appendChild(makeRow('', forumLink));
-    tabPanels.harmonizer.appendChild(linksCard.card);
+    resourcesSection.body.appendChild(makeRow('', wikiLink));
+    resourcesSection.body.appendChild(makeRow('', forumLink));
+    tabPanels.harmonizer.appendChild(resourcesSection.section);
 
-    // Highlighter tab content
-    const highlighterCard = makeCard('Display Options', 'fa-palette');
-    createSettingsCheckbox(highlighterCard.body, 'WMEPH-ColorHighlighting', 'Enable color highlighting of map to indicate places needing work');
-    createSettingsCheckbox(highlighterCard.body, 'WMEPH-HideGreenPlaces', 'Disable highlighting for places NOT needing work (green places)');
-    createSettingsCheckbox(highlighterCard.body, 'WMEPH-DisableHoursHL', 'Disable highlighting for missing hours');
-    createSettingsCheckbox(highlighterCard.body, 'WMEPH-DisableRankHL', 'Disable highlighting for places locked above your rank');
-    createSettingsCheckbox(highlighterCard.body, 'WMEPH-DisableWLHL', 'Disable Whitelist highlighting (shows all missing info regardless of WL)');
-    createSettingsCheckbox(highlighterCard.body, 'WMEPH-PLATypeFill', 'Fill parking lots based on type (public=blue, restricted=yellow, private=red)');
-    createSettingsCheckbox(highlighterCard.body, 'WMEPH-ShowFilterHighlight', 'Highlight places without Customer Parking service');
-    tabPanels.highlighter.appendChild(highlighterCard.card);
+    // Highlighter tab content - Display Options
+    const displayOptions = createCollapsibleSection('Display Options', 'fa-palette', true);
+    createSettingsCheckbox(displayOptions.body, 'WMEPH-ColorHighlighting', 'Enable color highlighting of map to indicate places needing work');
+    createSettingsCheckbox(displayOptions.body, 'WMEPH-HideGreenPlaces', 'Disable highlighting for places NOT needing work (green places)');
+    createSettingsCheckbox(displayOptions.body, 'WMEPH-DisableHoursHL', 'Disable highlighting for missing hours');
+    createSettingsCheckbox(displayOptions.body, 'WMEPH-DisableRankHL', 'Disable highlighting for places locked above your rank');
+    createSettingsCheckbox(displayOptions.body, 'WMEPH-DisableWLHL', 'Disable Whitelist highlighting (shows all missing info regardless of WL)');
+    createSettingsCheckbox(displayOptions.body, 'WMEPH-PLATypeFill', 'Fill parking lots based on type (public=blue, restricted=yellow, private=red)');
+    createSettingsCheckbox(displayOptions.body, 'WMEPH-ShowFilterHighlight', 'Highlight places without Customer Parking service');
+    tabPanels.highlighter.appendChild(displayOptions.section);
 
-    // WL Tools tab content
-    const wlCard = makeCard('Whitelist Tools', 'fa-database');
+    // WL Tools tab content - Whitelist Tools
+    const wlToolsSection = createCollapsibleSection('Whitelist Tools', 'fa-database', true);
     const wlInput = createElem('input', {
       type: 'text',
       id: 'WMEPH-WLInput',
@@ -13199,7 +13199,7 @@
       style: 'width: 100%; margin-bottom: 8px;',
       placeholder: 'Whitelist string',
     });
-    wlCard.body.appendChild(wlInput);
+    wlToolsSection.body.appendChild(wlInput);
 
     const wlBtnRow1 = createElem('div', { class: 'wmeph-row', style: 'gap: 4px; margin-bottom: 8px;' });
     const wlMergeBtn = createElem('button', { id: 'WMEPH-WLMerge', class: 'wmeph-btn', textContent: 'Merge', title: 'Merge the string into your existing Whitelist' });
@@ -13208,28 +13208,28 @@
     wlBtnRow1.appendChild(wlMergeBtn);
     wlBtnRow1.appendChild(wlPullBtn);
     wlBtnRow1.appendChild(wlShareBtn);
-    wlCard.body.appendChild(wlBtnRow1);
+    wlToolsSection.body.appendChild(wlBtnRow1);
 
     const wlBtnRow2 = createElem('div', { class: 'wmeph-row', style: 'gap: 4px;' });
     const wlStatsBtn = createElem('button', { id: 'WMEPH-WLStats', class: 'wmeph-btn', textContent: 'Stats', title: 'Display WL stats' });
     const wlFilterBtn = createElem('button', { id: 'WMEPH-WLStateFilter', class: 'wmeph-btn secondary', textContent: 'Remove 1 State', title: 'Remove all WL items for a state. Enter the state in the input box.' });
     wlBtnRow2.appendChild(wlStatsBtn);
     wlBtnRow2.appendChild(wlFilterBtn);
-    wlCard.body.appendChild(wlBtnRow2);
+    wlToolsSection.body.appendChild(wlBtnRow2);
 
     const wlMsgDiv = createElem('div', { id: 'PlaceHarmonizerWLToolsMsg', style: 'margin-top: 8px;' });
-    wlCard.body.appendChild(wlMsgDiv);
+    wlToolsSection.body.appendChild(wlMsgDiv);
     const wlToolsDiv = createElem('div', { id: 'PlaceHarmonizerWLTools' });
-    wlToolsDiv.appendChild(wlCard.card);
+    wlToolsDiv.appendChild(wlToolsSection.section);
     tabPanels.wltools.appendChild(wlToolsDiv);
 
-    // Moderators tab content
-    const moderatorsCard = makeCard('Regional Moderators', 'fa-users');
+    // Moderators tab content - Regional Moderators
+    const moderatorsSection = createCollapsibleSection('Regional Moderators', 'fa-users', true);
     const modDescription = createElem('p', {
       textContent: 'Moderators are responsible for reviewing chain submissions for their region. If you have questions or suggestions regarding a chain, please contact any of your regional moderators.',
       style: 'margin: 0 0 12px 0; font-size: 12px; line-height: 1.4;',
     });
-    moderatorsCard.body.appendChild(modDescription);
+    moderatorsSection.body.appendChild(modDescription);
 
     const modsTable = createElem('table', { class: 'wmeph-mods-table' });
     Object.keys(Pnh.MODERATORS)
@@ -13242,8 +13242,8 @@
         row.appendChild(modsCell);
         modsTable.appendChild(row);
       });
-    moderatorsCard.body.appendChild(modsTable);
-    tabPanels.moderators.appendChild(moderatorsCard.card);
+    moderatorsSection.body.appendChild(modsTable);
+    tabPanels.moderators.appendChild(moderatorsSection.section);
 
 
     // Version footer
