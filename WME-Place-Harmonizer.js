@@ -1282,7 +1282,7 @@
       margin-bottom: 0;
     }
 
-    .wmeph-checkbox {
+    .wmeph-pane .wmeph-checkbox {
       width: 16px;
       height: 16px;
       cursor: pointer;
@@ -1290,18 +1290,18 @@
       flex-shrink: 0;
     }
 
-    .wmeph-checkbox-row {
+    .wmeph-pane .wmeph-checkbox-row {
       display: flex;
       align-items: center;
       gap: 8px;
       margin-bottom: 8px;
     }
 
-    .wmeph-checkbox-row:last-child {
+    .wmeph-pane .wmeph-checkbox-row:last-child {
       margin-bottom: 0;
     }
 
-    .wmeph-checkbox-label {
+    .wmeph-pane .wmeph-checkbox-label {
       font-size: 12px;
       color: var(--wmeph-text-secondary);
       cursor: pointer;
@@ -1311,7 +1311,7 @@
     }
 
     /* Dark Mode Checkboxes */
-    [wz-theme="dark"] .wmeph-checkbox-label {
+    [wz-theme="dark"] .wmeph-pane .wmeph-checkbox-label {
       color: var(--wmeph-text-secondary);
     }
 
