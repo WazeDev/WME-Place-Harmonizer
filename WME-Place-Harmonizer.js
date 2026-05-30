@@ -1268,6 +1268,23 @@
       background: var(--wmeph-border-light);
       border-color: var(--wmeph-primary);
     }
+
+    /* Icon toggle button styling */
+    .wmeph-icon-toggle {
+      background: none;
+      border: none;
+      padding: 4px 6px;
+      cursor: pointer;
+      font-size: 16px;
+      color: #999;
+      transition: all 0.2s ease;
+      opacity: 0.5;
+    }
+
+    .wmeph-icon-toggle.checked {
+      color: #0075e3;
+      opacity: 1;
+    }
     `;
 
   // **************************************************************************************************************
@@ -3445,7 +3462,7 @@
           ['RESTRICTED', 'Restricted'],
           ['PRIVATE', 'Private'],
         ]
-          .map((btnInfo) => $('<button>', { class: 'wmeph-pla-lot-type-btn btn btn-default btn-xs wmeph-btn', 'data-lot-type': btnInfo[0] }).text(btnInfo[1]).prop('outerHTML'))
+          .map((btnInfo) => $('<button>', { class: 'wmeph-pla-lot-type-btn wmeph-btn', 'data-lot-type': btnInfo[0] }).text(btnInfo[1]).prop('outerHTML'))
           .join('');
         return msg;
       }
@@ -3730,18 +3747,10 @@
         ].forEach((btnInfo) => {
           msg += $('<button>', {
             id: `wmeph_${btnInfo[0]}`,
-            class: 'wmeph-evcs-cost-type-btn btn btn-default btn-xs wmeph-btn',
+            class: 'wmeph-evcs-cost-type-btn wmeph-btn',
             title: btnInfo[2],
           })
             .text(btnInfo[1])
-            .css({
-              padding: '3px',
-              height: '20px',
-              lineHeight: '0px',
-              marginRight: '2px',
-              marginBottom: '1px',
-              minWidth: '18px',
-            })
             .prop('outerHTML');
         });
         return msg;
@@ -5768,7 +5777,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
           ['RESTRICTED', 'Restricted'],
           ['PRIVATE', 'Private'],
         ]
-          .map((btnInfo) => $('<button>', { class: 'wmeph-pla-lot-type-btn btn btn-default btn-xs wmeph-btn', 'data-lot-type': btnInfo[0] }).text(btnInfo[1]).prop('outerHTML'))
+          .map((btnInfo) => $('<button>', { class: 'wmeph-pla-lot-type-btn wmeph-btn', 'data-lot-type': btnInfo[0] }).text(btnInfo[1]).prop('outerHTML'))
           .join('')}`;
       }
 
@@ -5803,16 +5812,8 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
           ['EXPENSIVE', '$$$', 'Expensive'],
         ]
           .map((btnInfo) =>
-            $('<button>', { id: `wmeph_${btnInfo[0]}`, class: 'wmeph-pla-cost-type-btn btn btn-default btn-xs wmeph-btn', title: btnInfo[2] })
+            $('<button>', { id: `wmeph_${btnInfo[0]}`, class: 'wmeph-pla-cost-type-btn wmeph-btn', title: btnInfo[2] })
               .text(btnInfo[1])
-              .css({
-                padding: '3px',
-                height: '20px',
-                lineHeight: '0px',
-                marginRight: '2px',
-                marginBottom: '1px',
-                minWidth: '18px',
-              })
               .prop('outerHTML'),
           )
           .join('')}`;
@@ -5909,17 +5910,8 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
         ].forEach((btnInfo) => {
           if (btnIdx === 3) $btnDiv.append('<br>');
           $btnDiv.append(
-            $('<button>', { id: `wmeph_${btnInfo[0]}`, class: 'wmeph-pla-spaces-btn btn btn-default btn-xs wmeph-btn' })
-              .text(btnInfo[1])
-              .css({
-                padding: '3px',
-                height: '20px',
-                lineHeight: '0px',
-                marginTop: '2px',
-                marginRight: '2px',
-                marginBottom: '1px',
-                width: '64px',
-              }),
+            $('<button>', { id: `wmeph_${btnInfo[0]}`, class: 'wmeph-pla-spaces-btn wmeph-btn' })
+              .text(btnInfo[1]),
           );
           btnIdx++;
         });
@@ -9745,13 +9737,12 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
         if (rowData.WLactive && rowData.WLaction) {
           // If there's a WL option, enable it
           totalSeverity = Math.max(rowData.severity, totalSeverity);
-          $dupeDiv.append(
-            $('<button>', {
-              class: 'btn btn-success btn-xs wmephwl-btn',
-              id: `WMEPH_WL${tempKey}`,
-              title: rowData.wlTooltip,
-            }).text(rowData.WLvalue),
-          );
+          const $wlButton = $('<button>', {
+            class: 'wmephwl-btn',
+            id: `WMEPH_WL${tempKey}`,
+            title: rowData.wlTooltip,
+          }).text(rowData.WLvalue);
+          $dupeDiv.append($wlButton);
         }
       }
     });
@@ -9792,32 +9783,27 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
         $rowDiv.append($('<span>').css({ 'margin-right': '4px' }).append(`&bull; ${flag.message}`));
       }
       if (flag.buttonText) {
-        $rowDiv.append(
-          $('<button>', {
-            class: 'btn btn-default btn-xs wmeph-btn',
-            id: `WMEPH_${flag.name}`,
-            title: flag.title || '',
-          })
-            .css({ 'margin-right': '4px' })
-            .html(flag.buttonText),
-        );
+        const $button = $('<button>', {
+          class: 'wmeph-btn',
+          id: `WMEPH_${flag.name}`,
+          title: flag.title || '',
+        }).html(flag.buttonText);
+        $rowDiv.append($button);
       }
       if (flag.value2) {
-        $rowDiv.append(
-          $('<button>', {
-            class: 'btn btn-default btn-xs wmeph-btn',
-            id: `WMEPH_${flag.name}_2`,
-            title: flag.title2 || '',
-          })
-            .css({ 'margin-right': '4px' })
-            .html(flag.value2),
-        );
+        const $button2 = $('<button>', {
+          class: 'wmeph-btn',
+          id: `WMEPH_${flag.name}_2`,
+          title: flag.title2 || '',
+        }).html(flag.value2);
+        $rowDiv.append($button2);
       }
       if (flag.showWL) {
         if (flag.WLaction) {
           // If there's a WL option, enable it
           totalSeverity = Math.max(flag.severity, totalSeverity);
-          $rowDiv.append($('<button>', { class: 'btn btn-success btn-xs wmephwl-btn', id: `WMEPH_WL${flag.name}`, title: flag.wlTooltip }).text('WL'));
+          const $wlButton = $('<button>', { class: 'wmephwl-btn', id: `WMEPH_WL${flag.name}`, title: flag.wlTooltip }).text('WL');
+          $rowDiv.append($wlButton);
         }
       } else {
         totalSeverity = Math.max(flag.severity, totalSeverity);
@@ -10459,10 +10445,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
     if (currentState !== checkedState) {
       setWMEPHSetting(id, checkedState ? '1' : '0');
       const $button = $(`#${id}`);
-      $button.css({
-        color: checkedState ? '#0075e3' : '#999',
-        opacity: checkedState ? '1' : '0.5',
-      });
+      $button.toggleClass('checked', checkedState);
     }
   }
   /**
@@ -12383,28 +12366,15 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
     const $button = $('<button>', {
       id: settingID,
       type: 'button',
-      class: 'wmeph-icon-toggle',
+      class: `wmeph-icon-toggle ${isChecked ? 'checked' : ''}`,
       title: textDescription,
-      style: `
-                background: none;
-                border: none;
-                padding: 4px 6px;
-                cursor: pointer;
-                font-size: 16px;
-                color: ${isChecked ? '#0075e3' : '#999'};
-                transition: all 0.2s ease;
-                opacity: ${isChecked ? '1' : '0.5'};
-            `,
     })
       .html(icon ? `<i class="fa ${icon}"></i>` : textDescription)
       .click(function () {
         const checked = getWMEPHSetting(settingID) === '1';
         const newState = checked ? '0' : '1';
         setWMEPHSetting(settingID, newState);
-        $(this).css({
-          color: newState === '1' ? '#0075e3' : '#999',
-          opacity: newState === '1' ? '1' : '0.5',
-        });
+        $(this).toggleClass('checked', newState === '1');
       });
 
     return $button;
