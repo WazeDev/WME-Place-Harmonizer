@@ -5483,7 +5483,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
             : '',
           // jquery throws an error when setting autocomplete="off" in a jquery object (must use .autocomplete() function), so just use a string here.
           // eslint-disable-next-line max-len
-          `<textarea id="WMEPH-HoursPaste" wrap="off" autocomplete="off" style="overflow:auto;width:84%;max-width:84%;min-width:84%;font-size:0.85em;height:24px;min-height:24px;max-height:300px;margin-bottom:-2px;padding-left:3px;color:#AAA;position:relative;z-index:1;">${DEFAULT_HOURS_TEXT}`,
+          `<textarea id="WMEPH-HoursPaste" class="wmeph-input" wrap="off" autocomplete="off" style="overflow:auto;width:84%;max-width:84%;min-width:84%;font-size:0.85em;height:24px;min-height:24px;max-height:300px;margin-bottom:-2px;padding-left:3px;color:#AAA;position:relative;z-index:1;">${DEFAULT_HOURS_TEXT}`,
         )[0].outerHTML;
       }
 
@@ -6138,7 +6138,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
       static defaultButtonTooltip = 'Lock the residential point';
 
       get message() {
-        let msg = 'Lock at <select id="RPPLockLevel">';
+        let msg = 'Lock at <select id="RPPLockLevel" class="wmeph-select">';
         let ddlSelected = false;
         for (let llix = 1; llix < 6; llix++) {
           if (llix < USER.rank + 1) {
