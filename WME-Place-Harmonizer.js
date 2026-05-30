@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name        WME Place Harmonizer Beta
 // @namespace   WazeUSA
-// @version     2026.05.29.01
+// @version     2026.05.30.00
 // @description Harmonizes, formats, and locks a selected place
 // @author      WMEPH Development Group
 // @include      https://www.waze.com/editor*
@@ -40,9 +40,7 @@
   // **************************************************************************************************************
   const SHOW_UPDATE_MESSAGE = true;
   const SCRIPT_UPDATE_MESSAGE = [
-    'v 2026.05.28.00 : Fix: Make Gas Station primany category bug fixed.',
-    'v 2026.05.29.00 : Fix: Prevent Nudge button from reappearing after initial click',
-    'v 2026.05.29.01 : Fix: Preserve address IDs during place copy operation',
+    'v 2026.05.30.00 :Modernized all banner styling, for improved maintainability and consistency across light and dark themes.',
   ];
 
   // **************************************************************************************************************
@@ -1508,6 +1506,337 @@
     .wmeph-mods-table-cell.title {
       font-weight: 600;
       background: var(--wmeph-bg-secondary);
+    }
+
+    /* ====================================================================
+       Collapsible Settings Sections - GIS-Layers Pattern
+       ==================================================================== */
+    .wmeph-pane .settings-section {
+      background: #fafafa;
+      border: 1px solid #e0e0e0;
+      border-radius: 6px;
+      margin-bottom: 10px;
+      overflow: hidden;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+      transition: box-shadow 0.2s;
+    }
+
+    .wmeph-pane .settings-section:hover {
+      box-shadow: 0 2px 6px rgba(0,0,0,0.08);
+    }
+
+    .wmeph-pane .settings-section-header {
+      padding: 8px 8px;
+      background: linear-gradient(to bottom, #f8f9fa 0%, #f0f1f3 100%);
+      border-bottom: 1px solid #e0e0e0;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      user-select: none;
+    }
+
+    .wmeph-pane .settings-section-header:hover {
+      background: linear-gradient(to bottom, #f0f1f3 0%, #e8e9eb 100%);
+    }
+
+    .wmeph-pane .settings-section-title {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 12px;
+      font-weight: 700;
+      color: #333;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    .wmeph-pane .settings-section-title i {
+      color: var(--wmeph-primary);
+      font-size: 14px;
+    }
+
+    .wmeph-pane .section-toggle-icon {
+      font-size: 10px;
+      color: #999;
+      transition: transform 0.2s;
+    }
+
+    .wmeph-pane .settings-section.collapsed .section-toggle-icon {
+      transform: rotate(-90deg);
+    }
+
+    .wmeph-pane .settings-section-body {
+      padding: 8px;
+      background: white;
+    }
+
+    .wmeph-pane .settings-section.collapsed .settings-section-body {
+      display: none;
+    }
+
+    /* Setting Item Block */
+    .wmeph-pane .setting-item-block {
+      margin-bottom: 14px;
+    }
+
+    .wmeph-pane .setting-item-block:last-child {
+      margin-bottom: 0;
+    }
+
+    .wmeph-pane .setting-label {
+      display: block;
+      font-size: 11px;
+      font-weight: 600;
+      color: #333;
+      margin-bottom: 6px;
+    }
+
+    /* ====================================================================
+       Pill-Style Radio Buttons
+       ==================================================================== */
+    .wmeph-pane .pill-group {
+      display: flex;
+      background: #e9ecef;
+      border-radius: 6px;
+      padding: 2px;
+      gap: 2px;
+    }
+
+    .wmeph-pane .pill-option {
+      flex: 1;
+      position: relative;
+    }
+
+    .wmeph-pane .pill-option input[type="radio"] {
+      position: absolute;
+      opacity: 0;
+      pointer-events: none;
+    }
+
+    .wmeph-pane .pill-option label {
+      display: block;
+      text-align: center;
+      padding: 6px 8px;
+      font-size: 11px;
+      font-weight: 600;
+      color: #666;
+      background: transparent;
+      border-radius: 4px;
+      cursor: pointer;
+      transition: all 0.2s;
+      margin: 0;
+      text-transform: uppercase;
+      letter-spacing: 0.3px;
+    }
+
+    .wmeph-pane .pill-option input[type="radio"]:checked + label {
+      background: var(--wmeph-primary);
+      color: white;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+      font-weight: 700;
+    }
+
+    .wmeph-pane .pill-option label:hover {
+      color: var(--wmeph-primary);
+    }
+
+    .wmeph-pane .pill-option input[type="radio"]:checked + label:hover {
+      background: #0052a3;
+      color: white;
+    }
+
+    /* ====================================================================
+       Form Controls
+       ==================================================================== */
+    .wmeph-pane .setting-select {
+      width: 100%;
+      padding: 6px 8px;
+      border: 1px solid #d0d0d0;
+      border-radius: 4px;
+      font-size: 12px;
+      background: white;
+      cursor: pointer;
+      transition: border-color 0.2s, box-shadow 0.2s;
+    }
+
+    .wmeph-pane .setting-select:focus {
+      outline: none;
+      border-color: var(--wmeph-primary);
+      box-shadow: 0 0 0 3px rgba(0, 102, 204, 0.1);
+    }
+
+    .wmeph-pane .setting-input {
+      width: 80px;
+      padding: 6px 8px;
+      border: 1px solid #d0d0d0;
+      border-radius: 4px;
+      font-size: 12px;
+      text-align: center;
+      transition: border-color 0.2s, box-shadow 0.2s;
+    }
+
+    .wmeph-pane .setting-input:focus {
+      outline: none;
+      border-color: var(--wmeph-primary);
+      box-shadow: 0 0 0 3px rgba(0, 102, 204, 0.1);
+    }
+
+    .wmeph-pane .setting-input-full {
+      width: 100%;
+      padding: 6px 8px;
+      border: 1px solid #d0d0d0;
+      border-radius: 4px;
+      font-size: 12px;
+      margin-bottom: 8px;
+      transition: border-color 0.2s, box-shadow 0.2s;
+    }
+
+    .wmeph-pane .setting-input-full:focus {
+      outline: none;
+      border-color: var(--wmeph-primary);
+      box-shadow: 0 0 0 3px rgba(0, 102, 204, 0.1);
+    }
+
+    .wmeph-pane .setting-unit {
+      font-size: 11px;
+      color: #999;
+      margin-left: 6px;
+      font-weight: 600;
+    }
+
+    .wmeph-pane .help-text {
+      font-size: 10px;
+      color: #999;
+      margin-top: 4px;
+    }
+
+    /* Button Styles */
+    .wmeph-pane .btn-primary-modern,
+    .wmeph-pane .btn-secondary-modern {
+      flex: 1;
+      padding: 8px 14px;
+      border: none;
+      border-radius: 5px;
+      font-size: 11px;
+      font-weight: 700;
+      cursor: pointer;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      transition: all 0.2s;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+    }
+
+    .wmeph-pane .btn-primary-modern {
+      background: linear-gradient(to bottom, #0077dd 0%, #0066cc 100%);
+      color: white;
+    }
+
+    .wmeph-pane .btn-primary-modern:hover {
+      background: linear-gradient(to bottom, #0066cc 0%, #0055aa 100%);
+      box-shadow: 0 2px 6px rgba(0,0,0,0.15);
+      transform: translateY(-1px);
+    }
+
+    .wmeph-pane .btn-primary-modern:active {
+      transform: translateY(0);
+      box-shadow: 0 1px 2px rgba(0,0,0,0.1);
+    }
+
+    .wmeph-pane .btn-secondary-modern {
+      background: linear-gradient(to bottom, #f0f0f0 0%, #e8e8e8 100%);
+      color: #333;
+    }
+
+    .wmeph-pane .btn-secondary-modern:hover {
+      background: linear-gradient(to bottom, #e8e8e8 0%, #d8d8d8 100%);
+      box-shadow: 0 2px 6px rgba(0,0,0,0.15);
+      transform: translateY(-1px);
+    }
+
+    .wmeph-pane .button-group {
+      display: flex;
+      gap: 6px;
+    }
+
+    /* ====================================================================
+       Dark Mode - Collapsible Sections and Controls
+       ==================================================================== */
+    [wz-theme="dark"] .wmeph-pane .settings-section {
+      background: #3c4043;
+      border-color: #55595e;
+    }
+
+    [wz-theme="dark"] .wmeph-pane .settings-section-header {
+      background: linear-gradient(to bottom, #3c4043 0%, #202124 100%);
+      border-bottom-color: #55595e;
+    }
+
+    [wz-theme="dark"] .wmeph-pane .settings-section-header:hover {
+      background: linear-gradient(to bottom, #55595e 0%, #3c4043 100%);
+    }
+
+    [wz-theme="dark"] .wmeph-pane .settings-section-title {
+      color: #e8eaed;
+    }
+
+    [wz-theme="dark"] .wmeph-pane .settings-section-body {
+      background: #202124;
+    }
+
+    [wz-theme="dark"] .wmeph-pane .setting-label {
+      color: #e8eaed;
+    }
+
+    [wz-theme="dark"] .wmeph-pane .pill-group {
+      background: #3c4043;
+    }
+
+    [wz-theme="dark"] .wmeph-pane .pill-option label {
+      color: #b7babf;
+    }
+
+    [wz-theme="dark"] .wmeph-pane .pill-option input[type="radio"]:checked + label {
+      background: var(--wmeph-primary);
+      color: white;
+    }
+
+    [wz-theme="dark"] .wmeph-pane .pill-option label:hover {
+      color: #33ccff;
+    }
+
+    [wz-theme="dark"] .wmeph-pane .pill-option input[type="radio"]:checked + label:hover {
+      background: #0052a3;
+      color: white;
+    }
+
+    [wz-theme="dark"] .wmeph-pane .setting-select,
+    [wz-theme="dark"] .wmeph-pane .setting-input,
+    [wz-theme="dark"] .wmeph-pane .setting-input-full {
+      background: #3c4043;
+      border-color: #55595e;
+      color: #e8eaed;
+    }
+
+    [wz-theme="dark"] .wmeph-pane .setting-select:focus,
+    [wz-theme="dark"] .wmeph-pane .setting-input:focus,
+    [wz-theme="dark"] .wmeph-pane .setting-input-full:focus {
+      border-color: #33ccff;
+      box-shadow: 0 0 0 3px rgba(51, 204, 255, 0.1);
+    }
+
+    [wz-theme="dark"] .wmeph-pane .setting-unit,
+    [wz-theme="dark"] .wmeph-pane .help-text {
+      color: #90959c;
+    }
+
+    [wz-theme="dark"] .wmeph-pane .btn-secondary-modern {
+      background: linear-gradient(to bottom, #3c4043 0%, #202124 100%);
+      color: #e8eaed;
+    }
+
+    [wz-theme="dark"] .wmeph-pane .btn-secondary-modern:hover {
+      background: linear-gradient(to bottom, #55595e 0%, #3c4043 100%);
     }
     `;
 
@@ -11834,7 +12163,11 @@
       id: settingID,
       class: 'wmeph-checkbox'
     });
-    const row = makeRow(textDescription, checkbox);
+    const label = createElem('span', { class: 'wmeph-label', textContent: textDescription });
+
+    const row = createElem('div', { class: 'wmeph-row' });
+    row.appendChild(checkbox);
+    row.appendChild(label);
 
     // Support both jQuery and native DOM
     if (container && container.append && typeof container.append === 'function') {
