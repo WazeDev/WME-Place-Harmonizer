@@ -4149,7 +4149,7 @@
       noBannerAssemble = true;
 
       get message() {
-        let msg = `No HN: <input type="text" id="${Flag.HnMissing.#TEXTBOX_ID}" autocomplete="off" ` + 'style="font-size:0.85em;width:100px;padding-left:2px;color:#000;" > ';
+        let msg = `No HN: <input type="text" id="${Flag.HnMissing.#TEXTBOX_ID}" class="wmeph-input" autocomplete="off" > `;
 
         if (this.args.categories.includes('PARKING_LOT') && this.args.venue.lockRank < 2) {
           if (USER.rank < 3) {
@@ -4928,8 +4928,7 @@
     },
     MissingUSPSZipAlt: class extends WLActionFlag {
       static defaultSeverity = SEVERITY.BLUE;
-      static defaultMessage = `No <a href="${URLS.uspsWiki}" style="color:#3232e6;" target="_blank">ZIP code alt name</a>: <input type="text" \
-id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;padding-left:2px;color:#000;" title="Enter the ZIP code and click Add">`;
+      static defaultMessage = `No <a href="${URLS.uspsWiki}" style="color:#3232e6;" target="_blank">ZIP code alt name</a>: <input type="text" id="WMEPH-zipAltNameAdd" class="wmeph-input" autocomplete="off" title="Enter the ZIP code and click Add">`;
 
       static defaultButtonText = 'Add';
       static WL_KEY = 'missingUSPSZipAlt';
@@ -5234,7 +5233,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
     UrlMissing: class extends WLActionFlag {
       static defaultSeverity = SEVERITY.BLUE;
       static get defaultMessage() {
-        return `No URL: <input type="text" id="${Flag.UrlMissing.#TEXTBOX_ID}" autocomplete="off"` + ' style="font-size:0.85em;width:100px;padding-left:2px;color:#000;">';
+        return `No URL: <input type="text" id="${Flag.UrlMissing.#TEXTBOX_ID}" class="wmeph-input" autocomplete="off">`;
       }
 
       static defaultButtonText = 'Add';
@@ -5305,8 +5304,8 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
 
       get message() {
         return (
-          'Area Code appears to be invalid for this region:<br><input type="text" id="WMEPH-PhoneAdd" autocomplete="off" ' +
-          `style="font-size:0.85em;width:100px;padding-left:2px;color:#000;" value="${this.args.phone || ''}">`
+          'Area Code appears to be invalid for this region:<br><input type="text" id="WMEPH-PhoneAdd" class="wmeph-input" autocomplete="off" ' +
+          `value="${this.args.phone || ''}">"`
         );
       }
 
@@ -5349,7 +5348,7 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
     },
     PhoneMissing: class extends WLActionFlag {
       static defaultSeverity = SEVERITY.BLUE;
-      static defaultMessage = 'No ph#: <input type="text" id="WMEPH-PhoneAdd" autocomplete="off" style="font-size:0.85em;width:100px;padding-left:2px;color:#000;">';
+      static defaultMessage = 'No ph#: <input type="text" id="WMEPH-PhoneAdd" class="wmeph-input" autocomplete="off">';
       static defaultButtonText = 'Add';
       static defaultButtonTooltip = 'Add phone to place';
       static WL_KEY = 'phoneWL';
