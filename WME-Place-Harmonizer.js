@@ -13133,17 +13133,15 @@
     createSettingsCheckbox(generalSettings.body, 'WMEPH-HidePURWebSearch', 'Hide "Web Search" button on PUR popups');
     createSettingsCheckbox(generalSettings.body, 'WMEPH-ExcludePLADupes', 'Exclude parking lots when searching for duplicate places');
     createSettingsCheckbox(generalSettings.body, 'WMEPH-ShowPLAExitWhileClosed', 'Always ask if cars can exit parking lots');
-    tabPanels.harmonizer.appendChild(generalSettings.section);
 
-    // Advanced settings (dev/beta only)
+    // Advanced settings (dev/beta only) - added to General Settings
     if (USER.isDevUser || USER.isBetaUser || USER.rank >= 2) {
-      const advancedSettings = createCollapsibleSection('Advanced Settings', 'fa-tools', false);
-      createSettingsCheckbox(advancedSettings.body, 'WMEPH-DisablePLAExtProviderCheck', 'Disable check for "Google place link" on Parking Lot Areas');
-      createSettingsCheckbox(advancedSettings.body, 'WMEPH-AddAddresses', 'Add detected address fields to places with no address');
-      createSettingsCheckbox(advancedSettings.body, 'WMEPH-EnableCloneMode', 'Enable place cloning tools');
-      createSettingsCheckbox(advancedSettings.body, 'WMEPH-AutoLockRPPs', 'Lock residential place points to region default');
-      tabPanels.harmonizer.appendChild(advancedSettings.section);
+      createSettingsCheckbox(generalSettings.body, 'WMEPH-DisablePLAExtProviderCheck', 'Disable check for "Google place link" on Parking Lot Areas');
+      createSettingsCheckbox(generalSettings.body, 'WMEPH-AddAddresses', 'Add detected address fields to places with no address');
+      createSettingsCheckbox(generalSettings.body, 'WMEPH-EnableCloneMode', 'Enable place cloning tools');
+      createSettingsCheckbox(generalSettings.body, 'WMEPH-AutoLockRPPs', 'Lock residential place points to region default');
     }
+    tabPanels.harmonizer.appendChild(generalSettings.section);
 
     // Keyboard shortcut section
     const kbSettings = createCollapsibleSection('Keyboard Shortcut', 'fa-keyboard', true);
