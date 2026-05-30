@@ -684,11 +684,13 @@
       --wmeph-orange-bg: #ffd389;
       --wmeph-lightgray-bg: #f5f5f5;
 
-      /* Spacing Tokens */
-      --spacing-xs: 4px;
-      --spacing-sm: 8px;
-      --spacing-md: 12px;
-      --spacing-lg: 16px;
+      /* Spacing Tokens - aligned with WME spacing scale */
+      --wmeph-spacing-xxxs: 2px;
+      --wmeph-spacing-xxs: 4px;
+      --wmeph-spacing-xs: 8px;
+      --wmeph-spacing-sm: 12px;
+      --wmeph-spacing-md: 16px;
+      --wmeph-spacing-lg: 24px;
 
       /* Border Radius */
       --radius-sm: 4px;
@@ -736,7 +738,7 @@
 
     #sidebar .wmeph-pane {
       width: auto;
-      padding: var(--spacing-sm) !important;
+      padding: var(--wmeph-spacing-sm) !important;
     }
 
     /* ====================================================================
@@ -746,8 +748,8 @@
       background-color: var(--wmeph-bg-primary);
       color: var(--wmeph-text-default);
       font-size: var(--font-size-base);
-      padding: var(--spacing-sm);
-      margin: var(--spacing-xs) var(--spacing-xs) var(--spacing-xs) var(--spacing-xs);
+      padding: var(--wmeph-spacing-sm);
+      margin: var(--wmeph-spacing-xs) var(--wmeph-spacing-xs) var(--wmeph-spacing-xs) var(--wmeph-spacing-xs);
       line-height: 18px;
       border: solid 1px var(--wmeph-border);
       border-radius: var(--radius-md);
@@ -770,8 +772,8 @@
       background-color: var(--wmeph-bg-tertiary);
       border: solid 1px var(--wmeph-border);
       font-weight: normal;
-      margin-bottom: var(--spacing-xs);
-      margin-right: var(--spacing-xs);
+      margin-bottom: var(--wmeph-spacing-xs);
+      margin-right: var(--wmeph-spacing-xs);
       transition: var(--transition-fast);
     }
 
@@ -782,7 +784,7 @@
     /* Whitelist button styles are scoped to #WMEPH_banner and #wmeph-run-panel (see around line 857-881) */
 
     #WMEPH_banner .banner-row {
-      padding: var(--spacing-xs) var(--spacing-xs);
+      padding: var(--wmeph-spacing-xs) var(--wmeph-spacing-xs);
       cursor: default;
     }
 
@@ -817,7 +819,7 @@
     }
 
     #WMEPH_banner .banner-row .dupe {
-      padding-left: var(--spacing-sm);
+      padding-left: var(--wmeph-spacing-sm);
     }
 
     /* ====================================================================
@@ -826,9 +828,9 @@
     #wmeph-run-panel {
       display: flex;
       flex-wrap: wrap;
-      gap: var(--spacing-xs);
+      gap: var(--wmeph-spacing-xs);
       align-items: center;
-      padding: var(--spacing-xs);
+      padding: var(--wmeph-spacing-xs);
       color: var(--wmeph-text-default);
       font-size: var(--font-size-base);
     }
@@ -837,7 +839,7 @@
       flex: 1 0 83px;
       min-width: 83px;
       height: 28px;
-      padding: var(--spacing-xs) var(--spacing-sm) !important;
+      padding: var(--wmeph-spacing-xs) var(--wmeph-spacing-sm) !important;
       font-size: var(--font-size-sm) !important;
       border-radius: var(--radius-pill);
       border: 1px solid;
@@ -859,8 +861,8 @@
       border: solid 1px var(--wmeph-success, #118742);
       color: white;
       font-weight: normal;
-      margin-bottom: var(--spacing-xs);
-      margin-right: var(--spacing-xs);
+      margin-bottom: var(--wmeph-spacing-xs);
+      margin-right: var(--wmeph-spacing-xs);
       transition: var(--transition-fast);
       cursor: pointer;
       padding: 2px 8px;
@@ -877,14 +879,14 @@
       border: solid 1px var(--wmeph-success, #118742);
       color: white;
       padding: 2px 8px;
-      margin-right: var(--spacing-xs);
+      margin-right: var(--wmeph-spacing-xs);
       transition: var(--transition-fast);
       cursor: pointer;
     }
 
     #wmeph-run-panel .wmeph-clone-row {
       display: flex;
-      gap: var(--spacing-xs);
+      gap: var(--wmeph-spacing-xs);
       align-items: center;
     }
 
@@ -1000,15 +1002,15 @@
     #WMEPH_tools {
       display: flex;
       flex-wrap: wrap;
-      gap: var(--spacing-xs);
+      gap: var(--wmeph-spacing-xs);
       align-items: center;
-      padding: var(--spacing-xs) 6px !important;
+      padding: var(--wmeph-spacing-xs) 6px !important;
     }
 
     #WMEPH_tools > div {
       display: flex;
       flex-wrap: wrap;
-      gap: var(--spacing-xs);
+      gap: var(--wmeph-spacing-xs);
       align-items: center;
     }
 
@@ -1049,7 +1051,7 @@
        Fat Buttons & Utility Styles
        ==================================================================== */
     .wmeph-fat-btn {
-      padding: var(--spacing-xs) var(--spacing-sm);
+      padding: var(--wmeph-spacing-xs) var(--wmeph-spacing-sm);
       margin-right: 3px;
       display: inline-block;
       font-weight: normal;
@@ -1114,7 +1116,7 @@
       background-color: var(--wmeph-bg-primary);
       border: solid 1px var(--wmeph-border);
       border-radius: var(--radius-md);
-      margin: var(--spacing-xs) var(--spacing-xs) var(--spacing-xs) var(--spacing-xs);
+      margin: var(--wmeph-spacing-xs) var(--wmeph-spacing-xs) var(--wmeph-spacing-xs) var(--wmeph-spacing-xs);
     }
 
     .wmeph-section-header {
@@ -1132,7 +1134,7 @@
     }
 
     .wmeph-section-body {
-      padding: var(--spacing-xs) 0;
+      padding: var(--wmeph-spacing-xs) 0;
     }
 
     /* ====================================================================
@@ -1140,9 +1142,9 @@
        ==================================================================== */
     .wmeph-header {
       background: var(--wmeph-gradient-header);
-      padding: var(--spacing-md);
+      padding: var(--wmeph-spacing-md);
       border-radius: var(--radius-lg);
-      margin-bottom: var(--spacing-md);
+      margin-bottom: var(--wmeph-spacing-md);
       display: flex;
       align-items: center;
       justify-content: space-between;
@@ -1153,24 +1155,24 @@
       background: var(--wmeph-bg-primary);
       border: 1px solid var(--wmeph-border-light);
       border-radius: var(--radius-md);
-      padding: var(--spacing-md);
-      margin-bottom: var(--spacing-md);
+      padding: var(--wmeph-spacing-md);
+      margin-bottom: var(--wmeph-spacing-md);
     }
 
     .wmeph-card-header {
       display: flex;
       align-items: center;
-      gap: var(--spacing-sm);
-      margin-bottom: var(--spacing-md);
-      padding-bottom: var(--spacing-sm);
+      gap: var(--wmeph-spacing-sm);
+      margin-bottom: var(--wmeph-spacing-md);
+      padding-bottom: var(--wmeph-spacing-sm);
       border-bottom: 1px solid var(--wmeph-border-light);
     }
 
     .wmeph-row {
       display: flex;
       align-items: center;
-      gap: var(--spacing-sm);
-      margin-bottom: var(--spacing-xs);
+      gap: var(--wmeph-spacing-sm);
+      margin-bottom: var(--wmeph-spacing-xs);
     }
 
     .wmeph-row:last-child {
@@ -1235,13 +1237,13 @@
 
     .wmeph-pane-tabs {
       display: flex;
-      gap: var(--spacing-xs);
-      margin-bottom: var(--spacing-md);
+      gap: var(--wmeph-spacing-xs);
+      margin-bottom: var(--wmeph-spacing-md);
       border-bottom: 2px solid var(--wmeph-border-light);
     }
 
     .wmeph-pane-tab {
-      padding: var(--spacing-sm) var(--spacing-md);
+      padding: var(--wmeph-spacing-sm) var(--wmeph-spacing-md);
       font-size: 12px;
       font-weight: 600;
       cursor: pointer;
@@ -1270,7 +1272,7 @@
     .wmeph-card-body {
       display: flex;
       flex-direction: column;
-      gap: var(--spacing-sm);
+      gap: var(--wmeph-spacing-sm);
     }
 
     .wmeph-label {
