@@ -11866,6 +11866,197 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
     window.open(`https://docs.google.com/forms/d/1k_5RyOq81Fv4IRHzltC34kW3IUbXnQqDVMogwJKFNbE/viewform?entry.1173700072=${USER.name}`);
   }
 
+  // **************************************************************************************************************
+  // UI HELPER FUNCTIONS - Reusable DOM creation utilities
+  // **************************************************************************************************************
+
+  /**
+   * Generic element creator with attributes and event listeners.
+   * Handles both standard attributes and special properties (textContent, innerHTML).
+   * @param {string} tag - HTML tag name (e.g., 'div', 'button', 'input')
+   * @param {Object} attrs - Attributes object where keys are attribute names and values are attribute values.
+   *                        Special keys: 'textContent' and 'innerHTML' set element content directly.
+   * @param {Array} events - Array of {event, handler} objects for attaching event listeners
+   * @returns {HTMLElement} Created DOM element
+   */
+  function createElem(tag, attrs = {}, events = []) {
+    const elem = document.createElement(tag);
+    Object.entries(attrs).forEach(([key, value]) => {
+      if (key === 'textContent' || key === 'innerHTML') {
+        elem[key] = value;
+      } else {
+        elem.setAttribute(key, value);
+      }
+    });
+    events.forEach(({ event, handler }) => {
+      elem.addEventListener(event, handler);
+    });
+    return elem;
+  }
+
+  /**
+   * Creates a card component with header (icon + title) and body.
+   * Returns an object with the main card and body reference for easy population.
+   * @param {string} title - Card title text
+   * @param {string} iconClass - FontAwesome icon class (e.g., 'fa-cogs'). Pass empty string to omit icon.
+   * @returns {Object} {card: HTMLElement, header: HTMLElement, body: HTMLElement}
+   */
+  function makeCard(title, iconClass = 'fa-cogs') {
+    const card = createElem('div', { class: 'wmeph-card' });
+    const header = createElem('div', { class: 'wmeph-card-header' });
+
+    if (iconClass) {
+      const icon = createElem('i', { class: `fa ${iconClass}` });
+      header.appendChild(icon);
+    }
+
+    const titleElem = createElem('h3', { class: 'wmeph-card-title', textContent: title });
+    header.appendChild(titleElem);
+    card.appendChild(header);
+
+    const body = createElem('div', { class: 'wmeph-card-body' });
+    card.appendChild(body);
+
+    return { card, header, body };
+  }
+
+  /**
+   * Creates a flex row with label and optional control element.
+   * Typically used for form rows like (Label: [Input/Button/etc]).
+   * @param {string} labelText - Label text to display
+   * @param {HTMLElement|null} control - Control element (input, button, select, etc). Pass null for label-only rows.
+   * @returns {HTMLElement} Row div with wmeph-row class
+   */
+  function makeRow(labelText, control) {
+    const row = createElem('div', { class: 'wmeph-row' });
+    const label = createElem('span', { class: 'wmeph-label', textContent: labelText });
+    row.appendChild(label);
+    if (control) row.appendChild(control);
+    return row;
+  }
+
+  /**
+   * Creates a styled button element with optional secondary/disabled states.
+   * Attaches click handler directly to the element.
+   * @param {string} text - Button label text
+   * @param {Function} onClick - Click handler function
+   * @param {Object} options - Configuration options
+   * @param {boolean} options.secondary - If true, applies secondary button styling
+   * @param {boolean} options.disabled - If true, button starts in disabled state
+   * @returns {HTMLElement} button element with wmeph-btn class
+   */
+  function makeButton(text, onClick, options = {}) {
+    const classList = ['wmeph-btn'];
+    if (options.secondary) classList.push('secondary');
+
+    const attrs = {
+      class: classList.join(' '),
+      textContent: text,
+    };
+    if (options.disabled) attrs.disabled = 'disabled';
+
+    const btn = createElem('button', attrs, [{ event: 'click', handler: onClick }]);
+    return btn;
+  }
+
+  /**
+   * Creates a checkbox input with change handler.
+   * Handler receives the boolean checked state.
+   * @param {boolean} checked - Initial checked state (default: false)
+   * @param {Function} onChange - Change handler that receives the new checked boolean value
+   * @returns {HTMLElement} input[type=checkbox] with wmeph-checkbox class
+   */
+  function makeCheckbox(checked = false, onChange) {
+    const attrs = {
+      type: 'checkbox',
+      class: 'wmeph-checkbox',
+    };
+    if (checked) attrs.checked = 'checked';
+
+    const input = createElem('input', attrs, [
+      {
+        event: 'change',
+        handler: (e) => onChange(e.target.checked),
+      },
+    ]);
+    return input;
+  }
+
+  /**
+   * Creates a styled badge or tag element.
+   * Useful for displaying small status indicators or labels.
+   * @param {string} text - Badge text content
+   * @param {boolean} secondary - If true, applies secondary badge styling (default: false)
+   * @returns {HTMLElement} span with wmeph-badge class
+   */
+  function makeBadge(text, secondary = false) {
+    const classList = ['wmeph-badge'];
+    if (secondary) classList.push('secondary');
+
+    const badge = createElem('span', {
+      class: classList.join(' '),
+      textContent: text,
+    });
+    return badge;
+  }
+
+  /**
+   * Creates a select (dropdown) element with options.
+   * @param {Array} options - Array of {value, text} objects or just text strings
+   * @param {Function} onChange - Change handler that receives the selected value
+   * @param {Object} attrs - Additional attributes for the select element (e.g., disabled, multiple)
+   * @returns {HTMLElement} select element with wmeph-select class
+   */
+  function makeSelect(options, onChange, attrs = {}) {
+    const selectAttrs = {
+      class: 'wmeph-select',
+      ...attrs,
+    };
+    const select = createElem('select', selectAttrs, [
+      {
+        event: 'change',
+        handler: (e) => onChange(e.target.value),
+      },
+    ]);
+
+    options.forEach((opt) => {
+      const optionText = typeof opt === 'string' ? opt : opt.text;
+      const optionValue = typeof opt === 'string' ? opt : opt.value;
+      const option = createElem('option', { value: optionValue, textContent: optionText });
+      select.appendChild(option);
+    });
+
+    return select;
+  }
+
+  /**
+   * Creates a text input element with optional placeholder and change handler.
+   * @param {string} placeholder - Placeholder text (optional)
+   * @param {Function} onChange - Change handler that receives the input value (optional)
+   * @param {Object} attrs - Additional attributes (e.g., maxLength, disabled)
+   * @returns {HTMLElement} input[type=text] with wmeph-input class
+   */
+  function makeInput(placeholder = '', onChange, attrs = {}) {
+    const inputAttrs = {
+      type: 'text',
+      class: 'wmeph-input',
+      ...(placeholder && { placeholder }),
+      ...attrs,
+    };
+
+    const events = onChange
+      ? [
+          {
+            event: 'change',
+            handler: (e) => onChange(e.target.value),
+          },
+        ]
+      : [];
+
+    const input = createElem('input', inputAttrs, events);
+    return input;
+  }
+
   /**
    * Initializes all settings checkboxes and button handlers in the WMEPH settings tab.
    * Sets default values, attaches click handlers, and configures feature-specific behavior.
