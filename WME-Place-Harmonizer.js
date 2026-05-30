@@ -13068,17 +13068,6 @@
           'aria-selected': 'false'
         }).text('WL Tools')
       ),
-      $('<li>', { class: 'nav-item' }).append(
-        $('<a>', {
-          class: 'nav-link',
-          id: 'wmeph-tab-moderation',
-          'data-toggle': 'tab',
-          href: '#wmeph-panel-moderation',
-          role: 'tab',
-          'aria-controls': 'wmeph-panel-moderation',
-          'aria-selected': 'false'
-        }).text('Moderation')
-      )
     );
     container.appendChild(navTabs[0]);
 
@@ -13106,22 +13095,14 @@
       'aria-labelledby': 'wmeph-tab-wl-tools'
     });
 
-    const moderationPanel = $('<div>', {
-      class: 'tab-pane fade',
-      id: 'wmeph-panel-moderation',
-      role: 'tabpanel',
-      'aria-labelledby': 'wmeph-tab-moderation'
-    });
-
-    tabContentContainer.append(harmonizerPanel, hlScanPanel, wlToolsPanel, moderationPanel);
+    tabContentContainer.append(harmonizerPanel, hlScanPanel, wlToolsPanel);
     container.appendChild(tabContentContainer[0]);
 
     // Store panel references for populating content
     const tabPanels = {
       harmonizer: harmonizerPanel[0],
       highlighter: hlScanPanel[0],
-      wltools: wlToolsPanel[0],
-      moderators: moderationPanel[0]
+      wltools: wlToolsPanel[0]
     };
 
     // Harmonizer tab content - General Settings
@@ -13144,7 +13125,7 @@
     tabPanels.harmonizer.appendChild(generalSettings.section);
 
     // Keyboard shortcut section
-    const kbSettings = createCollapsibleSection('Keyboard Shortcut', 'fa-keyboard', true);
+    const kbSettings = createCollapsibleSection('Keyboard Shortcut', 'fa-key', true);
     const kbWarnDiv = createElem('div', { id: 'PlaceHarmonizerKBWarn' });
     const kbInput = createElem('input', {
       type: 'text',
@@ -13173,6 +13154,28 @@
       devSettings.body.appendChild(makeRow('', reloadBtn));
       tabPanels.harmonizer.appendChild(devSettings.section);
     }
+
+    // Regional Moderators section
+    const moderatorsSection = createCollapsibleSection('Regional Moderators', 'fa-users', true);
+    const modDescription = createElem('p', {
+      textContent: 'Moderators are responsible for reviewing chain submissions for their region. If you have questions or suggestions regarding a chain, please contact any of your regional moderators.',
+      style: 'margin: 0 0 12px 0; font-size: 12px; line-height: 1.4;',
+    });
+    moderatorsSection.body.appendChild(modDescription);
+
+    const modsTable = createElem('table', { class: 'wmeph-mods-table' });
+    Object.keys(Pnh.MODERATORS)
+      .sort()
+      .forEach((region) => {
+        const row = createElem('tr');
+        const regionCell = createElem('td', { class: 'wmeph-mods-table-cell title', textContent: region });
+        const modsCell = createElem('td', { class: 'wmeph-mods-table-cell', textContent: Pnh.MODERATORS[region].join(', ') });
+        row.appendChild(regionCell);
+        row.appendChild(modsCell);
+        modsTable.appendChild(row);
+      });
+    moderatorsSection.body.appendChild(modsTable);
+    tabPanels.harmonizer.appendChild(moderatorsSection.section);
 
     // Resources section
     const resourcesSection = createCollapsibleSection('Resources', 'fa-link', true);
@@ -13225,29 +13228,6 @@
     const wlToolsDiv = createElem('div', { id: 'PlaceHarmonizerWLTools' });
     wlToolsDiv.appendChild(wlToolsSection.section);
     tabPanels.wltools.appendChild(wlToolsDiv);
-
-    // Moderators tab content - Regional Moderators
-    const moderatorsSection = createCollapsibleSection('Regional Moderators', 'fa-users', true);
-    const modDescription = createElem('p', {
-      textContent: 'Moderators are responsible for reviewing chain submissions for their region. If you have questions or suggestions regarding a chain, please contact any of your regional moderators.',
-      style: 'margin: 0 0 12px 0; font-size: 12px; line-height: 1.4;',
-    });
-    moderatorsSection.body.appendChild(modDescription);
-
-    const modsTable = createElem('table', { class: 'wmeph-mods-table' });
-    Object.keys(Pnh.MODERATORS)
-      .sort()
-      .forEach((region) => {
-        const row = createElem('tr');
-        const regionCell = createElem('td', { class: 'wmeph-mods-table-cell title', textContent: region });
-        const modsCell = createElem('td', { class: 'wmeph-mods-table-cell', textContent: Pnh.MODERATORS[region].join(', ') });
-        row.appendChild(regionCell);
-        row.appendChild(modsCell);
-        modsTable.appendChild(row);
-      });
-    moderatorsSection.body.appendChild(modsTable);
-    tabPanels.moderators.appendChild(moderatorsSection.section);
-
 
     // Version footer
     const versionDiv = createElem('div', {
