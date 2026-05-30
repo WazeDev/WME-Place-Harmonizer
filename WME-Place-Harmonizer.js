@@ -693,11 +693,11 @@
       --wmeph-spacing-lg: 24px;
 
       /* Border Radius */
-      --radius-sm: 4px;
-      --radius-md: 6px;
-      --radius-lg: 8px;
-      --radius-pill: 14px;
-      --radius-round: 9px;
+      --wmeph-radius-sm: 4px;
+      --wmeph-radius-md: 6px;
+      --wmeph-radius-lg: 8px;
+      --wmeph-radius-pill: 14px;
+      --wmeph-radius-round: 9px;
 
       /* Typography */
       --font-default: "Boing", sans-serif;
@@ -752,7 +752,7 @@
       margin: var(--wmeph-spacing-xs) var(--wmeph-spacing-xs) var(--wmeph-spacing-xs) var(--wmeph-spacing-xs);
       line-height: 18px;
       border: solid 1px var(--wmeph-border);
-      border-radius: var(--radius-md);
+      border-radius: var(--wmeph-radius-md);
     }
 
     #WMEPH_banner input[type=text] {
@@ -841,7 +841,7 @@
       height: 28px;
       padding: var(--wmeph-spacing-xs) var(--wmeph-spacing-sm) !important;
       font-size: var(--font-size-sm) !important;
-      border-radius: var(--radius-pill);
+      border-radius: var(--wmeph-radius-pill);
       border: 1px solid;
       background-color: transparent !important;
       box-shadow: none !important;
@@ -897,7 +897,7 @@
       height: 18px !important;
       padding: 0 10px !important;
       font-size: var(--font-size-xs) !important;
-      border-radius: var(--radius-round);
+      border-radius: var(--wmeph-radius-round);
       border: 1px solid;
       background-color: transparent !important;
       box-shadow: none !important;
@@ -1027,7 +1027,7 @@
       height: 18px !important;
       padding: 0 10px !important;
       font-size: var(--font-size-xs) !important;
-      border-radius: var(--radius-round);
+      border-radius: var(--wmeph-radius-round);
       border: 1px solid;
       background-color: transparent !important;
       box-shadow: none !important;
@@ -1115,7 +1115,7 @@
     .wmeph-section {
       background-color: var(--wmeph-bg-primary);
       border: solid 1px var(--wmeph-border);
-      border-radius: var(--radius-md);
+      border-radius: var(--wmeph-radius-md);
       margin: var(--wmeph-spacing-xs) var(--wmeph-spacing-xs) var(--wmeph-spacing-xs) var(--wmeph-spacing-xs);
     }
 
@@ -1143,7 +1143,7 @@
     .wmeph-header {
       background: var(--wmeph-gradient-header);
       padding: var(--wmeph-spacing-md);
-      border-radius: var(--radius-lg);
+      border-radius: var(--wmeph-radius-lg);
       margin-bottom: var(--wmeph-spacing-md);
       display: flex;
       align-items: center;
@@ -1154,7 +1154,7 @@
     .wmeph-card {
       background: var(--wmeph-bg-primary);
       border: 1px solid var(--wmeph-border-light);
-      border-radius: var(--radius-md);
+      border-radius: var(--wmeph-radius-md);
       padding: var(--wmeph-spacing-md);
       margin-bottom: var(--wmeph-spacing-md);
     }
@@ -1190,7 +1190,7 @@
       padding: 4px 6px;
       font-size: 11px;
       border: 1px solid var(--wmeph-border);
-      border-radius: var(--radius-sm);
+      border-radius: var(--wmeph-radius-sm);
       background: var(--wmeph-bg-primary);
       color: var(--wmeph-text-default);
       box-sizing: border-box;
@@ -1223,7 +1223,7 @@
       padding: 2px 6px;
       font-size: 10px;
       font-weight: 600;
-      border-radius: var(--radius-sm);
+      border-radius: var(--wmeph-radius-sm);
       background: var(--wmeph-primary);
       color: white;
       white-space: nowrap;
@@ -1286,7 +1286,7 @@
       padding: 4px 6px;
       font-size: 11px;
       border: 1px solid var(--wmeph-border);
-      border-radius: var(--radius-sm);
+      border-radius: var(--wmeph-radius-sm);
       background: var(--wmeph-bg-primary);
       color: var(--wmeph-text-default);
       box-sizing: border-box;
@@ -1304,7 +1304,7 @@
       border: 1px solid var(--wmeph-border);
       background: var(--wmeph-bg-secondary);
       color: var(--wmeph-text-default);
-      border-radius: var(--radius-sm);
+      border-radius: var(--wmeph-radius-sm);
       cursor: pointer;
       transition: var(--transition-fast);
     }
