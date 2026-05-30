@@ -710,6 +710,9 @@
 
       /* Gradients */
       --wmeph-gradient-header: linear-gradient(135deg, #0066cc, #0052a3);
+
+      /* Highlights */
+      --wmeph-highlight-color: #ffff99;
     }
 
     [wz-theme="dark"] {
@@ -721,6 +724,7 @@
       --wmeph-border-light: #5f6368;
       --wmeph-divider: #5f6368;
       --wmeph-primary-lighter: #33ccff;
+      --wmeph-gradient-header: linear-gradient(135deg, #1a73e8, #0d47a1);
     }
 
     /* ====================================================================
@@ -764,7 +768,7 @@
        ==================================================================== */
     #WMEPH_banner .wmeph-btn {
       background-color: var(--wmeph-bg-tertiary);
-      border: solid 1px #bbb;
+      border: solid 1px var(--wmeph-border);
       font-weight: normal;
       margin-bottom: var(--spacing-xs);
       margin-right: var(--spacing-xs);
@@ -1047,7 +1051,7 @@
        ==================================================================== */
     @keyframes highlight {
       0% {
-        background: #ffff99;
+        background: var(--wmeph-highlight-color);
       }
       100% {
         background: none;
