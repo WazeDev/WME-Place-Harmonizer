@@ -1652,7 +1652,7 @@
 
     .wmeph-pane .section-toggle-icon {
       font-size: 10px;
-      color: #999;
+      color: #666;
       transition: transform 0.2s;
     }
 
@@ -1901,7 +1901,7 @@
     }
 
     [wz-theme="dark"] .wmeph-pane .pill-option input[type="radio"]:checked + label {
-      background: var(--wmeph-primary);
+      background: #5b9ef5;
       color: white;
     }
 
@@ -1910,7 +1910,7 @@
     }
 
     [wz-theme="dark"] .wmeph-pane .pill-option input[type="radio"]:checked + label:hover {
-      background: #0052a3;
+      background: #4a85cc;
       color: white;
     }
 
@@ -1931,7 +1931,7 @@
 
     [wz-theme="dark"] .wmeph-pane .setting-unit,
     [wz-theme="dark"] .wmeph-pane .help-text {
-      color: #90959c;
+      color: #b7babf;
     }
 
     [wz-theme="dark"] .wmeph-pane .btn-secondary-modern {
