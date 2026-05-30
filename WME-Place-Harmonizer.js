@@ -644,322 +644,466 @@
 
   // CSS STUFF
   const _CSS = `
+    /* ====================================================================
+       CSS Variables: Design Tokens
+       ==================================================================== */
+    :root {
+      /* Colors - Waze Palette */
+      --wmeph-primary: #0075e3;
+      --wmeph-primary-light: #0099ff;
+      --wmeph-primary-lighter: #33ccff;
+      --wmeph-success: #118742;
+      --wmeph-success-light: #1bab50;
+      --wmeph-warning: #e37400;
+      --wmeph-warning-light: #ffc400;
+      --wmeph-text-default: #3a3a3a;
+      --wmeph-text-secondary: #202124;
+      --wmeph-bg-primary: #ffffff;
+      --wmeph-bg-secondary: #f5f5f5;
+      --wmeph-bg-tertiary: #fbfbfb;
+      --wmeph-border: #8d8c8c;
+      --wmeph-border-light: #dadce0;
+      --wmeph-divider: #ccc;
+
+      /* Google Logo Colors */
+      --google-red: #ea4335;
+      --google-blue: #4285f4;
+      --google-yellow: #fbbc05;
+      --google-green: #34a853;
+
+      /* Status Colors with Background */
+      --wmeph-red-text: #b51212;
+      --wmeph-red-bg: #f0dcdc;
+      --wmeph-blue-text: #3232e6;
+      --wmeph-blue-bg: #dcdcf0;
+      --wmeph-yellow-text: #584a04;
+      --wmeph-yellow-bg: #f0f0c2;
+      --wmeph-gray-text: #3a3a3a;
+      --wmeph-gray-bg: #eeeeee;
+      --wmeph-orange-text: #754900;
+      --wmeph-orange-bg: #ffd389;
+      --wmeph-lightgray-bg: #f5f5f5;
+
+      /* Spacing Tokens */
+      --spacing-xs: 4px;
+      --spacing-sm: 8px;
+      --spacing-md: 12px;
+      --spacing-lg: 16px;
+
+      /* Border Radius */
+      --radius-sm: 4px;
+      --radius-md: 6px;
+      --radius-lg: 8px;
+      --radius-pill: 14px;
+      --radius-round: 9px;
+
+      /* Typography */
+      --font-default: "Boing", sans-serif;
+      --font-text: "Open Sans", Alef, helvetica, sans-serif;
+      --font-size-xs: 9px;
+      --font-size-sm: 12px;
+      --font-size-base: 14px;
+      --font-size-lg: 16px;
+
+      /* Transitions */
+      --transition-fast: all 0.2s ease;
+    }
+
+    [wz-theme="dark"] {
+      --wmeph-text-default: #e8eaed;
+      --wmeph-text-secondary: #e8eaed;
+      --wmeph-bg-primary: #2c2c2c;
+      --wmeph-bg-secondary: #3a3a3a;
+      --wmeph-border: #5f6368;
+      --wmeph-border-light: #5f6368;
+      --wmeph-divider: #5f6368;
+      --wmeph-primary-lighter: #33ccff;
+    }
+
+    /* ====================================================================
+       Base & Layout
+       ==================================================================== */
     #edit-panel .venue-feature-editor {
-        overflow: initial;
+      overflow: initial;
     }
+
     #sidebar .wmeph-pane {
-        width: auto;
-        padding: 8px !important;
+      width: auto;
+      padding: var(--spacing-sm) !important;
     }
+
+    /* ====================================================================
+       Banner: Main Container & Styling
+       ==================================================================== */
+    #WMEPH_banner {
+      background-color: var(--wmeph-bg-primary);
+      color: var(--wmeph-text-default);
+      font-size: var(--font-size-base);
+      padding: var(--spacing-sm);
+      margin: var(--spacing-xs) var(--spacing-xs) var(--spacing-xs) var(--spacing-xs);
+      line-height: 18px;
+      border: solid 1px var(--wmeph-border);
+      border-radius: var(--radius-md);
+    }
+
+    #WMEPH_banner input[type=text] {
+      font-size: var(--font-size-sm) !important;
+      height: 22px !important;
+      font-family: var(--font-text) !important;
+    }
+
+    #WMEPH_banner div:last-child {
+      padding-bottom: 3px !important;
+    }
+
+    /* ====================================================================
+       Banner: Buttons & Row Styling
+       ==================================================================== */
     #WMEPH_banner .wmeph-btn {
-        background-color: #fbfbfb;
-        box-shadow: 0 2px 0 #aaa;
-        border: solid 1px #bbb;
-        font-weight:normal;
-        margin-bottom: 2px;
-        margin-right:4px
+      background-color: var(--wmeph-bg-tertiary);
+      border: solid 1px #bbb;
+      font-weight: normal;
+      margin-bottom: var(--spacing-xs);
+      margin-right: var(--spacing-xs);
+      transition: var(--transition-fast);
     }
-    .wmeph-btn, .wmephwl-btn {
-        height: 19px;
-        font-family: "Boing", sans-serif;
+
+    .wmeph-btn,
+    .wmephwl-btn {
+      height: 19px;
+      font-family: var(--font-default);
     }
+
     .btn.wmeph-btn {
-        padding: 0px 3px;
+      padding: 0 3px;
     }
+
     .btn.wmephwl-btn {
-        padding: 0px 1px 0px 2px;
-        height: 18px;
-        box-shadow: 0 2px 0 #b3b3b3;
+      padding: 0 1px 0 2px;
+      height: 18px;
     }
 
     #WMEPH_banner .banner-row {
-        padding:2px 4px;
-        cursor: default;
-    }
-    #WMEPH_banner .banner-row.red {
-        color:#b51212;
-        background-color: #f0dcdc;
-    }
-    #WMEPH_banner .banner-row.blue {
-        color:#3232e6;
-        background-color: #dcdcf0;
-    }
-    #WMEPH_banner .banner-row.yellow {
-        color:#584a04;
-        background-color: #f0f0c2;
-    }
-    #WMEPH_banner .banner-row.gray {
-        color:#3a3a3a;
-        background-color: #eeeeee;
-    }
-    #WMEPH_banner .banner-row.orange {
-        color:#754900;
-        background-color: #ffd389
-    }
-    #WMEPH_banner .banner-row.lightgray {
-        color:#3a3a3a;
-        background-color: #f5f5f5;
-    }
-    #WMEPH_banner .banner-row .dupe {
-        padding-left:8px;
-    }
-    #WMEPH_banner {
-        background-color:#fff;
-        color:black; font-size:14px;
-        padding-top:8px;
-        padding-bottom:8px;
-        margin-left:4px;
-        margin-right:4px;
-        line-height:18px;
-        margin-top:2px;
-        border: solid 1px #8d8c8c;
-        border-radius: 6px;
-        margin-bottom: 4px;
-    }
-    #WMEPH_banner input[type=text] {
-        font-size: 13px !important;
-        height:22px !important;
-        font-family: "Open Sans", Alef, helvetica, sans-serif !important;
-    }
-    #WMEPH_banner div:last-child {
-        padding-bottom: 3px !important;
-    }
-    #wmeph-run-panel {
-        display: flex;
-        flex-wrap: wrap;
-        gap: 4px;
-        align-items: center;
-        padding: 4px;
-        color: black;
-        font-size: 14px;
-    }
-    #wmeph-run-panel .wmeph-run-btn {
-        flex: 1 0 83px;
-        min-width: 83px;
-        height: 28px;
-        padding: 4px 8px !important;
-        font-size: 12px !important;
-        border-radius: 14px;
-        border: 1px solid;
-        background-color: transparent !important;
-        box-shadow: none !important;
-    }
-    #wmeph-run-panel .wmeph-btn {
-        flex: 0 1 auto;
-        height: 28px;
-    }
-    #wmeph-run-panel .wmeph-clone-row {
-        display: flex;
-        // flex-wrap: wrap;
-        gap: 4px;
-        align-items: center;
-        // justify-content: space-around;
-        // margin-top: 4px;
-    }
-    #wmeph-run-panel .wmeph-clone-btn {
-        height: 18px !important;
-        padding: 0px 10px !important;
-        font-size: 9px !important;
-        border-radius: 9px;
-        border: 1px solid;
-        background-color: transparent !important;
-        box-shadow: none !important;
-        transition: all 0.2s ease;
-        display: flex !important;
-        align-items: center !important;
-        justify-content: center !important;
-    }
-    #wmeph-run-panel .wmeph-clone-btn.btn-warning {
-        border-color: #e37400 !important;
-        color: #e37400 !important;
-    }
-    #wmeph-run-panel .wmeph-clone-btn.btn-warning:hover {
-        background-color: rgba(227, 116, 0, 0.1) !important;
-        border-color: #ffc400 !important;
-    }
-    #wmeph-run-panel .wmeph-clone-btn.btn-info {
-        border-color: #0099ff !important;
-        color: #0099ff !important;
-    }
-    #wmeph-run-panel .wmeph-clone-btn.btn-info:hover {
-        background-color: rgba(0, 153, 255, 0.1) !important;
-        border-color: #33ccff !important;
-    }
-    #wmeph-run-panel .wmeph-clone-row .wmeph-icon-toggle {
-        font-size: 18px !important;
-        color: #0075e3;
-    }
-    #wmeph-run-panel .wmeph-clone-row .wmeph-icon-toggle i {
-        font-size: 18px !important;
-    }
-    #wmeph-run-panel .wmeph-clone-row .wmeph-icon-toggle:hover {
-        transform: scale(1.1);
-    }
-    [wz-theme="dark"] #wmeph-run-panel .wmeph-clone-row .wmeph-icon-toggle {
-        color: #33ccff;
-    }
-    /* Waze color palette - Chip/outline style */
-    #runWMEPH {
-        border-color: #0075e3 !important;
-        color: #0075e3 !important;
-        transition: all 0.2s ease;
-    }
-    #runWMEPH:hover {
-        background-color: rgba(0, 153, 255, 0.1) !important;
-        border-color: #0099ff !important;
-    }
-    #WMEPHurl {
-        border-color: #118742 !important;
-        color: #118742 !important;
-        transition: all 0.2s ease;
-    }
-    #WMEPHurl:hover {
-        background-color: rgba(27, 171, 80, 0.1) !important;
-        border-color: #1bab50 !important;
-    }
-    #wmephSearch {
-        border-color: #0099ff !important;
-        color: #0099ff !important;
-        transition: all 0.2s ease;
-    }
-    #wmephSearch:hover {
-        background-color: rgba(51, 204, 255, 0.1) !important;
-        border-color: #33ccff !important;
-    }
-    #wmephPlugShareSearch {
-        border-color: #118742 !important;
-        color: #118742 !important;
-        transition: all 0.2s ease;
-    }
-    #wmephPlugShareSearch:hover {
-        background-color: rgba(30, 171, 146, 0.1) !important;
-        border-color: #1ee592 !important;
-    }
-    #WMEPH_tools {
-        display: flex;
-        flex-wrap: wrap;
-        gap: 4px;
-        align-items: center;
-        padding: 4px 6px !important;
-    }
-    #WMEPH_tools > div {
-        display: flex;
-        flex-wrap: wrap;
-        gap: 4px;
-        align-items: center;
-    }
-    #WMEPH_tools .wmeph-btn {
-        padding: 2px 6px !important;
-        margin-bottom: 0 !important;
-        margin-right: 0 !important;
-        font-size: 12px;
-        height: 18px;
-        flex-shrink: 0;
-    }
-    #WMEPH_tools .wmeph-clone-btn {
-        height: 18px !important;
-        padding: 0px 10px !important;
-        font-size: 9px !important;
-        border-radius: 9px;
-        border: 1px solid;
-        background-color: transparent !important;
-        box-shadow: none !important;
-        transition: all 0.2s ease;
-        display: flex !important;
-        align-items: center !important;
-        justify-content: center !important;
-    }
-    #WMEPH_tools .wmeph-clone-btn.btn-info {
-        border-color: #0099ff !important;
-        color: #0099ff !important;
-    }
-    #WMEPH_tools .wmeph-clone-btn.btn-info:hover {
-        background-color: rgba(0, 153, 255, 0.1) !important;
-        border-color: #33ccff !important;
-    }
-    .wmeph-fat-btn {
-        padding-left:8px;
-        padding-right:8px;
-        padding-top:4px;
-        margin-right:3px;
-        display:inline-block;
-        font-weight:normal;
-        height:24px;
-        font-family: "Boing", sans-serif;
-    }
-    .ui-autocomplete {
-        max-height: 300px;
-        overflow-y: auto;
-        overflow-x: hidden;
-    }
-    .wmeph-hr {
-        border-color: #ccc;
-    }
-    .wmeph-hr {
-        border-color: #ccc;
+      padding: var(--spacing-xs) var(--spacing-xs);
+      cursor: default;
     }
 
+    #WMEPH_banner .banner-row.red {
+      color: var(--wmeph-red-text);
+      background-color: var(--wmeph-red-bg);
+    }
+
+    #WMEPH_banner .banner-row.blue {
+      color: var(--wmeph-blue-text);
+      background-color: var(--wmeph-blue-bg);
+    }
+
+    #WMEPH_banner .banner-row.yellow {
+      color: var(--wmeph-yellow-text);
+      background-color: var(--wmeph-yellow-bg);
+    }
+
+    #WMEPH_banner .banner-row.gray {
+      color: var(--wmeph-gray-text);
+      background-color: var(--wmeph-gray-bg);
+    }
+
+    #WMEPH_banner .banner-row.orange {
+      color: var(--wmeph-orange-text);
+      background-color: var(--wmeph-orange-bg);
+    }
+
+    #WMEPH_banner .banner-row.lightgray {
+      color: var(--wmeph-gray-text);
+      background-color: var(--wmeph-lightgray-bg);
+    }
+
+    #WMEPH_banner .banner-row .dupe {
+      padding-left: var(--spacing-sm);
+    }
+
+    /* ====================================================================
+       Run Panel: Primary Action Container
+       ==================================================================== */
+    #wmeph-run-panel {
+      display: flex;
+      flex-wrap: wrap;
+      gap: var(--spacing-xs);
+      align-items: center;
+      padding: var(--spacing-xs);
+      color: var(--wmeph-text-default);
+      font-size: var(--font-size-base);
+    }
+
+    #wmeph-run-panel .wmeph-run-btn {
+      flex: 1 0 83px;
+      min-width: 83px;
+      height: 28px;
+      padding: var(--spacing-xs) var(--spacing-sm) !important;
+      font-size: var(--font-size-sm) !important;
+      border-radius: var(--radius-pill);
+      border: 1px solid;
+      background-color: transparent !important;
+      box-shadow: none !important;
+      transition: var(--transition-fast);
+    }
+
+    #wmeph-run-panel .wmeph-btn {
+      flex: 0 1 auto;
+      height: 28px;
+    }
+
+    #wmeph-run-panel .wmeph-clone-row {
+      display: flex;
+      gap: var(--spacing-xs);
+      align-items: center;
+    }
+
+    /* ====================================================================
+       Clone Buttons: Compact Icon Buttons
+       ==================================================================== */
+    #wmeph-run-panel .wmeph-clone-btn {
+      height: 18px !important;
+      padding: 0 10px !important;
+      font-size: var(--font-size-xs) !important;
+      border-radius: var(--radius-round);
+      border: 1px solid;
+      background-color: transparent !important;
+      box-shadow: none !important;
+      transition: var(--transition-fast);
+      display: flex !important;
+      align-items: center !important;
+      justify-content: center !important;
+    }
+
+    #wmeph-run-panel .wmeph-clone-btn.btn-warning {
+      border-color: var(--wmeph-warning) !important;
+      color: var(--wmeph-warning) !important;
+    }
+
+    #wmeph-run-panel .wmeph-clone-btn.btn-warning:hover {
+      background-color: rgba(227, 116, 0, 0.1) !important;
+      border-color: var(--wmeph-warning-light) !important;
+    }
+
+    #wmeph-run-panel .wmeph-clone-btn.btn-info {
+      border-color: var(--wmeph-primary-light) !important;
+      color: var(--wmeph-primary-light) !important;
+    }
+
+    #wmeph-run-panel .wmeph-clone-btn.btn-info:hover {
+      background-color: rgba(0, 153, 255, 0.1) !important;
+      border-color: var(--wmeph-primary-lighter) !important;
+    }
+
+    /* ====================================================================
+       Icon Toggle in Clone Row
+       ==================================================================== */
+    #wmeph-run-panel .wmeph-clone-row .wmeph-icon-toggle {
+      font-size: 18px !important;
+      color: var(--wmeph-primary);
+      transition: var(--transition-fast);
+      cursor: pointer;
+    }
+
+    #wmeph-run-panel .wmeph-clone-row .wmeph-icon-toggle i {
+      font-size: 18px !important;
+    }
+
+    #wmeph-run-panel .wmeph-clone-row .wmeph-icon-toggle:hover {
+      transform: scale(1.1);
+    }
+
+    [wz-theme="dark"] #wmeph-run-panel .wmeph-clone-row .wmeph-icon-toggle {
+      color: var(--wmeph-primary-lighter);
+    }
+
+    /* ====================================================================
+       Action Buttons: Semantic Color System
+       ==================================================================== */
+    #runWMEPH {
+      border-color: var(--wmeph-primary) !important;
+      color: var(--wmeph-primary) !important;
+      transition: var(--transition-fast);
+    }
+
+    #runWMEPH:hover {
+      background-color: rgba(0, 117, 227, 0.1) !important;
+      border-color: var(--wmeph-primary-light) !important;
+    }
+
+    #WMEPHurl {
+      border-color: var(--wmeph-success) !important;
+      color: var(--wmeph-success) !important;
+      transition: var(--transition-fast);
+    }
+
+    #WMEPHurl:hover {
+      background-color: rgba(27, 171, 80, 0.1) !important;
+      border-color: var(--wmeph-success-light) !important;
+    }
+
+    #wmephSearch {
+      border-color: var(--wmeph-primary-light) !important;
+      color: var(--wmeph-primary-light) !important;
+      transition: var(--transition-fast);
+    }
+
+    #wmephSearch:hover {
+      background-color: rgba(0, 153, 255, 0.1) !important;
+      border-color: var(--wmeph-primary-lighter) !important;
+    }
+
+    #wmephPlugShareSearch {
+      border-color: var(--wmeph-success) !important;
+      color: var(--wmeph-success) !important;
+      transition: var(--transition-fast);
+    }
+
+    #wmephPlugShareSearch:hover {
+      background-color: rgba(30, 171, 146, 0.1) !important;
+      border-color: #1ee592 !important;
+    }
+
+    /* ====================================================================
+       Tools Panel: Secondary Actions
+       ==================================================================== */
+    #WMEPH_tools {
+      display: flex;
+      flex-wrap: wrap;
+      gap: var(--spacing-xs);
+      align-items: center;
+      padding: var(--spacing-xs) 6px !important;
+    }
+
+    #WMEPH_tools > div {
+      display: flex;
+      flex-wrap: wrap;
+      gap: var(--spacing-xs);
+      align-items: center;
+    }
+
+    #WMEPH_tools .wmeph-btn {
+      padding: 2px 6px !important;
+      margin-bottom: 0 !important;
+      margin-right: 0 !important;
+      font-size: var(--font-size-sm);
+      height: 18px;
+      flex-shrink: 0;
+    }
+
+    #WMEPH_tools .wmeph-clone-btn {
+      height: 18px !important;
+      padding: 0 10px !important;
+      font-size: var(--font-size-xs) !important;
+      border-radius: var(--radius-round);
+      border: 1px solid;
+      background-color: transparent !important;
+      box-shadow: none !important;
+      transition: var(--transition-fast);
+      display: flex !important;
+      align-items: center !important;
+      justify-content: center !important;
+    }
+
+    #WMEPH_tools .wmeph-clone-btn.btn-info {
+      border-color: var(--wmeph-primary-light) !important;
+      color: var(--wmeph-primary-light) !important;
+    }
+
+    #WMEPH_tools .wmeph-clone-btn.btn-info:hover {
+      background-color: rgba(0, 153, 255, 0.1) !important;
+      border-color: var(--wmeph-primary-lighter) !important;
+    }
+
+    /* ====================================================================
+       Fat Buttons & Utility Styles
+       ==================================================================== */
+    .wmeph-fat-btn {
+      padding: var(--spacing-xs) var(--spacing-sm);
+      margin-right: 3px;
+      display: inline-block;
+      font-weight: normal;
+      height: 24px;
+      font-family: var(--font-default);
+      transition: var(--transition-fast);
+    }
+
+    .ui-autocomplete {
+      max-height: 300px;
+      overflow-y: auto;
+      overflow-x: hidden;
+    }
+
+    .wmeph-hr {
+      border-color: var(--wmeph-divider);
+    }
+
+    /* ====================================================================
+       Animations & Highlights
+       ==================================================================== */
     @keyframes highlight {
-        0% {
-            background: #ffff99;
-        }
-        100% {
-            background: none;
-        }
+      0% {
+        background: #ffff99;
+      }
+      100% {
+        background: none;
+      }
     }
 
     .highlight {
-        animation: highlight 1.5s;
+      animation: highlight 1.5s;
     }
 
+    /* ====================================================================
+       Google Logo Colors
+       ==================================================================== */
     .google-logo {
-        /*font-size: 16px*/
-    }
-    .google-logo.red{
-        color: #ea4335
-    }
-    .google-logo.blue {
-        color: #4285f4
-    }
-    .google-logo.orange {
-        color: #fbbc05
-    }
-    .google-logo.green {
-        color: #34a853
+      font-size: 16px;
     }
 
-    /* WMEPH Section Wrapper - Phase 1 Incremental */
-    .wmeph-section {
-        background-color: #fff;
-        border: solid 1px #8d8c8c;
-        border-radius: 6px;
-        margin: 2px 4px 4px 4px;
+    .google-logo.red {
+      color: var(--google-red);
     }
-    [wz-theme="dark"] .wmeph-section {
-        background-color: #2c2c2c;
-        border-color: #5f6368;
+
+    .google-logo.blue {
+      color: var(--google-blue);
+    }
+
+    .google-logo.orange {
+      color: var(--google-yellow);
+    }
+
+    .google-logo.green {
+      color: var(--google-green);
+    }
+
+    /* ====================================================================
+       Section Components: Cards & Headers
+       ==================================================================== */
+    .wmeph-section {
+      background-color: var(--wmeph-bg-primary);
+      border: solid 1px var(--wmeph-border);
+      border-radius: var(--radius-md);
+      margin: var(--spacing-xs) var(--spacing-xs) var(--spacing-xs) var(--spacing-xs);
     }
 
     .wmeph-section-header {
-        display: flex;
-        align-items: center;
-        background: linear-gradient(to right, #f5f5f5 0%, #ffffff 100%);
-        border-bottom: 1px solid #dadce0;
-        padding: 2px 2px;
-        font-weight: 600;
-        font-size: 14px;
-        color: #202124;
-        cursor: default;
-        user-select: none;
-    }
-    [wz-theme="dark"] .wmeph-section-header {
-        background: linear-gradient(to right, #3a3a3a 0%, #2c2c2c 100%);
-        border-bottom-color: #5f6368;
-        color: #e8eaed;
+      display: flex;
+      align-items: center;
+      background: linear-gradient(to right, var(--wmeph-bg-secondary) 0%, var(--wmeph-bg-primary) 100%);
+      border-bottom: 1px solid var(--wmeph-border-light);
+      padding: 2px;
+      font-weight: 600;
+      font-size: var(--font-size-base);
+      color: var(--wmeph-text-secondary);
+      cursor: default;
+      user-select: none;
+      transition: var(--transition-fast);
     }
 
     .wmeph-section-body {
-        padding: 4px 0;
+      padding: var(--spacing-xs) 0;
     }
     `;
 
