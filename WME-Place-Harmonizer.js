@@ -5735,6 +5735,13 @@
           );
         });
 
+        $('#wmeph-paste-hours-btn').keydown(function(e) {
+          if (e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault();
+            $(this).click();
+          }
+        });
+
         // $('#wmeph-clear-hours-btn').click(() => {
         //     $('#WMEPH-HoursPaste').val(null);
         //     resetHoursEntryHeight();
@@ -10120,6 +10127,13 @@
               }, 1500);
             }, 250);
           }, 0);
+        });
+
+        $('#wmeph-ext-prov-jump').keydown(function(e) {
+          if (e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault();
+            $(this).click();
+          }
         });
       }
     } catch (err) {
