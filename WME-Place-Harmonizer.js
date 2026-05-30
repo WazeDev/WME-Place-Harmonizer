@@ -684,6 +684,10 @@
       --wmeph-orange-bg: #ffd389;
       --wmeph-lightgray-bg: #f5f5f5;
 
+      /* Feed Warning Colors (brighter yellow for better visibility) */
+      --wmeph-feed-warning-text: #3d2f00;
+      --wmeph-feed-warning-bg: #ffeb3b;
+
       /* Spacing Tokens - aligned with WME spacing scale */
       --wmeph-spacing-xxxs: 2px;
       --wmeph-spacing-xxs: 4px;
@@ -726,6 +730,23 @@
       --wmeph-divider: #5f6368;
       --wmeph-primary-lighter: #33ccff;
       --wmeph-gradient-header: linear-gradient(135deg, #1a73e8, #0d47a1);
+
+      /* Status Colors - Dark Mode (improved contrast) */
+      --wmeph-red-text: #ff6b6b;
+      --wmeph-red-bg: #3d1a1a;
+      --wmeph-blue-text: #5b9ef5;
+      --wmeph-blue-bg: #1a2d52;
+      --wmeph-yellow-text: #ffd54f;
+      --wmeph-yellow-bg: #4a4200;
+      --wmeph-gray-text: #bdc1c6;
+      --wmeph-gray-bg: #2c2c2c;
+      --wmeph-orange-text: #ffa726;
+      --wmeph-orange-bg: #3d2817;
+      --wmeph-lightgray-bg: #3a3a3a;
+
+      /* Feed Warning Colors */
+      --wmeph-feed-warning-text: #f9a825;
+      --wmeph-feed-warning-bg: #5a4a0a;
     }
 
     /* ====================================================================
@@ -791,6 +812,48 @@
       cursor: default;
     }
 
+    #WMEPH_banner .banner-row:has(.wmeph-hours-row1) {
+      display: flex;
+      align-items: flex-start;
+      gap: var(--wmeph-spacing-xxs);
+    }
+
+    #WMEPH_banner .banner-row:has(.wmeph-hours-row1) > span {
+      display: flex;
+      flex-direction: column;
+      flex: 1;
+      min-width: 0;
+      font-size: 0;
+      line-height: 0;
+    }
+
+    #WMEPH_banner .banner-row:has(.wmeph-hours-row1) > span > div {
+      font-size: var(--wmeph-font-size-base);
+      line-height: normal;
+    }
+
+    .wmeph-hours-row1 {
+      display: flex;
+      align-items: center;
+      gap: var(--wmeph-spacing-xxs);
+    }
+
+    .wmeph-hours-row2 {
+      display: flex;
+      align-items: center;
+      gap: var(--wmeph-spacing-xxs);
+      width: 100%;
+    }
+
+    .wmeph-hours-row2 .wmephwl-btn {
+      margin-left: auto;
+    }
+
+    .wmeph-hours-row3 {
+      width: 100%;
+      margin-left: 0;
+    }
+
     #WMEPH_banner .banner-row.red {
       color: var(--wmeph-red-text);
       background-color: var(--wmeph-red-bg);
@@ -804,6 +867,28 @@
     #WMEPH_banner .banner-row.yellow {
       color: var(--wmeph-yellow-text);
       background-color: var(--wmeph-yellow-bg);
+    }
+
+    /* Feed warning banner */
+    .wmeph-feed-warning {
+      padding: var(--wmeph-spacing-xxxs) var(--wmeph-spacing-xxs) 0 var(--wmeph-spacing-xxs);
+      background-color: var(--wmeph-feed-warning-bg);
+      color: var(--wmeph-feed-warning-text);
+    }
+
+    .wmeph-feed-warning-title {
+      font-weight: 500;
+      color: var(--wmeph-feed-warning-text);
+    }
+
+    .wmeph-feed-warning-desc {
+      font-size: var(--wmeph-font-size-sm);
+      color: var(--wmeph-feed-warning-text);
+    }
+
+    .wmeph-feed-warning-list {
+      font-size: var(--wmeph-font-size-sm);
+      color: var(--wmeph-feed-warning-text);
     }
 
     #WMEPH_banner .banner-row.gray {
@@ -867,12 +952,13 @@
       border: solid 1px var(--wmeph-success, #118742);
       color: white;
       font-weight: normal;
-      margin-bottom: var(--wmeph-spacing-xs);
-      margin-right: var(--wmeph-spacing-xs);
+      margin-bottom: 0;
+      margin-right: 0;
       transition: var(--transition-fast);
       cursor: pointer;
       padding: 2px 2px;
       height: 22px;
+      flex-shrink: 0;
     }
 
     #WMEPH_banner .wmephwl-btn:hover {
@@ -1124,6 +1210,10 @@
       color: var(--google-green);
     }
 
+    .google-logo.gray {
+      color: var(--wmeph-gray-text);
+    }
+
     /* ====================================================================
        Section Components: Cards & Headers
        ==================================================================== */
@@ -1226,27 +1316,31 @@
       margin-right: var(--wmeph-spacing-xxs);
       color: var(--wmeph-text-secondary, #6c6c6c);
       cursor: pointer;
+      flex-shrink: 0;
     }
 
     #wmeph-hours-list {
       display: inline-block;
-      font-size: var(--wmeph-font-size-xs);
+      font-size: var(--wmeph-font-size-sm);
       border: 1px solid var(--wmeph-border);
-      margin: -6px var(--wmeph-spacing-xxs) var(--wmeph-spacing-xxs) 0;
-      border-radius: 0 0 5px 5px;
+      /* border-radius: 0 0 5px 5px; */
       background-color: var(--wmeph-bg-secondary);
       color: var(--wmeph-text-secondary);
-      padding: 3px 10px 0 5px !important;
-      z-index: 0;
+      padding: 1px 0px 0 3px !important;
       position: relative;
-      min-width: 84%;
+      z-index: 1;
+      /* margin: 0px var(--wmeph-spacing-xxs) var(--wmeph-spacing-xxs) 0; */
+      width: 253px !important;
+      min-width: 253px !important;
+      max-width: 253px !important;
+      box-sizing: border-box;
     }
 
     #WMEPH-HoursPaste {
       overflow: auto;
-      width: 160;
-      max-width: 160;
-      min-width: 160;
+      flex: 1 1 230px;
+      max-width: 230px;
+      min-width: 80px;
       height: 24px;
       min-height: 24px;
       max-height: 200px;
@@ -5518,8 +5612,8 @@
       }
 
       static #getHoursHtml(hasExistingHours = false, alwaysOpen = false) {
-        return $('<span>').append(
-          `${hasExistingHours ? 'Hours' : 'No hours'}:`,
+        const $row1 = $('<div>', { class: 'wmeph-hours-row1' }).append(
+          `• ${hasExistingHours ? 'Hours' : 'No hours'}:`,
           !alwaysOpen
             ? $('<input>', {
                 class: 'wmeph-btn',
@@ -5538,10 +5632,13 @@
                 value: 'Replace all hours',
               })
             : '',
+        );
+        const $row2 = $('<div>', { class: 'wmeph-hours-row2' }).html(
           // jquery throws an error when setting autocomplete="off" in a jquery object (must use .autocomplete() function), so just use a string here.
           // eslint-disable-next-line max-len
-          `<textarea id="WMEPH-HoursPaste" class="wmeph-input" wrap="off" autocomplete="off">${DEFAULT_HOURS_TEXT}`,
-        )[0].outerHTML;
+          `<textarea id="WMEPH-HoursPaste" class="wmeph-input" wrap="off" autocomplete="off">${DEFAULT_HOURS_TEXT}</textarea>`,
+        );
+        return $row1[0].outerHTML + $row2[0].outerHTML;
       }
 
       static #getTitle(parseResult) {
@@ -5722,7 +5819,8 @@
             title: 'Current hours',
           }).append(hoursStringArray.map((entry, idx) => `<div${idx < hoursStringArray.length - 1 ? ' style="border-bottom: 1px solid var(--wmeph-divider);"' : ''}>${entry}</div>`).join(''));
 
-          $('#WMEPH-HoursPaste').after($hoursTable);
+          const $row3 = $('<div>', { class: 'wmeph-hours-row3' }).append($hoursTable);
+          $('.wmeph-hours-row2').after($row3);
         }
         // NOTE: Leave these wrapped in the "() => ..." functions, to make sure "this" is bound properly.
         $('#WMEPH_noHours').click(() => this.onAddHoursClick());
@@ -5772,6 +5870,12 @@
             (err) => logDev(err),
           );
         });
+
+        // Move WL button into row2 (next to paste button)
+        const $wlBtn = $(`#WMEPH_WL${this.args?.flag?.name || 'NoHours'}`);
+        if ($wlBtn.length) {
+          $wlBtn.appendTo('.wmeph-hours-row2');
+        }
 
         $('#wmeph-paste-hours-btn').keydown(function(e) {
           if (e.key === 'Enter' || e.key === ' ') {
@@ -10046,7 +10150,9 @@
             class: 'banner-row gray',
             style: 'padding-top: 4px;color: #646464;padding-left: 8px;',
           })
-            .text(' Links')
+            .append(
+              $('<span>', { class: 'google-logo gray', text: ' Links' })
+            )
             .prepend(
               googleLogoLetter('G', 'blue'),
               googleLogoLetter('o', 'red'),
@@ -10981,13 +11087,14 @@
           let feedNames = res.venue.external_providers?.filter((prov) => !FEEDS_TO_SKIP.some((skipRegex) => skipRegex.test(prov.provider))).map((prov) => prov.provider);
           if (feedNames) feedNames = [...new Set(feedNames)]; // Remove duplicates
           if (feedNames?.length) {
-            const $rowDiv = $('<div>').css({ padding: '3px 4px 0px 4px', 'background-color': 'yellow' });
+            const $rowDiv = $('<div>', { class: 'wmeph-feed-warning' });
             $rowDiv.append(
-              $('<div>').text('PLEASE DO NOT DELETE').css({ 'font-weight': '500' }),
-              $('<div>')
-                .text(`Place is connected to the following feed${feedNames.length > 1 ? 's' : ''}:`)
-                .css({ 'font-size': '13px' }),
-              $('<div>').text(feedNames.join(', ')).css({ 'font-size': '13px' }),
+              $('<div>', { class: 'wmeph-feed-warning-title', text: 'PLEASE DO NOT DELETE' }),
+              $('<div>', {
+                class: 'wmeph-feed-warning-desc',
+                text: `Place is connected to the following feed${feedNames.length > 1 ? 's' : ''}:`,
+              }),
+              $('<div>', { class: 'wmeph-feed-warning-list', text: feedNames.join(', ') }),
             );
             $wmephPrePanel.append($rowDiv);
             // Potential code to hide the delete key if needed.
