@@ -1221,6 +1221,53 @@
     .wmeph-pane-tab:hover {
       color: var(--wmeph-text-default);
     }
+
+    .wmeph-card-title {
+      margin: 0;
+      font-size: 14px;
+      font-weight: 600;
+      color: var(--wmeph-text-default);
+    }
+
+    .wmeph-card-body {
+      display: flex;
+      flex-direction: column;
+      gap: var(--spacing-sm);
+    }
+
+    .wmeph-label {
+      font-size: 12px;
+      color: var(--wmeph-text-secondary);
+      font-weight: 500;
+      flex-shrink: 0;
+    }
+
+    .wmeph-select {
+      padding: 4px 6px;
+      font-size: 11px;
+      border: 1px solid var(--wmeph-border);
+      border-radius: var(--radius-sm);
+      background: var(--wmeph-bg-primary);
+      color: var(--wmeph-text-default);
+      box-sizing: border-box;
+    }
+
+    .wmeph-select:focus {
+      outline: none;
+      border-color: var(--wmeph-primary);
+      box-shadow: 0 0 0 3px rgba(0, 117, 227, 0.1);
+    }
+
+    .wmeph-btn.secondary {
+      background: var(--wmeph-bg-secondary);
+      color: var(--wmeph-text-default);
+      border: 1px solid var(--wmeph-border);
+    }
+
+    .wmeph-btn.secondary:hover:not(:disabled) {
+      background: var(--wmeph-border-light);
+      border-color: var(--wmeph-primary);
+    }
     `;
 
   // **************************************************************************************************************
