@@ -5714,10 +5714,13 @@
             class: 'fa fa-paste',
             style: 'font-size: 17px;position: relative;vertical-align: top;top: 2px;right: -5px;margin-right: 3px;color: #6c6c6c;cursor: pointer;',
             title: 'Paste from the clipboard',
+            'aria-label': 'Paste from clipboard',
+            role: 'button',
+            tabindex: '0',
           }),
         ); // , $('<i>', {
         //     id: 'wmeph-clear-hours-btn',
-        //     class: 'fa fa-trash-o',
+        //     class: 'fa fa-trash',
         //     style: 'font-size: 17px;position: relative;right: -5px;bottom: 6px;color: #6c6c6c;cursor: pointer;margin-left: 5px;',
         //     title: 'Clear pasted hours'
         // }));
@@ -10011,8 +10014,11 @@
               $('<i>', {
                 id: 'wmeph-ext-prov-jump',
                 title: 'Jump to external providers section',
-                class: 'fa fa-level-down',
+                'aria-label': 'Jump to external providers section',
+                class: 'fa fa-arrow-turn-down-left',
                 style: 'font-size: 15px;float: right;color: cadetblue;cursor: pointer;padding-left: 6px;',
+                role: 'button',
+                tabindex: '0',
               }),
             ),
         );
@@ -10040,10 +10046,12 @@
                               href: result.website,
                               target: '_blank',
                               title: "Open the place's website, according to Google",
+                              'aria-label': "Open website (according to Google)",
                             }).append(
                               $('<i>', {
                                 class: 'fa fa-external-link',
                                 style: 'font-size: 16px;position: relative;top: 1px;',
+                                'aria-hidden': 'true',
                               }),
                             ),
                             $('<span>', {
@@ -10057,10 +10065,12 @@
                             href: result.url,
                             target: '_blank',
                             title: 'Open the place in Google Maps',
+                            'aria-label': 'Open in Google Maps',
                           }).append(
                             $('<i>', {
-                              class: 'fa fa-map-o',
+                              class: 'fa fa-map',
                               style: 'font-size: 16px;',
+                              'aria-hidden': 'true',
                             }),
                           )
                         : null,
@@ -12031,7 +12041,7 @@
     const header = createElem('div', { class: 'wmeph-card-header' });
 
     if (iconClass) {
-      const icon = createElem('i', { class: `fa ${iconClass}` });
+      const icon = createElem('i', { class: `fa ${iconClass}`, 'aria-hidden': 'true' });
       header.appendChild(icon);
     }
 
@@ -12387,7 +12397,7 @@
     }
 
     // Keyboard shortcut card
-    const kbCard = makeCard('Keyboard Shortcut', 'fa-keyboard-o');
+    const kbCard = makeCard('Keyboard Shortcut', 'fa-keyboard');
     const kbWarnDiv = createElem('div', { id: 'PlaceHarmonizerKBWarn' });
     const kbInput = createElem('input', {
       type: 'text',
@@ -12513,9 +12523,9 @@
       WMEPH_CPcity: 'fa-map-marker', // City
       WMEPH_CPurl: 'fa-link', // URL
       WMEPH_CPph: 'fa-phone', // Phone
-      WMEPH_CPdesc: 'fa-file-text', // Description
+      WMEPH_CPdesc: 'fa-file', // Description
       WMEPH_CPserv: 'fa-cog', // Services
-      WMEPH_CPhrs: 'fa-clock-o', // Hours
+      WMEPH_CPhrs: 'fa-clock', // Hours
     };
 
     const icon = iconMap[settingID];
@@ -12526,13 +12536,15 @@
       type: 'button',
       class: `wmeph-icon-toggle ${isChecked ? 'checked' : ''}`,
       title: textDescription,
+      'aria-label': textDescription,
+      'aria-pressed': isChecked,
     })
-      .html(icon ? `<i class="fa ${icon}"></i>` : textDescription)
+      .html(icon ? `<i class="fa ${icon}" aria-hidden="true"></i>` : textDescription)
       .click(function () {
         const checked = getWMEPHSetting(settingID) === '1';
         const newState = checked ? '0' : '1';
         setWMEPHSetting(settingID, newState);
-        $(this).toggleClass('checked', newState === '1');
+        $(this).toggleClass('checked', newState === '1').attr('aria-pressed', newState === '1');
       });
 
     return $button;
