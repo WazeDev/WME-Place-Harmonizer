@@ -747,8 +747,8 @@
       background-color: var(--wmeph-bg-primary);
       color: var(--wmeph-text-default);
       font-size: var(--wmeph-font-size-base);
-      padding: var(--wmeph-spacing-sm);
-      margin: var(--wmeph-spacing-xs) var(--wmeph-spacing-xs) var(--wmeph-spacing-xs) var(--wmeph-spacing-xs);
+      padding: var(--wmeph-spacing-xxs);
+      margin: var(--wmeph-spacing-xxs) var(--wmeph-spacing-xxs) var(--wmeph-spacing-xxs) var(--wmeph-spacing-xxs);
       line-height: 18px;
       border: solid 1px var(--wmeph-border);
       border-radius: var(--wmeph-radius-md);
@@ -758,6 +758,8 @@
       font-size: var(--wmeph-font-size-sm) !important;
       height: 22px !important;
       font-family: var(--wmeph-font-family) !important;
+      max-width: 120px;
+      box-sizing: border-box;
     }
 
     #WMEPH_banner div:last-child {
@@ -771,6 +773,8 @@
       background-color: var(--wmeph-bg-tertiary);
       border: solid 1px var(--wmeph-border);
       font-weight: normal;
+      padding: 2px 2px;
+      height: 22px
       margin-bottom: var(--wmeph-spacing-xs);
       margin-right: var(--wmeph-spacing-xs);
       transition: var(--transition-fast);
@@ -783,7 +787,7 @@
     /* Whitelist button styles are scoped to #WMEPH_banner and #wmeph-run-panel (see around line 857-881) */
 
     #WMEPH_banner .banner-row {
-      padding: var(--wmeph-spacing-xs) var(--wmeph-spacing-xs);
+      padding: var(--wmeph-spacing-xxs) var(--wmeph-spacing-xxs);
       cursor: default;
     }
 
@@ -827,9 +831,9 @@
     #wmeph-run-panel {
       display: flex;
       flex-wrap: wrap;
-      gap: var(--wmeph-spacing-xs);
+      gap: var(--wmeph-spacing-xxs);
       align-items: center;
-      padding: var(--wmeph-spacing-xs);
+      padding: var(--wmeph-spacing-xxs);
       color: var(--wmeph-text-default);
       font-size: var(--wmeph-font-size-base);
     }
@@ -838,13 +842,16 @@
       flex: 1 0 83px;
       min-width: 83px;
       height: 28px;
-      padding: var(--wmeph-spacing-xs) var(--wmeph-spacing-sm) !important;
+      padding: var(--wmeph-spacing-xxs) var(--wmeph-spacing-xxs) var(--wmeph-spacing-xxs) var(--wmeph-spacing-xxs) !important;
       font-size: var(--wmeph-font-size-sm) !important;
       border-radius: var(--wmeph-radius-pill);
       border: 1px solid;
       background-color: transparent !important;
       box-shadow: none !important;
       transition: var(--transition-fast);
+      display: flex;
+      justify-content: center;
+      align-items: center;
     }
 
     #wmeph-run-panel .wmeph-btn {
@@ -864,8 +871,8 @@
       margin-right: var(--wmeph-spacing-xs);
       transition: var(--transition-fast);
       cursor: pointer;
-      padding: 2px 8px;
-      height: auto;
+      padding: 2px 2px;
+      height: 22px;
     }
 
     #WMEPH_banner .wmephwl-btn:hover {
@@ -966,6 +973,9 @@
       border-color: var(--wmeph-success) !important;
       color: var(--wmeph-success) !important;
       transition: var(--transition-fast);
+      display: flex;
+      justify-content: center;
+      align-items: center;
     }
 
     #WMEPHurl:hover {
@@ -977,6 +987,9 @@
       border-color: var(--wmeph-primary-light) !important;
       color: var(--wmeph-primary-light) !important;
       transition: var(--transition-fast);
+      display: flex;
+      justify-content: center;
+      align-items: center;
     }
 
     #wmephSearch:hover {
@@ -988,6 +1001,9 @@
       border-color: var(--wmeph-success) !important;
       color: var(--wmeph-success) !important;
       transition: var(--transition-fast);
+      display: flex;
+      justify-content: center;
+      align-items: center;
     }
 
     #wmephPlugShareSearch:hover {
@@ -1089,7 +1105,7 @@
        Google Logo Colors
        ==================================================================== */
     .google-logo {
-      font-size: 16px;
+      font-size: 12px;
     }
 
     .google-logo.red {
@@ -1114,8 +1130,8 @@
     .wmeph-section {
       background-color: var(--wmeph-bg-primary);
       border: solid 1px var(--wmeph-border);
-      border-radius: var(--wmeph-radius-md);
-      margin: var(--wmeph-spacing-xs) var(--wmeph-spacing-xs) var(--wmeph-spacing-xs) var(--wmeph-spacing-xs);
+      /* border-radius: var(--wmeph-radius-md); */
+      margin: var(--wmeph-spacing-xxxs) var(--wmeph-spacing-xxxs) var(--wmeph-spacing-xxxs) var(--wmeph-spacing-xxxs);
     }
 
     .wmeph-section-header {
@@ -1186,8 +1202,8 @@
     }
 
     .wmeph-input {
-      padding: 4px 6px;
-      font-size: 11px;
+      padding: var(--wmeph-spacing-xxxs) var(--wmeph-spacing-xxxs);
+      font-size: var(--wmeph-font-size-sm);
       border: 1px solid var(--wmeph-border);
       border-radius: var(--wmeph-radius-sm);
       background: var(--wmeph-bg-primary);
@@ -1201,20 +1217,45 @@
       box-shadow: 0 0 0 3px rgba(0, 117, 227, 0.1);
     }
 
+    #wmeph-paste-hours-btn {
+      font-size: 17px;
+      position: relative;
+      vertical-align: top;
+      top: 2px;
+      right: -5px;
+      margin-right: var(--wmeph-spacing-xxs);
+      color: var(--wmeph-text-secondary, #6c6c6c);
+      cursor: pointer;
+    }
+
+    #wmeph-hours-list {
+      display: inline-block;
+      font-size: var(--wmeph-font-size-xs);
+      border: 1px solid var(--wmeph-border);
+      margin: -6px var(--wmeph-spacing-xxs) var(--wmeph-spacing-xxs) 0;
+      border-radius: 0 0 5px 5px;
+      background-color: var(--wmeph-bg-secondary);
+      color: var(--wmeph-text-secondary);
+      padding: 3px 10px 0 5px !important;
+      z-index: 0;
+      position: relative;
+      min-width: 84%;
+    }
+
     #WMEPH-HoursPaste {
       overflow: auto;
-      width: 84%;
-      max-width: 84%;
-      min-width: 84%;
+      width: 160;
+      max-width: 160;
+      min-width: 160;
       height: 24px;
       min-height: 24px;
-      max-height: 300px;
+      max-height: 200px;
       margin-bottom: -2px;
+      margin-top: 2px;
       padding-left: 3px;
       position: relative;
       z-index: 1;
       color: var(--wmeph-text-secondary, #AAA);
-      font-size: 0.85em;
     }
 
     .wmeph-badge {
@@ -5678,11 +5719,8 @@
           const hoursStringArray = Flag.NoHours.#getHoursStringArray(this.args.openingHours);
           const $hoursTable = $('<div>', {
             id: 'wmeph-hours-list',
-            style:
-              'display: inline-block;font-size: 13px;border: 1px solid #aaa;margin: -6px 2px 2px 0px;border-radius: 0px 0px 5px 5px;background-color: #f5f5f5;color: #727272;' +
-              'padding: 3px 10px 0px 5px !important;z-index: 0;position: relative;min-width: 84%',
             title: 'Current hours',
-          }).append(hoursStringArray.map((entry, idx) => `<div${idx < hoursStringArray.length - 1 ? ' style="border-bottom: 1px solid #ddd;"' : ''}>${entry}</div>`).join(''));
+          }).append(hoursStringArray.map((entry, idx) => `<div${idx < hoursStringArray.length - 1 ? ' style="border-bottom: 1px solid var(--wmeph-divider);"' : ''}>${entry}</div>`).join(''));
 
           $('#WMEPH-HoursPaste').after($hoursTable);
         }
@@ -5713,7 +5751,6 @@
           $('<i>', {
             id: 'wmeph-paste-hours-btn',
             class: 'fa fa-paste',
-            style: 'font-size: 17px;position: relative;vertical-align: top;top: 2px;right: -5px;margin-right: 3px;color: #6c6c6c;cursor: pointer;',
             title: 'Paste from the clipboard',
             'aria-label': 'Paste from clipboard',
             role: 'button',
