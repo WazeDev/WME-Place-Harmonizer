@@ -1200,6 +1200,22 @@
       box-shadow: 0 0 0 3px rgba(0, 117, 227, 0.1);
     }
 
+    #WMEPH-HoursPaste {
+      overflow: auto;
+      width: 84%;
+      max-width: 84%;
+      min-width: 84%;
+      height: 24px;
+      min-height: 24px;
+      max-height: 300px;
+      margin-bottom: -2px;
+      padding-left: 3px;
+      position: relative;
+      z-index: 1;
+      color: var(--wmeph-text-secondary, #AAA);
+      font-size: 0.85em;
+    }
+
     .wmeph-badge {
       display: inline-block;
       padding: 2px 6px;
@@ -5482,7 +5498,7 @@
             : '',
           // jquery throws an error when setting autocomplete="off" in a jquery object (must use .autocomplete() function), so just use a string here.
           // eslint-disable-next-line max-len
-          `<textarea id="WMEPH-HoursPaste" class="wmeph-input" wrap="off" autocomplete="off" style="overflow:auto;width:84%;max-width:84%;min-width:84%;font-size:0.85em;height:24px;min-height:24px;max-height:300px;margin-bottom:-2px;padding-left:3px;color:#AAA;position:relative;z-index:1;">${DEFAULT_HOURS_TEXT}`,
+          `<textarea id="WMEPH-HoursPaste" class="wmeph-input" wrap="off" autocomplete="off">${DEFAULT_HOURS_TEXT}`,
         )[0].outerHTML;
       }
 
