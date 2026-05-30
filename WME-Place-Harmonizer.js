@@ -13024,17 +13024,6 @@
     const container = createElem('div');
     tabPane.appendChild(container);
 
-    // Action button card
-    const actionCard = createCollapsibleSection('Refresh Data', 'fa-sync-alt', true);
-    const reloadBtn = createElem('button', {
-      id: 'WMEPH-ReloadDataBtn',
-      class: 'wmeph-btn',
-      textContent: 'Refresh Data',
-      title: 'Refresh Data',
-    });
-    actionCard.body.appendChild(makeRow('', reloadBtn));
-    container.appendChild(actionCard.section);
-
     // Bootstrap Nav Tabs
     const navTabs = $('<ul>', { class: 'nav nav-tabs wmeph-internal-tabs', role: 'tablist' }).append(
       $('<li>', { class: 'nav-item' }).append(
@@ -13168,6 +13157,13 @@
     if (USER.isDevUser) {
       const devSettings = createCollapsibleSection('Dev Settings', 'fa-flask', false);
       createSettingsCheckbox(devSettings.body, 'WMEPH-RegionOverride', 'Disable Region Specificity');
+      const reloadBtn = createElem('button', {
+        id: 'WMEPH-ReloadDataBtn',
+        class: 'wmeph-btn',
+        textContent: 'Refresh Data',
+        title: 'Refresh Data',
+      });
+      devSettings.body.appendChild(makeRow('', reloadBtn));
       tabPanels.harmonizer.appendChild(devSettings.section);
     }
 
