@@ -1492,6 +1492,74 @@
       }
     }
 
+    /* Bootstrap Nav Tabs Styling */
+    .wmeph-pane .wmeph-internal-tabs {
+      border-bottom: 2px solid #e0e0e0;
+      margin-bottom: 0;
+    }
+
+    .wmeph-pane .wmeph-internal-tabs .nav-link {
+      color: #666;
+      font-size: 12px;
+      font-weight: 600;
+      padding: 8px 12px;
+      border: none;
+      text-transform: uppercase;
+      letter-spacing: 0.3px;
+      transition: all 0.2s;
+      position: relative;
+    }
+
+    .wmeph-pane .wmeph-internal-tabs .nav-link:hover {
+      color: var(--wmeph-primary);
+    }
+
+    .wmeph-pane .wmeph-internal-tabs .nav-link.active {
+      color: white;
+      background: var(--wmeph-primary);
+      border-radius: 4px 4px 0 0;
+    }
+
+    /* Tab Content */
+    .wmeph-pane .tab-content {
+      background: white;
+      border-radius: 0 0 4px 4px;
+      border: 1px solid #e0e0e0;
+      border-top: none;
+      padding: 8px;
+    }
+
+    .wmeph-pane .tab-pane {
+      display: none;
+    }
+
+    .wmeph-pane .tab-pane.active {
+      display: block;
+    }
+
+    /* Dark Mode Tabs */
+    [wz-theme="dark"] .wmeph-pane .wmeph-internal-tabs {
+      border-bottom-color: #55595e;
+    }
+
+    [wz-theme="dark"] .wmeph-pane .wmeph-internal-tabs .nav-link {
+      color: #b7babf;
+    }
+
+    [wz-theme="dark"] .wmeph-pane .wmeph-internal-tabs .nav-link:hover {
+      color: #33ccff;
+    }
+
+    [wz-theme="dark"] .wmeph-pane .wmeph-internal-tabs .nav-link.active {
+      background: var(--wmeph-primary);
+      color: white;
+    }
+
+    [wz-theme="dark"] .wmeph-pane .tab-content {
+      background: #202124;
+      border-color: #55595e;
+    }
+
     .wmeph-mods-table {
       width: 100%;
       border-collapse: collapse;
@@ -12792,6 +12860,34 @@
     $('#WMEPH-WLStateFilter').click(onWLStateFilterClick);
     $('#WMEPH-WLShare').click(onWLShareClick);
 
+    // Bootstrap Tab Switching
+    $('#wmeph-tab-harmonize, #wmeph-tab-hl-scan, #wmeph-tab-wl-tools, #wmeph-tab-moderation').on('click', function(e) {
+      e.preventDefault();
+      const target = $(this).attr('href');
+      const tabPanels = document.querySelectorAll('.wmeph-pane .tab-pane');
+      const tabLinks = document.querySelectorAll('.wmeph-pane .wmeph-internal-tabs .nav-link');
+
+      // Hide all panels
+      tabPanels.forEach(panel => {
+        panel.classList.remove('active', 'show');
+      });
+
+      // Deactivate all tab links
+      tabLinks.forEach(link => {
+        link.classList.remove('active');
+        link.setAttribute('aria-selected', 'false');
+      });
+
+      // Show the target panel
+      const targetPanel = document.querySelector(target);
+      if (targetPanel) {
+        targetPanel.classList.add('active', 'show');
+      }
+
+      // Activate the clicked tab
+      $(this).addClass('active').attr('aria-selected', 'true');
+    });
+
     // Color highlighting - these affect severity calculations, so clear cache when toggled
     $('#WMEPH-ColorHighlighting').click(bootstrapWmephColorHighlights);
     $('#WMEPH-DisableHoursHL').click(() => {
@@ -12857,35 +12953,96 @@
     actionCard.body.appendChild(makeRow('', reloadBtn));
     container.appendChild(actionCard.card);
 
-    // Tab navigation
-    const tabNav = createElem('div', { class: 'wmeph-pane-tabs' });
-    const tabs = [
-      { id: 'harmonizer', label: 'Harmonize', icon: 'fa-cogs' },
-      { id: 'highlighter', label: 'HL / Scan', icon: 'fa-highlighter' },
-      { id: 'wltools', label: 'WL Tools', icon: 'fa-database' },
-      { id: 'moderators', label: 'Moderators', icon: 'fa-users' },
-    ];
+    // Bootstrap Nav Tabs
+    const navTabs = $('<ul>', { class: 'nav nav-tabs wmeph-internal-tabs', role: 'tablist' }).append(
+      $('<li>', { class: 'nav-item' }).append(
+        $('<a>', {
+          class: 'nav-link active',
+          id: 'wmeph-tab-harmonize',
+          'data-toggle': 'tab',
+          href: '#wmeph-panel-harmonize',
+          role: 'tab',
+          'aria-controls': 'wmeph-panel-harmonize',
+          'aria-selected': 'true'
+        }).text('Harmonize')
+      ),
+      $('<li>', { class: 'nav-item' }).append(
+        $('<a>', {
+          class: 'nav-link',
+          id: 'wmeph-tab-hl-scan',
+          'data-toggle': 'tab',
+          href: '#wmeph-panel-hl-scan',
+          role: 'tab',
+          'aria-controls': 'wmeph-panel-hl-scan',
+          'aria-selected': 'false'
+        }).text('HL / Scan')
+      ),
+      $('<li>', { class: 'nav-item' }).append(
+        $('<a>', {
+          class: 'nav-link',
+          id: 'wmeph-tab-wl-tools',
+          'data-toggle': 'tab',
+          href: '#wmeph-panel-wl-tools',
+          role: 'tab',
+          'aria-controls': 'wmeph-panel-wl-tools',
+          'aria-selected': 'false'
+        }).text('WL Tools')
+      ),
+      $('<li>', { class: 'nav-item' }).append(
+        $('<a>', {
+          class: 'nav-link',
+          id: 'wmeph-tab-moderation',
+          'data-toggle': 'tab',
+          href: '#wmeph-panel-moderation',
+          role: 'tab',
+          'aria-controls': 'wmeph-panel-moderation',
+          'aria-selected': 'false'
+        }).text('Moderation')
+      )
+    );
+    container.appendChild(navTabs[0]);
 
-    const tabContents = {};
-    tabs.forEach((tab, idx) => {
-      const tabBtn = createElem('button', {
-        class: `wmeph-pane-tab ${idx === 0 ? 'active' : ''}`,
-        textContent: tab.label,
-        'data-tab-id': tab.id,
-      });
-      const tabContent = createElem('div', { class: `wmeph-tab-content ${idx === 0 ? 'active' : ''}`, 'data-tab-id': tab.id });
-      tabContents[tab.id] = tabContent;
+    // Tab Content Panels
+    const tabContentContainer = $('<div>', { class: 'tab-content', style: 'padding: 4px 0; margin-top: 4px' });
 
-      tabBtn.addEventListener('click', () => {
-        Object.values(tabContents).forEach(tc => tc.classList.remove('active'));
-        document.querySelectorAll('.wmeph-pane-tab').forEach(btn => btn.classList.remove('active'));
-        tabContent.classList.add('active');
-        tabBtn.classList.add('active');
-      });
-
-      tabNav.appendChild(tabBtn);
+    const harmonizerPanel = $('<div>', {
+      class: 'tab-pane fade show active',
+      id: 'wmeph-panel-harmonize',
+      role: 'tabpanel',
+      'aria-labelledby': 'wmeph-tab-harmonize'
     });
-    container.appendChild(tabNav);
+
+    const hlScanPanel = $('<div>', {
+      class: 'tab-pane fade',
+      id: 'wmeph-panel-hl-scan',
+      role: 'tabpanel',
+      'aria-labelledby': 'wmeph-tab-hl-scan'
+    });
+
+    const wlToolsPanel = $('<div>', {
+      class: 'tab-pane fade',
+      id: 'wmeph-panel-wl-tools',
+      role: 'tabpanel',
+      'aria-labelledby': 'wmeph-tab-wl-tools'
+    });
+
+    const moderationPanel = $('<div>', {
+      class: 'tab-pane fade',
+      id: 'wmeph-panel-moderation',
+      role: 'tabpanel',
+      'aria-labelledby': 'wmeph-tab-moderation'
+    });
+
+    tabContentContainer.append(harmonizerPanel, hlScanPanel, wlToolsPanel, moderationPanel);
+    container.appendChild(tabContentContainer[0]);
+
+    // Store panel references for populating content
+    const tabPanels = {
+      harmonizer: harmonizerPanel[0],
+      highlighter: hlScanPanel[0],
+      wltools: wlToolsPanel[0],
+      moderators: moderationPanel[0]
+    };
 
     // Harmonizer tab content
     const harmonizerCard1 = makeCard('General Settings', 'fa-cogs');
@@ -12896,7 +13053,7 @@
     createSettingsCheckbox(harmonizerCard1.body, 'WMEPH-HidePURWebSearch', 'Hide "Web Search" button on PUR popups');
     createSettingsCheckbox(harmonizerCard1.body, 'WMEPH-ExcludePLADupes', 'Exclude parking lots when searching for duplicate places');
     createSettingsCheckbox(harmonizerCard1.body, 'WMEPH-ShowPLAExitWhileClosed', 'Always ask if cars can exit parking lots');
-    tabContents.harmonizer.appendChild(harmonizerCard1.card);
+    tabPanels.harmonizer.appendChild(harmonizerCard1.card);
 
     // Advanced settings (dev/beta only)
     if (USER.isDevUser || USER.isBetaUser || USER.rank >= 2) {
@@ -12905,7 +13062,7 @@
       createSettingsCheckbox(harmonizerCard2.body, 'WMEPH-AddAddresses', 'Add detected address fields to places with no address');
       createSettingsCheckbox(harmonizerCard2.body, 'WMEPH-EnableCloneMode', 'Enable place cloning tools');
       createSettingsCheckbox(harmonizerCard2.body, 'WMEPH-AutoLockRPPs', 'Lock residential place points to region default');
-      tabContents.harmonizer.appendChild(harmonizerCard2.card);
+      tabPanels.harmonizer.appendChild(harmonizerCard2.card);
     }
 
     // Keyboard shortcut card
@@ -12923,13 +13080,13 @@
     kbCard.body.appendChild(makeRow('Shortcut Letter (a-Z):', kbInput));
     createSettingsCheckbox(kbCard.body, 'WMEPH-KBSModifierKey', 'Use Ctrl instead of Alt');
     kbCard.body.appendChild(kbCurrentDiv);
-    tabContents.harmonizer.appendChild(kbCard.card);
+    tabPanels.harmonizer.appendChild(kbCard.card);
 
     // Dev settings (dev only)
     if (USER.isDevUser) {
       const devCard = makeCard('Dev Settings', 'fa-flask');
       createSettingsCheckbox(devCard.body, 'WMEPH-RegionOverride', 'Disable Region Specificity');
-      tabContents.harmonizer.appendChild(devCard.card);
+      tabPanels.harmonizer.appendChild(devCard.card);
     }
 
     // Links card
@@ -12938,7 +13095,7 @@
     const forumLink = createElem('a', { href: URLS.forum, target: '_blank', textContent: 'Submit script feedback & suggestions' });
     linksCard.body.appendChild(makeRow('', wikiLink));
     linksCard.body.appendChild(makeRow('', forumLink));
-    tabContents.harmonizer.appendChild(linksCard.card);
+    tabPanels.harmonizer.appendChild(linksCard.card);
 
     // Highlighter tab content
     const highlighterCard = makeCard('Display Options', 'fa-palette');
@@ -12949,7 +13106,7 @@
     createSettingsCheckbox(highlighterCard.body, 'WMEPH-DisableWLHL', 'Disable Whitelist highlighting (shows all missing info regardless of WL)');
     createSettingsCheckbox(highlighterCard.body, 'WMEPH-PLATypeFill', 'Fill parking lots based on type (public=blue, restricted=yellow, private=red)');
     createSettingsCheckbox(highlighterCard.body, 'WMEPH-ShowFilterHighlight', 'Highlight places without Customer Parking service');
-    tabContents.highlighter.appendChild(highlighterCard.card);
+    tabPanels.highlighter.appendChild(highlighterCard.card);
 
     // WL Tools tab content
     const wlCard = makeCard('Whitelist Tools', 'fa-database');
@@ -12982,7 +13139,7 @@
     wlCard.body.appendChild(wlMsgDiv);
     const wlToolsDiv = createElem('div', { id: 'PlaceHarmonizerWLTools' });
     wlToolsDiv.appendChild(wlCard.card);
-    tabContents.wltools.appendChild(wlToolsDiv);
+    tabPanels.wltools.appendChild(wlToolsDiv);
 
     // Moderators tab content
     const moderatorsCard = makeCard('Regional Moderators', 'fa-users');
@@ -13004,10 +13161,8 @@
         modsTable.appendChild(row);
       });
     moderatorsCard.body.appendChild(modsTable);
-    tabContents.moderators.appendChild(moderatorsCard.card);
+    tabPanels.moderators.appendChild(moderatorsCard.card);
 
-    // Add all tab contents to container
-    Object.values(tabContents).forEach(tc => container.appendChild(tc));
 
     // Version footer
     const versionDiv = createElem('div', {
