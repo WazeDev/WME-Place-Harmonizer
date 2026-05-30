@@ -1287,6 +1287,32 @@
       height: 16px;
       cursor: pointer;
       accent-color: var(--wmeph-primary);
+      flex-shrink: 0;
+    }
+
+    .wmeph-checkbox-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 8px;
+    }
+
+    .wmeph-checkbox-row:last-child {
+      margin-bottom: 0;
+    }
+
+    .wmeph-checkbox-label {
+      font-size: 12px;
+      color: var(--wmeph-text-secondary);
+      cursor: pointer;
+      user-select: none;
+      margin: 0;
+      font-weight: 500;
+    }
+
+    /* Dark Mode Checkboxes */
+    [wz-theme="dark"] .wmeph-checkbox-label {
+      color: var(--wmeph-text-secondary);
     }
 
     .wmeph-input {
@@ -12245,17 +12271,34 @@
    * @param {string} textDescription The label text displayed next to the checkbox.
    * @returns {HTMLElement} The created checkbox element.
    */
-  function createSettingsCheckbox(container, settingID, textDescription) {
+  /**
+   * Creates a checkbox row with a checkbox on the left and clickable label on the right.
+   * @param {string} settingID - Unique ID for the checkbox
+   * @param {string} labelText - Text label for the checkbox
+   * @returns {Object} Object with { row, checkbox, label } elements
+   */
+  function createCheckboxRow(settingID, labelText) {
     const checkbox = createElem('input', {
       type: 'checkbox',
       id: settingID,
       class: 'wmeph-checkbox'
     });
-    const label = createElem('span', { class: 'wmeph-label', textContent: textDescription });
 
-    const row = createElem('div', { class: 'wmeph-row' });
+    const label = createElem('label', {
+      for: settingID,
+      class: 'wmeph-checkbox-label',
+      textContent: labelText
+    });
+
+    const row = createElem('div', { class: 'wmeph-checkbox-row' });
     row.appendChild(checkbox);
     row.appendChild(label);
+
+    return { row, checkbox, label };
+  }
+
+  function createSettingsCheckbox(container, settingID, textDescription) {
+    const { row, checkbox } = createCheckboxRow(settingID, textDescription);
 
     // Support both jQuery and native DOM
     if (container && container.append && typeof container.append === 'function') {
