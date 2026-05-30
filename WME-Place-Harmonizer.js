@@ -1307,7 +1307,37 @@
       color: var(--wmeph-primary, #0075e3);
       opacity: 1;
     }
+
+    .wmeph-tab-content {
+      animation: fadeIn 0.2s ease-in;
+    }
+
+    @keyframes fadeIn {
+      from {
+        opacity: 0;
+      }
+      to {
+        opacity: 1;
+      }
+    }
+
+    .wmeph-mods-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 12px;
+    }
+
+    .wmeph-mods-table-cell {
+      border: 1px solid var(--wmeph-border-light);
+      padding: 6px 8px;
+    }
+
+    .wmeph-mods-table-cell.title {
+      font-weight: 600;
+      background: var(--wmeph-bg-secondary);
+    }
     `;
+
 
   // **************************************************************************************************************
   // UTILITY/HELPER FUNCTIONS
@@ -11587,21 +11617,27 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
 
   /**
    * Creates a checkbox element with associated label and appends to a parent container.
-   * Returns the checkbox jQuery object for further event binding or state management.
-   * Used to build the settings UI in the PlaceHarmonizer tab.
-   * @param {jQuery} $div Parent container to append the checkbox and label to.
+   * Supports both jQuery and native DOM parents.
+   * @param {jQuery|HTMLElement} container Parent container (jQuery object or HTMLElement).
    * @param {string} settingID The HTML id for the checkbox element (used as settings key).
    * @param {string} textDescription The label text displayed next to the checkbox.
-   * @returns {jQuery} The created checkbox element (useful for attaching additional handlers).
+   * @returns {HTMLElement} The created checkbox element.
    */
-  function createSettingsCheckbox($div, settingID, textDescription) {
-    const $checkbox = $('<input>', { type: 'checkbox', id: settingID });
-    $div.append(
-      $('<div>', { class: 'controls-container' })
-        .css({ paddingTop: '2px' })
-        .append($checkbox, $('<label>', { for: settingID }).text(textDescription).css({ whiteSpace: 'pre-line' })),
-    );
-    return $checkbox;
+  function createSettingsCheckbox(container, settingID, textDescription) {
+    const checkbox = makeCheckbox(false, () => saveSettingToLocalStorage(settingID));
+    checkbox.id = settingID;
+    const row = makeRow(textDescription, checkbox);
+
+    // Support both jQuery and native DOM
+    if (container && container.append && typeof container.append === 'function') {
+      // jQuery
+      $(row).appendTo(container);
+    } else if (container && container.appendChild) {
+      // Native DOM
+      container.appendChild(row);
+    }
+
+    return checkbox;
   }
 
   /**
@@ -12240,122 +12276,185 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
     // Set up the CSS
     GM_addStyle(_CSS);
 
-    const $container = $('<div>');
-    const $reloadDataBtn = $(
-      '<div style="margin-bottom:6px; text-align:center;"><div style="position:relative; display:inline-block; width:75%"><input id="WMEPH-ReloadDataBtn" style="min-width:90px; width:50%" class="btn btn-success wmeph-fat-btn" type="button" title="Refresh Data" value="Refresh Data"/><div class="checkmark draw"></div></div></div>',
-    );
-    const $navTabs = $(
-      '<ul class="nav nav-tabs"><li class="active"><a data-toggle="tab" href="#sidepanel-harmonizer">Harmonize</a></li>' +
-        '<li><a data-toggle="tab" href="#sidepanel-highlighter">HL / Scan</a></li>' +
-        '<li><a data-toggle="tab" href="#sidepanel-wltools">WL Tools</a></li>' +
-        '<li><a data-toggle="tab" href="#sidepanel-pnh-moderators">Moderators</a></li></ul>',
-    );
-    const $tabContent = $('<div class="tab-content">');
-    const $versionDiv = $('<div>').text(`WMEPH ${BETA_VERSION_STR} v${SCRIPT_VERSION}`).css({ color: '#999', fontSize: '13px' });
-    const $harmonizerTab = $('<div class="tab-pane wmeph-pane active" id="sidepanel-harmonizer"></div>');
-    const $highlighterTab = $('<div class="tab-pane wmeph-pane" id="sidepanel-highlighter"></div>');
-    const $wlToolsTab = $('<div class="tab-pane wmeph-pane" id="sidepanel-wltools"></div>');
-    const $moderatorsTab = $('<div class="tab-pane wmeph-pane" id="sidepanel-pnh-moderators"></div>');
-    $tabContent.append($harmonizerTab, $highlighterTab, $wlToolsTab, $moderatorsTab);
-    $container.append($reloadDataBtn, $navTabs, $tabContent, $versionDiv);
-
-    // Harmonizer settings
-    createSettingsCheckbox($harmonizerTab, 'WMEPH-WebSearchNewTab', 'Open URL & Search Results in new tab instead of new window');
-    createSettingsCheckbox($harmonizerTab, 'WMEPH-EnableIAZoom', 'Enable zoom & center for places with no address');
-    createSettingsCheckbox($harmonizerTab, 'WMEPH-HidePlacesWiki', 'Hide "Places Wiki" button in results banner');
-    createSettingsCheckbox($harmonizerTab, 'WMEPH-HideServicesButtons', 'Hide services buttons in results banner');
-    createSettingsCheckbox($harmonizerTab, 'WMEPH-HidePURWebSearch', 'Hide "Web Search" button on PUR popups');
-    createSettingsCheckbox($harmonizerTab, 'WMEPH-ExcludePLADupes', 'Exclude parking lots when searching for duplicate places');
-    createSettingsCheckbox($harmonizerTab, 'WMEPH-ShowPLAExitWhileClosed', 'Always ask if cars can exit parking lots');
-    if (USER.isDevUser || USER.isBetaUser || USER.rank >= 2) {
-      createSettingsCheckbox($harmonizerTab, 'WMEPH-DisablePLAExtProviderCheck', 'Disable check for "Google place link" on Parking Lot Areas');
-      createSettingsCheckbox($harmonizerTab, 'WMEPH-AddAddresses', 'Add detected address fields to places with no address');
-      createSettingsCheckbox($harmonizerTab, 'WMEPH-EnableCloneMode', 'Enable place cloning tools');
-      createSettingsCheckbox($harmonizerTab, 'WMEPH-AutoLockRPPs', 'Lock residential place points to region default');
-    }
-
-    $harmonizerTab.append('<hr class="wmeph-hr" align="center" width="100%">');
-
-    // Add Letter input box
-    const $phShortcutDiv = $('<div id="PlaceHarmonizerKB">');
-    // eslint-disable-next-line max-len
-    $phShortcutDiv.append(
-      '<div id="PlaceHarmonizerKBWarn"></div>Shortcut Letter (a-Z): <input type="text" maxlength="1" id="WMEPH-KeyboardShortcut" style="width: 30px;padding-left:8px"><div id="PlaceHarmonizerKBCurrent"></div>',
-    );
-    createSettingsCheckbox($phShortcutDiv, 'WMEPH-KBSModifierKey', 'Use Ctrl instead of Alt'); // Add Alt-->Ctrl checkbox
-
-    if (USER.isDevUser) {
-      // Override script regionality (devs only)
-      $phShortcutDiv.append('<hr class="wmeph-hr" align="center" width="100%"><p>Dev Only Settings:</p>');
-      createSettingsCheckbox($phShortcutDiv, 'WMEPH-RegionOverride', 'Disable Region Specificity');
-    }
-
-    $harmonizerTab.append(
-      $phShortcutDiv,
-      '<hr class="wmeph-hr" align="center" width="100%">',
-      `<div><a href="${URLS.placesWiki}" target="_blank">Open the WME Places Wiki page</a></div>`,
-      `<div><a href="${URLS.forum}" target="_blank">Submit script feedback & suggestions</a></div>`,
-      '<hr class="wmeph-hr" align="center" width="95%">',
-    );
-
-    // Highlighter settings
-    $highlighterTab.append('<p>Highlighter Settings:</p>');
-    createSettingsCheckbox($highlighterTab, 'WMEPH-ColorHighlighting', 'Enable color highlighting of map to indicate places needing work');
-    createSettingsCheckbox($highlighterTab, 'WMEPH-HideGreenPlaces', 'Disable highlighting for places NOT needing work (green places)');
-    createSettingsCheckbox($highlighterTab, 'WMEPH-DisableHoursHL', 'Disable highlighting for missing hours');
-    createSettingsCheckbox($highlighterTab, 'WMEPH-DisableRankHL', 'Disable highlighting for places locked above your rank');
-    createSettingsCheckbox($highlighterTab, 'WMEPH-DisableWLHL', 'Disable Whitelist highlighting (shows all missing info regardless of WL)');
-    createSettingsCheckbox($highlighterTab, 'WMEPH-PLATypeFill', 'Fill parking lots based on type (public=blue, restricted=yellow, private=red)');
-    createSettingsCheckbox($highlighterTab, 'WMEPH-ShowFilterHighlight', 'Highlight places without Customer Parking service');
-    if (USER.isDevUser || USER.isBetaUser || USER.rank >= 3) {
-      // createSettingsCheckbox($highlighterTab 'WMEPH-UnlockedRPPs','Highlight unlocked residential place points');
-    }
-
-    // Scanner settings
-    // $highlighterTab.append('<hr align="center" width="90%">');
-    // $highlighterTab.append('<p>Scanner Settings (coming !soon)</p>');
-    // createSettingsCheckbox($highlighterTab, 'WMEPH-PlaceScanner','Placeholder, under development!');
-
-    // Whitelisting settings
-    const phWLContentHtml = $(
-      '<div id="PlaceHarmonizerWLTools">Whitelist string: <input onClick="this.select();" type="text" id="WMEPH-WLInput" style="width:100%;padding-left:1px;display:block">' +
-        '<div style="margin-top:3px;">' +
-        '<input class="btn btn-success btn-xs wmeph-fat-btn" id="WMEPH-WLMerge" title="Merge the string into your existing Whitelist" type="button" value="Merge">' +
-        '<input class="btn btn-success btn-xs wmeph-fat-btn" id="WMEPH-WLPull" title="Pull your existing Whitelist for backup or sharing" type="button" value="Pull">' +
-        '<input class="btn btn-success btn-xs wmeph-fat-btn" id="WMEPH-WLShare" title="Share your Whitelist to a public Google sheet" type="button" value="Share your WL">' +
-        '</div>' +
-        '<div style="margin-top:12px;">' +
-        '<input class="btn btn-info btn-xs wmeph-fat-btn" id="WMEPH-WLStats" title="Display WL stats" type="button" value="Stats">' +
-        '<input class="btn btn-danger btn-xs wmeph-fat-btn" id="WMEPH-WLStateFilter" title="Remove all WL items for a state.  Enter the state in the \'Whitelist string\' box." ' +
-        '     type="button" value="Remove data for 1 State">' +
-        '</div>' +
-        '</div>' +
-        '<div id="PlaceHarmonizerWLToolsMsg" style="margin-top:10px;"></div>',
-    );
-    $wlToolsTab.append(phWLContentHtml);
-
-    $moderatorsTab.append(
-      $('<div>', { style: 'margin-bottom: 10px;' }).text(
-        'Moderators are responsible for reviewing chain submissions for their region.' + ' If you have questions or suggestions regarding a chain, please contact any of your regional moderators.',
-      ),
-      $('<table>').append(
-        Object.keys(Pnh.MODERATORS)
-          .sort()
-          .map((region) =>
-            $('<tr>').append(
-              $('<td>', { class: 'wmeph-mods-table-cell title' }).append($('<div>').text(region)),
-              $('<td>', { class: 'wmeph-mods-table-cell' }).append($('<div>').text(Pnh.MODERATORS[region].join(', '))),
-            ),
-          ),
-      ),
-    );
-
     const { tabLabel, tabPane } = await sdk.Sidebar.registerScriptTab();
     tabLabel.innerHTML = `<span title="WME Place Harmonizer">WMEPH${IS_BETA_VERSION ? '-β' : ''}</span>`;
-    tabPane.innerHTML = $container.html();
     tabPane.classList.add('wmeph-pane');
-    // Fix tab content div spacing.
     $(tabPane).parent().css({ width: 'auto', padding: '8px !important' });
+
+    // Create container for panel content
+    const container = createElem('div');
+    tabPane.appendChild(container);
+
+    // Action button card
+    const actionCard = makeCard('Refresh Data', 'fa-sync-alt');
+    const reloadBtn = createElem('button', {
+      id: 'WMEPH-ReloadDataBtn',
+      class: 'wmeph-btn',
+      textContent: 'Refresh Data',
+      title: 'Refresh Data',
+    });
+    actionCard.body.appendChild(makeRow('', reloadBtn));
+    container.appendChild(actionCard.card);
+
+    // Tab navigation
+    const tabNav = createElem('div', { class: 'wmeph-pane-tabs' });
+    const tabs = [
+      { id: 'harmonizer', label: 'Harmonize', icon: 'fa-cogs' },
+      { id: 'highlighter', label: 'HL / Scan', icon: 'fa-highlighter' },
+      { id: 'wltools', label: 'WL Tools', icon: 'fa-database' },
+      { id: 'moderators', label: 'Moderators', icon: 'fa-users' },
+    ];
+
+    const tabContents = {};
+    tabs.forEach((tab, idx) => {
+      const tabBtn = createElem('button', {
+        class: `wmeph-pane-tab ${idx === 0 ? 'active' : ''}`,
+        textContent: tab.label,
+        'data-tab-id': tab.id,
+      });
+      const tabContent = createElem('div', { class: 'wmeph-tab-content', 'data-tab-id': tab.id, style: idx === 0 ? '' : 'display: none;' });
+      tabContents[tab.id] = tabContent;
+
+      tabBtn.addEventListener('click', () => {
+        Object.values(tabContents).forEach(tc => tc.style.display = 'none');
+        document.querySelectorAll('.wmeph-pane-tab').forEach(btn => btn.classList.remove('active'));
+        tabContent.style.display = '';
+        tabBtn.classList.add('active');
+      });
+
+      tabNav.appendChild(tabBtn);
+    });
+    container.appendChild(tabNav);
+
+    // Harmonizer tab content
+    const harmonizerCard1 = makeCard('General Settings', 'fa-cogs');
+    createSettingsCheckbox(harmonizerCard1.body, 'WMEPH-WebSearchNewTab', 'Open URL & Search Results in new tab instead of new window');
+    createSettingsCheckbox(harmonizerCard1.body, 'WMEPH-EnableIAZoom', 'Enable zoom & center for places with no address');
+    createSettingsCheckbox(harmonizerCard1.body, 'WMEPH-HidePlacesWiki', 'Hide "Places Wiki" button in results banner');
+    createSettingsCheckbox(harmonizerCard1.body, 'WMEPH-HideServicesButtons', 'Hide services buttons in results banner');
+    createSettingsCheckbox(harmonizerCard1.body, 'WMEPH-HidePURWebSearch', 'Hide "Web Search" button on PUR popups');
+    createSettingsCheckbox(harmonizerCard1.body, 'WMEPH-ExcludePLADupes', 'Exclude parking lots when searching for duplicate places');
+    createSettingsCheckbox(harmonizerCard1.body, 'WMEPH-ShowPLAExitWhileClosed', 'Always ask if cars can exit parking lots');
+    tabContents.harmonizer.appendChild(harmonizerCard1.card);
+
+    // Advanced settings (dev/beta only)
+    if (USER.isDevUser || USER.isBetaUser || USER.rank >= 2) {
+      const harmonizerCard2 = makeCard('Advanced Settings', 'fa-tools');
+      createSettingsCheckbox(harmonizerCard2.body, 'WMEPH-DisablePLAExtProviderCheck', 'Disable check for "Google place link" on Parking Lot Areas');
+      createSettingsCheckbox(harmonizerCard2.body, 'WMEPH-AddAddresses', 'Add detected address fields to places with no address');
+      createSettingsCheckbox(harmonizerCard2.body, 'WMEPH-EnableCloneMode', 'Enable place cloning tools');
+      createSettingsCheckbox(harmonizerCard2.body, 'WMEPH-AutoLockRPPs', 'Lock residential place points to region default');
+      tabContents.harmonizer.appendChild(harmonizerCard2.card);
+    }
+
+    // Keyboard shortcut card
+    const kbCard = makeCard('Keyboard Shortcut', 'fa-keyboard-o');
+    const kbWarnDiv = createElem('div', { id: 'PlaceHarmonizerKBWarn' });
+    const kbInput = createElem('input', {
+      type: 'text',
+      id: 'WMEPH-KeyboardShortcut',
+      maxlength: '1',
+      class: 'wmeph-input',
+      style: 'width: 60px;',
+    });
+    const kbCurrentDiv = createElem('div', { id: 'PlaceHarmonizerKBCurrent' });
+    kbCard.body.appendChild(kbWarnDiv);
+    kbCard.body.appendChild(makeRow('Shortcut Letter (a-Z):', kbInput));
+    createSettingsCheckbox(kbCard.body, 'WMEPH-KBSModifierKey', 'Use Ctrl instead of Alt');
+    kbCard.body.appendChild(kbCurrentDiv);
+    tabContents.harmonizer.appendChild(kbCard.card);
+
+    // Dev settings (dev only)
+    if (USER.isDevUser) {
+      const devCard = makeCard('Dev Settings', 'fa-flask');
+      createSettingsCheckbox(devCard.body, 'WMEPH-RegionOverride', 'Disable Region Specificity');
+      tabContents.harmonizer.appendChild(devCard.card);
+    }
+
+    // Links card
+    const linksCard = makeCard('Resources', 'fa-link');
+    const wikiLink = createElem('a', { href: URLS.placesWiki, target: '_blank', textContent: 'Open the WME Places Wiki page' });
+    const forumLink = createElem('a', { href: URLS.forum, target: '_blank', textContent: 'Submit script feedback & suggestions' });
+    linksCard.body.appendChild(makeRow('', wikiLink));
+    linksCard.body.appendChild(makeRow('', forumLink));
+    tabContents.harmonizer.appendChild(linksCard.card);
+
+    // Highlighter tab content
+    const highlighterCard = makeCard('Display Options', 'fa-palette');
+    createSettingsCheckbox(highlighterCard.body, 'WMEPH-ColorHighlighting', 'Enable color highlighting of map to indicate places needing work');
+    createSettingsCheckbox(highlighterCard.body, 'WMEPH-HideGreenPlaces', 'Disable highlighting for places NOT needing work (green places)');
+    createSettingsCheckbox(highlighterCard.body, 'WMEPH-DisableHoursHL', 'Disable highlighting for missing hours');
+    createSettingsCheckbox(highlighterCard.body, 'WMEPH-DisableRankHL', 'Disable highlighting for places locked above your rank');
+    createSettingsCheckbox(highlighterCard.body, 'WMEPH-DisableWLHL', 'Disable Whitelist highlighting (shows all missing info regardless of WL)');
+    createSettingsCheckbox(highlighterCard.body, 'WMEPH-PLATypeFill', 'Fill parking lots based on type (public=blue, restricted=yellow, private=red)');
+    createSettingsCheckbox(highlighterCard.body, 'WMEPH-ShowFilterHighlight', 'Highlight places without Customer Parking service');
+    tabContents.highlighter.appendChild(highlighterCard.card);
+
+    // WL Tools tab content
+    const wlCard = makeCard('Whitelist Tools', 'fa-database');
+    const wlInput = createElem('input', {
+      type: 'text',
+      id: 'WMEPH-WLInput',
+      class: 'wmeph-input',
+      style: 'width: 100%; margin-bottom: 8px;',
+      placeholder: 'Whitelist string',
+    });
+    wlCard.body.appendChild(wlInput);
+
+    const wlBtnRow1 = createElem('div', { class: 'wmeph-row', style: 'gap: 4px; margin-bottom: 8px;' });
+    const wlMergeBtn = createElem('button', { id: 'WMEPH-WLMerge', class: 'wmeph-btn', textContent: 'Merge', title: 'Merge the string into your existing Whitelist' });
+    const wlPullBtn = createElem('button', { id: 'WMEPH-WLPull', class: 'wmeph-btn', textContent: 'Pull', title: 'Pull your existing Whitelist for backup or sharing' });
+    const wlShareBtn = createElem('button', { id: 'WMEPH-WLShare', class: 'wmeph-btn', textContent: 'Share WL', title: 'Share your Whitelist to a public Google sheet' });
+    wlBtnRow1.appendChild(wlMergeBtn);
+    wlBtnRow1.appendChild(wlPullBtn);
+    wlBtnRow1.appendChild(wlShareBtn);
+    wlCard.body.appendChild(wlBtnRow1);
+
+    const wlBtnRow2 = createElem('div', { class: 'wmeph-row', style: 'gap: 4px;' });
+    const wlStatsBtn = createElem('button', { id: 'WMEPH-WLStats', class: 'wmeph-btn', textContent: 'Stats', title: 'Display WL stats' });
+    const wlFilterBtn = createElem('button', { id: 'WMEPH-WLStateFilter', class: 'wmeph-btn secondary', textContent: 'Remove 1 State', title: 'Remove all WL items for a state. Enter the state in the input box.' });
+    wlBtnRow2.appendChild(wlStatsBtn);
+    wlBtnRow2.appendChild(wlFilterBtn);
+    wlCard.body.appendChild(wlBtnRow2);
+
+    const wlMsgDiv = createElem('div', { id: 'PlaceHarmonizerWLToolsMsg', style: 'margin-top: 8px;' });
+    wlCard.body.appendChild(wlMsgDiv);
+    const wlToolsDiv = createElem('div', { id: 'PlaceHarmonizerWLTools' });
+    wlToolsDiv.appendChild(wlCard.card);
+    tabContents.wltools.appendChild(wlToolsDiv);
+
+    // Moderators tab content
+    const moderatorsCard = makeCard('Regional Moderators', 'fa-users');
+    const modDescription = createElem('p', {
+      textContent: 'Moderators are responsible for reviewing chain submissions for their region. If you have questions or suggestions regarding a chain, please contact any of your regional moderators.',
+      style: 'margin: 0 0 12px 0; font-size: 12px; line-height: 1.4;',
+    });
+    moderatorsCard.body.appendChild(modDescription);
+
+    const modsTable = createElem('table', { class: 'wmeph-mods-table' });
+    Object.keys(Pnh.MODERATORS)
+      .sort()
+      .forEach((region) => {
+        const row = createElem('tr');
+        const regionCell = createElem('td', { class: 'wmeph-mods-table-cell title', textContent: region });
+        const modsCell = createElem('td', { class: 'wmeph-mods-table-cell', textContent: Pnh.MODERATORS[region].join(', ') });
+        row.appendChild(regionCell);
+        row.appendChild(modsCell);
+        modsTable.appendChild(row);
+      });
+    moderatorsCard.body.appendChild(modsTable);
+    tabContents.moderators.appendChild(moderatorsCard.card);
+
+    // Add all tab contents to container
+    Object.values(tabContents).forEach(tc => container.appendChild(tc));
+
+    // Version footer
+    const versionDiv = createElem('div', {
+      textContent: `WMEPH ${BETA_VERSION_STR} v${SCRIPT_VERSION}`,
+      style: 'color: #999; font-size: 12px; margin-top: 12px; text-align: center;',
+    });
+    container.appendChild(versionDiv);
+
     initWmephTab();
   }
 
