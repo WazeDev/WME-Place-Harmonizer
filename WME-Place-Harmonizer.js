@@ -962,7 +962,7 @@
 
     #wmephPlugShareSearch:hover {
       background-color: rgba(30, 171, 146, 0.1) !important;
-      border-color: #1ee592 !important;
+      border-color: var(--wmeph-success-light, #1bab50) !important;
     }
 
     /* ====================================================================
@@ -1104,6 +1104,115 @@
 
     .wmeph-section-body {
       padding: var(--spacing-xs) 0;
+    }
+
+    /* ====================================================================
+       Scoped Component Classes
+       ==================================================================== */
+    .wmeph-header {
+      background: linear-gradient(135deg, #0066cc, #0052a3);
+      padding: var(--spacing-md);
+      border-radius: var(--radius-lg);
+      margin-bottom: var(--spacing-md);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      color: white;
+    }
+
+    .wmeph-card {
+      background: var(--wmeph-bg-primary);
+      border: 1px solid var(--wmeph-border-light);
+      border-radius: var(--radius-md);
+      padding: var(--spacing-md);
+      margin-bottom: var(--spacing-md);
+    }
+
+    .wmeph-card-header {
+      display: flex;
+      align-items: center;
+      gap: var(--spacing-sm);
+      margin-bottom: var(--spacing-md);
+      padding-bottom: var(--spacing-sm);
+      border-bottom: 1px solid var(--wmeph-border-light);
+    }
+
+    .wmeph-row {
+      display: flex;
+      align-items: center;
+      gap: var(--spacing-sm);
+      margin-bottom: var(--spacing-xs);
+    }
+
+    .wmeph-row:last-child {
+      margin-bottom: 0;
+    }
+
+    .wmeph-checkbox {
+      width: 16px;
+      height: 16px;
+      cursor: pointer;
+      accent-color: var(--wmeph-primary);
+    }
+
+    .wmeph-input {
+      padding: 4px 6px;
+      font-size: 11px;
+      border: 1px solid var(--wmeph-border);
+      border-radius: var(--radius-sm);
+      background: var(--wmeph-bg-primary);
+      color: var(--wmeph-text-default);
+      box-sizing: border-box;
+    }
+
+    .wmeph-input:focus {
+      outline: none;
+      border-color: var(--wmeph-primary);
+      box-shadow: 0 0 0 3px rgba(0, 117, 227, 0.1);
+    }
+
+    .wmeph-badge {
+      display: inline-block;
+      padding: 2px 6px;
+      font-size: 10px;
+      font-weight: 600;
+      border-radius: var(--radius-sm);
+      background: var(--wmeph-primary);
+      color: white;
+      white-space: nowrap;
+    }
+
+    .wmeph-badge.secondary {
+      background: var(--wmeph-bg-secondary);
+      color: var(--wmeph-text-default);
+      border: 1px solid var(--wmeph-border);
+    }
+
+    .wmeph-pane-tabs {
+      display: flex;
+      gap: var(--spacing-xs);
+      margin-bottom: var(--spacing-md);
+      border-bottom: 2px solid var(--wmeph-border-light);
+    }
+
+    .wmeph-pane-tab {
+      padding: var(--spacing-sm) var(--spacing-md);
+      font-size: 12px;
+      font-weight: 600;
+      cursor: pointer;
+      border-bottom: 3px solid transparent;
+      color: var(--wmeph-text-secondary);
+      background: none;
+      transition: var(--transition-fast);
+    }
+
+    .wmeph-pane-tab.active {
+      color: var(--wmeph-primary);
+      border-bottom-color: var(--wmeph-primary);
+    }
+
+    .wmeph-pane-tab:hover {
+      color: var(--wmeph-text-default);
     }
     `;
 
