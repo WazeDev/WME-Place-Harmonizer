@@ -1280,6 +1280,22 @@
       box-shadow: 0 0 0 3px rgba(0, 117, 227, 0.1);
     }
 
+    .wmeph-btn {
+      padding: 4px 8px;
+      font-size: 12px;
+      border: 1px solid var(--wmeph-border);
+      background: var(--wmeph-bg-secondary);
+      color: var(--wmeph-text-default);
+      border-radius: var(--radius-sm);
+      cursor: pointer;
+      transition: var(--transition-fast);
+    }
+
+    .wmeph-btn:hover {
+      background: var(--wmeph-bg-tertiary);
+      border-color: var(--wmeph-primary);
+    }
+
     .wmeph-btn.secondary {
       background: var(--wmeph-bg-secondary);
       color: var(--wmeph-text-default);
@@ -1309,6 +1325,11 @@
     }
 
     .wmeph-tab-content {
+      display: none;
+    }
+
+    .wmeph-tab-content.active {
+      display: block;
       animation: fadeIn 0.2s ease-in;
     }
 
@@ -11624,8 +11645,11 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
    * @returns {HTMLElement} The created checkbox element.
    */
   function createSettingsCheckbox(container, settingID, textDescription) {
-    const checkbox = makeCheckbox(false, () => saveSettingToLocalStorage(settingID));
-    checkbox.id = settingID;
+    const checkbox = createElem('input', {
+      type: 'checkbox',
+      id: settingID,
+      class: 'wmeph-checkbox'
+    });
     const row = makeRow(textDescription, checkbox);
 
     // Support both jQuery and native DOM
@@ -12312,13 +12336,13 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
         textContent: tab.label,
         'data-tab-id': tab.id,
       });
-      const tabContent = createElem('div', { class: 'wmeph-tab-content', 'data-tab-id': tab.id, style: idx === 0 ? '' : 'display: none;' });
+      const tabContent = createElem('div', { class: `wmeph-tab-content ${idx === 0 ? 'active' : ''}`, 'data-tab-id': tab.id });
       tabContents[tab.id] = tabContent;
 
       tabBtn.addEventListener('click', () => {
-        Object.values(tabContents).forEach(tc => tc.style.display = 'none');
+        Object.values(tabContents).forEach(tc => tc.classList.remove('active'));
         document.querySelectorAll('.wmeph-pane-tab').forEach(btn => btn.classList.remove('active'));
-        tabContent.style.display = '';
+        tabContent.classList.add('active');
         tabBtn.classList.add('active');
       });
 
