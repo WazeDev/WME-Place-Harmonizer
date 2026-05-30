@@ -1525,25 +1525,30 @@
     }
 
     .wmeph-pane .wmeph-internal-tabs .nav-link {
-      color: #666;
+      color: #666 !important;
       font-size: 12px;
       font-weight: 600;
       padding: 8px 12px;
-      border: none;
+      border: none !important;
       text-transform: uppercase;
       letter-spacing: 0.3px;
       transition: all 0.2s;
       position: relative;
+      background: transparent !important;
     }
 
     .wmeph-pane .wmeph-internal-tabs .nav-link:hover {
-      color: var(--wmeph-primary);
+      color: var(--wmeph-primary) !important;
+      background: transparent !important;
     }
 
-    .wmeph-pane .wmeph-internal-tabs .nav-link.active {
-      color: white;
-      background: var(--wmeph-primary);
-      border-radius: 4px 4px 0 0;
+    .wmeph-pane .wmeph-internal-tabs .nav-link.active,
+    .wmeph-pane .wmeph-internal-tabs .nav-link.active:hover,
+    .wmeph-pane .wmeph-internal-tabs .nav-link.active:focus {
+      color: white !important;
+      background: var(--wmeph-primary) !important;
+      border-radius: 4px 4px 0 0 !important;
+      font-weight: 700 !important;
     }
 
     /* Tab Content */
@@ -1569,16 +1574,20 @@
     }
 
     [wz-theme="dark"] .wmeph-pane .wmeph-internal-tabs .nav-link {
-      color: #b7babf;
+      color: #b7babf !important;
+      background: transparent !important;
     }
 
     [wz-theme="dark"] .wmeph-pane .wmeph-internal-tabs .nav-link:hover {
-      color: #33ccff;
+      color: #33ccff !important;
+      background: transparent !important;
     }
 
-    [wz-theme="dark"] .wmeph-pane .wmeph-internal-tabs .nav-link.active {
-      background: var(--wmeph-primary);
-      color: white;
+    [wz-theme="dark"] .wmeph-pane .wmeph-internal-tabs .nav-link.active,
+    [wz-theme="dark"] .wmeph-pane .wmeph-internal-tabs .nav-link.active:hover,
+    [wz-theme="dark"] .wmeph-pane .wmeph-internal-tabs .nav-link.active:focus {
+      background: var(--wmeph-primary) !important;
+      color: white !important;
     }
 
     [wz-theme="dark"] .wmeph-pane .tab-content {
