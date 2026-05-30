@@ -714,6 +714,21 @@
       /* Gradients */
       --wmeph-gradient-header: linear-gradient(135deg, #0066cc, #0052a3);
 
+      /* Button Gradients */
+      --wmeph-gradient-primary: linear-gradient(to bottom, #0077dd, #0066cc);
+      --wmeph-gradient-primary-hover: linear-gradient(to bottom, #0066cc, #0055aa);
+      --wmeph-gradient-secondary: linear-gradient(to bottom, #f0f0f0, #e8e8e8);
+      --wmeph-gradient-secondary-hover: linear-gradient(to bottom, #e8e8e8, #d8d8d8);
+
+      /* Section Header Gradients */
+      --wmeph-gradient-section-header: linear-gradient(to bottom, #f8f9fa, #f0f1f3);
+      --wmeph-gradient-section-header-hover: linear-gradient(to bottom, #f0f1f3, #e8e9eb);
+
+      /* Icon Sizes */
+      --wmeph-icon-size-sm: 10px;
+      --wmeph-icon-size-md: 14px;
+      --wmeph-icon-size-lg: 18px;
+
       /* Highlights */
       --wmeph-highlight-color: #ffff99;
     }
@@ -723,11 +738,26 @@
       --wmeph-text-secondary: #e8eaed;
       --wmeph-bg-primary: #2c2c2c;
       --wmeph-bg-secondary: #3a3a3a;
+      --wmeph-bg-tertiary: #202124;
       --wmeph-border: #5f6368;
       --wmeph-border-light: #5f6368;
       --wmeph-divider: #5f6368;
       --wmeph-primary-lighter: #33ccff;
       --wmeph-gradient-header: linear-gradient(135deg, #1a73e8, #0d47a1);
+
+      /* Dark Mode Specific Backgrounds */
+      --wmeph-dark-bg-secondary: #3c4043;
+      --wmeph-dark-bg-tertiary: #202124;
+
+      /* Button Gradients - Dark Mode */
+      --wmeph-gradient-primary: linear-gradient(to bottom, #0077dd, #0066cc);
+      --wmeph-gradient-primary-hover: linear-gradient(to bottom, #0066cc, #0055aa);
+      --wmeph-gradient-secondary: linear-gradient(to bottom, #3c4043, #2c2c2c);
+      --wmeph-gradient-secondary-hover: linear-gradient(to bottom, #4a5359, #3c4043);
+
+      /* Section Header Gradients - Dark Mode */
+      --wmeph-gradient-section-header: linear-gradient(to bottom, #3c4043, #202124);
+      --wmeph-gradient-section-header-hover: linear-gradient(to bottom, #55595e, #3c4043);
 
       /* Status Colors - Dark Mode (improved contrast) */
       --wmeph-red-text: #ff6b6b;
@@ -755,8 +785,11 @@
     }
 
     #sidebar .wmeph-pane {
-      width: auto;
-      padding: var(--wmeph-spacing-sm) !important;
+      width: 100%;
+      max-width: 100%;
+      padding: var(--wmeph-spacing-xs) !important;
+      box-sizing: border-box;
+      overflow-x: hidden;
     }
 
     /* ====================================================================
@@ -1283,8 +1316,8 @@
     }
 
     .wmeph-pane .wmeph-checkbox {
-      width: 16px;
-      height: 16px;
+      width: var(--wmeph-spacing-md);
+      height: var(--wmeph-spacing-md);
       cursor: pointer;
       accent-color: var(--wmeph-primary);
       flex-shrink: 0;
@@ -1293,8 +1326,8 @@
     .wmeph-pane .wmeph-checkbox-row {
       display: flex;
       align-items: center;
-      gap: 8px;
-      margin-bottom: 8px;
+      gap: var(--wmeph-spacing-xs);
+      margin-bottom: var(--wmeph-spacing-xs);
     }
 
     .wmeph-pane .wmeph-checkbox-row:last-child {
@@ -1302,12 +1335,12 @@
     }
 
     .wmeph-pane .wmeph-checkbox-label {
-      font-size: 12px;
+      font-size: var(--wmeph-font-size-sm);
       color: var(--wmeph-text-secondary);
       cursor: pointer;
       user-select: none;
       margin: 0;
-      font-weight: 500;
+      font-weight: 300;
     }
 
     /* Dark Mode Checkboxes */
@@ -1332,10 +1365,10 @@
     }
 
     #wmeph-paste-hours-btn {
-      font-size: 17px;
+      font-size: var(--wmeph-font-size-lg);
       position: relative;
       vertical-align: top;
-      top: 2px;
+      top: var(--wmeph-spacing-xxxs);
       right: -5px;
       margin-right: var(--wmeph-spacing-xxs);
       color: var(--wmeph-text-secondary, #6c6c6c);
@@ -1347,13 +1380,11 @@
       display: inline-block;
       font-size: var(--wmeph-font-size-sm);
       border: 1px solid var(--wmeph-border);
-      /* border-radius: 0 0 5px 5px; */
       background-color: var(--wmeph-bg-secondary);
       color: var(--wmeph-text-secondary);
       padding: 1px 0px 0 3px !important;
       position: relative;
       z-index: 1;
-      /* margin: 0px var(--wmeph-spacing-xxs) var(--wmeph-spacing-xxs) 0; */
       width: 253px !important;
       min-width: 253px !important;
       max-width: 253px !important;
@@ -1365,11 +1396,11 @@
       flex: 1 1 230px;
       max-width: 230px;
       min-width: 80px;
-      height: 24px;
-      min-height: 24px;
+      height: var(--wmeph-spacing-lg);
+      min-height: var(--wmeph-spacing-lg);
       max-height: 200px;
       margin-bottom: -2px;
-      margin-top: 2px;
+      margin-top: var(--wmeph-spacing-xxxs);
       padding-left: 3px;
       position: relative;
       z-index: 1;
@@ -1378,8 +1409,8 @@
 
     .wmeph-badge {
       display: inline-block;
-      padding: 2px 6px;
-      font-size: 10px;
+      padding: var(--wmeph-spacing-xxxs) 6px;
+      font-size: var(--wmeph-font-size-xs);
       font-weight: 600;
       border-radius: var(--wmeph-radius-sm);
       background: var(--wmeph-primary);
@@ -1402,7 +1433,7 @@
 
     .wmeph-pane-tab {
       padding: var(--wmeph-spacing-sm) var(--wmeph-spacing-md);
-      font-size: 12px;
+      font-size: var(--wmeph-font-size-sm);
       font-weight: 600;
       cursor: pointer;
       border-bottom: 3px solid transparent;
@@ -1422,7 +1453,7 @@
 
     .wmeph-card-title {
       margin: 0;
-      font-size: 14px;
+      font-size: var(--wmeph-font-size-base);
       font-weight: 600;
       color: var(--wmeph-text-default);
     }
@@ -1434,7 +1465,7 @@
     }
 
     .wmeph-label {
-      font-size: 12px;
+      font-size: var(--wmeph-font-size-sm);
       color: var(--wmeph-text-secondary);
       font-weight: 500;
       flex-shrink: 0;
@@ -1442,7 +1473,7 @@
 
     .wmeph-select {
       padding: 4px 6px;
-      font-size: 11px;
+      font-size: var(--wmeph-font-size-sm);
       border: 1px solid var(--wmeph-border);
       border-radius: var(--wmeph-radius-sm);
       background: var(--wmeph-bg-primary);
@@ -1458,7 +1489,7 @@
 
     .wmeph-btn {
       padding: 4px 8px;
-      font-size: 12px;
+      font-size: var(--wmeph-font-size-sm);
       border: 1px solid var(--wmeph-border);
       background: var(--wmeph-bg-secondary);
       color: var(--wmeph-text-default);
@@ -1520,15 +1551,15 @@
 
     /* Bootstrap Nav Tabs Styling */
     .wmeph-pane .wmeph-internal-tabs {
-      border-bottom: 2px solid #e0e0e0;
+      border-bottom: 2px solid var(--wmeph-border-light);
       margin-bottom: 0;
     }
 
     .wmeph-pane .wmeph-internal-tabs .nav-link {
-      color: #666 !important;
-      font-size: 12px;
+      color: var(--wmeph-text-secondary) !important;
+      font-size: var(--wmeph-font-size-sm);
       font-weight: 600;
-      padding: 8px 12px;
+      padding: var(--wmeph-spacing-xs) var(--wmeph-spacing-sm);
       border: none !important;
       text-transform: uppercase;
       letter-spacing: 0.3px;
@@ -1553,15 +1584,23 @@
 
     /* Tab Content */
     .wmeph-pane .tab-content {
-      background: white;
+      width: 100%;
+      max-width: 100%;
+      background: var(--wmeph-bg-primary);
       border-radius: 0 0 4px 4px;
-      border: 1px solid #e0e0e0;
+      border: 1px solid var(--wmeph-border-light);
       border-top: none;
-      padding: 8px;
+      padding: var(--wmeph-spacing-xs);
+      box-sizing: border-box;
+      overflow: hidden;
     }
 
     .wmeph-pane .tab-pane {
       display: none;
+      width: 100%;
+      max-width: 100%;
+      box-sizing: border-box;
+      overflow-x: hidden;
     }
 
     .wmeph-pane .tab-pane.active {
@@ -1591,8 +1630,8 @@
     }
 
     [wz-theme="dark"] .wmeph-pane .tab-content {
-      background: #202124;
-      border-color: #55595e;
+      background: var(--wmeph-dark-bg-tertiary);
+      border-color: var(--wmeph-border-light);
     }
 
     .wmeph-mods-table {
@@ -1615,13 +1654,15 @@
        Collapsible Settings Sections - GIS-Layers Pattern
        ==================================================================== */
     .wmeph-pane .settings-section {
-      background: #fafafa;
-      border: 1px solid #e0e0e0;
-      border-radius: 6px;
-      margin-bottom: 10px;
+      width: 100%;
+      background: var(--wmeph-bg-tertiary);
+      border: 1px solid var(--wmeph-border-light);
+      border-radius: var(--wmeph-radius-md);
+      margin-bottom: var(--wmeph-spacing-md);
       overflow: hidden;
       box-shadow: 0 1px 3px rgba(0,0,0,0.05);
       transition: box-shadow 0.2s;
+      box-sizing: border-box;
     }
 
     .wmeph-pane .settings-section:hover {
@@ -1629,39 +1670,40 @@
     }
 
     .wmeph-pane .settings-section-header {
-      padding: 8px 8px;
-      background: linear-gradient(to bottom, #f8f9fa 0%, #f0f1f3 100%);
-      border-bottom: 1px solid #e0e0e0;
+      padding: var(--wmeph-spacing-xs);
+      background: var(--wmeph-gradient-section-header);
+      border-bottom: 1px solid var(--wmeph-border-light);
       cursor: pointer;
       display: flex;
       align-items: center;
       justify-content: space-between;
       user-select: none;
+      box-sizing: border-box;
     }
 
     .wmeph-pane .settings-section-header:hover {
-      background: linear-gradient(to bottom, #f0f1f3 0%, #e8e9eb 100%);
+      background: var(--wmeph-gradient-section-header-hover);
     }
 
     .wmeph-pane .settings-section-title {
       display: flex;
       align-items: center;
-      gap: 8px;
-      font-size: 12px;
+      gap: var(--wmeph-spacing-xs);
+      font-size: var(--wmeph-font-size-sm);
       font-weight: 700;
-      color: #333;
+      color: var(--wmeph-text-default);
       text-transform: uppercase;
       letter-spacing: 0.5px;
     }
 
     .wmeph-pane .settings-section-title i {
       color: var(--wmeph-primary);
-      font-size: 14px;
+      font-size: var(--wmeph-icon-size-md);
     }
 
     .wmeph-pane .section-toggle-icon {
-      font-size: 10px;
-      color: #666;
+      font-size: var(--wmeph-icon-size-sm);
+      color: var(--wmeph-text-secondary);
       transition: transform 0.2s;
     }
 
@@ -1670,8 +1712,9 @@
     }
 
     .wmeph-pane .settings-section-body {
-      padding: 8px;
-      background: white;
+      padding: var(--wmeph-spacing-xs);
+      background: var(--wmeph-bg-primary);
+      box-sizing: border-box;
     }
 
     .wmeph-pane .settings-section.collapsed .settings-section-body {
@@ -1700,10 +1743,10 @@
        ==================================================================== */
     .wmeph-pane .pill-group {
       display: flex;
-      background: #e9ecef;
-      border-radius: 6px;
-      padding: 2px;
-      gap: 2px;
+      background: var(--wmeph-bg-secondary);
+      border-radius: var(--wmeph-radius-md);
+      padding: var(--wmeph-spacing-xxxs);
+      gap: var(--wmeph-spacing-xxxs);
     }
 
     .wmeph-pane .pill-option {
@@ -1721,11 +1764,11 @@
       display: block;
       text-align: center;
       padding: 6px 8px;
-      font-size: 11px;
+      font-size: var(--wmeph-font-size-xs);
       font-weight: 600;
-      color: #666;
+      color: var(--wmeph-text-secondary);
       background: transparent;
-      border-radius: 4px;
+      border-radius: var(--wmeph-radius-sm);
       cursor: pointer;
       transition: all 0.2s;
       margin: 0;
@@ -1745,7 +1788,7 @@
     }
 
     .wmeph-pane .pill-option input[type="radio"]:checked + label:hover {
-      background: #0052a3;
+      background: var(--wmeph-primary-light);
       color: white;
     }
 
@@ -1755,10 +1798,11 @@
     .wmeph-pane .setting-select {
       width: 100%;
       padding: 6px 8px;
-      border: 1px solid #d0d0d0;
-      border-radius: 4px;
-      font-size: 12px;
-      background: white;
+      border: 1px solid var(--wmeph-border-light);
+      border-radius: var(--wmeph-radius-sm);
+      font-size: var(--wmeph-font-size-sm);
+      background: var(--wmeph-bg-primary);
+      color: var(--wmeph-text-default);
       cursor: pointer;
       transition: border-color 0.2s, box-shadow 0.2s;
     }
@@ -1766,15 +1810,17 @@
     .wmeph-pane .setting-select:focus {
       outline: none;
       border-color: var(--wmeph-primary);
-      box-shadow: 0 0 0 3px rgba(0, 102, 204, 0.1);
+      box-shadow: 0 0 0 3px rgba(0, 117, 227, 0.1);
     }
 
     .wmeph-pane .setting-input {
       width: 80px;
       padding: 6px 8px;
-      border: 1px solid #d0d0d0;
-      border-radius: 4px;
-      font-size: 12px;
+      border: 1px solid var(--wmeph-border-light);
+      border-radius: var(--wmeph-radius-sm);
+      font-size: var(--wmeph-font-size-sm);
+      background: var(--wmeph-bg-primary);
+      color: var(--wmeph-text-default);
       text-align: center;
       transition: border-color 0.2s, box-shadow 0.2s;
     }
@@ -1782,23 +1828,25 @@
     .wmeph-pane .setting-input:focus {
       outline: none;
       border-color: var(--wmeph-primary);
-      box-shadow: 0 0 0 3px rgba(0, 102, 204, 0.1);
+      box-shadow: 0 0 0 3px rgba(0, 117, 227, 0.1);
     }
 
     .wmeph-pane .setting-input-full {
       width: 100%;
       padding: 6px 8px;
-      border: 1px solid #d0d0d0;
-      border-radius: 4px;
-      font-size: 12px;
-      margin-bottom: 8px;
+      border: 1px solid var(--wmeph-border-light);
+      border-radius: var(--wmeph-radius-sm);
+      font-size: var(--wmeph-font-size-sm);
+      background: var(--wmeph-bg-primary);
+      color: var(--wmeph-text-default);
+      margin-bottom: var(--wmeph-spacing-xs);
       transition: border-color 0.2s, box-shadow 0.2s;
     }
 
     .wmeph-pane .setting-input-full:focus {
       outline: none;
       border-color: var(--wmeph-primary);
-      box-shadow: 0 0 0 3px rgba(0, 102, 204, 0.1);
+      box-shadow: 0 0 0 3px rgba(0, 117, 227, 0.1);
     }
 
     .wmeph-pane .setting-unit {
@@ -1809,19 +1857,19 @@
     }
 
     .wmeph-pane .help-text {
-      font-size: 10px;
-      color: #999;
-      margin-top: 4px;
+      font-size: var(--wmeph-icon-size-sm);
+      color: var(--wmeph-text-secondary);
+      margin-top: var(--wmeph-spacing-xxxs);
     }
 
     /* Button Styles */
     .wmeph-pane .btn-primary-modern,
     .wmeph-pane .btn-secondary-modern {
       flex: 1;
-      padding: 8px 14px;
+      padding: var(--wmeph-spacing-xs) var(--wmeph-spacing-sm);
       border: none;
-      border-radius: 5px;
-      font-size: 11px;
+      border-radius: var(--wmeph-radius-md);
+      font-size: var(--wmeph-font-size-xs);
       font-weight: 700;
       cursor: pointer;
       text-transform: uppercase;
@@ -1831,12 +1879,12 @@
     }
 
     .wmeph-pane .btn-primary-modern {
-      background: linear-gradient(to bottom, #0077dd 0%, #0066cc 100%);
+      background: var(--wmeph-gradient-primary);
       color: white;
     }
 
     .wmeph-pane .btn-primary-modern:hover {
-      background: linear-gradient(to bottom, #0066cc 0%, #0055aa 100%);
+      background: var(--wmeph-gradient-primary-hover);
       box-shadow: 0 2px 6px rgba(0,0,0,0.15);
       transform: translateY(-1px);
     }
@@ -1852,12 +1900,12 @@
     }
 
     .wmeph-pane .btn-secondary-modern {
-      background: linear-gradient(to bottom, #f0f0f0 0%, #e8e8e8 100%);
-      color: #333;
+      background: var(--wmeph-gradient-secondary);
+      color: var(--wmeph-text-default);
     }
 
     .wmeph-pane .btn-secondary-modern:hover {
-      background: linear-gradient(to bottom, #e8e8e8 0%, #d8d8d8 100%);
+      background: var(--wmeph-gradient-secondary-hover);
       box-shadow: 0 2px 6px rgba(0,0,0,0.15);
       transform: translateY(-1px);
     }
@@ -1876,80 +1924,80 @@
        Dark Mode - Collapsible Sections and Controls
        ==================================================================== */
     [wz-theme="dark"] .wmeph-pane .settings-section {
-      background: #3c4043;
-      border-color: #55595e;
+      background: var(--wmeph-dark-bg-secondary);
+      border-color: var(--wmeph-border-light);
     }
 
     [wz-theme="dark"] .wmeph-pane .settings-section-header {
-      background: linear-gradient(to bottom, #3c4043 0%, #202124 100%);
-      border-bottom-color: #55595e;
+      background: var(--wmeph-gradient-section-header);
+      border-bottom-color: var(--wmeph-border-light);
     }
 
     [wz-theme="dark"] .wmeph-pane .settings-section-header:hover {
-      background: linear-gradient(to bottom, #55595e 0%, #3c4043 100%);
+      background: var(--wmeph-gradient-section-header-hover);
     }
 
     [wz-theme="dark"] .wmeph-pane .settings-section-title {
-      color: #e8eaed;
+      color: var(--wmeph-text-default);
     }
 
     [wz-theme="dark"] .wmeph-pane .settings-section-body {
-      background: #202124;
+      background: var(--wmeph-dark-bg-tertiary);
     }
 
     [wz-theme="dark"] .wmeph-pane .setting-label {
-      color: #e8eaed;
+      color: var(--wmeph-text-default);
     }
 
     [wz-theme="dark"] .wmeph-pane .pill-group {
-      background: #3c4043;
+      background: var(--wmeph-dark-bg-secondary);
     }
 
     [wz-theme="dark"] .wmeph-pane .pill-option label {
-      color: #b7babf;
+      color: var(--wmeph-text-secondary);
     }
 
     [wz-theme="dark"] .wmeph-pane .pill-option input[type="radio"]:checked + label {
-      background: #5b9ef5;
+      background: var(--wmeph-primary-light);
       color: white;
     }
 
     [wz-theme="dark"] .wmeph-pane .pill-option label:hover {
-      color: #33ccff;
+      color: var(--wmeph-primary-lighter);
     }
 
     [wz-theme="dark"] .wmeph-pane .pill-option input[type="radio"]:checked + label:hover {
-      background: #4a85cc;
+      background: var(--wmeph-primary);
       color: white;
     }
 
     [wz-theme="dark"] .wmeph-pane .setting-select,
     [wz-theme="dark"] .wmeph-pane .setting-input,
     [wz-theme="dark"] .wmeph-pane .setting-input-full {
-      background: #3c4043;
-      border-color: #55595e;
-      color: #e8eaed;
+      background: var(--wmeph-dark-bg-secondary);
+      border-color: var(--wmeph-border-light);
+      color: var(--wmeph-text-default);
     }
 
     [wz-theme="dark"] .wmeph-pane .setting-select:focus,
     [wz-theme="dark"] .wmeph-pane .setting-input:focus,
     [wz-theme="dark"] .wmeph-pane .setting-input-full:focus {
-      border-color: #33ccff;
+      border-color: var(--wmeph-primary-lighter);
       box-shadow: 0 0 0 3px rgba(51, 204, 255, 0.1);
     }
 
     [wz-theme="dark"] .wmeph-pane .setting-unit,
     [wz-theme="dark"] .wmeph-pane .help-text {
-      color: #b7babf;
+      color: var(--wmeph-text-secondary);
     }
 
     [wz-theme="dark"] .wmeph-pane .btn-secondary-modern {
-      background: linear-gradient(to bottom, #3c4043 0%, #202124 100%);
-      color: #e8eaed;
+      background: var(--wmeph-gradient-secondary);
+      color: var(--wmeph-text-default);
     }
 
     [wz-theme="dark"] .wmeph-pane .btn-secondary-modern:hover {
-      background: linear-gradient(to bottom, #55595e 0%, #3c4043 100%);
+      background: var(--wmeph-gradient-secondary-hover);
     }
 
     [wz-theme="dark"] .wmeph-pane .btn-primary-modern:focus {
@@ -13156,7 +13204,7 @@
     }
 
     // Regional Moderators section
-    const moderatorsSection = createCollapsibleSection('Regional Moderators', 'fa-users', true);
+    const moderatorsSection = createCollapsibleSection('Regional Moderators', 'fa-users', false);
     const modDescription = createElem('p', {
       textContent: 'Moderators are responsible for reviewing chain submissions for their region. If you have questions or suggestions regarding a chain, please contact any of your regional moderators.',
       style: 'margin: 0 0 12px 0; font-size: 12px; line-height: 1.4;',
