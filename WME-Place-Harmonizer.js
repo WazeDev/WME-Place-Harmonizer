@@ -12816,40 +12816,42 @@
   }
 
   /**
-   * Creates a collapsible section with header and body, matching GIS-Layers pattern.
-   * Header is clickable to toggle collapsed state; icon rotates on collapse.
-   * @param {string} title - Section header text (e.g., "General Settings")
-   * @param {string} iconClass - Font Awesome icon class (e.g., "fa-cogs", "fa-tools")
-   * @param {boolean} isExpanded - True for expanded (default), false for collapsed
-   * @returns {Object} Object with { section, header, body } DOM elements
+   * Creates a collapsible section component with toggle functionality.
+   * @param {string} title - Section title text
+   * @param {string} iconClass - FontAwesome icon class (e.g., 'fa-cogs')
+   * @param {boolean} [isExpanded=true] - Initial expanded state
+   * @returns {Object} {section: HTMLElement, header: HTMLElement, body: HTMLElement}
    */
   function createCollapsibleSection(title, iconClass, isExpanded = true) {
-    const section = $('<div>', {
+    const section = createElem('div', {
       class: `settings-section ${isExpanded ? '' : 'collapsed'}`
     });
 
-    const header = $('<div>', { class: 'settings-section-header' }).append(
-      $('<div>', { class: 'settings-section-title' }).append(
-        $('<i>', { class: `fa ${iconClass}` }),
-        $('<span>').text(title)
-      ),
-      $('<i>', { class: 'fa fa-chevron-down section-toggle-icon' })
-    );
+    const icon = createElem('i', { class: `fa ${iconClass}` });
+    const titleSpan = createElem('span');
+    titleSpan.textContent = title;
 
-    const body = $('<div>', { class: 'settings-section-body' });
+    const titleDiv = createElem('div', { class: 'settings-section-title' });
+    titleDiv.appendChild(icon);
+    titleDiv.appendChild(titleSpan);
 
-    section.append(header, body);
+    const toggleIcon = createElem('i', { class: 'fa fa-chevron-down section-toggle-icon' });
+
+    const header = createElem('div', { class: 'settings-section-header' });
+    header.appendChild(titleDiv);
+    header.appendChild(toggleIcon);
+
+    const body = createElem('div', { class: 'settings-section-body' });
+
+    section.appendChild(header);
+    section.appendChild(body);
 
     // Toggle collapse on header click
-    header.on('click', function() {
-      section.toggleClass('collapsed');
+    header.addEventListener('click', function() {
+      section.classList.toggle('collapsed');
     });
 
-    return {
-      section: section[0],
-      header: header[0],
-      body: body[0]
-    };
+    return { section, header, body };
   }
 
   /**
