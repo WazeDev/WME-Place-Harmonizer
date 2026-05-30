@@ -775,20 +775,11 @@
       transition: var(--transition-fast);
     }
 
-    .wmeph-btn,
-    .wmephwl-btn {
-      height: 19px;
-      font-family: var(--font-default);
-    }
-
     .btn.wmeph-btn {
       padding: 0 3px;
     }
 
-    .btn.wmephwl-btn {
-      padding: 0 1px 0 2px;
-      height: 18px;
-    }
+    /* Whitelist button styles are scoped to #WMEPH_banner and #wmeph-run-panel (see around line 857-881) */
 
     #WMEPH_banner .banner-row {
       padding: var(--spacing-xs) var(--spacing-xs);
@@ -858,6 +849,35 @@
     #wmeph-run-panel .wmeph-btn {
       flex: 0 1 auto;
       height: 28px;
+    }
+
+    /* ====================================================================
+       Whitelist Buttons: Success-Styled Actions
+       ==================================================================== */
+    #WMEPH_banner .wmephwl-btn {
+      background-color: var(--wmeph-success, #118742);
+      border: solid 1px var(--wmeph-success, #118742);
+      color: white;
+      font-weight: normal;
+      margin-bottom: var(--spacing-xs);
+      margin-right: var(--spacing-xs);
+      transition: var(--wmeph-transition);
+      cursor: pointer;
+    }
+
+    #WMEPH_banner .wmephwl-btn:hover {
+      opacity: 0.85;
+      transform: translateY(-1px);
+    }
+
+    #wmeph-run-panel .wmephwl-btn {
+      background-color: var(--wmeph-success, #118742);
+      border: solid 1px var(--wmeph-success, #118742);
+      color: white;
+      padding: 2px 8px;
+      margin-right: var(--spacing-xs);
+      transition: var(--wmeph-transition);
+      cursor: pointer;
     }
 
     #wmeph-run-panel .wmeph-clone-row {
