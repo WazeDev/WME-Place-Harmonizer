@@ -861,8 +861,10 @@
       font-weight: normal;
       margin-bottom: var(--spacing-xs);
       margin-right: var(--spacing-xs);
-      transition: var(--wmeph-transition);
+      transition: var(--transition-fast);
       cursor: pointer;
+      padding: 2px 8px;
+      height: auto;
     }
 
     #WMEPH_banner .wmephwl-btn:hover {
@@ -876,7 +878,7 @@
       color: white;
       padding: 2px 8px;
       margin-right: var(--spacing-xs);
-      transition: var(--wmeph-transition);
+      transition: var(--transition-fast);
       cursor: pointer;
     }
 
@@ -1296,13 +1298,13 @@
       padding: 4px 6px;
       cursor: pointer;
       font-size: 16px;
-      color: #999;
-      transition: all 0.2s ease;
+      color: var(--wmeph-text-secondary, #999);
+      transition: var(--transition-fast);
       opacity: 0.5;
     }
 
     .wmeph-icon-toggle.checked {
-      color: #0075e3;
+      color: var(--wmeph-primary, #0075e3);
       opacity: 1;
     }
     `;
@@ -5412,22 +5414,20 @@ id="WMEPH-zipAltNameAdd"autocomplete="off" style="font-size:0.85em;width:65px;pa
           `${hasExistingHours ? 'Hours' : 'No hours'}:`,
           !alwaysOpen
             ? $('<input>', {
-                class: 'btn btn-default btn-xs wmeph-btn',
+                class: 'wmeph-btn',
                 id: 'WMEPH_noHours',
                 title: `Add pasted hours${hasExistingHours ? ' to existing hours' : ''}`,
                 type: 'button',
                 value: 'Add hours',
-                style: 'margin-bottom:4px; margin-right:0px; margin-left:3px;',
               })
             : '',
           hasExistingHours
             ? $('<input>', {
-                class: 'btn btn-default btn-xs wmeph-btn',
+                class: 'wmeph-btn',
                 id: 'WMEPH_noHours_2',
                 title: 'Replace existing hours with pasted hours',
                 type: 'button',
                 value: 'Replace all hours',
-                style: 'margin-bottom:4px; margin-right:0px; margin-left:3px;',
               })
             : '',
           // jquery throws an error when setting autocomplete="off" in a jquery object (must use .autocomplete() function), so just use a string here.
