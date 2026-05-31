@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name        WME Place Harmonizer Beta
 // @namespace   WazeUSA
-// @version     2026.05.31.00
+// @version     2026.05.31.01
 // @description Harmonizes, formats, and locks a selected place
 // @author      WMEPH Development Group
 // @include      https://www.waze.com/editor*
@@ -40,7 +40,8 @@
   // **************************************************************************************************************
   const SHOW_UPDATE_MESSAGE = true;
   const SCRIPT_UPDATE_MESSAGE = [
-    'v 2026.05.31.00 :Modernized all banner & script settings styling, for improved maintainability and consistency across light and dark themes.',
+    'v 2026.05.31.00 Modernized all banner & script settings styling, for improved maintainability and consistency across light and dark themes.',
+    'v 2026.05.31.01 Fix: Allow undo of lock level changes without requiring venue deselection',
   ];
 
   // **************************************************************************************************************
@@ -104,6 +105,9 @@
   let _resultsCacheOrder = []; // Track insertion order for LRU eviction
   let _initAlreadyRun = false; // This is used to skip a couple things if already run once.  This could probably be handled better...
   let _textEntryValues = null; // Store the values entered in text boxes so they can be re-added when the banner is reassembled.
+  let _lockedVenuesThisSession = new Set(); // Track venues locked in current user action to prevent double-locking
+  let _previousVenueLockRank = null; // Track lock level to detect lock-only changes (undo actions)
+  let _currentlySelectedVenueId = null; // Track which venue is selected to detect venue change
 
   // lock levels are offset by one
   const LOCK_LEVEL_2 = 1;
@@ -7268,12 +7272,17 @@
 
         if (args.venue.lockRank < args.levelToLock) {
           if (!args.highlightOnly) {
-            logDev(`Venue locked! Current: ${args.venue.lockRank}, Target: ${args.levelToLock}`);
-            // Use SDK to update venue directly - wrap in try-catch since locking may fail due to permissions
-            try {
-              addUpdateAction(args.venue, { lockRank: args.levelToLock }, args.actions);
-            } catch (e) {
-              logDev('Could not lock venue - you may not have permission', e);
+            // Check if we already locked this venue in this harmonization session (prevents double-locking from re-harmonization)
+            if (!_lockedVenuesThisSession.has(args.venue.id)) {
+              logDev(`Venue locked! Current: ${args.venue.lockRank}, Target: ${args.levelToLock}`);
+              // Use same pattern as HN/URL/PHONE/services - direct push to actions array for consistent undo tracking
+              try {
+                args.actions.push(sdk.DataModel.Venues.updateVenue({ venueId: args.venue.id, lockRank: args.levelToLock }));
+                UPDATED_FIELDS.checkNewAttributes({ lockRank: args.levelToLock }, args.venue);
+                _lockedVenuesThisSession.add(args.venue.id);
+              } catch (e) {
+                logDev('Could not lock venue - you may not have permission', e);
+              }
             }
           } else {
             this.hlLockFlag = true;
@@ -8222,28 +8231,48 @@
 
   function onVenuesChanged(venueProxies) {
     deleteDupeLabel();
-    _previousVenueServices = null; // Reset when venue selection changes
 
     const venue = getSelectedVenue();
+    const venueId = venue?.id;
+    const hadVenueSelected = _currentlySelectedVenueId !== null;
+    const hasVenueSelected = venueId !== null;
+
+    // Reset trackers if: (1) venue ID changed, (2) venue was deselected then reselected, or (3) just selected a venue
+    if (venueId !== _currentlySelectedVenueId || (hadVenueSelected && !hasVenueSelected) || (!hadVenueSelected && hasVenueSelected)) {
+      _previousVenueServices = null;
+      _previousVenueLockRank = null;
+      _lockedVenuesThisSession.clear();
+      _currentlySelectedVenueId = venueId;
+    }
+
     if (venueProxies.map((proxy) => proxy.id).includes(venue?.id)) {
       if ($('#WMEPH_banner').length && venue?.id && !_isHarmonizing) {
         // Compare current services with previous state to detect services-only changes
         const currentServices = JSON.stringify((venue.services || []).sort());
         const isServicesOnlyChange = _previousVenueServices !== null && _previousVenueServices === currentServices;
 
-        // Skip harmonization if ONLY services changed (UI sync handles it)
-        if (!isServicesOnlyChange) {
+        // Detect lock-level-only changes (prevents re-harmonization on undo actions)
+        const isLockOnlyChange = _previousVenueLockRank !== null && _previousVenueLockRank !== venue.lockRank &&
+          _previousVenueServices !== null && _previousVenueServices === currentServices;
+
+        // Skip harmonization if ONLY services or ONLY lock level changed
+        if (!isServicesOnlyChange && !isLockOnlyChange) {
           // Auto-harmonize when venue with banner is modified (but not if already harmonizing)
           harmonizePlaceGo(venue, 'harmonize');
           // Refresh all highlights to sync layer features with updated venue properties
           refreshAllHighlights();
         } else if (_previousVenueServices !== null) {
           // Log for dev visibility
-          logDev('Skipped full re-run — services UI sync only');
+          if (isServicesOnlyChange) {
+            logDev('Skipped full re-run — services UI sync only');
+          } else if (isLockOnlyChange) {
+            logDev('Skipped full re-run — lock level change only (undo action)');
+          }
         }
 
-        // Update tracker for next change
+        // Update trackers for next change
         _previousVenueServices = currentServices;
+        _previousVenueLockRank = venue.lockRank;
       }
 
       updateWmephPanel();
@@ -8566,6 +8595,17 @@
       eventName: 'wme-map-move-end',
       eventHandler: () => {
         refreshAllHighlights();
+      },
+    });
+
+    // Listen for venue selection changes to reset lock tracking (allows fresh lock checks when reselecting a venue)
+    sdk.Events.on({
+      eventName: 'wme-selection-changed',
+      eventHandler: () => {
+        _previousVenueLockRank = null;
+        _previousVenueServices = null;
+        _lockedVenuesThisSession.clear();
+        _currentlySelectedVenueId = getSelectedVenue()?.id || null;
       },
     });
 
