@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name        WME Place Harmonizer Beta
 // @namespace   WazeUSA
-// @version     2026.05.31.02
+// @version     2026.05.31.03
 // @description Harmonizes, formats, and locks a selected place
 // @author      WMEPH Development Group
 // @include      https://www.waze.com/editor*
@@ -43,6 +43,7 @@
     'v 2026.05.31.00 Modernized all banner & script settings styling, for improved maintainability and consistency across light and dark themes.',
     'v 2026.05.31.01 Fix: Allow undo of lock level changes without requiring venue deselection',
     'v 2026.05.31.02 fix: Allow undo of phone number changes without requiring venue deselection',
+    'v 2026.05.31.03 fix: Same fix as above for URL, Opening hours corrections, ect ',
   ];
 
   // **************************************************************************************************************
@@ -108,8 +109,13 @@
   let _textEntryValues = null; // Store the values entered in text boxes so they can be re-added when the banner is reassembled.
   let _lockedVenuesThisSession = new Set(); // Track venues locked in current user action to prevent double-locking
   let _normalizedPhoneThisSession = new Set(); // Track venues with normalized phone to prevent re-normalizing
+  let _normalizedUrlThisSession = new Set(); // Track venues with normalized URL to prevent re-normalizing
+  let _correctedHoursThisSession = new Set(); // Track venues with corrected hours (M-S split) to prevent re-correcting
+  let _correctedRestAreaNameThisSession = new Set(); // Track venues with corrected Rest Area name to prevent re-correcting
   let _previousVenueLockRank = null; // Track lock level to detect lock-only changes (undo actions)
   let _previousVenuePhone = null; // Track phone to detect phone-only changes (undo actions)
+  let _previousVenueUrl = null; // Track URL to detect URL-only changes (undo actions)
+  let _previousVenueHours = null; // Track hours to detect hours-only changes (undo actions)
   let _currentlySelectedVenueId = null; // Track which venue is selected to detect venue change
 
   // lock levels are offset by one
@@ -8245,8 +8251,13 @@
       _previousVenueServices = null;
       _previousVenueLockRank = null;
       _previousVenuePhone = null;
+      _previousVenueUrl = null;
+      _previousVenueHours = null;
       _lockedVenuesThisSession.clear();
       _normalizedPhoneThisSession.clear();
+      _normalizedUrlThisSession.clear();
+      _correctedHoursThisSession.clear();
+      _correctedRestAreaNameThisSession.clear();
       _currentlySelectedVenueId = venueId;
     }
 
@@ -8265,8 +8276,21 @@
           _previousVenueServices !== null && _previousVenueServices === currentServices &&
           _previousVenueLockRank === venue.lockRank;
 
-        // Skip harmonization if ONLY services, lock level, or phone changed
-        if (!isServicesOnlyChange && !isLockOnlyChange && !isPhoneOnlyChange) {
+        // Detect URL-only changes (prevents re-harmonization on undo actions)
+        const currentUrl = venue.url || null;
+        const isUrlOnlyChange = _previousVenueUrl !== null && _previousVenueUrl !== currentUrl &&
+          _previousVenueServices !== null && _previousVenueServices === currentServices &&
+          _previousVenueLockRank === venue.lockRank && _previousVenuePhone === venue.phone;
+
+        // Detect hours-only changes (prevents re-harmonization on undo actions)
+        const currentHours = JSON.stringify(venue.openingHours || []);
+        const isHoursOnlyChange = _previousVenueHours !== null && _previousVenueHours !== currentHours &&
+          _previousVenueServices !== null && _previousVenueServices === currentServices &&
+          _previousVenueLockRank === venue.lockRank && _previousVenuePhone === venue.phone &&
+          _previousVenueUrl === currentUrl;
+
+        // Skip harmonization if ONLY services, lock level, phone, URL, or hours changed
+        if (!isServicesOnlyChange && !isLockOnlyChange && !isPhoneOnlyChange && !isUrlOnlyChange && !isHoursOnlyChange) {
           // Auto-harmonize when venue with banner is modified (but not if already harmonizing)
           harmonizePlaceGo(venue, 'harmonize');
           // Refresh all highlights to sync layer features with updated venue properties
@@ -8279,6 +8303,10 @@
             logDev('Skipped full re-run — lock level change only (undo action)');
           } else if (isPhoneOnlyChange) {
             logDev('Skipped full re-run — phone number change only (undo action)');
+          } else if (isUrlOnlyChange) {
+            logDev('Skipped full re-run — URL change only (undo action)');
+          } else if (isHoursOnlyChange) {
+            logDev('Skipped full re-run — hours change only (undo action)');
           }
         }
 
@@ -8286,6 +8314,8 @@
         _previousVenueServices = currentServices;
         _previousVenueLockRank = venue.lockRank;
         _previousVenuePhone = venue.phone;
+        _previousVenueUrl = currentUrl;
+        _previousVenueHours = currentHours;
       }
 
       updateWmephPanel();
@@ -8618,8 +8648,13 @@
         _previousVenueLockRank = null;
         _previousVenueServices = null;
         _previousVenuePhone = null;
+        _previousVenueUrl = null;
+        _previousVenueHours = null;
         _lockedVenuesThisSession.clear();
         _normalizedPhoneThisSession.clear();
+        _normalizedUrlThisSession.clear();
+        _correctedHoursThisSession.clear();
+        _correctedRestAreaNameThisSession.clear();
         _currentlySelectedVenueId = getSelectedVenue()?.id || null;
       },
     });
@@ -10149,7 +10184,8 @@
               _servicesBanner.add247.active = true;
             }
 
-            if (!args.hoursOverlap) {
+            // Only correct M-S hours if not already corrected in this session (prevents undo re-application)
+            if (!_correctedHoursThisSession.has(venue.id) && !args.hoursOverlap) {
               const tempHours = args.openingHours.slice();
               for (let ohix = 0; ohix < args.openingHours.length; ohix++) {
                 if (tempHours[ohix].days.length === 2 && tempHours[ohix].days[0] === 1 && tempHours[ohix].days[1] === 0) {
@@ -10159,6 +10195,7 @@
                   tempHours[ohix].days = [1];
                   args.openingHours = tempHours;
                   addUpdateAction(venue, { openingHours: tempHours }, actions);
+                  _correctedHoursThisSession.add(venue.id);
                 }
               }
             }
@@ -10170,19 +10207,25 @@
               addUpdateAction(venue, { url: args.url }, actions);
             }
             args.normalizedUrl = normalizeURL(args.url);
-            if (args.isUspsPostOffice && args.url !== 'usps.com') {
-              args.url = 'usps.com';
-              addUpdateAction(venue, { url: args.url }, actions);
-            } else if (!args.pnhUrl && args.normalizedUrl !== args.url) {
-              if (args.normalizedUrl !== BAD_URL) {
-                args.url = args.normalizedUrl;
-                logDev('URL formatted');
+            // Only auto-normalize URL if not already normalized in this session (prevents undo re-application)
+            if (!_normalizedUrlThisSession.has(venue.id)) {
+              if (args.isUspsPostOffice && args.url !== 'usps.com') {
+                args.url = 'usps.com';
                 addUpdateAction(venue, { url: args.url }, actions);
+                _normalizedUrlThisSession.add(venue.id);
+              } else if (!args.pnhUrl && args.normalizedUrl !== args.url) {
+                if (args.normalizedUrl !== BAD_URL) {
+                  args.url = args.normalizedUrl;
+                  logDev('URL formatted');
+                  addUpdateAction(venue, { url: args.url }, actions);
+                  _normalizedUrlThisSession.add(venue.id);
+                }
+              } else if (args.pnhUrl && isNullOrWhitespace(args.url)) {
+                args.url = args.pnhUrl;
+                logDev('URL updated');
+                addUpdateAction(venue, { url: args.url }, actions);
+                _normalizedUrlThisSession.add(venue.id);
               }
-            } else if (args.pnhUrl && isNullOrWhitespace(args.url)) {
-              args.url = args.pnhUrl;
-              logDev('URL updated');
-              addUpdateAction(venue, { url: args.url }, actions);
             }
 
             if (args.phone) {
@@ -10218,11 +10261,13 @@
 
       if (!args.chainIsClosed) {
         if (!args.highlightOnly && args.categories.includes('REST_AREAS')) {
-          if (venue.name.match(/^Rest Area.* - /) !== null && args.countryCode === PNH_DATA.USA.countryCode) {
+          // Only correct Rest Area name if not already corrected in this session (prevents undo re-application)
+          if (!_correctedRestAreaNameThisSession.has(venue.id) && venue.name.match(/^Rest Area.* - /) !== null && args.countryCode === PNH_DATA.USA.countryCode) {
             const newSuffix = args.nameSuffix.replace(/\bMile\b/i, 'mile');
             if (args.nameBase + newSuffix !== venue.name) {
               addUpdateAction(venue, { name: args.nameBase + newSuffix }, actions);
               logDev('Lower case "mile"');
+              _correctedRestAreaNameThisSession.add(venue.id);
             }
             // If names match after lowercasing "Mile", no action is needed
             // (would only have been a capitalization change, which is not desired)
