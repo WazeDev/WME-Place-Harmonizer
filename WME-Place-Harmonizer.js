@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name        WME Place Harmonizer Beta
 // @namespace   WazeUSA
-// @version     2026.05.30.00
+// @version     2026.05.31.00
 // @description Harmonizes, formats, and locks a selected place
 // @author      WMEPH Development Group
 // @include      https://www.waze.com/editor*
@@ -40,7 +40,7 @@
   // **************************************************************************************************************
   const SHOW_UPDATE_MESSAGE = true;
   const SCRIPT_UPDATE_MESSAGE = [
-    'v 2026.05.30.00 :Modernized all banner styling, for improved maintainability and consistency across light and dark themes.',
+    'v 2026.05.31.00 :Modernized all banner & script settings styling, for improved maintainability and consistency across light and dark themes.',
   ];
 
   // **************************************************************************************************************
@@ -814,8 +814,13 @@
       box-sizing: border-box;
     }
 
-    #WMEPH_banner div:last-child {
-      padding-bottom: 3px !important;
+    #wmeph-hours-list div {
+      padding-bottom: 2px !important;
+      border-bottom: 1px solid var(--wmeph-divider);
+    }
+
+    #wmeph-hours-list div:last-child {
+      border-bottom: none;
     }
 
     /* ====================================================================
@@ -825,11 +830,30 @@
       background-color: var(--wmeph-bg-tertiary);
       border: solid 1px var(--wmeph-border);
       font-weight: normal;
-      padding: 2px 2px;
+      padding: 3px 3px;
       height: 22px
       margin-bottom: var(--wmeph-spacing-xs);
       margin-right: var(--wmeph-spacing-xs);
       transition: var(--transition-fast);
+      cursor: pointer;
+      border-radius: var(--wmeph-radius-sm);
+    }
+
+    #WMEPH_banner .wmeph-btn:hover {
+      background-color: var(--wmeph-bg-secondary);
+      border-color: var(--wmeph-primary);
+      box-shadow: 0 1px 3px rgba(0, 119, 221, 0.2);
+      transform: translateY(-1px);
+    }
+
+    #WMEPH_banner .wmeph-btn:active {
+      transform: translateY(0);
+      box-shadow: 0 1px 2px rgba(0, 119, 221, 0.1);
+    }
+
+    #WMEPH_banner .wmeph-btn:focus {
+      outline: none;
+      box-shadow: 0 0 0 2px rgba(0, 119, 221, 0.3);
     }
 
     .btn.wmeph-btn {
@@ -881,7 +905,8 @@
     }
 
     .wmeph-hours-row3 {
-      width: 100%;
+      /*width: auto;*/
+      /*min-width: 253px;*/
       margin-left: 0;
     }
 
@@ -1377,17 +1402,18 @@
     }
 
     #wmeph-hours-list {
-      display: inline-block;
-      font-size: var(--wmeph-font-size-sm);
+      display: block;
+      font-size: var(--wmeph-font-size-sm) !important;
+      line-height: normal !important;
       border: 1px solid var(--wmeph-border);
       background-color: var(--wmeph-bg-secondary);
       color: var(--wmeph-text-secondary);
       padding: 1px 0px 0 3px !important;
       position: relative;
       z-index: 1;
-      width: 253px !important;
-      min-width: 253px !important;
-      max-width: 253px !important;
+      width: 269px !important;
+      /*min-width: 253px !important;*/
+      /*max-width: 253px !important;*/
       box-sizing: border-box;
     }
 
@@ -1588,7 +1614,7 @@
       max-width: 100%;
       background: var(--wmeph-bg-primary);
       border-radius: 0 0 4px 4px;
-      border: 1px solid var(--wmeph-border-light);
+      /*border: 1px solid var(--wmeph-border-light);*/
       border-top: none;
       padding: var(--wmeph-spacing-xs);
       box-sizing: border-box;
@@ -1915,9 +1941,52 @@
       box-shadow: 0 0 0 3px rgba(51, 51, 51, 0.2);
     }
 
-    .wmeph-pane .button-group {
+    .wmeph-pane .button-group,
+    .wmeph-button-group {
       display: flex;
       gap: 6px;
+    }
+
+    .wmeph-pane .wmeph-button-group .btn-primary-modern,
+    .wmeph-pane .wmeph-button-group .btn-secondary-modern {
+      flex: 1;
+      padding: var(--wmeph-spacing-xs) var(--wmeph-spacing-sm);
+      border: none;
+      border-radius: var(--wmeph-radius-md);
+      font-size: var(--wmeph-font-size-sm);
+      font-weight: 700;
+      cursor: pointer;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      transition: all 0.2s;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+    }
+
+    .wmeph-pane .wmeph-button-group .btn-primary-modern {
+      background: var(--wmeph-gradient-primary);
+      color: white;
+    }
+
+    .wmeph-pane .wmeph-button-group .btn-primary-modern:hover {
+      background: var(--wmeph-gradient-primary-hover);
+      box-shadow: 0 2px 6px rgba(0,0,0,0.15);
+      transform: translateY(-1px);
+    }
+
+    .wmeph-pane .wmeph-button-group .btn-primary-modern:active {
+      transform: translateY(0);
+      box-shadow: 0 1px 2px rgba(0,0,0,0.1);
+    }
+
+    .wmeph-pane .wmeph-button-group .btn-secondary-modern {
+      background: var(--wmeph-gradient-secondary);
+      color: var(--wmeph-text-default);
+    }
+
+    .wmeph-pane .wmeph-button-group .btn-secondary-modern:hover {
+      background: var(--wmeph-gradient-secondary-hover);
+      box-shadow: 0 2px 6px rgba(0,0,0,0.15);
+      transform: translateY(-1px);
     }
 
     /* ====================================================================
@@ -2008,6 +2077,43 @@
     [wz-theme="dark"] .wmeph-pane .btn-secondary-modern:focus {
       outline: none;
       box-shadow: 0 0 0 3px rgba(51, 204, 255, 0.2);
+    }
+
+    [wz-theme="dark"] .wmeph-pane .wmeph-button-group .btn-primary-modern {
+      background: var(--wmeph-gradient-primary);
+      color: white;
+    }
+
+    [wz-theme="dark"] .wmeph-pane .wmeph-button-group .btn-primary-modern:hover {
+      background: var(--wmeph-gradient-primary-hover);
+      box-shadow: 0 2px 6px rgba(0,0,0,0.3);
+      transform: translateY(-1px);
+    }
+
+    [wz-theme="dark"] .wmeph-pane .wmeph-button-group .btn-secondary-modern {
+      background: var(--wmeph-gradient-secondary);
+      color: var(--wmeph-text-default);
+    }
+
+    [wz-theme="dark"] .wmeph-pane .wmeph-button-group .btn-secondary-modern:hover {
+      background: var(--wmeph-gradient-secondary-hover);
+      box-shadow: 0 2px 6px rgba(0,0,0,0.3);
+      transform: translateY(-1px);
+    }
+
+    [wz-theme="dark"] #WMEPH_banner .wmeph-btn {
+      background-color: var(--wmeph-dark-bg-secondary);
+      border-color: var(--wmeph-dark-border, #55595e);
+    }
+
+    [wz-theme="dark"] #WMEPH_banner .wmeph-btn:hover {
+      background-color: var(--wmeph-dark-bg-tertiary);
+      border-color: var(--wmeph-primary);
+      box-shadow: 0 1px 3px rgba(0, 119, 221, 0.3);
+    }
+
+    [wz-theme="dark"] #WMEPH_banner .wmeph-btn:focus {
+      box-shadow: 0 0 0 2px rgba(51, 204, 255, 0.3);
     }
     `;
 
@@ -4432,7 +4538,7 @@
     EVChargingStationWarning: class extends FlagBase {
       static defaultMessage =
         'Please do not delete EV Charging Stations. Be sure you are completely up to date with the latest guidelines in ' +
-        '<a href="https://wazeopedia.waze.com/wiki/USA/Places/EV_charging_station" target="_blank">wazeopedia</a>.';
+        '<a href="https://www.waze.com/discuss/t/ev-charging-station-evcs-places/378644" target="_blank">wazeopedia</a>.';
 
       static venueIsFlaggable(args) {
         return !args.highlightOnly && args.categories.includes('CHARGING_STATION');
@@ -6317,7 +6423,7 @@
           const $hoursTable = $('<div>', {
             id: 'wmeph-hours-list',
             title: 'Current hours',
-          }).append(hoursStringArray.map((entry, idx) => `<div${idx < hoursStringArray.length - 1 ? ' style="border-bottom: 1px solid var(--wmeph-divider);"' : ''}>${entry}</div>`).join(''));
+          }).append(hoursStringArray.map((entry) => `<div>${entry}</div>`).join(''));
 
           const $row3 = $('<div>', { class: 'wmeph-hours-row3' }).append($hoursTable);
           $('.wmeph-hours-row2').after($row3);
@@ -11453,7 +11559,7 @@
    * @param {boolean} clearBanner Whether to remove the entire WMEPH section (triggered when venue loses edit access).
    */
   function updateWmephPanel(clearBanner = false) {
-    logDev(`updateWmephPanel: clearBanner=${clearBanner}`);
+    //logDev(`updateWmephPanel: clearBanner=${clearBanner}`);
 
     const venue = getSelectedVenue();
 
@@ -13193,13 +13299,15 @@
     if (USER.isDevUser) {
       const devSettings = createCollapsibleSection('Dev Settings', 'fa-flask', false);
       createSettingsCheckbox(devSettings.body, 'WMEPH-RegionOverride', 'Disable Region Specificity');
+      const reloadBtnGroup = createElem('div', { class: 'wmeph-button-group' });
       const reloadBtn = createElem('button', {
         id: 'WMEPH-ReloadDataBtn',
-        class: 'wmeph-btn',
+        class: 'btn-primary-modern',
         textContent: 'Refresh Data',
         title: 'Refresh Data',
       });
-      devSettings.body.appendChild(makeRow('', reloadBtn));
+      reloadBtnGroup.appendChild(reloadBtn);
+      devSettings.body.appendChild(reloadBtnGroup);
       tabPanels.harmonizer.appendChild(devSettings.section);
     }
 
@@ -13255,18 +13363,18 @@
     });
     wlToolsSection.body.appendChild(wlInput);
 
-    const wlBtnRow1 = createElem('div', { class: 'wmeph-row', style: 'gap: 4px; margin-bottom: 8px;' });
-    const wlMergeBtn = createElem('button', { id: 'WMEPH-WLMerge', class: 'wmeph-btn', textContent: 'Merge', title: 'Merge the string into your existing Whitelist' });
-    const wlPullBtn = createElem('button', { id: 'WMEPH-WLPull', class: 'wmeph-btn', textContent: 'Pull', title: 'Pull your existing Whitelist for backup or sharing' });
-    const wlShareBtn = createElem('button', { id: 'WMEPH-WLShare', class: 'wmeph-btn', textContent: 'Share WL', title: 'Share your Whitelist to a public Google sheet' });
+    const wlBtnRow1 = createElem('div', { class: 'wmeph-button-group', style: 'margin-bottom: 8px;' });
+    const wlMergeBtn = createElem('button', { id: 'WMEPH-WLMerge', class: 'btn-primary-modern', textContent: 'Merge', title: 'Merge the string into your existing Whitelist' });
+    const wlPullBtn = createElem('button', { id: 'WMEPH-WLPull', class: 'btn-primary-modern', textContent: 'Pull', title: 'Pull your existing Whitelist for backup or sharing' });
+    const wlShareBtn = createElem('button', { id: 'WMEPH-WLShare', class: 'btn-primary-modern', textContent: 'Share WL', title: 'Share your Whitelist to a public Google sheet' });
     wlBtnRow1.appendChild(wlMergeBtn);
     wlBtnRow1.appendChild(wlPullBtn);
     wlBtnRow1.appendChild(wlShareBtn);
     wlToolsSection.body.appendChild(wlBtnRow1);
 
-    const wlBtnRow2 = createElem('div', { class: 'wmeph-row', style: 'gap: 4px;' });
-    const wlStatsBtn = createElem('button', { id: 'WMEPH-WLStats', class: 'wmeph-btn', textContent: 'Stats', title: 'Display WL stats' });
-    const wlFilterBtn = createElem('button', { id: 'WMEPH-WLStateFilter', class: 'wmeph-btn secondary', textContent: 'Remove 1 State', title: 'Remove all WL items for a state. Enter the state in the input box.' });
+    const wlBtnRow2 = createElem('div', { class: 'wmeph-button-group' });
+    const wlStatsBtn = createElem('button', { id: 'WMEPH-WLStats', class: 'btn-primary-modern', textContent: 'Stats', title: 'Display WL stats' });
+    const wlFilterBtn = createElem('button', { id: 'WMEPH-WLStateFilter', class: 'btn-primary-modern', textContent: 'Remove 1 State', title: 'Remove all WL items for a state. Enter the state in the input box.' });
     wlBtnRow2.appendChild(wlStatsBtn);
     wlBtnRow2.appendChild(wlFilterBtn);
     wlToolsSection.body.appendChild(wlBtnRow2);
@@ -14082,7 +14190,7 @@
     sdk.Events.on({
       eventName: 'wme-selection-changed',
       eventHandler: () => {
-        logDev('selectionchanged');
+        //logDev('selectionchanged');
         errorHandler(updateWmephPanel, true);
       },
     });
