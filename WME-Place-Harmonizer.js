@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name        WME Place Harmonizer Beta
 // @namespace   WazeUSA
-// @version     2026.05.31.01
+// @version     2026.05.31.02
 // @description Harmonizes, formats, and locks a selected place
 // @author      WMEPH Development Group
 // @include      https://www.waze.com/editor*
@@ -42,6 +42,7 @@
   const SCRIPT_UPDATE_MESSAGE = [
     'v 2026.05.31.00 Modernized all banner & script settings styling, for improved maintainability and consistency across light and dark themes.',
     'v 2026.05.31.01 Fix: Allow undo of lock level changes without requiring venue deselection',
+    'v 2026.05.31.02 fix: Allow undo of phone number changes without requiring venue deselection',
   ];
 
   // **************************************************************************************************************
@@ -106,7 +107,9 @@
   let _initAlreadyRun = false; // This is used to skip a couple things if already run once.  This could probably be handled better...
   let _textEntryValues = null; // Store the values entered in text boxes so they can be re-added when the banner is reassembled.
   let _lockedVenuesThisSession = new Set(); // Track venues locked in current user action to prevent double-locking
+  let _normalizedPhoneThisSession = new Set(); // Track venues with normalized phone to prevent re-normalizing
   let _previousVenueLockRank = null; // Track lock level to detect lock-only changes (undo actions)
+  let _previousVenuePhone = null; // Track phone to detect phone-only changes (undo actions)
   let _currentlySelectedVenueId = null; // Track which venue is selected to detect venue change
 
   // lock levels are offset by one
@@ -6085,7 +6088,7 @@
         if (newPhone === BAD_PHONE) {
           $('input#WMEPH-PhoneAdd').css({ backgroundColor: '#FDD' }).attr('title', 'Invalid phone # format');
         } else {
-          addUpdateAction(this.args.venue, { phone: newPhone }, null, true);
+          addUpdateAction(this.args.venue, { phone: newPhone }, null, false);
         }
       }
     },
@@ -6105,7 +6108,7 @@
       }
 
       action() {
-        addUpdateAction(this.args.venue, { phone: this.args.recommendedPhone }, null, true);
+        addUpdateAction(this.args.venue, { phone: this.args.recommendedPhone }, null, false);
       }
     },
     PhoneMissing: class extends WLActionFlag {
@@ -6140,7 +6143,7 @@
           $('input#WMEPH-PhoneAdd').css({ backgroundColor: '#FDD' }).attr('title', 'Invalid phone # format');
         } else {
           logDev(newPhone);
-          addUpdateAction(this.args.venue, { phone: newPhone }, null, true);
+          addUpdateAction(this.args.venue, { phone: newPhone }, null, false);
         }
       }
 
@@ -8241,7 +8244,9 @@
     if (venueId !== _currentlySelectedVenueId || (hadVenueSelected && !hasVenueSelected) || (!hadVenueSelected && hasVenueSelected)) {
       _previousVenueServices = null;
       _previousVenueLockRank = null;
+      _previousVenuePhone = null;
       _lockedVenuesThisSession.clear();
+      _normalizedPhoneThisSession.clear();
       _currentlySelectedVenueId = venueId;
     }
 
@@ -8255,8 +8260,13 @@
         const isLockOnlyChange = _previousVenueLockRank !== null && _previousVenueLockRank !== venue.lockRank &&
           _previousVenueServices !== null && _previousVenueServices === currentServices;
 
-        // Skip harmonization if ONLY services or ONLY lock level changed
-        if (!isServicesOnlyChange && !isLockOnlyChange) {
+        // Detect phone-only changes (prevents re-harmonization on undo actions)
+        const isPhoneOnlyChange = _previousVenuePhone !== null && _previousVenuePhone !== venue.phone &&
+          _previousVenueServices !== null && _previousVenueServices === currentServices &&
+          _previousVenueLockRank === venue.lockRank;
+
+        // Skip harmonization if ONLY services, lock level, or phone changed
+        if (!isServicesOnlyChange && !isLockOnlyChange && !isPhoneOnlyChange) {
           // Auto-harmonize when venue with banner is modified (but not if already harmonizing)
           harmonizePlaceGo(venue, 'harmonize');
           // Refresh all highlights to sync layer features with updated venue properties
@@ -8267,12 +8277,15 @@
             logDev('Skipped full re-run — services UI sync only');
           } else if (isLockOnlyChange) {
             logDev('Skipped full re-run — lock level change only (undo action)');
+          } else if (isPhoneOnlyChange) {
+            logDev('Skipped full re-run — phone number change only (undo action)');
           }
         }
 
         // Update trackers for next change
         _previousVenueServices = currentServices;
         _previousVenueLockRank = venue.lockRank;
+        _previousVenuePhone = venue.phone;
       }
 
       updateWmephPanel();
@@ -8604,7 +8617,9 @@
       eventHandler: () => {
         _previousVenueLockRank = null;
         _previousVenueServices = null;
+        _previousVenuePhone = null;
         _lockedVenuesThisSession.clear();
+        _normalizedPhoneThisSession.clear();
         _currentlySelectedVenueId = getSelectedVenue()?.id || null;
       },
     });
@@ -10175,11 +10190,15 @@
               if (Flag.ClearThisPhone.venueIsFlaggable(args)) {
                 args.phone = null;
               }
-              const normalizedPhone = normalizePhone(args.phone, args.outputPhoneFormat);
-              if (normalizedPhone !== BAD_PHONE) args.phone = normalizedPhone;
-              if (args.phone !== venue.phone) {
-                logDev('Phone updated');
-                addUpdateAction(venue, { phone: args.phone }, actions);
+              // Only auto-normalize phone if not already normalized in this session (prevents undo re-application)
+              if (!_normalizedPhoneThisSession.has(venue.id)) {
+                const normalizedPhone = normalizePhone(args.phone, args.outputPhoneFormat);
+                if (normalizedPhone !== BAD_PHONE) args.phone = normalizedPhone;
+                if (args.phone !== venue.phone) {
+                  logDev('Phone updated');
+                  addUpdateAction(venue, { phone: args.phone }, actions);
+                  _normalizedPhoneThisSession.add(venue.id);
+                }
               }
             }
 
