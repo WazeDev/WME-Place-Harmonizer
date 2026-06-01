@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name        WME Place Harmonizer Beta
 // @namespace   WazeUSA
-// @version     2026.06.01.01
+// @version     2026.06.01.02
 // @description Harmonizes, formats, and locks a selected place
 // @author      WMEPH Development Group
 // @include      https://www.waze.com/editor*
@@ -42,6 +42,7 @@
   const SCRIPT_UPDATE_MESSAGE = [
     'v 2026.06.01.00 Fix: Consolidate harmonization pipeline to fix undo for all auto-corrections',
     'v 2026.06.01.01 Fix: Prevent "connected to feed" prepanel flash when updating venue properties',
+    'v 2026.06.01.02 Fix: Sync highlight cache with venue state changes and external undo',
   ];
 
   // **************************************************************************************************************
@@ -200,6 +201,18 @@
       const oldestId = _resultsCacheOrder.shift();
       delete _resultsCache[oldestId];
     }
+  }
+
+  function updateVenueSeverityCache(venue) {
+    if (!venue || !venue.id) return;
+    // Recalculate severity based on current corrected venue state
+    const severity = harmonizePlaceGo(venue, 'highlight', undefined, false);
+    // Update cache with new severity and timestamp
+    addToResultsCache(venue.id, {
+      s: severity,
+      u: venue.updatedOn || -1,
+    });
+    logDev(`Cached severity for venue ${venue.id}: ${severity}`);
   }
 
   let _modifKey = 'Alt+';
@@ -8237,10 +8250,17 @@
       const wasUndoAction = _userJustUndid;
       _userJustUndid = false;
 
+      // Invalidate cache for this venue when external changes are detected
+      // (ensures stale data from undo doesn't persist)
+      const cachedResult = _resultsCache[venue.id];
+      if (cachedResult && venue.updatedOn && venue.updatedOn > cachedResult.u) {
+        delete _resultsCache[venue.id];
+        logDev(`Invalidated cache for venue ${venue.id} — external changes detected`);
+      }
+
       if (hasBanner && venue?.id && !_isHarmonizing && !wasUndoAction) {
         // Auto-harmonize when venue with banner is modified (but not if already harmonizing or user just undid)
         harmonizePlaceGo(venue, 'harmonize');
-        refreshAllHighlights();
       } else if (wasUndoAction) {
         logDev('Skipped re-harmonization — user performed undo');
       }
@@ -8572,7 +8592,15 @@
     sdk.Events.on({
       eventName: 'wme-selection-changed',
       eventHandler: () => {
+        const lastVenue = getSelectedVenue();
         _previousVenueServices = null;
+        // Cache the final corrected state of the venue before deselecting
+        // This ensures highlights are accurate when we refresh and when venue is reselected
+        if (lastVenue && lastVenue.id) {
+          updateVenueSeverityCache(lastVenue);
+        }
+        // Refresh highlights to show updated colors based on fresh cache
+        refreshAllHighlights();
       },
     });
 
@@ -10440,9 +10468,11 @@
         }
       }
 
-      // After harmonization flag is restored, refresh highlights only if this was a full harmonization (not highlight-only)
+      // After harmonization flag is restored, no refresh needed while venue is selected
+      // Cache will be updated when venue is deselected (to capture corrected state)
       if (!wasHarmonizing && useFlag === 'harmonize') {
-        refreshAllHighlights();
+        // Just ensure we can detect external changes later
+        logDev('Harmonization complete, cache will update on deselection');
       }
     }
   } // END harmonizePlaceGo_impl function
