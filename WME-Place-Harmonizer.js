@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name        WME Place Harmonizer Beta
 // @namespace   WazeUSA
-// @version     2026.05.31.03
+// @version     2026.06.01.00
 // @description Harmonizes, formats, and locks a selected place
 // @author      WMEPH Development Group
 // @include      https://www.waze.com/editor*
@@ -40,10 +40,7 @@
   // **************************************************************************************************************
   const SHOW_UPDATE_MESSAGE = true;
   const SCRIPT_UPDATE_MESSAGE = [
-    'v 2026.05.31.00 Modernized all banner & script settings styling, for improved maintainability and consistency across light and dark themes.',
-    'v 2026.05.31.01 Fix: Allow undo of lock level changes without requiring venue deselection',
-    'v 2026.05.31.02 fix: Allow undo of phone number changes without requiring venue deselection',
-    'v 2026.05.31.03 fix: Same fix as above for URL, Opening hours corrections, ect ',
+    'v 2026.06.01.00 Fix: Consolidate harmonization pipeline to fix undo for all auto-corrections',
   ];
 
   // **************************************************************************************************************
@@ -107,16 +104,9 @@
   let _resultsCacheOrder = []; // Track insertion order for LRU eviction
   let _initAlreadyRun = false; // This is used to skip a couple things if already run once.  This could probably be handled better...
   let _textEntryValues = null; // Store the values entered in text boxes so they can be re-added when the banner is reassembled.
-  let _lockedVenuesThisSession = new Set(); // Track venues locked in current user action to prevent double-locking
-  let _normalizedPhoneThisSession = new Set(); // Track venues with normalized phone to prevent re-normalizing
-  let _normalizedUrlThisSession = new Set(); // Track venues with normalized URL to prevent re-normalizing
-  let _correctedHoursThisSession = new Set(); // Track venues with corrected hours (M-S split) to prevent re-correcting
-  let _correctedRestAreaNameThisSession = new Set(); // Track venues with corrected Rest Area name to prevent re-correcting
-  let _previousVenueLockRank = null; // Track lock level to detect lock-only changes (undo actions)
-  let _previousVenuePhone = null; // Track phone to detect phone-only changes (undo actions)
-  let _previousVenueUrl = null; // Track URL to detect URL-only changes (undo actions)
-  let _previousVenueHours = null; // Track hours to detect hours-only changes (undo actions)
-  let _currentlySelectedVenueId = null; // Track which venue is selected to detect venue change
+  let _previousVenueServices = null; // Track services to detect services-only changes
+  let _userJustUndid = false; // Set by wme-after-undo event to detect when user performs undo action
+  let _lastHarmonizationTime = 0; // Track when harmonization last completed to throttle rapid re-runs
 
   // lock levels are offset by one
   const LOCK_LEVEL_2 = 1;
@@ -265,7 +255,6 @@
   // State flags
   let _disableHighlightTest = false; // Set to true to temporarily disable highlight checks immediately when venues change.
   let _isHarmonizing = false; // Prevent recursive harmonization when venue data changes during harmonization
-  let _previousVenueServices = null; // Tracks services state to detect services-only changes
 
   // User information object
   const USER = {
@@ -4497,7 +4486,7 @@
           categories.splice(index, 1); // remove the category
           addUpdateAction(this.args.venue, { categories }, null, true);
         } else {
-          harmonizePlaceGo(this.args.venue, 'harmonize');
+          //           harmonizePlaceGo(this.args.venue, 'harmonize');
         }
       }
     },
@@ -4831,7 +4820,7 @@
         };
 
         sdk.DataModel.Venues.updateVenue({ venueId: venue.id, geometry: point });
-        harmonizePlaceGo(venue, 'harmonize');
+        // harmonizePlaceGo(venue, 'harmonize');
       }
     },
     AreaNotPoint: class extends WLActionFlag {
@@ -4907,7 +4896,7 @@
 
         // Update venue geometry (SDK tracks as unsaved; user commits via WME Save button)
         sdk.DataModel.Venues.updateVenue({ venueId: venue.id, geometry: square });
-        harmonizePlaceGo(venue, 'harmonize');
+        // harmonizePlaceGo(venue, 'harmonize');
       }
     },
     HnMissing: class extends WLActionFlag {
@@ -4981,7 +4970,7 @@
             venueId: this.args.venue.id,
             houseNumber: hnTempDash,
           });
-          harmonizePlaceGo(this.args.venue, 'harmonize', []); // Rerun the script to update fields and lock
+          //           harmonizePlaceGo(this.args.venue, 'harmonize', []); // Rerun the script to update fields and lock
           UPDATED_FIELDS.address.updated = true;
         } else {
           Flag.HnMissing.#getTextbox().css({ backgroundColor: '#FDD' }).attr('title', 'Must be a number between 0 and 1000000');
@@ -5310,7 +5299,7 @@
 
       action() {
         nudgeVenue(this.args.venue);
-        harmonizePlaceGo(this.args.venue, 'harmonize');
+        //         harmonizePlaceGo(this.args.venue, 'harmonize');
       }
     },
     ParentCategory: class extends WLFlag {
@@ -5693,7 +5682,7 @@
           aliases.push('USPS');
           addUpdateAction(this.args.venue, { aliases }, null, true);
         } else {
-          harmonizePlaceGo(this.args.venue, 'harmonize');
+          //           harmonizePlaceGo(this.args.venue, 'harmonize');
         }
       }
     },
@@ -5963,7 +5952,7 @@
 
       action() {
         nudgeVenue(this.args.venue);
-        harmonizePlaceGo(this.args.venue, 'harmonize'); // Rerun the script to update fields and lock
+        //         harmonizePlaceGo(this.args.venue, 'harmonize'); // Rerun the script to update fields and lock
       }
 
       action2() {
@@ -6623,7 +6612,7 @@
 
       action() {
         nudgeVenue(this.args.venue);
-        harmonizePlaceGo(this.args.venue, 'harmonize');
+        //         harmonizePlaceGo(this.args.venue, 'harmonize');
       }
     },
     PlaLotTypeMissing: class extends FlagBase {
@@ -6839,7 +6828,8 @@
           navigationPoints: newNavigationPoints,
         });
 
-        harmonizePlaceGo(venue, 'harmonize');
+        // Don't re-harmonize immediately - let the data-changed event trigger it with fresh venue state
+        logDev('HN added - letting data-changed event trigger re-harmonization');
       }
     },
     PlaStopPointUnmoved: class extends FlagBase {
@@ -7141,7 +7131,7 @@
           }
           addUpdateAction(this.args.venue, { categories });
         }
-        harmonizePlaceGo(this.args.venue, 'harmonize');
+        //         harmonizePlaceGo(this.args.venue, 'harmonize');
       }
     },
     NotAHospital: class extends WLActionFlag {
@@ -7178,7 +7168,7 @@
         if (updateIt) {
           addUpdateAction(this.args.venue, { categories }, null, true);
         } else {
-          harmonizePlaceGo(this.args.venue, 'harmonize');
+          //           harmonizePlaceGo(this.args.venue, 'harmonize');
         }
       }
     },
@@ -7217,7 +7207,7 @@
         if (updateIt) {
           addUpdateAction(this.args.venue, { categories });
         }
-        harmonizePlaceGo(this.args.venue, 'harmonize');
+        //         harmonizePlaceGo(this.args.venue, 'harmonize');
       }
     },
     TitleCaseName: class extends ActionFlag {
@@ -7252,7 +7242,7 @@
           if (parts.base !== name) {
             addUpdateAction(this.args.venue, { name: name + (parts.suffix || '') }, undefined, true);
           } else {
-            harmonizePlaceGo(this.args.venue, 'harmonize');
+            //             harmonizePlaceGo(this.args.venue, 'harmonize');
           }
         } else {
           $('button#WMEPH_titleCaseName').text('Are you sure?').after(' The name has changed. This will overwrite the new name.');
@@ -7282,16 +7272,13 @@
         if (args.venue.lockRank < args.levelToLock) {
           if (!args.highlightOnly) {
             // Check if we already locked this venue in this harmonization session (prevents double-locking from re-harmonization)
-            if (!_lockedVenuesThisSession.has(args.venue.id)) {
-              logDev(`Venue locked! Current: ${args.venue.lockRank}, Target: ${args.levelToLock}`);
-              // Use same pattern as HN/URL/PHONE/services - direct push to actions array for consistent undo tracking
-              try {
-                args.actions.push(sdk.DataModel.Venues.updateVenue({ venueId: args.venue.id, lockRank: args.levelToLock }));
-                UPDATED_FIELDS.checkNewAttributes({ lockRank: args.levelToLock }, args.venue);
-                _lockedVenuesThisSession.add(args.venue.id);
-              } catch (e) {
-                logDev('Could not lock venue - you may not have permission', e);
-              }
+            logDev(`Venue locked! Current: ${args.venue.lockRank}, Target: ${args.levelToLock}`);
+            // Use same pattern as HN/URL/PHONE/services - direct push to actions array for consistent undo tracking
+            try {
+              args.actions.push(sdk.DataModel.Venues.updateVenue({ venueId: args.venue.id, lockRank: args.levelToLock }));
+              UPDATED_FIELDS.checkNewAttributes({ lockRank: args.levelToLock }, args.venue);
+            } catch (e) {
+              logDev('Could not lock venue - you may not have permission', e);
             }
           } else {
             this.hlLockFlag = true;
@@ -8242,80 +8229,20 @@
     deleteDupeLabel();
 
     const venue = getSelectedVenue();
-    const venueId = venue?.id;
-    const hadVenueSelected = _currentlySelectedVenueId !== null;
-    const hasVenueSelected = venueId !== null;
-
-    // Reset trackers if: (1) venue ID changed, (2) venue was deselected then reselected, or (3) just selected a venue
-    if (venueId !== _currentlySelectedVenueId || (hadVenueSelected && !hasVenueSelected) || (!hadVenueSelected && hasVenueSelected)) {
-      _previousVenueServices = null;
-      _previousVenueLockRank = null;
-      _previousVenuePhone = null;
-      _previousVenueUrl = null;
-      _previousVenueHours = null;
-      _lockedVenuesThisSession.clear();
-      _normalizedPhoneThisSession.clear();
-      _normalizedUrlThisSession.clear();
-      _correctedHoursThisSession.clear();
-      _correctedRestAreaNameThisSession.clear();
-      _currentlySelectedVenueId = venueId;
-    }
-
     if (venueProxies.map((proxy) => proxy.id).includes(venue?.id)) {
-      if ($('#WMEPH_banner').length && venue?.id && !_isHarmonizing) {
-        // Compare current services with previous state to detect services-only changes
-        const currentServices = JSON.stringify((venue.services || []).sort());
-        const isServicesOnlyChange = _previousVenueServices !== null && _previousVenueServices === currentServices;
+      const hasBanner = $('#WMEPH_banner').length > 0;
+      logDev(`onVenuesChanged: banner=${hasBanner}, harmonizing=${_isHarmonizing}, undid=${_userJustUndid}`);
 
-        // Detect lock-level-only changes (prevents re-harmonization on undo actions)
-        const isLockOnlyChange = _previousVenueLockRank !== null && _previousVenueLockRank !== venue.lockRank &&
-          _previousVenueServices !== null && _previousVenueServices === currentServices;
+      // Check for undo and reset flag immediately (undo event may fire unexpectedly from SDK operations)
+      const wasUndoAction = _userJustUndid;
+      _userJustUndid = false;
 
-        // Detect phone-only changes (prevents re-harmonization on undo actions)
-        const isPhoneOnlyChange = _previousVenuePhone !== null && _previousVenuePhone !== venue.phone &&
-          _previousVenueServices !== null && _previousVenueServices === currentServices &&
-          _previousVenueLockRank === venue.lockRank;
-
-        // Detect URL-only changes (prevents re-harmonization on undo actions)
-        const currentUrl = venue.url || null;
-        const isUrlOnlyChange = _previousVenueUrl !== null && _previousVenueUrl !== currentUrl &&
-          _previousVenueServices !== null && _previousVenueServices === currentServices &&
-          _previousVenueLockRank === venue.lockRank && _previousVenuePhone === venue.phone;
-
-        // Detect hours-only changes (prevents re-harmonization on undo actions)
-        const currentHours = JSON.stringify(venue.openingHours || []);
-        const isHoursOnlyChange = _previousVenueHours !== null && _previousVenueHours !== currentHours &&
-          _previousVenueServices !== null && _previousVenueServices === currentServices &&
-          _previousVenueLockRank === venue.lockRank && _previousVenuePhone === venue.phone &&
-          _previousVenueUrl === currentUrl;
-
-        // Skip harmonization if ONLY services, lock level, phone, URL, or hours changed
-        if (!isServicesOnlyChange && !isLockOnlyChange && !isPhoneOnlyChange && !isUrlOnlyChange && !isHoursOnlyChange) {
-          // Auto-harmonize when venue with banner is modified (but not if already harmonizing)
-          harmonizePlaceGo(venue, 'harmonize');
-          // Refresh all highlights to sync layer features with updated venue properties
-          refreshAllHighlights();
-        } else if (_previousVenueServices !== null) {
-          // Log for dev visibility
-          if (isServicesOnlyChange) {
-            logDev('Skipped full re-run — services UI sync only');
-          } else if (isLockOnlyChange) {
-            logDev('Skipped full re-run — lock level change only (undo action)');
-          } else if (isPhoneOnlyChange) {
-            logDev('Skipped full re-run — phone number change only (undo action)');
-          } else if (isUrlOnlyChange) {
-            logDev('Skipped full re-run — URL change only (undo action)');
-          } else if (isHoursOnlyChange) {
-            logDev('Skipped full re-run — hours change only (undo action)');
-          }
-        }
-
-        // Update trackers for next change
-        _previousVenueServices = currentServices;
-        _previousVenueLockRank = venue.lockRank;
-        _previousVenuePhone = venue.phone;
-        _previousVenueUrl = currentUrl;
-        _previousVenueHours = currentHours;
+      if (hasBanner && venue?.id && !_isHarmonizing && !wasUndoAction) {
+        // Auto-harmonize when venue with banner is modified (but not if already harmonizing or user just undid)
+        harmonizePlaceGo(venue, 'harmonize');
+        refreshAllHighlights();
+      } else if (wasUndoAction) {
+        logDev('Skipped re-harmonization — user performed undo');
       }
 
       updateWmephPanel();
@@ -8641,21 +8568,11 @@
       },
     });
 
-    // Listen for venue selection changes to reset lock tracking (allows fresh lock checks when reselecting a venue)
+    // Listen for venue selection changes to reset services tracking
     sdk.Events.on({
       eventName: 'wme-selection-changed',
       eventHandler: () => {
-        _previousVenueLockRank = null;
         _previousVenueServices = null;
-        _previousVenuePhone = null;
-        _previousVenueUrl = null;
-        _previousVenueHours = null;
-        _lockedVenuesThisSession.clear();
-        _normalizedPhoneThisSession.clear();
-        _normalizedUrlThisSession.clear();
-        _correctedHoursThisSession.clear();
-        _correctedRestAreaNameThisSession.clear();
-        _currentlySelectedVenueId = getSelectedVenue()?.id || null;
       },
     });
 
@@ -10185,7 +10102,7 @@
             }
 
             // Only correct M-S hours if not already corrected in this session (prevents undo re-application)
-            if (!_correctedHoursThisSession.has(venue.id) && !args.hoursOverlap) {
+            if (!args.hoursOverlap) {
               const tempHours = args.openingHours.slice();
               for (let ohix = 0; ohix < args.openingHours.length; ohix++) {
                 if (tempHours[ohix].days.length === 2 && tempHours[ohix].days[0] === 1 && tempHours[ohix].days[1] === 0) {
@@ -10195,7 +10112,6 @@
                   tempHours[ohix].days = [1];
                   args.openingHours = tempHours;
                   addUpdateAction(venue, { openingHours: tempHours }, actions);
-                  _correctedHoursThisSession.add(venue.id);
                 }
               }
             }
@@ -10208,24 +10124,19 @@
             }
             args.normalizedUrl = normalizeURL(args.url);
             // Only auto-normalize URL if not already normalized in this session (prevents undo re-application)
-            if (!_normalizedUrlThisSession.has(venue.id)) {
-              if (args.isUspsPostOffice && args.url !== 'usps.com') {
-                args.url = 'usps.com';
+            if (args.isUspsPostOffice && args.url !== 'usps.com') {
+              args.url = 'usps.com';
+              addUpdateAction(venue, { url: args.url }, actions);
+            } else if (!args.pnhUrl && args.normalizedUrl !== args.url) {
+              if (args.normalizedUrl !== BAD_URL) {
+                args.url = args.normalizedUrl;
+                logDev('URL formatted');
                 addUpdateAction(venue, { url: args.url }, actions);
-                _normalizedUrlThisSession.add(venue.id);
-              } else if (!args.pnhUrl && args.normalizedUrl !== args.url) {
-                if (args.normalizedUrl !== BAD_URL) {
-                  args.url = args.normalizedUrl;
-                  logDev('URL formatted');
-                  addUpdateAction(venue, { url: args.url }, actions);
-                  _normalizedUrlThisSession.add(venue.id);
-                }
-              } else if (args.pnhUrl && isNullOrWhitespace(args.url)) {
-                args.url = args.pnhUrl;
-                logDev('URL updated');
-                addUpdateAction(venue, { url: args.url }, actions);
-                _normalizedUrlThisSession.add(venue.id);
               }
+            } else if (args.pnhUrl && isNullOrWhitespace(args.url)) {
+              args.url = args.pnhUrl;
+              logDev('URL updated');
+              addUpdateAction(venue, { url: args.url }, actions);
             }
 
             if (args.phone) {
@@ -10233,15 +10144,11 @@
               if (Flag.ClearThisPhone.venueIsFlaggable(args)) {
                 args.phone = null;
               }
-              // Only auto-normalize phone if not already normalized in this session (prevents undo re-application)
-              if (!_normalizedPhoneThisSession.has(venue.id)) {
-                const normalizedPhone = normalizePhone(args.phone, args.outputPhoneFormat);
-                if (normalizedPhone !== BAD_PHONE) args.phone = normalizedPhone;
-                if (args.phone !== venue.phone) {
-                  logDev('Phone updated');
-                  addUpdateAction(venue, { phone: args.phone }, actions);
-                  _normalizedPhoneThisSession.add(venue.id);
-                }
+              const normalizedPhone = normalizePhone(args.phone, args.outputPhoneFormat);
+              if (normalizedPhone !== BAD_PHONE) args.phone = normalizedPhone;
+              if (args.phone !== venue.phone) {
+                logDev('Phone updated');
+                addUpdateAction(venue, { phone: args.phone }, actions);
               }
             }
 
@@ -10262,12 +10169,11 @@
       if (!args.chainIsClosed) {
         if (!args.highlightOnly && args.categories.includes('REST_AREAS')) {
           // Only correct Rest Area name if not already corrected in this session (prevents undo re-application)
-          if (!_correctedRestAreaNameThisSession.has(venue.id) && venue.name.match(/^Rest Area.* - /) !== null && args.countryCode === PNH_DATA.USA.countryCode) {
+          if (venue.name.match(/^Rest Area.* - /) !== null && args.countryCode === PNH_DATA.USA.countryCode) {
             const newSuffix = args.nameSuffix.replace(/\bMile\b/i, 'mile');
             if (args.nameBase + newSuffix !== venue.name) {
               addUpdateAction(venue, { name: args.nameBase + newSuffix }, actions);
               logDev('Lower case "mile"');
-              _correctedRestAreaNameThisSession.add(venue.id);
             }
             // If names match after lowercasing "Mile", no action is needed
             // (would only have been a capitalization change, which is not desired)
@@ -10524,9 +10430,15 @@
       // Adding this line to satisfy eslint.
       return undefined;
     } finally {
-      // Restore harmonization flag
+      // Restore harmonization flag immediately so banner can be interactive
       _isHarmonizing = wasHarmonizing;
-      _previousVenueServices = null; // Reset after harmonization completes
+      // Update services tracker so post-harmonization data events don't trigger re-run
+      if (!wasHarmonizing && useFlag === 'harmonize') {
+        const currentVenue = getSelectedVenue();
+        if (currentVenue) {
+          _previousVenueServices = JSON.stringify((currentVenue.services || []).sort());
+        }
+      }
 
       // After harmonization flag is restored, refresh highlights only if this was a full harmonization (not highlight-only)
       if (!wasHarmonizing && useFlag === 'harmonize') {
@@ -11315,7 +11227,7 @@
       // Service buttons expect (actions, checked) parameters
       // Pass undefined for actions (no action list for service toggles) and undefined for checked (auto-toggle)
       flag.action(undefined, undefined);
-      if (!flag.noBannerAssemble) harmonizePlaceGo(getSelectedVenue(), 'harmonize');
+      //       if (!flag.noBannerAssemble) harmonizePlaceGo(getSelectedVenue(), 'harmonize');
     };
   }
   /**
@@ -11350,7 +11262,7 @@
     const button = document.getElementById(`WMEPH_${flag.name}`);
     button.onclick = () => {
       flag.action();
-      if (!flag.noBannerAssemble) harmonizePlaceGo(getSelectedVenue(), 'harmonize');
+      //       if (!flag.noBannerAssemble) harmonizePlaceGo(getSelectedVenue(), 'harmonize');
     };
     return button;
   }
@@ -11365,7 +11277,7 @@
     const button = document.getElementById(`WMEPH_${flag.name}_2`);
     button.onclick = () => {
       flag.action2();
-      if (!flag.noBannerAssemble) harmonizePlaceGo(getSelectedVenue(), 'harmonize');
+      //       if (!flag.noBannerAssemble) harmonizePlaceGo(getSelectedVenue(), 'harmonize');
     };
     return button;
   }
@@ -14363,6 +14275,17 @@
             updateServicesChecks();
             assembleServicesBanner();
           }
+        });
+      },
+    });
+
+    // Listen for undo events to detect when user explicitly undoes changes
+    sdk.Events.on({
+      eventName: 'wme-after-undo',
+      eventHandler: () => {
+        errorHandler(() => {
+          _userJustUndid = true;
+          logDev('User performed undo action');
         });
       },
     });
