@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name        WME Place Harmonizer Beta
 // @namespace   WazeUSA
-// @version     2026.06.01.00
+// @version     2026.06.01.01
 // @description Harmonizes, formats, and locks a selected place
 // @author      WMEPH Development Group
 // @include      https://www.waze.com/editor*
@@ -41,6 +41,7 @@
   const SHOW_UPDATE_MESSAGE = true;
   const SCRIPT_UPDATE_MESSAGE = [
     'v 2026.06.01.00 Fix: Consolidate harmonization pipeline to fix undo for all auto-corrections',
+    'v 2026.06.01.01 Fix: Prevent "connected to feed" prepanel flash when updating venue properties',
   ];
 
   // **************************************************************************************************************
@@ -106,7 +107,6 @@
   let _textEntryValues = null; // Store the values entered in text boxes so they can be re-added when the banner is reassembled.
   let _previousVenueServices = null; // Track services to detect services-only changes
   let _userJustUndid = false; // Set by wme-after-undo event to detect when user performs undo action
-  let _lastHarmonizationTime = 0; // Track when harmonization last completed to throttle rapid re-runs
 
   // lock levels are offset by one
   const LOCK_LEVEL_2 = 1;
@@ -8777,7 +8777,7 @@
         if (freshVenue) {
           harmonizePlaceGo(freshVenue, 'harmonize');
         }
-        updateWmephPanel(); // Refresh banner to reflect changes
+        updateWmephPanel();
       }, 0);
     }
   }
@@ -11690,7 +11690,6 @@
     // TODO: put this in a separate function?
     if (venue) {
       const venueID = venue.id; // Capture venue ID to verify response is for current venue
-      $wmephPrePanel.empty(); // Clear old feed banners before fetching new ones
 
       // Abort previous request if still pending (prevents duplicate banners from race conditions)
       if (_pendingFeedRequest) _pendingFeedRequest.abort();
@@ -11709,16 +11708,25 @@
           let feedNames = res.venue.external_providers?.filter((prov) => !FEEDS_TO_SKIP.some((skipRegex) => skipRegex.test(prov.provider))).map((prov) => prov.provider);
           if (feedNames) feedNames = [...new Set(feedNames)]; // Remove duplicates
           if (feedNames?.length) {
-            const $rowDiv = $('<div>', { class: 'wmeph-feed-warning' });
-            $rowDiv.append(
-              $('<div>', { class: 'wmeph-feed-warning-title', text: 'PLEASE DO NOT DELETE' }),
-              $('<div>', {
-                class: 'wmeph-feed-warning-desc',
-                text: `Place is connected to the following feed${feedNames.length > 1 ? 's' : ''}:`,
-              }),
-              $('<div>', { class: 'wmeph-feed-warning-list', text: feedNames.join(', ') }),
-            );
-            $wmephPrePanel.append($rowDiv);
+            // Check if banner already exists and matches current feeds
+            const $existingBanner = $wmephPrePanel.find('.wmeph-feed-warning');
+            const existingFeeds = $existingBanner.find('.wmeph-feed-warning-list').text();
+            const newFeeds = feedNames.join(', ');
+
+            // Only update if feeds changed (prevents unnecessary DOM rebuilds)
+            if (existingFeeds !== newFeeds) {
+              $wmephPrePanel.empty();
+              const $rowDiv = $('<div>', { class: 'wmeph-feed-warning' });
+              $rowDiv.append(
+                $('<div>', { class: 'wmeph-feed-warning-title', text: 'PLEASE DO NOT DELETE' }),
+                $('<div>', {
+                  class: 'wmeph-feed-warning-desc',
+                  text: `Place is connected to the following feed${feedNames.length > 1 ? 's' : ''}:`,
+                }),
+                $('<div>', { class: 'wmeph-feed-warning-list', text: feedNames.join(', ') }),
+              );
+              $wmephPrePanel.append($rowDiv);
+            }
             // Potential code to hide the delete key if needed.
             // setTimeout(() => $('#delete-button').setAttribute('disabled', true), 200);
           }
