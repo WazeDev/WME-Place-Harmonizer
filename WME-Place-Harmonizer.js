@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name        WME Place Harmonizer Beta
 // @namespace   WazeUSA
-// @version     2026.06.01.02
+// @version     2026.06.01.03
 // @description Harmonizes, formats, and locks a selected place
 // @author      WMEPH Development Group
 // @include      https://www.waze.com/editor*
@@ -43,6 +43,7 @@
     'v 2026.06.01.00 Fix: Consolidate harmonization pipeline to fix undo for all auto-corrections',
     'v 2026.06.01.01 Fix: Prevent "connected to feed" prepanel flash when updating venue properties',
     'v 2026.06.01.02 Fix: Sync highlight cache with venue state changes and external undo',
+    'v 2026.06.01.03 Fix: Flag venues with missing country/state as RED in highlight mode',
   ];
 
   // **************************************************************************************************************
@@ -9619,10 +9620,19 @@
         }
       }
 
-      // Country restrictions (note that FullAddressInference should guarantee country/state exist if highlightOnly is true)
+      // Country restrictions
       if (!args.addr.country || !args.addr.state) {
-        WazeWrap.Alerts.error(SCRIPT_NAME, 'Country and/or state could not be determined.  Edit the place address and run WMEPH again.');
-        return undefined;
+        if (!args.highlightOnly) {
+          // Full harmonization: show error for actively selected place (already visible in edit sidebar)
+          const missingParts = [];
+          if (!args.addr.country) missingParts.push('country');
+          if (!args.addr.state) missingParts.push('state');
+          const missingInfo = missingParts.join(' and ');
+          WazeWrap.Alerts.error(SCRIPT_NAME, `Missing ${missingInfo}. Edit the place address and run WMEPH again.`);
+          return undefined;
+        }
+        // Highlight mode: flag as RED (missing critical address info)
+        return SEVERITY.RED;
       }
 
       const countryName = args.addr.country?.name;
