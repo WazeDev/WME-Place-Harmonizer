@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name        WME Place Harmonizer Beta
 // @namespace   WazeUSA
-// @version     2026.06.09.00
+// @version     2026.10.28.00
 // @description Harmonizes, formats, and locks a selected place
 // @author      WMEPH Development Group
 // @include      https://www.waze.com/editor*
@@ -32,7 +32,7 @@
 
 /* eslint-disable max-classes-per-file */
 
-(function main() {
+(async function main() {
   'use strict';
 
   // **************************************************************************************************************
@@ -40,45 +40,8 @@
   // **************************************************************************************************************
   const SHOW_UPDATE_MESSAGE = true;
   const SCRIPT_UPDATE_MESSAGE = [
-    'v 2026.06.09.00 Fix: Remove legacy OpeningHour require and use SDK-compatible plain objects',
+    'Refactored Script for WME SDK async mode support',
   ];
-
-  // **************************************************************************************************************
-  // TODO: SDK Limitations & Workarounds
-  // **************************************************************************************************************
-  // 1. House Numbers Layer: No SDK setter function exists (setHouseNumbersLayerCheckboxChecked)
-  //    Current Status: Roads, Paths, JunctionBoxes, Hazards, Closures have SDK setters
-  //    Current Solution: Toggle House Numbers via DOM manipulation (toggleLayerCheckboxViaDOM) in X-ray mode
-  //    AFFECTED CODE: toggleXrayMode() function, lines 7159-7162 (enable) and 7189-7192 (restore)
-  //
-  //    WHEN SDK ADDS setHouseNumbersLayerCheckboxChecked:
-  //      1. Replace toggleLayerCheckboxViaDOM() call with: sdk.LayerSwitcher.setHouseNumbersLayerCheckboxChecked({ isChecked: false })
-  //      2. Remove the special-case check for 'HouseNumbers' layer in both enable and restore sections
-  //      3. DELETE toggleLayerCheckboxViaDOM() function (lines 7128-7138)
-  //
-  // 2. Venue.description: Not exposed in WME SDK Venue interface for READING
-  //    Current Status: updateVenue() DOES support writing, but Venue object doesn't expose reading
-  //    Current Solution: Read from DOM textarea via UPDATED_FIELDS.description selector during WMEPH mode
-  //
-  //    LOCATIONS AFFECTED (runs in both highlight and WMEPH modes):
-  //      - Line 4076: SuspectDesc - checks for google/yelp (guard: `args.description &&`)
-  //      - Line 4567, 4572: DisplayNoteIfNeeded - pharmacy/drivethru checks (guard: `!args.description ||`)
-  //      - Line 4471: MissingUSPSDescription - USPS validation (guard: `!args.highlightOnly`)
-  //
-  //    WHEN SDK ADDS description TO Venue INTERFACE:
-  //      1. Update HarmonizationArgs constructor (line 6387):
-  //         FROM: this.description = !highlightOnly ? this.getDescriptionFromDOM() : null;
-  //         TO:   this.description = venue.description;
-  //      2. DELETE getDescriptionFromDOM() method (lines 6396-6404)
-  //      3. DELETE highlightOnly check in MissingUSPSDescription (line 4470)
-  //      4. SIMPLIFY guard in SuspectDesc (line 4076):
-  //         FROM: args.description && /(google|yelp)/i.test(args.description)
-  //         TO:   /(google|yelp)/i.test(args.description)
-  //      5. SIMPLIFY guards in DisplayNoteIfNeeded (lines 4567, 4572):
-  //         FROM: !args.description || /pattern/
-  //         TO:   /pattern/
-  //      6. Update this TODO section or remove entirely
-  //
 
   // **************************************************************************************************************
   // GLOBAL VARIABLES AND CONSTANTS
@@ -201,10 +164,10 @@
     }
   }
 
-  function updateVenueSeverityCache(venue) {
+  async function updateVenueSeverityCache(venue) {
     if (!venue || !venue.id) return;
     // Recalculate severity based on current corrected venue state
-    const severity = harmonizePlaceGo(venue, 'highlight', undefined, false);
+    const severity = await harmonizePlaceGo(venue, 'highlight', undefined, false);
     // Update cache with new severity and timestamp
     addToResultsCache(venue.id, {
       s: severity,
@@ -266,6 +229,14 @@
   // State flags
   let _disableHighlightTest = false; // Set to true to temporarily disable highlight checks immediately when venues change.
   let _isHarmonizing = false; // Prevent recursive harmonization when venue data changes during harmonization
+  // Count of harmonize passes in flight. Async passes interleave, so a save/restore of the boolean
+  // (restore to "what it was when I started") can leave it stuck true. _isHarmonizing mirrors depth > 0.
+  let _harmonizeDepth = 0;
+  // Change record: which venues WMEPH changed, and what each field was. The only writer is markChanged().
+  // Green highlighting and the save/leave clear rules read from here.
+  const WMEPH_CHANGES = {};
+  let _selectedVenueId = null; // Venue the edit panel is showing; used to decide whether leaving it clears green
+  let _pendingReharmonize = false; // Set when a venue change arrives mid-harmonize; a single re-run is queued after it finishes
 
   // User information object
   const USER = {
@@ -561,8 +532,6 @@
         const propName = `services_${service}`;
         this[propName] = { updated: false, selector: `.venue label[for="service-checkbox-${service}"]`, tab: 'more-info' };
       });
-
-      sdk.Events.on({ eventName: 'wme-selection-changed', eventHandler: () => errorHandler(() => this.reset()) });
     },
     getTabElement(tabName) {
       let tabText;
@@ -607,6 +576,22 @@
           });
       }, 100);
     },
+    // The only place that marks a field green. Also records it in WMEPH_CHANGES so the clear rules can see it.
+    markChanged(venueId, field, oldValue, newValue) {
+      if (!UPDATED_FIELDS[field]) return;
+      UPDATED_FIELDS[field].updated = true;
+      WMEPH_CHANGES[venueId] ??= {};
+      WMEPH_CHANGES[venueId][field] = { oldValue, newValue, at: Date.now() };
+    },
+    hasChanges(venueId) {
+      return Object.keys(WMEPH_CHANGES[venueId] ?? {}).length > 0;
+    },
+    // Paint flags show the venue on screen: each flag is green only if that venue has a WMEPH change for it.
+    showChangesFor(venueId) {
+      Object.keys(this).forEach((field) => {
+        if (this[field]?.hasOwnProperty?.('updated')) this[field].updated = !!WMEPH_CHANGES[venueId]?.[field];
+      });
+    },
     checkNewAttributes(newAttributes, venue) {
       const checkAttribute = (name) => {
         if (newAttributes.hasOwnProperty(name)) {
@@ -614,7 +599,7 @@
           const oldValue = venue[name];
           const newValue = newAttributes[name];
           if (JSON.stringify(oldValue) !== JSON.stringify(newValue)) {
-            UPDATED_FIELDS[name].updated = true;
+            this.markChanged(venue.id, name, oldValue, newValue);
           }
         }
       };
@@ -2191,9 +2176,14 @@
     }
   }
 
+  // Wraps an async event handler so a rejection is logged for all users, not just dev users.
+  const asyncHandler = (fn) => (...a) => Promise.resolve(fn(...a)).catch((e) => console.error(`WMEPH: ${fn.name || 'handler'} failed:`, e));
+
+  // Runs a sync or async callback; rejections from async callbacks are logged, not left unhandled.
   function errorHandler(callback, ...args) {
     try {
-      callback(...args);
+      const result = callback(...args);
+      if (result && typeof result.catch === 'function') result.catch((ex) => logDev(ex));
     } catch (ex) {
       logDev(ex);
     }
@@ -2385,7 +2375,7 @@
    * @param {string|null} defaultKey Default shortcut key if none stored (combo or raw format)
    * @param {Function} callback Function to execute when shortcut is triggered
    */
-  function registerShortcut(shortcutId, description, defaultKey, callback) {
+  async function registerShortcut(shortcutId, description, defaultKey, callback) {
     const stored = loadShortcut(shortcutId);
     const keyToUse = stored.combo || (defaultKey ? _normalizeShortcut(defaultKey).combo : null);
 
@@ -2394,7 +2384,7 @@
       //  "A" - press 'a' to trigger the shortcut
       //  "C+3" - press Ctrl-3 to trigger the shortcut
       //  "AS+32" - press Alt-Shift-Space to trigger the shortcut
-      sdk.Shortcuts.createShortcut({
+      await sdk.Shortcuts.createShortcut({
         shortcutId,
         description,
         callback,
@@ -2402,7 +2392,7 @@
       });
 
       // Re-fetch from SDK to capture what it stored, then normalize both formats
-      const allShortcuts = sdk.Shortcuts.getAllShortcuts();
+      const allShortcuts = await sdk.Shortcuts.getAllShortcuts();
       const registered = allShortcuts.find((s) => s.shortcutId === shortcutId);
       if (registered?.shortcutKeys) {
         saveShortcut(shortcutId, registered.shortcutKeys);
@@ -2417,7 +2407,7 @@
         // Shortcut keys conflict with another shortcut; register without keys
         logDev(`Shortcut "${shortcutId}" keys already in use, registering without keys`);
         try {
-          sdk.Shortcuts.createShortcut({
+          await sdk.Shortcuts.createShortcut({
             shortcutId,
             description,
             callback,
@@ -2687,10 +2677,10 @@
    * Redraws a layer to reflect style changes.
    * @param {string} layerName Name of the layer to redraw
    */
-  function redrawLayer(layerName) {
+  async function redrawLayer(layerName) {
     if (!layerName) return;
     try {
-      sdk.Map.redrawLayer({ layerName });
+      await sdk.Map.redrawLayer({ layerName });
     } catch (e) {
       logDev(`Failed to redraw layer ${layerName}:`, e);
     }
@@ -2738,9 +2728,9 @@
    * Gets the current map extent as a bounding box in WGS84 coordinates.
    * @returns {number[]|null} Bounding box [minLon, minLat, maxLon, maxLat], or null on error
    */
-  function getMapBoundingBox() {
+  async function getMapBoundingBox() {
     try {
-      const bbox = sdk.Map.getMapExtent();
+      const bbox = await sdk.Map.getMapExtent();
       return bbox;
     } catch (e) {
       logDev('getMapBoundingBox error:', e);
@@ -2758,9 +2748,9 @@
    * @param {object} venue - Venue object with id property
    * @returns {object|null} Address object with {houseNumber, street, city, state, postalCode}, or null if invalid venue
    */
-  function getVenueAddress(venue) {
+  async function getVenueAddress(venue) {
     if (!venue || !venue.id) return null;
-    return sdk.DataModel.Venues.getAddress({ venueId: venue.id });
+    return await sdk.DataModel.Venues.getAddress({ venueId: venue.id });
   }
 
   /**
@@ -2768,15 +2758,15 @@
    * @param {object} segment Segment object with id property
    * @returns {object|null} Address object, or null if invalid segment
    */
-  function getSegmentAddress(segment) {
+  async function getSegmentAddress(segment) {
     if (!segment || !segment.id) return null;
-    return sdk.DataModel.Segments.getAddress({ segmentId: segment.id });
+    return await sdk.DataModel.Segments.getAddress({ segmentId: segment.id });
   }
 
-  function getSelectedVenue() {
-    const selection = sdk.Editing.getSelection();
+  async function getSelectedVenue() {
+    const selection = await sdk.Editing.getSelection();
     if (selection?.objectType === 'venue' && selection?.ids?.length === 1) {
-      return sdk.DataModel.Venues.getById({ venueId: selection.ids[0] });
+      return await sdk.DataModel.Venues.getById({ venueId: selection.ids[0] });
     }
     return null;
   }
@@ -4055,8 +4045,8 @@
      * @param {HarmonizationArgs} args
      * @returns
      */
-    static eval(args) {
-      if (this.venueIsFlaggable(args) && !FlagBase.currentFlags.hasFlag(this)) {
+    static async eval(args) {
+      if ((await this.venueIsFlaggable(args)) && !FlagBase.currentFlags.hasFlag(this)) {
         const flag = new this(args);
         flag.args = args;
         return flag;
@@ -4104,10 +4094,10 @@
       return this.constructor.defaultWLTooltip;
     }
 
-    WLaction() {
-      const venue = getSelectedVenue();
-      if (whitelistAction(venue.id, this.constructor.WL_KEY)) {
-        harmonizePlaceGo(venue, 'harmonize');
+    async WLaction() {
+      const venue = await getSelectedVenue();
+      if (await whitelistAction(venue.id, this.constructor.WL_KEY)) {
+        await harmonizePlaceGo(venue, 'harmonize');
       }
     }
 
@@ -4162,7 +4152,7 @@
         const pnhName = this.args.pnhMatch.name;
         return (
           `Place matched to PNH entry "${pnhName}", which is no longer in business.<br/><br/>` +
-          'Follow the <a target="_blank" href="https://www.waze.com/wiki/USA/Places#Closed">wiki instructions</a> for closed places.'
+          'Follow the <a target="_blank" href="https://www.waze.com/discuss/t/places/377947#p-2277048-closed-78">wiki instructions</a> for closed places.'
         );
       }
     },
@@ -4175,7 +4165,7 @@
         this.inferredAddress = inferredAddress;
       }
 
-      static eval(args) {
+      static async eval(args) {
         let result = null;
 
         // Detect if user intentionally set city to "None"
@@ -4197,10 +4187,10 @@
               // Don't auto-infer; user made an intentional choice
               result = null;
             } else {
-              if (sdk.Map.getZoomLevel() < 4) {
+              if (await sdk.Map.getZoomLevel() < 4) {
                 if ($('#WMEPH-EnableIAZoom').prop('checked')) {
                   const coords = getVenueLonLat(args.venue);
-                  sdk.Map.setMapCenter({ lonLat: coords, zoomLevel: 5 });
+                  await sdk.Map.setMapCenter({ lonLat: coords, zoomLevel: 5 });
                 } else {
                   WazeWrap.Alerts.error(
                     SCRIPT_NAME,
@@ -4209,13 +4199,13 @@
                 }
                 result = { exit: true }; // Don't bother returning a Flag. This will exit the rest of the harmonizePlaceGo function.
               } else {
-                let inferredAddress = inferAddress(args.venue, 7); // Pull address info from nearby segments
+                let inferredAddress = await inferAddress(args.venue, 7); // Pull address info from nearby segments
 
                 if (inferredAddress?.street?.id && inferredAddress?.state && inferredAddress?.country) {
                   if ($('#WMEPH-AddAddresses').prop('checked')) {
                     // update the venue's address if option is enabled
-                    updateAddress(args.venue, inferredAddress, args.actions);
-                    UPDATED_FIELDS.address.updated = true;
+                    await updateAddress(args.venue, inferredAddress, args.actions);
+                    UPDATED_FIELDS.markChanged(args.venue.id, 'address', null, inferredAddress);
                     result = new this(inferredAddress);
                   } else if (!['JUNCTION_INTERCHANGE'].includes(args.categories[0]) && !FlagBase.currentFlags.hasFlag(Flag.CityMissing)) {
                     new Flag.CityMissing(args);
@@ -4273,8 +4263,8 @@
         return args.categories.includes('GAS_STATION') && isNullOrWhitespace(args.nameBase) && !isNullOrWhitespace(args.brand);
       }
 
-      action() {
-        addUpdateAction(this.args.venue, { name: this.args.brand }, null, true);
+      async action() {
+        await addUpdateAction(this.args.venue, { name: this.args.brand }, null, true);
       }
     },
     ClearThisUrl: class extends FlagBase {
@@ -4310,10 +4300,10 @@
         return msg;
       }
 
-      static venueIsFlaggable(args) {
+      static async venueIsFlaggable(args) {
         if (!args.categories.includes('PARKING_LOT')) return false;
         try {
-          const parkingType = sdk.DataModel.Venues.ParkingLot.getParkingLotType({ venueId: args.venue.id });
+          const parkingType = await sdk.DataModel.Venues.ParkingLot.getParkingLotType({ venueId: args.venue.id });
           return parkingType === 'PUBLIC';
         } catch {
           return false;
@@ -4321,13 +4311,13 @@
       }
 
       postProcess() {
-        $('.wmeph-pla-lot-type-btn').click((evt) => {
+        $('.wmeph-pla-lot-type-btn').click(async (evt) => {
           const lotType = $(evt.currentTarget).data('lot-type');
           const categoryAttrClone = this.args.venue.categoryAttributes ? JSON.parse(JSON.stringify(this.args.venue.categoryAttributes)) : {};
           categoryAttrClone.PARKING_LOT = categoryAttrClone.PARKING_LOT ?? {};
           categoryAttrClone.PARKING_LOT.parkingType = lotType;
-          UPDATED_FIELDS.lotType.updated = true;
-          addUpdateAction(this.args.venue, { categoryAttributes: categoryAttrClone }, null, true);
+          UPDATED_FIELDS.markChanged(this.args.venue.id, 'lotType', null, lotType);
+          await addUpdateAction(this.args.venue, { categoryAttributes: categoryAttrClone }, null, true);
         });
       }
     },
@@ -4348,12 +4338,11 @@
       static WL_KEY = 'plaNameNonStandard';
       static defaultWLTooltip = 'Whitelist non-standard PLA name';
 
-      static venueIsFlaggable(args) {
+      static async venueIsFlaggable(args) {
         if (!this.isWhitelisted(args) && isVenueParkingLot(args.venue)) {
           const name = args.venue.name;
           if (name) {
-            const addr = getVenueAddress(args.venue);
-            const state = addr?.state?.name;
+            const state = args.addr?.state?.name;
             const re = state === 'Quebec' ? /\b(parking|stationnement)\b/i : /\b((park[ -](and|&|'?n'?)[ -]ride)|parking|lot|garage|ramp)\b/i;
             if (!re.test(name)) {
               return true;
@@ -4489,12 +4478,12 @@
         return args.categories.includes('REST_AREAS') && args.categories.includes('TRANSPORTATION');
       }
 
-      action() {
+      async action() {
         const categories = this.args.venue.categories.slice(); // create a copy
         const index = categories.indexOf('TRANSPORTATION');
         if (index > -1) {
           categories.splice(index, 1); // remove the category
-          addUpdateAction(this.args.venue, { categories }, null, true);
+          await addUpdateAction(this.args.venue, { categories }, null, true);
         } else {
           //           harmonizePlaceGo(this.args.venue, 'harmonize');
         }
@@ -4519,12 +4508,12 @@
         return !this.isWhitelisted(args) && args.categories.includes('REST_AREAS') && args.categories.includes('SCENIC_LOOKOUT_VIEWPOINT');
       }
 
-      action() {
+      async action() {
         const categories = this.args.venue.categories.slice(); // create a copy
         const index = categories.indexOf('SCENIC_LOOKOUT_VIEWPOINT');
         if (index > -1) {
           categories.splice(index, 1); // remove the category
-          addUpdateAction(this.args.venue, { categories }, null, true);
+          await addUpdateAction(this.args.venue, { categories }, null, true);
         }
       }
     },
@@ -4540,11 +4529,11 @@
         return !this.isWhitelisted(args) && !args.categories.includes('REST_AREAS') && /rest (?:area|stop)|service plaza/i.test(args.nameBase);
       }
 
-      action() {
+      async action() {
         const categories = insertAtIndex(this.args.venue.categories, 'REST_AREAS', 0);
         // make it 24/7
         const openingHours = [{ days: [1, 2, 3, 4, 5, 6, 0], fromHour: '00:00', toHour: '00:00' }];
-        addUpdateAction(this.args.venue, { categories, openingHours }, null, true);
+        await addUpdateAction(this.args.venue, { categories, openingHours }, null, true);
       }
     },
     EVChargingStationWarning: class extends FlagBase {
@@ -4562,22 +4551,22 @@
       static defaultButtonText = 'Add it';
       static defaultButtonTooltip = 'Add EVCS alternate name';
 
-      static venueIsFlaggable(args) {
+      static async venueIsFlaggable(args) {
         if (!args.categories.includes('CHARGING_STATION')) return false;
         if (args.aliases.some((alias) => alias.toLowerCase() === 'ev charging station')) return false;
         if (args.venue.name.toLowerCase().includes('(private)')) return false;
         try {
-          const accessType = sdk.DataModel.Venues.ChargingStation.getChargersAccessType({ venueId: args.venue.id });
+          const accessType = await sdk.DataModel.Venues.ChargingStation.getChargersAccessType({ venueId: args.venue.id });
           return accessType !== 'PRIVATE';
         } catch {
           return false;
         }
       }
 
-      action() {
+      async action() {
         let aliases = this.args.venue.aliases.slice();
         aliases = insertAtIndex(aliases, 'EV Charging Station', 0);
-        addUpdateAction(this.args.venue, { aliases }, null);
+        await addUpdateAction(this.args.venue, { aliases }, null);
       }
     },
     EVCSPriceMissing: class extends FlagBase {
@@ -4604,10 +4593,10 @@
         this.noLock = true;
       }
 
-      static venueIsFlaggable(args) {
+      static async venueIsFlaggable(args) {
         if (!args.categories.includes('CHARGING_STATION')) return false;
         try {
-          const costType = sdk.DataModel.Venues.ChargingStation.getCostType({ venueId: args.venue.id });
+          const costType = await sdk.DataModel.Venues.ChargingStation.getCostType({ venueId: args.venue.id });
           return !costType || costType === 'COST_TYPE_UNSPECIFIED';
         } catch {
           return false;
@@ -4615,7 +4604,7 @@
       }
 
       postProcess() {
-        $('.wmeph-evcs-cost-type-btn').click((evt) => {
+        $('.wmeph-evcs-cost-type-btn').click(async (evt) => {
           const selectedValue = $(evt.currentTarget).attr('id').replace('wmeph_', '');
           let attrClone;
           if (this.args.venue.categoryAttributes) {
@@ -4625,8 +4614,8 @@
           }
           attrClone.CHARGING_STATION ??= {};
           attrClone.CHARGING_STATION.costType = selectedValue;
-          addUpdateAction(this.args.venue, { categoryAttributes: attrClone }, null, true);
-          UPDATED_FIELDS.evCostType.updated = true;
+          await addUpdateAction(this.args.venue, { categoryAttributes: attrClone }, null, true);
+          UPDATED_FIELDS.markChanged(this.args.venue.id, 'evCostType', null, selectedValue);
         });
       }
     },
@@ -4679,10 +4668,10 @@
         return args.categories.indexOf('GAS_STATION') > 0;
       }
 
-      action() {
+      async action() {
         // Move Gas category to the first position
         const categories = insertAtIndex(this.args.venue.categories, 'GAS_STATION', 0);
-        addUpdateAction(this.args.venue, { categories }, null, true);
+        await addUpdateAction(this.args.venue, { categories }, null, true);
       }
     },
     IsThisAPilotTravelCenter: class extends ActionFlag {
@@ -4693,8 +4682,8 @@
         return !args.highlightOnly && args.state2L === 'TN' && args.nameBase.toLowerCase().trim() === 'pilot food mart';
       }
 
-      action() {
-        addUpdateAction(this.args.venue, { name: 'Pilot Travel Center' }, null, true);
+      async action() {
+        await addUpdateAction(this.args.venue, { name: 'Pilot Travel Center' }, null, true);
       }
     },
     HotelMkPrim: class extends WLActionFlag {
@@ -4709,10 +4698,10 @@
         return args.priPNHPlaceCat === 'HOTEL' && args.categories.indexOf('HOTEL') !== 0;
       }
 
-      action() {
+      async action() {
         // Insert/move Hotel category in the first position
         const categories = insertAtIndex(this.args.venue.categories.slice(), 'HOTEL', 0);
-        addUpdateAction(this.args.venue, { categories }, null, true);
+        await addUpdateAction(this.args.venue, { categories }, null, true);
       }
     },
     ChangeToPetVet: class extends WLActionFlag {
@@ -4737,7 +4726,7 @@
         return false;
       }
 
-      action() {
+      async action() {
         let updated = false;
         let categories = uniq(this.args.venue.categories.slice());
         categories.forEach((cat, idx) => {
@@ -4749,7 +4738,7 @@
         if (updated) {
           categories = uniq(categories);
         }
-        addUpdateAction(this.args.venue, { categories }, null, true);
+        await addUpdateAction(this.args.venue, { categories }, null, true);
       }
     },
     NotASchool: class extends WLFlag {
@@ -4812,7 +4801,7 @@
         return !isVenuePoint(args.venue) && (args.categories.includes('RESIDENCE_HOME') || (args.maxAreaSeverity > SEVERITY.BLUE && !args.categories.includes('REST_AREAS')));
       }
 
-      action() {
+      async action() {
         const { venue } = this.args;
         if (isVenueResidential(venue)) {
           // Residential areas cannot be converted to points
@@ -4829,7 +4818,7 @@
           coordinates: [lon, lat],
         };
 
-        sdk.DataModel.Venues.updateVenue({ venueId: venue.id, geometry: point });
+        await sdk.DataModel.Venues.updateVenue({ venueId: venue.id, geometry: point });
         // harmonizePlaceGo(venue, 'harmonize');
       }
     },
@@ -4884,7 +4873,7 @@
         return this.#collegeAbbrRegExps.some((re) => re.test(name));
       }
 
-      action() {
+      async action() {
         const { venue } = this.args;
         if (!isVenuePoint(venue)) return; // Already an area
 
@@ -4905,7 +4894,7 @@
         };
 
         // Update venue geometry (SDK tracks as unsaved; user commits via WME Save button)
-        sdk.DataModel.Venues.updateVenue({ venueId: venue.id, geometry: square });
+        await sdk.DataModel.Venues.updateVenue({ venueId: venue.id, geometry: square });
         // harmonizePlaceGo(venue, 'harmonize');
       }
     },
@@ -4970,18 +4959,18 @@
         return $(`#${Flag.HnMissing.#TEXTBOX_ID}`);
       }
 
-      action() {
+      async action() {
         const newHN = $('#WMEPH-HNAdd').val().replace(/\s+/g, '');
         logDev(newHN);
         const hnTemp = newHN.replace(/[^\d]/g, '');
         const hnTempDash = newHN.replace(/[^\d-]/g, '');
         if (hnTemp > 0 && hnTemp < 1000000) {
-          sdk.DataModel.Venues.updateAddress({
+          await sdk.DataModel.Venues.updateAddress({
             venueId: this.args.venue.id,
-            houseNumber: hnTempDash,
+            addressData: { houseNumber: hnTempDash },
           });
           //           harmonizePlaceGo(this.args.venue, 'harmonize', []); // Rerun the script to update fields and lock
-          UPDATED_FIELDS.address.updated = true;
+          UPDATED_FIELDS.markChanged(this.args.venue.id, 'address', null, { houseNumber: hnTempDash });
         } else {
           Flag.HnMissing.#getTextbox().css({ backgroundColor: '#FDD' }).attr('title', 'Must be a number between 0 and 1000000');
         }
@@ -4990,9 +4979,9 @@
       postProcess() {
         // If pressing enter in the HN entry box, add the HN
         const textbox = Flag.HnMissing.#getTextbox();
-        textbox.keyup((evt) => {
+        textbox.keyup(async (evt) => {
           if (evt.keyCode === 13 && textbox.val()) {
-            this.action();
+            await this.action();
           }
         });
       }
@@ -5170,7 +5159,7 @@
         return flaggable;
       }
 
-      action() {
+      async action() {
         const newAttributes = {};
 
         const originalCategories = this.args.venue.categories;
@@ -5189,7 +5178,7 @@
           newAttributes.name = newName;
         }
 
-        addUpdateAction(this.args.venue, newAttributes, null, true);
+        await addUpdateAction(this.args.venue, newAttributes, null, true);
       }
     },
     StandaloneATM: class extends ActionFlag {
@@ -5216,7 +5205,7 @@
         return flaggable;
       }
 
-      action() {
+      async action() {
         const newAttributes = {};
 
         const originalName = this.args.venue.name;
@@ -5229,7 +5218,7 @@
           newAttributes.categories = atmCategory; // Change to ATM only
         }
 
-        addUpdateAction(this.args.venue, newAttributes, null, true);
+        await addUpdateAction(this.args.venue, newAttributes, null, true);
       }
     },
     BankCorporate: class extends ActionFlag {
@@ -5248,7 +5237,7 @@
         return flaggable;
       }
 
-      action() {
+      async action() {
         const newAttributes = {};
 
         const officesCategory = ['OFFICES'];
@@ -5270,7 +5259,7 @@
           newAttributes.name = newName;
         }
 
-        addUpdateAction(this.args.venue, newAttributes, null, true);
+        await addUpdateAction(this.args.venue, newAttributes, null, true);
       }
     },
     CatPostOffice: class extends FlagBase {
@@ -5307,8 +5296,8 @@
         return flaggable;
       }
 
-      action() {
-        nudgeVenue(this.args.venue);
+      async action() {
+        await nudgeVenue(this.args.venue);
         //         harmonizePlaceGo(this.args.venue, 'harmonize');
       }
     },
@@ -5360,9 +5349,7 @@
       static defaultWLTooltip = 'Whitelist description';
 
       static venueIsFlaggable(args) {
-        // args.description is only available in WMEPH mode (not during scanning)
-        // Only check for copyrighted content if description is accessible
-        return !isVenueResidential(args.venue) && args.totalSeverity < SEVERITY.RED && !this.isWhitelisted(args) && args.description && /(google|yelp)/i.test(args.description);
+        return !isVenueResidential(args.venue) && args.totalSeverity < SEVERITY.RED && !this.isWhitelisted(args) && /(google|yelp)/i.test(args.description);
       }
     },
     ResiTypeName: class extends WLFlag {
@@ -5439,9 +5426,9 @@
         return !isNullOrWhitespace(args.url) && !isNullOrWhitespace(args.pnhUrl) && args.url !== args.pnhUrl && args.pnhUrl !== BAD_URL;
       }
 
-      action() {
+      async action() {
         if (!isNullOrWhitespace(this.args.pnhUrl)) {
-          addUpdateAction(this.args.venue, { url: this.args.pnhUrl }, null, true);
+          await addUpdateAction(this.args.venue, { url: this.args.pnhUrl }, null, true);
         } else {
           WazeWrap.Alerts.error(SCRIPT_NAME, 'URL Matching Error!');
         }
@@ -5460,9 +5447,9 @@
         return !isNullOrWhitespace(args.url) && args.url !== args.pnhUrl && Flag.UrlAnalytics.URL_ANALYTICS_REGEX.test(args.url);
       }
 
-      action() {
+      async action() {
         const url = Flag.UrlAnalytics.#stripUrlAnalyticsQueries(this.args.url);
-        addUpdateAction(this.args.venue, { url }, null, true);
+        await addUpdateAction(this.args.venue, { url }, null, true);
       }
 
       static #stripUrlAnalyticsQueries(url) {
@@ -5510,13 +5497,17 @@
       static WL_KEY = 'addCommonEVPaymentMethods';
       static defaultWLTooltip = 'Whitelist common EV payment types';
 
+      // Per-venue EV reads, filled in by venueIsFlaggable (async) so the message getter can stay sync.
+      static evCache = new Map();
+
       get message() {
-        const network = sdk.DataModel.Venues.ChargingStation.getNetwork({ venueId: this.args.venue.id });
+        const cached = this.constructor.evCache.get(this.args.venue.id) ?? {};
+        const network = cached.network ?? null;
         let msg = `These common payment methods for the ${network} network are missing. Verify if they are needed here:`;
         this.originalNetwork = network;
         const translations = I18n.translations[I18n.locale].edit.venue.category_attributes.payment_methods;
-        const paymentMethods = sdk.DataModel.Venues.ChargingStation.getPaymentMethods({ venueId: this.args.venue.id });
-        const list = COMMON_EV_PAYMENT_METHODS[network]
+        const paymentMethods = cached.paymentMethods;
+        const list = (COMMON_EV_PAYMENT_METHODS[network] ?? [])
           .filter((method) => !paymentMethods?.includes(method))
           .map((method) => `- ${translations[method]}`)
           .join('<br>');
@@ -5524,12 +5515,13 @@
         return msg;
       }
 
-      static venueIsFlaggable(args) {
+      static async venueIsFlaggable(args) {
         if (args.categories.includes('CHARGING_STATION') && !this.isWhitelisted(args)) {
           try {
-            const network = sdk.DataModel.Venues.ChargingStation.getNetwork({ venueId: args.venue.id });
+            const network = await sdk.DataModel.Venues.ChargingStation.getNetwork({ venueId: args.venue.id });
             if (!network || !COMMON_EV_PAYMENT_METHODS[network]) return false;
-            const paymentMethods = sdk.DataModel.Venues.ChargingStation.getPaymentMethods({ venueId: args.venue.id });
+            const paymentMethods = await sdk.DataModel.Venues.ChargingStation.getPaymentMethods({ venueId: args.venue.id });
+            this.evCache.set(args.venue.id, { network, paymentMethods });
             return !!COMMON_EV_PAYMENT_METHODS[network]?.some((method) => !paymentMethods?.includes(method));
           } catch (e) {
             logDev(`AddCommonEVPaymentMethods.venueIsFlaggable error: ${e.message}`);
@@ -5539,20 +5531,20 @@
         return false;
       }
 
-      action() {
+      async action() {
         if (!isVenueChargingStation(this.args.venue)) {
           WazeWrap.Alerts.info(SCRIPT_NAME, 'This is no longer a charging station. Please run WMEPH again.', false, false);
           return;
         }
 
         try {
-          const network = sdk.DataModel.Venues.ChargingStation.getNetwork({ venueId: this.args.venue.id });
+          const network = await sdk.DataModel.Venues.ChargingStation.getNetwork({ venueId: this.args.venue.id });
           if (network !== this.originalNetwork) {
             WazeWrap.Alerts.info(SCRIPT_NAME, 'EV charging station network has changed. Please run WMEPH again.', false, false);
             return;
           }
 
-          const currentPaymentMethods = sdk.DataModel.Venues.ChargingStation.getPaymentMethods({ venueId: this.args.venue.id }) ?? [];
+          const currentPaymentMethods = await sdk.DataModel.Venues.ChargingStation.getPaymentMethods({ venueId: this.args.venue.id }) ?? [];
           const newPaymentMethods = currentPaymentMethods.slice();
           const commonPaymentMethods = COMMON_EV_PAYMENT_METHODS[network];
           commonPaymentMethods.forEach((method) => {
@@ -5564,8 +5556,8 @@
           categoryAttrClone.CHARGING_STATION ??= {};
           categoryAttrClone.CHARGING_STATION.paymentMethods = newPaymentMethods;
 
-          UPDATED_FIELDS.evPaymentMethods.updated = true;
-          addUpdateAction(this.args.venue, { categoryAttributes: categoryAttrClone }, null, true);
+          UPDATED_FIELDS.markChanged(this.args.venue.id, 'evPaymentMethods', null, newPaymentMethods);
+          await addUpdateAction(this.args.venue, { categoryAttributes: categoryAttrClone }, null, true);
         } catch (e) {
           logDev(`AddCommonEVPaymentMethods.action error: ${e.message}`);
           WazeWrap.Alerts.error(SCRIPT_NAME, 'Error updating payment methods', false, false);
@@ -5582,12 +5574,16 @@
       #network;
       #paymentMethods;
 
+      // Per-venue EV reads, filled in by venueIsFlaggable (async) so the message getter can stay sync.
+      static evCache = new Map();
+
       get message() {
         try {
-          this.#network = sdk.DataModel.Venues.ChargingStation.getNetwork({ venueId: this.args.venue.id });
+          const cached = this.constructor.evCache.get(this.args.venue.id) ?? {};
+          this.#network = cached.network ?? null;
           this.originalNetwork = this.#network;
           let msg = `These payment methods are uncommon for the ${this.#network} network. Verify if they are needed here:`;
-          this.#paymentMethods = sdk.DataModel.Venues.ChargingStation.getPaymentMethods({ venueId: this.args.venue.id }) ?? [];
+          this.#paymentMethods = cached.paymentMethods ?? [];
           const translations = I18n.translations[I18n.locale].edit.venue.category_attributes.payment_methods;
           const list = this.#paymentMethods
             ?.filter((method) => !COMMON_EV_PAYMENT_METHODS[this.#network]?.includes(method))
@@ -5601,12 +5597,13 @@
         }
       }
 
-      static venueIsFlaggable(args) {
+      static async venueIsFlaggable(args) {
         if (args.categories.includes('CHARGING_STATION') && !this.isWhitelisted(args)) {
           try {
-            const network = sdk.DataModel.Venues.ChargingStation.getNetwork({ venueId: args.venue.id });
+            const network = await sdk.DataModel.Venues.ChargingStation.getNetwork({ venueId: args.venue.id });
             if (!network || !COMMON_EV_PAYMENT_METHODS.hasOwnProperty(network)) return false;
-            const paymentMethods = sdk.DataModel.Venues.ChargingStation.getPaymentMethods({ venueId: args.venue.id });
+            const paymentMethods = await sdk.DataModel.Venues.ChargingStation.getPaymentMethods({ venueId: args.venue.id });
+            this.evCache.set(args.venue.id, { network, paymentMethods });
             return !!paymentMethods?.some((method) => !COMMON_EV_PAYMENT_METHODS[network]?.includes(method));
           } catch (e) {
             logDev(`RemoveUncommonEVPaymentMethods.venueIsFlaggable error: ${e.message}`);
@@ -5616,7 +5613,7 @@
         return false;
       }
 
-      action() {
+      async action() {
         if (!isVenueChargingStation(this.args.venue)) {
           WazeWrap.Alerts.info(SCRIPT_NAME, 'This is no longer a charging station. Please run WMEPH again.', false, false);
           return;
@@ -5624,7 +5621,7 @@
 
         try {
           // Verify network hasn't changed, but use cached payment methods from message getter
-          const currentNetwork = sdk.DataModel.Venues.ChargingStation.getNetwork({ venueId: this.args.venue.id });
+          const currentNetwork = await sdk.DataModel.Venues.ChargingStation.getNetwork({ venueId: this.args.venue.id });
           if (currentNetwork !== this.originalNetwork) {
             WazeWrap.Alerts.info(SCRIPT_NAME, 'EV charging station network has changed. Please run WMEPH again.', false, false);
             return;
@@ -5638,8 +5635,8 @@
           categoryAttrClone.CHARGING_STATION ??= {};
           categoryAttrClone.CHARGING_STATION.paymentMethods = newPaymentMethods;
 
-          UPDATED_FIELDS.evPaymentMethods.updated = true;
-          addUpdateAction(this.args.venue, { categoryAttributes: categoryAttrClone }, null, true);
+          UPDATED_FIELDS.markChanged(this.args.venue.id, 'evPaymentMethods', null, newPaymentMethods);
+          await addUpdateAction(this.args.venue, { categoryAttributes: categoryAttrClone }, null, true);
         } catch (e) {
           logDev(`RemoveUncommonEVPaymentMethods.action error: ${e.message}`);
           WazeWrap.Alerts.error(SCRIPT_NAME, 'Error updating payment methods', false, false);
@@ -5686,11 +5683,11 @@
         return args.isUspsPostOffice && !args.aliases.some((alias) => alias.toUpperCase() === 'USPS');
       }
 
-      action() {
+      async action() {
         const aliases = this.args.venue.aliases.slice();
         if (!aliases.some((alias) => alias === 'USPS')) {
           aliases.push('USPS');
-          addUpdateAction(this.args.venue, { aliases }, null, true);
+          await addUpdateAction(this.args.venue, { aliases }, null, true);
         } else {
           //           harmonizePlaceGo(this.args.venue, 'harmonize');
         }
@@ -5710,7 +5707,7 @@
         return args.isUspsPostOffice && !args.aliases.some((alias) => /\d{5}/.test(alias));
       }
 
-      action() {
+      async action() {
         const $input = $(`input#${Flag.MissingUSPSZipAlt.#TEXTBOX_ID}`);
         const zip = $input.val().trim();
         if (zip) {
@@ -5719,7 +5716,7 @@
             // Make sure zip hasn't already been added.
             if (!aliases.includes(zip)) {
               aliases.push(zip);
-              addUpdateAction(this.args.venue, { aliases }, null, true);
+              await addUpdateAction(this.args.venue, { aliases }, null, true);
             } else {
               $input.css({ backgroundColor: '#FDD' }).attr('title', 'Zip code alt name already exists');
             }
@@ -5755,10 +5752,7 @@
       static defaultWLTooltip = 'Whitelist missing USPS address line in description';
 
       static venueIsFlaggable(args) {
-        // Only validate description during harmonization, not during scanning.
-        // Description is not available in the SDK Venue object, so we read it from the DOM during harmonization.
-        // During scanning (highlightOnly=true), the edit form is not open so the description is inaccessible.
-        if (args.isUspsPostOffice && !args.highlightOnly) {
+        if (args.isUspsPostOffice) {
           const lines = args.description?.split('\n');
           return !lines?.length || !/^.{2,}, [A-Z]{2}\s{1,2}\d{5}$/.test(lines[0]);
         }
@@ -5823,21 +5817,21 @@
 
         if (isTesla) {
           this.postProcess = () => {
-            $('#wmeph-tesla-supercharger').click(() => {
-              addUpdateAction(args.venue, { name: 'Tesla Supercharger' }, null, true);
+            $('#wmeph-tesla-supercharger').click(async () => {
+              await addUpdateAction(args.venue, { name: 'Tesla Supercharger' }, null, true);
             });
-            $('#wmeph-tesla-destination-charger').click(() => {
-              addUpdateAction(args.venue, { name: 'Tesla Destination Charger' }, null, true);
+            $('#wmeph-tesla-destination-charger').click(async () => {
+              await addUpdateAction(args.venue, { name: 'Tesla Destination Charger' }, null, true);
             });
           };
           this.severity = SEVERITY.RED;
         } else if (isRivian) {
           this.postProcess = () => {
-            $('#wmeph-rivian-adventure-network').click(() => {
-              addUpdateAction(args.venue, { name: 'Rivian Adventure Network' }, null, true);
+            $('#wmeph-rivian-adventure-network').click(async () => {
+              await addUpdateAction(args.venue, { name: 'Rivian Adventure Network' }, null, true);
             });
-            $('#wmeph-rivian-waypoints').click(() => {
-              addUpdateAction(args.venue, { name: 'Rivian Waypoints' }, null, true);
+            $('#wmeph-rivian-waypoints').click(async () => {
+              await addUpdateAction(args.venue, { name: 'Rivian Waypoints' }, null, true);
             });
           };
           this.severity = SEVERITY.RED;
@@ -5853,14 +5847,10 @@
         let showFlag = false;
         if (args.showDispNote && !isNullOrWhitespace(message)) {
           if (args.pnhMatch.pharmhours) {
-            // args.description is only available in WMEPH mode (not during scanning)
-            // If not available, assume we should show the flag to be safe
-            showFlag = !args.description || !/\bpharmacy\b\s*\bh(ou)?rs\b/i.test(args.description);
+            showFlag = !/\bpharmacy\b\s*\bh(ou)?rs\b/i.test(args.description);
             // TODO: figure out what drivethruhours was supposed to be in PNH speccase column
           } else if (args.pnhMatch.drivethruhours) {
-            // args.description is only available in WMEPH mode (not during scanning)
-            // If not available, assume we should show the flag to be safe
-            showFlag = !args.description || !/\bdrive[\s-]?(thru|through)\b\s*\bh(ou)?rs\b/i.test(args.description);
+            showFlag = !/\bdrive[\s-]?(thru|through)\b\s*\bh(ou)?rs\b/i.test(args.description);
           } else {
             showFlag = true;
           }
@@ -5887,13 +5877,13 @@
         return this.#venueIsFlaggable(highlightOnly, pnhCategoryInfo) ? new this(venue, pnhCategoryInfo, categories) : null;
       }
 
-      action() {
+      async action() {
         if (this.actionType === 'changeToDoctorClinic') {
           const categories = uniq(this.venue.categories.slice());
           const indexOfHospital = categories.indexOf('HOSPITAL_URGENT_CARE');
           if (indexOfHospital > -1) {
             categories[indexOfHospital] = 'DOCTOR_CLINIC';
-            addUpdateAction(this.venue, { categories }, null, true);
+            await addUpdateAction(this.venue, { categories }, null, true);
           }
         }
       }
@@ -5960,8 +5950,8 @@
         return false;
       }
 
-      action() {
-        nudgeVenue(this.args.venue);
+      async action() {
+        await nudgeVenue(this.args.venue);
         //         harmonizePlaceGo(this.args.venue, 'harmonize'); // Rerun the script to update fields and lock
       }
 
@@ -5993,8 +5983,8 @@
             this.buttonText = `Lock anyway? (${args.levelToLock + 1})`;
             this.buttonTooltip =
               'If no Google link exists, lock this place.\nIf there is still no Google link after ' + '6 months from the last update date, it will turn red as a reminder to search again.';
-            this.action = () => {
-              addUpdateAction(args.venue, { lockRank: args.levelToLock }, null, true);
+            this.action = async () => {
+              await addUpdateAction(args.venue, { lockRank: args.levelToLock }, null, true);
             };
           }
         }
@@ -6033,23 +6023,23 @@
         return $(`#${Flag.UrlMissing.#TEXTBOX_ID}`);
       }
 
-      action() {
+      async action() {
         const $textbox = Flag.UrlMissing.#getTextbox();
         const newUrl = normalizeURL($textbox.val());
         if (!newUrl?.trim().length || newUrl === BAD_URL) {
           $textbox.css({ backgroundColor: '#FDD' }).attr('title', 'Invalid URL format');
         } else {
           logDev(newUrl);
-          addUpdateAction(this.args.venue, { url: newUrl }, null, true);
+          await addUpdateAction(this.args.venue, { url: newUrl }, null, true);
         }
       }
 
       postProcess() {
         // If pressing enter in the URL entry box, add the URL
         const textbox = Flag.UrlMissing.#getTextbox();
-        textbox.keyup((evt) => {
+        textbox.keyup(async (evt) => {
           if (evt.keyCode === 13 && textbox.val() !== '') {
-            this.action();
+            await this.action();
           }
         });
       }
@@ -6088,12 +6078,12 @@
         );
       }
 
-      action() {
+      async action() {
         const newPhone = normalizePhone($('#WMEPH-PhoneAdd').val(), this.args.outputPhoneFormat);
         if (newPhone === BAD_PHONE) {
           $('input#WMEPH-PhoneAdd').css({ backgroundColor: '#FDD' }).attr('title', 'Invalid phone # format');
         } else {
-          addUpdateAction(this.args.venue, { phone: newPhone }, null, false);
+          await addUpdateAction(this.args.venue, { phone: newPhone }, null, false);
         }
       }
     },
@@ -6112,8 +6102,8 @@
         return args.recommendedPhone && !this.isWhitelisted(args) && args.recommendedPhone !== BAD_PHONE && args.recommendedPhone !== normalizePhone(args.phone, args.outputPhoneFormat);
       }
 
-      action() {
-        addUpdateAction(this.args.venue, { phone: this.args.recommendedPhone }, null, false);
+      async action() {
+        await addUpdateAction(this.args.venue, { phone: this.args.recommendedPhone }, null, false);
       }
     },
     PhoneMissing: class extends WLActionFlag {
@@ -6142,13 +6132,13 @@
         );
       }
 
-      action() {
+      async action() {
         const newPhone = normalizePhone($('#WMEPH-PhoneAdd').val(), this.args.outputPhoneFormat);
         if (newPhone === BAD_PHONE || !newPhone) {
           $('input#WMEPH-PhoneAdd').css({ backgroundColor: '#FDD' }).attr('title', 'Invalid phone # format');
         } else {
           logDev(newPhone);
-          addUpdateAction(this.args.venue, { phone: newPhone }, null, false);
+          await addUpdateAction(this.args.venue, { phone: newPhone }, null, false);
         }
       }
 
@@ -6271,7 +6261,7 @@
         return title;
       }
 
-      applyHours(replaceAllHours) {
+      async applyHours(replaceAllHours) {
         if (!this.args?.venue) {
           logDev('applyHours: No venue in args');
           return;
@@ -6289,7 +6279,7 @@
         const parseResult = parser.parseHours(pasteHours);
         if (parseResult.hours && !parseResult.overlappingHours && !parseResult.sameOpenAndCloseTimes && !parseResult.parseError) {
           logDev(parseResult.hours);
-          addUpdateAction(this.args.venue, { openingHours: parseResult.hours }, null, true);
+          await addUpdateAction(this.args.venue, { openingHours: parseResult.hours }, null, true);
           $('#WMEPH-HoursPaste').val(DEFAULT_HOURS_TEXT);
         } else {
           log("Can't parse those hours");
@@ -6301,12 +6291,12 @@
         }
       }
 
-      onAddHoursClick() {
-        this.applyHours();
+      async onAddHoursClick() {
+        await this.applyHours();
       }
 
-      onReplaceHoursClick() {
-        this.applyHours(true);
+      async onReplaceHoursClick() {
+        await this.applyHours(true);
       }
 
       static #getDaysString(days) {
@@ -6441,8 +6431,8 @@
           $('.wmeph-hours-row2').after($row3);
         }
         // NOTE: Leave these wrapped in the "() => ..." functions, to make sure "this" is bound properly.
-        $('#WMEPH_noHours').click(() => this.onAddHoursClick());
-        $('#WMEPH_noHours_2').click(() => this.onReplaceHoursClick());
+        $('#WMEPH_noHours').click(async () => await this.onAddHoursClick());
+        $('#WMEPH_noHours_2').click(async () => await this.onReplaceHoursClick());
 
         // If pasting or dropping into hours entry box
         function resetHoursEntryHeight() {
@@ -6620,8 +6610,8 @@
         return lastUpdatedDate < threeYearsAgo;
       }
 
-      action() {
-        nudgeVenue(this.args.venue);
+      async action() {
+        await nudgeVenue(this.args.venue);
         //         harmonizePlaceGo(this.args.venue, 'harmonize');
       }
     },
@@ -6637,10 +6627,10 @@
           .join('')}`;
       }
 
-      static venueIsFlaggable(args) {
+      static async venueIsFlaggable(args) {
         if (!isVenueParkingLot(args.venue)) return false;
         try {
-          const parkingType = sdk.DataModel.Venues.ParkingLot.getParkingLotType({ venueId: args.venue.id });
+          const parkingType = await sdk.DataModel.Venues.ParkingLot.getParkingLotType({ venueId: args.venue.id });
           return !parkingType;
         } catch {
           return true;
@@ -6648,13 +6638,13 @@
       }
 
       postProcess() {
-        $('.wmeph-pla-lot-type-btn').click((evt) => {
+        $('.wmeph-pla-lot-type-btn').click(async (evt) => {
           const lotType = $(evt.currentTarget).data('lot-type');
           const categoryAttrClone = this.args.venue.categoryAttributes ? JSON.parse(JSON.stringify(this.args.venue.categoryAttributes)) : {};
           categoryAttrClone.PARKING_LOT = categoryAttrClone.PARKING_LOT ?? {};
           categoryAttrClone.PARKING_LOT.parkingType = lotType;
-          UPDATED_FIELDS.lotType.updated = true;
-          addUpdateAction(this.args.venue, { categoryAttributes: categoryAttrClone }, null, true);
+          UPDATED_FIELDS.markChanged(this.args.venue.id, 'lotType', null, lotType);
+          await addUpdateAction(this.args.venue, { categoryAttributes: categoryAttrClone }, null, true);
         });
       }
     },
@@ -6675,10 +6665,10 @@
           .join('')}`;
       }
 
-      static venueIsFlaggable(args) {
+      static async venueIsFlaggable(args) {
         if (!isVenueParkingLot(args.venue)) return false;
         try {
-          const costType = sdk.DataModel.Venues.ParkingLot.getCostType({ venueId: args.venue.id });
+          const costType = await sdk.DataModel.Venues.ParkingLot.getCostType({ venueId: args.venue.id });
           return !costType || costType === 'UNKNOWN';
         } catch {
           return false;
@@ -6686,7 +6676,7 @@
       }
 
       postProcess() {
-        $('.wmeph-pla-cost-type-btn').click((evt) => {
+        $('.wmeph-pla-cost-type-btn').click(async (evt) => {
           const selectedValue = $(evt.currentTarget).attr('id').replace('wmeph_', '');
           let attrClone;
           if (this.args.venue.categoryAttributes) {
@@ -6696,8 +6686,8 @@
           }
           attrClone.PARKING_LOT ??= {};
           attrClone.PARKING_LOT.costType = selectedValue;
-          addUpdateAction(this.args.venue, { categoryAttributes: attrClone }, null, true);
-          UPDATED_FIELDS.cost.updated = true;
+          await addUpdateAction(this.args.venue, { categoryAttributes: attrClone }, null, true);
+          UPDATED_FIELDS.markChanged(this.args.venue.id, 'cost', null, selectedValue);
         });
       }
     },
@@ -6706,14 +6696,14 @@
       static defaultMessage = 'Parking isn\'t free. Select payment type(s) from the "More info" tab. ';
       static defaultButtonText = 'Go there';
 
-      static venueIsFlaggable(args) {
+      static async venueIsFlaggable(args) {
         if (!isVenueParkingLot(args.venue)) return false;
 
         try {
-          const costType = sdk.DataModel.Venues.ParkingLot.getCostType({ venueId: args.venue.id });
+          const costType = await sdk.DataModel.Venues.ParkingLot.getCostType({ venueId: args.venue.id });
           if (!costType || costType === 'FREE' || costType === 'UNKNOWN') return false;
 
-          const paymentMethods = sdk.DataModel.Venues.ParkingLot.getPaymentMethods({ venueId: args.venue.id });
+          const paymentMethods = await sdk.DataModel.Venues.ParkingLot.getPaymentMethods({ venueId: args.venue.id });
           return !paymentMethods || paymentMethods.length === 0;
         } catch {
           return false;
@@ -6734,21 +6724,21 @@
       static defaultButtonTooltip = 'Click if street level parking only, or select other option(s) in the More Info tab.';
       noLock = true;
 
-      static venueIsFlaggable(args) {
+      static async venueIsFlaggable(args) {
         if (!isVenueParkingLot(args.venue)) return false;
         try {
-          const lotTypes = sdk.DataModel.Venues.ParkingLot.getLotTypes({ venueId: args.venue.id });
+          const lotTypes = await sdk.DataModel.Venues.ParkingLot.getLotTypes({ venueId: args.venue.id });
           return !lotTypes || lotTypes.length === 0;
         } catch {
           return false;
         }
       }
 
-      action() {
+      async action() {
         const attrClone = this.args.venue.categoryAttributes ? JSON.parse(JSON.stringify(this.args.venue.categoryAttributes)) : {};
         attrClone.PARKING_LOT = attrClone.PARKING_LOT ?? {};
         attrClone.PARKING_LOT.lotType = ['STREET_LEVEL'];
-        addUpdateAction(this.args.venue, { categoryAttributes: attrClone }, null, true);
+        await addUpdateAction(this.args.venue, { categoryAttributes: attrClone }, null, true);
       }
     },
     PlaSpaces: class extends FlagBase {
@@ -6774,10 +6764,10 @@
         return msg + $btnDiv.prop('outerHTML');
       }
 
-      static venueIsFlaggable(args) {
+      static async venueIsFlaggable(args) {
         if (args.highlightOnly || !isVenueParkingLot(args.venue)) return false;
         try {
-          const spotEstimate = sdk.DataModel.Venues.ParkingLot.getEstimatedNumberOfSpots({ venueId: args.venue.id });
+          const spotEstimate = await sdk.DataModel.Venues.ParkingLot.getEstimatedNumberOfSpots({ venueId: args.venue.id });
           return !spotEstimate || spotEstimate === 'R_1_TO_10';
         } catch {
           return false;
@@ -6785,16 +6775,16 @@
       }
 
       static setupClickHandlers() {
-        $('.wmeph-pla-spaces-btn').click((evt) => {
-          const selectedVenue = getSelectedVenue();
+        $('.wmeph-pla-spaces-btn').click(async (evt) => {
+          const selectedVenue = await getSelectedVenue();
           const selectedValue = $(evt.currentTarget).attr('id').replace('wmeph_', '');
           try {
-            sdk.DataModel.Venues.ParkingLot.setEstimatedNumberOfSpots({
+            await sdk.DataModel.Venues.ParkingLot.setEstimatedNumberOfSpots({
               venueId: selectedVenue.id,
               estimatedNumberOfSpots: selectedValue,
             });
-            UPDATED_FIELDS.parkingSpots.updated = true;
-            addUpdateAction(selectedVenue, {}, null, true);
+            UPDATED_FIELDS.markChanged(selectedVenue.id, 'parkingSpots', null, selectedValue);
+            await addUpdateAction(selectedVenue, {}, null, true);
           } catch (e) {
             logDev('Error setting parking spaces:', e);
           }
@@ -6814,7 +6804,7 @@
         return !hasNavPoints;
       }
 
-      action() {
+      async action() {
         const { venue } = this.args;
 
         // Create new entry point at venue geometry center
@@ -6833,7 +6823,7 @@
           },
         ];
 
-        sdk.DataModel.Venues.replaceNavigationPoints({
+        await sdk.DataModel.Venues.replaceNavigationPoints({
           venueId: venue.id,
           navigationPoints: newNavigationPoints,
         });
@@ -6864,22 +6854,22 @@
       static defaultMessage = 'Can cars exit when lot is closed? ';
       static defaultButtonText = 'Yes';
 
-      static venueIsFlaggable(args) {
+      static async venueIsFlaggable(args) {
         if (args.highlightOnly || !isVenueParkingLot(args.venue)) return false;
         if (!($('#WMEPH-ShowPLAExitWhileClosed').prop('checked') || !(args.openingHours.length === 0 || is247Hours(args.openingHours)))) return false;
         try {
-          const canExit = sdk.DataModel.Venues.ParkingLot.canExitWhileClosed({ venueId: args.venue.id });
+          const canExit = await sdk.DataModel.Venues.ParkingLot.canExitWhileClosed({ venueId: args.venue.id });
           return !canExit;
         } catch {
           return false;
         }
       }
 
-      action() {
+      async action() {
         const attrClone = this.args.venue.categoryAttributes ? JSON.parse(JSON.stringify(this.args.venue.categoryAttributes)) : {};
         attrClone.PARKING_LOT = attrClone.PARKING_LOT ?? {};
         attrClone.PARKING_LOT.canExitWhileClosed = true;
-        addUpdateAction(this.args.venue, { categoryAttributes: attrClone }, null, true);
+        await addUpdateAction(this.args.venue, { categoryAttributes: attrClone }, null, true);
       }
     },
     PlaHasAccessibleParking: class extends ActionFlag {
@@ -6891,11 +6881,11 @@
         return !args.venue.services?.includes('DISABILITY_PARKING');
       }
 
-      action() {
+      async action() {
         const services = this.args.venue.services?.slice() ?? [];
         services.push('DISABILITY_PARKING');
-        addUpdateAction(this.args.venue, { services }, null, true);
-        UPDATED_FIELDS.services_DISABILITY_PARKING.updated = true;
+        await addUpdateAction(this.args.venue, { services }, null, true);
+        UPDATED_FIELDS.markChanged(this.args.venue.id, 'services_DISABILITY_PARKING', null, true);
       }
     },
     AllDayHoursFixed: class extends FlagBase {
@@ -6946,13 +6936,13 @@
         return !args.highlightOnly && (args.categories.includes('RESIDENCE_HOME') || args.categories.includes('RESIDENTIAL')) && (USER.isDevUser || USER.isBetaUser || USER.rank >= 3);
       }
 
-      action() {
+      async action() {
         let levelToLock = $('#RPPLockLevel :selected').val() || this.args.defaultLockLevel + 1;
         logDev(`RPPlevelToLock: ${levelToLock}`);
 
         levelToLock -= 1;
         if (this.args.venue.lockRank !== levelToLock) {
-          addUpdateAction(this.args.venue, { lockRank: levelToLock }, null, true);
+          await addUpdateAction(this.args.venue, { lockRank: levelToLock }, null, true);
         }
       }
     },
@@ -6970,16 +6960,16 @@
         return args.pnhMatch.optionalAlias && !args.aliases.includes(args.pnhMatch.optionalAlias);
       }
 
-      action() {
+      async action() {
         const venue = this.args.venue;
         const alias = this.args.pnhMatch.optionalAlias;
         let aliases = insertAtIndex(venue.aliases?.slice() || [], alias, 0);
         if (this.args.pnhMatch.altName2Desc && !venue.description?.toUpperCase?.().includes(alias.toUpperCase())) {
           const description = `${alias}\n${venue.description}`;
-          addUpdateAction(venue, { description }, null, false);
+          await addUpdateAction(venue, { description }, null, false);
         }
         aliases = removeUnnecessaryAliases(this.args.nameBase, aliases);
-        addUpdateAction(venue, { aliases }, null, true);
+        await addUpdateAction(venue, { aliases }, null, true);
       }
     },
     AddCat2: class extends ActionFlag {
@@ -7006,9 +6996,9 @@
         return result;
       }
 
-      action() {
+      async action() {
         const categories = insertAtIndex(this.venue.categories, this.altCategory, 1);
-        addUpdateAction(this.venue, { categories }, null, true);
+        await addUpdateAction(this.venue, { categories }, null, true);
       }
     },
     AddPharm: class extends ActionFlag {
@@ -7020,9 +7010,9 @@
         return args.pnhMatch.flagsToAdd?.addPharm && !args.categories.includes('PHARMACY');
       }
 
-      action() {
+      async action() {
         const categories = insertAtIndex(this.args.venue.categories, 'PHARMACY', 1);
-        addUpdateAction(this.args.venue, { categories }, null, true);
+        await addUpdateAction(this.args.venue, { categories }, null, true);
       }
     },
     AddSuper: class extends ActionFlag {
@@ -7034,9 +7024,9 @@
         return args.pnhMatch.flagsToAdd?.addSuper && !args.categories.includes('SUPERMARKET_GROCERY');
       }
 
-      action() {
+      async action() {
         const categories = insertAtIndex(this.args.venue.categories, 'SUPERMARKET_GROCERY', 1);
-        addUpdateAction(this.args.venue, { categories }, null, true);
+        await addUpdateAction(this.args.venue, { categories }, null, true);
       }
     },
     AppendAMPM: class extends ActionFlag {
@@ -7051,9 +7041,9 @@
         return args.pnhMatch.flagsToAdd?.appendAMPM;
       }
 
-      action() {
+      async action() {
         const categories = insertAtIndex(this.args.venue.categories, 'CONVENIENCE_STORE', 1);
-        addUpdateAction(this.args.venue, { name: 'ARCO ampm', url: 'ampm.com', categories }, null, true);
+        await addUpdateAction(this.args.venue, { name: 'ARCO ampm', url: 'ampm.com', categories }, null, true);
       }
     },
     AddATM: class extends ActionFlag {
@@ -7079,9 +7069,9 @@
         return flaggable;
       }
 
-      action() {
+      async action() {
         const categories = insertAtIndex(this.args.venue.categories, 'ATM', 1); // Insert ATM category in the second position
-        addUpdateAction(this.args.venue, { categories }, null, true);
+        await addUpdateAction(this.args.venue, { categories }, null, true);
       }
     },
     AddConvStore: class extends ActionFlag {
@@ -7096,10 +7086,10 @@
         );
       }
 
-      action() {
+      async action() {
         // Insert C.S. category in the second position
         const categories = insertAtIndex(this.args.venue.categories, 'CONVENIENCE_STORE', 1);
-        addUpdateAction(this.args.venue, { categories }, null, true);
+        await addUpdateAction(this.args.venue, { categories }, null, true);
       }
     },
     IsThisAPostOffice: class extends ActionFlag {
@@ -7117,9 +7107,9 @@
         );
       }
 
-      action() {
+      async action() {
         const categories = insertAtIndex(this.args.venue.categories, 'POST_OFFICE', 0);
-        addUpdateAction(this.args.venue, { categories }, null, true);
+        await addUpdateAction(this.args.venue, { categories }, null, true);
       }
     },
     ChangeToHospitalUrgentCare: class extends ActionFlag {
@@ -7131,7 +7121,7 @@
         return !args.highlightOnly && args.categories.includes('DOCTOR_CLINIC');
       }
 
-      action() {
+      async action() {
         let categories = this.args.venue.categories;
         if (!categories.includes('HOSPITAL_MEDICAL_CARE')) {
           const indexToReplace = categories.indexOf('DOCTOR_CLINIC');
@@ -7139,7 +7129,7 @@
             categories = categories.slice(); // create a copy
             categories[indexToReplace] = 'HOSPITAL_URGENT_CARE';
           }
-          addUpdateAction(this.args.venue, { categories });
+          await addUpdateAction(this.args.venue, { categories });
         }
         //         harmonizePlaceGo(this.args.venue, 'harmonize');
       }
@@ -7161,7 +7151,7 @@
         return false;
       }
 
-      action() {
+      async action() {
         let categories = this.args.venue.categories.slice();
         let updateIt = false;
         if (categories.length) {
@@ -7176,7 +7166,7 @@
           updateIt = true;
         }
         if (updateIt) {
-          addUpdateAction(this.args.venue, { categories }, null, true);
+          await addUpdateAction(this.args.venue, { categories }, null, true);
         } else {
           //           harmonizePlaceGo(this.args.venue, 'harmonize');
         }
@@ -7198,7 +7188,7 @@
         );
       }
 
-      action() {
+      async action() {
         let categories = this.args.venue.categories.slice();
         let updateIt = false;
         if (categories.length) {
@@ -7215,7 +7205,7 @@
           updateIt = true;
         }
         if (updateIt) {
-          addUpdateAction(this.args.venue, { categories });
+          await addUpdateAction(this.args.venue, { categories });
         }
         //         harmonizePlaceGo(this.args.venue, 'harmonize');
       }
@@ -7244,13 +7234,13 @@
         return !args.pnhNameRegMatch && args.nameBase !== titleCase(args.nameBase);
       }
 
-      action() {
+      async action() {
         let name = this.args.venue.name;
         if (name === this.#originalName || this.#confirmChange) {
           const parts = getNameParts(this.#originalName);
           name = titleCase(parts.base);
           if (parts.base !== name) {
-            addUpdateAction(this.args.venue, { name: name + (parts.suffix || '') }, undefined, true);
+            await addUpdateAction(this.args.venue, { name: name + (parts.suffix || '') }, undefined, true);
           } else {
             //             harmonizePlaceGo(this.args.venue, 'harmonize');
           }
@@ -7279,19 +7269,22 @@
       constructor(args) {
         super();
 
-        if (args.venue.lockRank < args.levelToLock) {
-          if (!args.highlightOnly) {
-            // Check if we already locked this venue in this harmonization session (prevents double-locking from re-harmonization)
-            logDev(`Venue locked! Current: ${args.venue.lockRank}, Target: ${args.levelToLock}`);
-            // Use same pattern as HN/URL/PHONE/services - direct push to actions array for consistent undo tracking
-            try {
-              args.actions.push(sdk.DataModel.Venues.updateVenue({ venueId: args.venue.id, lockRank: args.levelToLock }));
-              UPDATED_FIELDS.checkNewAttributes({ lockRank: args.levelToLock }, args.venue);
-            } catch (e) {
-              logDev('Could not lock venue - you may not have permission', e);
-            }
-          } else {
-            this.hlLockFlag = true;
+        if (args.venue.lockRank < args.levelToLock && args.highlightOnly) {
+          this.hlLockFlag = true;
+        }
+      }
+
+      // SDK write lives here, not in the constructor (constructors cannot await). Called by harmonizePlaceGo_impl.
+      static async applyLock(args) {
+        if (args.venue.lockRank < args.levelToLock && !args.highlightOnly) {
+          // Check if we already locked this venue in this harmonization session (prevents double-locking from re-harmonization)
+          logDev(`Venue locked! Current: ${args.venue.lockRank}, Target: ${args.levelToLock}`);
+          // Use same pattern as HN/URL/PHONE/services - direct push to actions array for consistent undo tracking
+          try {
+            args.actions.push(await sdk.DataModel.Venues.updateVenue({ venueId: args.venue.id, lockRank: args.levelToLock }));
+            UPDATED_FIELDS.checkNewAttributes({ lockRank: args.levelToLock }, args.venue);
+          } catch (e) {
+            logDev('Could not lock venue - you may not have permission', e);
           }
         }
       }
@@ -7724,11 +7717,12 @@
     wl = {};
     outputPhoneFormat = '({0}) {1}-{2}';
 
-    constructor(venue, actions, highlightOnly) {
+    // addr is resolved by the caller (getVenueAddress is async and constructors cannot await)
+    constructor(venue, actions, highlightOnly, addr) {
       this.venue = venue;
 
       this.highlightOnly = highlightOnly;
-      this.addr = getVenueAddress(venue);
+      this.addr = addr;
 
       this.actions = actions;
       this.categories = venue.categories?.slice() || [];
@@ -7736,28 +7730,13 @@
       this.nameSuffix = nameParts?.suffix;
       this.nameBase = nameParts?.base;
       this.aliases = venue.aliases?.slice() || [];
-      // Only read description from DOM during harmonization (when edit form is open), not during scanning
-      this.description = !highlightOnly ? this.getDescriptionFromDOM() : null;
+      this.description = venue.description;
       this.url = venue.url;
       this.phone = venue.phone;
       this.openingHours = venue.openingHours;
       // Set up a variable (newBrand) to contain the brand. When harmonizing, it may be forced to a new value.
       // Other brand flags should use it since it won't be updated on the actual venue until later.
       this.brand = venue.brand;
-    }
-
-    getDescriptionFromDOM() {
-      try {
-        const descField = UPDATED_FIELDS.description;
-        const element = document.querySelector(descField.selector);
-        if (element && descField.shadowSelector) {
-          const textarea = element.shadowRoot?.querySelector(descField.shadowSelector);
-          return textarea?.value || null;
-        }
-      } catch (e) {
-        logDev(`Error reading description from DOM: ${e}`);
-      }
-      return null;
     }
   }
   class GooglePlaceContainer {
@@ -7823,12 +7802,12 @@
   /**
    * Toggles the color highlighting checkbox and updates map display.
    */
-  function toggleHighlightCheckbox() {
+  async function toggleHighlightCheckbox() {
     const checkbox = $('#WMEPH-ColorHighlighting');
     if (checkbox.length) {
       checkbox.prop('checked', !checkbox.prop('checked'));
       // Call the handler directly to update the map highlighting
-      bootstrapWmephColorHighlights();
+      await bootstrapWmephColorHighlights();
       log(`Color highlighting ${checkbox.prop('checked') ? 'enabled' : 'disabled'}`);
     }
   }
@@ -7857,9 +7836,9 @@
     return btn;
   }
 
-  function initializeCategories() {
+  async function initializeCategories() {
     try {
-      const subCategories = sdk.DataModel.Venues.getVenueSubCategories();
+      const subCategories = await sdk.DataModel.Venues.getVenueSubCategories();
       subCategories.forEach((subCat) => {
         SUBCATEGORIES_BY_ID[subCat.subCategoryId] = subCat;
       });
@@ -7901,9 +7880,9 @@
               marginRight: '4px',
             })
             .append($('<i>', { class: 'w-icon w-icon-search' }))
-            .click(() => {
+            .click(async () => {
               logDev('PUR Google button clicked');
-              openWebSearch();
+              await openWebSearch();
             });
           $headerActions.append($btn);
         }
@@ -7951,7 +7930,7 @@
      * falls back to viewport location (via SDK) if address is missing, then opens a Google search.
      * If opening in new tab, uses window.open(url). Otherwise, opens in SEARCH_RESULTS_WINDOW_NAME.
      */
-    function openWebSearch() {
+    async function openWebSearch() {
       let name = null;
       let addr = null;
       // Find place name and address within the PUR popup using stable selectors
@@ -7969,8 +7948,8 @@
       // If address is missing from PUR popup, try to get city/state from viewport
       if (!addr) {
         try {
-          const topState = sdk.DataModel.States.getTopState();
-          const topCountry = sdk.DataModel.Countries.getTopCountry();
+          const topState = await sdk.DataModel.States.getTopState();
+          const topCountry = await sdk.DataModel.Countries.getTopCountry();
           const viewportState = topState?.name ? `${topState.name}` : '';
           const viewportCountry = topCountry?.name ? `${topCountry.name}` : '';
           const fallbackAddr = `${viewportState}${viewportCountry ? ', ' + viewportCountry : ''}`.trim();
@@ -8044,13 +8023,13 @@
   /**
    * Zooms the map to center on the currently selected venue (zoom 19), or falls back to mouse position (zoom 18).
    */
-  function zoomPlace() {
-    const venue = getSelectedVenue();
+  async function zoomPlace() {
+    const venue = await getSelectedVenue();
     if (venue) {
       const { longitude, latitude } = getVenueLonLat(venue);
-      sdk.Map.setMapCenter({ lonLat: { lon: longitude, lat: latitude }, zoomLevel: 19 });
+      await sdk.Map.setMapCenter({ lonLat: { lon: longitude, lat: latitude }, zoomLevel: 19 });
     } else if (_wmephMousePosition) {
-      sdk.Map.setMapCenter({ lonLat: _wmephMousePosition, zoomLevel: 18 });
+      await sdk.Map.setMapCenter({ lonLat: _wmephMousePosition, zoomLevel: 18 });
     }
   }
 
@@ -8060,7 +8039,7 @@
    * Updates venue via SDK; changes are tracked as unsaved until user clicks WME Save.
    * @param {Object} venue - The venue object to nudge (must have geometry and id)
    */
-  function nudgeVenue(venue) {
+  async function nudgeVenue(venue) {
     const newGeometry = structuredClone(venue.geometry);
     const moveNegative = Math.random() > 0.5;
     const nudgeDistance = 0.00000001 * (moveNegative ? -1 : 1);
@@ -8073,7 +8052,7 @@
       newGeometry.coordinates[0][1][0] += nudgeDistance;
     }
     // SDK tracks changes as unsaved; user commits via WME Save button
-    sdk.DataModel.Venues.updateVenue({ venueId: venue.id, geometry: newGeometry });
+    await sdk.DataModel.Venues.updateVenue({ venueId: venue.id, geometry: newGeometry });
     venue._hasBeenNudged = true;
   }
 
@@ -8081,9 +8060,9 @@
    * Clears all duplicate label features from the _dupeLayer map layer.
    * Silently catches and logs any errors to prevent script interruption.
    */
-  function destroyDupeLabels() {
+  async function destroyDupeLabels() {
     try {
-      sdk.Map.removeAllFeaturesFromLayer({ layerName: _dupeLayer });
+      await sdk.Map.removeAllFeaturesFromLayer({ layerName: _dupeLayer });
     } catch (e) {
       logDev('Error clearing dupe labels layer:', e);
     }
@@ -8094,10 +8073,10 @@
    * This is a stub function: dupe removal is now primarily detected via SDK event listeners.
    * Clears all dupe labels if the _dupeIDList is empty.
    */
-  function deleteDupeLabel() {
+  async function deleteDupeLabel() {
     // Stub: dupe removal is now detected via SDK event listeners
     if (_dupeIDList.length === 0) {
-      destroyDupeLabels();
+      await destroyDupeLabels();
     }
   }
 
@@ -8109,9 +8088,9 @@
    * @param {string} wlKeyName - The whitelist flag key name to add
    * @returns {boolean} true if successful, false if venue lacks a country address
    */
-  function whitelistAction(venueID, wlKeyName) {
-    const venue = getSelectedVenue();
-    const addressTemp = getVenueAddress(venue);
+  async function whitelistAction(venueID, wlKeyName) {
+    const venue = await getSelectedVenue();
+    const addressTemp = await getVenueAddress(venue);
     if (!addressTemp?.country) {
       WazeWrap.Alerts.error(SCRIPT_NAME, "Whitelisting requires an address. Enter the place's address and try again.");
       return false;
@@ -8235,17 +8214,14 @@
     $('head').append($('<style>', { type: 'text/css' }).html(cssArray.join('\n')));
   }
 
-  function onVenuesChanged(venueProxies) {
-    deleteDupeLabel();
+  // wasUndoAction is captured by the change-event handler before its first await (see that handler).
+  async function onVenuesChanged(venueProxies, wasUndoAction = false) {
+    await deleteDupeLabel();
 
-    const venue = getSelectedVenue();
+    const venue = await getSelectedVenue();
     if (venueProxies.map((proxy) => proxy.id).includes(venue?.id)) {
       const hasBanner = $('#WMEPH_banner').length > 0;
-      logDev(`onVenuesChanged: banner=${hasBanner}, harmonizing=${_isHarmonizing}, undid=${_userJustUndid}`);
-
-      // Check for undo and reset flag immediately (undo event may fire unexpectedly from SDK operations)
-      const wasUndoAction = _userJustUndid;
-      _userJustUndid = false;
+      logDev(`onVenuesChanged: banner=${hasBanner}, harmonizing=${_isHarmonizing}, undid=${wasUndoAction}`);
 
       // Invalidate cache for this venue when external changes are detected
       // (ensures stale data from undo doesn't persist)
@@ -8255,14 +8231,18 @@
         logDev(`Invalidated cache for venue ${venue.id} — external changes detected`);
       }
 
-      if (hasBanner && venue?.id && !_isHarmonizing && !wasUndoAction) {
+      if (hasBanner && venue?.id && _isHarmonizing && !wasUndoAction) {
+        // A change arrived mid-harmonize and would otherwise be dropped (its banner would be built from stale data).
+        // Queue one re-run; harmonizePlaceGo_impl runs it when the current pass finishes.
+        _pendingReharmonize = true;
+      } else if (hasBanner && venue?.id && !_isHarmonizing && !wasUndoAction) {
         // Auto-harmonize when venue with banner is modified (but not if already harmonizing or user just undid)
-        harmonizePlaceGo(venue, 'harmonize');
+        await harmonizePlaceGo(venue, 'harmonize');
       } else if (wasUndoAction) {
         logDev('Skipped re-harmonization — user performed undo');
       }
 
-      updateWmephPanel();
+      await updateWmephPanel();
     }
   }
 
@@ -8289,48 +8269,14 @@
     savedLayerStates: new Map()  // Stores original visibility/opacity of each layer
   };
 
-  // Map layer names to their DOM IDs for state querying
-  const layerDomIdMap = {
-    'Roads': 'layer-switcher-item_road',
-    'Paths': 'layer-switcher-item_paths',
-    'JunctionBoxes': 'layer-switcher-item_junction_boxes',
-    'Hazards': 'layer-switcher-item_hazards',
-    'Closures': 'layer-switcher-item_closures',
-    'HouseNumbers': 'layer-switcher-item_house_numbers'
-  };
-
-  function getLayerCheckboxState(layerName) {
-    const domId = layerDomIdMap[layerName];
-    if (!domId) return true;  // Default to visible if not found
-    const checkbox = document.getElementById(domId);
-    return checkbox?.hasAttribute('checked') ?? true;
-  }
-
-  // NOTE: House Numbers layer does not have an SDK setter (setHouseNumbersLayerCheckboxChecked doesn't exist)
-  // So we toggle it via DOM manipulation instead. If SDK adds support later, replace this with the setter.
-  function toggleLayerCheckboxViaDOM(layerName, isChecked) {
-    const domId = layerDomIdMap[layerName];
-    if (!domId) return false;
-    const checkbox = document.getElementById(domId);
-    if (!checkbox) return false;
-
-    const shouldBeChecked = isChecked;
-    const isCurrentlyChecked = checkbox.hasAttribute('checked');
-
-    if (shouldBeChecked !== isCurrentlyChecked) {
-      checkbox.click();  // Toggle by clicking
-    }
-    return true;
-  }
-
-  function toggleXrayMode(enable) {
+  async function toggleXrayMode(enable) {
     const layersToControl = [
-      { name: 'Roads', setter: 'setRoadsLayerCheckboxChecked' },
-      { name: 'Paths', setter: 'setPathsLayerCheckboxChecked' },
-      { name: 'JunctionBoxes', setter: 'setJunctionBoxesLayerCheckboxChecked' },
-      { name: 'Hazards', setter: 'setHazardsLayerCheckboxChecked' },
-      { name: 'Closures', setter: 'setClosuresLayerCheckboxChecked' },
-      { name: 'HouseNumbers', setter: 'setHouseNumbersLayerCheckboxChecked' },
+      { name: 'Roads', wmeLayerName: 'roads', setter: 'setRoadsLayerCheckboxChecked' },
+      { name: 'Paths', wmeLayerName: 'paths', setter: 'setPathsLayerCheckboxChecked' },
+      { name: 'JunctionBoxes', wmeLayerName: 'junctionBoxes', setter: 'setJunctionBoxesLayerCheckboxChecked' },
+      { name: 'Hazards', wmeLayerName: 'permanentHazards', setter: 'setHazardsLayerCheckboxChecked' },
+      { name: 'Closures', wmeLayerName: 'closures', setter: 'setClosuresLayerCheckboxChecked' },
+      { name: 'HouseNumbers', wmeLayerName: 'houseNumbers' },
     ];
 
     const xrayEnabled = enable;
@@ -8340,73 +8286,114 @@
       // ENABLE X-RAY: Save current states, then hide layers
       logDev('X-Ray: Saving layer states and enabling X-ray mode');
 
-      layersToControl.forEach((layer) => {
+      for (const layer of layersToControl) {
         try {
-          // Query actual DOM state before hiding
-          const isChecked = getLayerCheckboxState(layer.name);
+          // Query actual WME layer visibility before hiding
+          const isChecked = await sdk.LayerSwitcher.getWMELayerVisibility({ layerName: layer.wmeLayerName });
           xrayState.savedLayerStates.set(layer.name, isChecked);
           logDev(`X-Ray: Saved ${layer.name} state: ${isChecked}`);
 
-          // House Numbers doesn't have an SDK setter, use DOM toggle instead
-          if (layer.name === 'HouseNumbers') {
-            toggleLayerCheckboxViaDOM(layer.name, false);
-            logDev(`X-Ray: Hid ${layer.name} layer (via DOM)`);
+          if (layer.wmeLayerName) {
+            await sdk.LayerSwitcher.setWMELayerVisibility({ layerName: layer.wmeLayerName, isVisible: false });
           } else {
-            sdk.LayerSwitcher[layer.setter]({ isChecked: false });
-            logDev(`X-Ray: Hid ${layer.name} layer`);
+            await sdk.LayerSwitcher[layer.setter]({ isChecked: false });
           }
+          logDev(`X-Ray: Hid ${layer.name} layer`);
         } catch (e) {
           logDev(`X-Ray: Could not hide ${layer.name} layer:`, e);
         }
-      });
+      }
 
       // Save and reduce venues layer opacity
       try {
-        const currentOpacity = sdk.Map.getLayerOpacity({ layerName: 'venues' });
+        const currentOpacity = await sdk.Map.getLayerOpacity({ layerName: 'venues' });
         xrayState.savedLayerStates.set('venues', currentOpacity);
         logDev(`X-Ray: Saved venues opacity: ${currentOpacity}`);
 
-        sdk.Map.addStyleRuleToLayer({
+        await sdk.Map.addStyleRuleToLayer({
           layerName: 'venues',
           styleRules: [{
             predicate: () => xrayState.enabled,  // Only apply when X-ray is enabled
-            style: { fillOpacity: 0.1, strokeOpacity: 0.1 }
+            style: { fillOpacity: 0.3, strokeOpacity: 0.3 }
           }]
         });
-        redrawLayer('venues');
+        await redrawLayer('venues');
         logDev('X-Ray: Reduced venues layer opacity');
       } catch (e) {
         logDev('X-Ray: Could not update venues layer:', e);
       }
 
-      redrawLayer(_dupeLayer);
+      // TEST: check whether addStyleRuleToLayer can dim road segments (segments is in WME_LAYER_NAMES)
+      try {
+        await sdk.Map.addStyleRuleToLayer({
+          layerName: 'segments',
+          styleRules: [{
+            predicate: () => xrayState.enabled,
+            style: { fillOpacity: 0.2, strokeOpacity: 0.2 }
+          }]
+        });
+        await redrawLayer('segments');
+        logDev('X-Ray TEST: Applied segments style rule');
+      } catch (e) {
+        logDev('X-Ray TEST: segments style rule failed:', e);
+      }
+
+      // Dim map comments (legacy: polygon strokeColor #888, fillOpacity 0.2)
+      try {
+        await sdk.Map.addStyleRuleToLayer({
+          layerName: 'mapComments',
+          styleRules: [{
+            predicate: () => xrayState.enabled,
+            style: { strokeColor: '#888', fillOpacity: 0.2 }
+          }]
+        });
+        await redrawLayer('mapComments');
+        logDev('X-Ray: Dimmed map comments');
+      } catch (e) {
+        logDev('X-Ray: Could not dim map comments:', e);
+      }
+
+      await redrawLayer(_dupeLayer);
     } else {
       // DISABLE X-RAY: Restore saved states
       logDev('X-Ray: Restoring saved layer states');
 
-      layersToControl.forEach((layer) => {
+      for (const layer of layersToControl) {
         try {
           const savedVisibility = xrayState.savedLayerStates.get(layer.name) ?? true;
 
-          // House Numbers doesn't have an SDK setter, use DOM toggle instead
-          if (layer.name === 'HouseNumbers') {
-            toggleLayerCheckboxViaDOM(layer.name, savedVisibility);
-            logDev(`X-Ray: Restored ${layer.name} to ${savedVisibility} (via DOM)`);
+          if (layer.wmeLayerName) {
+            await sdk.LayerSwitcher.setWMELayerVisibility({ layerName: layer.wmeLayerName, isVisible: savedVisibility });
           } else {
-            sdk.LayerSwitcher[layer.setter]({ isChecked: savedVisibility });
-            logDev(`X-Ray: Restored ${layer.name} to ${savedVisibility}`);
+            await sdk.LayerSwitcher[layer.setter]({ isChecked: savedVisibility });
           }
+          logDev(`X-Ray: Restored ${layer.name} to ${savedVisibility}`);
         } catch (e) {
           logDev(`X-Ray: Could not restore ${layer.name} layer:`, e);
         }
-      });
+      }
 
       // Restore venues layer (predicate will handle it since xrayState.enabled is now false)
       try {
-        redrawLayer('venues');
+        await redrawLayer('venues');
         logDev('X-Ray: Restored venues layer');
       } catch (e) {
         logDev('X-Ray: Could not restore venues layer:', e);
+      }
+
+      // TEST: restore segments (predicate handles it since xrayState.enabled is now false)
+      try {
+        await redrawLayer('segments');
+      } catch (e) {
+        logDev('X-Ray TEST: Could not restore segments layer:', e);
+      }
+
+      // Restore map comments (predicate handles it since xrayState.enabled is now false)
+      try {
+        await redrawLayer('mapComments');
+        logDev('X-Ray: Restored map comments');
+      } catch (e) {
+        logDev('X-Ray: Could not restore map comments:', e);
       }
     }
   }
@@ -8419,11 +8406,11 @@
    * @param {Array|Object} venues - Single venue or array of venues to highlight
    * @param {boolean} force - If true, bypass cache and recalculate severity for all venues
    */
-  function applyHighlightsTest(venues, force) {
+  async function applyHighlightsTest(venues, force) {
     if (!_layer) return;
 
     // Don't highlight if WME Venues layer is hidden
-    if (!sdk.Map.isLayerVisible({ layerName: 'venues' })) {
+    if (!await sdk.Map.isLayerVisible({ layerName: 'venues' })) {
       return;
     }
 
@@ -8446,14 +8433,14 @@
     const shouldRefreshLayer = doHighlight || $('#WMEPH-PLATypeFill').prop('checked') || $('#WMEPH-ShowFilterHighlight').prop('checked');
     if (shouldRefreshLayer) {
       try {
-        sdk.Map.removeAllFeaturesFromLayer({ layerName: _layer });
+        await sdk.Map.removeAllFeaturesFromLayer({ layerName: _layer });
       } catch (e) {
         logDev('Error clearing highlights layer:', e);
       }
     }
 
     const colorFeaturesToAdd = [];
-    venues.forEach((venue) => {
+    for (const venue of venues) {
       if (venue && venue.id) {
         // Don't artificially add PARKING_LOT category based on services
         // Only venues that actually have PARKING_LOT as their primary category should be treated as parking lots
@@ -8468,14 +8455,14 @@
             let cachedResult;
             // eslint-disable-next-line no-cond-assign
             if (force || (cachedResult = _resultsCache[id]) === undefined || venue.updatedOn > cachedResult.u) {
-              severity = harmonizePlaceGo(venue, 'highlight', undefined, false); // false = cache miss
+              severity = await harmonizePlaceGo(venue, 'highlight', undefined, false); // false = cache miss
               addToResultsCache(id, { s: severity, u: venue.updatedOn || -1 });
             } else {
               severity = cachedResult.s;
               wmephStats.cacheHits++; // Direct cache hit (no harmonizePlaceGo call)
             }
             venue.wmephSeverity = severity;
-            venue.wmephParkingType = sdk.DataModel.Venues.ParkingLot.getParkingLotType({ venueId: venue.id }) || null;
+            venue.wmephParkingType = (await sdk.DataModel.Venues.ParkingLot.getParkingLotType({ venueId: venue.id })) || null;
 
             // Add color feature to layer for visualization
             if (venue.geometry && severity !== undefined) {
@@ -8500,17 +8487,17 @@
           venue.wmephParkingType = null;
         }
       }
-    });
+    }
 
     // Add color highlight features to layer
     if (colorFeaturesToAdd.length > 0) {
       try {
-        colorFeaturesToAdd.forEach((feature) => {
-          sdk.Map.addFeatureToLayer({
+        for (const feature of colorFeaturesToAdd) {
+          await sdk.Map.addFeatureToLayer({
             layerName: _layer,
             feature: feature,
           });
-        });
+        }
       } catch (e) {
         logDev('Error adding color highlights:', e);
       }
@@ -8525,9 +8512,9 @@
       }
     }
 
-    const venue = getSelectedVenue();
+    const venue = await getSelectedVenue();
     if (venue) {
-      venue.wmephSeverity = harmonizePlaceGo(venue, 'highlight');
+      venue.wmephSeverity = await harmonizePlaceGo(venue, 'highlight');
       _servicesBanner = storedBannServ;
       _buttonBanner2 = storedBannButt2;
     }
@@ -8538,16 +8525,16 @@
    * Listens for venue data changes, additions, removals, map zoom, and map movement.
    * Triggers refreshAllHighlights() on each event (with harmonization state check for data-changed events).
    */
-  function bootstrapWmephColorHighlights() {
+  async function bootstrapWmephColorHighlights() {
     // Listen for venue data changes (when existing venues are modified)
     sdk.Events.on({
       eventName: 'wme-data-model-objects-changed',
       eventHandler: () => {
-        errorHandler(() => {
+        errorHandler(async () => {
           // Only refresh highlights if not currently harmonizing (avoid clearing cache during harmonization)
           // harmonizePlaceGo will handle cache clearing and refresh for its own venue
           if (!_isHarmonizing && !_disableHighlightTest) {
-            refreshAllHighlights();
+            await refreshAllHighlights();
           }
         });
       },
@@ -8556,53 +8543,56 @@
     // Listen for new venues being added
     sdk.Events.on({
       eventName: 'wme-data-model-objects-added',
-      eventHandler: () => {
-        refreshAllHighlights();
+      eventHandler: async () => {
+        await refreshAllHighlights();
       },
     });
 
     // Listen for venues being removed
     sdk.Events.on({
       eventName: 'wme-data-model-objects-removed',
-      eventHandler: () => {
-        refreshAllHighlights();
+      eventHandler: async () => {
+        await refreshAllHighlights();
       },
     });
 
     // Listen for map zoom changes to refresh highlights for newly visible venues
     sdk.Events.on({
       eventName: 'wme-map-zoom-changed',
-      eventHandler: () => {
-        refreshAllHighlights();
+      eventHandler: async () => {
+        await refreshAllHighlights();
       },
     });
 
     // Listen for map movement to refresh highlights for newly visible venues
     sdk.Events.on({
       eventName: 'wme-map-move-end',
-      eventHandler: () => {
-        refreshAllHighlights();
+      eventHandler: async () => {
+        await refreshAllHighlights();
       },
     });
 
     // Listen for venue selection changes to reset services tracking
     sdk.Events.on({
       eventName: 'wme-selection-changed',
-      eventHandler: () => {
-        const lastVenue = getSelectedVenue();
+      eventHandler: async () => {
+        // Records stay put when leaving a venue; show the new venue's changes as green.
+        const lastVenue = await getSelectedVenue();
+        _selectedVenueId = lastVenue?.id ?? null;
+        if (_selectedVenueId != null) UPDATED_FIELDS.showChangesFor(_selectedVenueId);
         _previousVenueServices = null;
         // Cache the final corrected state of the venue before deselecting
         // This ensures highlights are accurate when we refresh and when venue is reselected
         if (lastVenue && lastVenue.id) {
-          updateVenueSeverityCache(lastVenue);
+          await updateVenueSeverityCache(lastVenue);
         }
         // Refresh highlights to show updated colors based on fresh cache
-        refreshAllHighlights();
+        await refreshAllHighlights();
       },
     });
 
     // Rebuild all highlights based on current checkbox states
-    refreshAllHighlights();
+    await refreshAllHighlights();
   }
 
   /**
@@ -8775,34 +8765,37 @@
    * @param {boolean} [runHarmonizer=false] - If true, run harmonizePlaceGo after update
    * @param {boolean} [dontHighlightFields=false] - If true, skip field-change tracking in UPDATED_FIELDS
    */
-  function addUpdateAction(venue, newAttributes, _actions, runHarmonizer = false, dontHighlightFields = false) {
+  async function addUpdateAction(venue, newAttributes, _actions, runHarmonizer = false, dontHighlightFields = false) {
     if (Object.keys(newAttributes).length) {
-      if (!dontHighlightFields) {
-        UPDATED_FIELDS.checkNewAttributes(newAttributes, venue);
-      }
-
       // SDK tracks changes as unsaved; no immediate save needed
       try {
         // SDK updateVenue supports all attributes including lockRank
         const updateableAttributes = { ...newAttributes };
 
         if (Object.keys(updateableAttributes).length > 0) {
-          sdk.DataModel.Venues.updateVenue({ venueId: venue.id, ...updateableAttributes });
+          await sdk.DataModel.Venues.updateVenue({ venueId: venue.id, ...updateableAttributes });
           logDev(`Updated venue ${venue.id} with:`, updateableAttributes);
+          // Mark green only after the write succeeded; a refused write must not show as a WMEPH change.
+          if (!dontHighlightFields) {
+            UPDATED_FIELDS.checkNewAttributes(newAttributes, venue);
+          }
         }
         // Changes accumulate for user to save via WME Save button
       } catch (e) {
         logDev('addUpdateAction: Failed to update venue', venue.id, newAttributes, e);
+        WazeWrap.Alerts.error(SCRIPT_NAME, `WMEPH could not save ${Object.keys(newAttributes).join(', ')}. ${e.message || 'WME refused the change.'}`, false, false);
       }
     }
     if (runHarmonizer) {
       setTimeout(() => {
-        // Get fresh venue object to ensure updated attributes are reflected
-        const freshVenue = sdk.DataModel.Venues.getById({ venueId: venue.id });
-        if (freshVenue) {
-          harmonizePlaceGo(freshVenue, 'harmonize');
-        }
-        updateWmephPanel();
+        (async () => {
+          // Get fresh venue object to ensure updated attributes are reflected
+          const freshVenue = await sdk.DataModel.Venues.getById({ venueId: venue.id });
+          if (freshVenue) {
+            await harmonizePlaceGo(freshVenue, 'harmonize');
+          }
+          await updateWmephPanel();
+        })().catch((e) => logDev(e));
       }, 0);
     }
   }
@@ -8815,13 +8808,13 @@
    * @param {boolean} [checked] - Desired checked state; if undefined, toggles current state
    * @param {Array} actions - Actions array to check for existing service updates
    */
-  function setServiceChecked(servBtn, checked, actions) {
+  async function setServiceChecked(servBtn, checked, actions) {
     const servID = WME_SERVICES_ARRAY[servBtn.servIDIndex];
     const checkboxChecked = $(`wz-checkbox[value="${servID}"]`).prop('checked');
-    const venue = getSelectedVenue();
+    const venue = await getSelectedVenue();
 
     if (checkboxChecked !== checked && UPDATED_FIELDS[`services_${servID}`]) {
-      UPDATED_FIELDS[`services_${servID}`].updated = true;
+      UPDATED_FIELDS.markChanged(venue?.id, `services_${servID}`, null, checked);
     }
     const toggle = typeof checked === 'undefined';
     let noAdd = false;
@@ -8851,10 +8844,10 @@
         }
       }
       if (!noAdd) {
-        addUpdateAction(venue, { services }, actions);
+        await addUpdateAction(venue, { services }, actions);
       }
     }
-    updateServicesChecks(_servicesBanner);
+    await updateServicesChecks(_servicesBanner);
     if (!toggle) servBtn.active = checked;
   }
 
@@ -8906,7 +8899,7 @@
    * Validates beta version access, checks for disabled categories, and processes all harmonization rules.
    * @returns {void} Updates are applied directly to the venue via harmonizePlaceGo()
    */
-  function harmonizePlace() {
+  async function harmonizePlace() {
     logDev('harmonizePlace');
     // Beta version for approved users only
     if (IS_BETA_VERSION && !USER.isBetaUser) {
@@ -8914,17 +8907,16 @@
       return;
     }
     // Only run if a single place is selected
-    const venue = getSelectedVenue();
+    const venue = await getSelectedVenue();
     if (venue) {
-      UPDATED_FIELDS.reset();
       blurAll(); // focus away from current cursor position
       _disableHighlightTest = true;
-      harmonizePlaceGo(venue, 'harmonize');
+      await harmonizePlaceGo(venue, 'harmonize');
       _disableHighlightTest = false;
-      refreshAllHighlights();
+      await refreshAllHighlights();
     } else {
       // Remove duplicate labels
-      destroyDupeLabels();
+      await destroyDupeLabels();
     }
   }
 
@@ -8946,15 +8938,15 @@
         title: 'Valet service',
         serviceId: 'VALLET_SERVICE',
         servIDIndex: 0,
-        action(actions, checked) {
-          setServiceChecked(this, checked, actions);
+        async action(actions, checked) {
+          await setServiceChecked(this, checked, actions);
         },
         pnhOverride: false,
-        actionOn(actions) {
-          this.action(actions, true);
+        async actionOn(actions) {
+          await this.action(actions, true);
         },
-        actionOff(actions) {
-          this.action(actions, false);
+        async actionOff(actions) {
+          await this.action(actions, false);
         },
       },
       addDriveThru: {
@@ -8966,15 +8958,15 @@
         title: 'Drive-thru',
         serviceId: 'DRIVETHROUGH',
         servIDIndex: 1,
-        action(actions, checked) {
-          setServiceChecked(this, checked, actions);
+        async action(actions, checked) {
+          await setServiceChecked(this, checked, actions);
         },
         pnhOverride: false,
-        actionOn(actions) {
-          this.action(actions, true);
+        async actionOn(actions) {
+          await this.action(actions, true);
         },
-        actionOff(actions) {
-          this.action(actions, false);
+        async actionOff(actions) {
+          await this.action(actions, false);
         },
       },
       addWiFi: {
@@ -8986,15 +8978,15 @@
         title: 'Wi-Fi',
         serviceId: 'WI_FI',
         servIDIndex: 2,
-        action(actions, checked) {
-          setServiceChecked(this, checked, actions);
+        async action(actions, checked) {
+          await setServiceChecked(this, checked, actions);
         },
         pnhOverride: false,
-        actionOn(actions) {
-          this.action(actions, true);
+        async actionOn(actions) {
+          await this.action(actions, true);
         },
-        actionOff(actions) {
-          this.action(actions, false);
+        async actionOff(actions) {
+          await this.action(actions, false);
         },
       },
       addRestrooms: {
@@ -9006,15 +8998,15 @@
         title: 'Restrooms',
         serviceId: 'RESTROOMS',
         servIDIndex: 3,
-        action(actions, checked) {
-          setServiceChecked(this, checked, actions);
+        async action(actions, checked) {
+          await setServiceChecked(this, checked, actions);
         },
         pnhOverride: false,
-        actionOn(actions) {
-          this.action(actions, true);
+        async actionOn(actions) {
+          await this.action(actions, true);
         },
-        actionOff(actions) {
-          this.action(actions, false);
+        async actionOff(actions) {
+          await this.action(actions, false);
         },
       },
       addCreditCards: {
@@ -9026,15 +9018,15 @@
         title: 'Accepts credit cards',
         serviceId: 'CREDIT_CARDS',
         servIDIndex: 4,
-        action(actions, checked) {
-          setServiceChecked(this, checked, actions);
+        async action(actions, checked) {
+          await setServiceChecked(this, checked, actions);
         },
         pnhOverride: false,
-        actionOn(actions) {
-          this.action(actions, true);
+        async actionOn(actions) {
+          await this.action(actions, true);
         },
-        actionOff(actions) {
-          this.action(actions, false);
+        async actionOff(actions) {
+          await this.action(actions, false);
         },
       },
       addReservations: {
@@ -9046,15 +9038,15 @@
         title: 'Reservations',
         serviceId: 'RESERVATIONS',
         servIDIndex: 5,
-        action(actions, checked) {
-          setServiceChecked(this, checked, actions);
+        async action(actions, checked) {
+          await setServiceChecked(this, checked, actions);
         },
         pnhOverride: false,
-        actionOn(actions) {
-          this.action(actions, true);
+        async actionOn(actions) {
+          await this.action(actions, true);
         },
-        actionOff(actions) {
-          this.action(actions, false);
+        async actionOff(actions) {
+          await this.action(actions, false);
         },
       },
       addOutside: {
@@ -9066,15 +9058,15 @@
         title: 'Outdoor seating',
         serviceId: 'OUTSIDE_SEATING',
         servIDIndex: 6,
-        action(actions, checked) {
-          setServiceChecked(this, checked, actions);
+        async action(actions, checked) {
+          await setServiceChecked(this, checked, actions);
         },
         pnhOverride: false,
-        actionOn(actions) {
-          this.action(actions, true);
+        async actionOn(actions) {
+          await this.action(actions, true);
         },
-        actionOff(actions) {
-          this.action(actions, false);
+        async actionOff(actions) {
+          await this.action(actions, false);
         },
       },
       addAC: {
@@ -9086,15 +9078,15 @@
         title: 'Air conditioning',
         serviceId: 'AIR_CONDITIONING',
         servIDIndex: 7,
-        action(actions, checked) {
-          setServiceChecked(this, checked, actions);
+        async action(actions, checked) {
+          await setServiceChecked(this, checked, actions);
         },
         pnhOverride: false,
-        actionOn(actions) {
-          this.action(actions, true);
+        async actionOn(actions) {
+          await this.action(actions, true);
         },
-        actionOff(actions) {
-          this.action(actions, false);
+        async actionOff(actions) {
+          await this.action(actions, false);
         },
       },
       addParking: {
@@ -9106,15 +9098,15 @@
         title: 'Parking',
         serviceId: 'PARKING_FOR_CUSTOMERS',
         servIDIndex: 8,
-        action(actions, checked) {
-          setServiceChecked(this, checked, actions);
+        async action(actions, checked) {
+          await setServiceChecked(this, checked, actions);
         },
         pnhOverride: false,
-        actionOn(actions) {
-          this.action(actions, true);
+        async actionOn(actions) {
+          await this.action(actions, true);
         },
-        actionOff(actions) {
-          this.action(actions, false);
+        async actionOff(actions) {
+          await this.action(actions, false);
         },
       },
       addDeliveries: {
@@ -9126,15 +9118,15 @@
         title: 'Deliveries',
         serviceId: 'DELIVERIES',
         servIDIndex: 9,
-        action(actions, checked) {
-          setServiceChecked(this, checked, actions);
+        async action(actions, checked) {
+          await setServiceChecked(this, checked, actions);
         },
         pnhOverride: false,
-        actionOn(actions) {
-          this.action(actions, true);
+        async actionOn(actions) {
+          await this.action(actions, true);
         },
-        actionOff(actions) {
-          this.action(actions, false);
+        async actionOff(actions) {
+          await this.action(actions, false);
         },
       },
       addTakeAway: {
@@ -9146,15 +9138,15 @@
         title: 'Take-out',
         serviceId: 'TAKE_AWAY',
         servIDIndex: 10,
-        action(actions, checked) {
-          setServiceChecked(this, checked, actions);
+        async action(actions, checked) {
+          await setServiceChecked(this, checked, actions);
         },
         pnhOverride: false,
-        actionOn(actions) {
-          this.action(actions, true);
+        async actionOn(actions) {
+          await this.action(actions, true);
         },
-        actionOff(actions) {
-          this.action(actions, false);
+        async actionOff(actions) {
+          await this.action(actions, false);
         },
       },
       addCurbside: {
@@ -9166,15 +9158,15 @@
         title: 'Curbside pickup',
         serviceId: 'CURBSIDE_PICKUP',
         servIDIndex: 11,
-        action(actions, checked) {
-          setServiceChecked(this, checked, actions);
+        async action(actions, checked) {
+          await setServiceChecked(this, checked, actions);
         },
         pnhOverride: false,
-        actionOn(actions) {
-          this.action(actions, true);
+        async actionOn(actions) {
+          await this.action(actions, true);
         },
-        actionOff(actions) {
-          this.action(actions, false);
+        async actionOff(actions) {
+          await this.action(actions, false);
         },
       },
       addWheelchair: {
@@ -9186,15 +9178,15 @@
         title: 'Wheelchair accessible',
         serviceId: 'WHEELCHAIR_ACCESSIBLE',
         servIDIndex: 12,
-        action(actions, checked) {
-          setServiceChecked(this, checked, actions);
+        async action(actions, checked) {
+          await setServiceChecked(this, checked, actions);
         },
         pnhOverride: false,
-        actionOn(actions) {
-          this.action(actions, true);
+        async actionOn(actions) {
+          await this.action(actions, true);
         },
-        actionOff(actions) {
-          this.action(actions, false);
+        async actionOff(actions) {
+          await this.action(actions, false);
         },
       },
       addDisabilityParking: {
@@ -9206,15 +9198,15 @@
         title: 'Disability parking',
         serviceId: 'DISABILITY_PARKING',
         servIDIndex: 17,
-        action(actions, checked) {
-          setServiceChecked(this, checked, actions);
+        async action(actions, checked) {
+          await setServiceChecked(this, checked, actions);
         },
         pnhOverride: false,
-        actionOn(actions) {
-          this.action(actions, true);
+        async actionOn(actions) {
+          await this.action(actions, true);
         },
-        actionOff(actions) {
-          this.action(actions, false);
+        async actionOff(actions) {
+          await this.action(actions, false);
         },
       },
       addAirportShuttle: {
@@ -9226,15 +9218,15 @@
         title: 'Airport shuttle',
         serviceId: 'AIRPORT_SHUTTLE',
         servIDIndex: 13,
-        action(actions, checked) {
-          setServiceChecked(this, checked, actions);
+        async action(actions, checked) {
+          await setServiceChecked(this, checked, actions);
         },
         pnhOverride: false,
-        actionOn(actions) {
-          this.action(actions, true);
+        async actionOn(actions) {
+          await this.action(actions, true);
         },
-        actionOff(actions) {
-          this.action(actions, false);
+        async actionOff(actions) {
+          await this.action(actions, false);
         },
       },
       addCarWash: {
@@ -9246,15 +9238,15 @@
         title: 'Car wash',
         serviceId: 'CAR_WASH',
         servIDIndex: 14,
-        action(actions, checked) {
-          setServiceChecked(this, checked, actions);
+        async action(actions, checked) {
+          await setServiceChecked(this, checked, actions);
         },
         pnhOverride: false,
-        actionOn(actions) {
-          this.action(actions, true);
+        async actionOn(actions) {
+          await this.action(actions, true);
         },
-        actionOff(actions) {
-          this.action(actions, false);
+        async actionOff(actions) {
+          await this.action(actions, false);
         },
       },
       addCarpoolParking: {
@@ -9266,15 +9258,15 @@
         title: 'Carpool parking',
         serviceId: 'CARPOOL_PARKING',
         servIDIndex: 15,
-        action(actions, checked) {
-          setServiceChecked(this, checked, actions);
+        async action(actions, checked) {
+          await setServiceChecked(this, checked, actions);
         },
         pnhOverride: false,
-        actionOn(actions) {
-          this.action(actions, true);
+        async actionOn(actions) {
+          await this.action(actions, true);
         },
-        actionOff(actions) {
-          this.action(actions, false);
+        async actionOff(actions) {
+          await this.action(actions, false);
         },
       },
       addCovered: {
@@ -9286,15 +9278,15 @@
         title: 'Covered parking',
         serviceId: 'COVERED',
         servIDIndex: 16,
-        action(actions, checked) {
-          setServiceChecked(this, checked, actions);
+        async action(actions, checked) {
+          await setServiceChecked(this, checked, actions);
         },
         pnhOverride: false,
-        actionOn(actions) {
-          this.action(actions, true);
+        async actionOn(actions) {
+          await this.action(actions, true);
         },
-        actionOff(actions) {
-          this.action(actions, false);
+        async actionOff(actions) {
+          await this.action(actions, false);
         },
       },
       addEVChargingStation: {
@@ -9306,15 +9298,15 @@
         title: 'EV charging station',
         serviceId: 'EV_CHARGING_STATION',
         servIDIndex: 18,
-        action(actions, checked) {
-          setServiceChecked(this, checked, actions);
+        async action(actions, checked) {
+          await setServiceChecked(this, checked, actions);
         },
         pnhOverride: false,
-        actionOn(actions) {
-          this.action(actions, true);
+        async actionOn(actions) {
+          await this.action(actions, true);
         },
-        actionOff(actions) {
-          this.action(actions, false);
+        async actionOff(actions) {
+          await this.action(actions, false);
         },
       },
       addOnSiteAttendant: {
@@ -9326,15 +9318,15 @@
         title: 'On-site attendant',
         serviceId: 'ON_SITE_ATTENDANT',
         servIDIndex: 19,
-        action(actions, checked) {
-          setServiceChecked(this, checked, actions);
+        async action(actions, checked) {
+          await setServiceChecked(this, checked, actions);
         },
         pnhOverride: false,
-        actionOn(actions) {
-          this.action(actions, true);
+        async actionOn(actions) {
+          await this.action(actions, true);
         },
-        actionOff(actions) {
-          this.action(actions, false);
+        async actionOff(actions) {
+          await this.action(actions, false);
         },
       },
       addParkAndRide: {
@@ -9346,15 +9338,15 @@
         title: 'Park and ride',
         serviceId: 'PARK_AND_RIDE',
         servIDIndex: 20,
-        action(actions, checked) {
-          setServiceChecked(this, checked, actions);
+        async action(actions, checked) {
+          await setServiceChecked(this, checked, actions);
         },
         pnhOverride: false,
-        actionOn(actions) {
-          this.action(actions, true);
+        async actionOn(actions) {
+          await this.action(actions, true);
         },
-        actionOff(actions) {
-          this.action(actions, false);
+        async actionOff(actions) {
+          await this.action(actions, false);
         },
       },
       addSecurity: {
@@ -9366,15 +9358,15 @@
         title: 'Security',
         serviceId: 'SECURITY',
         servIDIndex: 22,
-        action(actions, checked) {
-          setServiceChecked(this, checked, actions);
+        async action(actions, checked) {
+          await setServiceChecked(this, checked, actions);
         },
         pnhOverride: false,
-        actionOn(actions) {
-          this.action(actions, true);
+        async actionOn(actions) {
+          await this.action(actions, true);
         },
-        actionOff(actions) {
-          this.action(actions, false);
+        async actionOff(actions) {
+          await this.action(actions, false);
         },
       },
       addReservationsPL: {
@@ -9386,15 +9378,15 @@
         title: 'Reservations accepted (Parking Lot)',
         serviceId: 'RESERVATIONS',
         servIDIndex: 21,
-        action(actions, checked) {
-          setServiceChecked(this, checked, actions);
+        async action(actions, checked) {
+          await setServiceChecked(this, checked, actions);
         },
         pnhOverride: false,
-        actionOn(actions) {
-          this.action(actions, true);
+        async actionOn(actions) {
+          await this.action(actions, true);
         },
-        actionOff(actions) {
-          this.action(actions, false);
+        async actionOff(actions) {
+          await this.action(actions, false);
         },
       },
       addValetPL: {
@@ -9406,15 +9398,15 @@
         title: 'Valet parking (Parking Lot)',
         serviceId: 'VALET',
         servIDIndex: 23,
-        action(actions, checked) {
-          setServiceChecked(this, checked, actions);
+        async action(actions, checked) {
+          await setServiceChecked(this, checked, actions);
         },
         pnhOverride: false,
-        actionOn(actions) {
-          this.action(actions, true);
+        async actionOn(actions) {
+          await this.action(actions, true);
         },
-        actionOff(actions) {
-          this.action(actions, false);
+        async actionOff(actions) {
+          await this.action(actions, false);
         },
       },
       addValletServicePL: {
@@ -9426,15 +9418,15 @@
         title: 'Vallet service (Parking Lot)',
         serviceId: 'VALLET_SERVICE',
         servIDIndex: 24,
-        action(actions, checked) {
-          setServiceChecked(this, checked, actions);
+        async action(actions, checked) {
+          await setServiceChecked(this, checked, actions);
         },
         pnhOverride: false,
-        actionOn(actions) {
-          this.action(actions, true);
+        async actionOn(actions) {
+          await this.action(actions, true);
         },
-        actionOff(actions) {
-          this.action(actions, false);
+        async actionOff(actions) {
+          await this.action(actions, false);
         },
       },
       add247: {
@@ -9444,22 +9436,22 @@
         w2hratio: 73 / 50,
         value: '247',
         title: 'Hours: Open 24/7',
-        action(actions, checked) {
+        async action(actions, checked) {
           const toggle = typeof checked === 'undefined';
-          const venue = getSelectedVenue();
+          const venue = await getSelectedVenue();
           checked = toggle ? !_servicesBanner.add247.checked : checked;
 
           if (checked) {
-            addUpdateAction(venue, { openingHours: [{ days: [1, 2, 3, 4, 5, 6, 0], fromHour: '00:00', toHour: '00:00' }] }, actions);
+            await addUpdateAction(venue, { openingHours: [{ days: [1, 2, 3, 4, 5, 6, 0], fromHour: '00:00', toHour: '00:00' }] }, actions);
           } else {
-            addUpdateAction(venue, { openingHours: [] }, actions);
+            await addUpdateAction(venue, { openingHours: [] }, actions);
           }
         },
-        actionOn(actions) {
-          this.action(actions, true);
+        async actionOn(actions) {
+          await this.action(actions, true);
         },
-        actionOff(actions) {
-          this.action(actions, false);
+        async actionOff(actions) {
+          await this.action(actions, false);
         },
       },
     };
@@ -9505,12 +9497,12 @@
           WazeWrap.Alerts.confirm(
             SCRIPT_NAME,
             'Are you sure you want to clear all whitelisted fields for this place?',
-            () => {
+            async () => {
               delete _venueWhitelist[venue.id];
               // Remove venue from the results cache so it can be updated again.
               delete _resultsCache[venue.id];
               saveWhitelistToLS(true);
-              harmonizePlaceGo(venue, 'harmonize');
+              await harmonizePlaceGo(venue, 'harmonize');
             },
             () => {},
             'Yes',
@@ -9532,6 +9524,32 @@
   } // END getButtonBanner2()
 
   /**
+   * Prepends the PNH description to the venue's existing description when it isn't already present.
+   * args.description always holds the text WME currently has (or the combined text after a successful write),
+   * so flags that read it see the real description, not just the PNH text.
+   * @param {Object} venue - Venue being harmonized
+   * @param {Object} args - HarmonizationArgs; args.pnhMatch.description supplies the PNH text
+   * @param {Array} actions - Actions array the update is pushed onto
+   */
+  async function applyPnhDescription(venue, args, actions) {
+    const pnhDescription = args.pnhMatch.description;
+    if (isNullOrWhitespace(pnhDescription) || venue.description?.toUpperCase?.().includes(pnhDescription.toUpperCase())) return;
+
+    if (!isNullOrWhitespace(venue.description)) args.descriptionInserted = true;
+    const combinedDescription = `${pnhDescription}\n${venue.description}`;
+    try {
+      actions.push(await sdk.DataModel.Venues.updateVenue({ venueId: venue.id, description: combinedDescription }));
+      args.description = combinedDescription;
+      logDev('Description updated');
+      UPDATED_FIELDS.markChanged(venue.id, 'description', venue.description, combinedDescription);
+    } catch (e) {
+      if (e.name === 'InvalidStateError') {
+        logDev('InvalidStateError updating description - skipping (feed-controlled field)');
+      } else throw e;
+    }
+  }
+
+  /**
    * Core implementation of place harmonization. Validates venue data against PNH database,
    * applies harmonization rules (names, categories, services, hours, contact info), evaluates
    * all Flag conditions, and updates venue via SDK. Supports two modes: full harmonization
@@ -9542,7 +9560,7 @@
    * @param {Array} [actions] - Optional array to collect venue update actions
    * @returns {string|undefined} Severity value (for highlight-only mode) or undefined (for full harmonization)
    */
-  function harmonizePlaceGo_impl(venue, useFlag, actions) {
+  async function harmonizePlaceGo_impl(venue, useFlag, actions) {
     if (useFlag === 'harmonize') logDev('harmonizePlaceGo: useFlag="harmonize"');
 
     const venueID = venue.id;
@@ -9552,22 +9570,24 @@
 
     // Prevent recursive harmonization when venue data changes during harmonization
     const wasHarmonizing = _isHarmonizing;
+    _harmonizeDepth++;
     _isHarmonizing = true;
 
     try {
       FlagBase.currentFlags = new FlagContainer();
-      const args = new HarmonizationArgs(venue, actions, !useFlag.includes('harmonize'));
+      const addr = await getVenueAddress(venue);
+      const args = new HarmonizationArgs(venue, actions, !useFlag.includes('harmonize'), addr);
 
       let pnhLockLevel;
       if (!args.highlightOnly) {
         // Get permalink for form submissions (Canada/Quebec only)
-        args.placePL = sdk.Map.getPermalink({ includeLayers: false });
+        args.placePL = await sdk.Map.getPermalink({ includeLayers: false });
 
         _buttonBanner2 = getButtonBanner2(venue, args.placePL);
         _servicesBanner = getServicesBanner();
 
         // Update icons to reflect current WME place services
-        updateServicesChecks(_servicesBanner);
+        await updateServicesChecks(_servicesBanner);
 
         // Setting switch for the Places Wiki button
         if ($('#WMEPH-HidePlacesWiki').prop('checked')) {
@@ -9588,7 +9608,7 @@
       }
 
       // Some user submitted places have no data in the country, state and address fields.
-      const result = Flag.FullAddressInference.eval(args);
+      const result = await Flag.FullAddressInference.eval(args);
       if (result?.exit) return result.severity;
       const inferredAddress = result?.inferredAddress;
       args.addr = inferredAddress ?? args.addr;
@@ -9692,7 +9712,7 @@
       if (!args.highlightOnly && args.state2L === 'TN' && args.nameBase.toLowerCase().trim() === 'pilot') {
         // TODO: check what happens here if there's a name suffix.
         args.nameBase = 'Pilot Food Mart';
-        addUpdateAction(venue, { name: args.nameBase }, actions);
+        await addUpdateAction(venue, { name: args.nameBase }, actions);
       }
 
       // Clear attributes from residential places
@@ -9705,7 +9725,7 @@
             // Set the residential place name to the address (to clear any personal info)
             logDev('Residential Name reset');
             try {
-              actions.push(sdk.DataModel.Venues.updateVenue({ venueId: venue.id, name: '' }));
+              actions.push(await sdk.DataModel.Venues.updateVenue({ venueId: venue.id, name: '' }));
             } catch (e) {
               if (e.name === 'InvalidStateError') {
                 logDev('InvalidStateError updating name - skipping');
@@ -9717,7 +9737,7 @@
             // remove any description
             logDev('Residential description cleared');
             try {
-              actions.push(sdk.DataModel.Venues.updateVenue({ venueId: venue.id, description: null }));
+              actions.push(await sdk.DataModel.Venues.updateVenue({ venueId: venue.id, description: null }));
             } catch (e) {
               if (e.name === 'InvalidStateError') {
                 logDev('InvalidStateError updating description - skipping');
@@ -9728,7 +9748,7 @@
             // remove any phone info
             logDev('Residential Phone cleared');
             try {
-              actions.push(sdk.DataModel.Venues.updateVenue({ venueId: venue.id, phone: null }));
+              actions.push(await sdk.DataModel.Venues.updateVenue({ venueId: venue.id, phone: null }));
             } catch (e) {
               if (e.name === 'InvalidStateError') {
                 logDev('InvalidStateError updating phone - skipping');
@@ -9739,7 +9759,7 @@
             // remove any url
             logDev('Residential URL cleared');
             try {
-              actions.push(sdk.DataModel.Venues.updateVenue({ venueId: venue.id, url: null }));
+              actions.push(await sdk.DataModel.Venues.updateVenue({ venueId: venue.id, url: null }));
             } catch (e) {
               if (e.name === 'InvalidStateError') {
                 logDev('InvalidStateError updating url - skipping');
@@ -9749,7 +9769,7 @@
           if (venue.services.length > 0) {
             logDev('Residential services cleared');
             try {
-              actions.push(sdk.DataModel.Venues.updateVenue({ venueId: venue.id, services: [] }));
+              actions.push(await sdk.DataModel.Venues.updateVenue({ venueId: venue.id, services: [] }));
             } catch (e) {
               if (e.name === 'InvalidStateError') {
                 logDev('InvalidStateError updating services - skipping');
@@ -9785,7 +9805,7 @@
             newHoursEntries.push(newHoursEntry);
           });
           args.openingHours = newHoursEntries;
-          addUpdateAction(venue, { openingHours: args.openingHours }, actions);
+          await addUpdateAction(venue, { openingHours: args.openingHours }, actions);
         }
 
         // Place Harmonization
@@ -9880,13 +9900,13 @@
             }
             if (args.pnhMatch.forceBrand && args.priPNHPlaceCat === 'GAS_STATION' && venue.brand !== args.pnhMatch.forceBrand) {
               try {
-                actions.push(sdk.DataModel.Venues.updateVenue({ venueId: venue.id, brand: args.pnhMatch.forceBrand }));
+                actions.push(await sdk.DataModel.Venues.updateVenue({ venueId: venue.id, brand: args.pnhMatch.forceBrand }));
+                UPDATED_FIELDS.markChanged(venue.id, 'brand', venue.brand, args.pnhMatch.forceBrand);
               } catch (e) {
                 if (e.name === 'InvalidStateError') {
                   logDev('InvalidStateError updating brand - skipping');
                 } else throw e;
               }
-              UPDATED_FIELDS.brand.updated = true;
               logDev('Gas brand updated from PNH');
             }
             if (args.pnhMatch.localizationRegEx) {
@@ -9973,7 +9993,7 @@
               }
             } else if (!updatePNHName) {
               // Strong title case option for non-PNH places
-              Flag.TitleCaseName.eval(venue, args.nameBase, args.nameSuffix);
+              await Flag.TitleCaseName.eval(venue, args.nameBase, args.nameSuffix);
             }
 
             // *** need to add a section above to allow other permissible categories to remain? (optional)
@@ -9986,7 +10006,7 @@
             // Parse PNH Aliases
             if (!args.pnhMatch.noUpdateAlias && !containsAll(args.aliases, args.pnhMatch.aliases) && args.pnhMatch.aliases?.length && !args.pnhMatch.optionName2) {
               args.aliases = insertAtIndex(args.aliases, args.pnhMatch.aliases, 0);
-              addUpdateAction(venue, { aliases: args.aliases }, actions);
+              await addUpdateAction(venue, { aliases: args.aliases }, actions);
             }
 
             // Remove unnecessary parent categories
@@ -9998,34 +10018,18 @@
             if (!matchSets(uniq(venue.categories), uniq(args.categories))) {
               if (!args.pnhMatch.optionCat2 && !args.pnhMatch.flagsToAdd?.addCat2) {
                 logDev(`Categories updated with ${args.categories}`);
-                addUpdateAction(venue, { categories: args.categories }, actions);
+                await addUpdateAction(venue, { categories: args.categories }, actions);
               } else {
                 // if second cat is optional
                 logDev(`Primary category updated with ${args.priPNHPlaceCat}`);
                 args.categories = insertAtIndex(args.categories, args.priPNHPlaceCat, 0);
-                addUpdateAction(venue, { categories: args.categories });
+                await addUpdateAction(venue, { categories: args.categories });
               }
             }
             // Enable optional 2nd category button
-            Flag.AddCat2.eval(args, altCategories?.[0]);
+            await Flag.AddCat2.eval(args, altCategories?.[0]);
 
-            // Description update
-            args.description = args.pnhMatch.description;
-            if (!isNullOrWhitespace(args.description) && !venue.description?.toUpperCase?.().includes(args.description.toUpperCase())) {
-              if (!isNullOrWhitespace(venue.description)) {
-                args.descriptionInserted = true;
-              }
-              args.description = `${args.description}\n${venue.description}`;
-              try {
-                actions.push(sdk.DataModel.Venues.updateVenue({ venueId: venue.id, description: args.description }));
-                logDev('Description updated');
-                UPDATED_FIELDS.description.updated = true;
-              } catch (e) {
-                if (e.name === 'InvalidStateError') {
-                  logDev('InvalidStateError updating description - skipping (feed-controlled field)');
-                } else throw e;
-              }
-            }
+            await applyPnhDescription(venue, args, actions);
 
             // Special Lock by PNH
             if (args.pnhMatch.lockAt) {
@@ -10093,7 +10097,7 @@
             // Update name:
             if (args.nameBase + (args.nameSuffix || '') !== venue.name) {
               logDev('Name updated');
-              addUpdateAction(venue, { name: args.nameBase + (args.nameSuffix || '') }, actions);
+              await addUpdateAction(venue, { name: args.nameBase + (args.nameSuffix || '') }, actions);
             }
 
             // Update aliases
@@ -10102,7 +10106,7 @@
               args.aliasesRemoved = true;
               args.aliases = tempAliases;
               logDev('Alt Names updated');
-              addUpdateAction(venue, { aliases: args.aliases }, actions);
+              await addUpdateAction(venue, { aliases: args.aliases }, actions);
             }
 
             // PNH specific Services: Display available services for this category
@@ -10145,7 +10149,7 @@
                   tempHours.push({ days: [0], fromHour: tempHours[ohix].fromHour, toHour: tempHours[ohix].toHour });
                   tempHours[ohix].days = [1];
                   args.openingHours = tempHours;
-                  addUpdateAction(venue, { openingHours: tempHours }, actions);
+                  await addUpdateAction(venue, { openingHours: tempHours }, actions);
                 }
               }
             }
@@ -10154,23 +10158,23 @@
             // Invalid EVCS URL imported from PURs. Clear it.
             if (Flag.ClearThisUrl.venueIsFlaggable(args)) {
               args.url = null;
-              addUpdateAction(venue, { url: args.url }, actions);
+              await addUpdateAction(venue, { url: args.url }, actions);
             }
             args.normalizedUrl = normalizeURL(args.url);
             // Only auto-normalize URL if not already normalized in this session (prevents undo re-application)
             if (args.isUspsPostOffice && args.url !== 'usps.com') {
               args.url = 'usps.com';
-              addUpdateAction(venue, { url: args.url }, actions);
+              await addUpdateAction(venue, { url: args.url }, actions);
             } else if (!args.pnhUrl && args.normalizedUrl !== args.url) {
               if (args.normalizedUrl !== BAD_URL) {
                 args.url = args.normalizedUrl;
                 logDev('URL formatted');
-                addUpdateAction(venue, { url: args.url }, actions);
+                await addUpdateAction(venue, { url: args.url }, actions);
               }
             } else if (args.pnhUrl && isNullOrWhitespace(args.url)) {
               args.url = args.pnhUrl;
               logDev('URL updated');
-              addUpdateAction(venue, { url: args.url }, actions);
+              await addUpdateAction(venue, { url: args.url }, actions);
             }
 
             if (args.phone) {
@@ -10182,7 +10186,7 @@
               if (normalizedPhone !== BAD_PHONE) args.phone = normalizedPhone;
               if (args.phone !== venue.phone) {
                 logDev('Phone updated');
-                addUpdateAction(venue, { phone: args.phone }, actions);
+                await addUpdateAction(venue, { phone: args.phone }, actions);
               }
             }
 
@@ -10192,7 +10196,7 @@
               if (Flag.FormatUSPS.isNameOk(nameToCheck, args.state2L, args.addr)) {
                 if (nameToCheck !== venue.name) {
                   [args.nameBase, args.nameSuffix] = cleanNameParts;
-                  actions.push(sdk.DataModel.Venues.updateVenue({ venueId: venue.id, name: nameToCheck }));
+                  actions.push(await sdk.DataModel.Venues.updateVenue({ venueId: venue.id, name: nameToCheck }));
                 }
               }
             }
@@ -10206,7 +10210,7 @@
           if (venue.name.match(/^Rest Area.* - /) !== null && args.countryCode === PNH_DATA.USA.countryCode) {
             const newSuffix = args.nameSuffix.replace(/\bMile\b/i, 'mile');
             if (args.nameBase + newSuffix !== venue.name) {
-              addUpdateAction(venue, { name: args.nameBase + newSuffix }, actions);
+              await addUpdateAction(venue, { name: args.nameBase + newSuffix }, actions);
               logDev('Lower case "mile"');
             }
             // If names match after lowercasing "Mile", no action is needed
@@ -10238,107 +10242,107 @@
 
         if (!isVenueResidential(venue) && (isVenueParkingLot(venue) || args.nameBase?.trim().length)) {
           if (args.pnhNameRegMatch) {
-            Flag.HotelMkPrim.eval(args);
-            Flag.LocalizedName.eval(args);
-            Flag.AddAlias.eval(args);
-            Flag.AddRecommendedPhone.eval(args);
-            Flag.SubFuel.eval(args);
-            Flag.SpecCaseMessage.eval(args);
-            Flag.LocalURL.eval(args);
-            Flag.UrlMismatch.eval(args);
-            Flag.CheckDescription.eval(args);
+            await Flag.HotelMkPrim.eval(args);
+            await Flag.LocalizedName.eval(args);
+            await Flag.AddAlias.eval(args);
+            await Flag.AddRecommendedPhone.eval(args);
+            await Flag.SubFuel.eval(args);
+            await Flag.SpecCaseMessage.eval(args);
+            await Flag.LocalURL.eval(args);
+            await Flag.UrlMismatch.eval(args);
+            await Flag.CheckDescription.eval(args);
             try {
-              Flag.LocationFinder.eval(args);
+              await Flag.LocationFinder.eval(args);
             } catch (e) {
               logDev('LocationFinder error (needs SDK migration):', e.message);
             }
-            Flag.AddPharm.eval(args);
-            Flag.AddSuper.eval(args);
-            Flag.AppendAMPM.eval(args);
-            Flag.PlaceMatched.eval(args);
+            await Flag.AddPharm.eval(args);
+            await Flag.AddSuper.eval(args);
+            await Flag.AppendAMPM.eval(args);
+            await Flag.PlaceMatched.eval(args);
           } else if (!args.highlightOnly && args.categories.includes('POST_OFFICE')) {
             try {
-              Flag.LocationFinder.eval(args);
+              await Flag.LocationFinder.eval(args);
             } catch (e) {
               logDev('LocationFinder error (needs SDK migration):', e.message);
             }
           }
-          Flag.InvalidUrl.eval(args);
-          Flag.SFAliases.eval(args);
-          Flag.CatHotel.eval(args);
-          Flag.ExtProviderMissing.eval(args);
-          Flag.NewPlaceSubmit.eval(args);
-          Flag.ApprovalSubmit.eval(args);
-          Flag.TitleCaseName.eval(args);
-          Flag.BankType1.eval(args);
-          Flag.BankBranch.eval(args);
-          Flag.StandaloneATM.eval(args);
-          Flag.BankCorporate.eval(args);
-          Flag.AddATM.eval(args);
-          Flag.NoHours.eval(args);
-          Flag.Mismatch247.eval(args);
-          Flag.HoursOverlap.eval(args);
-          Flag.OldHours.eval(args);
-          Flag.AllDayHoursFixed.eval(args);
-          Flag.IsThisAPostOffice.eval(args);
-          Flag.MissingUSPSZipAlt.eval(args);
-          Flag.FormatUSPS.eval(args);
-          Flag.CatPostOffice.eval(args);
-          Flag.MissingUSPSDescription.eval(args);
-          Flag.MissingUSPSAlt.eval(args);
-          Flag.UrlMissing.eval(args);
-          Flag.PhoneInvalid.eval(args);
-          Flag.PhoneMissing.eval(args);
-          Flag.BadAreaCode.eval(args);
-          Flag.ParentCategory.eval(args);
-          Flag.ClearThisPhone.eval(args);
-          Flag.ClearThisUrl.eval(args);
-          Flag.UrlAnalytics.eval(args);
-          Flag.EVCSAltNameMissing.eval(args);
+          await Flag.InvalidUrl.eval(args);
+          await Flag.SFAliases.eval(args);
+          await Flag.CatHotel.eval(args);
+          await Flag.ExtProviderMissing.eval(args);
+          await Flag.NewPlaceSubmit.eval(args);
+          await Flag.ApprovalSubmit.eval(args);
+          await Flag.TitleCaseName.eval(args);
+          await Flag.BankType1.eval(args);
+          await Flag.BankBranch.eval(args);
+          await Flag.StandaloneATM.eval(args);
+          await Flag.BankCorporate.eval(args);
+          await Flag.AddATM.eval(args);
+          await Flag.NoHours.eval(args);
+          await Flag.Mismatch247.eval(args);
+          await Flag.HoursOverlap.eval(args);
+          await Flag.OldHours.eval(args);
+          await Flag.AllDayHoursFixed.eval(args);
+          await Flag.IsThisAPostOffice.eval(args);
+          await Flag.MissingUSPSZipAlt.eval(args);
+          await Flag.FormatUSPS.eval(args);
+          await Flag.CatPostOffice.eval(args);
+          await Flag.MissingUSPSDescription.eval(args);
+          await Flag.MissingUSPSAlt.eval(args);
+          await Flag.UrlMissing.eval(args);
+          await Flag.PhoneInvalid.eval(args);
+          await Flag.PhoneMissing.eval(args);
+          await Flag.BadAreaCode.eval(args);
+          await Flag.ParentCategory.eval(args);
+          await Flag.ClearThisPhone.eval(args);
+          await Flag.ClearThisUrl.eval(args);
+          await Flag.UrlAnalytics.eval(args);
+          await Flag.EVCSAltNameMissing.eval(args);
         }
-        Flag.UnmappedRegion.eval(args);
-        Flag.PlaCostTypeMissing.eval(args);
-        Flag.PlaLotElevationMissing.eval(args);
-        Flag.PlaSpaces.eval(args);
-        Flag.PlaLotTypeMissing.eval(args);
-        Flag.NoPlaStopPoint.eval(args);
-        Flag.PlaStopPointUnmoved.eval(args);
-        Flag.PlaCanExitWhileClosed.eval(args);
-        Flag.PlaPaymentTypeMissing.eval(args);
-        Flag.PlaHasAccessibleParking.eval(args);
-        Flag.ChangeToHospitalUrgentCare.eval(args);
-        Flag.IsThisAPilotTravelCenter.eval(args);
-        Flag.GasMkPrim.eval(args);
-        Flag.AddConvStore.eval(args);
-        Flag.IndianaLiquorStoreHours.eval(args);
-        Flag.PointNotArea.eval(args);
-        Flag.GasMismatch.eval(args);
-        Flag.EVChargingStationWarning.eval(args);
-        Flag.AddCommonEVPaymentMethods.eval(args);
-        Flag.RemoveUncommonEVPaymentMethods.eval(args);
-        Flag.EVCSPriceMissing.eval(args);
-        Flag.NameMissing.eval(args);
-        Flag.PlaNameMissing.eval(args);
-        Flag.PlaNameNonStandard.eval(args);
-        Flag.GasNameMissing.eval(args);
-        Flag.PlaIsPublic.eval(args);
-        Flag.HnMissing.eval(args);
-        Flag.HnTooManyDigits.eval(args);
-        Flag.CityMissing.eval(args);
-        Flag.StreetMissing.eval(args);
-        Flag.NotAHospital.eval(args);
-        Flag.ChangeToPetVet.eval(args);
-        Flag.ChangeToDoctorClinic.eval(args);
-        Flag.NotASchool.eval(args);
+        await Flag.UnmappedRegion.eval(args);
+        await Flag.PlaCostTypeMissing.eval(args);
+        await Flag.PlaLotElevationMissing.eval(args);
+        await Flag.PlaSpaces.eval(args);
+        await Flag.PlaLotTypeMissing.eval(args);
+        await Flag.NoPlaStopPoint.eval(args);
+        await Flag.PlaStopPointUnmoved.eval(args);
+        await Flag.PlaCanExitWhileClosed.eval(args);
+        await Flag.PlaPaymentTypeMissing.eval(args);
+        await Flag.PlaHasAccessibleParking.eval(args);
+        await Flag.ChangeToHospitalUrgentCare.eval(args);
+        await Flag.IsThisAPilotTravelCenter.eval(args);
+        await Flag.GasMkPrim.eval(args);
+        await Flag.AddConvStore.eval(args);
+        await Flag.IndianaLiquorStoreHours.eval(args);
+        await Flag.PointNotArea.eval(args);
+        await Flag.GasMismatch.eval(args);
+        await Flag.EVChargingStationWarning.eval(args);
+        await Flag.AddCommonEVPaymentMethods.eval(args);
+        await Flag.RemoveUncommonEVPaymentMethods.eval(args);
+        await Flag.EVCSPriceMissing.eval(args);
+        await Flag.NameMissing.eval(args);
+        await Flag.PlaNameMissing.eval(args);
+        await Flag.PlaNameNonStandard.eval(args);
+        await Flag.GasNameMissing.eval(args);
+        await Flag.PlaIsPublic.eval(args);
+        await Flag.HnMissing.eval(args);
+        await Flag.HnTooManyDigits.eval(args);
+        await Flag.CityMissing.eval(args);
+        await Flag.StreetMissing.eval(args);
+        await Flag.NotAHospital.eval(args);
+        await Flag.ChangeToPetVet.eval(args);
+        await Flag.ChangeToDoctorClinic.eval(args);
+        await Flag.NotASchool.eval(args);
 
-        Flag.RestAreaSpec.eval(args);
-        Flag.RestAreaScenic.eval(args);
-        Flag.RestAreaNoTransportation.eval(args);
-        Flag.RestAreaGas.eval(args);
-        Flag.RestAreaName.eval(args);
-        Flag.AreaNotPoint.eval(args);
+        await Flag.RestAreaSpec.eval(args);
+        await Flag.RestAreaScenic.eval(args);
+        await Flag.RestAreaNoTransportation.eval(args);
+        await Flag.RestAreaGas.eval(args);
+        await Flag.RestAreaName.eval(args);
+        await Flag.AreaNotPoint.eval(args);
       } else {
-        Flag.ChainIsClosed.eval(args);
+        await Flag.ChainIsClosed.eval(args);
       }
 
       // update Severity for banner messages
@@ -10373,12 +10377,12 @@
         } // Only lock up to the user's level
 
         // Brand checking (be sure to check this after determining if brand will be forced, when harmonizing)
-        Flag.GasNoBrand.eval(args);
-        Flag.GasUnbranded.eval(args);
+        await Flag.GasNoBrand.eval(args);
+        await Flag.GasUnbranded.eval(args);
 
-        Flag.IgnEdited.eval(args);
-        Flag.WazeBot.eval(args);
-        Flag.LockRPP.eval(args);
+        await Flag.IgnEdited.eval(args);
+        await Flag.WazeBot.eval(args);
+        await Flag.LockRPP.eval(args);
 
         // Allow flags to do any additional work before assigning severity and locks
         orderedFlags.forEach((flag) => flag.preProcess?.(args));
@@ -10389,7 +10393,9 @@
           logDev(`Severity: ${args.totalSeverity}; lockOK: ${args.lockOK}`);
         }
 
-        placeLockedFlag = Flag.PlaceLocked.eval(args);
+        placeLockedFlag = await Flag.PlaceLocked.eval(args);
+        // Original code locked inside the constructor, so it only ran when this flag was created.
+        if (placeLockedFlag) await Flag.PlaceLocked.applyLock(args);
 
         // Turn off unnecessary buttons
         // TODO: handle this in the flag class
@@ -10401,20 +10407,20 @@
         }
 
         // Final alerts for non-severe locations
-        Flag.ResiTypeName.eval(args);
-        Flag.SuspectDesc.eval(args);
+        await Flag.ResiTypeName.eval(args);
+        await Flag.SuspectDesc.eval(args);
 
         _dupeHNRangeList = [];
         _dupeBanner = {};
         if (!args.highlightOnly) {
           try {
-            runDuplicateFinder(venue, args.nameBase, args.aliases, args.addr, args.placePL);
+            await runDuplicateFinder(venue, args.nameBase, args.aliases, args.addr, args.placePL);
           } catch (e) {
             logDev('Duplicate finder error (needs SDK migration):', e.message);
           }
         }
         // Check HN range (this depends on the returned dupefinder data, so must run after it)
-        Flag.HNRange.eval(args);
+        await Flag.HNRange.eval(args);
       }
 
       // Return severity for highlighter (no dupe run))
@@ -10445,12 +10451,12 @@
 
       if (!args.highlightOnly) {
         // Update icons to reflect current WME place services
-        updateServicesChecks(_servicesBanner);
+        await updateServicesChecks(_servicesBanner);
 
         // Add green highlighting to edit panel fields that have been updated by WMEPH
         UPDATED_FIELDS.updateEditPanelHighlights();
 
-        assembleBanner(args.chainIsClosed); // Run async without awaiting - Google links process in background
+        assembleBanner(args.chainIsClosed).catch((e) => logDev(e)); // Run async without awaiting - Google links process in background
 
         executeMultiAction(actions);
       }
@@ -10464,11 +10470,12 @@
       // Adding this line to satisfy eslint.
       return undefined;
     } finally {
-      // Restore harmonization flag immediately so banner can be interactive
-      _isHarmonizing = wasHarmonizing;
+      // Release this pass; the flag clears only when no pass is left in flight (so banner can be interactive)
+      _harmonizeDepth = Math.max(0, _harmonizeDepth - 1);
+      _isHarmonizing = _harmonizeDepth > 0;
       // Update services tracker so post-harmonization data events don't trigger re-run
       if (!wasHarmonizing && useFlag === 'harmonize') {
-        const currentVenue = getSelectedVenue();
+        const currentVenue = await getSelectedVenue();
         if (currentVenue) {
           _previousVenueServices = JSON.stringify((currentVenue.services || []).sort());
         }
@@ -10479,6 +10486,21 @@
       if (!wasHarmonizing && useFlag === 'harmonize') {
         // Just ensure we can detect external changes later
         logDev('Harmonization complete, cache will update on deselection');
+      }
+      // Run the one queued re-harmonize (set by onVenuesChanged during a pass) once the LAST pass in flight finishes,
+      // whatever its type: a highlight pass from refreshAllHighlights also holds _isHarmonizing, and an undo's change
+      // event often lands during it. Keyed on depth, not wasHarmonizing, because overlapping passes need not nest.
+      if (_harmonizeDepth === 0 && _pendingReharmonize) {
+        _pendingReharmonize = false;
+        const selected = await getSelectedVenue();
+        // The queue is only ever set for the selected venue, so rebuild whatever is selected now (the last pass may
+        // have been a highlight pass on some other venue).
+        if (selected?.id) {
+          logDev('Running queued re-harmonize for', selected.id);
+          setTimeout(() => {
+            harmonizePlaceGo(selected, 'harmonize').catch((e) => console.error('WMEPH: queued re-harmonize failed', e));
+          }, 0);
+        }
       }
     }
   } // END harmonizePlaceGo_impl function
@@ -10493,10 +10515,10 @@
    * @param {boolean} isCacheHit Optional flag indicating if this is a highlight from cache lookup.
    * @returns {*} Result from harmonizePlaceGo_impl implementation.
    */
-  function harmonizePlaceGo(venue, useFlag, actions, isCacheHit) {
+  async function harmonizePlaceGo(venue, useFlag, actions, isCacheHit) {
     const startTime = performance.now();
     try {
-      return harmonizePlaceGo_impl(venue, useFlag, actions);
+      return await harmonizePlaceGo_impl(venue, useFlag, actions);
     } finally {
       const endTime = performance.now();
       const duration = endTime - startTime;
@@ -10532,12 +10554,12 @@
    * @param {Object} addr The venue's address object (street, city, state, country).
    * @param {string} placePL The place permalink.
    */
-  function runDuplicateFinder(venue, name, aliases, addr, placePL) {
+  async function runDuplicateFinder(venue, name, aliases, addr, placePL) {
     const venueID = venue.id;
     // Run nearby duplicate place finder function
     if (name.replace(/[^A-Za-z0-9]/g, '').length > 0 && !venue.residential && !isEmergencyRoom(venue) && !isRestArea(venue)) {
       // don't zoom and pan for results outside of FOV
-      let duplicateName = findNearbyDuplicate(name, aliases, venue);
+      let duplicateName = await findNearbyDuplicate(name, aliases, venue);
       if (duplicateName[1]) {
         new Flag.Overlapping();
       }
@@ -10547,7 +10569,7 @@
           // If there's an issue with the data return, allow an error report
           WazeWrap.Alerts.error(SCRIPT_NAME, 'WMEPH: Dupefinder Error!');
         } else {
-          const wlAction = (dID) => {
+          const wlAction = async (dID) => {
             const wlKey = 'dupeWL';
             if (!_venueWhitelist.hasOwnProperty(venueID)) {
               // If venue is NOT on WL, then add it.
@@ -10573,7 +10595,7 @@
             saveWhitelistToLS(true); // Save the WL to local storage
             wmephWhitelistCounter();
             _buttonBanner2.clearWL.active = true;
-            harmonizePlaceGo(venue, 'harmonize');
+            await harmonizePlaceGo(venue, 'harmonize');
           };
           for (let ijx = 1; ijx < duplicateName.length + 1; ijx++) {
             _dupeBanner[_dupeIDList[ijx]] = {
@@ -10607,7 +10629,7 @@
    */
   async function assembleBanner(chainIsClosed) {
     const flags = FlagBase.currentFlags.getOrderedFlags();
-    const venue = getSelectedVenue();
+    const venue = await getSelectedVenue();
     if (!venue) return;
     logDev('Building banners');
     let dupesFound = 0;
@@ -10723,7 +10745,7 @@
     const bgColor = SEVERITY_COLORS[totalSeverity] || SEVERITY_COLORS[SEVERITY.GREEN];
     $('#WMEPH_banner').css({ 'background-color': bgColor }).append(rowDivs);
 
-    assembleServicesBanner(chainIsClosed);
+    await assembleServicesBanner(chainIsClosed);
 
     //  Build general banners (below the Services)
     rowDivs = [];
@@ -10779,7 +10801,7 @@
       flag.postProcess?.();
     });
 
-    processGoogleLinks(venue); // Start Google links async without waiting
+    processGoogleLinks(venue).catch((e) => logDev(e)); // Start Google links async without waiting
   } // END assemble Banner function
 
   /**
@@ -10797,7 +10819,7 @@
 
       const promises = venue.externalProviderIds.map((placeId) => _googlePlaces.getPlace(placeId));
       const googleResults = await Promise.all(promises);
-      const selectedVenue = getSelectedVenue();
+      const selectedVenue = await getSelectedVenue();
       $('#wmeph-google-link-info').remove();
       // Compare to venue to make sure a different place hasn't been selected since the results were requested.
       if (googleResults.length && venue?.id === selectedVenue?.id) {
@@ -10984,7 +11006,7 @@
     if (!uuid) return;
     const link = await _googlePlaces.getPlace(uuid);
     if (link?.geometry) {
-      const selectedVenue = getSelectedVenue();
+      const selectedVenue = await getSelectedVenue();
       if (!selectedVenue?.geometry) {
         logDev('drawGooglePlacePoint: No selected venue');
         return;
@@ -10997,7 +11019,7 @@
       if (!placeCentroid) return;
 
       const placePt = turf.point(placeCentroid);
-      const bbox = getMapBoundingBox();
+      const bbox = await getMapBoundingBox();
       if (!bbox) return;
 
       // Create line from place to POI
@@ -11022,7 +11044,7 @@
       let unit2;
 
       // Check if using imperial units
-      const isImperial = sdk.Settings?.getUserSettings?.()?.isImperial ?? false;
+      const isImperial = (await sdk.Settings?.getUserSettings?.())?.isImperial ?? false;
       let distance = distanceMeters;
 
       if (isImperial) {
@@ -11046,7 +11068,7 @@
 
       logDev('drawGooglePlacePoint: distance=', distanceMeters, 'label=', label);
 
-      destroyGooglePlacePoint(); // Just in case it still exists.
+      await destroyGooglePlacePoint(); // Just in case it still exists.
 
       // Create GeoJSON features for SDK
       _googlePlacePtFeature = {
@@ -11068,11 +11090,11 @@
 
       // Add to custom layer
       try {
-        sdk.Map.addFeatureToLayer({
+        await sdk.Map.addFeatureToLayer({
           layerName: 'wmeph_google_link',
           feature: _googlePlacePtFeature,
         });
-        sdk.Map.addFeatureToLayer({
+        await sdk.Map.addFeatureToLayer({
           layerName: 'wmeph_google_link',
           feature: _googlePlaceLineFeature,
         });
@@ -11090,19 +11112,19 @@
    */
   function timeoutDestroyGooglePlacePoint() {
     if (_destroyGooglePlacePointTimeoutId) clearTimeout(_destroyGooglePlacePointTimeoutId);
-    _destroyGooglePlacePointTimeoutId = setTimeout(() => destroyGooglePlacePoint(), 4000);
+    _destroyGooglePlacePointTimeoutId = setTimeout(() => destroyGooglePlacePoint().catch((e) => logDev(e)), 4000);
   }
 
   /**
    * Removes Google Place point and line features from the wmeph_google_link map layer.
    * Called when visualization timeout expires or when user interaction ends.
    */
-  function destroyGooglePlacePoint() {
+  async function destroyGooglePlacePoint() {
     if (_googlePlacePtFeature || _googlePlaceLineFeature) {
       try {
         // Remove features from the layer using SDK
         if (_googlePlacePtFeature?.id) {
-          sdk.Map.removeAllFeaturesFromLayer({ layerName: 'wmeph_google_link' });
+          await sdk.Map.removeAllFeaturesFromLayer({ layerName: 'wmeph_google_link' });
         }
       } catch (e) {
         logDev('destroyGooglePlacePoint: Failed to remove features', e);
@@ -11119,8 +11141,8 @@
    */
   function addGoogleLinkHoverEvent($el) {
     $el.hover(
-      () => drawGooglePlacePoint(getGooglePlaceUuidFromElement($el)),
-      () => destroyGooglePlacePoint(),
+      async () => await drawGooglePlacePoint(getGooglePlaceUuidFromElement($el)),
+      async () => await destroyGooglePlacePoint(),
     );
   }
 
@@ -11138,7 +11160,7 @@
    * Populates checkboxes and buttons for adding/toggling services. Hidden for residential venues.
    * @param {boolean} chainIsClosed Whether the venue is part of a closed chain (affects display).
    */
-  function assembleServicesBanner(chainIsClosed) {
+  async function assembleServicesBanner(chainIsClosed) {
     if ($('#WMEPH_services').length === 0) {
       $('#WMEPH_banner').after(
         $('<div id="WMEPH_services">').css({
@@ -11153,7 +11175,7 @@
       $('#WMEPH_services').empty();
     }
 
-    const venue = getSelectedVenue();
+    const venue = await getSelectedVenue();
     if (venue && !chainIsClosed && !$('#WMEPH-HideServicesButtons').prop('checked')) {
       // setup Add Service Buttons for suggested services
       const rowDivs = [];
@@ -11276,15 +11298,15 @@
    */
   function buttonWhitelistOld(flagKey, flag) {
     const button = document.getElementById(`WMEPH_WL${flagKey}`);
-    button.onclick = () => {
+    button.onclick = asyncHandler(async () => {
       if (flagKey.match(/^\d{5,}/) !== null) {
-        flag.WLaction(flagKey);
+        await flag.WLaction(flagKey);
       } else {
-        flag.WLaction();
+        await flag.WLaction();
       }
       flag.WLactive = false;
       flag.severity = SEVERITY.GREEN;
-    };
+    });
     return button;
   }
 
@@ -11326,13 +11348,13 @@
    */
   function buttonWhitelist(flag) {
     const button = document.getElementById(`WMEPH_WL${flag.name}`);
-    button.onclick = () => {
+    button.onclick = asyncHandler(async () => {
       if (flag.name.match(/^\d{5,}/) !== null) {
-        flag.WLaction(flag.name);
+        await flag.WLaction(flag.name);
       } else {
-        flag.WLaction();
+        await flag.WLaction();
       }
-    };
+    });
     return button;
   }
 
@@ -11376,9 +11398,9 @@
    * Captures address, URL, phone, description, services, hours, and parking lot flag.
    * Called when user clicks the "Copy" button in clone tool.
    */
-  function onCopyClicked() {
-    const venue = getSelectedVenue();
-    const addr = getVenueAddress(venue);
+  async function onCopyClicked() {
+    const venue = await getSelectedVenue();
+    const addr = await getVenueAddress(venue);
 
     _cloneMaster = {
       addr: {
@@ -11415,8 +11437,8 @@
    * Pastes previously copied place information into the selected venue.
    * Called when user clicks the "Paste" button in clone tool.
    */
-  function onPasteClicked() {
-    clonePlace();
+  async function onPasteClicked() {
+    await clonePlace();
   }
 
   /**
@@ -11449,7 +11471,7 @@
    * Buttons allow selecting which place fields to copy/paste. Only shown if clone mode is enabled.
    * Updates paste button visibility based on user edit permissions.
    */
-  function showCloneButton() {
+  async function showCloneButton() {
     if (!$('#clonePlace').length) {
       // Row 2: Copy, Paste, All, Addr, None buttons
       const $row2 = $('<div>', { class: 'wmeph-clone-row' });
@@ -11461,7 +11483,7 @@
           type: 'button',
           value: 'Copy',
           style: 'font-weight: normal',
-        }).click(onCopyClicked),
+        }).click(asyncHandler(onCopyClicked)),
         $('<input>', {
           class: 'btn btn-warning btn-xs wmeph-clone-btn',
           id: 'pasteClone',
@@ -11469,7 +11491,7 @@
           type: 'button',
           value: 'Paste (for ✓ boxes):',
           style: 'font-weight: normal; margin-left: 3px;',
-        }).click(onPasteClicked),
+        }).click(asyncHandler(onPasteClicked)),
         $('<input>', {
           class: 'btn btn-info btn-xs wmeph-clone-btn',
           id: 'checkAllClone',
@@ -11511,7 +11533,7 @@
 
       $('#wmeph-run-panel').append($row2, $row3);
     }
-    const venue = getSelectedVenue();
+    const venue = await getSelectedVenue();
     const canEdit = venue?.approved && venue?.lockRank < USER.rank;
     updateElementEnabledOrVisible($('#pasteClone'), canEdit);
   }
@@ -11521,8 +11543,8 @@
    * Respects user setting for opening in new tab or search results window.
    * Called when user clicks the "PS" (PlugShare) button in the main panel.
    */
-  function onPlugshareSearchClick() {
-    const venue = getSelectedVenue();
+  async function onPlugshareSearchClick() {
+    const venue = await getSelectedVenue();
     const centroid = getVenueCentroid(venue);
     if (!centroid) {
       logDev('onPlugshareSearchClick: Unable to get venue centroid');
@@ -11543,8 +11565,8 @@
    * Respects user setting for opening in new tab or search results window.
    * Called when user clicks the "Website" button in the main panel.
    */
-  function onOpenWebsiteClick() {
-    const venue = getSelectedVenue();
+  async function onOpenWebsiteClick() {
+    const venue = await getSelectedVenue();
     let url = venue.url;
     if (!url) {
       WazeWrap.Alerts.error(SCRIPT_NAME, 'No website set for this place.');
@@ -11570,9 +11592,9 @@
    * Shows error alert if state and country are not set. Respects user setting for tab vs. window.
    * Called when user clicks the "Google" button in the main panel.
    */
-  function onGoogleSearchClick() {
-    const venue = getSelectedVenue();
-    const addr = getVenueAddress(venue);
+  async function onGoogleSearchClick() {
+    const venue = await getSelectedVenue();
+    const addr = await getVenueAddress(venue);
     if (addr?.state && addr?.country) {
       const url = buildGLink(venue.name, addr, addr.houseNumber);
       if ($('#WMEPH-WebSearchNewTab').prop('checked')) {
@@ -11610,14 +11632,14 @@
    * Checks for backend feeds and shows warning if place is connected to external data sources.
    * @param {boolean} clearBanner Whether to remove the entire WMEPH section (triggered when venue loses edit access).
    */
-  function updateWmephPanel(clearBanner = false) {
+  async function updateWmephPanel(clearBanner = false) {
     //logDev(`updateWmephPanel: clearBanner=${clearBanner}`);
 
-    const venue = getSelectedVenue();
+    const venue = await getSelectedVenue();
 
     if (!venue) {
       $('#wmeph-section').remove();
-      destroyDupeLabels(); // Clear dupe labels when no place is selected
+      await destroyDupeLabels(); // Clear dupe labels when no place is selected
       _dupeIDList = []; // Reset dupe list
       return;
     }
@@ -11628,7 +11650,7 @@
 
     if (clearBanner) {
       $('#wmeph-section').remove();
-      destroyDupeLabels(); // Clear dupe labels when banner is cleared
+      await destroyDupeLabels(); // Clear dupe labels when banner is cleared
     }
 
     let $wmephPanel;
@@ -11659,8 +11681,8 @@
         title: `Run WMEPH${devVersSuffix} on Place`,
         type: 'button',
         value: `Run WMEPH${devVersSuffix}`,
-      }).click(() => {
-        harmonizePlace();
+      }).click(async () => {
+        await harmonizePlace();
       });
 
       $websiteButton = $('<input>', {
@@ -11669,7 +11691,7 @@
         title: 'Open place URL',
         type: 'button',
         value: 'Website',
-      }).click(onOpenWebsiteClick);
+      }).click(asyncHandler(onOpenWebsiteClick));
 
       $googleSearchButton = $('<input>', {
         class: 'btn btn-danger btn-sm wmeph-run-btn',
@@ -11677,7 +11699,7 @@
         title: 'Search the web for this place.  Do not copy info from 3rd party sources!',
         type: 'button',
         value: 'Google',
-      }).click(onGoogleSearchClick);
+      }).click(asyncHandler(onGoogleSearchClick));
 
       $plugshareSearchButton = $('<input>', {
         class: 'btn btn-danger btn-sm wmeph-run-btn',
@@ -11685,7 +11707,7 @@
         title: 'Open PlugShare website',
         type: 'button',
         value: 'PS',
-      }).click(onPlugshareSearchClick);
+      }).click(asyncHandler(onPlugshareSearchClick));
 
       // Build panel hierarchy - buttons first in run panel
       $wmephRunPanel.append($runButton, $websiteButton, $googleSearchButton, $plugshareSearchButton);
@@ -11715,11 +11737,11 @@
     updateElementEnabledOrVisible($plugshareSearchButton, { visible: isVenueChargingStation(venue) });
 
     if (getWMEPHSetting('WMEPH-EnableCloneMode') === '1') {
-      showCloneButton();
+      await showCloneButton();
     }
     // If the user selects a place in the dupe list, don't clear the labels yet
     if (_dupeIDList.includes(venue.id)) {
-      destroyDupeLabels();
+      await destroyDupeLabels();
     }
 
     // Check if there's a backend feed
@@ -11736,9 +11758,9 @@
       const lat = firstPoint[1];
       const url = `https://${location.host}/SearchServer/mozi?lon=${lon}&lat=${lat}&format=PROTO_JSON_FULL&venue_id=venues.${venue.id}`;
       _pendingFeedRequest = $.getJSON(url)
-        .done((res) => {
+        .done(async (res) => {
           // Only append if still on same venue (prevents stale responses from accumulating)
-          const currentVenue = getSelectedVenue();
+          const currentVenue = await getSelectedVenue();
           if (!currentVenue || currentVenue.id !== venueID) return;
 
           let feedNames = res.venue.external_providers?.filter((prov) => !FEEDS_TO_SKIP.some((skipRegex) => skipRegex.test(prov.provider))).map((prov) => prov.provider);
@@ -11779,10 +11801,10 @@
    * Updates URL, phone, description, services, hours, and address fields as selected.
    * Shows log message if no data has been copied yet or if copy/paste is successful.
    */
-  function clonePlace() {
+  async function clonePlace() {
     log('Cloning info...');
     if (_cloneMaster !== null && _cloneMaster.hasOwnProperty('url')) {
-      const venue = getSelectedVenue();
+      const venue = await getSelectedVenue();
       const cloneItems = {};
       let updateItem = false;
       if (isChecked('WMEPH_CPurl')) {
@@ -11806,7 +11828,7 @@
         updateItem = true;
       }
       if (updateItem) {
-        addUpdateAction(venue, cloneItems);
+        await addUpdateAction(venue, cloneItems);
         logDev('Venue details cloned');
       }
 
@@ -11815,7 +11837,7 @@
       const copyHn = isChecked('WMEPH_CPhn');
 
       if (copyStreet || copyCity || copyHn) {
-        const originalAddress = sdk.DataModel.Venues.getAddress({ venueId: venue.id });
+        const originalAddress = await sdk.DataModel.Venues.getAddress({ venueId: venue.id });
         const newAddress = {
           street: copyStreet ? _cloneMaster.addr.street : originalAddress.street,
           city: copyCity ? _cloneMaster.addr.city : originalAddress.city,
@@ -11823,7 +11845,7 @@
           country: copyCity ? _cloneMaster.addr.country : originalAddress.country,
           houseNumber: copyHn ? _cloneMaster.addr.houseNumber : originalAddress.houseNumber,
         };
-        updateAddress(venue, newAddress);
+        await updateAddress(venue, newAddress);
         logDev('Venue address cloned');
       }
     } else {
@@ -11905,7 +11927,7 @@
    * @param {Object} selectedVenue The WME venue object with geometry and metadata.
    * @returns {Array} [duplicateNameArray, overlappingFlag] - duplicate names and overlap indicator.
    */
-  function findNearbyDuplicate(selectedVenueName, selectedVenueAliases, selectedVenue) {
+  async function findNearbyDuplicate(selectedVenueName, selectedVenueAliases, selectedVenue) {
     const formatName = (name) =>
       name
         .toUpperCase()
@@ -11957,12 +11979,12 @@
     }
     currNameList = uniq(currNameList);
 
-    let selectedVenueAddr = getVenueAddress(selectedVenue);
+    let selectedVenueAddr = await getVenueAddress(selectedVenue);
     const selectedVenueHN = selectedVenueAddr.houseNumber;
 
     const selectedVenueAddrIsComplete = selectedVenueAddr?.street && selectedVenueAddr.street.name && selectedVenueHN && selectedVenueHN.match(/\d/g) !== null;
 
-    const venues = sdk.DataModel.Venues.getAll();
+    const venues = await sdk.DataModel.Venues.getAll();
     const selectedVenueId = selectedVenue.id;
 
     _dupeIDList = [selectedVenueId];
@@ -11975,19 +11997,19 @@
     const excludePLADupes = $('#WMEPH-ExcludePLADupes').prop('checked');
     let randInt = 100;
 
-    venues.forEach((testVenue) => {
+    for (const testVenue of venues) {
       if ((!excludePLADupes || (excludePLADupes && !(isVenueParkingLot(selectedVenue) || isVenueParkingLot(testVenue)))) && !isEmergencyRoom(testVenue)) {
         const testVenueId = testVenue.id;
 
         const testCentroid = getVenueCentroid(testVenue);
-        if (!testCentroid) return;
+        if (!testCentroid) continue;
 
         const pt2ptDistance = calculatePointDistance(selectedCentroid, testCentroid);
         if (isVenuePoint(selectedVenue) && isVenuePoint(testVenue) && pt2ptDistance < 2 && selectedVenueId !== testVenueId) {
           overlappingFlag = true;
         }
 
-        let testVenueAddr = getVenueAddress(testVenue);
+        let testVenueAddr = await getVenueAddress(testVenue);
         const testVenueHN = testVenueAddr.houseNumber;
 
         if (
@@ -12100,7 +12122,7 @@
                   },
                 };
                 logDev(`Adding dupe feature: ${labelText} at [${testCentroid}]`);
-                sdk.Map.addFeatureToLayer({
+                await sdk.Map.addFeatureToLayer({
                   layerName: _dupeLayer,
                   feature: dupeFeature,
                 });
@@ -12111,7 +12133,7 @@
           }
         }
       }
-    });
+    }
 
     if (_dupeIDList.length > 1) {
       // Add Point feature for the selected venue (primary place)
@@ -12127,7 +12149,7 @@
           },
         };
         logDev(`Adding primary feature: ${selectedVenueName} at [${selectedCentroid}]`);
-        sdk.Map.addFeatureToLayer({
+        await sdk.Map.addFeatureToLayer({
           layerName: _dupeLayer,
           feature: selectedFeature,
         });
@@ -12152,7 +12174,7 @@
    * @param {number} maxRecursionDepth Maximum connectivity depth to search through segments.
    * @returns {Object|null} Address object with country, city, state, street fields, or null if unavailable.
    */
-  function inferAddress(venue, maxRecursionDepth) {
+  async function inferAddress(venue, maxRecursionDepth) {
     // Excluded road types (non-addressable/non-drivable): freeways, ramps, walkways, railroads,
     // pedestrian paths, ferries, and other non-street segments.
     // NOTE: Parking lot roads (18) are traversable for connectivity but won't be selected as final addresses.
@@ -12167,7 +12189,7 @@
     // Get segments and nodes from SDK
     let segments, nodes;
     try {
-      segments = sdk.DataModel.Segments.getAll() || [];
+      segments = await sdk.DataModel.Segments.getAll() || [];
     } catch (e) {
       logDev('inferAddress: Unable to access SDK data', e);
       segments = [];
@@ -12182,9 +12204,9 @@
     }
 
     // Check if segment has a named street (vs unnamed segment like connector roads).
-    const hasStreetName = (segment) => {
+    const hasStreetName = async (segment) => {
       if (!segment) return false;
-      const addr = getSegmentAddress(segment);
+      const addr = await getSegmentAddress(segment);
       return addr && !addr.isEmpty && addr.street?.name;
     };
 
@@ -12230,10 +12252,10 @@
     segmentsByDistance.sort((a, b) => a.distance - b.distance);
 
     logDev('inferAddress: Scanned', segmentsByDistance.length, 'valid segments. Top 3 by distance:');
-    segmentsByDistance.slice(0, 3).forEach((item, idx) => {
-      const addr = getSegmentAddress(item.segment);
-      logDev(`  ${idx + 1}. segment:${item.segment.id} street:"${addr.street?.name || '(unnamed)'}" dist:${item.distance.toFixed(1)}m type:${item.segment.roadType}`);
-    });
+    for (const [idx, item] of segmentsByDistance.slice(0, 3).entries()) {
+      const addr = await getSegmentAddress(item.segment);
+      logDev(`  ${idx + 1}. segment:${item.segment.id} street:"${addr?.street?.name || '(unnamed)'}" dist:${item.distance.toFixed(1)}m type:${item.segment.roadType}`);
+    }
 
     // Find first named street within a reasonable search range
     const searchRadiusLimit = 1000; // meters
@@ -12242,8 +12264,8 @@
         logDev('inferAddress: Reached search radius limit (' + searchRadiusLimit + 'm) without finding named street');
         break;
       }
-      if (hasStreetName(segment)) {
-        const addr = getSegmentAddress(segment);
+      if (await hasStreetName(segment)) {
+        const addr = await getSegmentAddress(segment);
         logDev('inferAddress: FOUND - segment:', segment.id, 'street:', addr.street?.name, 'roadType:', segment.roadType, 'distance:', distance.toFixed(1) + 'm');
         inferredAddress = addr;
         break;
@@ -12263,7 +12285,7 @@
    * @param {Object} feature The WME venue object to update (must have id property).
    * @param {Object} address Object containing country, state, city, street, houseNumber properties (IDs/names as required by SDK).
    */
-  function updateAddress(feature, address) {
+  async function updateAddress(feature, address) {
     logDev('updateAddress: Called with:', {
       venueId: feature?.id,
       street: address?.street?.name,
@@ -12283,11 +12305,10 @@
     try {
       const updatePayload = {
         venueId: feature.id,
-        streetId: address.street.id,
-        houseNumber: address.houseNumber,
+        addressData: { streetId: address.street.id, houseNumber: address.houseNumber },
       };
       logDev('updateAddress: Sending update payload:', updatePayload);
-      sdk.DataModel.Venues.updateAddress(updatePayload);
+      await sdk.DataModel.Venues.updateAddress(updatePayload);
       logDev('updateAddress: Address inferred and updated successfully');
     } catch (e) {
       logDev('updateAddress error:', e.message, e.stack);
@@ -12541,7 +12562,7 @@
    * Also updates the SDK keyboard shortcut registry to stay in sync.
    * Called when user clicks the modifier key checkbox in settings.
    */
-  function onKBShortcutModifierKeyClick() {
+  async function onKBShortcutModifierKeyClick() {
     const $modifKeyCheckbox = $('#WMEPH-KBSModifierKey');
     const $shortcutInput = $('#WMEPH-KeyboardShortcut');
     const $warn = $('#PlaceHarmonizerKBWarn');
@@ -12551,14 +12572,14 @@
     $warn.empty(); // remove any warning
     SHORTCUT.remove(_modifKey + _shortcutParse);
     _modifKey = modifKeyNew;
-    SHORTCUT.add(_modifKey + _shortcutParse, harmonizePlace);
+    SHORTCUT.add(_modifKey + _shortcutParse, asyncHandler(harmonizePlace));
     $('#PlaceHarmonizerKBCurrent').empty().append(`<span style="font-weight:bold">Current shortcut: ${_modifKey}${_shortcutParse}</span>`);
 
     // Update SDK shortcut to match
     const newKey = loadHarmonizeShortcut();
     if (newKey) {
-      registerShortcut('wmeph_harmonize_place', 'WMEPH: Harmonize selected place', newKey, () => {
-        harmonizePlace();
+      await registerShortcut('wmeph_harmonize_place', 'WMEPH: Harmonize selected place', newKey, async () => {
+        await harmonizePlace();
       });
     }
   }
@@ -12569,7 +12590,7 @@
    * If valid, unregisters old shortcut, updates _shortcutParse, re-registers with new key, and updates SDK.
    * Called when user changes the keyboard shortcut key in settings.
    */
-  function onKBShortcutChange() {
+  async function onKBShortcutChange() {
     const keyId = 'WMEPH-KeyboardShortcut';
     const $warn = $('#PlaceHarmonizerKBWarn');
     const $key = $(`#${keyId}`);
@@ -12583,15 +12604,15 @@
       const shortcutParseNew = parseKBSShift(newKey);
       SHORTCUT.remove(_modifKey + _shortcutParse);
       _shortcutParse = shortcutParseNew;
-      SHORTCUT.add(_modifKey + _shortcutParse, harmonizePlace);
+      SHORTCUT.add(_modifKey + _shortcutParse, asyncHandler(harmonizePlace));
       setWMEPHSetting(keyId, newKey);
       $('#PlaceHarmonizerKBCurrent').empty().append(`<span style="font-weight:bold">Current shortcut: ${_modifKey}${_shortcutParse}</span>`);
 
       // Update SDK shortcut to match
       const newSdkKey = loadHarmonizeShortcut();
       if (newSdkKey) {
-        registerShortcut('wmeph_harmonize_place', 'WMEPH: Harmonize selected place', newSdkKey, () => {
-          harmonizePlace();
+        await registerShortcut('wmeph_harmonize_place', 'WMEPH: Harmonize selected place', newSdkKey, async () => {
+          await harmonizePlace();
         });
       }
     } else {
@@ -12637,13 +12658,13 @@
       _modifKey = 'Ctrl+';
     }
     _shortcutParse = parseKBSShift(shortcutKey);
-    if (!_initAlreadyRun) SHORTCUT.add(_modifKey + _shortcutParse, harmonizePlace);
+    if (!_initAlreadyRun) SHORTCUT.add(_modifKey + _shortcutParse, asyncHandler(harmonizePlace));
     $current.empty().append(`<span style="font-weight:bold">Current shortcut: ${_modifKey}${_shortcutParse}</span>`);
 
-    $('#WMEPH-KBSModifierKey').click(onKBShortcutModifierKeyClick);
+    $('#WMEPH-KBSModifierKey').click(asyncHandler(onKBShortcutModifierKeyClick));
 
     // Upon change of the KB letter:
-    $shortcutInput.change(onKBShortcutChange);
+    $shortcutInput.change(asyncHandler(onKBShortcutChange));
   }
 
   /**
@@ -13154,7 +13175,7 @@
         maxCacheMissTime: 0,
       };
       await Pnh.downloadPnhData();
-      redrawLayer(_layer);
+      await redrawLayer(_layer);
       $('#WMEPH-ReloadDataBtn').attr('disabled', false);
     });
 
@@ -13194,34 +13215,34 @@
     });
 
     // Color highlighting - these affect severity calculations, so clear cache when toggled
-    $('#WMEPH-ColorHighlighting').click(bootstrapWmephColorHighlights);
-    $('#WMEPH-DisableHoursHL').click(() => {
+    $('#WMEPH-ColorHighlighting').click(asyncHandler(bootstrapWmephColorHighlights));
+    $('#WMEPH-DisableHoursHL').click(async () => {
       saveSettingToLocalStorage('WMEPH-DisableHoursHL');
       _resultsCache = {};  // Clear cache to recalculate all severities
-      bootstrapWmephColorHighlights();
+      await bootstrapWmephColorHighlights();
     });
-    $('#WMEPH-DisableRankHL').click(() => {
+    $('#WMEPH-DisableRankHL').click(async () => {
       saveSettingToLocalStorage('WMEPH-DisableRankHL');
       _resultsCache = {};  // Clear cache to recalculate all severities
-      bootstrapWmephColorHighlights();
+      await bootstrapWmephColorHighlights();
     });
-    $('#WMEPH-DisableWLHL').click(() => {
+    $('#WMEPH-DisableWLHL').click(async () => {
       saveSettingToLocalStorage('WMEPH-DisableWLHL');
       _resultsCache = {};  // Clear cache to recalculate all severities
-      bootstrapWmephColorHighlights();
+      await bootstrapWmephColorHighlights();
     });
-    $('#WMEPH-PLATypeFill').click(() => {
+    $('#WMEPH-PLATypeFill').click(async () => {
       saveSettingToLocalStorage('WMEPH-PLATypeFill');
-      refreshAllHighlights();
+      await refreshAllHighlights();
     });
-    $('#WMEPH-ShowFilterHighlight').click(() => {
+    $('#WMEPH-ShowFilterHighlight').click(async () => {
       saveSettingToLocalStorage('WMEPH-ShowFilterHighlight');
-      refreshAllHighlights();
+      await refreshAllHighlights();
     });
 
-    $('#WMEPH-HideGreenPlaces').click(() => {
+    $('#WMEPH-HideGreenPlaces').click(async () => {
       saveSettingToLocalStorage('WMEPH-HideGreenPlaces');
-      refreshAllHighlights();
+      await refreshAllHighlights();
     });
 
     _initAlreadyRun = true;
@@ -13599,8 +13620,8 @@
    * Marks buttons as checked/unchecked based on venue's services array.
    * Also checks the 24/7 button if venue has 24/7 hours, and ensures it's visible.
    */
-  function updateServicesChecks() {
-    const venue = getSelectedVenue();
+  async function updateServicesChecks() {
+    const venue = await getSelectedVenue();
     if (venue) {
       if (!_servicesBanner) return;
       const services = venue.services || [];
@@ -13643,8 +13664,8 @@
    * Checks if user is in dev or beta lists to enable feature access and extra settings.
    * Shows warning if beta/dev lists are inaccessible (only for beta version builds).
    */
-  function updateUserInfo() {
-    const userInfo = sdk.State.getUserInfo();
+  async function updateUserInfo() {
+    const userInfo = await sdk.State.getUserInfo();
     if (!userInfo) {
       logDev('updateUserInfo: SDK user info not available yet');
       return;
@@ -13692,9 +13713,10 @@
     // SDK shortcuts are saved automatically via saveShortcut() in registerShortcut()
     // No manual save needed on unload
 
-    // Ensure X-ray mode is off on page unload to restore layer states
+    // Ensure X-ray mode is off on page unload to restore layer states.
+    // Sync handler: beforeunload cannot wait for async work, so this is best-effort.
     if (xrayState.enabled) {
-      toggleXrayMode(false);
+      toggleXrayMode(false).catch((e) => logDev(e));
     }
   }
 
@@ -13848,7 +13870,7 @@
    */
   async function placeHarmonizerInit() {
     interceptGoogleGetDetails();
-    updateUserInfo();
+    await updateUserInfo();
     logDev('placeHarmonizerInit'); // Be sure to update User info before calling logDev()
 
     // Migrate legacy localStorage keys to centralized settings object
@@ -13859,18 +13881,18 @@
     initShortcutKey();
 
     // Register SDK shortcuts with normalized key binding storage
-    registerShortcut('wmeph_zoom_place', 'WMEPH: Zoom to selected place', 'A+Z', () => {
-      zoomPlace();
+    await registerShortcut('wmeph_zoom_place', 'WMEPH: Zoom to selected place', 'A+Z', async () => {
+      await zoomPlace();
     });
-    registerShortcut('wmeph_color_highlighting', 'WMEPH: Toggle color highlighting', 'A+C', () => {
-      toggleHighlightCheckbox();
+    await registerShortcut('wmeph_color_highlighting', 'WMEPH: Toggle color highlighting', 'A+C', async () => {
+      await toggleHighlightCheckbox();
     });
     // Third shortcut: Harmonize place with user-configurable key (from UI settings)
     const harmonizeKey = loadHarmonizeShortcut();
     logDev(`Harmonize shortcut key loaded: ${harmonizeKey}`);
     if (harmonizeKey) {
-      registerShortcut('wmeph_harmonize_place', 'WMEPH: Harmonize selected place', harmonizeKey, () => {
-        harmonizePlace();
+      await registerShortcut('wmeph_harmonize_place', 'WMEPH: Harmonize selected place', harmonizeKey, async () => {
+        await harmonizePlace();
       });
     } else {
       logDev('loadHarmonizeShortcut returned null or empty - harmonize shortcut not registered');
@@ -13880,7 +13902,7 @@
     // Priority: wmephHighlight > lock types > (parking + severity) > severity alone > parking alone
     _layer = 'wmeph_highlights';
     try {
-      sdk.Map.addLayer({
+      await sdk.Map.addLayer({
         layerName: _layer,
         zIndexing: true,
         styleContext: {
@@ -13998,7 +14020,7 @@
 
     // Create layer for Google place links visualization
     try {
-      sdk.Map.addLayer({
+      await sdk.Map.addLayer({
         layerName: 'wmeph_google_link',
         zIndexing: true,
         styleContext: {
@@ -14060,7 +14082,7 @@
 
     // Create the dupe labels layer if it doesn't exist
     try {
-      sdk.Map.addLayer({
+      await sdk.Map.addLayer({
         layerName: _dupeLayer,
         zIndexing: true,
         styleContext: {
@@ -14105,10 +14127,10 @@
     // Initialize layer z-indexes: venues as baseline, then stack custom layers on top
     // Order (bottom to top): venues < wmeph_google_link < wmeph_dupe_labels < wmeph_highlights
     try {
-      const venuesZIndex = sdk.Map.getLayerZIndex({ layerName: 'venues' });
-      sdk.Map.setLayerZIndex({ layerName: 'wmeph_google_link', zIndex: venuesZIndex + 1 });
-      sdk.Map.setLayerZIndex({ layerName: _dupeLayer, zIndex: venuesZIndex + 2 });
-      sdk.Map.setLayerZIndex({ layerName: _layer, zIndex: venuesZIndex + 3 });
+      const venuesZIndex = await sdk.Map.getLayerZIndex({ layerName: 'venues' });
+      await sdk.Map.setLayerZIndex({ layerName: 'wmeph_google_link', zIndex: venuesZIndex + 1 });
+      await sdk.Map.setLayerZIndex({ layerName: _dupeLayer, zIndex: venuesZIndex + 2 });
+      await sdk.Map.setLayerZIndex({ layerName: _layer, zIndex: venuesZIndex + 3 });
       logDev(`Layer z-indexes initialized: venues=${venuesZIndex}, google_link=${venuesZIndex + 1}, dupe_labels=${venuesZIndex + 2}, highlights=${venuesZIndex + 3}`);
     } catch (e) {
       logDev('Error initializing layer z-indexes:', e);
@@ -14123,12 +14145,12 @@
     // X-ray Mode: Fade roads/satellite/mapComments to see map details underneath
     // Uses sdk.Map.addStyleRuleToLayer() to reduce opacity of background layers
     // Always starts unchecked to avoid confusion if user forgets it's enabled
-    sdk.LayerSwitcher.addLayerCheckbox({ name: 'WMEPH x-ray mode', isChecked: false });
+    await sdk.LayerSwitcher.addLayerCheckbox({ name: 'WMEPH x-ray mode', isChecked: false });
 
     // If the SDK remembered X-ray mode as checked from a previous session, apply it immediately
     try {
-      if (sdk.LayerSwitcher.isLayerCheckboxChecked({ name: 'WMEPH x-ray mode' })) {
-        setTimeout(() => toggleXrayMode(true), 500);
+      if (await sdk.LayerSwitcher.isLayerCheckboxChecked({ name: 'WMEPH x-ray mode' })) {
+        setTimeout(() => toggleXrayMode(true).catch((e) => logDev(e)), 500);
       }
     } catch (e) {
       logDev('X-Ray: Could not check initial state:', e);
@@ -14136,12 +14158,12 @@
 
     sdk.Events.on({
       eventName: 'wme-layer-checkbox-toggled',
-      eventHandler: (payload) => {
+      eventHandler: async (payload) => {
         if (payload.name === 'WMEPH x-ray mode') {
-          toggleXrayMode(payload.checked);
+          await toggleXrayMode(payload.checked);
         } else if (payload.name === 'WMEPH Dupe Labels') {
-          if (payload.checked) redrawLayer(_dupeLayer);
-          else sdk.Map.removeAllFeaturesFromLayer({ layerName: _dupeLayer });
+          if (payload.checked) await redrawLayer(_dupeLayer);
+          else await sdk.Map.removeAllFeaturesFromLayer({ layerName: _dupeLayer });
         }
       },
     });
@@ -14237,7 +14259,7 @@
     });
 
     // Add zoom shortcut
-    SHORTCUT.add('Control+Alt+Z', zoomPlace);
+    SHORTCUT.add('Control+Alt+Z', asyncHandler(zoomPlace));
 
     // Add Color Highlighting shortcut
     SHORTCUT.add('Control+Alt+h', () => {
@@ -14261,24 +14283,38 @@
     sdk.Events.on({
       eventName: 'wme-data-model-objects-saved',
       eventHandler: (event) =>
-        errorHandler(() => {
+        errorHandler(async () => {
           // SDK passes {dataModelName, objectIds}, convert to venue objects
           if (event?.objectIds && Array.isArray(event.objectIds)) {
-            const savedVenues = event.objectIds.map((id) => sdk.DataModel.Venues.getById({ venueId: id })).filter((v) => v);
+            const savedVenues = [];
+            for (const id of event.objectIds) {
+              const v = await sdk.DataModel.Venues.getById({ venueId: id });
+              if (v) savedVenues.push(v);
+              delete WMEPH_CHANGES[id];
+            }
             syncWL(savedVenues);
           }
         }),
     });
     sdk.Events.on({
       eventName: 'wme-data-model-objects-changed',
-      eventHandler: (event) =>
-        errorHandler(() => {
+      eventHandler: (event) => {
+        // Read and clear the undo flag now, before any await. Otherwise a wme-after-undo that fires during the
+        // awaits below sets the flag and this change is wrongly skipped (sync mode read it before undo ran).
+        const wasUndoAction = _userJustUndid;
+        _userJustUndid = false;
+        errorHandler(async () => {
           // SDK passes {dataModelName, objectIds}, convert to venue objects
           if (event?.objectIds && Array.isArray(event.objectIds)) {
-            const changedVenues = event.objectIds.map((id) => sdk.DataModel.Venues.getById({ venueId: id })).filter((v) => v);
-            onVenuesChanged(changedVenues);
+            const changedVenues = [];
+            for (const id of event.objectIds) {
+              const v = await sdk.DataModel.Venues.getById({ venueId: id });
+              if (v) changedVenues.push(v);
+            }
+            await onVenuesChanged(changedVenues, wasUndoAction);
           }
-        }),
+        });
+      },
     });
     window.addEventListener('beforeunload', onWindowBeforeUnload, false);
 
@@ -14309,15 +14345,15 @@
     _psAreaCodeIx = _stateHeaders.indexOf('ps_areacode');
 
     // Set up Run WMEPH button once place is selected
-    updateWmephPanel();
+    await updateWmephPanel();
 
     sdk.Events.on({
       eventName: 'wme-data-model-objects-changed',
       eventHandler: () => {
-        errorHandler(() => {
+        errorHandler(async () => {
           if ($('#WMEPH_banner').length > 0) {
-            updateServicesChecks();
-            assembleServicesBanner();
+            await updateServicesChecks();
+            await assembleServicesBanner();
           }
         });
       },
@@ -14339,11 +14375,11 @@
     // CRITICAL: Activate data model event tracking before setting up listeners
     sdk.Events.trackDataModelEvents({ dataModelName: 'venues' });
 
-    bootstrapWmephColorHighlights();
+    await bootstrapWmephColorHighlights();
 
     // Apply initial filter highlights
     if ($('#WMEPH-ShowFilterHighlight').prop('checked')) {
-      updateFilterHighlights();
+      await updateFilterHighlights();
     }
   } // END placeHarmonizer_init function
 
@@ -14353,12 +14389,12 @@
    * Performs single layer redraw at the end for efficiency.
    * Called when user toggles highlight settings or when data changes significantly.
    */
-  function refreshAllHighlights() {
+  async function refreshAllHighlights() {
     // Don't highlight if WME Venues layer is hidden
-    const venuesLayerVisible = sdk.Map.isLayerVisible({ layerName: 'venues' });
+    const venuesLayerVisible = await sdk.Map.isLayerVisible({ layerName: 'venues' });
     if (!venuesLayerVisible) {
       try {
-        sdk.Map.removeAllFeaturesFromLayer({ layerName: _layer });
+        await sdk.Map.removeAllFeaturesFromLayer({ layerName: _layer });
       } catch (e) {
         logDev('Error clearing highlights layer:', e);
       }
@@ -14367,7 +14403,7 @@
 
     // Clear layer once
     try {
-      sdk.Map.removeAllFeaturesFromLayer({ layerName: _layer });
+      await sdk.Map.removeAllFeaturesFromLayer({ layerName: _layer });
     } catch (e) {
       logDev('Error clearing highlights layer:', e);
     }
@@ -14377,19 +14413,22 @@
     const parkingLotHighlightingEnabled = $('#WMEPH-PLATypeFill').prop('checked');
     const filterHighlightingEnabled = $('#WMEPH-ShowFilterHighlight').prop('checked');
 
+    // One venue scan shared by all highlight types
+    const needsVenues = colorHighlightingEnabled || parkingLotHighlightingEnabled || filterHighlightingEnabled;
+    const venues = needsVenues ? await sdk.DataModel.Venues.getAll() : [];
     if (colorHighlightingEnabled) {
-      applyHighlightsTest(sdk.DataModel.Venues.getAll(), false); // Use cache to avoid unnecessary recalculation on pan events
+      await applyHighlightsTest(venues, false); // Use cache to avoid unnecessary recalculation on pan events
     }
     if (parkingLotHighlightingEnabled) {
-      updateParkingLotHighlights(true); // Pass true to skip internal clear
+      await updateParkingLotHighlights(true, venues); // Pass true to skip internal clear
     }
     if (filterHighlightingEnabled) {
-      updateFilterHighlights(true); // Pass true to skip internal clear
+      await updateFilterHighlights(true, venues); // Pass true to skip internal clear
     }
 
     // Redraw once after all updates
     if (_layer) {
-      redrawLayer(_layer);
+      await redrawLayer(_layer);
     }
   }
 
@@ -14400,44 +14439,44 @@
    * Reapplies filter highlights on top if they are also enabled.
    * @param {boolean} skipClear If true, skips clearing the layer (assume caller will handle it).
    */
-  function updateParkingLotHighlights(skipClear = false) {
+  async function updateParkingLotHighlights(skipClear = false, venueList = null) {
     if (!$('#WMEPH-PLATypeFill').prop('checked')) {
       return;
     }
 
     // Don't highlight if WME Venues layer is hidden
-    if (!sdk.Map.isLayerVisible({ layerName: 'venues' })) {
+    if (!await sdk.Map.isLayerVisible({ layerName: 'venues' })) {
       return;
     }
 
     try {
-      const venues = sdk.DataModel.Venues.getAll();
+      const venues = venueList ?? (await sdk.DataModel.Venues.getAll());
       const parkingLotsToAdd = [];
 
-      venues.forEach((v) => {
-        if (!v || !v.geometry || !v.id) return;
+      for (const v of venues) {
+        if (!v || !v.geometry || !v.id) continue;
         try {
-          const parkingType = sdk.DataModel.Venues.ParkingLot.getParkingLotType({ venueId: v.id });
+          const parkingType = await sdk.DataModel.Venues.ParkingLot.getParkingLotType({ venueId: v.id });
           if (parkingType) {
             parkingLotsToAdd.push({ venue: v, parkingType });
           }
         } catch (e) {
           logDev(`Error checking ${v.name}:`, e.message);
         }
-      });
+      }
 
       // Remove old parking lot features before adding new ones (unless skipClear from refreshAllHighlights)
       if (!skipClear) {
         try {
           // We need to identify and remove parking lot features
           // For now, we'll clear and rebuild both parking + filter
-          sdk.Map.removeAllFeaturesFromLayer({ layerName: _layer });
+          await sdk.Map.removeAllFeaturesFromLayer({ layerName: _layer });
         } catch (e) {
           logDev('Error clearing highlights layer:', e);
         }
       }
 
-      parkingLotsToAdd.forEach(({ venue, parkingType }) => {
+      for (const { venue, parkingType } of parkingLotsToAdd) {
         try {
           const feature = {
             type: 'Feature',
@@ -14451,18 +14490,18 @@
               isResidential: venue.residential === true || venue.categories?.includes('RESIDENTIAL'),
             },
           };
-          sdk.Map.addFeatureToLayer({
+          await sdk.Map.addFeatureToLayer({
             layerName: _layer,
             feature: feature,
           });
         } catch (err) {
           logDev(`Error adding parking lot ${venue.id}:`, err);
         }
-      });
+      }
 
       // Reapply filter highlights on top if enabled
       if ($('#WMEPH-ShowFilterHighlight').prop('checked')) {
-        updateFilterHighlights(true);
+        await updateFilterHighlights(true);
       }
     } catch (err) {
       logDev('Error updating parking lot highlights:', err);
@@ -14476,18 +14515,18 @@
    * Optionally skips clearing layer for efficiency when called from refreshAllHighlights.
    * @param {boolean} skipClear If true, skips clearing the layer (assume caller will handle it).
    */
-  function updateFilterHighlights(skipClear = false) {
+  async function updateFilterHighlights(skipClear = false, venueList = null) {
     if (!$('#WMEPH-ShowFilterHighlight').prop('checked')) {
       return;
     }
 
     // Don't highlight if WME Venues layer is hidden
-    if (!sdk.Map.isLayerVisible({ layerName: 'venues' })) {
+    if (!await sdk.Map.isLayerVisible({ layerName: 'venues' })) {
       return;
     }
 
     try {
-      const venues = sdk.DataModel.Venues.getAll();
+      const venues = venueList ?? (await sdk.DataModel.Venues.getAll());
       const featuresToAdd = [];
       // Do not highlight places if any of these are the primary category.
       const CATS_TO_IGNORE_CUSTOMER_PARKING_HIGHLIGHT = [
@@ -14530,12 +14569,12 @@
       });
 
       // Add all filter features to highlights layer
-      featuresToAdd.forEach((feature) => {
-        sdk.Map.addFeatureToLayer({
+      for (const feature of featuresToAdd) {
+        await sdk.Map.addFeatureToLayer({
           layerName: _layer,
           feature: feature,
         });
-      });
+      }
     } catch (e) {
       logDev('Error updating filter highlights:', e);
     }
@@ -14644,8 +14683,8 @@
     }, 1000);
   }
 
-  function devTestCode() {
-    const userInfo = sdk.State.getUserInfo();
+  async function devTestCode() {
+    const userInfo = await sdk.State.getUserInfo();
     if (userInfo && (userInfo.userName === 'MapOMatic' || userInfo.userName === 'JS55CT')) {
       // For debugging purposes.  May be removed when no longer needed.
       unsafeWindow.PNH_DATA = PNH_DATA;
@@ -14676,13 +14715,14 @@
     log('Initializing SDK and categories...');
     sdk = await bootstrap({
       scriptName: SCRIPT_NAME,
+      mode: 'async',
       scriptUpdateMonitor: {
         downloadUrl: IS_BETA_VERSION ? dec(BETA_DOWNLOAD_URL) : PROD_DOWNLOAD_URL,
         scriptVersion: SCRIPT_VERSION,
       },
     });
     try {
-      initializeCategories();
+      await initializeCategories();
     } catch (e) {
       logDev('Failed to initialize categories:', e);
     }
@@ -14696,5 +14736,5 @@
     showScriptInfoAlert();
   }
 
-  wmephbootstrap();
+  await wmephbootstrap();
 })();
