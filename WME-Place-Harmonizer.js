@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name        WME Place Harmonizer Beta
 // @namespace   WazeUSA
-// @version     2026.11.09.00
+// @version     2026.11.09.01
 // @description Harmonizes, formats, and locks a selected place
 // @author      WMEPH Development Group
 // @include      https://www.waze.com/editor*
@@ -40,7 +40,9 @@
   // **************************************************************************************************************
   const SHOW_UPDATE_MESSAGE = true;
   const SCRIPT_UPDATE_MESSAGE = [
-    'Fixed Save counter climbing with duplicate changes after editing a venue that has the WMEPH banner open.',
+    'Fixed Save counter climbing with duplicate changes after editing a venue with the WMEPH banner open.',
+    'Fixed alt names (including USPS and EV Charging Station) being added and removed on every run.',
+    'Fixed Undo being overridden by WMEPH right after you undo a WMEPH change.',
   ];
 
   // **************************************************************************************************************
@@ -4561,6 +4563,8 @@
       static async venueIsFlaggable(args) {
         if (!args.categories.includes('CHARGING_STATION')) return false;
         if (args.aliases.some((alias) => alias.toLowerCase() === 'ev charging station')) return false;
+        // Skip if the redundant-alias cleanup would strip it again (name starts with it), or the two rules fight every pass
+        if (removeUnnecessaryAliases(args.nameBase, ['EV Charging Station']) !== null) return false;
         if (args.venue.name.toLowerCase().includes('(private)')) return false;
         try {
           const accessType = await sdk.DataModel.Venues.ChargingStation.getChargersAccessType({ venueId: args.venue.id });
@@ -5687,7 +5691,8 @@
       static defaultButtonTooltip = 'Add USPS alternate name';
 
       static venueIsFlaggable(args) {
-        return args.isUspsPostOffice && !args.aliases.some((alias) => alias.toUpperCase() === 'USPS');
+        // Skip if the redundant-alias cleanup would strip it again (name starts with USPS), or the two rules fight every pass
+        return args.isUspsPostOffice && !args.aliases.some((alias) => alias.toUpperCase() === 'USPS') && removeUnnecessaryAliases(args.nameBase, ['USPS']) === null;
       }
 
       async action() {
@@ -6975,7 +6980,8 @@
           const description = `${alias}\n${venue.description}`;
           await addUpdateAction(venue, { description }, null, false);
         }
-        aliases = removeUnnecessaryAliases(this.args.nameBase, aliases);
+        // removeUnnecessaryAliases returns null when it removes nothing; keep the list rather than writing null
+        aliases = removeUnnecessaryAliases(this.args.nameBase, aliases) ?? aliases;
         await addUpdateAction(venue, { aliases }, null, true);
       }
     },
@@ -10004,9 +10010,11 @@
               args.pnhUrl = args.pnhMatch.url;
             }
 
-            // Parse PNH Aliases
-            if (!args.pnhMatch.noUpdateAlias && !containsAll(args.aliases, args.pnhMatch.aliases) && args.pnhMatch.aliases?.length && !args.pnhMatch.optionName2) {
-              args.aliases = insertAtIndex(args.aliases, args.pnhMatch.aliases, 0);
+            // Parse PNH Aliases. Skip any the "Update aliases" step below would remove (they repeat the venue name),
+            // otherwise each pass adds them and removes them again, and every write re-triggers harmonize.
+            const pnhAliasesToAdd = [].concat(args.pnhMatch.aliases || []).filter((alias) => removeUnnecessaryAliases(args.nameBase, [alias]) === null);
+            if (!args.pnhMatch.noUpdateAlias && pnhAliasesToAdd.length && !containsAll(args.aliases, pnhAliasesToAdd) && !args.pnhMatch.optionName2) {
+              args.aliases = insertAtIndex(args.aliases, pnhAliasesToAdd, 0);
               await addUpdateAction(venue, { aliases: args.aliases }, actions);
             }
 
@@ -14312,7 +14320,11 @@
               const v = await sdk.DataModel.Venues.getById({ venueId: id });
               if (v) changedVenues.push(v);
             }
-            await onVenuesChanged(changedVenues, wasUndoAction);
+            // WME fires the data event before wme-after-undo, so an undo's own change lands here with the flag still unset.
+            // Pick up an undo that arrived during the awaits above, or the script re-applies what the user just undid.
+            const undoSeen = wasUndoAction || _userJustUndid;
+            _userJustUndid = false;
+            await onVenuesChanged(changedVenues, undoSeen);
           }
         });
       },
