@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name        WME Place Harmonizer Beta
 // @namespace   WazeUSA
-// @version     2026.10.28.00
+// @version     2026.11.09.00
 // @description Harmonizes, formats, and locks a selected place
 // @author      WMEPH Development Group
 // @include      https://www.waze.com/editor*
@@ -40,7 +40,7 @@
   // **************************************************************************************************************
   const SHOW_UPDATE_MESSAGE = true;
   const SCRIPT_UPDATE_MESSAGE = [
-    'Refactored Script for WME SDK async mode support',
+    'Fixed Save counter climbing with duplicate changes after editing a venue that has the WMEPH banner open.',
   ];
 
   // **************************************************************************************************************
@@ -237,6 +237,13 @@
   const WMEPH_CHANGES = {};
   let _selectedVenueId = null; // Venue the edit panel is showing; used to decide whether leaving it clears green
   let _pendingReharmonize = false; // Set when a venue change arrives mid-harmonize; a single re-run is queued after it finishes
+  // Attributes WMEPH last wrote per venue (JSON-encoded). Lets us recognise the change event caused by our own write.
+  const _ownWrites = {};
+  // True when every attribute WMEPH last wrote to this venue already reads back with the same value.
+  function isEchoOfOwnWrite(venue) {
+    const written = _ownWrites[venue?.id];
+    return !!written && Object.entries(written).every(([key, json]) => JSON.stringify(venue[key]) === json);
+  }
 
   // User information object
   const USER = {
@@ -8231,7 +8238,10 @@
         logDev(`Invalidated cache for venue ${venue.id} — external changes detected`);
       }
 
-      if (hasBanner && venue?.id && _isHarmonizing && !wasUndoAction) {
+      if (isEchoOfOwnWrite(venue)) {
+        // Our own write echoing back is not a user change. Re-running harmonize for it writes again and loops.
+        logDev(`Skipped re-harmonization — echo of WMEPH's own write on ${venue.id}`);
+      } else if (hasBanner && venue?.id && _isHarmonizing && !wasUndoAction) {
         // A change arrived mid-harmonize and would otherwise be dropped (its banner would be built from stale data).
         // Queue one re-run; harmonizePlaceGo_impl runs it when the current pass finishes.
         _pendingReharmonize = true;
@@ -8277,6 +8287,7 @@
       { name: 'Hazards', wmeLayerName: 'permanentHazards', setter: 'setHazardsLayerCheckboxChecked' },
       { name: 'Closures', wmeLayerName: 'closures', setter: 'setClosuresLayerCheckboxChecked' },
       { name: 'HouseNumbers', wmeLayerName: 'houseNumbers' },
+      { name: 'SatelliteImagery', wmeLayerName: 'satelliteImagery' },
     ];
 
     const xrayEnabled = enable;
@@ -8303,27 +8314,8 @@
           logDev(`X-Ray: Could not hide ${layer.name} layer:`, e);
         }
       }
-
-      // Save and reduce venues layer opacity
-      try {
-        const currentOpacity = await sdk.Map.getLayerOpacity({ layerName: 'venues' });
-        xrayState.savedLayerStates.set('venues', currentOpacity);
-        logDev(`X-Ray: Saved venues opacity: ${currentOpacity}`);
-
-        await sdk.Map.addStyleRuleToLayer({
-          layerName: 'venues',
-          styleRules: [{
-            predicate: () => xrayState.enabled,  // Only apply when X-ray is enabled
-            style: { fillOpacity: 0.3, strokeOpacity: 0.3 }
-          }]
-        });
-        await redrawLayer('venues');
-        logDev('X-Ray: Reduced venues layer opacity');
-      } catch (e) {
-        logDev('X-Ray: Could not update venues layer:', e);
-      }
-
-      // TEST: check whether addStyleRuleToLayer can dim road segments (segments is in WME_LAYER_NAMES)
+      
+      // addStyleRuleToLayer can dim road segments (segments is in WME_LAYER_NAMES)
       try {
         await sdk.Map.addStyleRuleToLayer({
           layerName: 'segments',
@@ -8770,11 +8762,20 @@
       // SDK tracks changes as unsaved; no immediate save needed
       try {
         // SDK updateVenue supports all attributes including lockRank
-        const updateableAttributes = { ...newAttributes };
+        // Skip attributes the venue already has. A write with an unchanged value still emits a change event, which can re-trigger harmonize.
+        // Read fresh (not the passed-in venue, which may be stale mid-pass) so earlier writes in this pass are counted.
+        const current = await sdk.DataModel.Venues.getById({ venueId: venue.id });
+        const updateableAttributes = Object.fromEntries(
+          Object.entries(newAttributes).filter(([key, value]) => JSON.stringify(current?.[key]) !== JSON.stringify(value)),
+        );
 
         if (Object.keys(updateableAttributes).length > 0) {
           await sdk.DataModel.Venues.updateVenue({ venueId: venue.id, ...updateableAttributes });
           logDev(`Updated venue ${venue.id} with:`, updateableAttributes);
+          _ownWrites[venue.id] = {
+            ...(_ownWrites[venue.id] || {}),
+            ...Object.fromEntries(Object.entries(updateableAttributes).map(([key, value]) => [key, JSON.stringify(value)])),
+          };
           // Mark green only after the write succeeded; a refused write must not show as a WMEPH change.
           if (!dontHighlightFields) {
             UPDATED_FIELDS.checkNewAttributes(newAttributes, venue);
