@@ -1,7 +1,7 @@
 // ==UserScript==
-// @name        WME Place Harmonizer Beta
+// @name        WME Place Harmonizer beta
 // @namespace   WazeUSA
-// @version     2026.11.09.01
+// @version     2026.11.17.00
 // @description Harmonizes, formats, and locks a selected place
 // @author      WMEPH Development Group
 // @include      https://www.waze.com/editor*
@@ -43,6 +43,7 @@
     'Fixed Save counter climbing with duplicate changes after editing a venue with the WMEPH banner open.',
     'Fixed alt names (including USPS and EV Charging Station) being added and removed on every run.',
     'Fixed Undo being overridden by WMEPH right after you undo a WMEPH change.',
+    'Fixed the WMEPH banner not updating after adding a phone # or URL, either in WME or with the WMEPH Add buttons.',
   ];
 
   // **************************************************************************************************************
@@ -239,12 +240,30 @@
   const WMEPH_CHANGES = {};
   let _selectedVenueId = null; // Venue the edit panel is showing; used to decide whether leaving it clears green
   let _pendingReharmonize = false; // Set when a venue change arrives mid-harmonize; a single re-run is queued after it finishes
-  // Attributes WMEPH last wrote per venue (JSON-encoded). Lets us recognise the change event caused by our own write.
-  const _ownWrites = {};
-  // True when every attribute WMEPH last wrote to this venue already reads back with the same value.
+  // The venue as WMEPH last left it after its own write, per venue ID (each value is a key -> JSON map).
+  // A change event whose venue still matches this is the echo of WMEPH's write. Any other edit, such as a phone
+  // or URL typed into WME, changes the venue and must be treated as a user change.
+  const _ownWriteState = {};
+  const VOLATILE_VENUE_KEYS = ['updatedOn', 'updatedBy', 'createdOn', 'createdBy'];
+  /** Maps each data key of a venue-like object to its JSON string, skipping functions and timestamps. */
+  function venueSnapshot(venue) {
+    return Object.fromEntries(
+      Object.keys(venue)
+        .filter((key) => !VOLATILE_VENUE_KEYS.includes(key) && typeof venue[key] !== 'function')
+        .map((key) => [key, JSON.stringify(venue[key])]),
+    );
+  }
+  /** Returns the keys that differ from WMEPH's last write, or null when WMEPH has no record for this venue. */
+  function diffFromOwnWrite(venue) {
+    const written = _ownWriteState[venue?.id];
+    if (!written) return null;
+    const now = venueSnapshot(venue);
+    return [...new Set([...Object.keys(written), ...Object.keys(now)])].filter((key) => written[key] !== now[key]);
+  }
+  /** True when the venue matches exactly what WMEPH last wrote to it. */
   function isEchoOfOwnWrite(venue) {
-    const written = _ownWrites[venue?.id];
-    return !!written && Object.entries(written).every(([key, json]) => JSON.stringify(venue[key]) === json);
+    const diff = diffFromOwnWrite(venue);
+    return diff !== null && diff.length === 0;
   }
 
   // User information object
@@ -6095,7 +6114,7 @@
         if (newPhone === BAD_PHONE) {
           $('input#WMEPH-PhoneAdd').css({ backgroundColor: '#FDD' }).attr('title', 'Invalid phone # format');
         } else {
-          await addUpdateAction(this.args.venue, { phone: newPhone }, null, false);
+          await addUpdateAction(this.args.venue, { phone: newPhone }, null, true);
         }
       }
     },
@@ -6115,7 +6134,7 @@
       }
 
       async action() {
-        await addUpdateAction(this.args.venue, { phone: this.args.recommendedPhone }, null, false);
+        await addUpdateAction(this.args.venue, { phone: this.args.recommendedPhone }, null, true);
       }
     },
     PhoneMissing: class extends WLActionFlag {
@@ -6150,7 +6169,7 @@
           $('input#WMEPH-PhoneAdd').css({ backgroundColor: '#FDD' }).attr('title', 'Invalid phone # format');
         } else {
           logDev(newPhone);
-          await addUpdateAction(this.args.venue, { phone: newPhone }, null, false);
+          await addUpdateAction(this.args.venue, { phone: newPhone }, null, true);
         }
       }
 
@@ -8244,6 +8263,9 @@
         logDev(`Invalidated cache for venue ${venue.id} — external changes detected`);
       }
 
+      const changedSinceOwnWrite = diffFromOwnWrite(venue);
+      if (changedSinceOwnWrite?.length) logDev(`Changed since WMEPH's last write: ${changedSinceOwnWrite.join(', ')}`);
+
       if (isEchoOfOwnWrite(venue)) {
         // Our own write echoing back is not a user change. Re-running harmonize for it writes again and loops.
         logDev(`Skipped re-harmonization — echo of WMEPH's own write on ${venue.id}`);
@@ -8776,12 +8798,12 @@
         );
 
         if (Object.keys(updateableAttributes).length > 0) {
+          // Record the expected post-write state before writing, so the echo event finds it. Refreshed from WME below.
+          _ownWriteState[venue.id] = venueSnapshot({ ...current, ...updateableAttributes });
           await sdk.DataModel.Venues.updateVenue({ venueId: venue.id, ...updateableAttributes });
           logDev(`Updated venue ${venue.id} with:`, updateableAttributes);
-          _ownWrites[venue.id] = {
-            ...(_ownWrites[venue.id] || {}),
-            ...Object.fromEntries(Object.entries(updateableAttributes).map(([key, value]) => [key, JSON.stringify(value)])),
-          };
+          const afterWrite = await sdk.DataModel.Venues.getById({ venueId: venue.id });
+          if (afterWrite) _ownWriteState[venue.id] = venueSnapshot(afterWrite);
           // Mark green only after the write succeeded; a refused write must not show as a WMEPH change.
           if (!dontHighlightFields) {
             UPDATED_FIELDS.checkNewAttributes(newAttributes, venue);
@@ -8789,6 +8811,7 @@
         }
         // Changes accumulate for user to save via WME Save button
       } catch (e) {
+        delete _ownWriteState[venue.id]; // No reliable record of the venue's state after a refused write
         logDev('addUpdateAction: Failed to update venue', venue.id, newAttributes, e);
         WazeWrap.Alerts.error(SCRIPT_NAME, `WMEPH could not save ${Object.keys(newAttributes).join(', ')}. ${e.message || 'WME refused the change.'}`, false, false);
       }
@@ -14300,6 +14323,7 @@
               const v = await sdk.DataModel.Venues.getById({ venueId: id });
               if (v) savedVenues.push(v);
               delete WMEPH_CHANGES[id];
+              delete _ownWriteState[id];
             }
             syncWL(savedVenues);
           }
